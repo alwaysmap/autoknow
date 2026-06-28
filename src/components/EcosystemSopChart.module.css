@@ -1,0 +1,164 @@
+.chartContainer {
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 24px 0;
+  margin-bottom: 32px;
+}
+
+.chartHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.chartTitle {
+  font-family: var(--head-font);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--fg);
+  margin: 0;
+}
+
+.chartSub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.chartControls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.filterBtn {
+  background-color: var(--white);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filterBtn[data-active="true"] {
+  background-color: var(--p-100);
+  border-color: var(--p-600);
+  color: var(--p-600);
+}
+
+.svgWrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.svg {
+  display: block;
+  min-width: 700px;
+}
+
+/* SVG Graphic Elements */
+.gridLine {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  opacity: 0.7;
+}
+
+.axisLine {
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  opacity: 0.5;
+}
+
+.axisText {
+  fill: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--body-font);
+}
+
+.bar {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.bar[data-status="flight"] {
+  fill: #4285f4;
+  opacity: 0.85;
+}
+
+.bar[data-status="critical"] {
+  fill: #c5221f;
+  opacity: 0.9;
+}
+
+.bar[data-status="finished"] {
+  fill: #137333;
+  opacity: 0.85;
+}
+
+.bar:hover {
+  opacity: 1;
+  filter: brightness(1.1);
+}
+
+.cumulativeLine {
+  stroke: #ff9900;
+  stroke-width: 2.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cumulativeDot {
+  fill: #ff9900;
+  stroke: var(--white);
+  stroke-width: 1.5;
+  cursor: pointer;
+}
+
+.emptyState {
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+  font-style: italic;
+  font-size: 14px;
+}
+
+.tooltipBox {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 45px;
+}
+
+.tooltipTitle {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.tooltipMeta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-left: 8px;
+}

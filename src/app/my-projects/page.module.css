@@ -1,0 +1,194 @@
+.container {
+  min-height: 100vh;
+  background-color: transparent;
+  color: var(--fg);
+  padding: 0 40px;
+  font-family: var(--body-font);
+}
+
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 24px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.brand {
+  font-family: var(--head-font);
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.header h1 {
+  font-family: var(--head-font);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.userLabel {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 48px 0;
+}
+
+.empty {
+  text-align: center;
+  padding: 64px 0;
+  background: var(--surface);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.empty p {
+  margin-bottom: 16px;
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.card {
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cardHeader h2 {
+  font-family: var(--head-font);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  color: var(--fg);
+}
+
+.partnerTag {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.projectInfo {
+  display: flex;
+  gap: 24px;
+  margin: 20px 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.metric .value {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 3px;
+  width: fit-content;
+}
+
+.critical {
+  background-color: var(--t-100);
+  color: var(--t-700);
+}
+
+.high {
+  background-color: var(--s-100);
+  color: var(--s-700);
+}
+
+.medium {
+  background-color: var(--p-50);
+  color: var(--p-700);
+}
+
+.low {
+  background-color: var(--p-50);
+  color: var(--p-600);
+}
+
+.actionsSection h3 {
+  font-family: var(--head-font);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin: 0 0 12px 0;
+}
+
+.noActions {
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.actionList {
+  list-style: none;
+  padding: 0;
+}
+
+.actionItem {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  background-color: var(--p-500);
+  border-radius: 50%;
+  margin-right: 10px;
+}
+
+.btn {
+  display: inline-block;
+  padding: 8px 16px;
+  font-family: var(--head-font);
+  font-size: 14px;
+  font-weight: 600;
+  background-color: var(--p-500);
+  color: var(--white);
+  border: 1px solid var(--p-600);
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+.btn:hover {
+  background-color: var(--p-600);
+}

@@ -1,0 +1,240 @@
+.gaugeWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--body-font);
+}
+
+.gaugeContainer {
+  width: 100%;
+  max-width: 200px;
+  height: 64px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.gaugeSvg {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.statusValue {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg);
+  margin-bottom: 8px;
+  text-transform: capitalize;
+}
+
+.updateBtn {
+  background-color: var(--white);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  transition: all 0.2s ease;
+}
+
+.updateBtn:hover {
+  border-color: var(--p-400);
+  color: var(--p-600);
+  background-color: var(--p-50);
+}
+
+/* Modal Dialog */
+.dialog {
+  border: none;
+  border-radius: 12px;
+  padding: 24px;
+  background-color: var(--white);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  max-width: 420px;
+  width: 90%;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+  outline: none;
+}
+
+.dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.dialogHeader h3 {
+  font-family: var(--head-font);
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  color: var(--fg);
+}
+
+.dialogForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.segmentContainer {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: var(--surface);
+}
+
+.segmentBtn {
+  background: none;
+  border: none;
+  padding: 8px 0;
+  font-family: var(--body-font);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.segmentBtn:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.segmentBtn[data-active="true"] {
+  background-color: var(--p-100);
+  color: var(--p-700);
+}
+
+.segmentBtn[data-needle="Low"][data-active="true"] { background-color: #e6f4ea; color: #137333; }
+.segmentBtn[data-needle="Medium"][data-active="true"] { background-color: #fef7e0; color: #b06000; }
+.segmentBtn[data-needle="High"][data-active="true"] { background-color: #feebe7; color: #c5221f; }
+.segmentBtn[data-needle="Critical"][data-active="true"] { background-color: #fce8e6; color: #a50e0d; }
+
+.textArea {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--body-font);
+  font-size: 13px;
+  min-height: 80px;
+  resize: vertical;
+  outline: none;
+}
+
+.textArea:focus {
+  border-color: var(--p-400);
+}
+
+.actionRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.cancelBtn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submitBtn {
+  background-color: var(--p-600);
+  border: none;
+  color: var(--white);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submitBtn:hover {
+  background-color: var(--p-700);
+}
+
+.sliderContainer {
+  margin: 12px 0 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.slider {
+  width: 100%;
+  accent-color: var(--p-600);
+  cursor: pointer;
+  height: 6px;
+  border-radius: 4px;
+}
+
+.sliderLabels {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.previewContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 8px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--surface);
+}
+
+.previewLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.currentLabel {
+  font-size: 14px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+.labelLow { background-color: #e6f4ea; color: #137333; }
+.labelMedium { background-color: #fef7e0; color: #b06000; }
+.labelHigh { background-color: #feebe7; color: #c5221f; }
+.labelCritical { background-color: #fce8e6; color: #a50e0d; }
+

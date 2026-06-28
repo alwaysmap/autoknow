@@ -1,0 +1,246 @@
+.container {
+  min-height: 100vh;
+  background-color: transparent;
+  color: var(--fg);
+  padding: 0 40px;
+  font-family: var(--body-font);
+}
+
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 24px 0;
+}
+
+.brand {
+  font-family: var(--head-font);
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.header h1 {
+  font-family: var(--head-font);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--fg);
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 48px 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+  margin-bottom: 48px;
+}
+
+.metricCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.metricCard h3 {
+  font-family: var(--head-font);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin: 0 0 12px 0;
+}
+
+.giantMetric {
+  font-family: var(--head-font);
+  font-size: 3.5rem;
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 8px;
+  color: var(--p-600);
+}
+
+.metricSubtext {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.section {
+  margin-bottom: 48px;
+}
+
+.section h2 {
+  font-family: var(--head-font);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.sectionSubtext {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 14px;
+}
+
+.table th {
+  font-family: var(--head-font);
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 2px solid var(--fg);
+  padding: 8px 12px;
+}
+
+.table th:first-child,
+.table td:first-child {
+  padding-left: 0;
+}
+
+.table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.table tr:hover td {
+  background-color: var(--surface);
+}
+
+.highlightText {
+  color: var(--p-600);
+  font-weight: 600;
+}
+
+.briefingBlock {
+  background: var(--p-50);
+  border-left: 4px solid var(--p-500);
+  border-radius: 6px;
+  padding: 24px;
+}
+
+.briefingHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+
+.aiBadge {
+  font-family: var(--head-font);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background-color: var(--p-500);
+  color: var(--white);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.briefingDate {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.emptyBriefing {
+  font-size: 14px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.synthesisContent {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.aiExecutiveSummary {
+  margin-bottom: 24px;
+}
+
+.sourceHeader {
+  font-family: var(--head-font);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.sourceList {
+  list-style: none;
+  padding: 0;
+}
+
+.sourceItem {
+  margin-bottom: 16px;
+}
+
+.sourceMeta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.blockquote {
+  font-size: 14px;
+  color: var(--fg);
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+  margin: 0;
+  font-style: italic;
+}
+
+.cardLink {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.cardLink:hover .metricCard {
+  border-color: var(--p-400);
+  background-color: var(--surface);
+  transform: translateY(-2px);
+  transition: all 0.2s ease;
+}
+
+.tableLink {
+  color: var(--fg);
+  text-decoration: none;
+}
+
+.tableLink:hover {
+  color: var(--p-600);
+  text-decoration: underline;
+}
+
+.briefingLink {
+  color: var(--p-600);
+  text-decoration: underline;
+}
+
+.briefingLink:hover {
+  color: var(--p-700);
+}

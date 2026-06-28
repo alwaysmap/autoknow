@@ -1,0 +1,146 @@
+.adminControls {
+  display: flex;
+  gap: 12px;
+}
+
+.archiveButton {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.archiveButton:hover {
+  background-color: var(--surface);
+  border-color: var(--p-600);
+}
+
+.deleteButton {
+  background-color: var(--t-100);
+  border: 1px solid var(--t-200);
+  color: var(--t-700);
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.deleteButton:hover {
+  background-color: var(--t-700);
+  color: var(--white);
+  border-color: var(--t-700);
+}
+
+.dialog {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  width: 480px;
+  max-width: 90%;
+  background-color: var(--white);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  box-sizing: border-box;
+}
+
+.dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.dialogHeader {
+  margin-bottom: 16px;
+}
+
+.dialogHeader h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--t-700);
+  margin: 0;
+}
+
+.warningText {
+  font-size: 14px;
+  color: var(--fg);
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.dialogForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.textInput {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--body-font);
+  font-size: 13px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.actionRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.dangerBtn {
+  background-color: var(--t-700);
+  color: var(--white);
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.dangerBtn:hover:not(:disabled) {
+  background-color: #a50e0d;
+}
+
+.dangerBtn:disabled {
+  background-color: var(--border);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.cancelBtn {
+  background-color: var(--white);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.cancelBtn:hover {
+  background-color: var(--surface);
+}

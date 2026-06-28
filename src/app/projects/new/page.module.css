@@ -1,0 +1,94 @@
+.container {
+  min-height: 100vh;
+  background-color: transparent;
+  color: var(--fg);
+  padding: 0 40px;
+  font-family: var(--body-font);
+}
+
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 24px 0;
+}
+
+.brand {
+  font-family: var(--head-font);
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.header h1 {
+  font-family: var(--head-font);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--fg);
+}
+
+.main {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 48px 0;
+}
+
+.form {
+  background: var(--surface);
+  padding: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 24px;
+}
+
+.field label {
+  font-family: var(--head-font);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.field input[type="text"],
+.field select {
+  padding: 10px 14px;
+  font-size: 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--white);
+  color: var(--fg);
+  outline: none;
+  font-family: inherit;
+}
+
+.field input[type="text"]:focus,
+.field select:focus {
+  border-color: var(--p-500);
+}
+
+.submitBtn {
+  width: 100%;
+  padding: 12px;
+  font-family: var(--head-font);
+  font-size: 16px;
+  font-weight: 600;
+  background-color: var(--p-500);
+  color: var(--white);
+  border: 1px solid var(--p-600);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.submitBtn:hover {
+  background-color: var(--p-600);
+}

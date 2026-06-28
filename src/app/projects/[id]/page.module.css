@@ -1,0 +1,806 @@
+.container {
+  min-height: 100vh;
+  background-color: transparent;
+  color: var(--fg);
+  padding: 0 40px;
+  font-family: var(--body-font);
+}
+
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 24px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.brand {
+  font-family: var(--head-font);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.brand a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.brand a:hover {
+  color: var(--fg);
+}
+
+.header h1 {
+  font-family: var(--head-font);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  color: var(--fg);
+}
+
+.metaCol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metaRow {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.metaLabel {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.metaLink {
+  color: var(--p-600);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.metaLink:hover {
+  color: var(--p-700);
+  text-decoration: underline;
+}
+
+.empty {
+  font-style: italic;
+  color: var(--muted);
+}
+
+.main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px 0;
+}
+
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.leftColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.rightColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.emptyPhasesBox {
+  padding: 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--surface);
+  text-align: center;
+}
+
+.phaseCard {
+  background-color: transparent;
+  border-radius: 8px;
+  margin-bottom: 32px;
+  padding: 0;
+}
+
+.phaseHeader {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+
+.phaseHeader h2 {
+  font-family: var(--head-font);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.phaseStatusBadge {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.statusText {
+  color: var(--p-600);
+}
+
+.actionsSection h3 {
+  font-family: var(--head-font);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.actionGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.actionCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.actionFormGroup {
+  margin-bottom: 12px;
+}
+
+.actionLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.actionDesc {
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.select {
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background-color: var(--white);
+  font-family: var(--body-font);
+  font-size: 13px;
+}
+
+.input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background-color: var(--white);
+  font-family: var(--body-font);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.activeLinkRow {
+  margin-top: 6px;
+}
+
+.linkAnchor {
+  font-size: 12px;
+  color: var(--p-600);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.linkAnchor:hover {
+  color: var(--p-700);
+}
+
+.submitRow {
+  margin-top: 16px;
+}
+
+.saveButton {
+  width: 100%;
+  background-color: var(--fg);
+  color: var(--white);
+  border: none;
+  padding: 10px;
+  border-radius: 4px;
+  font-family: var(--head-font);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.saveButton:hover {
+  background-color: var(--p-700);
+}
+
+.emptyText {
+  font-size: 14px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.archivedLabel {
+  color: var(--t-700);
+  background-color: var(--t-100);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 12px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.adminControls {
+  display: flex;
+  gap: 12px;
+}
+
+.adminForm {
+  display: inline;
+}
+
+.archiveButton {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.archiveButton:hover {
+  background-color: var(--surface);
+  border-color: var(--p-600);
+}
+
+.deleteButton {
+  background-color: var(--t-100);
+  border: 1px solid var(--t-200);
+  color: var(--t-700);
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.deleteButton:hover {
+  background-color: var(--t-700);
+  color: var(--white);
+  border-color: var(--t-700);
+}
+
+/* Reusable Health & Risk Badges */
+.needleLow {
+  background-color: #e6f4ea;
+  color: #137333;
+}
+.needleMedium {
+  background-color: #fef7e0;
+  color: #b06000;
+}
+.needleHigh {
+  background-color: #fce8e6;
+  color: #c5221f;
+}
+.needleCritical {
+  background-color: #feebe7;
+  color: #c5221f;
+  border: 1px solid #c5221f;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+/* Reusable Status Badges */
+.statusNotStarted {
+  background-color: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.statusActiveWIP {
+  background-color: #e8f0fe;
+  color: var(--p-600);
+  border: 1px solid rgba(66, 133, 244, 0.2);
+}
+.statusFinished {
+  background-color: #e6f4ea;
+  color: #137333;
+  border: 1px solid rgba(19, 115, 51, 0.2);
+}
+.statusSkipped {
+  background-color: #f1f3f4;
+  color: #5f6368;
+}
+
+/* Dashboard Summary Container */
+.summaryDashboard {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 40px;
+}
+
+.summaryTopRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-bottom: 24px;
+  align-items: center;
+}
+
+.summaryCard {
+  flex: 1;
+  min-width: 160px;
+  background-color: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+
+.summaryCardLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+
+.needleBadge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.progressText {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.problemCount {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--t-700);
+}
+
+.projectFormCard {
+  background-color: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+}
+
+.projectMetricsForm {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.inlineFormGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inlineLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.inlineSelect, .inlineInput, .inlineTextInput, .inlineDateInput {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background-color: var(--white);
+  font-family: var(--body-font);
+  font-size: 12px;
+  outline: none;
+}
+
+.inlineInput {
+  width: 65px;
+}
+
+.inlineTextInput {
+  width: 120px;
+}
+
+.inlineDateInput {
+  width: 130px;
+}
+
+.saveMetricsButton {
+  background-color: var(--p-600);
+  color: var(--white);
+  border: none;
+  padding: 8px 14px;
+  border-radius: 4px;
+  font-family: var(--head-font);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.saveMetricsButton:hover {
+  background-color: var(--p-700);
+}
+
+/* Critical Chain visualizer styling */
+.visualizerSection {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+
+.visualizerHeading {
+  font-family: var(--head-font);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+  letter-spacing: 0.05em;
+}
+
+.flowChain {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.flowStepWrapper {
+  display: flex;
+  align-items: center;
+}
+
+.flowStep {
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  min-width: 140px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.flowNotStarted {
+  background-color: var(--white);
+  color: var(--muted);
+  border-style: dashed;
+}
+
+.flowFinished {
+  background-color: #e6f4ea;
+  color: #137333;
+  border-color: rgba(19, 115, 51, 0.3);
+}
+
+.flowActive {
+  background-color: #e8f0fe;
+  color: var(--p-600);
+  border-color: rgba(66, 133, 244, 0.3);
+}
+
+.flowBlocked {
+  background-color: #feebe7;
+  color: #c5221f;
+  border-color: rgba(197, 34, 31, 0.3);
+}
+
+.flowSkipped {
+  background-color: #f1f3f4;
+  color: #5f6368;
+}
+
+.flowStepName {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.flowStepMeta {
+  font-size: 11px;
+}
+
+.flowConnector {
+  font-size: 20px;
+  color: var(--muted);
+  margin: 0 12px;
+  font-weight: bold;
+}
+
+/* Phase header title areas */
+.phaseTitleArea {
+  flex: 1;
+}
+
+.phaseStatusRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.statusBadge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+
+.needleBadgeMini {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.progressBadgeMini {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* Phase tagging forms */
+.phaseHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.tagPhaseFormContainer {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.tagPhaseForm {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.formSelectGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.miniLabel {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.miniSelect, .miniInput {
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background-color: var(--white);
+  font-family: var(--body-font);
+  font-size: 11px;
+  outline: none;
+}
+
+.miniInput {
+  width: 55px;
+}
+
+.tagPhaseButton {
+  background-color: var(--fg);
+  color: var(--white);
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-family: var(--head-font);
+  font-weight: 600;
+  font-size: 11px;
+  cursor: pointer;
+  align-self: flex-end;
+  margin-top: 11px;
+  transition: background-color 0.2s ease;
+}
+
+.tagPhaseButton:hover {
+  background-color: var(--p-600);
+}
+
+.needleSlider, .progressSlider, .miniSlider, .miniSliderProgress {
+  -webkit-appearance: none;
+  width: 120px;
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+  background: var(--border);
+}
+
+/* Premium Gut-Feel Risk Color Track Gradient */
+.needleSlider, .miniSlider {
+  background: linear-gradient(to right, #137333 0%, #b06000 50%, #c5221f 100%);
+}
+
+.needleSlider::-webkit-slider-thumb, .miniSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--fg);
+  cursor: pointer;
+  border: 2px solid var(--white);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.progressSlider::-webkit-slider-thumb, .miniSliderProgress::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--p-600);
+  cursor: pointer;
+  border: 2px solid var(--white);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.miniNotesInput {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  width: 130px;
+  outline: none;
+}
+
+/* History Timeline Log Styling */
+.historySection {
+  margin-top: 56px;
+  border-top: 1px solid var(--border);
+  padding-top: 40px;
+}
+
+.historySection h2 {
+  font-family: var(--head-font);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0 0 8px 0;
+}
+
+.historyIntro {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 32px 0;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: relative;
+  padding-left: 20px;
+  border-left: 2px solid var(--border);
+  margin-left: 10px;
+}
+
+.timelineItem {
+  position: relative;
+}
+
+.timelineMarker {
+  position: absolute;
+  left: -27px;
+  top: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--border);
+  border: 2px solid var(--white);
+}
+
+.timelineContent {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.timelineHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.timelineBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.timelineProgress {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.timelineDate {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.timelineNote {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg);
+  margin: 0;
+  font-style: italic;
+}
+
+.emptyHistory {
+  color: var(--muted);
+  font-size: 13px;
+  font-style: italic;
+  margin: 0;
+}
+
+.handleLink {
+  color: var(--p-600);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.handleLink:hover {
+  text-decoration: underline;
+}
+
+
+

@@ -1,0 +1,170 @@
+.container {
+  min-height: 100vh;
+  background-color: transparent;
+  color: var(--fg);
+  padding: 0 40px;
+  font-family: var(--body-font);
+}
+
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 24px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.header h1 {
+  font-family: var(--head-font);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--fg);
+}
+
+.userLabel {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.main {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 0;
+}
+
+.filterSection {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 24px;
+  margin-bottom: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: center;
+}
+
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filterLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.select {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: var(--white);
+  font-family: var(--body-font);
+  font-size: 13px;
+}
+
+.checkboxGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.checkboxLabel {
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--fg);
+}
+
+.tableSection {
+  background-color: transparent;
+  border-radius: 12px;
+  padding: 0;
+}
+
+.tableLink {
+  color: var(--p-600);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.tableLink:hover {
+  text-decoration: underline;
+  color: var(--p-700);
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.oemBadge {
+  background-color: #e8f0fe;
+  color: var(--p-600);
+}
+
+.supplierBadge {
+  background-color: #f1f3f4;
+  color: #5f6368;
+}
+
+.telList {
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.typeFilterBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  transition: opacity 0.2s ease;
+}
+
+.typeFilterBtn:hover {
+  opacity: 0.8;
+}
+
+.telLink {
+  color: var(--p-600);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.telLink:hover {
+  text-decoration: underline;
+  color: var(--p-700);
+}
+
+.activeProgramsLink, .lifetimeProgramsLink {
+  color: var(--fg);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.activeProgramsLink:hover, .lifetimeProgramsLink:hover {
+  color: var(--p-600);
+  text-decoration: underline;
+}
+

@@ -1,0 +1,332 @@
+.container {
+  min-height: 100vh;
+  background-color: transparent;
+  color: var(--fg);
+  padding: 0 40px;
+  font-family: var(--body-font);
+}
+
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 24px 0;
+}
+
+.brand {
+  font-family: var(--head-font);
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.header h1 {
+  font-family: var(--head-font);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  color: var(--fg);
+}
+
+.metaRow {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.metaLabel {
+  color: var(--muted);
+}
+
+.metaSeparator {
+  margin: 0 12px;
+  color: var(--border);
+}
+
+.highlightText {
+  color: var(--p-600);
+}
+
+.notes {
+  font-size: 15px;
+  line-height: 1.6;
+  max-width: 800px;
+  color: var(--fg);
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+
+.main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 48px 0;
+}
+
+.section {
+  margin-bottom: 48px;
+}
+
+.section h2 {
+  font-family: var(--head-font);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--fg);
+  padding-bottom: 6px;
+}
+
+.sectionSubtext {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 24px;
+}
+
+/* Timeline component */
+.timeline {
+  position: relative;
+  padding-left: 20px;
+  border-left: 2px solid var(--border);
+}
+
+.timelineItem {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.timelineItem::before {
+  content: "";
+  position: absolute;
+  left: -27px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--p-500);
+  border: 2px solid var(--white);
+}
+
+.timelineDates {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.timelineContent h3 {
+  font-family: var(--head-font);
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.timelineOrg {
+  font-size: 14px;
+  color: var(--p-600);
+  font-weight: 600;
+}
+
+/* Affiliation Groups */
+.affiliationGroup {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 24px;
+  padding: 24px;
+}
+
+.groupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.groupHeader h3 {
+  font-family: var(--head-font);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.groupRole {
+  font-size: 13px;
+  color: var(--muted);
+  background-color: var(--white);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.emptyActions {
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+  margin: 0;
+}
+
+.actionList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.actionItem {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.actionItem:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.actionMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  min-width: 100px;
+}
+
+.actionDate {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.statusBadge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.statusCompleted {
+  background-color: var(--p-100);
+  color: var(--p-700);
+}
+
+.statusPending {
+  background-color: var(--border);
+  color: var(--muted);
+}
+
+.actionDetails {
+  flex: 1;
+  padding-right: 24px;
+}
+
+.actionDesc {
+  font-size: 14px;
+  margin: 0 0 6px 0;
+  font-weight: 500;
+}
+
+.actionContext {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.actionContext a {
+  color: var(--p-600);
+  text-decoration: underline;
+}
+
+.actionContext a:hover {
+  color: var(--p-700);
+}
+
+.emptyText {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.adminGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.adminFormCard {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.adminFormCard h3 {
+  font-family: var(--head-font);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.formHelp {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 16px 0;
+}
+
+.formGroup {
+  margin-bottom: 16px;
+}
+
+.formLabel {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.select, .input {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background-color: var(--white);
+  color: var(--fg);
+}
+
+.primaryButton {
+  background-color: var(--fg);
+  color: var(--white);
+  border: none;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  transition: background-color 0.2s ease;
+}
+
+.primaryButton:hover {
+  background-color: var(--p-600);
+}
+
+.dangerButton {
+  background-color: var(--t-100);
+  border: 1px solid var(--t-200);
+  color: var(--t-700);
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.dangerButton:hover {
+  background-color: var(--t-700);
+  color: var(--white);
+  border-color: var(--t-700);
+}

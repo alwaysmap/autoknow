@@ -1,0 +1,92 @@
+.tableWrapper {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 16px;
+  background-color: transparent;
+  border-radius: 6px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 14px;
+}
+
+.th {
+  padding: 12px 16px;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 2px solid var(--border);
+  background-color: var(--surface);
+  user-select: none;
+}
+
+.sortable {
+  cursor: pointer;
+}
+
+.sortable:hover {
+  background-color: var(--border);
+  color: var(--fg);
+}
+
+.sorted {
+  color: var(--fg);
+}
+
+.headerCell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sortIndicator {
+  font-size: 11px;
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.info {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pageButton {
+  background-color: var(--white);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--fg);
+}
+
+.pageButton:hover:not(:disabled) {
+  background-color: var(--surface);
+  border-color: var(--fg);
+}
+
+.pageButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pageIndicator {
+  font-size: 13px;
+  color: var(--fg);
+}

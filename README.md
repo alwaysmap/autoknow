@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AutoKnow
 
-## Getting Started
+A relationship and project tracking system for Android Automotive Partner Engineering.
 
-First, run the development server:
+## Development Workflow
 
+All key actions are accessible via `npm run` scripts.
+
+### 1. Prerequisites
+- Node.js (v18+)
+- Docker and Docker Compose (for the PostgreSQL database with pgvector)
+
+### 2. Starting the Application
+First, start the local database container:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run db:up
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then, push the Prisma schema to initialize your database:
+```bash
+npm run db:push
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Finally, start the Next.js development server:
+```bash
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. Testing
+This project strictly enforces TDD (Test-Driven Development). Any new code changes must have tests written first. We use black-box behavioral testing to ensure we test expectations, not implementation details.
 
-## Learn More
+**Unit and Component Tests (Jest):**
+```bash
+npm run test
+npm run test:watch
+npx jest --coverage  # Generate coverage reports (strictly >80%)
+```
 
-To learn more about Next.js, take a look at the following resources:
+**End-to-End Tests (Playwright):**
+Our Playwright configuration automatically starts a dev server in the background for you.
+```bash
+npm run test:e2e
+npm run test:e2e:ui  # Opens the Playwright interactive UI
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 4. Ecosystem Summary Dashboard
+The `/ecosystem-summary` page provides a unified deterministic + AI-driven synthesis of the entire partner engineering project portfolio:
+- **p85 Lead Time**: Tracks the 85th percentile duration of active BSP/VHAL integration phases.
+- **Monte Carlo Forecast**: Runs 1,000 statistical simulations on remaining uncompleted phases to output likely (+p85) and risk-bound (+p95) completion timeframes.
+- **AI Status Synthesis**: Unified briefing summarizing active program blockers (e.g. supplier board delays) ingested from program notes.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Ingesting Status Updates via Chat Webhook:**
+You can post a project briefing from Google Chat to the integration endpoint `/api/integrations/chat`:
+```bash
+curl -X POST http://localhost:3000/api/integrations/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "@autoknow status update for \"Waymo Generation 6 AAOS\": BSP is green. Audio HAL integration is blocked due to codec samples from supplier."}'
+```
+This automatically parses the target program and records the status under `ContextUrl` for RAG-driven synthesis.
 
-## Deploy on Vercel
+### 5. Database Management
+```bash
+npm run db:up      # Starts the postgres container in the background
+npm run db:down    # Stops and removes the database container
+npm run db:push    # Pushes schema changes to the database
+npm run db:studio  # Opens Prisma Studio on port 5555 to view/edit database contents
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 6. Production Build
+```bash
+npm run build
+npm run start
+```

@@ -1,0 +1,438 @@
+.summaryDashboard {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px;
+  margin-bottom: 40px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.summaryTopRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.summaryCard {
+  background-color: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.01);
+  position: relative;
+}
+
+.summaryCardLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+  letter-spacing: 0.08em;
+}
+
+/* Gauge styling */
+.gaugeContainer {
+  width: 100%;
+  height: 100px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.gaugeSvg {
+  width: 180px;
+  height: 95px;
+}
+
+/* Hill chart styling */
+.hillChartContainer {
+  width: 100%;
+  height: 100px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.hillChartSvg {
+  width: 180px;
+  height: 95px;
+}
+
+.hillCurve {
+  stroke: var(--border);
+  stroke-width: 2.5;
+  fill: none;
+}
+
+.hillDot {
+  fill: var(--p-600);
+  stroke: var(--white);
+  stroke-width: 2.5;
+  filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.statusValue {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.updateButton {
+  background-color: var(--white);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 80%;
+  text-align: center;
+}
+
+.updateButton:hover {
+  background-color: var(--surface);
+  border-color: var(--p-600);
+  color: var(--p-600);
+}
+
+.problemCount {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--t-700);
+  margin: 10px 0;
+}
+
+.problemSubtext {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Metadata Card */
+.metadataCard {
+  background-color: transparent;
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+}
+
+.metaGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.metaLabel {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.metaVal {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.metaLink {
+  color: var(--p-600);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.metaLink:hover {
+  color: var(--p-700);
+  text-decoration: underline;
+}
+
+.empty {
+  font-style: italic;
+  color: var(--muted);
+}
+
+/* Native Dialog overlays */
+.dialog {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  width: 480px;
+  max-width: 90%;
+  background-color: var(--white);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  box-sizing: border-box;
+}
+
+.dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.dialogHeader {
+  margin-bottom: 20px;
+}
+
+.dialogHeader h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.dialogForm {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* Segment buttons selector for Needle */
+.segmentContainer {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.segmentBtn {
+  padding: 12px 8px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  background-color: var(--white);
+  transition: all 0.2s ease;
+}
+
+.segmentBtn[data-needle="Low"] {
+  border-color: rgba(19, 115, 51, 0.2);
+  color: #137333;
+}
+.segmentBtn[data-needle="Low"]:hover,
+.segmentBtn[data-needle="Low"][data-active="true"] {
+  background-color: #e6f4ea;
+  border-color: #137333;
+}
+
+.segmentBtn[data-needle="Medium"] {
+  border-color: rgba(176, 96, 0, 0.2);
+  color: #b06000;
+}
+.segmentBtn[data-needle="Medium"]:hover,
+.segmentBtn[data-needle="Medium"][data-active="true"] {
+  background-color: #fef7e0;
+  border-color: #b06000;
+}
+
+.segmentBtn[data-needle="High"] {
+  border-color: rgba(197, 34, 31, 0.2);
+  color: #c5221f;
+}
+.segmentBtn[data-needle="High"]:hover,
+.segmentBtn[data-needle="High"][data-active="true"] {
+  background-color: #fce8e6;
+  border-color: #c5221f;
+}
+
+.segmentBtn[data-needle="Critical"] {
+  border-color: rgba(197, 34, 31, 0.3);
+  color: #c5221f;
+}
+.segmentBtn[data-needle="Critical"]:hover,
+.segmentBtn[data-needle="Critical"][data-active="true"] {
+  background-color: #feebe7;
+  border-color: #c5221f;
+  animation: pulse 2s infinite;
+}
+
+/* Quick select buttons for progress */
+.quickSelectGrid {
+  display: flex;
+  gap: 8px;
+}
+
+.quickSelectBtn {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid var(--border);
+  background-color: var(--white);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quickSelectBtn:hover {
+  background-color: var(--surface);
+  border-color: var(--p-600);
+}
+
+.textInput, .textArea {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--body-font);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.textArea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.actionRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.submitBtn {
+  background-color: var(--p-600);
+  color: var(--white);
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.submitBtn:hover {
+  background-color: var(--p-700);
+}
+
+.cancelBtn {
+  background-color: var(--white);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.cancelBtn:hover {
+  background-color: var(--surface);
+}
+
+.textInputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Visualizer section style inside the dashboard */
+.visualizerSection {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+  margin-top: 16px;
+}
+
+.visualizerHeading {
+  font-family: var(--head-font);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+  letter-spacing: 0.05em;
+}
+
+.flowChain {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  padding-bottom: 12px;
+}
+
+.flowStepWrapper {
+  display: flex;
+  align-items: center;
+}
+
+.flowStep {
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  min-width: 140px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.flowNotStarted {
+  background-color: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.flowFinished {
+  background-color: #e6f4ea;
+  color: #137333;
+  border: 1px solid rgba(19, 115, 51, 0.2);
+}
+.flowActive {
+  background-color: #e8f0fe;
+  color: var(--p-600);
+  border: 1px solid rgba(66, 133, 244, 0.2);
+}
+.flowBlocked {
+  background-color: #feebe7;
+  color: #c5221f;
+  border: 1px solid rgba(197, 34, 31, 0.2);
+}
+.flowSkipped {
+  background-color: #f1f3f4;
+  color: #5f6368;
+}
+
+.flowStepName {
+  font-weight: 700;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.flowStepMeta {
+  font-size: 11px;
+}
+
+.flowConnector {
+  margin: 0 12px;
+  color: var(--muted);
+}

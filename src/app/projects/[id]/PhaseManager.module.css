@@ -1,0 +1,207 @@
+.managerContainer {
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1.5px solid var(--border);
+}
+
+.managerHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.managerHeader h3 {
+  font-family: var(--head-font);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
+.addBtn {
+  background-color: var(--white);
+  border: 1px solid var(--border);
+  color: var(--p-600);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  transition: all 0.2s ease;
+}
+
+.addBtn:hover {
+  background-color: var(--p-50);
+  border-color: var(--p-400);
+  color: var(--p-700);
+}
+
+.phaseList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.phaseItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: var(--white);
+}
+
+.phaseInfo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.phaseInfo strong {
+  font-size: 14px;
+  color: var(--fg);
+}
+
+.duration {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.phaseActions {
+  display: flex;
+  gap: 12px;
+}
+
+.editBtn, .deleteBtn {
+  background: none;
+  border: none;
+  font-family: var(--body-font);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.editBtn {
+  color: var(--p-600);
+}
+
+.editBtn:hover {
+  text-decoration: underline;
+}
+
+.deleteBtn {
+  color: #c5221f;
+}
+
+.deleteBtn:hover {
+  text-decoration: underline;
+}
+
+.empty {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--muted);
+}
+
+/* Dialog Styles */
+.dialog {
+  border: none;
+  border-radius: 8px;
+  padding: 24px;
+  background-color: var(--white);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  width: 90%;
+  max-width: 360px;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  outline: none;
+}
+
+.dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(2px);
+}
+
+.dialog h4 {
+  font-family: var(--head-font);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: var(--fg);
+}
+
+.dialogForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formGroup label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.formGroup input {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--body-font);
+  font-size: 14px;
+  outline: none;
+  background-color: var(--white);
+  color: var(--fg);
+}
+
+.formGroup input:focus {
+  border-color: var(--p-400);
+}
+
+.actionRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.cancelBtn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submitBtn {
+  background-color: var(--p-600);
+  border: none;
+  color: var(--white);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submitBtn:hover {
+  background-color: var(--p-700);
+}

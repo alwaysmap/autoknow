@@ -1,0 +1,192 @@
+.container {
+  min-height: 100vh;
+  background-color: transparent;
+  color: var(--fg);
+  padding: 0 40px;
+  font-family: var(--body-font);
+}
+
+.profileHeader {
+  border-bottom: 1px solid var(--border);
+  padding: 32px 0;
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background-color: var(--p-100);
+  color: var(--p-600);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 28px;
+  font-weight: 700;
+  font-family: var(--head-font);
+  border: 2px solid var(--p-200);
+}
+
+.profileInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.profileInfo h1 {
+  font-family: var(--head-font);
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--fg);
+}
+
+.userHandle {
+  font-size: 14px;
+  color: var(--muted);
+  font-family: var(--font-geist-mono);
+  margin-top: 4px;
+}
+
+.bioNotes {
+  font-size: 14px;
+  color: var(--fg);
+  max-width: 600px;
+  margin-top: 8px;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 32px;
+  padding: 32px 0;
+}
+
+.leftCol, .rightCol {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.card {
+  background-color: transparent;
+  border-radius: 12px;
+  padding: 0;
+}
+
+.card h2 {
+  font-family: var(--head-font);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--fg);
+  margin: 0 0 16px 0;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  padding-left: 16px;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background-color: var(--border);
+}
+
+.timelineItem {
+  position: relative;
+}
+
+.timelineDot {
+  position: absolute;
+  left: -17px;
+  top: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--p-600);
+  border: 2px solid var(--white);
+}
+
+.timelineContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.timelineDate {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.timelineTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.tableLink {
+  color: var(--p-600);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.tableLink:hover {
+  text-decoration: underline;
+  color: var(--p-700);
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.critical { background-color: #feebe7; color: #c5221f; }
+.high { background-color: #fef7e0; color: #b06000; }
+.medium { background-color: #e8f0fe; color: var(--p-600); }
+.low { background-color: #e6f4ea; color: #137333; }
+
+.partnerList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.partnerTag {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.partnerTag:hover {
+  border-color: var(--p-300);
+  background-color: var(--p-50);
+}
+
+.emptyState {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 13px;
+}

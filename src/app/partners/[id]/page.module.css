@@ -1,0 +1,287 @@
+.container {
+  min-height: 100vh;
+  background-color: transparent;
+  color: var(--fg);
+  padding: 0 40px;
+  font-family: var(--body-font);
+}
+
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 24px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.brand {
+  font-family: var(--head-font);
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.header h1 {
+  font-family: var(--head-font);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.partnerType {
+  font-size: 14px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 48px 0;
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 40px;
+}
+
+@media (max-width: 900px) {
+  .main {
+    grid-template-columns: 1fr;
+  }
+}
+
+.projectsSection h2 {
+  font-family: var(--head-font);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 24px;
+}
+
+.empty {
+  font-size: 14px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.group {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 24px;
+}
+
+.group:last-child {
+  border-bottom: none;
+}
+
+.groupHeading {
+  font-family: var(--head-font);
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--p-600);
+  margin-bottom: 16px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.projectCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.projectCard h4 {
+  font-family: var(--head-font);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.meta {
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  color: var(--muted);
+}
+
+.needleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+.critical {
+  background-color: var(--t-100);
+  color: var(--t-700);
+}
+
+.high {
+  background-color: var(--s-100);
+  color: var(--s-700);
+}
+
+.medium {
+  background-color: var(--p-50);
+  color: var(--p-700);
+}
+
+.low {
+  background-color: var(--p-50);
+  color: var(--p-600);
+}
+
+.projectLink {
+  color: var(--fg);
+  text-decoration: none;
+}
+
+.projectLink:hover {
+  color: var(--p-600);
+  text-decoration: underline;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sidebarCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 20px;
+}
+
+.sidebarCard h3 {
+  font-family: var(--head-font);
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--p-600);
+  margin: 0 0 16px 0;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.summaryText {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fg);
+  margin: 0;
+}
+
+.metaList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metaLabel {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metaVal {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.externalLink {
+  color: var(--p-600);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.externalLink:hover {
+  text-decoration: underline;
+}
+
+.teamList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.teamItem {
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.4;
+}
+
+.teamItem strong {
+  color: var(--fg);
+}
+
+.teamRole {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.peopleList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.personItem {
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.4;
+}
+
+.personLink {
+  color: var(--fg);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.personLink:hover {
+  color: var(--p-600);
+  text-decoration: underline;
+}
+
+.personRole {
+  font-size: 11px;
+  color: var(--muted);
+}
+

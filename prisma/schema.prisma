@@ -1,0 +1,170 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [vector]
+}
+
+model Partner {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  typeId             Int?
+  type               PartnerType?        @relation(fields: [typeId], references: [id])
+  projects           Project[]
+  currentEmployees   Person[]            @relation("CurrentPartner")
+  personAffiliations PersonAffiliation[]
+  states             PartnerState[]
+  embedding          Unsupported("vector(768)")?
+  website            String?
+  internalDetailsUrl String?
+  summary            String?
+  googleTeam         Json?
+  phone              String?
+  regionId           Int?
+  region             Region?             @relation(fields: [regionId], references: [id])
+}
+
+model Region {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  partners Partner[]
+}
+
+model PartnerType {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  partners Partner[]
+}
+
+model Project {
+  id                Int            @id @default(autoincrement())
+  name              String
+  partnerId         Int
+  partner           Partner        @relation(fields: [partnerId], references: [id])
+  phases            Phase[]
+  contextUrls       ContextUrl[]
+  isArchived        Boolean        @default(false)
+  theNeedle         String         @default("Low")
+  hillChartProgress Int            @default(0)
+  sopDate           DateTime?
+  ownerName         String?
+  volumeFirstYear   Int            @default(0)
+  states            ProjectState[]
+  embedding         Unsupported("vector(768)")?
+}
+
+model Phase {
+  id                 Int               @id @default(autoincrement())
+  projectId          Int
+  project            Project           @relation(fields: [projectId], references: [id])
+  name               String
+  
+  // Self-referential relationship for the DAG
+  dependencies       PhaseDependency[] @relation("PhaseDependencies")
+  dependentOn        PhaseDependency[] @relation("PhaseDependents")
+
+  states             PhaseState[]
+  actionItems        ActionItem[]
+  forecastedDuration Int               @default(30)
+}
+
+model PhaseDependency {
+  id               Int   @id @default(autoincrement())
+  phaseId          Int
+  phase            Phase @relation("PhaseDependencies", fields: [phaseId], references: [id])
+  dependsOnPhaseId Int
+  dependsOnPhase   Phase @relation("PhaseDependents", fields: [dependsOnPhaseId], references: [id])
+}
+
+model PhaseState {
+  id                Int      @id @default(autoincrement())
+  phaseId           Int
+  phase             Phase    @relation(fields: [phaseId], references: [id])
+  timestamp         DateTime @default(now())
+  
+  status            String   // "Not Started", "Active WIP", "Skipped", "Finished"
+  hillChartProgress Int?     // 0-100
+  theNeedle         String?  // Risk level inference
+  isStagnant        Boolean  @default(false)
+  notes             String?
+  source            String?
+  sourceUrl         String?
+}
+
+model ActionItem {
+  id                 Int      @id @default(autoincrement())
+  phaseId            Int
+  phase              Phase    @relation(fields: [phaseId], references: [id])
+  description        String
+  assignedTo         String?  // Keep for backward compatibility/LDAP text
+  assignedToPersonId Int?
+  assignedToPerson   Person?  @relation(fields: [assignedToPersonId], references: [id])
+  status             String   // "Pending", "Completed"
+  nextStep           String   @default("Undecided") // "Undecided", "Resolved", "Partner", "Googler"
+  linkUrl            String?  // External system of record link (Buganizer, Google Doc)
+  source             String?
+  sourceUrl          String?
+  createdAt          DateTime @default(now())
+}
+
+model ContextUrl {
+  id           Int      @id @default(autoincrement())
+  projectId    Int
+  project      Project  @relation(fields: [projectId], references: [id])
+  url          String
+  type         String   // "Chat", "Doc", "Gerrit"
+  title        String?
+  ingestedText String?
+  embedding    Unsupported("vector(768)")?
+}
+
+model Person {
+  id               Int                 @id @default(autoincrement())
+  name             String
+  email            String              @unique
+  currentPartnerId Int
+  currentPartner   Partner             @relation("CurrentPartner", fields: [currentPartnerId], references: [id])
+  notes            String?
+  affiliations     PersonAffiliation[]
+  actionItems      ActionItem[]
+  embedding        Unsupported("vector(768)")?
+}
+
+model PersonAffiliation {
+  id        Int       @id @default(autoincrement())
+  personId  Int
+  person    Person    @relation(fields: [personId], references: [id])
+  partnerId Int
+  partner   Partner   @relation(fields: [partnerId], references: [id])
+  role      String
+  startDate DateTime
+  endDate   DateTime? // null means current
+}
+
+model ProjectState {
+  id                Int      @id @default(autoincrement())
+  projectId         Int
+  project           Project  @relation(fields: [projectId], references: [id])
+  timestamp         DateTime @default(now())
+  theNeedle         String
+  hillChartProgress Int
+  notes             String?
+  source            String?
+  sourceUrl         String?
+}
+
+model PartnerState {
+  id                Int      @id @default(autoincrement())
+  partnerId         Int
+  partner           Partner  @relation(fields: [partnerId], references: [id])
+  timestamp         DateTime @default(now())
+  theNeedle         String   @default("Low") // "Low", "Medium", "High", "Critical"
+  hillChartProgress Int      @default(0)     // 0-100
+  notes             String?
+  source            String?
+  sourceUrl         String?
+}
+
