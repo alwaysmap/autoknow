@@ -1,0 +1,199 @@
+# AutoKnow — Component & Page Specification
+
+**Method:** decision-first. Each component and page declares *the single decision it drives*, *for whom*, *in what context*. The **data it requires is reverse-engineered from that decision** and tagged by tier. The union of those data requirements (§5) is the backlog for the ingestion / SoR / AI engine.
+
+> Actionable first, attractive second. A component earns its place only if it changes an action in the context where that action is taken. Data is the byproduct, never the point.
+
+---
+
+## 1. Data tiers (the legend used everywhere below)
+
+| Tag | Tier | Source of truth | Examples |
+|---|---|---|---|
+| **[SoR]** | 1 — AutoKnow owns it | AutoKnow DB | Phase lifecycle & completion, program metadata (SOP, volume, owner), the relationship graph (partner↔partner, partner↔program, partner↔Googler) |
+| **[ING]** | 2 — External system of record, ingested | Chat, Google Docs, Gerrit, Buganizer | Status messages, meeting notes, review threads, bug state — recorded as searchable (pgvector) records |
+| **[DER]** | 3 — Derived | Computed from [SoR] history | Cycle time, throughput, SOP-vs-forecast slip, vehicle-volume-at-risk |
+| **[AI]** | 4 — Inferred (the goal) | LLM/RAG over [SoR]+[ING] | "This looks stuck," proposed needle, discussion-topic digest, decision-pending detection, relationship rollups |
+
+**Design rule:** [SoR] entry stays minimal — humans enter only what only humans know. Everything narrative is [ING]. The elaborate UI belongs to [AI].
+
+---
+
+## 2. Component specs
+
+Template — **Decision** · **MUST** (one thing) · **COULD** (extras) · **Data required** (tiered) · **Context** · **Excluded from**.
+
+### 2.1 `StatusSignal` (the Needle, reframed)
+- **Decision:** does this entity need intervention *now*?
+- **MUST:** render a scoped, labeled triage state (program health / phase risk / relationship) — visually distinct per scope so two scopes can never be confused (the Qualcomm screenshot bug).
+- **COULD:** trend arrow (improving/worsening); click → the evidence that explains it.
+- **Data required:**
+  - [SoR] current needle value + scope + target id (human override).
+  - [AI] *proposed* needle inferred from recent [ING] context (the primary input going forward).
+  - [DER] days-in-state, for trend.
+- **Context:** anywhere an entity is triaged. **Excluded:** as a filter control (a filter is not a status).
+
+### 2.2 `CriticalChainStepper` + `ChainStep`
+- **Decision:** where are we, what's the current constraint, and what's the next action?
+- **MUST:** condensed horizontal chain showing each phase's completion state; current/blocked step emphasized; each step is a control that scopes the rest of the page (action items, decisions, activity) to that phase. Expands on navigation for detail.
+- **COULD:** dependency (DAG) highlight of the gating phase; delay-vs-forecast per step; AI "stuck" marker on the constraining step.
+- **Data required:**
+  - [SoR] phases, ordering, dependencies (`PhaseDependency`), per-phase latest state (status, completion).
+  - [DER] elapsed vs forecast per phase; which phase is the active constraint.
+  - [ING] count/recency of context attached to each phase (so a step can show "9 days, 3 recent messages").
+  - [AI] stuck/at-risk classification + one-line why, per step.
+- **Context:** Project (full). Condensed read-only variant on Me and on partner program cards.
+
+### 2.3 `ActionHistory` (ingested context stream + search)
+- **Decision:** what actually happened, and what decision is now open?
+- **MUST:** a summarized, reverse-chronological stream of ingested context scoped to a phase/project/partner, each item linking to its external source; searchable (pgvector).
+- **COULD:** filter to the selected chain step; filter to "decision needed"; group by source system.
+- **Data required:**
+  - [ING] ingested records (`ContextUrl`-like): text, source type, source URL, timestamp, embedding; **attached to the right phase/project/partner** by the ingestion classifier.
+  - [AI] per-item one-line summary; "open decision" extraction; semantic search ranking.
+- **Context:** Project, Phase, Partner, Person. **Excluded:** Ecosystem (too granular).
+
+### 2.4 `InsightCard` (AI guidance — flagship)
+- **Decision:** what should I do about this, right now?
+- **MUST:** a plain-language call — *"This looks stuck"* / *"This SOP is slipping"* — with **cited evidence** (links to the [ING] records and [DER] metrics it reasoned from) and a recommended next action.
+- **COULD:** confidence; dismiss/snooze; "draft the follow-up" action; escalate to owner.
+- **Data required:**
+  - [AI] the inference itself.
+  - [ING] the cited evidence records.
+  - [DER] the supporting metric (e.g. days-blocked, slip days).
+  - [SoR] the entity + owner to route the action to.
+- **Context:** every level at its own granularity — phase, project, and an ecosystem rollup. This component is why the others exist.
+
+### 2.5 `DiscussionDigest` (the exec-prep use case)
+- **Decision (exec before a partner meeting):** what should I talk about — which may *not* match program status?
+- **MUST:** for a given partner over a time window, the **key discussion topics** synthesized from ingested meeting notes/threads — independent of program state.
+- **COULD:** topic trend over time; unresolved questions raised by the partner; topics raised by us but not answered; sentiment shift.
+- **Data required:**
+  - [ING] **Google Doc meeting notes ingested over months** (NEW feed), chat threads, scoped to the partner.
+  - [AI] topic extraction + clustering across the window; per-topic summary + recency; "open question" detection.
+  - [SoR] partner identity + the Googlers/programs involved (to attribute topics).
+- **Context:** Partner detail (exec view), and a pre-meeting briefing surface. **Note:** deliberately *orthogonal* to program status — it's a different lens over the same ingested corpus.
+
+### 2.6 `EntityTable` (infrastructure)
+- **Decision:** which item in this list needs me first?
+- **MUST:** scannable, **default-sorted by the decision column** (risk, SOP slip, days-blocked) — never by name; rows expand for detail.
+- **COULD:** inline row actions; saved sorts.
+- **Data required:** [SoR]/[DER] the rows + the decision-relevant sort key per use. Typed column model (no per-screen `any`).
+- **Context:** any list. **Excluded:** as a dumping ground for "all rows" with no decision sort.
+
+### 2.7 `FlowChart` (SOP → vehicle volume) — ecosystem hero
+- **Decision (leadership):** are we putting vehicle volume into market on time, and what threatens it?
+- **MUST:** continuous flow of programs along their SOP dates against cumulative shipping volume — the market-outcome signal.
+- **COULD:** overlay at-risk programs; a "volume in jeopardy" line; click a program → its chain.
+- **Data required:**
+  - [SoR] per-program SOP date, first-year volume, partner.
+  - [DER] cumulative volume curve; volume-at-risk (programs whose state threatens their SOP).
+  - [AI] which programs are likely to slip (feeds the at-risk overlay).
+- **Context:** Ecosystem.
+
+### 2.8 `ConstraintView` (cycle time / throughput)
+- **Decision (leadership):** which phase is the systemic bottleneck across the portfolio?
+- **MUST:** the slowest stage(s) by real cycle-time distribution — one truth (merge today's fabricated "Flow Constraint Diagnosis" with the real cycle-time data).
+- **COULD:** trend over quarters; per-partner breakdown.
+- **Data required:** [DER] cycle time per phase-name from `PhaseState` history; throughput; percentiles. [AI] narrative ("Compliance Testing is your constraint; here's why").
+- **Context:** Ecosystem.
+
+### 2.9 `RelationshipPanel`
+- **Decision:** is this relationship healthy, and who/what rides on it?
+- **MUST:** relationship `StatusSignal` + dependent programs + key contacts (Googlers + partner people), above the fold.
+- **COULD:** partner↔partner links (supplier↔OEM); AI at-risk rollup from child programs.
+- **Data required:** [SoR] relationship graph, contacts, dependent programs. [AI] rollup of child-program stuck signals. [ING] recency of partner contact.
+- **Context:** Partner detail.
+
+### 2.10 Supporting atoms
+- `EntityHeader` — name + type + the *correct, labeled* primary `StatusSignal` + primary action. [SoR].
+- `MetricStat` / `MetricStrip` — compact above-the-fold numbers; default to decision-relevant metrics only. [DER].
+- `SearchToGo` (global search) — jump to the entity I must act on. [SoR]+[ING] (semantic).
+- `StatusCapture` / `MetadataEdit` / `PhaseEdit` dialogs — **minimal** [SoR] entry; the mandatory note is the *decision record*. Resist adding fields.
+- `EntityLink` — the "everything is a URL" link; one implementation.
+
+### 2.11 Cut
+- `ProgramsTable` (orphan), the duplicate ecosystem clients (merge), hill/needle math ×4 (→ `lib/geometry.ts`).
+
+---
+
+## 3. Page specs (compose components per context + decision)
+
+Template — **Who** · **The decision** · **Above the fold** · **Components (in order)** · **Data feeds** · **Excluded**.
+
+### 3.1 Ecosystem (`/`, `/ecosystem-summary` → merged)
+- **Who:** leadership. **Decision:** is volume reaching market on time, and where is flow constrained?
+- **Above the fold:** `FlowChart` (SOP→volume) + an ecosystem `InsightCard` rollup ("3 programs threaten Q3 volume").
+- **Order:** InsightCard rollup → FlowChart → ConstraintView → EntityTable of *at-risk* programs (sorted by slip risk).
+- **Data feeds:** [SoR] program metadata; [DER] volume-at-risk, cycle time; [AI] slip prediction, constraint narrative.
+- **Excluded:** action-item lists (noise here); generic "all programs" dumps.
+
+### 3.2 Project detail (`/projects/[id]`)
+- **Who:** TEL/owner. **Decision:** where are we, what's blocking the constraint, what's next?
+- **Above the fold:** `EntityHeader` (program-health StatusSignal) + `CriticalChainStepper`.
+- **Order:** Header → Stepper (drives selection) → `InsightCard` (per project/phase) → filtered `ActionHistory` + open decisions for the selected step → minimal `StatusCapture`.
+- **Data feeds:** [SoR] phases/states/metadata; [ING] context per phase; [DER] cycle/slip; [AI] stuck detection + proposed needle.
+- **Excluded:** ecosystem metrics; unrelated programs.
+
+### 3.3 Me (`/me`)
+- **Who:** individual Googler. **Decision:** what is mine to move today?
+- **Above the fold:** my open action items + decisions awaiting me, sorted by what's blocking flow.
+- **Order:** `InsightCard` ("2 of your phases look stuck") → my action items (`EntityTable`) → my programs (condensed `CriticalChainStepper` per program) → my partners.
+- **Data feeds:** [SoR] assignments, owned programs; [ING] context mentioning me; [AI] my-stuck rollup.
+- **Excluded:** portfolio-wide flow.
+
+### 3.4 Partner detail (`/partners/[id]`) — two lenses
+- **Who:** relationship owner **and** exec prepping a meeting. **Decisions:** (a) is this relationship healthy + who/what rides on it; (b) what should I discuss next meeting?
+- **Above the fold:** `EntityHeader` (clearly labeled **Relationship** StatusSignal) + `RelationshipPanel` (programs + contacts). Key details (phone/website/region) promoted up, not exiled to a far rail.
+- **Order:** Header → RelationshipPanel → `DiscussionDigest` (exec lens, time-windowed) → dependent programs (`EntityTable`) → `ActionHistory` for the partner.
+- **Data feeds:** [SoR] relationship graph, contacts; [ING] **meeting-notes ingestion**, chat; [AI] discussion topics, at-risk rollup.
+- **Excluded:** the dead center band; conflating relationship needle with program needle.
+
+### 3.5 Person detail (`/people/[id]`)
+- **Who:** anyone evaluating a contact. **Decision:** what has this person owned/decided, and where are they now?
+- **Order:** `EntityHeader` → career/affiliation timeline → `ActionHistory` of their decisions (grouped by tenure).
+- **Data feeds:** [SoR] person + affiliations; [ING] context attributed to them.
+
+### 3.6 Search (`/search`)
+- **Who:** anyone. **Decision:** jump to the entity I must act on. Semantic + literal over [SoR]+[ING].
+
+---
+
+## 4. Reverse-engineered data requirements (the engine backlog)
+
+The union of every "Data required" above. **This is what must exist for the UI to mean anything.**
+
+**Tier 1 — System of record (mostly exists):**
+- Phase lifecycle, completion, dependencies (DAG); program metadata (SOP, volume, owner); relationship graph (partner↔partner, partner↔program, partner↔Googler). Minimal capture UI.
+
+**Tier 2 — Ingestion feeds (partially exists):**
+- Chat ingestion + classification → attach to correct phase/project/partner *(exists, naive)*.
+- **Google Docs meeting-notes ingestion over time** *(NEW — required by `DiscussionDigest`)*.
+- Gerrit / Buganizer state ingestion *(NEW — feeds chain "stuck" evidence)*.
+- All ingested records carry: text, source type, source URL, timestamp, **real embedding**, entity attachment.
+
+**Tier 3 — Derived (partially exists, some fabricated):**
+- Cycle time & throughput per phase-name from state history *(exists)*.
+- SOP-vs-forecast slip; cumulative vehicle volume; volume-at-risk *(NEW/real)*.
+- Replace fabricated p85 and hardcoded constraint panel with computed truth *(done for p85; constraint panel still hardcoded)*.
+
+**Tier 4 — AI (the product — mostly missing):**
+- **Real semantic embeddings** (today: deterministic `Math.sin` fake).
+- **Stuck/at-risk detection** with cited evidence → `InsightCard`, chain markers.
+- **Proposed needle inference** from ingested context → `StatusSignal` default.
+- **Discussion-topic extraction & summarization** over a time window per partner → `DiscussionDigest`.
+- **Open-decision detection** from ingested threads → ActionHistory + Me.
+- **Slip prediction** per program → FlowChart overlay.
+- **Relationship at-risk rollup** from child programs → RelationshipPanel.
+
+---
+
+## 5. Build sequence
+
+1. **Foundation:** `tokens.css`, layout primitives, `lib/geometry.ts` (kill ×4 duplication), Tufte density pass.
+2. **SoR surfaces (minimal entry):** `EntityHeader`, `StatusSignal` (scoped), `CriticalChainStepper`, `RelationshipPanel`, minimal capture dialogs.
+3. **Ingestion + context:** real embeddings; Google-Docs + Gerrit/Buganizer feeds; `ActionHistory` with semantic search.
+4. **AI layer (the goal):** `InsightCard`, proposed-needle inference, `DiscussionDigest`, stuck/slip detection — built on 2+3.
+5. **Recompose pages:** Ecosystem (FlowChart-led), Project (Stepper-led), Me, Partner (two lenses).
+
+The structured app is **scaffolding for the intelligence layer.** Tiers 1–3 make the data exist and trustworthy; Tier 4 is the product. Build bottom-up, but never lose that the `InsightCard` and `DiscussionDigest` are the reason the rest is here.
