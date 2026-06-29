@@ -7,6 +7,7 @@ import NeedleGauge from '../../components/NeedleGauge';
 import HillChartControl from '../../components/HillChartControl';
 import styles from '../ecosystem-summary/EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../../lib/needle';
+import { resolvePerson } from '../../lib/people';
 
 interface Project {
   id: number;
@@ -63,19 +64,6 @@ const RISK_VALUES: Record<string, number> = {
 };
 
 export default function ProgramsClient({ initialProjects, people, regions = [], partnerTypes = [] }: ProgramsClientProps) {
-  const resolvePerson = (owner: string) => {
-    const clean = owner.toLowerCase().replace('@', '').trim();
-    return people.find((p) => {
-      const emailHandle = p.email.split('@')[0].toLowerCase();
-      const pName = p.name.toLowerCase();
-      return (
-        p.email.toLowerCase() === clean ||
-        emailHandle === clean ||
-        pName.includes(clean)
-      );
-    });
-  };
-
   // State filters
   const [partnerType, setPartnerType] = useState('All'); // 'All' | 'OEM' | 'Supplier'
   const [region, setRegion] = useState('All'); // 'All' | 'APAC' | 'EMEA' | 'AMER' | 'Other'
@@ -386,8 +374,8 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
         <DataTable
           headers={[
             { key: 'name', label: 'Program Name' },
-            { key: 'partner', label: 'Partner' },
-            { key: 'region', label: 'Google Region' },
+            { key: 'partner.name', label: 'Partner' },
+            { key: 'partner.region', label: 'Google Region' },
             { key: 'ownerName', label: 'Program Owner' },
             { key: 'sopDate', label: 'Target SOP' },
             { key: 'theNeedle', label: 'Needle' },
@@ -395,7 +383,7 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
           ]}
           data={filteredProjects}
           renderRow={(p: Project) => {
-            const matched = p.ownerName ? resolvePerson(p.ownerName) : null;
+            const matched = p.ownerName ? resolvePerson(people, p.ownerName) : null;
 
             return (
               <tr key={p.id}>

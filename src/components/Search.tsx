@@ -58,19 +58,29 @@ export default function Search() {
       return;
     }
 
+    // Abort an in-flight request when the query changes so a slow earlier response
+    // can't overwrite the results of a newer one.
+    const controller = new AbortController();
     const delayDebounce = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
         if (res.ok) {
           const data = await res.json();
           setResults(data);
         }
       } catch (err) {
-        console.error('Search query failed:', err);
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Search query failed:', err);
+        }
       }
     }, 150);
 
-    return () => clearTimeout(delayDebounce);
+    return () => {
+      clearTimeout(delayDebounce);
+      controller.abort();
+    };
   }, [query]);
 
   // Handle click outside to close dropdown
@@ -135,7 +145,7 @@ export default function Search() {
                       <li key={p.id} className={styles.item}>
                         <Link href={`/projects/${p.id}`} onClick={() => setIsOpen(false)} className={styles.link}>
                           <span className={styles.mainText}>{p.name}</span>
-                          <span className={styles.subText}>{p.partner.name}</span>
+                          <span className={styles.subText}>{p.partner?.name}</span>
                         </Link>
                       </li>
                     ))}
@@ -151,7 +161,7 @@ export default function Search() {
                       <li key={p.id} className={styles.item}>
                         <Link href={`/people/${p.id}`} onClick={() => setIsOpen(false)} className={styles.link}>
                           <span className={styles.mainText}>{p.name}</span>
-                          <span className={styles.subText}>{p.email} ({p.currentPartner.name})</span>
+                          <span className={styles.subText}>{p.email} ({p.currentPartner?.name})</span>
                         </Link>
                       </li>
                     ))}

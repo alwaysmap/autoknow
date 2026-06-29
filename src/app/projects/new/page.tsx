@@ -3,58 +3,66 @@ import { prisma } from '../../../lib/db';
 import { TEMPLATES } from '../../../lib/templates';
 import styles from './page.module.css';
 
+// This page reads partners from the database at request time, so it must render
+// dynamically rather than being statically prerendered at build (which has no DB).
+export const dynamic = 'force-dynamic';
+
 async function createProject(formData: FormData) {
   'use server';
 
   const name = formData.get('name') as string;
   const partnerIdStr = formData.get('partnerId') as string;
-  const templateName = formData.get('template') as keyof typeof TEMPLATES;
+  const templateName = formData.get('template') as string;
   const owner = formData.get('owner') as string;
 
   if (!name || !partnerIdStr || !templateName) {
     throw new Error('Missing fields');
   }
 
+  // Validate the template up front so an unexpected value can't silently create a
+  // project with zero phases.
+  if (!(templateName in TEMPLATES)) {
+    throw new Error(`Unknown project template: ${templateName}`);
+  }
+  const template = TEMPLATES[templateName as keyof typeof TEMPLATES];
+
   const partnerId = parseInt(partnerIdStr, 10);
+  if (isNaN(partnerId)) {
+    throw new Error('Invalid partner');
+  }
 
-  // 1. Create the Project
-  const project = await prisma.project.create({
-    data: {
-      name,
-      partnerId,
-      ownerName: owner || null
-    }
-  });
+  const firstPhaseName = template.phases[0]?.name;
 
-  // 2. Fetch standard phases for the template
-  const template = TEMPLATES[templateName];
-  if (template) {
+  // Create the project and its full phase graph atomically — a failure partway
+  // through must not leave a half-built project.
+  const project = await prisma.$transaction(async (tx) => {
+    const created = await tx.project.create({
+      data: { name, partnerId, ownerName: owner || null }
+    });
+
     const phasesMap: Record<string, { id: number }> = {};
 
-    // 3. Create the phases
     for (const p of template.phases) {
-      const phase = await prisma.phase.create({
+      const phase = await tx.phase.create({
         data: {
           name: p.name,
-          projectId: project.id,
+          projectId: created.id,
           forecastedDuration: p.forecastedDuration
         }
       });
       phasesMap[p.name] = phase;
 
-      // Create a default initial state for each phase
-      await prisma.phaseState.create({
+      await tx.phaseState.create({
         data: {
           phaseId: phase.id,
-          status: p.name === template.phases[0].name ? 'Active WIP' : 'Not Started',
-          hillChartProgress: p.name === template.phases[0].name ? 10 : 0,
+          status: p.name === firstPhaseName ? 'Active WIP' : 'Not Started',
+          hillChartProgress: p.name === firstPhaseName ? 10 : 0,
           theNeedle: 'Low'
         }
       });
 
-      // If owner is specified, assign it to the first phase or create a placeholder action item
-      if (owner && p.name === template.phases[0].name) {
-        await prisma.actionItem.create({
+      if (owner && p.name === firstPhaseName) {
+        await tx.actionItem.create({
           data: {
             phaseId: phase.id,
             description: `Initial bring-up action for ${p.name}`,
@@ -65,13 +73,12 @@ async function createProject(formData: FormData) {
       }
     }
 
-    // 4. Create dependencies
     for (const p of template.phases) {
       const phase = phasesMap[p.name];
       for (const depName of p.dependsOn) {
         const depPhase = phasesMap[depName];
         if (depPhase) {
-          await prisma.phaseDependency.create({
+          await tx.phaseDependency.create({
             data: {
               phaseId: phase.id,
               dependsOnPhaseId: depPhase.id
@@ -80,9 +87,11 @@ async function createProject(formData: FormData) {
         }
       }
     }
-  }
 
-  // Redirect to project details page
+    return created;
+  });
+
+  // Redirect to project details page (outside the transaction).
   redirect(`/projects/${project.id}`);
 }
 

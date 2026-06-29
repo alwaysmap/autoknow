@@ -10,6 +10,7 @@ import CycleTimeScatterPlot, { CycleTimeData, CycleTimeStats } from '../componen
 
 import styles from './ecosystem-summary/EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../lib/needle';
+import { resolvePerson } from '../lib/people';
 
 interface Project {
   id: number;
@@ -80,19 +81,6 @@ export default function EcosystemDashboardClient({
   cycleTimeData = [],
   cycleTimeStats = {},
 }: EcosystemDashboardClientProps) {
-  const resolvePerson = (owner: string) => {
-    const clean = owner.toLowerCase().replace('@', '').trim();
-    return people.find((p) => {
-      const emailHandle = p.email.split('@')[0].toLowerCase();
-      const pName = p.name.toLowerCase();
-      return (
-        p.email.toLowerCase() === clean ||
-        emailHandle === clean ||
-        pName.includes(clean)
-      );
-    });
-  };
-
   const [minRiskVal, setMinRiskVal] = useState(0); // 0=Low, 1=Medium, 2=High, 3=Critical
   const [selectedOwner, setSelectedOwner] = useState('All');
   const [minProgress, setMinProgress] = useState(0);
@@ -127,12 +115,9 @@ export default function EcosystemDashboardClient({
   });
 
 
-  // Filter Cycle Time Data based on filteredProjects
+  // Filter Cycle Time Data based on filteredProjects. cycleTimeData is keyed by
+  // phaseId, so build a phaseId -> projectId map from initialProjects to filter it.
   const filteredProjectIds = new Set(filteredProjects.map(p => p.id));
-  
-  // We need to map phaseId to projectId to filter correctly.
-  // Wait, cycleTimeData doesn't have projectId.
-  // We can build a phaseId -> projectId map from initialProjects.
   const phaseToProjectMap = new Map<number, number>();
   initialProjects.forEach(proj => {
     proj.phases.forEach(phase => {
@@ -151,7 +136,9 @@ export default function EcosystemDashboardClient({
     const lbl = formatNeedleValue(p.theNeedle);
     return lbl === 'Critical' || lbl === 'High';
   }).length;
-  const inRangeCount = initialProjects.filter(matchesProgressRange).length;
+  // Count non-archived programs matching the progress floor (the dashboard never
+  // shows archived projects, so they must not inflate this card either).
+  const inRangeCount = initialProjects.filter(p => !p.isArchived && matchesProgressRange(p)).length;
 
   return (
     <div className={styles.clientWrapper}>
@@ -283,7 +270,7 @@ export default function EcosystemDashboardClient({
         <DataTable
           headers={[
             { key: 'name', label: 'Program Name' },
-            { key: 'partner', label: 'OEM / Partner' },
+            { key: 'partner.name', label: 'OEM / Partner' },
             { key: 'ownerName', label: 'Program Owner' },
             { key: 'sopDate', label: 'Target SOP' },
             { key: 'volumeFirstYear', label: '12M Target Volume' },
@@ -293,7 +280,7 @@ export default function EcosystemDashboardClient({
           ]}
           data={filteredProjects}
           renderRow={(p: Project) => {
-            const matched = p.ownerName ? resolvePerson(p.ownerName) : null;
+            const matched = p.ownerName ? resolvePerson(people, p.ownerName) : null;
 
             return (
               <tr key={p.id}>

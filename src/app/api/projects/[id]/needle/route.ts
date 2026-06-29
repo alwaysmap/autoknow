@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/db';
+import { jsonError, serverError } from '../../../../../lib/api';
+import { mapNeedleInput } from '../../../../../lib/needle';
 
 export async function POST(
   req: Request,
@@ -9,7 +11,7 @@ export async function POST(
     const { id } = await props.params;
     const projectId = parseInt(id, 10);
     if (isNaN(projectId)) {
-      return NextResponse.json({ error: 'Invalid project ID' }, { status: 400 });
+      return jsonError('Invalid project ID', 400);
     }
 
     const body = await req.json();
@@ -17,10 +19,10 @@ export async function POST(
 
     const proj = await prisma.project.findUnique({ where: { id: projectId } });
     if (!proj) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+      return jsonError('Project not found', 404);
     }
 
-    const finalNeedle = theNeedle || proj.theNeedle;
+    const finalNeedle = mapNeedleInput(theNeedle) || proj.theNeedle;
     const finalProgress = hillChartProgress !== undefined ? parseInt(hillChartProgress, 10) : proj.hillChartProgress;
 
     const updatedProject = await prisma.project.update({
@@ -42,7 +44,7 @@ export async function POST(
     });
 
     return NextResponse.json({ project: updatedProject }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return serverError(error, 'POST /api/projects/[id]/needle');
   }
 }

@@ -56,10 +56,14 @@ export default function NeedleGauge({
   const updateValueFromCoords = (clientX: number, clientY: number) => {
     if (!svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
-    
-    // The pivot point of the needle in view coordinates is at x=50% and y=105/52 of the SVG height.
+
+    // The needle pivots about viewBox point (100, 105). The rendered SVG shows only
+    // the top band of that geometry (viewBox height 80 drawn ~52px tall after the
+    // height/overflow styling), so the pivot sits below the visible box. PIVOT_Y_RATIO
+    // is the calibrated screen offset of that pivot relative to the element height.
+    const PIVOT_Y_RATIO = 105 / 52;
     const pivotX = rect.left + rect.width / 2;
-    const pivotY = rect.top + (rect.height * 105) / 52;
+    const pivotY = rect.top + rect.height * PIVOT_Y_RATIO;
     
     const dx = clientX - pivotX;
     const dy = clientY - pivotY;
@@ -90,7 +94,11 @@ export default function NeedleGauge({
   };
 
   const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
-    e.currentTarget.releasePointerCapture(e.pointerId);
+    // Guard release: pointerleave can fire this handler when no capture is held,
+    // and releasePointerCapture would otherwise throw InvalidStateError.
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
     setIsDragging(false);
   };
 

@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/db';
+import { jsonError, serverError } from '../../../lib/api';
 
 export async function GET() {
   try {
     const people = await prisma.person.findMany();
     return NextResponse.json({ people });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return serverError(error, 'GET /api/people');
   }
 }
 
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
     const { name, email, currentPartnerId, notes } = body;
 
     if (!name || !email || !currentPartnerId) {
-      return NextResponse.json({ error: 'Missing name, email, or currentPartnerId' }, { status: 400 });
+      return jsonError('Missing name, email, or currentPartnerId', 400);
     }
 
     const person = await prisma.person.create({
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ person }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return serverError(error, 'POST /api/people');
   }
 }

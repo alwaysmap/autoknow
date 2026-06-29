@@ -4,12 +4,18 @@ import { prisma } from '../../../lib/db';
 import styles from './page.module.css';
 import NeedleGauge from '../../../components/NeedleGauge';
 import { formatNeedleValue } from '../../../lib/needle';
+import { findPartnerInText } from '../../../lib/associations';
 
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ filter?: string }>;
+}
+
+interface TeamMember {
+  email: string;
+  role?: string;
 }
 
 export default async function PartnerDetailPage(props: PageProps) {
@@ -73,10 +79,8 @@ export default async function PartnerDetailPage(props: PageProps) {
 
   if (partner.type?.name === 'Supplier') {
     projects.forEach(project => {
-      // Find matching OEM name inside the project name
-      const matchingOem = oems.find(oem => 
-        project.name.toLowerCase().includes(oem.name.toLowerCase())
-      );
+      // Find matching OEM name inside the project name (heuristic; see lib/associations).
+      const matchingOem = findPartnerInText(oems, project.name);
 
       const groupKey = matchingOem ? matchingOem.name : 'General / Independent';
       if (!groupedProjects[groupKey]) {
@@ -206,7 +210,7 @@ export default async function PartnerDetailPage(props: PageProps) {
           <div className={styles.sidebarCard}>
             <h3>Current Team</h3>
             {(() => {
-              const googleTeam = (partner.googleTeam as any[]) || [];
+              const googleTeam = (partner.googleTeam as TeamMember[] | null) || [];
               if (googleTeam.length === 0) {
                 return <p className={styles.empty}>No Google team assigned.</p>;
               }

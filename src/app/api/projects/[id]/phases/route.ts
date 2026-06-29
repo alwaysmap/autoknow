@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/db';
+import { jsonError, serverError } from '../../../../../lib/api';
 
 export async function POST(
   req: Request,
@@ -9,14 +10,14 @@ export async function POST(
     const { id } = await props.params;
     const projectId = parseInt(id, 10);
     if (isNaN(projectId)) {
-      return NextResponse.json({ error: 'Invalid project ID' }, { status: 400 });
+      return jsonError('Invalid project ID', 400);
     }
 
     const body = await req.json();
     const { name, forecastedDuration } = body;
 
     if (!name) {
-      return NextResponse.json({ error: 'Missing phase name' }, { status: 400 });
+      return jsonError('Missing phase name', 400);
     }
 
     const phase = await prisma.phase.create({
@@ -38,7 +39,7 @@ export async function POST(
     });
 
     return NextResponse.json({ phase }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return serverError(error, 'POST /api/projects/[id]/phases');
   }
 }

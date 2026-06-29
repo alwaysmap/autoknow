@@ -275,7 +275,7 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
                             <p className={styles.actionDesc}>{action.description}</p>
                             <span className={styles.actionContext}>
                               Project:{' '}
-                              <Link href={`/partners/${action.phase.project.id}`}>
+                              <Link href={`/projects/${action.phase.project.id}`}>
                                 {action.phase.project.name}
                               </Link>{' '}
                               ({action.phase.name})
@@ -309,7 +309,11 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
                     <div className={styles.actionDetails}>
                       <p className={styles.actionDesc}>{action.description}</p>
                       <span className={styles.actionContext}>
-                        Project: {action.phase.project.name} ({action.phase.name})
+                        Project:{' '}
+                        <Link href={`/projects/${action.phase.project.id}`}>
+                          {action.phase.project.name}
+                        </Link>{' '}
+                        ({action.phase.name})
                       </span>
                     </div>
                   </li>

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/db';
+import { jsonError, serverError } from '../../../../../lib/api';
 
 export async function POST(
   req: Request,
@@ -9,14 +10,14 @@ export async function POST(
     const { id } = await props.params;
     const personId = parseInt(id, 10);
     if (isNaN(personId)) {
-      return NextResponse.json({ error: 'Invalid person ID' }, { status: 400 });
+      return jsonError('Invalid person ID', 400);
     }
 
     const body = await req.json();
     const { partnerId, role, startDate, endDate } = body;
 
     if (!partnerId || !role || !startDate) {
-      return NextResponse.json({ error: 'Missing partnerId, role, or startDate' }, { status: 400 });
+      return jsonError('Missing partnerId, role, or startDate', 400);
     }
 
     const affiliation = await prisma.personAffiliation.create({
@@ -30,7 +31,7 @@ export async function POST(
     });
 
     return NextResponse.json({ affiliation }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return serverError(error, 'POST /api/people/[id]/affiliations');
   }
 }

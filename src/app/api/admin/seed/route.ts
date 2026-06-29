@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { wipeAllData, seedCoreData, seedMockData } from '../../../../lib/seed';
+import { adminOperationsAllowed, jsonError, serverError } from '../../../../lib/api';
 
 export async function POST(req: NextRequest) {
+  if (!adminOperationsAllowed(req)) {
+    return jsonError('Unauthorized: admin operations are disabled in this environment', 403);
+  }
   try {
     const body = await req.json();
     const { mode } = body;
@@ -22,8 +26,7 @@ export async function POST(req: NextRequest) {
     } else {
       return NextResponse.json({ error: `Invalid mode: ${mode}. Expected 'wipe', 'core', or 'mock'.` }, { status: 400 });
     }
-  } catch (error: any) {
-    console.error('Seed API error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return serverError(error, 'POST /api/admin/seed');
   }
 }

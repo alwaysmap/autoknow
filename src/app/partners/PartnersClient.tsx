@@ -3,6 +3,8 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
+import { deriveEmail, normalizeHandle } from '../../lib/auth';
+import { resolvePerson } from '../../lib/people';
 import styles from './page.module.css';
 
 interface Project {
@@ -41,45 +43,26 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
   const [selectedType, setSelectedType] = useState<string>('All');
   const [myPartnersOnly, setMyPartnersOnly] = useState<boolean>(false);
 
-  // Derive user email and handle for filtering
-  const userEmail = useMemo(() => {
-    if (currentUser.includes('@')) {
-      return currentUser.startsWith('@') ? `${currentUser.replace('@', '')}@google.com` : currentUser;
-    }
-    return `${currentUser}@google.com`;
-  }, [currentUser]);
+  // Derive the current user's canonical email/handle once for filtering.
+  const userEmail = useMemo(() => deriveEmail(currentUser), [currentUser]);
+  const userHandle = useMemo(() => normalizeHandle(currentUser), [currentUser]);
 
-  const userHandle = useMemo(() => {
-    return currentUser.replace('@', '').toLowerCase();
-  }, [currentUser]);
+  // Whether a project owner / employee / affiliate string refers to the current user.
+  // Matches on canonical email or bare handle only — never a name substring (which
+  // previously made "My partners" include people whose name merely contained the handle).
+  const isCurrentUser = (value: string | null | undefined) => {
+    if (!value) return false;
+    return deriveEmail(value) === userEmail || normalizeHandle(value) === userHandle;
+  };
 
-  // Helper check to determine if a partner belongs to the current user
   const isMyPartner = (partner: Partner) => {
-    const isTel = partner.projects.some((p) => {
-      if (!p.ownerName) return false;
-      const ownerClean = p.ownerName.toLowerCase().replace('@', '');
-      return (
-        p.ownerName.toLowerCase() === currentUser.toLowerCase() ||
-        ownerClean === userHandle ||
-        p.ownerName.toLowerCase() === userEmail.toLowerCase()
-      );
-    });
-
+    const isTel = partner.projects.some((p) => isCurrentUser(p.ownerName));
     if (isTel) return true;
 
-    const isEmployee = partner.currentEmployees.some(
-      (e) => e.email.toLowerCase() === userEmail.toLowerCase() || e.name.toLowerCase().includes(userHandle)
-    );
-
+    const isEmployee = partner.currentEmployees.some((e) => isCurrentUser(e.email));
     if (isEmployee) return true;
 
-    const isAffiliated = partner.personAffiliations.some(
-      (pa) =>
-        pa.person.email.toLowerCase() === userEmail.toLowerCase() ||
-        pa.person.name.toLowerCase().includes(userHandle)
-    );
-
-    return isAffiliated;
+    return partner.personAffiliations.some((pa) => isCurrentUser(pa.person.email));
   };
 
   // Filter partners list
@@ -125,20 +108,6 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
       };
     });
   }, [filteredPartners]);
-
-  // Person resolver logic to build biography page links
-  const resolvePerson = (tel: string) => {
-    const clean = tel.toLowerCase().replace('@', '').trim();
-    return people.find((p) => {
-      const emailHandle = p.email.split('@')[0].toLowerCase();
-      const pName = p.name.toLowerCase();
-      return (
-        p.email.toLowerCase() === clean ||
-        emailHandle === clean ||
-        pName.includes(clean)
-      );
-    });
-  };
 
   return (
     <div className={styles.container}>
@@ -232,7 +201,7 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
                       <span className={styles.empty}>None</span>
                     ) : (
                       p.tels.map((tel: string, idx: number) => {
-                        const matched = resolvePerson(tel);
+                        const matched = resolvePerson(people, tel);
                         return (
                           <span key={tel}>
                             {idx > 0 && ', '}
@@ -255,7 +224,7 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
                       <span className={styles.empty}>None</span>
                     ) : (
                       p.team.map((email: string, idx: number) => {
-                        const matched = resolvePerson(email);
+                        const matched = resolvePerson(people, email);
                         return (
                           <span key={email}>
                             {idx > 0 && ', '}

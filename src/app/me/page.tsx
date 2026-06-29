@@ -1,4 +1,6 @@
 import { prisma } from '../../lib/db';
+import { deriveEmail, normalizeHandle } from '../../lib/auth';
+import { getCurrentUser } from '../../lib/session';
 import MeClient from './MeClient';
 
 export const dynamic = 'force-dynamic';
@@ -9,11 +11,13 @@ interface SearchParams {
 
 export default async function MePage(props: { searchParams: Promise<SearchParams> }) {
   const searchParams = await props.searchParams;
-  const user = searchParams.user || '@dylan';
+  // Default to the signed-in user; `?user=` is an explicit "view as" override
+  // (this internal tool has no auth layer yet — see lib/auth.ts).
+  const user = searchParams.user || (await getCurrentUser()).display;
 
-  // Derive user email and clean handle
-  const userClean = user.toLowerCase().replace('@', '');
-  const userEmail = user.includes('@') ? (user.startsWith('@') ? `${userClean}@google.com` : user) : `${userClean}@google.com`;
+  // Derive user email and clean handle from the single auth helper.
+  const userClean = normalizeHandle(user);
+  const userEmail = deriveEmail(user);
 
   // 1. Fetch Person biographical profile and career history
   const person = await prisma.person.findFirst({

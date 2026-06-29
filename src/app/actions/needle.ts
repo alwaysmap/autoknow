@@ -2,11 +2,13 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '../../lib/db';
+import { mapNeedleInput } from '../../lib/needle';
+import { getCurrentUser } from '../../lib/session';
 
 export async function updateNeedleStatus(formData: FormData) {
   const scope = formData.get('scope') as 'project' | 'partner' | 'phase';
   const targetIdStr = formData.get('targetId') as string;
-  const theNeedleVal = formData.get('theNeedle') as string; // 'Low', 'Medium', 'High', 'Critical'
+  const theNeedleVal = formData.get('theNeedle') as string; // '1'..'4', a label, or a drag float
   const notes = formData.get('notes') as string || null;
   const hillChartProgressStr = formData.get('hillChartProgress') as string;
   const status = formData.get('status') as string || null;
@@ -16,13 +18,9 @@ export async function updateNeedleStatus(formData: FormData) {
     throw new Error('Invalid target ID');
   }
 
-  // Parse risk levels helper mapping
-  let theNeedle = 'Low';
-  if (theNeedleVal === '1') theNeedle = 'Low';
-  else if (theNeedleVal === '2') theNeedle = 'Medium';
-  else if (theNeedleVal === '3') theNeedle = 'High';
-  else if (theNeedleVal === '4') theNeedle = 'Critical';
-  else if (theNeedleVal) theNeedle = theNeedleVal;
+  // Normalize the needle value to a canonical risk label (defaulting to 'Low').
+  const theNeedle = mapNeedleInput(theNeedleVal) || 'Low';
+  const source = (await getCurrentUser()).handle;
 
   const hillChartProgress = hillChartProgressStr ? parseInt(hillChartProgressStr, 10) : NaN;
 
@@ -46,14 +44,22 @@ export async function updateNeedleStatus(formData: FormData) {
         theNeedle,
         hillChartProgress: finalProgress,
         notes,
-        source: 'dylan'
+        source
       }
     });
 
     revalidatePath(`/projects/${targetId}`);
   } else if (scope === 'partner') {
-    const finalProgress = !isNaN(hillChartProgress) ? hillChartProgress : 0;
-    
+    // Preserve the latest recorded progress when this update is risk-only,
+    // matching the project/phase scopes (which never reset progress to 0).
+    const latestPartnerState = await prisma.partnerState.findFirst({
+      where: { partnerId: targetId },
+      orderBy: { timestamp: 'desc' }
+    });
+    const finalProgress = !isNaN(hillChartProgress)
+      ? hillChartProgress
+      : (latestPartnerState?.hillChartProgress ?? 0);
+
     // Log partner relationship history state
     await prisma.partnerState.create({
       data: {
@@ -61,7 +67,7 @@ export async function updateNeedleStatus(formData: FormData) {
         theNeedle,
         hillChartProgress: finalProgress,
         notes,
-        source: 'dylan'
+        source
       }
     });
 

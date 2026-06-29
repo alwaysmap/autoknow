@@ -1,45 +1,8 @@
 import { prisma } from '../../lib/db';
+import { runMonteCarlo } from '../../lib/forecast';
 import ProgramsClient from './ProgramsClient';
 
 export const dynamic = 'force-dynamic';
-
-function lcg(seed: number) {
-  let val = seed;
-  return function() {
-    val = (val * 1664525 + 1013904223) % 4294967296;
-    return val / 4294967296;
-  };
-}
-
-function runMonteCarlo(remainingPhasesCount: number, seed: number): { p50: number; p85: number; p95: number } {
-  if (remainingPhasesCount === 0) {
-    return { p50: 0, p85: 0, p95: 0 };
-  }
-
-  const rand = lcg(seed);
-  const runs = 1000;
-  const durations: number[] = [];
-
-  for (let r = 0; r < runs; r++) {
-    let projectDuration = 0;
-    for (let p = 0; p < remainingPhasesCount; p++) {
-      const u1 = rand() || 0.0001;
-      const u2 = rand() || 0.0001;
-      const normalRand = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-      const phaseDuration = Math.max(3, 12 + normalRand * 4);
-      projectDuration += phaseDuration;
-    }
-    durations.push(projectDuration);
-  }
-
-  durations.sort((a, b) => a - b);
-
-  return {
-    p50: Math.round(durations[Math.floor(runs * 0.50)]),
-    p85: Math.round(durations[Math.floor(runs * 0.85)]),
-    p95: Math.round(durations[Math.floor(runs * 0.95)])
-  };
-}
 
 export default async function ProgramsPage() {
   const projects = await prisma.project.findMany({

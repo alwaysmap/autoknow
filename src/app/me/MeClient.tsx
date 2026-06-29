@@ -5,6 +5,7 @@ import Link from 'next/link';
 import DataTable from '../../components/DataTable';
 import styles from './page.module.css';
 import { formatNeedleValue } from '../../lib/needle';
+import { deriveEmail } from '../../lib/auth';
 
 interface Partner {
   id: number;
@@ -137,7 +138,7 @@ export default function MeClient({
         <div className={styles.profileInfo}>
           <h1>{person ? person.name : currentUser.replace('@', '')}</h1>
           <span className={styles.userHandle}>
-            {currentUser} | {person ? person.email : `${currentUser.replace('@', '')}@google.com`}
+            {currentUser} | {person ? person.email : deriveEmail(currentUser)}
           </span>
           {person?.notes && <p className={styles.bioNotes}>&ldquo;{person.notes}&rdquo;</p>}
         </div>

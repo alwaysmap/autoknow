@@ -17,6 +17,7 @@ model Partner {
   currentEmployees   Person[]            @relation("CurrentPartner")
   personAffiliations PersonAffiliation[]
   states             PartnerState[]
+  contextUrls        ContextUrl[]
   embedding          Unsupported("vector(768)")?
   website            String?
   internalDetailsUrl String?
@@ -68,6 +69,7 @@ model Phase {
 
   states             PhaseState[]
   actionItems        ActionItem[]
+  contextUrls        ContextUrl[]
   forecastedDuration Int               @default(30)
 }
 
@@ -112,12 +114,19 @@ model ActionItem {
 
 model ContextUrl {
   id           Int      @id @default(autoincrement())
-  projectId    Int
-  project      Project  @relation(fields: [projectId], references: [id])
+  // Ingested context attaches to whichever entity it is about. All optional so an
+  // AI classifier can place a pasted doc against a project, partner, and/or phase.
+  projectId    Int?
+  project      Project? @relation(fields: [projectId], references: [id])
+  partnerId    Int?
+  partner      Partner? @relation(fields: [partnerId], references: [id])
+  phaseId      Int?
+  phase        Phase?   @relation(fields: [phaseId], references: [id])
   url          String
   type         String   // "Chat", "Doc", "Gerrit"
   title        String?
-  ingestedText String?
+  ingestedText String?  // the AI-distilled digest, not the raw document
+  createdAt    DateTime @default(now())
   embedding    Unsupported("vector(768)")?
 }
 

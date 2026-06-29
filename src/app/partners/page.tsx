@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/db';
 import { PartnerQueries } from '../../lib/partnerQueries';
+import { getCurrentUser } from '../../lib/session';
 import PartnersClient from './PartnersClient';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,9 @@ interface SearchParams {
 
 export default async function PartnersPage(props: { searchParams: Promise<SearchParams> }) {
   const searchParams = await props.searchParams;
-  const user = searchParams.user || '@dylan';
+  // Default to the signed-in user; `?user=` is an explicit "view as" override
+  // (this internal tool has no auth layer yet — see lib/auth.ts).
+  const user = searchParams.user || (await getCurrentUser()).display;
 
   const queries = new PartnerQueries(prisma);
   const partners = await queries.getAllPartners();

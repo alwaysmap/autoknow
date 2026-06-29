@@ -6,6 +6,11 @@ import ProjectStatusDashboard from '../../../components/ProjectStatusDashboard';
 import ProjectAdminControls from '../../../components/ProjectAdminControls';
 import NeedleGauge from '../../../components/NeedleGauge';
 import PhaseManager from './PhaseManager';
+import { normalizeHandle } from '../../../lib/auth';
+import { getCurrentUser } from '../../../lib/session';
+import { resolvePerson } from '../../../lib/people';
+import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
+import { formatNeedleValue } from '../../../lib/needle';
 import {
   updateActionItem,
   updatePhaseState
@@ -47,6 +52,8 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
     return notFound();
   }
 
+  const currentUser = await getCurrentUser();
+
   const problemCount = project.phases.reduce(
     (sum, phase) => sum + phase.actionItems.filter(item => item.status === 'Pending').length,
     0
@@ -61,42 +68,28 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
   const suppliers = await prisma.partner.findMany({ where: { type: { name: 'Supplier' } } });
   const people = await prisma.person.findMany();
 
-  // Identify the OEM for the project
-  const matchedOem = oems.find(oem => project.name.toLowerCase().includes(oem.name.toLowerCase()));
+  // Identify the OEM for the project (heuristic name match; see lib/associations).
+  const matchedOem = findPartnerInText(oems, project.name);
   const oemPartner = matchedOem || (project.partner.type?.name === 'OEM' ? project.partner : null);
 
-  // Identify associated Suppliers
-  const associatedSuppliers = new Map<number, any>();
+  // Identify associated Suppliers by scanning the project name, phase notes, and
+  // action item text for supplier names (the schema has no direct project->supplier link).
+  const associatedSuppliers = new Map<number, (typeof suppliers)[number]>();
   if (project.partner.type?.name === 'Supplier') {
     associatedSuppliers.set(project.partner.id, project.partner);
   }
 
-  suppliers.forEach(supplier => {
-    if (project.name.toLowerCase().includes(supplier.name.toLowerCase())) {
-      associatedSuppliers.set(supplier.id, supplier);
-    }
-  });
+  const supplierSearchText = [
+    project.name,
+    ...project.phases.flatMap(phase => [
+      phase.states[0]?.notes || '',
+      ...phase.actionItems.flatMap(ai => [ai.description, ai.assignedTo || ''])
+    ])
+  ].join(' ');
 
-  project.phases.forEach(phase => {
-    const latestState = phase.states[0];
-    const notesText = latestState?.notes?.toLowerCase() || '';
-    
-    suppliers.forEach(supplier => {
-      const sName = supplier.name.toLowerCase();
-      if (notesText.includes(sName)) {
-        associatedSuppliers.set(supplier.id, supplier);
-      }
-      
-      phase.actionItems.forEach(ai => {
-        if (
-          ai.description.toLowerCase().includes(sName) || 
-          (ai.assignedTo || '').toLowerCase().includes(sName)
-        ) {
-          associatedSuppliers.set(supplier.id, supplier);
-        }
-      });
-    });
-  });
+  for (const supplier of findPartnersInText(suppliers, supplierSearchText)) {
+    associatedSuppliers.set(supplier.id, supplier);
+  }
 
   const supplierList = Array.from(associatedSuppliers.values());
 
@@ -353,13 +346,15 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
                 {project.states.length === 0 ? (
                   <p className={styles.emptyHistory}>No overall project updates logged yet.</p>
                 ) : (
-                  project.states.map((state) => (
-                    <div key={state.id} className={state.theNeedle ? `${styles.timelineItem}` : `${styles.timelineItem} ${styles.progressUpdateOnly}`}>
+                  project.states.map((state) => {
+                    const needleLabel = formatNeedleValue(state.theNeedle);
+                    return (
+                    <div key={state.id} className={styles.timelineItem}>
                       <div className={styles.timelineMarker}></div>
                       <div className={styles.timelineContent}>
                         <div className={styles.timelineHeader}>
-                          <span className={`${styles.timelineBadge} ${styles['needle' + state.theNeedle]}`}>
-                            {state.theNeedle} Risk
+                          <span className={`${styles.timelineBadge} ${styles['needle' + needleLabel]}`}>
+                            {needleLabel} Risk
                           </span>
                           <span className={styles.timelineProgress}>Status Logged</span>
                           <span className={styles.timelineDate}>{new Date(state.timestamp).toLocaleString()}</span>
@@ -367,15 +362,12 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
                         {state.notes && (() => {
                           const rawHandle = state.source && !state.source.includes(' ') && !state.source.includes('http')
                             ? state.source
-                            : (project.ownerName || 'dylan');
-                          const cleanHandle = rawHandle.replace('@', '').split('@')[0].toLowerCase();
+                            : (project.ownerName || currentUser.handle);
+                          const cleanHandle = normalizeHandle(rawHandle);
                           const displayHandle = `@${cleanHandle}`;
-                          
-                          const matchedPerson = people.find(p => 
-                            p.email.toLowerCase().split('@')[0] === cleanHandle || 
-                            p.name.toLowerCase().includes(cleanHandle)
-                          );
-                          
+
+                          const matchedPerson = resolvePerson(people, rawHandle);
+
                           return (
                             <p className={styles.timelineNote}>
                               {matchedPerson ? (
@@ -393,7 +385,8 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
                         })()}
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </section>

@@ -1,58 +1,76 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from './db';
+import { embedText } from './gemini';
 
-export function generateDeterministicEmbedding(text: string): number[] {
-  const embedding = new Array(768).fill(0);
-  let hash = 0;
-  for (let i = 0; i < text.length; i++) {
-    hash = text.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  
-  for (let i = 0; i < 768; i++) {
-    const x = Math.sin(hash + i) * 10000;
-    embedding[i] = x - Math.floor(x);
-  }
-  return embedding;
+// Re-exported for callers that still want the raw fallback; real ingest/search go
+// through gemini.embedText (Gemini when configured, deterministic otherwise).
+export { generateDeterministicEmbedding } from './embedding-fallback';
+
+export interface ContextSearchRow {
+  id: number;
+  projectId: number | null;
+  url: string;
+  type: string;
+  title: string | null;
+  ingestedText: string | null;
+  similarity: number;
 }
 
-export async function ingestRecord(projectId: number, url: string, type: string, title: string, ingestedText: string) {
-  try {
-    // Ensure pgvector extension exists
-    await prisma.$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS vector;');
-  } catch (err) {
-    console.warn('Failed to ensure vector extension (might be permission issue or already loaded):', err);
-  }
-
-  const embedding = generateDeterministicEmbedding(ingestedText);
-  const vectorStr = `[${embedding.join(',')}]`;
-  
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO "ContextUrl" ("projectId", "url", "type", "title", "ingestedText", "embedding")
-     VALUES ($1, $2, $3, $4, $5, $6::vector)`,
-    projectId,
-    url,
-    type,
-    title,
-    ingestedText,
-    vectorStr
-  );
+function toVectorLiteral(embedding: number[]): string {
+  return `[${embedding.join(',')}]`;
 }
 
-export async function searchVectorDatabase(query: string, limit: number = 10): Promise<any[]> {
-  try {
-    const embedding = generateDeterministicEmbedding(query);
-    const vectorStr = `[${embedding.join(',')}]`;
+// Ensure the pgvector extension exists at most once per process, instead of issuing
+// a CREATE EXTENSION on every ingest. The promise is cached; on failure it resets so
+// a later call can retry.
+let extensionEnsured: Promise<void> | null = null;
+function ensureVectorExtension(): Promise<void> {
+  if (!extensionEnsured) {
+    extensionEnsured = prisma
+      .$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS vector;')
+      .then(() => undefined)
+      .catch((err) => {
+        console.warn('Failed to ensure vector extension:', err);
+        extensionEnsured = null;
+      });
+  }
+  return extensionEnsured;
+}
 
-    // Order by cosine distance (<=> operator)
-    const results = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id, "projectId", url, type, title, "ingestedText", 
-       (1 - (embedding <=> $1::vector)) as similarity 
-       FROM "ContextUrl" 
-       WHERE embedding IS NOT NULL 
-       ORDER BY embedding <=> $1::vector 
-       LIMIT $2`,
-      vectorStr,
-      limit
-    );
+export async function ingestRecord(
+  projectId: number,
+  url: string,
+  type: string,
+  title: string,
+  ingestedText: string,
+) {
+  await ensureVectorExtension();
+
+  const vectorStr = toVectorLiteral(await embedText(ingestedText));
+
+  // Parameterized via Prisma.sql — vectorStr is bound, then cast to vector.
+  await prisma.$executeRaw`
+    INSERT INTO "ContextUrl" ("projectId", "url", "type", "title", "ingestedText", "embedding")
+    VALUES (${projectId}, ${url}, ${type}, ${title}, ${ingestedText}, ${vectorStr}::vector)
+  `;
+}
+
+export async function searchVectorDatabase(
+  query: string,
+  limit: number = 10,
+): Promise<ContextSearchRow[]> {
+  try {
+    const vectorStr = toVectorLiteral(await embedText(query));
+
+    // Order by cosine distance (<=> operator); all inputs are bound parameters.
+    const results = await prisma.$queryRaw<ContextSearchRow[]>(Prisma.sql`
+      SELECT id, "projectId", url, type, title, "ingestedText",
+             (1 - (embedding <=> ${vectorStr}::vector)) as similarity
+      FROM "ContextUrl"
+      WHERE embedding IS NOT NULL
+      ORDER BY embedding <=> ${vectorStr}::vector
+      LIMIT ${limit}
+    `);
 
     return results || [];
   } catch (err) {

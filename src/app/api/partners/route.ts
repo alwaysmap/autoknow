@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/db';
+import { jsonError, serverError } from '../../../lib/api';
 
 export async function GET() {
   try {
@@ -10,8 +11,8 @@ export async function GET() {
       }
     });
     return NextResponse.json({ partners });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return serverError(error, 'GET /api/partners');
   }
 }
 
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
     const { name, type, region, website, internalDetailsUrl, summary, phone } = body;
     
     if (!name || !type) {
-      return NextResponse.json({ error: 'Missing name or type' }, { status: 400 });
+      return jsonError('Missing name or type', 400);
     }
 
     let typeId = null;
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ partner }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return serverError(error, 'POST /api/partners');
   }
 }

@@ -6,6 +6,7 @@ import DataTable from '../../components/DataTable';
 import EcosystemSopChart from '../../components/EcosystemSopChart';
 import styles from './EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../../lib/needle';
+import { resolvePerson } from '../../lib/people';
 
 interface Project {
   id: number;
@@ -71,18 +72,6 @@ export default function EcosystemSummaryClient({
   p85LeadTime,
   people
 }: EcosystemSummaryClientProps) {
-  const resolvePerson = (owner: string) => {
-    const clean = owner.toLowerCase().replace('@', '').trim();
-    return people.find((p) => {
-      const emailHandle = p.email.split('@')[0].toLowerCase();
-      const pName = p.name.toLowerCase();
-      return (
-        p.email.toLowerCase() === clean ||
-        emailHandle === clean ||
-        pName.includes(clean)
-      );
-    });
-  };
   const [minRiskVal, setMinRiskVal] = useState(0); // 0=Low, 1=Medium, 2=High, 3=Critical
   const [selectedOwner, setSelectedOwner] = useState('All');
   const [minProgress, setMinProgress] = useState(0);
@@ -409,7 +398,7 @@ export default function EcosystemSummaryClient({
                 <td>
                   {(() => {
                     if (!p.ownerName) return 'Unassigned';
-                    const matched = resolvePerson(p.ownerName);
+                    const matched = resolvePerson(people, p.ownerName);
                     if (matched) {
                       return (
                         <Link href={`/people/${matched.id}`} className={styles.ownerLink}>

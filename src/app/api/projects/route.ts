@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/db';
+import { jsonError, serverError } from '../../../lib/api';
 
 export async function GET() {
   try {
@@ -7,8 +8,8 @@ export async function GET() {
       where: { isArchived: false }
     });
     return NextResponse.json({ projects });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return serverError(error, 'GET /api/projects');
   }
 }
 
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
     const { name, partnerId, ownerName, sopDate, volumeFirstYear } = body;
     
     if (!name || !partnerId) {
-      return NextResponse.json({ error: 'Missing name or partnerId' }, { status: 400 });
+      return jsonError('Missing name or partnerId', 400);
     }
 
     const project = await prisma.project.create({
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ project }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return serverError(error, 'POST /api/projects');
   }
 }

@@ -84,8 +84,10 @@ export default function DataTable({
 
   // 2. Paginate the sorted data
   const totalPages = Math.max(1, Math.ceil(sortedData.length / pageSize));
-  
-  // Guard current page range
+
+  // Guard current page range for rendering. The Prev/Next handlers below base their
+  // next value on activePage (not the stored currentPage), so when the data shrinks
+  // past the stored page the controls still move correctly without needing an effect.
   const activePage = Math.min(currentPage, totalPages);
 
   const paginatedData = useMemo(() => {
@@ -151,14 +153,14 @@ export default function DataTable({
       </table>
 
       {/* Pagination Footer */}
-      {data.length > 0 && (
+      {sortedData.length > 0 && (
         <div className={styles.pagination}>
           <div className={styles.info}>
-            Showing {startIndex}-{endIndex} of {data.length} results
+            Showing {startIndex}-{endIndex} of {sortedData.length} results
           </div>
           <div className={styles.controls}>
             <button
-              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              onClick={() => setCurrentPage(Math.max(1, activePage - 1))}
               disabled={activePage === 1}
               className={styles.pageButton}
             >
@@ -168,7 +170,7 @@ export default function DataTable({
               Page {activePage} of {totalPages}
             </span>
             <button
-              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+              onClick={() => setCurrentPage(Math.min(totalPages, activePage + 1))}
               disabled={activePage === totalPages}
               className={styles.pageButton}
             >

@@ -57,7 +57,10 @@ export default function HillChartControl({ value, onChange, className = '' }: Hi
   };
 
   const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
-    e.currentTarget.releasePointerCapture(e.pointerId);
+    // Guard release so pointerleave-without-capture can't throw InvalidStateError.
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
     setIsDragging(false);
   };
 

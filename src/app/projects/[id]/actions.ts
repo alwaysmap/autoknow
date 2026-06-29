@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '../../../lib/db';
+import { mapNeedleInput } from '../../../lib/needle';
+import { getCurrentUser } from '../../../lib/session';
 
 export async function updateActionItem(formData: FormData) {
   const actionItemIdStr = formData.get('actionItemId') as string;
@@ -35,12 +37,7 @@ export async function updateProjectMetrics(formData: FormData) {
   const volumeFirstYearStr = formData.get('volumeFirstYear') as string;
   const notes = formData.get('notes') as string || null;
 
-  let theNeedle = 'Low';
-  if (theNeedleVal === '1') theNeedle = 'Low';
-  else if (theNeedleVal === '2') theNeedle = 'Medium';
-  else if (theNeedleVal === '3') theNeedle = 'High';
-  else if (theNeedleVal === '4') theNeedle = 'Critical';
-  else if (theNeedleVal) theNeedle = theNeedleVal;
+  const theNeedle = mapNeedleInput(theNeedleVal) || 'Low';
 
   const projectId = parseInt(projectIdStr);
   const hillChartProgress = parseInt(hillChartProgressStr);
@@ -65,7 +62,7 @@ export async function updateProjectMetrics(formData: FormData) {
         theNeedle,
         hillChartProgress: !isNaN(hillChartProgress) ? hillChartProgress : 0,
         notes,
-        source: 'dylan'
+        source: (await getCurrentUser()).handle
       }
     });
   }
@@ -83,20 +80,15 @@ export async function updatePhaseState(formData: FormData) {
   const phaseId = parseInt(phaseIdStr);
   const hillChartProgress = parseInt(hillChartProgressStr);
 
-  let theNeedle = 'Low';
   if (!isNaN(phaseId)) {
-    if (!theNeedleVal) {
+    // When no needle value is supplied, preserve the phase's latest risk level.
+    let theNeedle = mapNeedleInput(theNeedleVal);
+    if (!theNeedle) {
       const latestState = await prisma.phaseState.findFirst({
         where: { phaseId },
         orderBy: { timestamp: 'desc' }
       });
       theNeedle = latestState?.theNeedle || 'Low';
-    } else {
-      if (theNeedleVal === '1') theNeedle = 'Low';
-      else if (theNeedleVal === '2') theNeedle = 'Medium';
-      else if (theNeedleVal === '3') theNeedle = 'High';
-      else if (theNeedleVal === '4') theNeedle = 'Critical';
-      else theNeedle = theNeedleVal;
     }
 
     await prisma.phaseState.create({
@@ -131,21 +123,25 @@ export async function deleteProject(formData: FormData) {
   const projectIdStr = formData.get('projectId') as string;
   const projectId = parseInt(projectIdStr);
   if (!isNaN(projectId)) {
-    const phases = await prisma.phase.findMany({ where: { projectId } });
+    const phases = await prisma.phase.findMany({ where: { projectId }, select: { id: true } });
     const phaseIds = phases.map(p => p.id);
-    await prisma.actionItem.deleteMany({ where: { phaseId: { in: phaseIds } } });
-    await prisma.phaseState.deleteMany({ where: { phaseId: { in: phaseIds } } });
-    await prisma.phaseDependency.deleteMany({
-      where: {
-        OR: [
-          { phaseId: { in: phaseIds } },
-          { dependsOnPhaseId: { in: phaseIds } }
-        ]
-      }
-    });
-    await prisma.phase.deleteMany({ where: { projectId } });
-    await prisma.contextUrl.deleteMany({ where: { projectId } });
-    await prisma.project.delete({ where: { id: projectId } });
+    // Delete the whole object graph atomically so a mid-sequence failure can't
+    // leave a half-deleted project behind.
+    await prisma.$transaction([
+      prisma.actionItem.deleteMany({ where: { phaseId: { in: phaseIds } } }),
+      prisma.phaseState.deleteMany({ where: { phaseId: { in: phaseIds } } }),
+      prisma.phaseDependency.deleteMany({
+        where: {
+          OR: [
+            { phaseId: { in: phaseIds } },
+            { dependsOnPhaseId: { in: phaseIds } }
+          ]
+        }
+      }),
+      prisma.phase.deleteMany({ where: { projectId } }),
+      prisma.contextUrl.deleteMany({ where: { projectId } }),
+      prisma.project.delete({ where: { id: projectId } })
+    ]);
   }
   redirect('/');
 }
@@ -159,21 +155,24 @@ export async function addPhase(formData: FormData) {
   const forecastedDuration = parseInt(durationStr, 10) || 30;
 
   if (!isNaN(projectId) && name) {
-    const phase = await prisma.phase.create({
-      data: {
-        projectId,
-        name: name.trim(),
-        forecastedDuration
-      }
-    });
+    // Create the phase and its initial state atomically.
+    await prisma.$transaction(async (tx) => {
+      const phase = await tx.phase.create({
+        data: {
+          projectId,
+          name: name.trim(),
+          forecastedDuration
+        }
+      });
 
-    await prisma.phaseState.create({
-      data: {
-        phaseId: phase.id,
-        status: 'Not Started',
-        theNeedle: 'Low',
-        hillChartProgress: 0
-      }
+      await tx.phaseState.create({
+        data: {
+          phaseId: phase.id,
+          status: 'Not Started',
+          theNeedle: 'Low',
+          hillChartProgress: 0
+        }
+      });
     });
   }
 
@@ -209,18 +208,20 @@ export async function deletePhase(formData: FormData) {
   const phaseId = parseInt(phaseIdStr, 10);
 
   if (!isNaN(phaseId)) {
-    await prisma.actionItem.deleteMany({ where: { phaseId } });
-    await prisma.phaseState.deleteMany({ where: { phaseId } });
-    await prisma.phaseDependency.deleteMany({
-      where: {
-        OR: [
-          { phaseId },
-          { dependsOnPhaseId: phaseId }
-        ]
-      }
-    });
-
-    await prisma.phase.delete({ where: { id: phaseId } });
+    // Remove the phase and everything that references it atomically.
+    await prisma.$transaction([
+      prisma.actionItem.deleteMany({ where: { phaseId } }),
+      prisma.phaseState.deleteMany({ where: { phaseId } }),
+      prisma.phaseDependency.deleteMany({
+        where: {
+          OR: [
+            { phaseId },
+            { dependsOnPhaseId: phaseId }
+          ]
+        }
+      }),
+      prisma.phase.delete({ where: { id: phaseId } })
+    ]);
   }
 
   revalidatePath(`/projects/${projectIdStr}`);

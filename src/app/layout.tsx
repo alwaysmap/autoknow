@@ -3,6 +3,8 @@ import { Geist, Geist_Mono, Rubik } from "next/font/google";
 import Link from 'next/link';
 import Search from '../components/Search';
 import OfflineIndicator from '../components/OfflineIndicator';
+import { getCurrentUser } from '../lib/session';
+import { auth, signIn, signOut, authConfigured } from '../auth';
 import "./globals.css";
 import styles from './layout.module.css';
 
@@ -34,11 +36,13 @@ export const viewport = {
   viewportFit: 'cover'
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getCurrentUser();
+  const session = authConfigured ? await auth() : null;
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${rubik.variable}`}>
       <body>
@@ -60,6 +64,9 @@ export default function RootLayout({
               <Link href="/me" className={styles.navLink}>
                 Me
               </Link>
+              <Link href="/ingest" className={styles.navLink}>
+                Ingest
+              </Link>
               <Link href="/admin" className={styles.navLink}>
                 Dev Console
               </Link>
@@ -70,7 +77,28 @@ export default function RootLayout({
             <Search />
             <div className={styles.sessionIndicator}>
               <div className={styles.googleLogo}>G</div>
-              <span>dylan@google.com</span>
+              <span>{user.email}</span>
+              {authConfigured && (
+                session?.user ? (
+                  <form
+                    action={async () => {
+                      'use server';
+                      await signOut({ redirectTo: '/login' });
+                    }}
+                  >
+                    <button type="submit" style={{ marginLeft: 8, fontSize: 12, cursor: 'pointer', background: 'none', border: 'none', textDecoration: 'underline', color: 'inherit' }}>Sign out</button>
+                  </form>
+                ) : (
+                  <form
+                    action={async () => {
+                      'use server';
+                      await signIn('google', { redirectTo: '/' });
+                    }}
+                  >
+                    <button type="submit" style={{ marginLeft: 8, fontSize: 12, cursor: 'pointer', background: 'none', border: 'none', textDecoration: 'underline', color: 'inherit' }}>Sign in</button>
+                  </form>
+                )
+              )}
             </div>
           </div>
         </nav>

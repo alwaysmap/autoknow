@@ -1,15 +1,18 @@
 const CACHE_NAME = 'autoknow-cache-v1';
+// Only precache real, served paths. '/globals.css' is NOT a served URL in Next
+// (global CSS is bundled under /_next/static), and because cache.addAll rejects
+// atomically if any single entry 404s, including it would fail the whole install.
 const PRECACHE_ASSETS = [
   '/',
-  '/globals.css',
   '/favicon.ico'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS);
-    })
+    caches.open(CACHE_NAME).then((cache) =>
+      // Cache entries independently so one failed asset can't abort the install.
+      Promise.allSettled(PRECACHE_ASSETS.map((asset) => cache.add(asset)))
+    )
   );
   self.skipWaiting();
 });

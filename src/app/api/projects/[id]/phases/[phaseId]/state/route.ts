@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../../../lib/db';
+import { jsonError, serverError } from '../../../../../../../lib/api';
+import { mapNeedleInput } from '../../../../../../../lib/needle';
 
 export async function POST(
   req: Request,
@@ -9,21 +11,21 @@ export async function POST(
     const { phaseId } = await props.params;
     const pId = parseInt(phaseId, 10);
     if (isNaN(pId)) {
-      return NextResponse.json({ error: 'Invalid phase ID' }, { status: 400 });
+      return jsonError('Invalid phase ID', 400);
     }
 
     const body = await req.json();
     const { status, theNeedle, hillChartProgress, notes, source } = body;
 
     if (!status) {
-      return NextResponse.json({ error: 'Missing status' }, { status: 400 });
+      return jsonError('Missing status', 400);
     }
 
     const phaseState = await prisma.phaseState.create({
       data: {
         phaseId: pId,
         status,
-        theNeedle: theNeedle || 'Low',
+        theNeedle: mapNeedleInput(theNeedle) || 'Low',
         hillChartProgress: hillChartProgress !== undefined ? parseInt(hillChartProgress, 10) : 0,
         notes: notes || null,
         source: source || 'API'
@@ -31,7 +33,7 @@ export async function POST(
     });
 
     return NextResponse.json({ phaseState }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return serverError(error, 'POST /api/projects/[id]/phases/[phaseId]/state');
   }
 }

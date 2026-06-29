@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../../../lib/db';
+import { jsonError, serverError } from '../../../../../../../lib/api';
 
 export async function POST(
   req: Request,
@@ -9,14 +10,14 @@ export async function POST(
     const { phaseId } = await props.params;
     const pId = parseInt(phaseId, 10);
     if (isNaN(pId)) {
-      return NextResponse.json({ error: 'Invalid phase ID' }, { status: 400 });
+      return jsonError('Invalid phase ID', 400);
     }
 
     const body = await req.json();
     const { description, assignedTo, status, nextStep, linkUrl } = body;
 
     if (!description || !status) {
-      return NextResponse.json({ error: 'Missing description or status' }, { status: 400 });
+      return jsonError('Missing description or status', 400);
     }
 
     const actionItem = await prisma.actionItem.create({
@@ -31,7 +32,7 @@ export async function POST(
     });
 
     return NextResponse.json({ actionItem }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return serverError(error, 'POST /api/projects/[id]/phases/[phaseId]/action-items');
   }
 }

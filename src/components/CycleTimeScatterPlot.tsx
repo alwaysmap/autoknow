@@ -117,8 +117,10 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
         {data.map((d, i) => {
           const pIndex = phaseNames.indexOf(d.phaseName);
           if (pIndex === -1) return null;
-          // Add some vertical jitter
-          const jitter = (Math.random() - 0.5) * 15;
+          // Deterministic vertical jitter seeded by the data point, so points keep a
+          // stable position across re-renders instead of jumping on every render.
+          const seed = (d.phaseId * 31 + i * 17) % 1000;
+          const jitter = (seed / 1000 - 0.5) * 15;
           const cx = xScale(d.cycleTimeDays);
           const cy = yScale(pIndex) + jitter;
           return (
