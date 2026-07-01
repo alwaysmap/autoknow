@@ -18,6 +18,37 @@ export const FEED_TYPES: FeedType[] = ['partner', 'program', 'person', 'context'
 /** All item kinds: the searchable types plus system-of-record event kinds. */
 export type FeedKind = FeedType | 'status' | 'phase' | 'relationship' | 'program-created';
 
+/**
+ * Broad categories the activity feed can be filtered by. Each maps from one or more
+ * FeedKinds — filtering to 'needle' yields the effect of a needle-change history, and
+ * 'hill' the phase progress history. Kept kind-derived so filters and rendering stay in
+ * sync as new update types are added.
+ */
+export type FeedCategory = 'needle' | 'hill' | 'context' | 'created' | 'entity';
+export function feedCategory(kind: FeedKind): FeedCategory {
+  switch (kind) {
+    case 'status':
+    case 'relationship':
+      return 'needle';
+    case 'phase':
+      return 'hill';
+    case 'context':
+      return 'context';
+    case 'program-created':
+      return 'created';
+    default:
+      return 'entity'; // partner / program / person (search hits)
+  }
+}
+
+/** Payload that lets an item render as a compact needle "list card" in the feed. */
+export interface NeedlePayload {
+  progress: number; // 0..100
+  health: string | null;
+  previousProgress?: number | null;
+  previousHealth?: string | null;
+}
+
 export interface FeedItem {
   id: string; // unique within a list, e.g. "partner-52" or "ps-9"
   kind: FeedKind;
@@ -28,6 +59,7 @@ export interface FeedItem {
   external?: boolean; // links out to an external system of record
   timestamp?: string | null; // ISO; present for activity events
   score?: number | null; // 0..1 relevance; present for search hits
+  needle?: NeedlePayload | null; // present on needle-change events -> renders a mini gauge
 }
 
 export interface FeedQuery {

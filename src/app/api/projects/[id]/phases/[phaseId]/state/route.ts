@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../../../lib/db';
 import { jsonError, serverError } from '../../../../../../../lib/api';
-import { mapNeedleInput } from '../../../../../../../lib/needle';
+import { parseHealth } from '../../../../../../../lib/health';
 
 export async function POST(
   req: Request,
@@ -25,7 +25,7 @@ export async function POST(
       data: {
         phaseId: pId,
         status,
-        theNeedle: mapNeedleInput(theNeedle) || 'Low',
+        theNeedle: parseHealth(theNeedle),
         hillChartProgress: hillChartProgress !== undefined ? parseInt(hillChartProgress, 10) : 0,
         notes: notes || null,
         source: source || 'API'

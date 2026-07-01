@@ -71,20 +71,28 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
     orderBy: { timestamp: 'desc' },
     take,
   });
-  for (const s of projectStates) {
+  for (let i = 0; i < projectStates.length; i++) {
+    const s = projectStates[i];
     const created = s.notes?.startsWith(PROGRAM_CREATED_NOTE);
     const kind: FeedKind = created ? 'program-created' : 'status';
+    // previous (older) state for this same project, for the ghost marker
+    const prev = created ? null : projectStates.slice(i + 1).find((o) => o.project.id === s.project.id) ?? null;
     push(events, {
       id: `ps-${s.id}`,
       kind,
-      title: created
-        ? 'Program created'
-        : `Needle ${formatNeedleValue(s.theNeedle)} · ${s.hillChartProgress}% progress`,
+      title: created ? 'Program created' : `Weekly update: ${formatNeedleValue(s.theNeedle)}`,
       subtitle: meta(s.project.name, s.source, true),
       detail: created ? null : s.notes,
-      href: `/projects/${s.project.id}`,
+      // Metric changes link to the value-over-time chart; creation links to the program.
+      href: created ? `/projects/${s.project.id}` : `/history/project/${s.project.id}`,
       external: false,
       timestamp: s.timestamp.toISOString(),
+      needle: created ? null : {
+        progress: s.hillChartProgress ?? 0,
+        health: s.theNeedle,
+        previousProgress: prev ? prev.hillChartProgress ?? null : null,
+        previousHealth: prev ? prev.theNeedle : null,
+      },
     });
   }
 
@@ -98,7 +106,7 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
   const phaseStates = await prisma.phaseState.findMany({
     where: phaseStateWhere,
     select: {
-      id: true, status: true, theNeedle: true, notes: true, source: true, timestamp: true,
+      id: true, phaseId: true, status: true, theNeedle: true, notes: true, source: true, timestamp: true,
       phase: { select: { name: true, project: { select: { id: true, name: true } } } },
     },
     orderBy: { timestamp: 'desc' },
@@ -108,10 +116,10 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
     push(events, {
       id: `phs-${s.id}`,
       kind: 'phase',
-      title: `${s.phase.name}: ${s.status} · ${formatNeedleValue(s.theNeedle)} risk`,
+      title: `${s.phase.name}: ${s.status}`,
       subtitle: meta(s.phase.project.name, s.source, true),
       detail: s.notes,
-      href: `/projects/${s.phase.project.id}`,
+      href: `/history/phase/${s.phaseId}`,
       external: false,
       timestamp: s.timestamp.toISOString(),
     });
@@ -123,22 +131,30 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
     const partnerStates = await prisma.partnerState.findMany({
       where: partnerStateWhere,
       select: {
-        id: true, theNeedle: true, notes: true, source: true, timestamp: true,
+        id: true, theNeedle: true, hillChartProgress: true, notes: true, source: true, timestamp: true,
         partner: { select: { id: true, name: true } },
       },
       orderBy: { timestamp: 'desc' },
       take,
     });
-    for (const s of partnerStates) {
+    for (let i = 0; i < partnerStates.length; i++) {
+      const s = partnerStates[i];
+      const prev = partnerStates.slice(i + 1).find((o) => o.partner.id === s.partner.id) ?? null;
       push(events, {
         id: `pas-${s.id}`,
         kind: 'relationship',
-        title: `Relationship needle: ${formatNeedleValue(s.theNeedle)}`,
+        title: `Relationship: ${formatNeedleValue(s.theNeedle)}`,
         subtitle: meta(s.partner.name, s.source, true),
         detail: s.notes,
-        href: `/partners/${s.partner.id}`,
+        href: `/history/partner/${s.partner.id}`,
         external: false,
         timestamp: s.timestamp.toISOString(),
+        needle: {
+          progress: s.hillChartProgress ?? 0,
+          health: s.theNeedle,
+          previousProgress: prev ? prev.hillChartProgress ?? null : null,
+          previousHealth: prev ? prev.theNeedle : null,
+        },
       });
     }
   }

@@ -7,17 +7,38 @@
 
 .gaugeContainer {
   width: 100%;
-  max-width: 200px;
-  height: 64px;
+  max-width: 230px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  margin-bottom: 4px;
+}
+
+.updatedAt {
+  font-size: 11px;
+  color: var(--muted, #888);
   margin-bottom: 6px;
+}
+
+.healthPicker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.healthChip {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid;
+  cursor: pointer;
 }
 
 .gaugeSvg {
   width: 100%;
-  height: 100%;
-  overflow: hidden;
+  height: auto;
+  display: block;
+  overflow: visible;
 }
 
 .statusValue {

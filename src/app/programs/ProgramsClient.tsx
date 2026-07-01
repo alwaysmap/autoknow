@@ -3,10 +3,10 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
-import NeedleGauge from '../../components/NeedleGauge';
 import HillChartControl from '../../components/HillChartControl';
 import styles from '../ecosystem-summary/EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../../lib/needle';
+import { HEALTHS, healthColor, healthOrder } from '../../lib/health';
 import { resolvePerson } from '../../lib/people';
 
 interface Project {
@@ -55,13 +55,6 @@ interface ProgramsClientProps {
   regions?: string[];
   partnerTypes?: string[];
 }
-
-const RISK_VALUES: Record<string, number> = {
-  'Low': 0,
-  'Medium': 1,
-  'High': 2,
-  'Critical': 3
-};
 
 export default function ProgramsClient({ initialProjects, people, regions = [], partnerTypes = [] }: ProgramsClientProps) {
   // State filters
@@ -135,7 +128,7 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
     }
 
     // 5. Needle risk level floor
-    const riskVal = RISK_VALUES[formatNeedleValue(proj.theNeedle)] ?? 0;
+    const riskVal = healthOrder(proj.theNeedle);
     if (riskVal < minRiskVal) return false;
 
     // 6. Progress floor and ceiling
@@ -178,8 +171,7 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
 
   // High/Critical risk count
   const highRiskCount = filteredProjects.filter((p) => {
-    const lbl = formatNeedleValue(p.theNeedle);
-    return lbl === 'High' || lbl === 'Critical';
+    return healthOrder(p.theNeedle) >= 1;
   }).length;
 
   // Average progress
@@ -249,23 +241,28 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
         </div>
 
         <div className={styles.filterGroup} style={{ minWidth: '200px' }}>
-          <label className={styles.filterLabel}>
-            Risk Floor (The Needle)
-          </label>
-          <div style={{ padding: '8px 0' }}>
-            <NeedleGauge
-              value={Object.keys(RISK_VALUES).find(k => RISK_VALUES[k] === minRiskVal) || 'Low'}
-              scope="filter"
-              onChange={(val) => {
-                setMinRiskVal(RISK_VALUES[val] ?? 0);
-              }}
-            />
+          <label className={styles.filterLabel}>Health floor</label>
+          <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+            {HEALTHS.map((h, i) => {
+              const on = minRiskVal === i;
+              return (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => setMinRiskVal(on ? 0 : i)}
+                  aria-pressed={on}
+                  style={{ fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 999, cursor: 'pointer', border: `1px solid ${healthColor(h)}`, background: on ? healthColor(h) : 'transparent', color: on ? '#fff' : healthColor(h) }}
+                >
+                  {h}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div className={styles.progressFilterContainer}>
           <label className={styles.filterLabel}>
-            Filter progress by dragging curve: <strong>{minProgress}% - {maxProgress}%</strong>
+            Filter progress range by dragging the handles
           </label>
 
           {/* Hidden inputs to preserve Playwright E2E automation compatibility */}
@@ -357,7 +354,7 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
         </div>
 
         <div className={styles.card}>
-          <h3>High / Critical Risk</h3>
+          <h3>Some Risk / Concerned</h3>
           <div className={styles.metric}>{highRiskCount}</div>
           <div className={styles.subtext}>At elevated risk level</div>
         </div>
@@ -378,7 +375,7 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
             { key: 'partner.region', label: 'Google Region' },
             { key: 'ownerName', label: 'Program Owner' },
             { key: 'sopDate', label: 'Target SOP' },
-            { key: 'theNeedle', label: 'Needle' },
+            { key: 'theNeedle', label: 'Health' },
             { key: 'hillChartProgress', label: 'Progress' }
           ]}
           data={filteredProjects}
@@ -417,11 +414,11 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
                     return (
                       <button
                         type="button"
-                        onClick={() => setMinRiskVal(RISK_VALUES[label] ?? 0)}
+                        onClick={() => setMinRiskVal(healthOrder(label))}
                         className={styles.badgeFilterBtn}
-                        title={`Filter risk level: ${label}`}
+                        title={`Filter health: ${label}`}
                       >
-                        <span className={`${styles.badge} ${styles['needle' + label]}`}>
+                        <span className={styles.badge} style={{ color: healthColor(label) }}>
                           {label}
                         </span>
                       </button>

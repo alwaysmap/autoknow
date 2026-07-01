@@ -3,9 +3,10 @@ import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import styles from './page.module.css';
 import NeedleGauge from '../../../components/NeedleGauge';
-import FeedList from '../../../components/FeedList';
+import ActivityFeed from '../../../components/ActivityFeed';
 import UnifiedSearch from '../../../components/UnifiedSearch';
 import { formatNeedleValue } from '../../../lib/needle';
+import { healthColor } from '../../../lib/health';
 import { findPartnerInText } from '../../../lib/associations';
 import { getActivity } from '../../../lib/activity';
 
@@ -48,11 +49,14 @@ export default async function PartnerDetailPage(props: PageProps) {
     return notFound();
   }
 
-  // Fetch latest partner state log
-  const latestState = await prisma.partnerState.findFirst({
+  // Fetch the two latest partner state logs (current + previous for the ghost marker)
+  const partnerStates = await prisma.partnerState.findMany({
     where: { partnerId: partner.id },
-    orderBy: { timestamp: 'desc' }
+    orderBy: { timestamp: 'desc' },
+    take: 2,
   });
+  const latestState = partnerStates[0];
+  const previousState = partnerStates[1];
 
   // Fetch all projects directly associated with this partner (with optional active-only filter)
   const projects = await prisma.project.findMany({
@@ -106,12 +110,15 @@ export default async function PartnerDetailPage(props: PageProps) {
           <h1>{partner.name}</h1>
           <div className={styles.partnerType}>{partner.type?.name} Partner Profile</div>
         </div>
-        <div style={{ minWidth: '180px' }}>
+        <div style={{ minWidth: '200px' }}>
           <NeedleGauge
-            value={latestState?.theNeedle || 'Low'}
-            scope="partner"
+            progress={latestState?.hillChartProgress ?? 0}
+            health={latestState?.theNeedle ?? 'On Track'}
+            previousProgress={previousState?.hillChartProgress ?? null}
+            previousHealth={previousState?.theNeedle ?? null}
+            updatedAt={latestState?.timestamp?.toISOString() ?? null}
             targetId={partner.id}
-            notesLabel="Google relationship risk notes"
+            scope="partner"
           />
         </div>
       </header>
@@ -145,11 +152,11 @@ export default async function PartnerDetailPage(props: PageProps) {
                               <strong>{activePhase?.name || 'N/A'}</strong>
                             </div>
                             <div className={styles.needleRow}>
-                              <span className={styles.label}>The Needle:</span>{' '}
+                              <span className={styles.label}>Health:</span>{' '}
                               {(() => {
                                 const label = formatNeedleValue(activeState?.theNeedle);
                                 return (
-                                  <span className={`${styles.badge} ${styles[label.toLowerCase()]}`}>
+                                  <span className={styles.badge} style={{ color: healthColor(label) }}>
                                     {label}
                                   </span>
                                 );
@@ -176,7 +183,7 @@ export default async function PartnerDetailPage(props: PageProps) {
 
         <section className={styles.projectsSection}>
           <h2>Activity</h2>
-          <FeedList items={activity} emptyLabel="No activity yet." />
+          <ActivityFeed items={activity} deletable revalidate={`/partners/${partner.id}`} />
         </section>
 
         {/* Sidebar for Metadata */}

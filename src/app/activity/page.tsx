@@ -1,4 +1,4 @@
-import FeedList from '../../components/FeedList';
+import ActivityFeed from '../../components/ActivityFeed';
 import UnifiedSearch from '../../components/UnifiedSearch';
 import { getActivity } from '../../lib/activity';
 
@@ -24,7 +24,7 @@ export default async function ActivityPage() {
       </section>
 
       <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 8 }}>Recent activity</h2>
-      <FeedList items={events} emptyLabel="No activity yet." />
+      <ActivityFeed items={events} deletable revalidate="/activity" />
     </div>
   );
 }

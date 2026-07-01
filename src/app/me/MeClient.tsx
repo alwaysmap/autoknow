@@ -5,6 +5,7 @@ import Link from 'next/link';
 import DataTable from '../../components/DataTable';
 import styles from './page.module.css';
 import { formatNeedleValue } from '../../lib/needle';
+import { healthColor } from '../../lib/health';
 import { deriveEmail } from '../../lib/auth';
 
 interface Partner {
@@ -213,7 +214,7 @@ export default function MeClient({
                     {(() => {
                       const label = formatNeedleValue(p.theNeedle);
                       return (
-                        <span className={`${styles.badge} ${styles[label.toLowerCase()]}`}>
+                        <span className={styles.badge} style={{ color: healthColor(label) }}>
                           {label}
                         </span>
                       );

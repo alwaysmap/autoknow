@@ -18,6 +18,13 @@
   padding-top: 3px;
 }
 
+/* Compact needle gauge slot for needle-change items (a "list card" in the feed). */
+.gauge {
+  flex-shrink: 0;
+  width: 116px;
+  align-self: center;
+}
+
 .body { flex: 1; min-width: 0; }
 
 .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }

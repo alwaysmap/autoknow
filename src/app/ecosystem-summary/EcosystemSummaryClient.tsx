@@ -6,6 +6,7 @@ import DataTable from '../../components/DataTable';
 import EcosystemSopChart from '../../components/EcosystemSopChart';
 import styles from './EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../../lib/needle';
+import { HEALTHS, healthColor, healthOrder } from '../../lib/health';
 import { resolvePerson } from '../../lib/people';
 
 interface Project {
@@ -58,13 +59,6 @@ interface EcosystemSummaryClientProps {
   p85LeadTime: number;
   people: Person[];
 }
-
-const RISK_VALUES: Record<string, number> = {
-  'Low': 0,
-  'Medium': 1,
-  'High': 2,
-  'Critical': 3
-};
 
 export default function EcosystemSummaryClient({
   initialProjects,
@@ -121,8 +115,8 @@ export default function EcosystemSummaryClient({
 
   // Filter projects
   const filteredProjects = initialProjects.filter(proj => {
-    // 1. Filter by Risk level from The Needle (Low, Medium, High, Critical)
-    const riskVal = RISK_VALUES[formatNeedleValue(proj.theNeedle)] ?? 0;
+    // 1. Filter by program Health (On Track / Some Risk / Concerned)
+    const riskVal = healthOrder(proj.theNeedle);
     if (riskVal < minRiskVal) return false;
 
     // 2. Filter by Googler Program Owner
@@ -141,10 +135,7 @@ export default function EcosystemSummaryClient({
   // Calculate high level dashboard aggregations
   const totalVolume = filteredProjects.reduce((sum, p) => sum + p.volumeFirstYear, 0);
   const inRangeCount = initialProjects.filter(matchesProgressRange).length;
-  const criticalCount = filteredProjects.filter(p => {
-    const lbl = formatNeedleValue(p.theNeedle);
-    return lbl === 'Critical' || lbl === 'High';
-  }).length;
+  const criticalCount = filteredProjects.filter(p => healthOrder(p.theNeedle) >= 1).length;
 
   // Build highlighted segment path for the mini Hill Chart preview
   const miniHighlightPath = useMemo(() => {
@@ -176,7 +167,7 @@ export default function EcosystemSummaryClient({
       <section className={styles.filterSection}>
         <div className={styles.filterGroup}>
           <label htmlFor="riskSlider" className={styles.filterLabel}>
-            Risk Floor (The Needle): <strong>{Object.keys(RISK_VALUES).find(k => RISK_VALUES[k] === minRiskVal)}</strong>
+            Health floor: <strong>{HEALTHS[minRiskVal] ?? '— none match —'}</strong>
           </label>
           <input
             id="riskSlider"
@@ -205,7 +196,7 @@ export default function EcosystemSummaryClient({
 
         <div className={styles.progressFilterContainer}>
           <label className={styles.filterLabel}>
-            Filter progress by dragging curve: <strong>{minProgress}% - {maxProgress}%</strong>
+            Filter progress range by dragging the handles
           </label>
 
           {/* Hidden inputs to preserve Playwright E2E automation compatibility */}
@@ -322,7 +313,7 @@ export default function EcosystemSummaryClient({
       {/* Visual Stuck / Critical Blockers Alerts */}
       {criticalCount > 0 && (
         <div className={styles.blockerAlert}>
-          <strong>Attention Leaders:</strong> {criticalCount} programs are flagged as High or Critical Risk. Immediate review of dependencies advised.
+          <strong>Attention Leaders:</strong> {criticalCount} programs are flagged Some Risk or Concerned. Immediate review of dependencies advised.
         </div>
       )}
       {/* Ecosystem flow constraints diagnosis */}
@@ -373,7 +364,7 @@ export default function EcosystemSummaryClient({
             { key: 'ownerName', label: 'Owner' },
             { key: 'sopDate', label: 'SOP Date' },
             { key: 'volumeFirstYear', label: '12M Volume' },
-            { key: 'theNeedle', label: 'Needle' },
+            { key: 'theNeedle', label: 'Health' },
             { key: 'hillChartProgress', label: 'Hill Chart' },
             { key: 'forecast.sim.p85', label: 'Completion Forecast (p85)' }
           ]}
@@ -417,11 +408,11 @@ export default function EcosystemSummaryClient({
                     return (
                       <button
                         type="button"
-                        onClick={() => setMinRiskVal(RISK_VALUES[label] ?? 0)}
+                        onClick={() => setMinRiskVal(healthOrder(label))}
                         className={styles.badgeFilterBtn}
-                        title={`Filter risk level: ${label}`}
+                        title={`Filter health: ${label}`}
                       >
-                        <span className={`${styles.badge} ${styles['needle' + label]}`}>
+                        <span className={styles.badge} style={{ color: healthColor(label) }}>
                           {label}
                         </span>
                       </button>
@@ -436,7 +427,6 @@ export default function EcosystemSummaryClient({
                         style={{ width: `${p.hillChartProgress}%` }}
                       />
                     </div>
-                    <span className={styles.progressVal}>{p.hillChartProgress}%</span>
                   </div>
                 </td>
                 <td>

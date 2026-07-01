@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '../../lib/db';
-import { mapNeedleInput } from '../../lib/needle';
+import { parseHealth } from '../../lib/health';
 import { getCurrentUser } from '../../lib/session';
 
 export async function updateNeedleStatus(formData: FormData) {
@@ -18,8 +18,8 @@ export async function updateNeedleStatus(formData: FormData) {
     throw new Error('Invalid target ID');
   }
 
-  // Normalize the needle value to a canonical risk label (defaulting to 'Low').
-  const theNeedle = mapNeedleInput(theNeedleVal) || 'Low';
+  // The needle value is now program Health (On Track / Some Risk / Concerned).
+  const theNeedle = parseHealth(theNeedleVal);
   const source = (await getCurrentUser()).handle;
 
   const hillChartProgress = hillChartProgressStr ? parseInt(hillChartProgressStr, 10) : NaN;

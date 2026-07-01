@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '../../../lib/db';
-import { mapNeedleInput } from '../../../lib/needle';
+import { parseHealth } from '../../../lib/health';
 import { getCurrentUser } from '../../../lib/session';
 
 export async function updateActionItem(formData: FormData) {
@@ -37,7 +37,7 @@ export async function updateProjectMetrics(formData: FormData) {
   const volumeFirstYearStr = formData.get('volumeFirstYear') as string;
   const notes = formData.get('notes') as string || null;
 
-  const theNeedle = mapNeedleInput(theNeedleVal) || 'Low';
+  const theNeedle = parseHealth(theNeedleVal);
 
   const projectId = parseInt(projectIdStr);
   const hillChartProgress = parseInt(hillChartProgressStr);
@@ -81,15 +81,9 @@ export async function updatePhaseState(formData: FormData) {
   const hillChartProgress = parseInt(hillChartProgressStr);
 
   if (!isNaN(phaseId)) {
-    // When no needle value is supplied, preserve the phase's latest risk level.
-    let theNeedle = mapNeedleInput(theNeedleVal);
-    if (!theNeedle) {
-      const latestState = await prisma.phaseState.findFirst({
-        where: { phaseId },
-        orderBy: { timestamp: 'desc' }
-      });
-      theNeedle = latestState?.theNeedle || 'Low';
-    }
+    // Phases track status + progress; health lives on the program needle. Keep a
+    // health value on the row for continuity, defaulting to On Track.
+    const theNeedle = parseHealth(theNeedleVal);
 
     await prisma.phaseState.create({
       data: {

@@ -18,14 +18,15 @@
   --t-500: hsla(calc(var(--hue) - 60), 32%, 54%, 1);
   --t-700: hsla(calc(var(--hue) - 60), 38%, 32%, 1);
 
-  /* Neutrals — very pale cream tint */
-  --bg:      #f7f5ed;
-  --surface: hsl(45, 30%, 91%);
+  /* Neutrals — near-neutral off-white, only a whisper of warmth so status
+     colors (amber "Some Risk", red "Concerned") read clearly against it */
+  --bg:      hsl(45, 8%, 96%);
+  --surface: hsl(45, 9%, 92%);
   --border:  hsl(0, 0%, 84%);
   --fg:      hsl(0, 0%, 13%);
   --muted:   hsl(0, 0%, 46%);
 
-  --white: #f7f5ed;
+  --white: hsl(45, 8%, 96%);
   --black: #111111;
 
   --head-font: var(--font-rubik), "Rubik", sans-serif;

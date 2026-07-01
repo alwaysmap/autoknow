@@ -4,12 +4,12 @@ import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import DataTable from '../components/DataTable';
 import EcosystemSopChart from '../components/EcosystemSopChart';
-import NeedleGauge from '../components/NeedleGauge';
 import HillChartControl from '../components/HillChartControl';
 import CycleTimeScatterPlot, { CycleTimeData, CycleTimeStats } from '../components/CycleTimeScatterPlot';
 
 import styles from './ecosystem-summary/EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../lib/needle';
+import { HEALTHS, healthColor, healthOrder } from '../lib/health';
 import { resolvePerson } from '../lib/people';
 
 interface Project {
@@ -66,13 +66,6 @@ interface EcosystemDashboardClientProps {
   cycleTimeStats?: Record<string, CycleTimeStats>;
 }
 
-const RISK_VALUES: Record<string, number> = {
-  'Low': 0,
-  'Medium': 1,
-  'High': 2,
-  'Critical': 3
-};
-
 export default function EcosystemDashboardClient({
   initialProjects,
   briefings,
@@ -98,7 +91,7 @@ export default function EcosystemDashboardClient({
     if (proj.isArchived) return false;
 
     // 1. Filter by Risk level from The Needle (Low, Medium, High, Critical)
-    const riskVal = RISK_VALUES[formatNeedleValue(proj.theNeedle)] ?? 0;
+    const riskVal = healthOrder(proj.theNeedle);
     if (riskVal < minRiskVal) return false;
 
     // 2. Filter by Googler Program Owner
@@ -132,10 +125,7 @@ export default function EcosystemDashboardClient({
 
   // Calculate high level dashboard aggregations
   const totalVolume = filteredProjects.reduce((sum, p) => sum + p.volumeFirstYear, 0);
-  const criticalCount = filteredProjects.filter(p => {
-    const lbl = formatNeedleValue(p.theNeedle);
-    return lbl === 'Critical' || lbl === 'High';
-  }).length;
+  const criticalCount = filteredProjects.filter(p => healthOrder(p.theNeedle) >= 1).length;
   // Count non-archived programs matching the progress floor (the dashboard never
   // shows archived projects, so they must not inflate this card either).
   const inRangeCount = initialProjects.filter(p => !p.isArchived && matchesProgressRange(p)).length;
@@ -145,17 +135,22 @@ export default function EcosystemDashboardClient({
       {/* Search & Filter Widgets Panel */}
       <section className={styles.filterSection}>
         <div className={styles.filterGroup} style={{ minWidth: '220px' }}>
-          <label className={styles.filterLabel}>
-            Risk Floor (The Needle)
-          </label>
-          <div style={{ padding: '8px 0' }}>
-            <NeedleGauge
-              value={Object.keys(RISK_VALUES).find(k => RISK_VALUES[k] === minRiskVal) || 'Low'}
-              scope="filter"
-              onChange={(val) => {
-                setMinRiskVal(RISK_VALUES[val] ?? 0);
-              }}
-            />
+          <label className={styles.filterLabel}>Health floor</label>
+          <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+            {HEALTHS.map((h, i) => {
+              const on = minRiskVal === i;
+              return (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => setMinRiskVal(on ? 0 : i)}
+                  aria-pressed={on}
+                  style={{ fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 999, cursor: 'pointer', border: `1px solid ${healthColor(h)}`, background: on ? healthColor(h) : 'transparent', color: on ? '#fff' : healthColor(h) }}
+                >
+                  {h}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -247,7 +242,7 @@ export default function EcosystemDashboardClient({
 
       {criticalCount > 0 && (
         <div className={styles.blockerAlert}>
-          <strong>Attention Leaders:</strong> {criticalCount} programs are flagged as High or Critical Risk. Immediate review of dependencies advised.
+          <strong>Attention Leaders:</strong> {criticalCount} programs are flagged Some Risk or Concerned. Immediate review of dependencies advised.
         </div>
       )}
 
@@ -274,7 +269,7 @@ export default function EcosystemDashboardClient({
             { key: 'ownerName', label: 'Program Owner' },
             { key: 'sopDate', label: 'Target SOP' },
             { key: 'volumeFirstYear', label: '12M Target Volume' },
-            { key: 'theNeedle', label: 'Needle' },
+            { key: 'theNeedle', label: 'Health' },
             { key: 'hillChartProgress', label: 'Progress' },
             { key: 'forecast', label: 'Forecast' }
           ]}
@@ -314,11 +309,11 @@ export default function EcosystemDashboardClient({
                     return (
                       <button
                         type="button"
-                        onClick={() => setMinRiskVal(RISK_VALUES[label] ?? 0)}
+                        onClick={() => setMinRiskVal(healthOrder(label))}
                         className={styles.badgeFilterBtn}
-                        title={`Filter risk level: ${label}`}
+                        title={`Filter health: ${label}`}
                       >
-                        <span className={`${styles.badge} ${styles['needle' + label]}`}>
+                        <span className={styles.badge} style={{ color: healthColor(label) }}>
                           {label}
                         </span>
                       </button>

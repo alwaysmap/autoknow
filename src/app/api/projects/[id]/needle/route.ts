@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/db';
 import { jsonError, serverError } from '../../../../../lib/api';
-import { mapNeedleInput } from '../../../../../lib/needle';
+import { parseHealth } from '../../../../../lib/health';
 
 export async function POST(
   req: Request,
@@ -22,7 +22,7 @@ export async function POST(
       return jsonError('Project not found', 404);
     }
 
-    const finalNeedle = mapNeedleInput(theNeedle) || proj.theNeedle;
+    const finalNeedle = theNeedle ? parseHealth(theNeedle) : proj.theNeedle;
     const finalProgress = hillChartProgress !== undefined ? parseInt(hillChartProgress, 10) : proj.hillChartProgress;
 
     const updatedProject = await prisma.project.update({

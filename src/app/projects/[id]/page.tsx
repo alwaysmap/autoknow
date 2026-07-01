@@ -4,8 +4,8 @@ import { prisma } from '../../../lib/db';
 import styles from './page.module.css';
 import ProjectStatusDashboard from '../../../components/ProjectStatusDashboard';
 import ProjectAdminControls from '../../../components/ProjectAdminControls';
-import NeedleGauge from '../../../components/NeedleGauge';
-import FeedList from '../../../components/FeedList';
+import PhaseHillInput from '../../../components/PhaseHillInput';
+import ActivityFeed from '../../../components/ActivityFeed';
 import UnifiedSearch from '../../../components/UnifiedSearch';
 import PhaseManager from './PhaseManager';
 import { getActivity } from '../../../lib/activity';
@@ -150,6 +150,9 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
               projectName={project.name}
               currentNeedle={project.theNeedle}
               currentHillChartProgress={project.hillChartProgress}
+              previousProgress={project.states[1]?.hillChartProgress ?? null}
+              previousHealth={project.states[1]?.theNeedle ?? null}
+              updatedAt={project.states[0]?.timestamp?.toISOString() ?? null}
               problemCount={problemCount}
               ownerName={project.ownerName || ''}
               sopDateString={sopDateString}
@@ -188,17 +191,6 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
                           <span className={`${styles.statusBadge} ${styles['status' + phaseStatus.replace(/\s+/g, '')]}`}>
                             {phaseStatus}
                           </span>
-                          {latestState && (
-                            <div className={styles.phaseNeedleWrapper}>
-                              <NeedleGauge
-                                value={latestState.theNeedle || 'Low'}
-                                scope="phase"
-                                targetId={phase.id}
-                                hillChartProgress={latestState.hillChartProgress ?? 0}
-                                notesLabel="Phase risk notes"
-                              />
-                            </div>
-                          )}
                         </div>
                       </div>
 
@@ -224,26 +216,17 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
                           </div>
 
                           <div className={styles.formSelectGroup}>
-                            <label htmlFor={`phaseProgress-${phase.id}`} className={styles.miniLabel}>Hill Progress</label>
-                            <input
-                              id={`phaseProgress-${phase.id}`}
-                              type="range"
-                              name="hillChartProgress"
-                              min="0"
-                              max="100"
-                              step="5"
-                              defaultValue={latestState?.hillChartProgress ?? 0}
-                              className={styles.miniSliderProgress}
-                            />
+                            <label className={styles.miniLabel}>Hill progress (drag)</label>
+                            <PhaseHillInput defaultProgress={latestState?.hillChartProgress ?? 0} />
                           </div>
-                          
+
                           <div className={styles.formSelectGroup}>
-                            <label htmlFor={`phaseNotes-${phase.id}`} className={styles.miniLabel}>Update Note</label>
-                            <input
+                            <label htmlFor={`phaseNotes-${phase.id}`} className={styles.miniLabel}>Update note (markdown)</label>
+                            <textarea
                               id={`phaseNotes-${phase.id}`}
-                              type="text"
                               name="notes"
-                              placeholder="Why was it moved?"
+                              rows={2}
+                              placeholder="What changed and why?"
                               className={styles.miniNotesInput}
                             />
                           </div>
@@ -349,7 +332,7 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
             <section className={styles.historySection}>
               <h2>Activity</h2>
               <p className={styles.historyIntro}>Needle and progress changes, phase updates, and ingested context for this program.</p>
-              <FeedList items={activity} emptyLabel="No activity yet." />
+              <ActivityFeed items={activity} deletable revalidate={`/projects/${projectId}`} />
             </section>
           </div>
         </div>

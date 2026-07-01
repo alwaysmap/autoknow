@@ -1,3 +1,10 @@
+import { parseHealth } from './health';
+
+// The needle now represents program Health (see lib/health.ts). formatNeedleValue is
+// kept as a compatibility shim so existing badge call-sites render the health label.
+// parseNeedleValue/getNeedleLabel remain only for the risk-band math still used by
+// the status-history chart's health line.
+
 export function parseNeedleValue(val: string | number | null | undefined): number {
   if (val === null || val === undefined) return 0.125;
   if (typeof val === 'number') return val;
@@ -20,7 +27,7 @@ export function getNeedleLabel(num: number): string {
 }
 
 export function formatNeedleValue(val: string | number | null | undefined): string {
-  return getNeedleLabel(parseNeedleValue(val));
+  return parseHealth(val);
 }
 
 const NEEDLE_LEVELS: Record<string, string> = {
