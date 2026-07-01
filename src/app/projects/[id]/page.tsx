@@ -5,12 +5,11 @@ import styles from './page.module.css';
 import ProjectStatusDashboard from '../../../components/ProjectStatusDashboard';
 import ProjectAdminControls from '../../../components/ProjectAdminControls';
 import NeedleGauge from '../../../components/NeedleGauge';
+import FeedList from '../../../components/FeedList';
+import UnifiedSearch from '../../../components/UnifiedSearch';
 import PhaseManager from './PhaseManager';
-import { normalizeHandle } from '../../../lib/auth';
-import { getCurrentUser } from '../../../lib/session';
-import { resolvePerson } from '../../../lib/people';
+import { getActivity } from '../../../lib/activity';
 import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
-import { formatNeedleValue } from '../../../lib/needle';
 import {
   updateActionItem,
   updatePhaseState
@@ -52,7 +51,8 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
     return notFound();
   }
 
-  const currentUser = await getCurrentUser();
+  // Unified activity for this program: status/needle/hill/phase changes + context.
+  const activity = await getActivity({ kind: 'project', id: projectId });
 
   const problemCount = project.phases.reduce(
     (sum, phase) => sum + phase.actionItems.filter(item => item.status === 'Pending').length,
@@ -66,7 +66,6 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
   // Fetch OEM and Supplier partners to resolve links and associations
   const oems = await prisma.partner.findMany({ where: { type: { name: 'OEM' } } });
   const suppliers = await prisma.partner.findMany({ where: { type: { name: 'Supplier' } } });
-  const people = await prisma.person.findMany();
 
   // Identify the OEM for the project (heuristic name match; see lib/associations).
   const matchedOem = findPartnerInText(oems, project.name);
@@ -337,58 +336,20 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
               })
             )}
 
-            {/* Status Update History Log (Qualitative Timeline) */}
+            {/* Unified scoped search + ingested context for this program */}
+            <section className={styles.historySection}>
+              <h2>Search</h2>
+              <UnifiedSearch
+                scope={{ kind: 'project', id: projectId }}
+                placeholder="Search this program — context, people, partner…"
+              />
+            </section>
+
+            {/* Unified activity: program/needle/hill/phase changes + ingested context */}
             <section className={styles.historySection}>
               <h2>Activity</h2>
-              <p className={styles.historyIntro}>Historical audit timeline of all Needle status updates, progress movements, and qualitative notes.</p>
-              
-              <div className={styles.timeline}>
-                {project.states.length === 0 ? (
-                  <p className={styles.emptyHistory}>No overall project updates logged yet.</p>
-                ) : (
-                  project.states.map((state) => {
-                    const needleLabel = formatNeedleValue(state.theNeedle);
-                    return (
-                    <div key={state.id} className={styles.timelineItem}>
-                      <div className={styles.timelineMarker}></div>
-                      <div className={styles.timelineContent}>
-                        <div className={styles.timelineHeader}>
-                          <span className={`${styles.timelineBadge} ${styles['needle' + needleLabel]}`}>
-                            {needleLabel} Risk
-                          </span>
-                          <span className={styles.timelineProgress}>Status Logged</span>
-                          <span className={styles.timelineDate}>{new Date(state.timestamp).toLocaleString()}</span>
-                        </div>
-                        {state.notes && (() => {
-                          const rawHandle = state.source && !state.source.includes(' ') && !state.source.includes('http')
-                            ? state.source
-                            : (project.ownerName || currentUser.handle);
-                          const cleanHandle = normalizeHandle(rawHandle);
-                          const displayHandle = `@${cleanHandle}`;
-
-                          const matchedPerson = resolvePerson(people, rawHandle);
-
-                          return (
-                            <p className={styles.timelineNote}>
-                              {matchedPerson ? (
-                                <Link href={`/people/${matchedPerson.id}`} className={styles.handleLink}>
-                                  {displayHandle}
-                                </Link>
-                              ) : (
-                                <Link href={`/search?q=${cleanHandle}`} className={styles.handleLink}>
-                                  {displayHandle}
-                                </Link>
-                              )}
-                              : &ldquo;{state.notes}&rdquo;
-                            </p>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                    );
-                  })
-                )}
-              </div>
+              <p className={styles.historyIntro}>Needle and progress changes, phase updates, and ingested context for this program.</p>
+              <FeedList items={activity} emptyLabel="No activity yet." />
             </section>
           </div>
         </div>

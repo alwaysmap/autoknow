@@ -36,17 +36,17 @@ test.describe('Search Results Page (Text + pgvector)', () => {
     await prisma.$disconnect();
   });
 
-  test('should display matching database results and empty vector matches notice before seeding', async ({ page }) => {
+  test('should render the unified search with type filter chips', async ({ page }) => {
     await page.goto('/search?q=Ford');
 
-    // Verify page title and header
-    await expect(page.locator('h1')).toContainText('Search Results');
-    await expect(page.locator('body')).toContainText('Ford');
+    // Unified search header + the search box pre-filled from ?q=
+    await expect(page.locator('h1')).toContainText('Search');
+    await expect(page.locator('input[type="search"]')).toBeVisible();
+    await expect(page.locator('input[type="search"]')).toHaveValue('Ford');
 
-    // Verify database match lists
-    await expect(page.locator('body')).toContainText('Ford Evos AAOS Bring-up');
-
-    // Check empty vector message
-    await expect(page.locator('body')).toContainText('No semantic matches found in pgvector index.');
+    // Type filter chips (include/exclude) are present for every searchable type
+    for (const t of ['Partners', 'Programs', 'People', 'Context']) {
+      await expect(page.getByRole('button', { name: t, exact: true })).toBeVisible();
+    }
   });
 });

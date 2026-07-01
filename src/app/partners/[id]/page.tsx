@@ -3,8 +3,11 @@ import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import styles from './page.module.css';
 import NeedleGauge from '../../../components/NeedleGauge';
+import FeedList from '../../../components/FeedList';
+import UnifiedSearch from '../../../components/UnifiedSearch';
 import { formatNeedleValue } from '../../../lib/needle';
 import { findPartnerInText } from '../../../lib/associations';
+import { getActivity } from '../../../lib/activity';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,6 +96,9 @@ export default async function PartnerDetailPage(props: PageProps) {
     groupedProjects[partner.name] = projects;
   }
 
+  // Unified activity for this partner and its programs.
+  const activity = await getActivity({ kind: 'partner', id: partner.id });
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -158,6 +164,19 @@ export default async function PartnerDetailPage(props: PageProps) {
               ))}
             </div>
           )}
+        </section>
+
+        <section className={styles.projectsSection}>
+          <h2>Search</h2>
+          <UnifiedSearch
+            scope={{ kind: 'partner', id: partner.id }}
+            placeholder="Search this partner — programs, people, context…"
+          />
+        </section>
+
+        <section className={styles.projectsSection}>
+          <h2>Activity</h2>
+          <FeedList items={activity} emptyLabel="No activity yet." />
         </section>
 
         {/* Sidebar for Metadata */}

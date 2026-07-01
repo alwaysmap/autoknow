@@ -64,6 +64,9 @@ export default async function RootLayout({
               <Link href="/me" className={styles.navLink}>
                 Me
               </Link>
+              <Link href="/activity" className={styles.navLink}>
+                Activity
+              </Link>
               <Link href="/ingest" className={styles.navLink}>
                 Ingest
               </Link>

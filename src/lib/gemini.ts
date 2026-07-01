@@ -11,7 +11,11 @@ export const geminiConfigured = !!apiKey;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 const SUMMARY_MODEL = 'gemini-2.5-flash';
-const EMBED_MODEL = 'text-embedding-004';
+// gemini-embedding-001 is the current embedding model (text-embedding-004 returns 404
+// on AI Studio keys). It defaults to 3072 dims, so we request 768 to match the
+// pgvector column. Cosine distance (<=>) is scale-invariant, so reduced dims are fine.
+const EMBED_MODEL = 'gemini-embedding-001';
+const EMBED_DIMS = 768;
 const MAX_DOC_CHARS = 30000;
 
 export interface DocDigest {
@@ -131,9 +135,14 @@ PARTNERS: ${JSON.stringify(partners)}`;
 export async function embedText(text: string): Promise<number[]> {
   if (!ai) return generateDeterministicEmbedding(text);
   try {
-    const resp = await ai.models.embedContent({ model: EMBED_MODEL, contents: text });
+    const resp = await ai.models.embedContent({
+      model: EMBED_MODEL,
+      contents: text,
+      config: { outputDimensionality: EMBED_DIMS },
+    });
     const values = resp.embeddings?.[0]?.values;
-    if (values && values.length === 768) return values;
+    if (values && values.length === EMBED_DIMS) return values;
+    console.warn(`Gemini embedding returned ${values?.length ?? 0} dims, expected ${EMBED_DIMS}; using fallback.`);
   } catch (err) {
     console.warn('Gemini embedding failed, using fallback:', err);
   }

@@ -1,0 +1,148 @@
+import 'server-only';
+import { prisma } from './db';
+import { formatNeedleValue } from './needle';
+import type { FeedItem, FeedScope, FeedKind } from './feed';
+
+// The unified activity stream as FeedItem[]: ingested context AND core system-of-record
+// events (program created, needle changed, hill-chart progress moved, phase tagged,
+// relationship needle changed), merged chronologically and sliceable by scope. Shares
+// the FeedItem shape with search so one component renders both.
+
+const PROGRAM_CREATED_NOTE = 'Program created';
+
+export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem[]> {
+  const showEntity = scope.kind === 'ecosystem';
+  const meta = (entityLabel: string | null, source: string | null, withSource: boolean): string | null => {
+    const parts: string[] = [];
+    if (showEntity && entityLabel) parts.push(entityLabel);
+    if (withSource && source) parts.push(`by ${source}`);
+    return parts.length ? parts.join(' · ') : null;
+  };
+  const push = (
+    events: FeedItem[],
+    e: Omit<FeedItem, 'score'>,
+  ) => events.push({ ...e, score: null });
+
+  const events: FeedItem[] = [];
+
+  // ---- Ingested context ----
+  const contextWhere =
+    scope.kind === 'partner'
+      ? { OR: [{ partnerId: scope.id }, { project: { partnerId: scope.id } }] }
+      : scope.kind === 'project'
+        ? { OR: [{ projectId: scope.id }, { phase: { projectId: scope.id } }] }
+        : {};
+  const context = await prisma.contextUrl.findMany({
+    where: contextWhere,
+    select: {
+      id: true, url: true, type: true, title: true, ingestedText: true, createdAt: true,
+      project: { select: { name: true } },
+      partner: { select: { name: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take,
+  });
+  for (const c of context) {
+    push(events, {
+      id: `ctx-${c.id}`,
+      kind: 'context',
+      title: c.title || 'Ingested document',
+      subtitle: meta(c.project?.name ?? c.partner?.name ?? null, c.type, false),
+      detail: c.ingestedText,
+      href: c.url,
+      external: true,
+      timestamp: c.createdAt.toISOString(),
+    });
+  }
+
+  // ---- Project status events (needle / hill-chart / program created) ----
+  const projectStateWhere =
+    scope.kind === 'partner'
+      ? { project: { partnerId: scope.id } }
+      : scope.kind === 'project'
+        ? { projectId: scope.id }
+        : {};
+  const projectStates = await prisma.projectState.findMany({
+    where: projectStateWhere,
+    select: {
+      id: true, theNeedle: true, hillChartProgress: true, notes: true, source: true, timestamp: true,
+      project: { select: { id: true, name: true } },
+    },
+    orderBy: { timestamp: 'desc' },
+    take,
+  });
+  for (const s of projectStates) {
+    const created = s.notes?.startsWith(PROGRAM_CREATED_NOTE);
+    const kind: FeedKind = created ? 'program-created' : 'status';
+    push(events, {
+      id: `ps-${s.id}`,
+      kind,
+      title: created
+        ? 'Program created'
+        : `Needle ${formatNeedleValue(s.theNeedle)} · ${s.hillChartProgress}% progress`,
+      subtitle: meta(s.project.name, s.source, true),
+      detail: created ? null : s.notes,
+      href: `/projects/${s.project.id}`,
+      external: false,
+      timestamp: s.timestamp.toISOString(),
+    });
+  }
+
+  // ---- Phase status events ----
+  const phaseStateWhere =
+    scope.kind === 'partner'
+      ? { phase: { project: { partnerId: scope.id } } }
+      : scope.kind === 'project'
+        ? { phase: { projectId: scope.id } }
+        : {};
+  const phaseStates = await prisma.phaseState.findMany({
+    where: phaseStateWhere,
+    select: {
+      id: true, status: true, theNeedle: true, notes: true, source: true, timestamp: true,
+      phase: { select: { name: true, project: { select: { id: true, name: true } } } },
+    },
+    orderBy: { timestamp: 'desc' },
+    take,
+  });
+  for (const s of phaseStates) {
+    push(events, {
+      id: `phs-${s.id}`,
+      kind: 'phase',
+      title: `${s.phase.name}: ${s.status} · ${formatNeedleValue(s.theNeedle)} risk`,
+      subtitle: meta(s.phase.project.name, s.source, true),
+      detail: s.notes,
+      href: `/projects/${s.phase.project.id}`,
+      external: false,
+      timestamp: s.timestamp.toISOString(),
+    });
+  }
+
+  // ---- Partner relationship events (skip in project scope) ----
+  if (scope.kind !== 'project') {
+    const partnerStateWhere = scope.kind === 'partner' ? { partnerId: scope.id } : {};
+    const partnerStates = await prisma.partnerState.findMany({
+      where: partnerStateWhere,
+      select: {
+        id: true, theNeedle: true, notes: true, source: true, timestamp: true,
+        partner: { select: { id: true, name: true } },
+      },
+      orderBy: { timestamp: 'desc' },
+      take,
+    });
+    for (const s of partnerStates) {
+      push(events, {
+        id: `pas-${s.id}`,
+        kind: 'relationship',
+        title: `Relationship needle: ${formatNeedleValue(s.theNeedle)}`,
+        subtitle: meta(s.partner.name, s.source, true),
+        detail: s.notes,
+        href: `/partners/${s.partner.id}`,
+        external: false,
+        timestamp: s.timestamp.toISOString(),
+      });
+    }
+  }
+
+  events.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+  return events.slice(0, take);
+}

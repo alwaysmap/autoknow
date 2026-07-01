@@ -2,113 +2,73 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import type { FeedItem } from '../lib/feed';
 import styles from './Search.module.css';
 
-interface Partner {
-  id: number;
-  name: string;
-  type: string;
-}
-
-interface Project {
-  id: number;
-  name: string;
-  partner: {
-    name: string;
-  };
-}
-
-interface Person {
-  id: number;
-  name: string;
-  email: string;
-  currentPartner: {
-    name: string;
-  };
-}
-
-interface SearchResults {
-  partners: Partner[];
-  projects: Project[];
-  people: Person[];
-}
+// Header quick-search: a compact dropdown over the same /api/search endpoint and
+// FeedItem shape used everywhere else. "See all results" opens the full /search page.
 
 export default function Search() {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResults>({ partners: [], projects: [], people: [] });
+  const [items, setItems] = useState<FeedItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Focus search input when pressing "/"
+  // Focus on "/"
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === '/' && document.activeElement !== searchInputRef.current) {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === '/' && document.activeElement !== inputRef.current) {
         e.preventDefault();
-        searchInputRef.current?.focus();
+        inputRef.current?.focus();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Fetch search results on query change
+  // Debounced fetch with abort, so a slow earlier response can't overwrite a newer one.
   useEffect(() => {
     if (!query.trim()) {
+      setItems([]);
       return;
     }
-
-    // Abort an in-flight request when the query changes so a slow earlier response
-    // can't overwrite the results of a newer one.
-    const controller = new AbortController();
-    const delayDebounce = setTimeout(async () => {
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
-          signal: controller.signal,
-        });
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: ctrl.signal });
         if (res.ok) {
           const data = await res.json();
-          setResults(data);
+          setItems(data.items ?? []);
         }
       } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          console.error('Search query failed:', err);
-        }
+        if ((err as Error).name !== 'AbortError') console.error('Search failed:', err);
       }
     }, 150);
-
     return () => {
-      clearTimeout(delayDebounce);
-      controller.abort();
+      clearTimeout(t);
+      ctrl.abort();
     };
   }, [query]);
 
-  // Handle click outside to close dropdown
+  // Close on click-outside
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
+    const onClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setIsOpen(false);
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
   }, []);
-
-  const totalResults = results.partners.length + results.projects.length + results.people.length;
 
   return (
     <div ref={containerRef} className={styles.searchContainer}>
       <input
-        ref={searchInputRef}
+        ref={inputRef}
         type="search"
-        placeholder="Search partners, projects, people... (Press '/')"
+        placeholder="Search partners, programs, people… (Press '/')"
         value={query}
         onChange={(e) => {
-          const val = e.target.value;
-          setQuery(val);
-          if (!val.trim()) {
-            setResults({ partners: [], projects: [], people: [] });
-          }
+          setQuery(e.target.value);
           setIsOpen(true);
         }}
         onFocus={() => setIsOpen(true)}
@@ -117,61 +77,35 @@ export default function Search() {
 
       {isOpen && query.trim() && (
         <div className={styles.dropdown}>
-          {totalResults === 0 ? (
+          {items.length === 0 ? (
             <div className={styles.emptyState}>No results found for &quot;{query}&quot;</div>
           ) : (
             <div className={styles.resultsWrapper}>
-              {results.partners.length > 0 && (
-                <div className={styles.section}>
-                  <div className={styles.sectionHeading}>Partners</div>
-                  <ul className={styles.list}>
-                    {results.partners.map(p => (
-                      <li key={p.id} className={styles.item}>
-                        <Link href={`/partners/${p.id}`} onClick={() => setIsOpen(false)} className={styles.link}>
-                          <span className={styles.mainText}>{p.name}</span>
-                          <span className={styles.subText}>{p.type}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {results.projects.length > 0 && (
-                <div className={styles.section}>
-                  <div className={styles.sectionHeading}>Projects</div>
-                  <ul className={styles.list}>
-                    {results.projects.map(p => (
-                      <li key={p.id} className={styles.item}>
-                        <Link href={`/projects/${p.id}`} onClick={() => setIsOpen(false)} className={styles.link}>
-                          <span className={styles.mainText}>{p.name}</span>
-                          <span className={styles.subText}>{p.partner?.name}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {results.people.length > 0 && (
-                <div className={styles.section}>
-                  <div className={styles.sectionHeading}>People</div>
-                  <ul className={styles.list}>
-                    {results.people.map(p => (
-                      <li key={p.id} className={styles.item}>
-                        <Link href={`/people/${p.id}`} onClick={() => setIsOpen(false)} className={styles.link}>
-                          <span className={styles.mainText}>{p.name}</span>
-                          <span className={styles.subText}>{p.email} ({p.currentPartner?.name})</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {/* All results link */}
+              <ul className={styles.list}>
+                {items.slice(0, 8).map((it) => {
+                  const body = (
+                    <>
+                      <span className={styles.mainText}>{it.title}</span>
+                      <span className={styles.subText}>
+                        {it.kind}
+                        {it.subtitle ? ` · ${it.subtitle}` : ''}
+                      </span>
+                    </>
+                  );
+                  return (
+                    <li key={it.id} className={styles.item}>
+                      {it.external ? (
+                        <a href={it.href} target="_blank" rel="noopener noreferrer" className={styles.link}>{body}</a>
+                      ) : (
+                        <Link href={it.href} onClick={() => setIsOpen(false)} className={styles.link}>{body}</Link>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
               <div className={styles.allResultsWrapper}>
                 <Link href={`/search?q=${encodeURIComponent(query)}`} onClick={() => setIsOpen(false)} className={styles.allResultsLink}>
-                  See all matching results &amp; semantic documents &rarr;
+                  See all results &rarr;
                 </Link>
               </div>
             </div>

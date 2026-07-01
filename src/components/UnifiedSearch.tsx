@@ -1,0 +1,134 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import FeedList from './FeedList';
+import type { FeedType, FeedScope, FeedItem } from '../lib/feed';
+
+// One search component for every surface, backed by the standalone /api/search endpoint.
+// `scope` keeps results inside the current partner/program (omit for ecosystem-wide).
+// Type chips filter results in/out (partners, programs, people, context).
+
+const TYPE_LABEL: Record<FeedType, string> = {
+  partner: 'Partners',
+  program: 'Programs',
+  person: 'People',
+  context: 'Context',
+};
+const ALL: FeedType[] = ['partner', 'program', 'person', 'context'];
+
+export default function UnifiedSearch({
+  scope,
+  availableTypes = ALL,
+  placeholder = 'Search…',
+  autoFocus = false,
+  initialQuery = '',
+}: {
+  scope?: FeedScope;
+  availableTypes?: FeedType[];
+  placeholder?: string;
+  autoFocus?: boolean;
+  initialQuery?: string;
+}) {
+  const [query, setQuery] = useState(initialQuery);
+  const [active, setActive] = useState<Set<FeedType>>(new Set(availableTypes));
+  const [hits, setHits] = useState<FeedItem[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const run = async (q: string, types = active) => {
+    if (!q.trim() || types.size === 0) {
+      setHits(types.size === 0 ? [] : null);
+      return;
+    }
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ q, types: [...types].join(',') });
+      if (scope?.kind === 'partner') params.set('partnerId', String(scope.id));
+      if (scope?.kind === 'project') params.set('projectId', String(scope.id));
+      const res = await fetch(`/api/search?${params.toString()}`, { signal: ctrl.signal });
+      if (res.ok) {
+        const data = await res.json();
+        setHits(data.items ?? []);
+      }
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') console.error('Search failed:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Run once on mount when a query is supplied via the URL (?q=).
+  const ranInitial = useRef(false);
+  useEffect(() => {
+    if (initialQuery.trim() && !ranInitial.current) {
+      ranInitial.current = true;
+      run(initialQuery);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const toggle = (t: FeedType) => {
+    const next = new Set(active);
+    if (next.has(t)) next.delete(t);
+    else next.add(t);
+    setActive(next);
+    if (query.trim()) run(query, next);
+  };
+
+  return (
+    <div>
+      <form onSubmit={(e) => { e.preventDefault(); run(query); }} style={{ display: 'flex', gap: 8 }}>
+        <input
+          type="search"
+          autoFocus={autoFocus}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={placeholder}
+          style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border, #ddd)' }}
+        />
+        <button type="submit" disabled={loading} style={{ padding: '10px 18px', borderRadius: 8, cursor: 'pointer', border: '1px solid var(--border, #ddd)' }}>
+          {loading ? 'Searching…' : 'Search'}
+        </button>
+      </form>
+
+      {availableTypes.length > 1 && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+          {availableTypes.map((t) => {
+            const on = active.has(t);
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => toggle(t)}
+                aria-pressed={on}
+                style={{
+                  fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 999, cursor: 'pointer',
+                  border: '1px solid var(--border, #ddd)',
+                  background: on ? 'var(--p-600, #1a6b3c)' : 'transparent',
+                  color: on ? '#fff' : 'var(--muted, #777)',
+                }}
+              >
+                {TYPE_LABEL[t]}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {hits !== null && (
+        <div style={{ marginTop: 14 }}>
+          {!loading && (
+            <div style={{ fontSize: 12, color: 'var(--muted, #777)', marginBottom: 8 }}>
+              {hits.length} result{hits.length === 1 ? '' : 's'}
+              {scope && scope.kind !== 'ecosystem' ? ' in this scope' : ' across the ecosystem'}
+            </div>
+          )}
+          <FeedList items={hits} emptyLabel="No matches. Try different terms or enable more types." />
+        </div>
+      )}
+    </div>
+  );
+}
