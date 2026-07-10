@@ -163,7 +163,7 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
               { key: 'team', label: 'Team' },
             ]}
             data={displayData}
-            renderRow={(p: any) => (
+            renderRow={(p) => (
               <tr key={p.id}>
                 <td>
                   <Link href={`/partners/${p.id}`} className={styles.tableLink}>

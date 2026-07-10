@@ -4,15 +4,16 @@ import { prisma } from '../../../lib/db';
 import styles from './page.module.css';
 import ProjectStatusDashboard from '../../../components/ProjectStatusDashboard';
 import ProjectAdminControls from '../../../components/ProjectAdminControls';
-import PhaseHillInput from '../../../components/PhaseHillInput';
+import PhaseGraph from '../../../components/PhaseGraph';
+import ProgramBrief from '../../../components/ProgramBrief';
 import ActivityFeed from '../../../components/ActivityFeed';
 import UnifiedSearch from '../../../components/UnifiedSearch';
-import PhaseManager from './PhaseManager';
 import { getActivity } from '../../../lib/activity';
+import { getLatestBrief } from '../../../lib/brief';
+import { geminiConfigured } from '../../../lib/gemini';
 import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
 import {
   updateActionItem,
-  updatePhaseState
 } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -40,7 +41,9 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
           },
           actionItems: {
             orderBy: { id: 'asc' }
-          }
+          },
+          partners: { include: { partner: true } },
+          dependencies: true
         },
         orderBy: { id: 'asc' }
       }
@@ -54,6 +57,9 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
   // Unified activity for this program: status/needle/hill/phase changes + context.
   const activity = await getActivity({ kind: 'project', id: projectId });
 
+  // The latest AI-generated brief (spec §2.12) — the page's "read this first" slot.
+  const brief = await getLatestBrief(projectId);
+
   const problemCount = project.phases.reduce(
     (sum, phase) => sum + phase.actionItems.filter(item => item.status === 'Pending').length,
     0
@@ -66,6 +72,27 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
   // Fetch OEM and Supplier partners to resolve links and associations
   const oems = await prisma.partner.findMany({ where: { type: { name: 'OEM' } } });
   const suppliers = await prisma.partner.findMany({ where: { type: { name: 'Supplier' } } });
+
+  // All partners (for the PhaseGraph involvement picker) + the graph's row shape.
+  const allPartners = await prisma.partner.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } });
+  const graphRows = project.phases.map((phase) => ({
+    id: phase.id,
+    name: phase.name,
+    progress: phase.states[0]?.hillChartProgress ?? 0,
+    previousProgress: phase.states[1]?.hillChartProgress ?? null,
+    updatedAt: phase.states[0]?.timestamp?.toISOString() ?? null,
+    updatedBy: phase.states[0]?.source ?? null,
+    note: phase.states[0]?.notes ?? null,
+    forecastedDuration: phase.forecastedDuration,
+    parents: phase.dependencies.map((d) => ({ linkId: d.id, id: d.dependsOnPhaseId })),
+    partners: phase.partners.map((pp) => ({
+      linkId: pp.id,
+      partnerId: pp.partnerId,
+      name: pp.partner.name,
+      role: pp.role,
+    })),
+  }));
+  const phasesWithActions = project.phases.filter((p) => p.actionItems.length > 0);
 
   // Identify the OEM for the project (heuristic name match; see lib/associations).
   const matchedOem = findPartnerInText(oems, project.name);
@@ -88,6 +115,14 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
 
   for (const supplier of findPartnersInText(suppliers, supplierSearchText)) {
     associatedSuppliers.set(supplier.id, supplier);
+  }
+
+  // Real per-phase partner links (PhasePartner) beat the text heuristics above.
+  for (const phase of project.phases) {
+    for (const pp of phase.partners) {
+      const supplier = suppliers.find((s) => s.id === pp.partnerId);
+      if (supplier) associatedSuppliers.set(supplier.id, supplier);
+    }
   }
 
   const supplierList = Array.from(associatedSuppliers.values());
@@ -162,90 +197,29 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
               suppliersList={Array.from(associatedSuppliers.values())}
             />
 
-            <PhaseManager
-              projectId={project.id}
-              phases={project.phases.map(p => ({
-                id: p.id,
-                name: p.name,
-                forecastedDuration: p.forecastedDuration
-              }))}
-            />
           </div>
 
           <div className={styles.rightColumn}>
-            {project.phases.length === 0 ? (
-              <div className={styles.emptyPhasesBox}>
-                <p className={styles.emptyText}>No phases defined for this project. Use the workflow panel on the left to add your first phase.</p>
-              </div>
-            ) : (
-              project.phases.map((phase) => {
-                const latestState = phase.states[0];
-                const phaseStatus = latestState?.status || 'Not Started';
+            {/* The AI brief (spec §2.12): words beside the gauges' numbers, above the fold. */}
+            <section className={styles.historySection}>
+              <ProgramBrief projectId={projectId} brief={brief} geminiConfigured={geminiConfigured} />
+            </section>
 
-                return (
-                  <div key={phase.id} className={styles.phaseCard}>
-                    <div className={styles.phaseHeader}>
-                      <div className={styles.phaseTitleArea}>
-                        <h2>{phase.name}</h2>
-                        <div className={styles.phaseStatusRow}>
-                          <span className={`${styles.statusBadge} ${styles['status' + phaseStatus.replace(/\s+/g, '')]}`}>
-                            {phaseStatus}
-                          </span>
-                        </div>
-                      </div>
+            {/* Phases as a vertical rail (spec §2.13): node per phase, latest hill +
+                update + partners per row, Done rows collapsed, add/remove inline. */}
+            <section className={styles.historySection}>
+              <h2>Phases</h2>
+              <PhaseGraph projectId={projectId} phases={graphRows} allPartners={allPartners} />
+            </section>
 
-                      {/* Inline Form to Tag Phase */}
-                      <div className={styles.tagPhaseFormContainer}>
-                        <form action={updatePhaseState} className={styles.tagPhaseForm}>
-                          <input type="hidden" name="projectId" value={projectId} />
-                          <input type="hidden" name="phaseId" value={phase.id} />
-                          
-                          <div className={styles.formSelectGroup}>
-                            <label htmlFor={`phaseStatus-${phase.id}`} className={styles.miniLabel}>Status</label>
-                            <select
-                              id={`phaseStatus-${phase.id}`}
-                              name="status"
-                              defaultValue={phaseStatus}
-                              className={styles.miniSelect}
-                            >
-                              <option value="Not Started">Not Started</option>
-                              <option value="Active WIP">Active WIP</option>
-                              <option value="Finished">Finished</option>
-                              <option value="Skipped">Skipped</option>
-                            </select>
-                          </div>
-
-                          <div className={styles.formSelectGroup}>
-                            <label className={styles.miniLabel}>Hill progress (drag)</label>
-                            <PhaseHillInput defaultProgress={latestState?.hillChartProgress ?? 0} />
-                          </div>
-
-                          <div className={styles.formSelectGroup}>
-                            <label htmlFor={`phaseNotes-${phase.id}`} className={styles.miniLabel}>Update note (markdown)</label>
-                            <textarea
-                              id={`phaseNotes-${phase.id}`}
-                              name="notes"
-                              rows={2}
-                              placeholder="What changed and why?"
-                              className={styles.miniNotesInput}
-                            />
-                          </div>
-
-                          <button type="submit" className={styles.tagPhaseButton}>
-                            Tag Phase
-                          </button>
-                        </form>
-                      </div>
-                    </div>
-
-                    <div className={styles.actionsSection}>
-                      <h3>Actions &amp; Decisions</h3>
-                      
-                      {phase.actionItems.length === 0 ? (
-                        <p className={styles.emptyText}>No active items or decisions for this phase.</p>
-                      ) : (
-                        <div className={styles.actionGrid}>
-                          {phase.actionItems.map((item) => (
+            {phasesWithActions.length > 0 && (
+              <section className={styles.historySection}>
+                <h2>Actions &amp; Decisions</h2>
+                {phasesWithActions.map((phase) => (
+                  <div key={phase.id} className={styles.actionsSection}>
+                    <h3>{phase.name}</h3>
+                    <div className={styles.actionGrid}>
+                      {phase.actionItems.map((item) => (
                             <div key={item.id} className={`${styles.actionCard} action-item-${item.id}`}>
                               <form action={updateActionItem}>
                                 <input type="hidden" name="actionItemId" value={item.id} />
@@ -311,12 +285,10 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
                               </form>
                             </div>
                           ))}
-                        </div>
-                      )}
                     </div>
                   </div>
-                );
-              })
+                ))}
+              </section>
             )}
 
             {/* Unified scoped search + ingested context for this program */}

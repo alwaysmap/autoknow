@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { prisma } from '../src/lib/db';
+import { prisma, disconnectTestDb } from './helpers/db';
 
 describe('Prisma Client Connection', () => {
   it('should instantiate the Prisma Client and be able to query the database', async () => {
@@ -18,6 +18,6 @@ describe('Prisma Client Connection', () => {
   });
 
   afterAll(async () => {
-    await prisma.$disconnect();
+    await disconnectTestDb();
   });
 });

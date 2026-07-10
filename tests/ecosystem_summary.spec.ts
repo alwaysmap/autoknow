@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { prisma } from '../src/lib/db';
+import { prisma } from './helpers/db';
+import { wipeAll } from './helpers/fixtures';
 
 test.describe('Ecosystem Summary Page (Deterministic + AI)', () => {
   test.describe.configure({ mode: 'serial' });
@@ -8,17 +9,7 @@ test.describe('Ecosystem Summary Page (Deterministic + AI)', () => {
 
   test.beforeAll(async () => {
     // Clear and seed a simple project to test status updates
-    await prisma.actionItem.deleteMany();
-    await prisma.contextUrl.deleteMany();
-    await prisma.phaseState.deleteMany();
-    await prisma.phaseDependency.deleteMany();
-    await prisma.phase.deleteMany();
-    await prisma.projectState.deleteMany();
-    await prisma.partnerState.deleteMany();
-    await prisma.project.deleteMany();
-    await prisma.personAffiliation.deleteMany();
-    await prisma.person.deleteMany();
-    await prisma.partner.deleteMany();
+    await wipeAll();
 
     const partner = await prisma.partner.create({
       data: { name: 'Waymo', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } } }

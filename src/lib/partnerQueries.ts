@@ -86,7 +86,7 @@ export class PartnerQueries {
   /**
    * Returns the count of total projects (lifetime programs) for a partner.
    */
-  getLifetimePrograms(partner: { projects: any[] }): number {
+  getLifetimePrograms(partner: { projects: unknown[] }): number {
     return partner.projects.length;
   }
 }

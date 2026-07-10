@@ -1,8 +1,10 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { getStatusHistory, getNeedleHistory, type HistoryType } from '../../../../lib/history';
+import { getStatusHistory, getNeedleHistory, getHillHistory, type HistoryType } from '../../../../lib/history';
 import StatusHistoryChart from '../../../../components/StatusHistoryChart';
 import NeedleHistoryList from '../../../../components/NeedleHistoryList';
+import HillHistoryList from '../../../../components/HillHistoryList';
+import { phaseColor } from '../../../../lib/phase';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +22,12 @@ export default async function HistoryPage(props: { params: Promise<{ type: strin
   const nid = parseInt(id, 10);
   if (Number.isNaN(nid)) return notFound();
 
-  const [history, needle] = await Promise.all([getStatusHistory(t, nid), getNeedleHistory(t, nid)]);
+  // Phases are tracked with the hill chart; programs and partners with the needle.
+  const [history, needle, hill] = await Promise.all([
+    getStatusHistory(t, nid),
+    t === 'phase' ? Promise.resolve(null) : getNeedleHistory(t, nid),
+    t === 'phase' ? getHillHistory(nid) : Promise.resolve(null),
+  ]);
   if (!history) return notFound();
 
   const back = backHref(t, nid);
@@ -35,16 +42,20 @@ export default async function HistoryPage(props: { params: Promise<{ type: strin
         )}
         <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{history.title}</h1>
         <p style={{ color: 'var(--muted, #666)', fontSize: 14, marginTop: 4 }}>
-          Progress &amp; health over time.
+          {t === 'phase' ? 'Progress over time.' : 'Progress & health over time.'}
         </p>
       </header>
 
       <section style={{ marginBottom: 28 }}>
-        <StatusHistoryChart points={history.points} />
+        <StatusHistoryChart points={history.points} showNeedle={t !== 'phase'} />
       </section>
 
       <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 12 }}>Changes</h2>
-      <NeedleHistoryList changes={needle?.changes ?? []} emptyLabel="No changes recorded." />
+      {t === 'phase' ? (
+        <HillHistoryList changes={hill?.changes ?? []} color={phaseColor(nid)} emptyLabel="No changes recorded." />
+      ) : (
+        <NeedleHistoryList changes={needle?.changes ?? []} emptyLabel="No changes recorded." />
+      )}
     </div>
   );
 }

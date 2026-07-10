@@ -5,9 +5,8 @@ import styles from './page.module.css';
 import NeedleGauge from '../../../components/NeedleGauge';
 import ActivityFeed from '../../../components/ActivityFeed';
 import UnifiedSearch from '../../../components/UnifiedSearch';
-import { formatNeedleValue } from '../../../lib/needle';
-import { healthColor } from '../../../lib/health';
-import { findPartnerInText } from '../../../lib/associations';
+import PartnerPrograms from '../../../components/PartnerPrograms';
+import { getPartnerPrograms } from '../../../lib/partnerPrograms';
 import { getActivity } from '../../../lib/activity';
 
 export const dynamic = 'force-dynamic';
@@ -58,47 +57,9 @@ export default async function PartnerDetailPage(props: PageProps) {
   const latestState = partnerStates[0];
   const previousState = partnerStates[1];
 
-  // Fetch all projects directly associated with this partner (with optional active-only filter)
-  const projects = await prisma.project.findMany({
-    where: {
-      partnerId: partner.id,
-      ...(activeOnly ? { isArchived: false } : {})
-    },
-    include: {
-      phases: {
-        include: {
-          states: {
-            orderBy: { timestamp: 'desc' },
-            take: 1
-          }
-        }
-      }
-    }
-  });
-
-  // Fetch all OEM partners to group supplier projects by OEM
-  const oems = await prisma.partner.findMany({
-    where: { type: { name: 'OEM' } }
-  });
-
-  // Group projects by OEM (if this is a Supplier partner)
-  const groupedProjects: Record<string, typeof projects> = {};
-
-  if (partner.type?.name === 'Supplier') {
-    projects.forEach(project => {
-      // Find matching OEM name inside the project name (heuristic; see lib/associations).
-      const matchingOem = findPartnerInText(oems, project.name);
-
-      const groupKey = matchingOem ? matchingOem.name : 'General / Independent';
-      if (!groupedProjects[groupKey]) {
-        groupedProjects[groupKey] = [];
-      }
-      groupedProjects[groupKey].push(project);
-    });
-  } else {
-    // If this is an OEM partner, group everything under their own name
-    groupedProjects[partner.name] = projects;
-  }
+  // Programs this partner OWNS plus programs they're INVOLVED in via phase links.
+  const allPrograms = await getPartnerPrograms(partner.id);
+  const programs = activeOnly ? allPrograms.filter((p) => !p.isArchived) : allPrograms;
 
   // Unified activity for this partner and its programs.
   const activity = await getActivity({ kind: 'partner', id: partner.id });
@@ -125,52 +86,8 @@ export default async function PartnerDetailPage(props: PageProps) {
 
       <main className={styles.main}>
         <section className={styles.projectsSection}>
-          <h2>Related Projects</h2>
-          
-          {projects.length === 0 ? (
-            <p className={styles.empty}>No related projects found for this partner.</p>
-          ) : (
-            <div className={styles.groups}>
-              {Object.entries(groupedProjects).map(([groupName, groupList]) => (
-                <div key={groupName} className={styles.group}>
-                  <h3 className={styles.groupHeading}>{groupName}</h3>
-                  <div className={styles.grid}>
-                    {groupList.map(project => {
-                      const activePhase = project.phases.find(p => p.states[0]?.status === 'Active WIP') || project.phases[0];
-                      const activeState = activePhase?.states[0];
-
-                      return (
-                        <div key={project.id} className={styles.projectCard}>
-                          <h4>
-                            <Link href={`/projects/${project.id}`} className={styles.projectLink}>
-                              {project.name}
-                            </Link>
-                          </h4>
-                          <div className={styles.meta}>
-                            <div>
-                              <span className={styles.label}>Active Phase:</span>{' '}
-                              <strong>{activePhase?.name || 'N/A'}</strong>
-                            </div>
-                            <div className={styles.needleRow}>
-                              <span className={styles.label}>Health:</span>{' '}
-                              {(() => {
-                                const label = formatNeedleValue(activeState?.theNeedle);
-                                return (
-                                  <span className={styles.badge} style={{ color: healthColor(label) }}>
-                                    {label}
-                                  </span>
-                                );
-                              })()}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <h2>Programs</h2>
+          <PartnerPrograms programs={programs} />
         </section>
 
         <section className={styles.projectsSection}>

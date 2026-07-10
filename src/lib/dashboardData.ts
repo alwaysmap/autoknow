@@ -107,8 +107,10 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
     select: { id: true, name: true, email: true },
   });
 
-  // Cycle times per phase: elapsed days from first "Active WIP" to first "Finished"
-  // (or to now if still in flight), for non-archived projects.
+  // Cycle times per phase: elapsed days from the first in-flight state (progress moved
+  // off zero) to the first completed state (progress reached 100), or to now if still
+  // in flight, for non-archived projects. Derived from progress — the stored status
+  // string is legacy and never authoritative (see lib/phase.hillStatus).
   const allPhases = await prisma.phase.findMany({
     include: {
       states: { orderBy: { timestamp: 'asc' } },
@@ -123,8 +125,9 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
     let startWipDate: Date | null = null;
     let finishedDate: Date | null = null;
     for (const state of phase.states) {
-      if (state.status === 'Active WIP' && !startWipDate) startWipDate = state.timestamp;
-      if (state.status === 'Finished' && !finishedDate) finishedDate = state.timestamp;
+      const progress = state.hillChartProgress ?? 0;
+      if (progress > 0 && !startWipDate) startWipDate = state.timestamp;
+      if (progress >= 100 && !finishedDate) finishedDate = state.timestamp;
     }
 
     if (startWipDate) {

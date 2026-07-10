@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import styles from './HillChartControl.module.css';
 
 interface HillChartControlProps {
@@ -28,9 +28,13 @@ export default function HillChartControl({ value, onChange, className = '' }: Hi
   const [isDragging, setIsDragging] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  useEffect(() => {
+  // Re-sync the local drag value when the parent-controlled value changes — done during
+  // render (React's sanctioned prop-derived-state reset), not in an effect.
+  const [lastValue, setLastValue] = useState<number>(value);
+  if (value !== lastValue) {
+    setLastValue(value);
     setLocalVal(value);
-  }, [value]);
+  }
 
   const updateProgressFromCoords = (clientX: number) => {
     if (!svgRef.current) return;

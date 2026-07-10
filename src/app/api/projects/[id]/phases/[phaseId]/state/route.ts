@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../../../lib/db';
 import { jsonError, serverError } from '../../../../../../../lib/api';
 import { parseHealth } from '../../../../../../../lib/health';
+import { hillStatus } from '../../../../../../../lib/phase';
 
 export async function POST(
   req: Request,
@@ -15,18 +16,21 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { status, theNeedle, hillChartProgress, notes, source } = body;
+    const { theNeedle, hillChartProgress, notes, source } = body;
 
-    if (!status) {
-      return jsonError('Missing status', 400);
+    const progress = hillChartProgress !== undefined ? parseInt(hillChartProgress, 10) : 0;
+    if (isNaN(progress) || progress < 0 || progress > 100) {
+      return jsonError('hillChartProgress must be 0-100', 400);
     }
 
     const phaseState = await prisma.phaseState.create({
       data: {
         phaseId: pId,
-        status,
+        // Status is always derived from the hill position — any status in the request
+        // body is ignored (it was never authoritative; see lib/phase.hillStatus).
+        status: hillStatus(progress),
         theNeedle: parseHealth(theNeedle),
-        hillChartProgress: hillChartProgress !== undefined ? parseInt(hillChartProgress, 10) : 0,
+        hillChartProgress: progress,
         notes: notes || null,
         source: source || 'API'
       }

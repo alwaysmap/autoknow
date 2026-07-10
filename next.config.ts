@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // The Playwright suite boots its own server (port 3100, test database) while the dev
+  // server may be running on :3000 — a separate build dir keeps them from corrupting
+  // each other's .next output.
+  distDir: process.env.NEXT_DIST_DIR || undefined,
 };
 
 export default nextConfig;

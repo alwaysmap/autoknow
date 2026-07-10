@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '../../../lib/db';
 import { TEMPLATES } from '../../../lib/templates';
 import { getCurrentUser } from '../../../lib/session';
+import { hillStatus } from '../../../lib/phase';
 import styles from './page.module.css';
 
 // This page reads partners from the database at request time, so it must render
@@ -45,7 +46,7 @@ async function createProject(formData: FormData) {
 
     // Log program creation so it appears in the activity feed.
     await tx.projectState.create({
-      data: { projectId: created.id, theNeedle: 'Low', hillChartProgress: 0, notes: 'Program created', source: createdBy },
+      data: { projectId: created.id, theNeedle: 'On Track', hillChartProgress: 0, notes: 'Program created', source: createdBy },
     });
 
     const phasesMap: Record<string, { id: number }> = {};
@@ -60,12 +61,14 @@ async function createProject(formData: FormData) {
       });
       phasesMap[p.name] = phase;
 
+      // Status is derived from the dot's position on the hill — never chosen directly.
+      const initialProgress = p.name === firstPhaseName ? 10 : 0;
       await tx.phaseState.create({
         data: {
           phaseId: phase.id,
-          status: p.name === firstPhaseName ? 'Active WIP' : 'Not Started',
-          hillChartProgress: p.name === firstPhaseName ? 10 : 0,
-          theNeedle: 'Low'
+          status: hillStatus(initialProgress),
+          hillChartProgress: initialProgress,
+          theNeedle: 'On Track'
         }
       });
 

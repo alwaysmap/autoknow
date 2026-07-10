@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { prisma } from '../src/lib/db';
+import { prisma } from './helpers/db';
+import { wipeAll } from './helpers/fixtures';
 
 test.describe('Projects and Partners Flow', () => {
   // Set describe to serial mode to ensure they execute sequentially without database race conditions
@@ -10,17 +11,7 @@ test.describe('Projects and Partners Flow', () => {
 
   test.beforeAll(async () => {
     // Clear existing data to ensure a clean state
-    await prisma.actionItem.deleteMany();
-    await prisma.contextUrl.deleteMany();
-    await prisma.phaseState.deleteMany();
-    await prisma.phaseDependency.deleteMany();
-    await prisma.phase.deleteMany();
-    await prisma.projectState.deleteMany();
-    await prisma.partnerState.deleteMany();
-    await prisma.project.deleteMany();
-    await prisma.personAffiliation.deleteMany();
-    await prisma.person.deleteMany();
-    await prisma.partner.deleteMany();
+    await wipeAll();
 
     // Create seed partners
     const ford = await prisma.partner.create({
@@ -77,14 +68,13 @@ test.describe('Projects and Partners Flow', () => {
     await expect(page.locator('body')).toContainText('Ford F-150 AAOS Bring-up');
   });
 
-  test('should display supplier projects grouped by OEM on partner page', async ({ page }) => {
+  test('should list the programs a partner owns on the partner page', async ({ page }) => {
     // Navigate to the Bosch partner page
     await page.goto(`/partners/${boschId}`);
 
-    // Expect to see Bosch details and related projects grouped by OEM
+    // The Programs summary shows what Bosch owns, badged as Owner.
     await expect(page.locator('h1')).toContainText('Bosch');
-    await expect(page.locator('body')).toContainText('Related Projects');
-    // Ensure the Ford grouping is shown since the Bosch project name contains "Ford"
-    await expect(page.locator('body')).toContainText('Ford');
+    await expect(page.locator('body')).toContainText('Programs');
+    await expect(page.locator('body')).toContainText('Owner');
   });
 });

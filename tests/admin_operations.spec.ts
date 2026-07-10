@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { prisma } from '../src/lib/db';
+import { prisma } from './helpers/db';
+import { wipeAll } from './helpers/fixtures';
 
 test.describe('Admin and Maintenance Operations', () => {
   test.describe.configure({ mode: 'serial' });
@@ -10,17 +11,7 @@ test.describe('Admin and Maintenance Operations', () => {
 
   test.beforeAll(async () => {
     // Clear and seed clean tables
-    await prisma.actionItem.deleteMany();
-    await prisma.contextUrl.deleteMany();
-    await prisma.phaseState.deleteMany();
-    await prisma.phaseDependency.deleteMany();
-    await prisma.phase.deleteMany();
-    await prisma.projectState.deleteMany();
-    await prisma.partnerState.deleteMany();
-    await prisma.project.deleteMany();
-    await prisma.personAffiliation.deleteMany();
-    await prisma.person.deleteMany();
-    await prisma.partner.deleteMany();
+    await wipeAll();
 
     const ford = await prisma.partner.create({
       data: { name: 'Ford', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } } }

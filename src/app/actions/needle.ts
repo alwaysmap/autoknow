@@ -6,12 +6,11 @@ import { parseHealth } from '../../lib/health';
 import { getCurrentUser } from '../../lib/session';
 
 export async function updateNeedleStatus(formData: FormData) {
-  const scope = formData.get('scope') as 'project' | 'partner' | 'phase';
+  const scope = formData.get('scope') as 'project' | 'partner';
   const targetIdStr = formData.get('targetId') as string;
-  const theNeedleVal = formData.get('theNeedle') as string; // '1'..'4', a label, or a drag float
+  const theNeedleVal = formData.get('theNeedle') as string; // a health label or legacy risk value
   const notes = formData.get('notes') as string || null;
   const hillChartProgressStr = formData.get('hillChartProgress') as string;
-  const status = formData.get('status') as string || null;
 
   const targetId = parseInt(targetIdStr, 10);
   if (isNaN(targetId)) {
@@ -72,35 +71,8 @@ export async function updateNeedleStatus(formData: FormData) {
     });
 
     revalidatePath(`/partners/${targetId}`);
-  } else if (scope === 'phase') {
-    const phase = await prisma.phase.findUnique({
-      where: { id: targetId },
-      include: { project: true }
-    });
-
-    if (phase) {
-      const latestPhaseState = await prisma.phaseState.findFirst({
-        where: { phaseId: targetId },
-        orderBy: { timestamp: 'desc' }
-      });
-
-      const finalStatus = status || latestPhaseState?.status || 'Not Started';
-      const finalProgress = !isNaN(hillChartProgress) ? hillChartProgress : (latestPhaseState?.hillChartProgress ?? 0);
-
-      // Create new phase state log
-      await prisma.phaseState.create({
-        data: {
-          phaseId: targetId,
-          status: finalStatus,
-          theNeedle,
-          hillChartProgress: finalProgress,
-          notes
-        }
-      });
-
-      revalidatePath(`/projects/${phase.projectId}`);
-    }
   }
+  // Phase progress is a separate concern — see app/actions/hill.ts (updatePhaseHill).
 
   // Global views cache updates
   revalidatePath('/ecosystem-summary');

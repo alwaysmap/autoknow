@@ -85,6 +85,14 @@
   align-items: start;
 }
 
+/* Phone-friendly: one fully vertical column — gauges first, then the phase rail. */
+@media (max-width: 900px) {
+  .dashboardGrid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
 .leftColumn {
   display: flex;
   flex-direction: column;
@@ -95,6 +103,14 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+
+/* The first section in the right column tops-aligns with the left column's first card —
+   no divider or extra breathing room before any content exists. */
+.rightColumn > .historySection:first-child {
+  margin-top: 0;
+  border-top: none;
+  padding-top: 0;
 }
 
 .emptyPhasesBox {

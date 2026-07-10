@@ -1,22 +1,13 @@
 import { test, expect } from '@playwright/test';
-import { prisma } from '../src/lib/db';
+import { prisma } from './helpers/db';
+import { wipeAll } from './helpers/fixtures';
 
 test.describe('Ecosystem Partners Page', () => {
   let partnerId: number;
 
   test.beforeAll(async () => {
     // Clean and seed a supplier partner
-    await prisma.actionItem.deleteMany();
-    await prisma.contextUrl.deleteMany();
-    await prisma.phaseState.deleteMany();
-    await prisma.phaseDependency.deleteMany();
-    await prisma.phase.deleteMany();
-    await prisma.projectState.deleteMany();
-    await prisma.partnerState.deleteMany();
-    await prisma.project.deleteMany();
-    await prisma.personAffiliation.deleteMany();
-    await prisma.person.deleteMany();
-    await prisma.partner.deleteMany();
+    await wipeAll();
 
     const partner = await prisma.partner.create({
       data: {

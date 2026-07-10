@@ -73,6 +73,41 @@ export async function getNeedleHistory(
   return pa ? { title: pa.name, changes: toChanges(pa.states) } : null;
 }
 
+// One recorded phase hill-chart update: 0..100 progress (status is inferred from it),
+// the previous update (for the ghost dot), the markdown note, and the person who made it.
+export interface HillChange {
+  timestamp: string;
+  progress: number; // 0..100
+  previousProgress: number | null;
+  notes: string | null;
+  source: string | null;
+}
+
+export async function getHillHistory(phaseId: number): Promise<{ title: string; changes: HillChange[] } | null> {
+  const phase = await prisma.phase.findUnique({
+    where: { id: phaseId },
+    select: {
+      name: true,
+      project: { select: { name: true } },
+      states: {
+        orderBy: { timestamp: 'asc' },
+        select: { hillChartProgress: true, notes: true, source: true, timestamp: true },
+      },
+    },
+  });
+  if (!phase) return null;
+  const changes: HillChange[] = phase.states
+    .map((s, i) => ({
+      timestamp: s.timestamp.toISOString(),
+      progress: s.hillChartProgress ?? 0,
+      previousProgress: i > 0 ? phase.states[i - 1].hillChartProgress ?? null : null,
+      notes: s.notes,
+      source: s.source,
+    }))
+    .reverse();
+  return { title: `${phase.project.name} — ${phase.name}`, changes };
+}
+
 export async function getStatusHistory(type: HistoryType, id: number): Promise<StatusHistory | null> {
   if (type === 'project') {
     const project = await prisma.project.findUnique({

@@ -5,8 +5,8 @@ test.describe('Onboarding and Seeding Controls', () => {
     await page.goto('/admin');
     await expect(page.locator('h1')).toContainText('Dev Console');
 
-    // Seed defaults only (empty state onboarding)
-    await page.click('button:has-text("Seed Defaults Only")');
+    // Seed core data only (empty state onboarding)
+    await page.click('button:has-text("Seed Core Data")');
     await page.waitForURL('/');
 
     // Verify onboarding boxes are visible

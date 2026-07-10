@@ -69,35 +69,6 @@ export async function updateProjectMetrics(formData: FormData) {
   revalidatePath(`/projects/${projectIdStr}`);
 }
 
-export async function updatePhaseState(formData: FormData) {
-  const projectIdStr = formData.get('projectId') as string;
-  const phaseIdStr = formData.get('phaseId') as string;
-  const status = formData.get('status') as string;
-  const theNeedleVal = formData.get('theNeedle') as string;
-  const hillChartProgressStr = formData.get('hillChartProgress') as string;
-  const notes = formData.get('notes') as string || null;
-
-  const phaseId = parseInt(phaseIdStr);
-  const hillChartProgress = parseInt(hillChartProgressStr);
-
-  if (!isNaN(phaseId)) {
-    // Phases track status + progress; health lives on the program needle. Keep a
-    // health value on the row for continuity, defaulting to On Track.
-    const theNeedle = parseHealth(theNeedleVal);
-
-    await prisma.phaseState.create({
-      data: {
-        phaseId,
-        status,
-        theNeedle,
-        hillChartProgress: !isNaN(hillChartProgress) ? hillChartProgress : 0,
-        notes
-      }
-    });
-  }
-  revalidatePath(`/projects/${projectIdStr}`);
-}
-
 export async function archiveProject(formData: FormData) {
   const projectIdStr = formData.get('projectId') as string;
   const projectId = parseInt(projectIdStr);
@@ -124,6 +95,7 @@ export async function deleteProject(formData: FormData) {
     await prisma.$transaction([
       prisma.actionItem.deleteMany({ where: { phaseId: { in: phaseIds } } }),
       prisma.phaseState.deleteMany({ where: { phaseId: { in: phaseIds } } }),
+      prisma.phasePartner.deleteMany({ where: { phaseId: { in: phaseIds } } }),
       prisma.phaseDependency.deleteMany({
         where: {
           OR: [
@@ -132,8 +104,11 @@ export async function deleteProject(formData: FormData) {
           ]
         }
       }),
+      prisma.contextUrl.deleteMany({
+        where: { OR: [{ projectId }, { phaseId: { in: phaseIds } }] }
+      }),
       prisma.phase.deleteMany({ where: { projectId } }),
-      prisma.contextUrl.deleteMany({ where: { projectId } }),
+      prisma.programBrief.deleteMany({ where: { projectId } }),
       prisma.project.delete({ where: { id: projectId } })
     ]);
   }
@@ -144,12 +119,14 @@ export async function addPhase(formData: FormData) {
   const projectIdStr = formData.get('projectId') as string;
   const name = formData.get('name') as string;
   const durationStr = formData.get('forecastedDuration') as string;
+  const dependsOnStr = formData.get('dependsOn') as string; // optional "after X" phase id
 
   const projectId = parseInt(projectIdStr, 10);
   const forecastedDuration = parseInt(durationStr, 10) || 30;
+  const dependsOnPhaseId = dependsOnStr ? parseInt(dependsOnStr, 10) : NaN;
 
   if (!isNaN(projectId) && name) {
-    // Create the phase and its initial state atomically.
+    // Create the phase, its initial state, and the optional dependency atomically.
     await prisma.$transaction(async (tx) => {
       const phase = await tx.phase.create({
         data: {
@@ -163,10 +140,19 @@ export async function addPhase(formData: FormData) {
         data: {
           phaseId: phase.id,
           status: 'Not Started',
-          theNeedle: 'Low',
+          theNeedle: 'On Track',
           hillChartProgress: 0
         }
       });
+
+      // A brand-new phase has no descendants, so an "after X" edge can never cycle —
+      // just confirm the parent belongs to the same program.
+      if (!isNaN(dependsOnPhaseId)) {
+        const parent = await tx.phase.findUnique({ where: { id: dependsOnPhaseId }, select: { projectId: true } });
+        if (parent?.projectId === projectId) {
+          await tx.phaseDependency.create({ data: { phaseId: phase.id, dependsOnPhaseId } });
+        }
+      }
     });
   }
 
@@ -202,10 +188,13 @@ export async function deletePhase(formData: FormData) {
   const phaseId = parseInt(phaseIdStr, 10);
 
   if (!isNaN(phaseId)) {
-    // Remove the phase and everything that references it atomically.
+    // Remove the phase and everything that references it atomically. Ingested context
+    // is detached, not deleted — the digest may also matter to the project/partner.
     await prisma.$transaction([
       prisma.actionItem.deleteMany({ where: { phaseId } }),
       prisma.phaseState.deleteMany({ where: { phaseId } }),
+      prisma.phasePartner.deleteMany({ where: { phaseId } }),
+      prisma.contextUrl.updateMany({ where: { phaseId }, data: { phaseId: null } }),
       prisma.phaseDependency.deleteMany({
         where: {
           OR: [

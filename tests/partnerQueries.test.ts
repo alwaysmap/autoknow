@@ -1,5 +1,6 @@
 /** @jest-environment node */
-import { prisma } from '../src/lib/db';
+import { prisma, disconnectTestDb } from './helpers/db';
+import { wipeAll } from './helpers/fixtures';
 import { PartnerQueries } from '../src/lib/partnerQueries';
 
 describe('PartnerQueries Class Service Unit Tests', () => {
@@ -10,17 +11,7 @@ describe('PartnerQueries Class Service Unit Tests', () => {
     partnerQueries = new PartnerQueries(prisma);
 
     // Clean up any left-over test data
-    await prisma.actionItem.deleteMany();
-    await prisma.contextUrl.deleteMany();
-    await prisma.phaseState.deleteMany();
-    await prisma.phaseDependency.deleteMany();
-    await prisma.phase.deleteMany();
-    await prisma.projectState.deleteMany();
-    await prisma.partnerState.deleteMany();
-    await prisma.project.deleteMany();
-    await prisma.personAffiliation.deleteMany();
-    await prisma.person.deleteMany();
-    await prisma.partner.deleteMany();
+    await wipeAll();
 
     // Seed a test partner
     const partner = await prisma.partner.create({
@@ -57,9 +48,8 @@ describe('PartnerQueries Class Service Unit Tests', () => {
 
   afterAll(async () => {
     // Teardown the test records
-    await prisma.project.deleteMany();
-    await prisma.partner.deleteMany();
-    await prisma.$disconnect();
+    await wipeAll();
+    await disconnectTestDb();
   });
 
   it('should retrieve seeded partners and their projects successfully via getAllPartners()', async () => {

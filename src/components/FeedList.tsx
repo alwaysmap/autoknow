@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { FeedItem, FeedKind } from '../lib/feed';
 import Markdown from './Markdown';
 import { NeedleGaugeSvg } from './NeedleGauge';
+import { PhaseHillSvg } from './PhaseHillGauge';
 import { deleteFeedItem } from '../app/actions/status';
 import styles from './FeedList.module.css';
 
@@ -65,6 +66,10 @@ export default function FeedList({
                 previousProgress={it.needle.previousProgress}
                 previousHealth={it.needle.previousHealth}
               />
+            </div>
+          ) : it.hill ? (
+            <div className={styles.gauge}>
+              <PhaseHillSvg progress={it.hill.progress} previousProgress={it.hill.previousProgress} color={it.hill.color} label={it.title} />
             </div>
           ) : (
             <div className={styles.kind} style={{ color: KIND_COLOR[it.kind] }}>{KIND_LABEL[it.kind]}</div>

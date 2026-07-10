@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { prisma } from '../src/lib/db';
+import { prisma } from './helpers/db';
+import { wipeAll } from './helpers/fixtures';
 
 test.describe('People and Biographical History', () => {
   test.describe.configure({ mode: 'serial' });
@@ -8,19 +9,10 @@ test.describe('People and Biographical History', () => {
 
   test.beforeAll(async () => {
     // Clean tables
-    await prisma.actionItem.deleteMany();
-    await prisma.contextUrl.deleteMany();
-    await prisma.phaseState.deleteMany();
-    await prisma.phaseDependency.deleteMany();
-    await prisma.phase.deleteMany();
-    await prisma.projectState.deleteMany();
-    await prisma.partnerState.deleteMany();
-    await prisma.project.deleteMany();
+    await wipeAll();
     
     // Clean new Person / Affiliation tables
-    await prisma.personAffiliation.deleteMany();
-    await prisma.person.deleteMany();
-    await prisma.partner.deleteMany();
+    await wipeAll();
 
     // Setup partners
     const ford = await prisma.partner.create({

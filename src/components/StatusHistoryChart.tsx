@@ -4,20 +4,26 @@ import type { HistoryPoint } from '../lib/history';
 const HEALTH_WORD = ['On Track', 'Some Risk', 'Concerned'];
 const healthWord = (v: number) => HEALTH_WORD[Math.max(0, Math.min(2, Math.round(v * 2)))];
 
-// Compact time-series of the two tracked values on a shared 0..1 scale, drawn as
-// straight lines between points. Axes carry words only, no numbers:
-//   left  = progress  (Not started -> Finished)
-//   right = risk/needle (None -> Max)
+// Compact time-series of the tracked values on a shared 0..1 scale, drawn as straight
+// lines between points. Axes carry words only, no numbers:
+//   left  = progress (Not started -> Finished)
+//   right = health   (None -> Max) — omitted for phases, which track progress only.
 
-const NEEDLE = '#c5221f'; // risk (right axis)
+const NEEDLE = '#c5221f'; // health (right axis)
 const PROGRESS = '#1a6b3c'; // progress (left axis)
 
-export default function StatusHistoryChart({ points }: { points: HistoryPoint[] }) {
+export default function StatusHistoryChart({
+  points,
+  showNeedle = true,
+}: {
+  points: HistoryPoint[];
+  showNeedle?: boolean; // phases have no health — hide the right axis entirely
+}) {
   if (points.length === 0) {
     return <p style={{ fontSize: 12, fontStyle: 'italic', color: 'var(--muted, #777)' }}>No status history yet.</p>;
   }
 
-  const W = 380, H = 168, ml = 52, mr = 44, mt = 14, mb = 24;
+  const W = 380, H = 168, ml = 52, mr = showNeedle ? 44 : 14, mt = 14, mb = 24;
   const iw = W - ml - mr, ih = H - mt - mb;
 
   const times = points.map((p) => new Date(p.t).getTime());
@@ -33,7 +39,7 @@ export default function StatusHistoryChart({ points }: { points: HistoryPoint[] 
   const fmt = (t: string) => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: 440, height: 'auto' }} role="img" aria-label="Needle and progress over time">
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: 440, height: 'auto' }} role="img" aria-label={showNeedle ? 'Health and progress over time' : 'Progress over time'}>
       {/* faint reference lines (no numeric labels) */}
       {[0, 0.5, 1].map((v) => (
         <line key={v} x1={ml} y1={py(v)} x2={W - mr} y2={py(v)}
@@ -41,14 +47,18 @@ export default function StatusHistoryChart({ points }: { points: HistoryPoint[] 
           strokeDasharray={v === 0.5 ? '2 3' : undefined} />
       ))}
       <line x1={ml} y1={mt} x2={ml} y2={H - mb} stroke="var(--border, #e3e0d6)" />
-      <line x1={W - mr} y1={mt} x2={W - mr} y2={H - mb} stroke="var(--border, #e3e0d6)" />
+      {showNeedle && <line x1={W - mr} y1={mt} x2={W - mr} y2={H - mb} stroke="var(--border, #e3e0d6)" />}
 
       {/* left axis: progress */}
       <text x={ml - 6} y={py(1) + 3} textAnchor="end" fontSize={9} fill={PROGRESS}>Finished</text>
       <text x={ml - 6} y={py(0) + 3} textAnchor="end" fontSize={9} fill={PROGRESS}>Not started</text>
-      {/* right axis: risk */}
-      <text x={W - mr + 6} y={py(1) + 3} textAnchor="start" fontSize={9} fill={NEEDLE}>Max</text>
-      <text x={W - mr + 6} y={py(0) + 3} textAnchor="start" fontSize={9} fill={NEEDLE}>None</text>
+      {/* right axis: health */}
+      {showNeedle && (
+        <>
+          <text x={W - mr + 6} y={py(1) + 3} textAnchor="start" fontSize={9} fill={NEEDLE}>Max</text>
+          <text x={W - mr + 6} y={py(0) + 3} textAnchor="start" fontSize={9} fill={NEEDLE}>None</text>
+        </>
+      )}
 
       {/* dates */}
       {xIdx.map((i) => (
@@ -57,7 +67,7 @@ export default function StatusHistoryChart({ points }: { points: HistoryPoint[] 
 
       {/* straight lines between points */}
       {n > 1 && <polyline points={line((p) => p.progress)} fill="none" stroke={PROGRESS} strokeWidth={1.75} />}
-      {n > 1 && <polyline points={line((p) => p.needle)} fill="none" stroke={NEEDLE} strokeWidth={1.75} />}
+      {showNeedle && n > 1 && <polyline points={line((p) => p.needle)} fill="none" stroke={NEEDLE} strokeWidth={1.75} />}
 
       {/* points */}
       {points.map((p, i) => (
@@ -65,9 +75,11 @@ export default function StatusHistoryChart({ points }: { points: HistoryPoint[] 
           <circle cx={px(p.t)} cy={py(p.progress)} r={2.5} fill={PROGRESS}>
             <title>{`${fmt(p.t)} · progress`}</title>
           </circle>
-          <circle cx={px(p.t)} cy={py(p.needle)} r={2.5} fill={NEEDLE}>
-            <title>{`${fmt(p.t)} · health ${healthWord(p.needle)}`}</title>
-          </circle>
+          {showNeedle && (
+            <circle cx={px(p.t)} cy={py(p.needle)} r={2.5} fill={NEEDLE}>
+              <title>{`${fmt(p.t)} · health ${healthWord(p.needle)}`}</title>
+            </circle>
+          )}
         </g>
       ))}
     </svg>

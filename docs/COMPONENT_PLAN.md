@@ -42,7 +42,7 @@ Template — **Decision** · **MUST** (one thing) · **COULD** (extras) · **Dat
   - [DER] elapsed vs forecast per phase; which phase is the active constraint.
   - [ING] count/recency of context attached to each phase (so a step can show "9 days, 3 recent messages").
   - [AI] stuck/at-risk classification + one-line why, per step.
-- **Context:** Project (full). Condensed read-only variant on Me and on partner program cards.
+- **Context:** ~~Project (full)~~ **superseded on Project by `PhaseGraph` (§2.13)**. Condensed read-only variant survives on Me and on partner program cards.
 
 ### 2.3 `ActionHistory` (ingested context stream + search)
 - **Decision:** what actually happened, and what decision is now open?
@@ -115,6 +115,47 @@ Template — **Decision** · **MUST** (one thing) · **COULD** (extras) · **Dat
 ### 2.11 Cut
 - `ProgramsTable` (orphan), the duplicate ecosystem clients (merge), hill/needle math ×4 (→ `lib/geometry.ts`).
 
+### 2.12 `ProgramBrief` (Gemini program summary — first shipped Tier-4 feature)
+- **Decision:** what changed on this program, and what needs my attention — *without reading the feed?* For the program owner (daily standup lens) and any exec dropping in cold.
+- **MUST:**
+  - A generated brief with fixed sections: **TL;DR** (2–3 sentences) · **Health & trajectory** (needle now vs. previous, direction of travel) · **Risks** · **Decisions made / pending** · **Next steps** · **Partner activity**.
+  - **Cited evidence per bullet** — every claim links to the in-app record it came from (`/history/project/{id}`, `/history/phase/{id}`, or the `ContextUrl` source link). "Everything is a URL."
+  - Provenance line — *"Generated {date} by Gemini · from {n} updates"* — plus a staleness cue whenever underlying data is newer than the brief.
+  - An **UPDATE-style regenerate button** (same visual grammar as the needle/hill cards) for on-demand refresh.
+  - Honest degradation: when `geminiConfigured === false` (no `GEMINI_API_KEY`), render an empty state that says so — never fake a synthesis.
+  - **Never hits original sources.** Inputs are only what AutoKnow already stores: SoR state rows + previously ingested digests (`ContextUrl.ingestedText`). No re-fetch of Docs/Chat/Gerrit at generation time — satisfied by construction.
+- **COULD:** week-over-week diff vs. the previous brief; "what changed since last brief" mode; brief history list (reuse the `NeedleHistoryList` card layout); a `brief` FeedKind so briefs land in the Activity feed with their own filter chip; embed the brief text (768-dim) so unified search finds it.
+- **Data required:**
+  - [AI] the synthesis itself (**NEW**): `gemini-2.5-flash` + `responseSchema` structured JSON — same call pattern and graceful-fallback convention as `summarizeDocument` in `lib/gemini.ts`.
+  - [SoR] needle history (`getNeedleHistory`, `lib/history.ts`); per-phase hill history (`getHillHistory`); open `ActionItem`s; program metadata (owner, partner, SOP).
+  - [ING] `ContextUrl.ingestedText` digests scoped to the program — already-distilled text only.
+  - [DER] the input window (since last brief, else trailing 14 days); stagnation signals (`isStagnant`); update counts per source (feeds the provenance line).
+- **Context:** Project detail, **above the fold on every program page**, side-by-side with the program gauge (`StatusSignal`/needle) and the phases hill chart — the three together are the program's opening read: *the numbers* (gauge + hill) and *the words* (brief). 2-column grid per design.md; the brief takes the wide column, the gauge + hill charts stack beside it. Ecosystem rollup is explicitly **out of scope** for v1 (that's `InsightCard`'s job).
+- **Excluded from:** dashboards/tables (too heavy); partner page (that's `DiscussionDigest`'s lens).
+
+**Engine notes (storage · pipeline · triggers):**
+- **Storage — new Prisma model `ProgramBrief`, append-only** (one row per generation, like `ProjectState`): `id, projectId → Project, generatedAt, trigger ('scheduled' | 'manual'), model, windowStart, windowEnd, tldr (String), body (Json — sections as arrays of {text, citations: [{label, href}]}), sourceCounts (Json), embedding vector(768) (COULD)`. Append-only enables the diff/history COULDs and feed integration. Precedents: `ProjectState` for the history pattern; `ContextUrl`'s raw-SQL insert for the optional embedding.
+- **Pipeline — `generateProgramBrief(projectId)`** (thin orchestrator in `lib/brief.ts`, Gemini call in `lib/gemini.ts`): gather the tiered inputs above → one `generateContent` call with `responseSchema` → persist the row. Prompt persona mirrors the analyst persona in `summarizeDocument`; instructions: cite only the provided records (by their supplied hrefs), flag stagnation, write for a Googler exec.
+- **Triggers:**
+  - *On demand:* `POST /api/projects/[id]/brief` (route conventions of `api/projects/[id]/needle/route.ts` — params validation → `jsonError`, try/catch → `serverError`), or a server action behind the card's regenerate button.
+  - *Daily:* `POST /api/admin/briefs` — batch-generates for every non-archived program **with new activity since its last brief** (skip-unchanged keeps the run cheap); guarded by `adminOperationsAllowed` (mirrors `api/admin/reindex`). No cron infra exists in-repo — an external scheduler (Cloud Scheduler / launchd / GitHub Actions cron) invokes the endpoint.
+
+### 2.13 `PhaseGraph` (vertical phase rail — phases-as-a-graph, chain-first)
+- **Decision:** what is the shape of this program's remaining work — which phases are live, what gates what, where is the constraint — in one glance, on any screen.
+- **Visual:** a **vertical tube-map / git-graph** of the phase DAG (`PhaseDependency`). A rail runs down the left; lanes indent by dependency depth. **Edges are rectilinear** — 90° jogs with small corner radii, never bezier curves — so merges and branches read like a transit map. One **node per phase**, filled with the **phase's own color** (`phaseColor`); the **critical chain** (longest remaining-duration path: `forecastedDuration × (100 − progress)/100` summed over the DAG, `lib/criticalChain.ts`) is the visualization's spine — **heavier edges**, **ringed nodes**, an amber **Constraint** tag on the first unfinished chain phase, and a one-line chain summary above the rail (names joined by →, ≈days remaining). Tufte: no per-row boxes, the rail is the structure. **Fully vertical and phone-friendly** — expanded row bodies stack on narrow screens; the page grid collapses to one column under 900px.
+- **MUST:**
+  - **Three row appearances, cycled by tapping the row header** — *collapsed* (one quiet line: node, name, status, date), *minimal* (the default: + mini hill with UPDATE and the latest note, clamped, partners as links), *expanded* (+ full markdown note, editable partner chips, editable dependencies, remove phase). **Done phases default to collapsed**; links/buttons inside the header don't trigger the cycle.
+  - **Dependencies visible on the rail and actionable in the expanded row**: an "After" list (upstream) and an "Enables" list (downstream), each entry a chip that **jumps to and flashes** the related row; add via a quiet select (options exclude self and anything that would cycle), remove per chip. The server **rejects cycles** and duplicates; the row shows the rejection inline.
+  - **Add / remove phases inline**: add-phase at the rail's end with an optional **"after X"** dependency; removal is *entire* (phase + states + links), confirmed.
+  - Derived status only (Not Started / In Progress / Done from progress); no numeric progress anywhere — the hill position, status word, and chain days carry it.
+- **COULD:** drag-to-reorder lanes; stagnation cue on the row; ingested-context count per phase; AI stuck marker on the constraint node.
+- **Data required:**
+  - [SoR] phases + `PhaseDependency` DAG with per-edge ids (add/remove); latest + previous `PhaseState`; `forecastedDuration`; `PhasePartner` links (all exist).
+  - [DER] **critical chain** — longest remaining-duration path + current constraint (`lib/criticalChain.ts`); derived status (`hillStatus`); per-phase color (`phaseColor`); lane layout; row-state defaults.
+  - [AI] the chain feeds a `chain` evidence record into the `ProgramBrief` generator (§2.12) so risks/next-steps reason about the constraint.
+- **Context:** Project detail, the main phase surface — **supersedes `CriticalChainStepper` (§2.2) entirely**: the chain now lives on the rail itself.
+- **Excluded from:** ecosystem/dashboards (a program-internal view); anywhere a single summary dot-on-hill suffices (that's the aggregate hill chart card).
+
 ---
 
 ## 3. Page specs (compose components per context + decision)
@@ -130,9 +171,9 @@ Template — **Who** · **The decision** · **Above the fold** · **Components (
 
 ### 3.2 Project detail (`/projects/[id]`)
 - **Who:** TEL/owner. **Decision:** where are we, what's blocking the constraint, what's next?
-- **Above the fold:** `EntityHeader` (program-health StatusSignal) + `CriticalChainStepper`.
-- **Order:** Header → Stepper (drives selection) → `InsightCard` (per project/phase) → filtered `ActionHistory` + open decisions for the selected step → minimal `StatusCapture`.
-- **Data feeds:** [SoR] phases/states/metadata; [ING] context per phase; [DER] cycle/slip; [AI] stuck detection + proposed needle.
+- **Above the fold:** `ProgramBrief` side-by-side with the program gauge (`StatusSignal`/needle) and the phases hill chart — words next to numbers, one opening read. `EntityHeader` above.
+- **Order:** Header → [`ProgramBrief` | gauge + hill charts] (the above-the-fold pair) → `PhaseGraph` (vertical rail; drives selection) → `InsightCard` (per project/phase) → filtered `ActionHistory` + open decisions for the selected phase → minimal `StatusCapture`.
+- **Data feeds:** [SoR] phases/states/metadata; [ING] context per phase; [DER] cycle/slip; [AI] program brief synthesis, stuck detection + proposed needle.
 - **Excluded:** ecosystem metrics; unrelated programs.
 
 ### 3.3 Me (`/me`)
@@ -165,6 +206,8 @@ The union of every "Data required" above. **This is what must exist for the UI t
 
 **Tier 1 — System of record (mostly exists):**
 - Phase lifecycle, completion, dependencies (DAG); program metadata (SOP, volume, owner); relationship graph (partner↔partner, partner↔program, partner↔Googler). Minimal capture UI.
+- `ProgramBrief` append-only table — persisted generations of the program brief *(NEW)*.
+- Per-phase partner attribution (phase↔partner link) — feeds `PhaseGraph` rows and the partner page's owned/involved program summaries *(exists — `PhasePartner`)*.
 
 **Tier 2 — Ingestion feeds (partially exists):**
 - Chat ingestion + classification → attach to correct phase/project/partner *(exists, naive)*.
@@ -174,11 +217,13 @@ The union of every "Data required" above. **This is what must exist for the UI t
 
 **Tier 3 — Derived (partially exists, some fabricated):**
 - Cycle time & throughput per phase-name from state history *(exists)*.
+- **Critical chain** — longest remaining-duration path over the phase DAG (`forecastedDuration × remaining progress`), plus the current constraint phase → drives `PhaseGraph` emphasis and a `ProgramBrief` evidence record *(exists — `lib/criticalChain.ts`)*.
 - SOP-vs-forecast slip; cumulative vehicle volume; volume-at-risk *(NEW/real)*.
 - Replace fabricated p85 and hardcoded constraint panel with computed truth *(done for p85; constraint panel still hardcoded)*.
 
 **Tier 4 — AI (the product — mostly missing):**
 - **Real semantic embeddings** (today: deterministic `Math.sin` fake).
+- **Program brief synthesis** — daily/on-demand per-program rollup of needle + hill + ingested digests with cited evidence → `ProgramBrief` *(NEW — first shipped Tier-4 feature)*.
 - **Stuck/at-risk detection** with cited evidence → `InsightCard`, chain markers.
 - **Proposed needle inference** from ingested context → `StatusSignal` default.
 - **Discussion-topic extraction & summarization** over a time window per partner → `DiscussionDigest`.
@@ -191,9 +236,9 @@ The union of every "Data required" above. **This is what must exist for the UI t
 ## 5. Build sequence
 
 1. **Foundation:** `tokens.css`, layout primitives, `lib/geometry.ts` (kill ×4 duplication), Tufte density pass.
-2. **SoR surfaces (minimal entry):** `EntityHeader`, `StatusSignal` (scoped), `CriticalChainStepper`, `RelationshipPanel`, minimal capture dialogs.
+2. **SoR surfaces (minimal entry):** `EntityHeader`, `StatusSignal` (scoped), `PhaseGraph` (vertical rail; supersedes the full `CriticalChainStepper`), `RelationshipPanel`, minimal capture dialogs.
 3. **Ingestion + context:** real embeddings; Google-Docs + Gerrit/Buganizer feeds; `ActionHistory` with semantic search.
-4. **AI layer (the goal):** `InsightCard`, proposed-needle inference, `DiscussionDigest`, stuck/slip detection — built on 2+3.
+4. **AI layer (the goal):** `ProgramBrief` first — the cheapest real synthesis (one entity scope, every input already exists) — then `InsightCard`, proposed-needle inference, `DiscussionDigest`, stuck/slip detection — built on 2+3.
 5. **Recompose pages:** Ecosystem (FlowChart-led), Project (Stepper-led), Me, Partner (two lenses).
 
 The structured app is **scaffolding for the intelligence layer.** Tiers 1–3 make the data exist and trustworthy; Tier 4 is the product. Build bottom-up, but never lose that the `InsightCard` and `DiscussionDigest` are the reason the rest is here.

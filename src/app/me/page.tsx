@@ -1,7 +1,12 @@
+import type { ComponentProps } from 'react';
 import { prisma } from '../../lib/db';
 import { deriveEmail, normalizeHandle } from '../../lib/auth';
 import { getCurrentUser } from '../../lib/session';
 import MeClient from './MeClient';
+
+// The serialized shapes cross the RSC boundary (Dates → strings), so they no longer
+// match the Prisma types — assert against MeClient's own prop contract instead of any.
+type MeClientProps = ComponentProps<typeof MeClient>;
 
 export const dynamic = 'force-dynamic';
 
@@ -181,10 +186,10 @@ export default async function MePage(props: { searchParams: Promise<SearchParams
   return (
     <MeClient
       currentUser={user}
-      person={serializedPerson as any}
-      projects={serializedProjects as any}
-      actionItems={serializedActionItems as any}
-      partners={serializedPartners as any}
+      person={serializedPerson as MeClientProps['person']}
+      projects={serializedProjects as MeClientProps['projects']}
+      actionItems={serializedActionItems as MeClientProps['actionItems']}
+      partners={serializedPartners as MeClientProps['partners']}
     />
   );
 }

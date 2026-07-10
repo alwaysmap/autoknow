@@ -28,13 +28,15 @@ export default function Search() {
   }, []);
 
   // Debounced fetch with abort, so a slow earlier response can't overwrite a newer one.
+  // Clearing on empty input goes through the same debounce, keeping all setItems calls
+  // asynchronous (no synchronous setState inside the effect body).
   useEffect(() => {
-    if (!query.trim()) {
-      setItems([]);
-      return;
-    }
     const ctrl = new AbortController();
     const t = setTimeout(async () => {
+      if (!query.trim()) {
+        setItems([]);
+        return;
+      }
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: ctrl.signal });
         if (res.ok) {

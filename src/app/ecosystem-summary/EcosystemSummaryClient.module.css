@@ -471,3 +471,11 @@
   opacity: 0.8;
 }
 
+
+.pageTitle {
+  font-family: var(--head-font);
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--fg);
+  margin: 0 0 20px;
+}

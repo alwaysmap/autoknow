@@ -37,13 +37,11 @@ async function seedCoreData() {
   redirect('/');
 }
 
-async function wipeAllData(shouldRedirect = true) {
+async function wipeAllData() {
   'use server';
   await libWipeAllData();
-  if (shouldRedirect) {
-    revalidatePath('/');
-    redirect('/');
-  }
+  revalidatePath('/');
+  redirect('/');
 }
 
 export default async function AdminPage() {
@@ -74,7 +72,7 @@ export default async function AdminPage() {
         <div className={styles.card}>
           <h3>🗑 Wipe All (Clean Slate)</h3>
           <p>Completely clears all records from the database. Zero rows across all tables. Good for validation of absolute raw empty states.</p>
-          <form action={() => wipeAllData(true)}>
+          <form action={wipeAllData}>
             <button type="submit" className={styles.dangerButton}>Wipe All Data</button>
           </form>
         </div>

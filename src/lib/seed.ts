@@ -1,15 +1,47 @@
 import { prisma } from './db';
 import { TEMPLATES } from './templates';
 import { ingestRecord } from './vector';
+import { hillStatus } from './phase';
+
+// Per-program phase progress (0..100), spread across the hill so each program's summary
+// chart shows a distinguishable dot per phase. Status is derived from progress.
+const FORD_PROGRESS: Record<string, number> = {
+  'BSP & power-on': 100,
+  'VHAL Integration': 65,
+  'Audio HAL': 45,
+  'Car Service Integration': 20,
+  'Compliance Testing': 0,
+};
+const TOYOTA_PROGRESS: Record<string, number> = {
+  'NFC Driver bring-up': 100,
+  'Secure Element configuration': 50,
+  'CCC Spec Compliance': 15,
+};
+const BOSCH_PROGRESS: Record<string, number> = {
+  'BSP & power-on': 100,
+  'VHAL Integration': 60,
+  'Audio HAL': 35,
+  'Car Service Integration': 15,
+  'Compliance Testing': 0,
+};
+const QUALCOMM_PROGRESS: Record<string, number> = {
+  'BSP & power-on': 100,
+  'VHAL Integration': 100,
+  'Audio HAL': 85,
+  'Car Service Integration': 55,
+  'Compliance Testing': 30,
+};
 
 export async function wipeAllData() {
   console.log('Wiping all database records...');
   await prisma.actionItem.deleteMany();
   await prisma.contextUrl.deleteMany();
+  await prisma.phasePartner.deleteMany();
   await prisma.phaseState.deleteMany();
   await prisma.phaseDependency.deleteMany();
   await prisma.phase.deleteMany();
   await prisma.projectState.deleteMany();
+  await prisma.programBrief.deleteMany();
   await prisma.partnerState.deleteMany();
   await prisma.project.deleteMany();
   await prisma.personAffiliation.deleteMany();
@@ -302,12 +334,13 @@ export async function seedMockData() {
     fordPhasesMap[p.name] = phase;
 
     const isBsp = p.name === 'BSP & power-on';
+    const progress = FORD_PROGRESS[p.name] ?? 0;
     await prisma.phaseState.create({
       data: {
         phaseId: phase.id,
-        status: isBsp ? 'Active WIP' : 'Not Started',
-        hillChartProgress: isBsp ? 40 : 0,
-        theNeedle: isBsp ? 'Medium' : 'Low',
+        status: hillStatus(progress),
+        hillChartProgress: progress,
+        theNeedle: 'On Track',
         isStagnant: false,
         notes: isBsp ? 'VHAL wait times are elevated.' : null,
         source: isBsp ? 'Buganizer' : null,
@@ -400,12 +433,13 @@ export async function seedMockData() {
     toyotaPhasesMap[p.name] = phase;
 
     const isKickoff = p.name === 'Secure Element configuration';
+    const progress = TOYOTA_PROGRESS[p.name] ?? 0;
     await prisma.phaseState.create({
       data: {
         phaseId: phase.id,
-        status: isKickoff ? 'Active WIP' : 'Not Started',
-        hillChartProgress: isKickoff ? 15 : 0,
-        theNeedle: 'Low',
+        status: hillStatus(progress),
+        hillChartProgress: progress,
+        theNeedle: 'On Track',
         isStagnant: false,
         notes: isKickoff ? 'Threat modeling in review by partner teams.' : null,
         source: isKickoff ? 'Google Doc' : null,
@@ -500,21 +534,22 @@ export async function seedMockData() {
       await prisma.phaseState.create({
         data: {
           phaseId: phase.id,
-          status: 'Active WIP',
+          status: hillStatus(50),
           hillChartProgress: 50,
-          theNeedle: 'Low',
+          theNeedle: 'On Track',
           isStagnant: false,
           timestamp: new Date('2026-04-01')
         }
       });
     }
     
+    const progress = BOSCH_PROGRESS[p.name] ?? 0;
     await prisma.phaseState.create({
       data: {
         phaseId: phase.id,
-        status: isBsp ? 'Finished' : (p.name === 'VHAL Integration' ? 'Active WIP' : 'Not Started'),
-        hillChartProgress: isBsp ? 100 : (p.name === 'VHAL Integration' ? 60 : 0),
-        theNeedle: isBsp ? 'Low' : (p.name === 'VHAL Integration' ? 'High' : 'Low'),
+        status: hillStatus(progress),
+        hillChartProgress: progress,
+        theNeedle: 'On Track',
         isStagnant: false,
         notes: p.name === 'VHAL Integration' ? 'Telemetry calibration failures reported.' : null,
         source: p.name === 'VHAL Integration' ? 'Buganizer' : null,
@@ -610,21 +645,22 @@ export async function seedMockData() {
       await prisma.phaseState.create({
         data: {
           phaseId: phase.id,
-          status: 'Active WIP',
+          status: hillStatus(50),
           hillChartProgress: 50,
-          theNeedle: 'Low',
+          theNeedle: 'On Track',
           isStagnant: false,
           timestamp: new Date('2026-04-15')
         }
       });
     }
 
+    const progress = QUALCOMM_PROGRESS[p.name] ?? 0;
     await prisma.phaseState.create({
       data: {
         phaseId: phase.id,
-        status: isApp ? 'Active WIP' : 'Finished',
-        hillChartProgress: isApp ? 85 : 100,
-        theNeedle: isApp ? 'Critical' : 'Low',
+        status: hillStatus(progress),
+        hillChartProgress: progress,
+        theNeedle: 'On Track',
         isStagnant: false,
         notes: isApp ? 'Audio driver cold boot freeze deadlock.' : null,
         source: isApp ? 'Google Chat' : null,
@@ -679,6 +715,25 @@ export async function seedMockData() {
   });
 
   // Seed Context URLs for vector searches
+  // Per-phase partner involvement: partners either OWN a program (Project.partnerId) or
+  // are INVOLVED in specific phases of someone else's program via PhasePartner rows.
+  console.log('Seeding phase-partner involvements...');
+  await prisma.phasePartner.createMany({
+    data: [
+      // Ford Evos (owned by Ford): Qualcomm supplies silicon, Bosch supplies audio + VHAL
+      { phaseId: fordPhasesMap['BSP & power-on'].id, partnerId: qualcomm.id, role: 'Silicon' },
+      { phaseId: fordPhasesMap['Audio HAL'].id, partnerId: bosch.id, role: 'Supplier' },
+      { phaseId: fordPhasesMap['VHAL Integration'].id, partnerId: bosch.id, role: 'Supplier' },
+      // Toyota Digital Key (owned by Toyota): Qualcomm secure element
+      { phaseId: toyotaPhasesMap['Secure Element configuration'].id, partnerId: qualcomm.id, role: 'Silicon' },
+      // Bosch VHAL program (owned by Bosch): Ford is the OEM whose vehicle it lands in
+      { phaseId: boschPhasesMap['VHAL Integration'].id, partnerId: ford.id, role: 'OEM' },
+      { phaseId: boschPhasesMap['Compliance Testing'].id, partnerId: ford.id, role: 'OEM' },
+      // Qualcomm cockpit program (owned by Qualcomm): Bosch integrates audio
+      { phaseId: qualcommPhasesMap['Audio HAL'].id, partnerId: bosch.id, role: 'Integrator' },
+    ],
+  });
+
   console.log('Seeding Context URLs for vector search mapping...');
   await ingestRecord(
     fordProject.id,

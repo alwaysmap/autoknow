@@ -1,37 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import styles from './OfflineIndicator.module.css';
 
+// Online/offline is external browser state — subscribe to it directly instead of
+// mirroring it into useState from an effect. The server snapshot is "online".
+const subscribe = (onChange: () => void) => {
+  window.addEventListener('online', onChange);
+  window.addEventListener('offline', onChange);
+  return () => {
+    window.removeEventListener('online', onChange);
+    window.removeEventListener('offline', onChange);
+  };
+};
+
 export default function OfflineIndicator() {
-  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const isOnline = useSyncExternalStore(subscribe, () => navigator.onLine, () => true);
 
+  // Register the service worker for offline support (no state involved).
   useEffect(() => {
-    if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
-      setIsOnline(navigator.onLine);
-
-      const handleOnline = () => setIsOnline(true);
-      const handleOffline = () => setIsOnline(false);
-
-      window.addEventListener('online', handleOnline);
-      window.addEventListener('offline', handleOffline);
-
-      // Register service worker for offline support
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker
-          .register('/sw.js')
-          .then((registration) => {
-            console.log('ServiceWorker registration successful with scope: ', registration.scope);
-          })
-          .catch((err) => {
-            console.log('ServiceWorker registration failed: ', err);
-          });
-      }
-
-      return () => {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('offline', handleOffline);
-      };
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((registration) => {
+          console.log('ServiceWorker registration successful with scope: ', registration.scope);
+        })
+        .catch((err) => {
+          console.log('ServiceWorker registration failed: ', err);
+        });
     }
   }, []);
 

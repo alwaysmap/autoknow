@@ -1,0 +1,119 @@
+/* The "read this first" brief card — words next to the gauges' numbers. Tufte-quiet:
+   typography carries the structure, citations stay tiny and out of the reading line. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-family: var(--head-font);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0;
+}
+
+.provenance {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.stale {
+  color: #c98a1a;
+  font-weight: 600;
+}
+
+.refreshBtn {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.refreshBtn:hover:not(:disabled) {
+  background: #fff;
+  color: var(--fg);
+  border-color: var(--muted);
+}
+.refreshBtn:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.tldr {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--fg);
+  margin: 0;
+}
+
+.sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 6px 28px;
+}
+
+.section {
+  min-width: 0;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin: 10px 0 4px;
+}
+
+.bullets {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bullet {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--fg);
+}
+
+.citations {
+  margin-left: 5px;
+  white-space: nowrap;
+}
+
+.citation {
+  font-size: 10px;
+  vertical-align: super;
+  color: var(--p-600, #1a6b3c);
+  text-decoration: none;
+  padding: 0 1.5px;
+}
+.citation:hover {
+  text-decoration: underline;
+}
+
+.empty {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--muted);
+  margin: 0;
+}

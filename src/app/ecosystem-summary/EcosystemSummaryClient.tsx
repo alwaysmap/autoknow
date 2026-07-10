@@ -163,6 +163,7 @@ export default function EcosystemSummaryClient({
 
   return (
     <div className={styles.clientWrapper}>
+      <h1 className={styles.pageTitle}>Ecosystem Summary</h1>
       {/* Search & Filter Widgets Panel */}
       <section className={styles.filterSection}>
         <div className={styles.filterGroup}>

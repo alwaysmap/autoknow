@@ -23,11 +23,14 @@ test.describe('Home Page (Dashboard)', () => {
     await expect(riskHeading).toBeVisible();
   });
 
-  test('should apply the Knox design system theme variables', async ({ page }) => {
+  test('should apply the design system theme variables', async ({ page }) => {
     const bgVariable = await page.evaluate(() => {
       return window.getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
     });
-    const isValidValue = bgVariable === 'hsl(45, 38%, 95%)' || bgVariable === '#f7f5ed' || bgVariable.toLowerCase().replace(/\s/g, '') === 'rgb(247,245,237)';
-    expect(isValidValue).toBe(true);
+    // Near-neutral off-white (hue 45 at 8% saturation) — a whisper of warmth so the
+    // amber/red status colors carry. See globals.css. The CSS minifier may compile the
+    // hsl() literal down to its hex equivalent.
+    const normalized = bgVariable.toLowerCase().replace(/\s/g, '');
+    expect(['hsl(45,8%,96%)', '#f6f5f4']).toContain(normalized);
   });
 });

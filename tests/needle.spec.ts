@@ -1,26 +1,21 @@
 import { test, expect } from '@playwright/test';
-import { prisma } from '../src/lib/db';
+import { prisma } from './helpers/db';
+import { wipeAll } from './helpers/fixtures';
 
-test.describe('Needle Gauge Display and Updates', () => {
+// The Progress & Health gauge ("Needle" internally) exists at two scopes:
+//  - Partner: relationship health, in the partner page header.
+//  - Project: program progress + health, in the status dashboard.
+// Phase progress is a separate control (the hill chart) — see project_details.spec.ts.
+
+test.describe('Progress & Health gauge updates', () => {
   test.describe.configure({ mode: 'serial' });
 
   let partnerId: number;
   let projectId: number;
-  let phaseId: number;
 
   test.beforeAll(async () => {
     // Clear and seed test records
-    await prisma.actionItem.deleteMany();
-    await prisma.contextUrl.deleteMany();
-    await prisma.phaseState.deleteMany();
-    await prisma.phaseDependency.deleteMany();
-    await prisma.phase.deleteMany();
-    await prisma.projectState.deleteMany();
-    await prisma.partnerState.deleteMany();
-    await prisma.project.deleteMany();
-    await prisma.personAffiliation.deleteMany();
-    await prisma.person.deleteMany();
-    await prisma.partner.deleteMany();
+    await wipeAll();
 
     const partner = await prisma.partner.create({
       data: {
@@ -37,7 +32,7 @@ test.describe('Needle Gauge Display and Updates', () => {
         ownerName: 'dylan',
         sopDate: new Date('2028-01-01'),
         volumeFirstYear: 500000,
-        theNeedle: 'Low'
+        theNeedle: 'On Track'
       }
     });
     projectId = project.id;
@@ -48,78 +43,51 @@ test.describe('Needle Gauge Display and Updates', () => {
         projectId: project.id
       }
     });
-    phaseId = phase.id;
 
     await prisma.phaseState.create({
       data: {
         phaseId: phase.id,
-        status: 'Not Started',
-        theNeedle: 'Low',
+        status: 'In Progress',
+        theNeedle: 'On Track',
         hillChartProgress: 10
       }
     });
   });
 
-  test('should allow updating the needle at the Partner (Company) level', async ({ page }) => {
+  test('should allow updating health at the Partner (relationship) level', async ({ page }) => {
     await page.goto(`/partners/${partnerId}`);
 
-    // Verify initial state is Low
-    await expect(page.locator('header')).toContainText('Low');
+    const header = page.locator('header').filter({ hasText: 'Tesla Motors' });
+    await header.getByRole('button', { name: 'Update', exact: true }).click();
 
-    // Click Update Needle in the header
-    const header = page.locator('header');
-    await header.locator('button:has-text("Update Needle")').click();
-
-    // Drag slider to High range (e.g. 0.65)
     const dialog = page.locator('dialog[open]');
-    await dialog.locator('input[type="range"]').fill('0.65');
+    await dialog.locator('input[type="range"]').fill('65');
+    await dialog.locator('button:has-text("Some Risk")').click();
     await dialog.locator('textarea[name="notes"]').fill('Tesla partnership risk is elevated due to supply chains.');
     await dialog.locator('button:has-text("Save Update")').click();
 
-    // Verify it closed and updated value to High
+    // Verify it closed and the header gauge now reads Some Risk
     await expect(page.locator('dialog[open]')).toHaveCount(0);
-    await expect(page.locator('header')).toContainText('High');
+    await expect(header).toContainText('Some Risk');
   });
 
-  test('should allow updating the needle at the Project level', async ({ page }) => {
+  test('should allow updating progress + health at the Project level', async ({ page }) => {
     await page.goto(`/projects/${projectId}`);
 
-    // Verify initial is Low
-    await expect(page.locator('[class*="summaryCard"]').first()).toContainText('Low');
+    // The Progress & Health card in the status dashboard
+    const card = page.locator('[class*="summaryCard"]').filter({ hasText: 'Progress & Health' }).filter({ has: page.getByRole('button', { name: 'Update', exact: true }) });
+    await expect(card).toContainText('On Track');
+    await card.getByRole('button', { name: 'Update', exact: true }).click();
 
-    // Click Update Needle in the summary dashboard
-    const card = page.locator('[class*="summaryCard"]').first();
-    await card.locator('button:has-text("Update Needle")').click();
-
-    // Drag slider to Medium (e.g. 0.35)
     const dialog = page.locator('dialog[open]');
-    await dialog.locator('input[type="range"]').fill('0.35');
-    await dialog.locator('textarea[name="notes"]').fill('Minor issues resolved');
+    await dialog.locator('input[type="range"]').fill('35');
+    await dialog.locator('button:has-text("Concerned")').click();
+    await dialog.locator('textarea[name="notes"]').fill('Codec blockers piling up');
     await dialog.locator('button:has-text("Save Update")').click();
 
-    // Verify
+    // Verify the gauge card shows the new health and the note landed in activity
     await expect(page.locator('dialog[open]')).toHaveCount(0);
-    await expect(page.locator('[class*="summaryCard"]').first()).toContainText('Medium');
-  });
-
-  test('should allow updating the needle at the Phase level', async ({ page }) => {
-    await page.goto(`/projects/${projectId}`);
-
-    // Verify initial
-    const phaseCard = page.locator('[class*="phaseCard"]').first();
-    await expect(phaseCard).toContainText('Low');
-
-    // Click Update Needle on the phase
-    await phaseCard.locator('button:has-text("Update Needle")').click();
-
-    // Drag slider to Critical (e.g. 0.9)
-    const dialog = page.locator('dialog[open]');
-    await dialog.locator('input[type="range"]').fill('0.9');
-    await dialog.locator('textarea[name="notes"]').fill('Stuck indefinitely');
-    await dialog.locator('button:has-text("Save Update")').click();
-
-    // Verify
-    await expect(page.locator('dialog[open]')).toHaveCount(0);
-    await expect(phaseCard).toContainText('Critical');
+    await expect(card).toContainText('Concerned');
+    await expect(page.locator('body')).toContainText('Codec blockers piling up');
   });
 });

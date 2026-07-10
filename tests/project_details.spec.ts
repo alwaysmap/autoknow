@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { prisma } from '../src/lib/db';
+import { prisma } from './helpers/db';
+import { wipeAll } from './helpers/fixtures';
 
 test.describe('Project Details and Action Item Operations', () => {
   test.describe.configure({ mode: 'serial' });
@@ -9,17 +10,7 @@ test.describe('Project Details and Action Item Operations', () => {
 
   test.beforeAll(async () => {
     // Clear and seed clean state
-    await prisma.actionItem.deleteMany();
-    await prisma.contextUrl.deleteMany();
-    await prisma.phaseState.deleteMany();
-    await prisma.phaseDependency.deleteMany();
-    await prisma.phase.deleteMany();
-    await prisma.projectState.deleteMany();
-    await prisma.partnerState.deleteMany();
-    await prisma.project.deleteMany();
-    await prisma.personAffiliation.deleteMany();
-    await prisma.person.deleteMany();
-    await prisma.partner.deleteMany();
+    await wipeAll();
 
     const partner = await prisma.partner.create({
       data: { name: 'Google Partner PE', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } } }
@@ -81,47 +72,41 @@ test.describe('Project Details and Action Item Operations', () => {
     await expect(page.locator(`.action-item-${actionItemId}`)).toContainText('Completed');
   });
 
-  test('should allow updating overall project health (Needle) and progress (Hill Chart)', async ({ page }) => {
+  test('should allow updating program progress + health via the gauge dialog', async ({ page }) => {
     await page.goto(`/projects/${projectId}`);
 
-    // Update health needle via dialog
-    await page.click('button:has-text("Update Needle")');
-    await page.locator('dialog[open] #needleSlider').fill('0.85');
-    await page.fill('#needleNotes', 'Critical timeline blockers piling up');
-    await page.click('button:has-text("Save Update")');
+    // The Progress & Health card in the status dashboard
+    const card = page.locator('[class*="summaryCard"]').filter({ hasText: 'Progress & Health' }).filter({ has: page.getByRole('button', { name: 'Update', exact: true }) });
+    await card.getByRole('button', { name: 'Update', exact: true }).click();
 
-    // Update hill progress via dialog
-    await page.click('button:has-text("Update Progress")');
-    await page.locator('#progressSlider').fill('85');
-    await page.fill('#progressNotes', 'Milestone completed early');
-    await page.click('button:has-text("Save Progress Update")');
-
-    // Verify values updated on dashboard cards
-    await expect(page.locator('body')).toContainText('Critical');
-    await expect(page.locator('body')).toContainText('Milestone completed early');
-  });
-
-  test('should allow updating a phase status, Needle risk level, and Hill chart progress', async ({ page }) => {
-    await page.goto(`/projects/${projectId}`);
-
-    // Update phase Needle risk level using the NeedleGauge modal dialog
-    const phaseContainer = page.locator('[class*="phaseCard"]').first();
-    await phaseContainer.locator('button:has-text("Update Needle")').click();
-    
     const dialog = page.locator('dialog[open]');
-    await dialog.locator('#needleSlider').fill('0.65');
-    await dialog.locator('textarea[name="notes"]').fill('Phase risk is elevated');
+    await dialog.locator('input[type="range"]').fill('85');
+    await dialog.locator('button:has-text("Concerned")').click();
+    await dialog.locator('textarea[name="notes"]').fill('Critical timeline blockers piling up');
     await dialog.locator('button:has-text("Save Update")').click();
 
-    // Fill phase tagging form for status and progress
-    const form = page.locator('form').filter({ hasText: 'Tag Phase' });
-    await form.locator('select[name="status"]').selectOption('Active WIP');
-    await form.locator('input[name="hillChartProgress"]').fill('60');
-    await form.locator('button:has-text("Tag Phase")').click();
+    // Verify the gauge card and activity reflect the update
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+    await expect(card).toContainText('Concerned', { timeout: 10000 });
+    await expect(page.locator('body')).toContainText('Critical timeline blockers piling up');
+  });
 
-    // Verify status badge and visual flow step shows updated state
-    await expect(page.locator('[class*="phaseStatusRow"]').first()).toContainText('Active WIP', { timeout: 10000 });
-    await expect(page.locator('[class*="phaseStatusRow"]').first()).toContainText('High', { timeout: 10000 });
-    await expect(page.locator('[class*="flowStepMeta"]').first()).toContainText('High Risk', { timeout: 10000 });
+  test('should allow updating a phase by dragging the hill dot and leaving a note', async ({ page }) => {
+    await page.goto(`/projects/${projectId}`);
+
+    // The phase's row on the PhaseGraph rail (status derives from progress: 10 -> In Progress)
+    const row = page.getByTestId('phase-row').filter({ hasText: 'Compliance Testing' });
+    await expect(row).toContainText('In Progress');
+
+    await row.getByRole('button', { name: 'Update', exact: true }).click();
+    const dialog = page.locator('dialog[open]');
+    await dialog.locator('input[name="hillChartProgress"]').fill('100');
+    await dialog.locator('textarea[name="notes"]').fill('All CTS modules passing; phase complete.');
+    await dialog.locator('button:has-text("Save Update")').click();
+
+    // Progress 100 derives Done — the row collapses into the quiet completed state
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+    await expect(row).toContainText('Done', { timeout: 10000 });
+    await expect(page.locator('body')).toContainText('All CTS modules passing; phase complete.');
   });
 });

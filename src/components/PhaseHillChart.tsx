@@ -1,21 +1,17 @@
 import { HILL_PATH, hillCoordinates } from '../lib/geometry';
+import { hillStatus, phaseColor } from '../lib/phase';
 
 // Task progress for a program's phases: one dot per phase on the hill (uphill
-// "figuring it out" -> downhill "making it happen"), colored by phase status.
+// "figuring it out" -> downhill "making it happen"). Each dot is the phase's own color so
+// they stay distinguishable; hover shows a per-phase tooltip. Status is inferred from the
+// dot's position — 0 Not Started, 100 Done, between In Progress.
 
 export interface PhaseDot {
   id: number;
   name: string;
   progress: number; // 0..100
-  status: string;
+  status?: string; // ignored for display; kept for callers' convenience
 }
-
-const STATUS_COLOR: Record<string, string> = {
-  'Not Started': '#9aa0a6',
-  'Active WIP': '#1a4d8f',
-  'Finished': '#1a7d3c',
-  'Skipped': '#b0a99a',
-};
 
 export default function PhaseHillChart({ phases }: { phases: PhaseDot[] }) {
   if (phases.length === 0) {
@@ -28,8 +24,8 @@ export default function PhaseHillChart({ phases }: { phases: PhaseDot[] }) {
       {phases.map((ph) => {
         const { x, y } = hillCoordinates(ph.progress);
         return (
-          <circle key={ph.id} cx={x} cy={y} r={5} fill={STATUS_COLOR[ph.status] || '#9aa0a6'} stroke="#fff" strokeWidth={1.5}>
-            <title>{`${ph.name}: ${ph.status}`}</title>
+          <circle key={ph.id} cx={x} cy={y} r={5.5} fill={phaseColor(ph.id)} stroke="#fff" strokeWidth={1.6}>
+            <title>{`${ph.name} — ${hillStatus(ph.progress)}`}</title>
           </circle>
         );
       })}

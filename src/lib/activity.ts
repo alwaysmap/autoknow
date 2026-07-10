@@ -1,6 +1,7 @@
 import 'server-only';
 import { prisma } from './db';
 import { formatNeedleValue } from './needle';
+import { hillStatus, phaseColor } from './phase';
 import type { FeedItem, FeedScope, FeedKind } from './feed';
 
 // The unified activity stream as FeedItem[]: ingested context AND core system-of-record
@@ -11,7 +12,9 @@ import type { FeedItem, FeedScope, FeedKind } from './feed';
 const PROGRAM_CREATED_NOTE = 'Program created';
 
 export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem[]> {
-  const showEntity = scope.kind === 'ecosystem';
+  // Name the program/partner on each item except when the page IS that program —
+  // a partner page spans many programs, so items there stay ambiguous without it.
+  const showEntity = scope.kind !== 'project';
   const meta = (entityLabel: string | null, source: string | null, withSource: boolean): string | null => {
     const parts: string[] = [];
     if (showEntity && entityLabel) parts.push(entityLabel);
@@ -106,22 +109,30 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
   const phaseStates = await prisma.phaseState.findMany({
     where: phaseStateWhere,
     select: {
-      id: true, phaseId: true, status: true, theNeedle: true, notes: true, source: true, timestamp: true,
+      id: true, phaseId: true, status: true, theNeedle: true, hillChartProgress: true, notes: true, source: true, timestamp: true,
       phase: { select: { name: true, project: { select: { id: true, name: true } } } },
     },
     orderBy: { timestamp: 'desc' },
     take,
   });
-  for (const s of phaseStates) {
+  for (let i = 0; i < phaseStates.length; i++) {
+    const s = phaseStates[i];
+    const prev = phaseStates.slice(i + 1).find((o) => o.phaseId === s.phaseId) ?? null;
+    const progress = s.hillChartProgress ?? 0;
     push(events, {
       id: `phs-${s.id}`,
       kind: 'phase',
-      title: `${s.phase.name}: ${s.status}`,
+      title: `${s.phase.name}: ${hillStatus(progress)}`,
       subtitle: meta(s.phase.project.name, s.source, true),
       detail: s.notes,
       href: `/history/phase/${s.phaseId}`,
       external: false,
       timestamp: s.timestamp.toISOString(),
+      hill: {
+        progress,
+        previousProgress: prev ? prev.hillChartProgress ?? null : null,
+        color: phaseColor(s.phaseId),
+      },
     });
   }
 
@@ -143,8 +154,9 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
       push(events, {
         id: `pas-${s.id}`,
         kind: 'relationship',
+        // On the partner's own page the name is redundant — only label at ecosystem scope.
         title: `Relationship: ${formatNeedleValue(s.theNeedle)}`,
-        subtitle: meta(s.partner.name, s.source, true),
+        subtitle: meta(scope.kind === 'ecosystem' ? s.partner.name : null, s.source, true),
         detail: s.notes,
         href: `/history/partner/${s.partner.id}`,
         external: false,

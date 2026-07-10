@@ -1,21 +1,13 @@
 import { test, expect } from '@playwright/test';
-import { prisma } from '../../src/lib/db';
+import { prisma } from '../helpers/db';
+import { wipeAll } from '../helpers/fixtures';
 
 test.describe('Google Chat Integration Webhook', () => {
   test.describe.configure({ mode: 'serial' });
 
   test.beforeAll(async () => {
     // Clear and seed clean projects for classification test
-    await prisma.actionItem.deleteMany();
-    await prisma.contextUrl.deleteMany();
-    await prisma.phaseState.deleteMany();
-    await prisma.phaseDependency.deleteMany();
-    await prisma.phase.deleteMany();
-    await prisma.projectState.deleteMany();
-    await prisma.project.deleteMany();
-    await prisma.personAffiliation.deleteMany();
-    await prisma.person.deleteMany();
-    await prisma.partner.deleteMany();
+    await wipeAll();
 
     const oem = await prisma.partner.create({
       data: { name: 'Toyota', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } } }

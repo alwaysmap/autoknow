@@ -9,17 +9,21 @@ interface Header {
   sortable?: boolean;
 }
 
-interface DataTableProps {
+interface DataTableProps<T> {
   headers: Header[];
-  data: any[];
-  renderRow: (item: any) => React.ReactNode;
+  data: T[];
+  renderRow: (item: T) => React.ReactNode;
   defaultSortKey?: string;
   defaultSortOrder?: 'asc' | 'desc';
   pageSize?: number;
   emptyStateMessage?: string;
 }
 
-export default function DataTable({
+// Sort accessor: resolves "partner.name"-style dotted keys against a row object.
+const valueAt = (item: unknown, key: string): unknown =>
+  key.split('.').reduce<unknown>((obj, part) => (obj as Record<string, unknown> | null | undefined)?.[part], item);
+
+export default function DataTable<T>({
   headers,
   data,
   renderRow,
@@ -27,7 +31,7 @@ export default function DataTable({
   defaultSortOrder = 'asc',
   pageSize = 10,
   emptyStateMessage = 'No results found.',
-}: DataTableProps) {
+}: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string>(defaultSortKey);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(defaultSortOrder);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -37,15 +41,8 @@ export default function DataTable({
     if (!sortKey) return data;
 
     return [...data].sort((a, b) => {
-      let valA = a[sortKey];
-      let valB = b[sortKey];
-
-      // Handle nested properties if key contains a dot (e.g. "partner.name")
-      if (sortKey.includes('.')) {
-        const parts = sortKey.split('.');
-        valA = parts.reduce((obj, key) => obj?.[key], a);
-        valB = parts.reduce((obj, key) => obj?.[key], b);
-      }
+      let valA = valueAt(a, sortKey);
+      let valB = valueAt(b, sortKey);
 
       // Treat null / undefined values
       if (valA === undefined || valA === null) valA = '';
@@ -59,9 +56,10 @@ export default function DataTable({
       }
 
       // Convert strings containing dates
-      const isDateA = typeof valA === 'string' && !isNaN(Date.parse(valA)) && valA.includes('-');
-      const isDateB = typeof valB === 'string' && !isNaN(Date.parse(valB)) && valB.includes('-');
-      if (isDateA && isDateB) {
+      if (
+        typeof valA === 'string' && !isNaN(Date.parse(valA)) && valA.includes('-') &&
+        typeof valB === 'string' && !isNaN(Date.parse(valB)) && valB.includes('-')
+      ) {
         return sortOrder === 'asc'
           ? Date.parse(valA) - Date.parse(valB)
           : Date.parse(valB) - Date.parse(valA);

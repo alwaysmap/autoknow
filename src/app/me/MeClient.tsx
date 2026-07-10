@@ -104,8 +104,13 @@ export default function MeClient({
   // Map projects to displayable list
   const projectDisplayData = useMemo(() => {
     return projects.map((p) => {
-      // Find the active phase
-      const activePhase = p.phases.find((phase) => phase.states[0]?.status === 'Active WIP') || p.phases[0];
+      // The active phase is the first one in flight (progress off zero, not yet done) —
+      // derived from progress, never from the legacy stored status string.
+      const activePhase =
+        p.phases.find((phase) => {
+          const progress = phase.states[0]?.hillChartProgress ?? 0;
+          return progress > 0 && progress < 100;
+        }) || p.phases[0];
 
       return {
         id: p.id,
@@ -158,7 +163,7 @@ export default function MeClient({
                 { key: 'createdAt', label: 'Assigned Date' },
               ]}
               data={actionItemsDisplayData}
-              renderRow={(ai: any) => (
+              renderRow={(ai) => (
                 <tr key={ai.id}>
                   <td>
                     <strong>{ai.description}</strong>
@@ -193,7 +198,7 @@ export default function MeClient({
                 { key: 'hillChartProgress', label: 'Progress' },
               ]}
               data={projectDisplayData}
-              renderRow={(p: any) => (
+              renderRow={(p) => (
                 <tr key={p.id}>
                   <td>
                     <Link href={`/projects/${p.id}`} className={styles.tableLink}>
