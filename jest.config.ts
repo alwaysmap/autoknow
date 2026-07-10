@@ -16,6 +16,9 @@ const config: Config = {
   // any unit/integration test runs. Tests import tests/helpers/db, which is hard-bound
   // to the *_test database — they can never touch the real one.
   globalSetup: '<rootDir>/tests/global-setup.ts',
+  // The main checkout hosts Claude Code worktrees under .claude/ — without this, jest
+  // discovers each worktree's copy of the tests and the duplicates race on the test DB.
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/.claude/', '<rootDir>/.next'],
 }
  
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
