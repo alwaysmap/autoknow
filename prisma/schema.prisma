@@ -19,6 +19,7 @@ model Partner {
   states             PartnerState[]
   contextUrls        ContextUrl[]
   phaseInvolvements  PhasePartner[]
+  leadPhases         Phase[]             @relation("PhaseLeadPartner")
   embedding          Unsupported("vector(768)")?
   website            String?
   internalDetailsUrl String?
@@ -81,7 +82,7 @@ model Phase {
   projectId          Int
   project            Project           @relation(fields: [projectId], references: [id])
   name               String
-  
+
   // Self-referential relationship for the DAG
   dependencies       PhaseDependency[] @relation("PhaseDependencies")
   dependentOn        PhaseDependency[] @relation("PhaseDependents")
@@ -92,6 +93,13 @@ model Phase {
   partners           PhasePartner[]
   people             PhasePerson[]
   forecastedDuration Int               @default(30)
+
+  // Rich content copied from a PhaseTemplate at instantiation, then per-project editable.
+  description        String? // markdown — exit outcome + typical activities
+  googleFocus        String? // markdown — what Googlers/TSC focus on
+  leadPartnerId      Int?    // concrete partner mapped from the template's leadRole
+  leadPartner        Partner? @relation("PhaseLeadPartner", fields: [leadPartnerId], references: [id])
+  isEndPhase         Boolean @default(false) // the program's single convergence point
 }
 
 // Real per-phase partner attribution: which partners are involved in a phase's work.
@@ -190,6 +198,44 @@ model Person {
   actionItems      ActionItem[]
   phaseInvolvements PhasePerson[]
   embedding        Unsupported("vector(768)")?
+}
+
+// Program templates (PHASE_TEMPLATES_PLAN): a reusable phase DAG with rich per-phase
+// content. Built-ins are seeded from lib/builtinTemplates and are clone-only.
+model ProgramTemplate {
+  id          Int             @id @default(autoincrement())
+  name        String
+  description String? // markdown, program-level
+  isBuiltIn   Boolean         @default(false) // seeded; clone-only, not user-deletable
+  createdBy   String?
+  createdAt   DateTime        @default(now())
+  phases      PhaseTemplate[]
+}
+
+model PhaseTemplate {
+  id            Int                @id @default(autoincrement())
+  templateId    Int
+  template      ProgramTemplate    @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  name          String
+  description   String? // markdown — exit outcome + typical activities
+  googleFocus   String? // markdown — what Googlers/TSC focus on
+  leadRole      String? // "OEM" | "Silicon vendor" | "Tier 1" | "Google" | "3PL" | "Hypervisor vendor"
+  durationWeeks Int                @default(4)
+  isEndPhase    Boolean            @default(false) // the single join/deliverable node
+  sortOrder     Int                @default(0) // stable display order
+  dependsOn     PhaseTemplateDep[] @relation("PT_from")
+  dependents    PhaseTemplateDep[] @relation("PT_to")
+}
+
+model PhaseTemplateDep {
+  // DAG among phase-templates (edge = "depends on upstream")
+  id              Int           @id @default(autoincrement())
+  phaseTemplateId Int
+  phaseTemplate   PhaseTemplate @relation("PT_from", fields: [phaseTemplateId], references: [id], onDelete: Cascade)
+  dependsOnId     Int
+  dependsOn       PhaseTemplate @relation("PT_to", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@unique([phaseTemplateId, dependsOnId])
 }
 
 model PersonAffiliation {

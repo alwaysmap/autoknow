@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { prisma } from '../../../lib/db';
-import { TEMPLATES } from '../../../lib/templates';
+import { listTemplates, getTemplateWithPhases } from '../../../lib/programTemplates';
+import { validateTemplateDag } from '../../../lib/templateDag';
 import { getCurrentUser } from '../../../lib/session';
 import { hillStatus } from '../../../lib/phase';
 import styles from './page.module.css';
@@ -14,24 +15,40 @@ async function createProject(formData: FormData) {
 
   const name = formData.get('name') as string;
   const partnerIdStr = formData.get('partnerId') as string;
-  const templateName = formData.get('template') as string;
+  const templateIdStr = formData.get('template') as string;
   const owner = formData.get('owner') as string;
 
-  if (!name || !partnerIdStr || !templateName) {
+  if (!name || !partnerIdStr || !templateIdStr) {
     throw new Error('Missing fields');
   }
 
-  // Validate the template up front so an unexpected value can't silently create a
-  // project with zero phases.
-  if (!(templateName in TEMPLATES)) {
-    throw new Error(`Unknown project template: ${templateName}`);
+  // Templates live in the database (PHASE_TEMPLATES_PLAN §7). Validate up front so an
+  // unexpected value can't silently create a project with zero phases.
+  const templateId = parseInt(templateIdStr, 10);
+  const template = isNaN(templateId) ? null : await getTemplateWithPhases(templateId);
+  if (!template || template.phases.length === 0) {
+    throw new Error(`Unknown project template: ${templateIdStr}`);
   }
-  const template = TEMPLATES[templateName as keyof typeof TEMPLATES];
+
+  // The template must still be a valid converging DAG at instantiation time.
+  const validation = validateTemplateDag(
+    template.phases.map((p) => ({ id: p.id, isEndPhase: p.isEndPhase, name: p.name })),
+    template.phases.flatMap((p) => p.dependsOn.map((d) => ({ nodeId: p.id, dependsOnId: d.dependsOnId }))),
+  );
+  if (!validation.ok) {
+    throw new Error(`Template “${template.name}” is invalid: ${validation.errors.map((e) => e.message).join(' ')}`);
+  }
 
   const partnerId = parseInt(partnerIdStr, 10);
   if (isNaN(partnerId)) {
     throw new Error('Invalid partner');
   }
+
+  // leadRole → concrete partner, only where unambiguous: "OEM" maps to the program's
+  // partner when that partner IS an OEM; anything else is left for the user.
+  const programPartner = await prisma.partner.findUnique({ where: { id: partnerId }, include: { type: true } });
+  const leadPartnerFor = (leadRole: string | null) =>
+    leadRole === 'OEM' && programPartner?.type?.name === 'OEM' ? programPartner.id : null;
 
   const firstPhaseName = template.phases[0]?.name;
 
@@ -49,17 +66,21 @@ async function createProject(formData: FormData) {
       data: { projectId: created.id, theNeedle: 'On Track', hillChartProgress: 0, notes: 'Program created', source: createdBy },
     });
 
-    const phasesMap: Record<string, { id: number }> = {};
+    const phasesMap: Record<number, { id: number }> = {};
 
     for (const p of template.phases) {
       const phase = await tx.phase.create({
         data: {
           name: p.name,
           projectId: created.id,
-          forecastedDuration: p.forecastedDuration
+          forecastedDuration: p.durationWeeks * 7, // templates store weeks; runtime stays days
+          description: p.description,
+          googleFocus: p.googleFocus,
+          isEndPhase: p.isEndPhase,
+          leadPartnerId: leadPartnerFor(p.leadRole),
         }
       });
-      phasesMap[p.name] = phase;
+      phasesMap[p.id] = phase;
 
       // Status is derived from the dot's position on the hill — never chosen directly.
       const initialProgress = p.name === firstPhaseName ? 10 : 0;
@@ -85,9 +106,9 @@ async function createProject(formData: FormData) {
     }
 
     for (const p of template.phases) {
-      const phase = phasesMap[p.name];
-      for (const depName of p.dependsOn) {
-        const depPhase = phasesMap[depName];
+      const phase = phasesMap[p.id];
+      for (const dep of p.dependsOn) {
+        const depPhase = phasesMap[dep.dependsOnId];
         if (depPhase) {
           await tx.phaseDependency.create({
             data: {
@@ -111,6 +132,7 @@ export default async function NewProjectPage() {
     orderBy: { name: 'asc' },
     include: { type: true }
   });
+  const templates = await listTemplates(); // seeds built-ins on first touch
 
   return (
     <div className={styles.container}>
@@ -147,9 +169,9 @@ export default async function NewProjectPage() {
           <div className={styles.field}>
             <label htmlFor="template">Project Template (Critical Chain DAG)</label>
             <select id="template" name="template" required>
-              <option value="AAOS">Android IVI (AAOS) Bring-up - 5 standard phases</option>
-              <option value="GAS">Google Automotive Services (GAS) Integration - 3 standard phases</option>
-              <option value="Digital Key">Digital Key Bring-up - 3 standard phases</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
             </select>
           </div>
 

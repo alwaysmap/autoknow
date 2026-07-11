@@ -104,6 +104,8 @@ export default async function ProjectDetailsPage(props: {
       updatedBy: phase.states[0]?.source ?? null,
       note: phase.states[0]?.notes ?? null,
       forecastedDuration: phase.forecastedDuration,
+      description: phase.description ?? null,
+      googleFocus: phase.googleFocus ?? null,
       startedAt: asc.find((s) => (s.hillChartProgress ?? 0) > 0)?.timestamp?.toISOString() ?? null,
       completedAt: asc.find((s) => (s.hillChartProgress ?? 0) >= 100)?.timestamp?.toISOString() ?? null,
       history: phase.states.slice(0, 6).map((s) => ({

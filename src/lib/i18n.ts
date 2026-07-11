@@ -213,6 +213,7 @@ const STRINGS = {
     ko: '참여시킬 사람',
   },
   addPerson: { en: '+ person…', de: '+ Person…', ja: '+ 担当者…', ko: '+ 사람…' },
+  googleFocusLabel: { en: 'Google focus', de: 'Google-Fokus', ja: 'Googleの注力', ko: 'Google 포커스' },
 } satisfies Record<string, Entry>;
 
 export type StringKey = keyof typeof STRINGS;

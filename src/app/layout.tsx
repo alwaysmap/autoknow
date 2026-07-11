@@ -70,6 +70,9 @@ export default async function RootLayout({
               <Link href="/ingest" className={styles.navLink}>
                 Ingest
               </Link>
+              <Link href="/templates" className={styles.navLink}>
+                Templates
+              </Link>
               <Link href="/admin" className={styles.navLink}>
                 Dev Console
               </Link>

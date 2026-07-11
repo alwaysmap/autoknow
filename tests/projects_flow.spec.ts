@@ -41,23 +41,41 @@ test.describe('Projects and Partners Flow', () => {
     await prisma.$disconnect();
   });
 
-  test('should allow creating a new project from a template', async ({ page }) => {
+  test('creates a project from the DB-backed 15-phase AAOS template', async ({ page }) => {
     await page.goto('/projects/new');
 
-    // Fill the project creation form
+    // Templates come from the database (built-ins seeded on demand), not a constant.
     await page.fill('input[name="name"]', 'Ford F-150 AAOS Bring-up');
     await page.selectOption('select[name="partnerId"]', fordId.toString());
-    await page.selectOption('select[name="template"]', 'AAOS');
+    await page.selectOption('select[name="template"]', { label: 'AAOS Bring-up (chipset → GBI)' });
     await page.fill('input[name="owner"]', '@dylan');
-
-    // Submit form
     await page.click('button[type="submit"]');
+    await page.waitForURL(/\/projects\/\d+/, { timeout: 15000 });
 
-    // Should redirect to project details page
-    await page.waitForURL(/\/projects\/\d+/, { timeout: 10000 });
-    
-    // Expect project name to be visible on the redirected page
+    // The full P0–P14 DAG instantiates — 15 phases, from architecture lock to SOP.
     await expect(page.locator('body')).toContainText('Ford F-150 AAOS Bring-up');
+    await expect(page.getByTestId('phase-row')).toHaveCount(15);
+    await expect(page.locator('a:text-is("Architecture lock")')).toBeVisible();
+    await expect(page.locator('a:text-is("Launch readiness & SOP (GBI)")')).toBeVisible();
+
+    // Durations arrive as weeks (template) × 7 → days, displayed back as weeks.
+    const bsp = page.getByTestId('phase-row').filter({ has: page.locator('a:text-is("BSP & power-on")') });
+    await expect(bsp).toContainText('18w planned');
+
+    // Template content is copied onto the live phase and shown in its details.
+    await page.locator('[data-testid="phase-row"]')
+      .filter({ has: page.locator('a:text-is("Architecture lock")') })
+      .getByRole('button', { name: 'Details' }).click();
+    const details = page.getByTestId('phase-details');
+    await expect(details).toContainText('Platform architecture frozen');
+    await expect(details).toContainText('VINTF-compliant posture');
+
+    // leadRole "OEM" resolved unambiguously to the program's OEM partner.
+    const project = await prisma.project.findFirst({ where: { name: 'Ford F-150 AAOS Bring-up' } });
+    const p0 = await prisma.phase.findFirst({ where: { projectId: project!.id, name: 'Architecture lock' } });
+    expect(p0!.leadPartnerId).toBe(fordId);
+    const end = await prisma.phase.findFirst({ where: { projectId: project!.id, isEndPhase: true } });
+    expect(end!.name).toBe('Launch readiness & SOP (GBI)');
   });
 
   test('should display user projects on My Projects page', async ({ page }) => {

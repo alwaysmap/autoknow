@@ -1,5 +1,4 @@
 import { prisma } from '../../lib/db';
-import { TEMPLATES } from '../../lib/templates';
 import { ingestRecord } from '../../lib/vector';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';

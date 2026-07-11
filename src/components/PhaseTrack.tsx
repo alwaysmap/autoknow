@@ -63,6 +63,8 @@ export interface PhaseTrackRow extends PhaseGraphRow {
   activities: PhaseActivity[]; // pending action items
   history: PhaseHistoryEntry[]; // hill updates, newest first (latest == note above)
   people: PhasePersonLink[]; // involved individuals
+  description: string | null; // markdown, copied from the template, per-project editable
+  googleFocus: string | null; // markdown — what Googlers/TSC focus on
 }
 
 export interface OtherActivePhase {
@@ -391,6 +393,17 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
             {isConstraint && <span className={styles.constraintTag}>{t(locale, 'constraint')}</span>}
             <span className={styles.plan}>{planWords(p)}</span>
           </div>
+
+          {/* template-sourced content: what this phase is, and where Google leans in */}
+          {p.description && (
+            <div className={styles.templateDoc}><Markdown>{p.description}</Markdown></div>
+          )}
+          {p.googleFocus && (
+            <div className={styles.metaLine}>
+              <span className={styles.metaLabel}>{t(locale, 'googleFocusLabel')}</span>
+              <span className={styles.templateFocus}><Markdown>{p.googleFocus}</Markdown></span>
+            </div>
+          )}
 
           {/* status update: drag the hill, leave a note */}
           <form

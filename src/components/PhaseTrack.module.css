@@ -637,6 +637,24 @@
   align-items: center;
   gap: 8px;
 }
+
+/* Template-sourced markdown on the details surface. */
+.templateDoc {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--fg);
+  max-width: 640px;
+}
+.templateDoc p {
+  margin: 0 0 6px;
+}
+.templateFocus {
+  display: inline;
+}
+.templateFocus p {
+  display: inline;
+  margin: 0;
+}
 .backLink {
   background: none;
   border: none;
