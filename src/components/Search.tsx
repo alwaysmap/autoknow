@@ -67,6 +67,7 @@ export default function Search() {
       <input
         ref={inputRef}
         type="search"
+        aria-label="Search partners, programs, people"
         placeholder="Search partners, programs, people… (Press '/')"
         value={query}
         onChange={(e) => {

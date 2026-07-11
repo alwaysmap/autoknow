@@ -1,0 +1,727 @@
+/* PROTOTYPE — train-line phase track (variants a/b/c). Same Tufte grammar as
+   PhaseGraph.module.css: the track is the structure, no per-row boxes; typography and
+   row rhythm do the separation. */
+
+.wrapper {
+  width: 100%;
+}
+
+/* Prototype-only variant/locale switcher — quiet, review scaffolding. */
+.protoBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.protoOn {
+  color: var(--fg);
+  text-decoration: none;
+  border-bottom: 2px solid #c98a1a;
+  padding-bottom: 1px;
+}
+.protoOff {
+  color: var(--muted);
+  text-decoration: none;
+}
+.protoOff:hover {
+  color: var(--fg);
+}
+.protoSep {
+  color: var(--border);
+}
+
+/* Critical-chain summary (variants a/b). Slightly stronger than the old one — it is
+   the most important line on the surface. */
+.chainSummary {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.chainLabel {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+  color: #c98a1a;
+  margin-right: 8px;
+}
+
+.chainArrow {
+  color: var(--border);
+}
+
+.chainLink {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
+}
+.chainLink:hover {
+  text-decoration: underline;
+}
+
+.chainDays {
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+/* CCPM resource line: the owner's concurrent load across other programs. */
+.resourceLine {
+  margin: -6px 0 14px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.resourceLabel {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-right: 8px;
+}
+.resourceOwner {
+  font-weight: 600;
+  color: var(--fg);
+}
+.resourceProgram {
+  color: var(--fg);
+  text-decoration: none;
+  font-weight: 600;
+}
+.resourceProgram:hover {
+  text-decoration: underline;
+}
+
+.graph {
+  position: relative;
+}
+
+.rail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.rail circle,
+.station {
+  pointer-events: auto; /* hover titles + click-to-jump on stations */
+  cursor: pointer;
+}
+.hoverable {
+  pointer-events: stroke; /* hover titles on bypass loops */
+}
+
+.row {
+  padding: 10px 0 12px;
+  border-radius: 8px;
+}
+
+.flash {
+  animation: trackFlash 1.4s ease-out;
+}
+@keyframes trackFlash {
+  0% { background: rgba(201, 138, 26, 0.18); }
+  100% { background: transparent; }
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: 2px 12px;
+  min-height: 24px;
+  cursor: pointer;
+  /* the name always wins: meta wraps to its own line before the name truncates */
+  flex-wrap: wrap;
+}
+
+.name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--fg);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.name:hover {
+  text-decoration: underline;
+}
+
+.status {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.constraintTag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #c98a1a;
+  border: 1px solid #c98a1a;
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+/* Single-line rows (variants b/c): partners ride in the header. */
+.headPartners {
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Right-aligned meta reclaims the dead band between content and the chevron. */
+.headRight {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.when {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Anticipated vs actual (weeks) — the row's temporal signal. */
+.plan {
+  font-size: 12px;
+  color: var(--fg);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.chevron {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.chevron:hover {
+  color: var(--fg);
+}
+
+.body {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 8px 24px;
+  align-items: start;
+  padding: 6px 0 0;
+}
+
+.hillCol {
+  max-width: 190px;
+}
+
+/* Textless sparkline hill (compact rows, variant a). */
+.miniHill {
+  display: block;
+  width: 104px;
+  height: auto;
+  overflow: visible;
+}
+
+.detailCol {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.note {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--fg);
+}
+
+.noteClamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-line;
+}
+
+.noteEmpty {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.partnersInline {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* Hill history: earlier updates with their text — position glyph, date, note. */
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.historyItem {
+  display: grid;
+  grid-template-columns: 34px 44px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.historyGlyph {
+  width: 34px;
+  height: 15px;
+  align-self: center;
+  overflow: visible;
+}
+.historyWhen {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.historyNote {
+  color: var(--fg);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.historyBy {
+  color: var(--muted);
+}
+.fullHistory {
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  align-self: flex-start;
+}
+.fullHistory:hover {
+  color: var(--fg);
+  text-decoration: underline;
+}
+
+/* Read-only meta lines on the default card: activities + Googler focus. */
+.metaLine {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--fg);
+}
+.metaLabel {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-right: 8px;
+}
+.metaMuted {
+  font-style: italic;
+  color: var(--muted);
+}
+.metaCount {
+  font-weight: 600;
+}
+.activityLink {
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 2px;
+}
+.activityLink:hover {
+  text-decoration-color: var(--fg);
+}
+
+/* Card actions: Status update (primary path) + Edit (structural, gated). */
+.cardBtns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 2px;
+}
+.primaryQuietBtn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 12px;
+  border: 1px solid var(--fg);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+}
+.primaryQuietBtn:hover {
+  background: var(--fg);
+  color: #fff;
+}
+
+/* Structural editors, revealed only behind Edit. */
+.editPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 0 2px;
+  border-top: 1px solid var(--border);
+}
+
+.partners {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.partnerChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 6px 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.partnerLink {
+  font-weight: 600;
+  color: var(--fg);
+  text-decoration: none;
+}
+.partnerLink:hover {
+  text-decoration: underline;
+}
+
+.partnerRole {
+  color: var(--muted);
+}
+
+.inlineForm {
+  display: inline-flex;
+}
+
+.chipRemove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 0 2px;
+  line-height: 1;
+}
+.chipRemove:hover {
+  color: #c5221f;
+}
+
+.addInlineForm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.quietSelect,
+.roleInput {
+  font-size: 11px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  max-width: 160px;
+}
+.quietSelect:hover,
+.quietSelect:focus,
+.roleInput:hover,
+.roleInput:focus {
+  background: #fff;
+  color: var(--fg);
+}
+.roleInput {
+  width: 64px;
+}
+
+.miniBtn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.miniBtn:hover {
+  background: #fff;
+  border-color: var(--muted);
+  color: var(--fg);
+}
+
+.depsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.depsLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  min-width: 48px;
+}
+
+.depChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  padding: 3px 6px 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.depJump {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
+}
+.depJump:hover {
+  text-decoration: underline;
+}
+
+.depNone {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.depError {
+  font-size: 12px;
+  color: #c5221f;
+}
+
+.removePhase {
+  align-self: flex-start;
+}
+
+.removeBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.removeBtn:hover {
+  color: #c5221f;
+}
+
+.addRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0 4px;
+  flex-wrap: wrap;
+}
+
+.addInput {
+  font-size: 13px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--fg);
+  width: 200px;
+  max-width: 100%;
+}
+
+/* Legend: one quiet line naming the station/track vocabulary. */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.legendGlyph {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+.legendGlyph:first-child {
+  margin-left: 0;
+}
+.legendGlyphWide {
+  width: 22px;
+  height: 14px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+.legendTrack {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+.legendSwatch {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  border-top: 3px solid hsl(0, 0%, 25%);
+  border-radius: 2px;
+}
+
+/* Focused DETAILS surface: replaces the whole track — no dialog, no separate page.
+   Status update, involvement editing, dependencies, history, and removal live here. */
+.details {
+  max-width: 720px;
+  padding: 4px 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.detailsHead {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.detailsTitle {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--fg);
+}
+.detailsForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.detailsSection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.backLink {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.backLink:hover {
+  color: var(--fg);
+  text-decoration: underline;
+}
+.immersiveHill {
+  position: relative;
+  padding: 8px 0 0;
+}
+.dragHint {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.updateSvg {
+  display: block;
+  width: 100%;
+  /* matches the needle/hill dialog scale — SVG text grows with the chart, so a
+     wide chart makes the axis labels shout */
+  max-width: 300px;
+  height: auto;
+  overflow: visible;
+}
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.noteArea {
+  font: inherit;
+  font-size: 13.5px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--fg);
+  resize: vertical;
+  width: 100%;
+  max-width: 480px;
+}
+.immersiveActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+.primaryBtn {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 18px;
+  border: 1px solid var(--fg);
+  border-radius: 6px;
+  background: var(--fg);
+  color: #fff;
+  cursor: pointer;
+}
+.primaryBtn:hover {
+  opacity: 0.85;
+}
+.primaryBtn:disabled,
+.miniBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Phone-friendly: row bodies stack; the header keeps name + status + plan and sheds
+   the rest (date · author still lives in the card's History). */
+@media (max-width: 560px) {
+  .body {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .hillCol {
+    max-width: 220px;
+  }
+  .headPartners,
+  .when {
+    display: none;
+  }
+}

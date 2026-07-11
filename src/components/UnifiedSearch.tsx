@@ -87,6 +87,7 @@ export default function UnifiedSearch({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={placeholder}
+          aria-label={placeholder}
           style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border, #ddd)' }}
         />
         <button type="submit" disabled={loading} style={{ padding: '10px 18px', borderRadius: 8, cursor: 'pointer', border: '1px solid var(--border, #ddd)' }}>

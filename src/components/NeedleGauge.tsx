@@ -206,6 +206,7 @@ export default function NeedleGauge({
             </svg>
             <input
               id="needleProgress"
+              aria-label="Program progress"
               type="range"
               min="0"
               max="100"

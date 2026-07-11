@@ -59,6 +59,27 @@
   color: var(--fg);
 }
 
+/* Tablet/phone: the nav bar wraps instead of forcing a horizontal scroll. */
+@media (max-width: 960px) {
+  .navBar {
+    flex-wrap: wrap;
+    padding: 10px 16px;
+    gap: 10px 16px;
+  }
+  .leftSection {
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .navLinks {
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+  .rightSection {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}
+
 .googleLogo {
   width: 14px;
   height: 14px;

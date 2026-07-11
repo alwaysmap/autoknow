@@ -1,10 +1,13 @@
 import { notFound } from 'next/navigation';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import styles from './page.module.css';
 import ProjectStatusDashboard from '../../../components/ProjectStatusDashboard';
 import ProjectAdminControls from '../../../components/ProjectAdminControls';
 import PhaseGraph from '../../../components/PhaseGraph';
+import PhaseTrack from '../../../components/PhaseTrack';
+import { isLocale, Locale } from '../../../lib/i18n';
 import ProgramBrief from '../../../components/ProgramBrief';
 import ActivityFeed from '../../../components/ActivityFeed';
 import UnifiedSearch from '../../../components/UnifiedSearch';
@@ -18,9 +21,21 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export default async function ProjectDetailsPage(props: { params: Promise<{ id: string }> }) {
+export default async function ProjectDetailsPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await props.params;
   const projectId = parseInt(id);
+
+  // PhaseTrack (the train-line surface) is the default phases UI; ?graph=classic
+  // renders the legacy PhaseGraph for comparison. Locale from ?lang=en|de|ja|ko,
+  // sticky via cookie so it survives param-less navigation.
+  const sp = await props.searchParams;
+  const cookieStore = await cookies();
+  const showTrack = sp.graph !== 'classic';
+  const langValue = typeof sp.lang === 'string' ? sp.lang : cookieStore.get('lang')?.value;
+  const locale: Locale = isLocale(langValue) ? langValue : 'en';
 
   if (isNaN(projectId)) {
     return notFound();
@@ -43,6 +58,7 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
             orderBy: { id: 'asc' }
           },
           partners: { include: { partner: true } },
+          people: { include: { person: true } },
           dependencies: true
         },
         orderBy: { id: 'asc' }
@@ -73,25 +89,71 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
   const oems = await prisma.partner.findMany({ where: { type: { name: 'OEM' } } });
   const suppliers = await prisma.partner.findMany({ where: { type: { name: 'Supplier' } } });
 
-  // All partners (for the PhaseGraph involvement picker) + the graph's row shape.
+  // All partners + people (for the involvement pickers) + the graph's row shape.
   const allPartners = await prisma.partner.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } });
-  const graphRows = project.phases.map((phase) => ({
-    id: phase.id,
-    name: phase.name,
-    progress: phase.states[0]?.hillChartProgress ?? 0,
-    previousProgress: phase.states[1]?.hillChartProgress ?? null,
-    updatedAt: phase.states[0]?.timestamp?.toISOString() ?? null,
-    updatedBy: phase.states[0]?.source ?? null,
-    note: phase.states[0]?.notes ?? null,
-    forecastedDuration: phase.forecastedDuration,
-    parents: phase.dependencies.map((d) => ({ linkId: d.id, id: d.dependsOnPhaseId })),
-    partners: phase.partners.map((pp) => ({
-      linkId: pp.id,
-      partnerId: pp.partnerId,
-      name: pp.partner.name,
-      role: pp.role,
-    })),
-  }));
+  const allPeople = await prisma.person.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } });
+  const graphRows = project.phases.map((phase) => {
+    // states are newest-first; walk oldest-first for anticipated-vs-actual timing.
+    const asc = [...phase.states].reverse();
+    return {
+      id: phase.id,
+      name: phase.name,
+      progress: phase.states[0]?.hillChartProgress ?? 0,
+      previousProgress: phase.states[1]?.hillChartProgress ?? null,
+      updatedAt: phase.states[0]?.timestamp?.toISOString() ?? null,
+      updatedBy: phase.states[0]?.source ?? null,
+      note: phase.states[0]?.notes ?? null,
+      forecastedDuration: phase.forecastedDuration,
+      startedAt: asc.find((s) => (s.hillChartProgress ?? 0) > 0)?.timestamp?.toISOString() ?? null,
+      completedAt: asc.find((s) => (s.hillChartProgress ?? 0) >= 100)?.timestamp?.toISOString() ?? null,
+      history: phase.states.slice(0, 6).map((s) => ({
+        at: s.timestamp.toISOString(),
+        progress: s.hillChartProgress ?? 0,
+        note: s.notes ?? null,
+        by: s.source ?? null,
+      })),
+      activities: phase.actionItems
+        .filter((a) => a.status === 'Pending')
+        .map((a) => ({
+          id: a.id,
+          description: a.description,
+          nextStep: a.nextStep,
+          assignedTo: a.assignedTo,
+          linkUrl: a.linkUrl,
+        })),
+      parents: phase.dependencies.map((d) => ({ linkId: d.id, id: d.dependsOnPhaseId })),
+      partners: phase.partners.map((pp) => ({
+        linkId: pp.id,
+        partnerId: pp.partnerId,
+        name: pp.partner.name,
+        role: pp.role,
+      })),
+      people: phase.people.map((pp) => ({
+        linkId: pp.id,
+        personId: pp.personId,
+        name: pp.person.name,
+        role: pp.role,
+      })),
+    };
+  });
+
+  // CCPM resource dimension for the track prototype: the owner's ACTIVE phases in
+  // other (non-archived) programs — the cross-program contention on the one Googler.
+  let otherActive: { projectId: number; projectName: string; phaseName: string }[] = [];
+  if (showTrack && project.ownerName) {
+    const others = await prisma.project.findMany({
+      where: { ownerName: project.ownerName, isArchived: false, id: { not: projectId } },
+      include: { phases: { include: { states: { orderBy: { timestamp: 'desc' }, take: 1 } } } },
+    });
+    otherActive = others.flatMap((o) =>
+      o.phases
+        .filter((ph) => {
+          const p = ph.states[0]?.hillChartProgress ?? 0;
+          return p > 0 && p < 100;
+        })
+        .map((ph) => ({ projectId: o.id, projectName: o.name, phaseName: ph.name })),
+    );
+  }
   const phasesWithActions = project.phases.filter((p) => p.actionItems.length > 0);
 
   // Identify the OEM for the project (heuristic name match; see lib/associations).
@@ -209,7 +271,12 @@ export default async function ProjectDetailsPage(props: { params: Promise<{ id: 
                 update + partners per row, Done rows collapsed, add/remove inline. */}
             <section className={styles.historySection}>
               <h2>Phases</h2>
-              <PhaseGraph projectId={projectId} phases={graphRows} allPartners={allPartners} />
+              {showTrack ? (
+                <PhaseTrack projectId={projectId} phases={graphRows} allPartners={allPartners}
+                  allPeople={allPeople} locale={locale} owner={project.ownerName} otherActive={otherActive} />
+              ) : (
+                <PhaseGraph projectId={projectId} phases={graphRows} allPartners={allPartners} />
+              )}
             </section>
 
             {phasesWithActions.length > 0 && (

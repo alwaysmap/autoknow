@@ -6,6 +6,13 @@
   font-family: var(--body-font);
 }
 
+/* Phone: the 40px gutters are a desktop luxury. */
+@media (max-width: 700px) {
+  .container {
+    padding: 0 16px;
+  }
+}
+
 .header {
   border-bottom: 1px solid var(--border);
   padding: 24px 0;
@@ -80,7 +87,9 @@
 
 .dashboardGrid {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  /* minmax(0, …) lets the content column shrink below its min-content width, so wide
+     children (chain summaries, tables) clip/wrap instead of overflowing the viewport */
+  grid-template-columns: 320px minmax(0, 1fr);
   gap: 32px;
   align-items: start;
 }
@@ -103,6 +112,7 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-width: 0;
 }
 
 /* The first section in the right column tops-aligns with the left column's first card —

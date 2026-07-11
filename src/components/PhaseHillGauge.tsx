@@ -14,18 +14,49 @@ import { updatePhaseHill } from '../app/actions/hill';
 
 const VIEWBOX = '0 0 200 104';
 
+// UI strings, overridable for i18n (see lib/i18n). Defaults preserve the
+// original English so existing call sites are untouched.
+export interface HillGaugeStrings {
+  figuringItOut: string;
+  makingItHappen: string;
+  update: string;
+  dialogTitle: string;
+  dragHint: string;
+  noteFieldLabel: string;
+  notePlaceholder: string;
+  cancel: string;
+  save: string;
+  saving: string;
+  statusText?: (progress: number) => string;
+}
+
+const EN_STRINGS: HillGaugeStrings = {
+  figuringItOut: 'Figuring it out',
+  makingItHappen: 'Making it happen',
+  update: 'Update',
+  dialogTitle: 'Phase progress update',
+  dragHint: 'Drag the dot to set progress',
+  noteFieldLabel: 'Update — what changed (optional, markdown)',
+  notePlaceholder: 'e.g. Cleared the codec blocker; entering integration.',
+  cancel: 'Cancel',
+  save: 'Save Update',
+  saving: 'Saving…',
+};
+
 export function PhaseHillSvg({
   progress,
   previousProgress,
   color,
   label,
   className,
+  axisLabels = { left: EN_STRINGS.figuringItOut, right: EN_STRINGS.makingItHappen },
 }: {
   progress: number; // 0..100
   previousProgress?: number | null;
   color: string; // the phase's own color
   label?: string; // tooltip on hover (e.g. the phase name + status)
   className?: string;
+  axisLabels?: { left: string; right: string } | null; // null hides the axis text
 }) {
   const cur = hillCoordinates(progress);
   const prev = previousProgress != null ? hillCoordinates(previousProgress) : null;
@@ -37,8 +68,12 @@ export function PhaseHillSvg({
       <circle cx={cur.x} cy={cur.y} r={6} fill={color} stroke="#fff" strokeWidth={1.6}>
         {label && <title>{label}</title>}
       </circle>
-      <text x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">Figuring it out</text>
-      <text x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">Making it happen</text>
+      {axisLabels && (
+        <>
+          <text x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.left}</text>
+          <text x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.right}</text>
+        </>
+      )}
     </svg>
   );
 }
@@ -52,12 +87,17 @@ interface PhaseHillGaugeProps {
   phaseName?: string;
   editable?: boolean;
   showStatus?: boolean; // hide when the surrounding row already states it
+  color?: string; // override the phase palette (e.g. neutral ink on the track view)
+  strings?: HillGaugeStrings; // i18n overrides; defaults to English
 }
 
 export default function PhaseHillGauge({
   phaseId, projectId, progress, previousProgress, updatedAt, phaseName, editable = true, showStatus = true,
+  color: colorProp, strings = EN_STRINGS,
 }: PhaseHillGaugeProps) {
-  const color = phaseColor(phaseId);
+  const color = colorProp ?? phaseColor(phaseId);
+  const statusText = strings.statusText ?? hillStatus;
+  const axisLabels = { left: strings.figuringItOut, right: strings.makingItHappen };
   const dialogRef = useRef<HTMLDialogElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState(progress);
@@ -84,18 +124,19 @@ export default function PhaseHillGauge({
           progress={progress}
           previousProgress={previousProgress}
           color={color}
-          label={phaseName ? `${phaseName} — ${hillStatus(progress)}` : undefined}
+          label={phaseName ? `${phaseName} — ${statusText(progress)}` : undefined}
           className={styles.gaugeSvg}
+          axisLabels={axisLabels}
         />
       </div>
 
-      {showStatus && <div className={styles.statusValue} style={{ color: hillStatusColor(progress) }}>{hillStatus(progress)}</div>}
+      {showStatus && <div className={styles.statusValue} style={{ color: hillStatusColor(progress) }}>{statusText(progress)}</div>}
       {updatedAt && <div className={styles.updatedAt}>Updated {new Date(updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>}
 
-      {editable && <button type="button" onClick={open} className={styles.updateBtn}>Update</button>}
+      {editable && <button type="button" onClick={open} className={styles.updateBtn}>{strings.update}</button>}
 
       <dialog ref={dialogRef} className={styles.dialog} onClick={onBackdrop}>
-        <div className={styles.dialogHeader}><h3>Phase progress update</h3></div>
+        <div className={styles.dialogHeader}><h3>{strings.dialogTitle}</h3></div>
         <form
           action={async (formData) => {
             setSubmitting(true);
@@ -109,7 +150,7 @@ export default function PhaseHillGauge({
           <input type="hidden" name="projectId" value={projectId} />
 
           <div className={styles.previewContainer} style={{ userSelect: 'none' }}>
-            <span className={styles.previewLabel}>Drag the dot to set progress · {hillStatus(drag)}</span>
+            <span className={styles.previewLabel}>{strings.dragHint} · {statusText(drag)}</span>
             <svg
               ref={svgRef}
               viewBox={VIEWBOX}
@@ -122,11 +163,12 @@ export default function PhaseHillGauge({
               <path d={HILL_PATH} fill="none" stroke="var(--border, #d9d5c8)" strokeWidth={2.5} strokeLinecap="round" />
               <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border, #e3e0d6)" strokeDasharray="3 3" />
               <circle cx={dot.x} cy={dot.y} r={6} fill={color} stroke="#fff" strokeWidth={1.6} style={{ transition: dragging ? 'none' : 'cx 0.15s, cy 0.15s' }} />
-              <text x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">Figuring it out</text>
-              <text x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">Making it happen</text>
+              <text x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.left}</text>
+              <text x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.right}</text>
             </svg>
             <input
               id={`phaseHillProgress-${phaseId}`}
+              aria-label={strings.dialogTitle}
               type="range"
               min="0"
               max="100"
@@ -138,13 +180,13 @@ export default function PhaseHillGauge({
           </div>
 
           <div className={styles.formGroup}>
-            <label htmlFor={`phaseHillNotes-${phaseId}`} className={styles.formLabel}>Update — what changed (optional, markdown)</label>
-            <textarea id={`phaseHillNotes-${phaseId}`} name="notes" rows={4} placeholder={'e.g. Cleared the codec blocker; entering integration.'} className={styles.textArea} />
+            <label htmlFor={`phaseHillNotes-${phaseId}`} className={styles.formLabel}>{strings.noteFieldLabel}</label>
+            <textarea id={`phaseHillNotes-${phaseId}`} name="notes" rows={4} placeholder={strings.notePlaceholder} className={styles.textArea} />
           </div>
 
           <div className={styles.actionRow}>
-            <button type="button" onClick={close} disabled={submitting} className={styles.cancelBtn}>Cancel</button>
-            <button type="submit" disabled={submitting} className={styles.submitBtn}>{submitting ? 'Saving…' : 'Save Update'}</button>
+            <button type="button" onClick={close} disabled={submitting} className={styles.cancelBtn}>{strings.cancel}</button>
+            <button type="submit" disabled={submitting} className={styles.submitBtn}>{submitting ? strings.saving : strings.save}</button>
           </div>
         </form>
       </dialog>

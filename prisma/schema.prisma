@@ -90,6 +90,7 @@ model Phase {
   actionItems        ActionItem[]
   contextUrls        ContextUrl[]
   partners           PhasePartner[]
+  people             PhasePerson[]
   forecastedDuration Int               @default(30)
 }
 
@@ -104,6 +105,19 @@ model PhasePartner {
   role      String? // e.g. "Supplier", "Silicon", "Integrator"
 
   @@unique([phaseId, partnerId])
+}
+
+// Real per-phase people attribution: which individuals are involved in a phase's
+// work, with an optional role. Mirrors PhasePartner.
+model PhasePerson {
+  id       Int    @id @default(autoincrement())
+  phaseId  Int
+  phase    Phase  @relation(fields: [phaseId], references: [id])
+  personId Int
+  person   Person @relation(fields: [personId], references: [id])
+  role     String? // e.g. "FAE", "TPM", "Audio lead"
+
+  @@unique([phaseId, personId])
 }
 
 model PhaseDependency {
@@ -174,6 +188,7 @@ model Person {
   notes            String?
   affiliations     PersonAffiliation[]
   actionItems      ActionItem[]
+  phaseInvolvements PhasePerson[]
   embedding        Unsupported("vector(768)")?
 }
 

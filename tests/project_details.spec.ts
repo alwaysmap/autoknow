@@ -91,21 +91,22 @@ test.describe('Project Details and Action Item Operations', () => {
     await expect(page.locator('body')).toContainText('Critical timeline blockers piling up');
   });
 
-  test('should allow updating a phase by dragging the hill dot and leaving a note', async ({ page }) => {
+  test('should allow updating a phase from its details surface', async ({ page }) => {
     await page.goto(`/projects/${projectId}`);
 
-    // The phase's row on the PhaseGraph rail (status derives from progress: 10 -> In Progress)
+    // The phase's row on the PhaseTrack (status derives from progress: 10 -> In Progress)
     const row = page.getByTestId('phase-row').filter({ hasText: 'Compliance Testing' });
     await expect(row).toContainText('In Progress');
 
-    await row.getByRole('button', { name: 'Update', exact: true }).click();
-    const dialog = page.locator('dialog[open]');
-    await dialog.locator('input[name="hillChartProgress"]').fill('100');
-    await dialog.locator('textarea[name="notes"]').fill('All CTS modules passing; phase complete.');
-    await dialog.locator('button:has-text("Save Update")').click();
+    // Details swaps the phases surface in place — no dialog, no navigation.
+    await row.getByRole('button', { name: 'Details' }).click();
+    const details = page.getByTestId('phase-details');
+    await expect(details.getByRole('heading', { name: 'Compliance Testing' })).toBeVisible();
+    await details.locator('input[id^="phaseHillProgress-"]').fill('100');
+    await details.locator('textarea[name="notes"]').fill('All CTS modules passing; phase complete.');
+    await details.getByRole('button', { name: 'Save Update' }).click();
 
     // Progress 100 derives Done — the row collapses into the quiet completed state
-    await expect(page.locator('dialog[open]')).toHaveCount(0);
     await expect(row).toContainText('Done', { timeout: 10000 });
     await expect(page.locator('body')).toContainText('All CTS modules passing; phase complete.');
   });

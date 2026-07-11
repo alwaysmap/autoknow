@@ -7,6 +7,7 @@ export async function wipeAll() {
   await prisma.actionItem.deleteMany();
   await prisma.contextUrl.deleteMany();
   await prisma.phasePartner.deleteMany();
+  await prisma.phasePerson.deleteMany();
   await prisma.phaseState.deleteMany();
   await prisma.phaseDependency.deleteMany();
   await prisma.phase.deleteMany();
@@ -22,6 +23,7 @@ export async function wipeAll() {
 export interface SeededProgram {
   oemId: number; // Rivian — owns the program
   supplierId: number; // Denso — involved via one phase
+  personId: number; // Kenji Sato (Denso) — involved in the integration phase
   projectId: number;
   phases: {
     bringUp: number; // Done (100), 20d — chain start
@@ -89,6 +91,14 @@ export async function seedProgram(): Promise<SeededProgram> {
     data: { phaseId: integration, partnerId: supplier.id, role: 'Supplier' },
   });
 
+  // A person involved in the same phase (with a role), for the People affordances.
+  const person = await prisma.person.create({
+    data: { name: 'Kenji Sato', email: 'kenji@denso.example', currentPartnerId: supplier.id },
+  });
+  await prisma.phasePerson.create({
+    data: { phaseId: integration, personId: person.id, role: 'FAE' },
+  });
+
   // A weekly program update + an ingested doc, so the activity feed has one of each kind.
   await prisma.projectState.create({
     data: {
@@ -112,6 +122,7 @@ export async function seedProgram(): Promise<SeededProgram> {
   return {
     oemId: oem.id,
     supplierId: supplier.id,
+    personId: person.id,
     projectId: project.id,
     phases: { bringUp, integration, certification, audio },
   };
