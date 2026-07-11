@@ -18,6 +18,8 @@ export default auth((req) => {
 });
 
 export const config = {
-  // Run on everything except static assets and the service worker.
+  // Run on everything except static assets — and sw.js, which must stay reachable
+  // unauthenticated: it serves the kill-switch that unregisters the retired offline
+  // worker (see public/sw.js). Drop the exclusion when that file goes.
   matcher: ['/((?!_next/static|_next/image|favicon.ico|sw.js|.*\\.(?:svg|png|ico)$).*)'],
 };

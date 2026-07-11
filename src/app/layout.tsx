@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Rubik } from "next/font/google";
 import Link from 'next/link';
 import Search from '../components/Search';
-import OfflineIndicator from '../components/OfflineIndicator';
+import SwCleanup from '../components/SwCleanup';
 import { getCurrentUser } from '../lib/session';
 import { auth, signIn, signOut, authConfigured } from '../auth';
 import "./globals.css";
@@ -76,7 +76,7 @@ export default async function RootLayout({
             </div>
           </div>
           <div className={styles.rightSection}>
-            <OfflineIndicator />
+            <SwCleanup />
             <Search />
             <div className={styles.sessionIndicator}>
               <div className={styles.googleLogo}>G</div>
