@@ -9,8 +9,10 @@ import CycleTimeScatterPlot, { CycleTimeData, CycleTimeStats } from '../componen
 
 import styles from './ecosystem-summary/EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../lib/needle';
-import { HEALTHS, healthColor, healthOrder } from '../lib/health';
+import { HEALTHS, HEALTH_KEY, healthKey, healthColor, healthOrder } from '../lib/health';
 import { resolvePerson } from '../lib/people';
+import { t } from '../lib/i18n';
+import { useLocale } from '../components/LocaleProvider';
 
 interface Project {
   id: number;
@@ -74,6 +76,7 @@ export default function EcosystemDashboardClient({
   cycleTimeData = [],
   cycleTimeStats = {},
 }: EcosystemDashboardClientProps) {
+  const locale = useLocale();
   const [minRiskVal, setMinRiskVal] = useState(0); // 0=Low, 1=Medium, 2=High, 3=Critical
   const [selectedOwner, setSelectedOwner] = useState('All');
   const [minProgress, setMinProgress] = useState(0);
@@ -135,7 +138,7 @@ export default function EcosystemDashboardClient({
       {/* Search & Filter Widgets Panel */}
       <section className={styles.filterSection}>
         <div className={styles.filterGroup} style={{ minWidth: '220px' }}>
-          <label className={styles.filterLabel}>Health floor</label>
+          <label className={styles.filterLabel}>{t(locale, 'healthFloor')}</label>
           <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
             {HEALTHS.map((h, i) => {
               const on = minRiskVal === i;
@@ -147,7 +150,7 @@ export default function EcosystemDashboardClient({
                   aria-pressed={on}
                   style={{ fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 999, cursor: 'pointer', border: `1px solid ${healthColor(h)}`, background: on ? healthColor(h) : 'transparent', color: on ? '#fff' : healthColor(h) }}
                 >
-                  {h}
+                  {t(locale, HEALTH_KEY[h])}
                 </button>
               );
             })}
@@ -155,7 +158,7 @@ export default function EcosystemDashboardClient({
         </div>
 
         <div className={styles.filterGroup}>
-          <label htmlFor="ownerSelect" className={styles.filterLabel}>Program Owner (Googler)</label>
+          <label htmlFor="ownerSelect" className={styles.filterLabel}>{t(locale, 'programOwnerGoogler')}</label>
           <select
             id="ownerSelect"
             value={selectedOwner}
@@ -163,14 +166,14 @@ export default function EcosystemDashboardClient({
             className={styles.select}
           >
             {owners.map(owner => (
-              <option key={owner} value={owner}>{owner}</option>
+              <option key={owner} value={owner}>{owner === 'All' ? t(locale, 'allLabel') : owner}</option>
             ))}
           </select>
         </div>
 
         <div className={styles.filterGroup} style={{ minWidth: '220px' }}>
           <label className={styles.filterLabel}>
-            Progress Floor (Hill Chart)
+            {t(locale, 'progressFloorHill')}
           </label>
           <div style={{ padding: '8px 0' }}>
             <HillChartControl
@@ -214,64 +217,64 @@ export default function EcosystemDashboardClient({
       {/* Leadership Scorecards */}
       <section className={styles.scorecards}>
         <div className={styles.card}>
-          <h3>Programs in Flight</h3>
+          <h3>{t(locale, 'programsInFlight')}</h3>
           <div className={styles.metric}>{filteredProjects.length}</div>
-          <div className={styles.subtext}>Active implementations</div>
+          <div className={styles.subtext}>{t(locale, 'activeImplementations')}</div>
         </div>
 
         <div className={styles.card}>
-          <h3>Total 12M Volume</h3>
+          <h3>{t(locale, 'total12mVolume')}</h3>
           <div className={styles.metric}>
-            {totalVolume.toLocaleString()}
+            {totalVolume.toLocaleString(locale)}
           </div>
-          <div className={styles.subtext}>Shipping units in first year</div>
+          <div className={styles.subtext}>{t(locale, 'shippingUnitsFirstYear')}</div>
         </div>
 
         <div className={styles.card}>
-          <h3>Programs in Range</h3>
+          <h3>{t(locale, 'programsInRange')}</h3>
           <div className={styles.metric}>{inRangeCount}</div>
-          <div className={styles.subtext}>Matching progress filters</div>
+          <div className={styles.subtext}>{t(locale, 'matchingProgressFilters')}</div>
         </div>
 
         <div className={styles.card}>
-          <h3>Deterministic Lead Time</h3>
-          <div className={styles.metric}>p85 {p85LeadTime}d</div>
-          <div className={styles.subtext}>WIP completion cycle</div>
+          <h3>{t(locale, 'deterministicLeadTime')}</h3>
+          <div className={styles.metric}>{t(locale, 'p85Days', { n: p85LeadTime })}</div>
+          <div className={styles.subtext}>{t(locale, 'wipCompletionCycle')}</div>
         </div>
       </section>
 
       {criticalCount > 0 && (
         <div className={styles.blockerAlert}>
-          <strong>Attention Leaders:</strong> {criticalCount} programs are flagged Some Risk or Concerned. Immediate review of dependencies advised.
+          <strong>{t(locale, 'attentionLeaders')}</strong> {t(locale, 'flaggedPrograms', { n: criticalCount })}
         </div>
       )}
 
-      
+
       <section className={styles.chartSection} style={{ marginTop: '32px' }}>
-        <h2>Cycle Time Point Chart</h2>
+        <h2>{t(locale, 'cycleTimePointChart')}</h2>
         <CycleTimeScatterPlot data={filteredCycleTimeData} stats={cycleTimeStats} />
       </section>
 
 
       {/* Scatter Chart visualization */}
       <section className={styles.chartCard}>
-        <h2>Target Launch Timeline (SOP)</h2>
+        <h2>{t(locale, 'targetLaunchTimeline')}</h2>
         <EcosystemSopChart projects={filteredProjects} />
       </section>
 
       {/* Main Database Table */}
       <section className={styles.tableSection}>
-        <h2>Programs at Risk</h2>
+        <h2>{t(locale, 'programsAtRisk')}</h2>
         <DataTable
           headers={[
-            { key: 'name', label: 'Program Name' },
-            { key: 'partner.name', label: 'OEM / Partner' },
-            { key: 'ownerName', label: 'Program Owner' },
-            { key: 'sopDate', label: 'Target SOP' },
-            { key: 'volumeFirstYear', label: '12M Target Volume' },
-            { key: 'theNeedle', label: 'Health' },
-            { key: 'hillChartProgress', label: 'Progress' },
-            { key: 'forecast', label: 'Forecast' }
+            { key: 'name', label: t(locale, 'programName') },
+            { key: 'partner.name', label: t(locale, 'oemPartnerHeader') },
+            { key: 'ownerName', label: t(locale, 'programOwner') },
+            { key: 'sopDate', label: t(locale, 'targetSopHeader') },
+            { key: 'volumeFirstYear', label: t(locale, 'targetVolume') },
+            { key: 'theNeedle', label: t(locale, 'healthLabel') },
+            { key: 'hillChartProgress', label: t(locale, 'progressLabel') },
+            { key: 'forecast', label: t(locale, 'forecastLabel') }
           ]}
           data={filteredProjects}
           renderRow={(p: Project) => {
@@ -280,7 +283,7 @@ export default function EcosystemDashboardClient({
             return (
               <tr key={p.id}>
                 <td>
-                  <Link href={`/projects/${p.id}`} className={styles.tableLink}>
+                  <Link href={`/programs/${p.id}`} className={styles.tableLink}>
                     {p.name}
                   </Link>
                 </td>
@@ -301,8 +304,8 @@ export default function EcosystemDashboardClient({
                     return p.ownerName;
                   })()}
                 </td>
-                <td>{p.sopDate ? new Date(p.sopDate).toLocaleDateString() : 'TBD'}</td>
-                <td>{p.volumeFirstYear.toLocaleString()} units</td>
+                <td>{p.sopDate ? new Date(p.sopDate).toLocaleDateString(locale) : t(locale, 'tbd')}</td>
+                <td>{t(locale, 'unitsCount', { n: p.volumeFirstYear.toLocaleString(locale) })}</td>
                 <td>
                   {(() => {
                     const label = formatNeedleValue(p.theNeedle);
@@ -311,10 +314,10 @@ export default function EcosystemDashboardClient({
                         type="button"
                         onClick={() => setMinRiskVal(healthOrder(label))}
                         className={styles.badgeFilterBtn}
-                        title={`Filter health: ${label}`}
+                        title={t(locale, 'filterHealthTitle', { h: t(locale, healthKey(label)) })}
                       >
                         <span className={styles.badge} style={{ color: healthColor(label) }}>
-                          {label}
+                          {t(locale, healthKey(label))}
                         </span>
                       </button>
                     );
@@ -333,10 +336,10 @@ export default function EcosystemDashboardClient({
                 <td>
                   {p.forecast.remainingPhases > 0 ? (
                     <span className={styles.forecastText}>
-                      +{p.forecast.sim.p85} days likely
+                      {t(locale, 'daysLikely', { n: p.forecast.sim.p85 })}
                     </span>
                   ) : (
-                    <span className={styles.finishedText}>Finished</span>
+                    <span className={styles.finishedText}>{t(locale, 'finishedLabel')}</span>
                   )}
                 </td>
               </tr>
@@ -344,28 +347,28 @@ export default function EcosystemDashboardClient({
           }}
           defaultSortKey="name"
           pageSize={10}
-          emptyStateMessage="No programs match current filters."
+          emptyStateMessage={t(locale, 'noProgramsMatchFilters')}
         />
       </section>
 
       {/* AI Synthesis Briefings Row */}
       <section className={styles.synthesisSection}>
-        <h2>AI Status Synthesis</h2>
+        <h2>{t(locale, 'aiStatusSynthesis')}</h2>
         <div className={styles.briefingBlock}>
           <div className={styles.briefingHeader}>
-            <span className={styles.aiBadge}>Gemini Synthesis Report</span>
-            <span className={styles.briefingDate}>Live feeds compiled</span>
+            <span className={styles.aiBadge}>{t(locale, 'geminiSynthesisReport')}</span>
+            <span className={styles.briefingDate}>{t(locale, 'liveFeedsCompiled')}</span>
           </div>
           {briefings.length === 0 ? (
-            <p className={styles.emptyBriefing}>No active Google Chat webhook updates ingested yet.</p>
+            <p className={styles.emptyBriefing}>{t(locale, 'noWebhookUpdates')}</p>
           ) : (
             <div className={styles.synthesisContent}>
               <div className={styles.aiExecutiveSummary}>
-                <strong>Executive Blocker Summary:</strong>
+                <strong>{t(locale, 'executiveBlockerSummary')}</strong>
                 {briefings.map((b, idx) => (
                   <span key={idx}>
                     {' '}
-                    <strong>{b.partnerName} (<Link href={`/projects/${b.projectId}`} className={styles.briefingLink}>{b.projectName}</Link>)</strong>: &quot;{b.briefingText}&quot;
+                    <strong>{b.partnerName} (<Link href={`/programs/${b.projectId}`} className={styles.briefingLink}>{b.projectName}</Link>)</strong>: &quot;{b.briefingText}&quot;
                   </span>
                 ))}
               </div>

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { t } from '../lib/i18n';
+import { useLocale } from './LocaleProvider';
 import styles from './DataTable.module.css';
 
 interface Header {
@@ -30,8 +32,10 @@ export default function DataTable<T>({
   defaultSortKey = '',
   defaultSortOrder = 'asc',
   pageSize = 10,
-  emptyStateMessage = 'No results found.',
+  emptyStateMessage,
 }: DataTableProps<T>) {
+  const locale = useLocale();
+  const emptyMessage = emptyStateMessage ?? t(locale, 'noResultsFound');
   const [sortKey, setSortKey] = useState<string>(defaultSortKey);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(defaultSortOrder);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -141,7 +145,7 @@ export default function DataTable<T>({
           {paginatedData.length === 0 ? (
             <tr>
               <td colSpan={headers.length} className={styles.info} style={{ padding: '16px', textAlign: 'center', fontStyle: 'italic' }}>
-                {emptyStateMessage}
+                {emptyMessage}
               </td>
             </tr>
           ) : (
@@ -154,7 +158,7 @@ export default function DataTable<T>({
       {sortedData.length > 0 && (
         <div className={styles.pagination}>
           <div className={styles.info}>
-            Showing {startIndex}-{endIndex} of {sortedData.length} results
+            {t(locale, 'showingResults', { a: startIndex, b: endIndex, c: sortedData.length })}
           </div>
           <div className={styles.controls}>
             <button
@@ -162,17 +166,17 @@ export default function DataTable<T>({
               disabled={activePage === 1}
               className={styles.pageButton}
             >
-              Prev
+              {t(locale, 'prev')}
             </button>
             <span className={styles.pageIndicator}>
-              Page {activePage} of {totalPages}
+              {t(locale, 'pageOf', { a: activePage, b: totalPages })}
             </span>
             <button
               onClick={() => setCurrentPage(Math.min(totalPages, activePage + 1))}
               disabled={activePage === totalPages}
               className={styles.pageButton}
             >
-              Next
+              {t(locale, 'next')}
             </button>
           </div>
         </div>

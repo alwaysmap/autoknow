@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import DataTable from './DataTable';
+import { t } from '../lib/i18n';
+import { useLocale } from './LocaleProvider';
 import styles from '../app/page.module.css';
 
 interface Program {
@@ -16,15 +18,16 @@ interface Program {
 }
 
 export default function ProgramsTable({ programsRisk }: { programsRisk: Program[] }) {
+  const locale = useLocale();
   return (
     <DataTable
       headers={[
-        { key: 'partner', label: 'Partner' },
-        { key: 'projectName', label: 'Project' },
-        { key: 'currentPhase', label: 'Current Phase' },
-        { key: 'figuringItOutDays', label: '"Figuring it out" Time' },
-        { key: 'needle', label: 'The Needle' },
-        { key: 'lastStateChange', label: 'Last Update' }
+        { key: 'partner', label: t(locale, 'partnerLabel') },
+        { key: 'projectName', label: t(locale, 'projectLabel') },
+        { key: 'currentPhase', label: t(locale, 'currentPhase') },
+        { key: 'figuringItOutDays', label: t(locale, 'figuringItOutTime') },
+        { key: 'needle', label: t(locale, 'theNeedle') },
+        { key: 'lastStateChange', label: t(locale, 'lastUpdate') }
       ]}
       data={programsRisk}
       renderRow={(program: Program) => (
@@ -35,14 +38,14 @@ export default function ProgramsTable({ programsRisk }: { programsRisk: Program[
             </Link>
           </td>
           <td>
-            <Link href={`/projects/${program.id}`} className={styles.tableLink}>
+            <Link href={`/programs/${program.id}`} className={styles.tableLink}>
               {program.projectName}
             </Link>
           </td>
           <td>{program.currentPhase}</td>
           <td>
-            {program.figuringItOutDays}d 
-            {program.figuringItOutDays > 7 && <span className={styles.alertText}> (Blocked)</span>}
+            {t(locale, 'daysShort', { n: program.figuringItOutDays })}{' '}
+            {program.figuringItOutDays > 7 && <span className={styles.alertText}> {t(locale, 'blockedTag')}</span>}
           </td>
           <td>
             <span className={`${styles.badge} ${styles[program.needle.toLowerCase()]}`}>

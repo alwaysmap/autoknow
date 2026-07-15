@@ -5,6 +5,8 @@ import Link from 'next/link';
 import DataTable from '../../components/DataTable';
 import { deriveEmail, normalizeHandle } from '../../lib/auth';
 import { resolvePerson } from '../../lib/people';
+import { t } from '../../lib/i18n';
+import { useLocale } from '../../components/LocaleProvider';
 import styles from './page.module.css';
 
 interface Project {
@@ -40,6 +42,7 @@ interface PartnersClientProps {
 }
 
 export default function PartnersClient({ partners, currentUser, people }: PartnersClientProps) {
+  const locale = useLocale();
   const [selectedType, setSelectedType] = useState<string>('All');
   const [myPartnersOnly, setMyPartnersOnly] = useState<boolean>(false);
 
@@ -112,9 +115,9 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <h1>Partners</h1>
+        <h1>{t(locale, 'partnersLabel')}</h1>
         <div className={styles.userLabel}>
-          Logged User: <code>{currentUser}</code>
+          {t(locale, 'loggedUser')} <code>{currentUser}</code>
         </div>
       </header>
 
@@ -123,7 +126,7 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
         <section className={styles.filterSection}>
           <div className={styles.filterGroup}>
             <label htmlFor="typeSelect" className={styles.filterLabel}>
-              Partner Type:
+              {t(locale, 'partnerType')}:
             </label>
             <select
               id="typeSelect"
@@ -131,7 +134,7 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
               onChange={(e) => setSelectedType(e.target.value)}
               className={styles.select}
             >
-              <option value="All">All Types</option>
+              <option value="All">{t(locale, 'allTypes')}</option>
               <option value="OEM">OEM</option>
               <option value="Supplier">Supplier</option>
             </select>
@@ -146,7 +149,7 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
               className={styles.checkbox}
             />
             <label htmlFor="myPartnersCheckbox" className={styles.checkboxLabel}>
-              My partners
+              {t(locale, 'myPartners')}
             </label>
           </div>
         </section>
@@ -155,12 +158,12 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
         <section className={styles.tableSection}>
           <DataTable
             headers={[
-              { key: 'name', label: 'Partner Name' },
-              { key: 'type', label: 'Partner Type' },
-              { key: 'activePrograms', label: 'Active Programs' },
-              { key: 'lifetimePrograms', label: 'Lifetime Programs' },
-              { key: 'tels', label: 'Technical Engagement Leads' },
-              { key: 'team', label: 'Team' },
+              { key: 'name', label: t(locale, 'partnerName') },
+              { key: 'type', label: t(locale, 'partnerType') },
+              { key: 'activePrograms', label: t(locale, 'activePrograms') },
+              { key: 'lifetimePrograms', label: t(locale, 'lifetimePrograms') },
+              { key: 'tels', label: t(locale, 'telsHeader') },
+              { key: 'team', label: t(locale, 'teamLabel') },
             ]}
             data={displayData}
             renderRow={(p) => (
@@ -174,7 +177,7 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
                   <button
                     onClick={() => setSelectedType(p.type)}
                     className={styles.typeFilterBtn}
-                    title={`Filter by ${p.type}`}
+                    title={t(locale, 'filterByType', { t: p.type })}
                   >
                     <span
                       className={`${styles.badge} ${
@@ -187,18 +190,18 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
                 </td>
                 <td>
                   <Link href={`/partners/${p.id}?filter=active`} className={styles.activeProgramsLink}>
-                    <strong>{p.activePrograms}</strong> active
+                    <strong>{p.activePrograms}</strong> {t(locale, 'activeSuffix')}
                   </Link>
                 </td>
                 <td>
                   <Link href={`/partners/${p.id}`} className={styles.lifetimeProgramsLink}>
-                    {p.lifetimePrograms} lifetime
+                    {t(locale, 'lifetimeSuffix', { n: p.lifetimePrograms })}
                   </Link>
                 </td>
                 <td>
                   <div className={styles.telList}>
                     {p.tels.length === 0 ? (
-                      <span className={styles.empty}>None</span>
+                      <span className={styles.empty}>{t(locale, 'none')}</span>
                     ) : (
                       p.tels.map((tel: string, idx: number) => {
                         const matched = resolvePerson(people, tel);
@@ -221,7 +224,7 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
                 <td>
                   <div className={styles.telList}>
                     {p.team.length === 0 ? (
-                      <span className={styles.empty}>None</span>
+                      <span className={styles.empty}>{t(locale, 'none')}</span>
                     ) : (
                       p.team.map((email: string, idx: number) => {
                         const matched = resolvePerson(people, email);
@@ -245,7 +248,7 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
             )}
             defaultSortKey="name"
             pageSize={10}
-            emptyStateMessage="No ecosystem partners found matching filters."
+            emptyStateMessage={t(locale, 'noPartnersMatchFilters')}
           />
         </section>
       </main>

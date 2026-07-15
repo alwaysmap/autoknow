@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import { t } from '../lib/i18n';
+import { useLocale } from './LocaleProvider';
 import styles from './CycleTimeScatterPlot.module.css';
 
 export interface CycleTimeData {
@@ -22,6 +24,7 @@ interface CycleTimeScatterPlotProps {
 }
 
 export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPlotProps) {
+  const locale = useLocale();
   // Extract unique phase names
   const phaseNames = useMemo(() => {
     const names = Array.from(new Set(data.map((d) => d.phaseName)));
@@ -49,7 +52,7 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
 
   if (data.length === 0) {
     return <div className={styles.container} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'var(--muted)', fontSize: '13px' }}>Not enough cycle time data to visualize.</p>
+      <p style={{ color: 'var(--muted)', fontSize: '13px' }}>{t(locale, 'notEnoughCycleTime')}</p>
     </div>;
   }
 
@@ -70,7 +73,7 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
         {xTicks.map(tick => (
           <g key={tick}>
             <line x1={xScale(tick)} y1={height - marginBottom} x2={xScale(tick)} y2={height - marginBottom + 5} className={styles.axisLine} />
-            <text x={xScale(tick)} y={height - marginBottom + 20} textAnchor="middle" className={styles.axisLabel}>{tick}d</text>
+            <text x={xScale(tick)} y={height - marginBottom + 20} textAnchor="middle" className={styles.axisLabel}>{t(locale, 'daysShort', { n: tick })}</text>
           </g>
         ))}
 
@@ -131,7 +134,7 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
               r={4}
               className={d.isFinished ? styles.point : styles.pointActive}
             >
-              <title>{`${d.phaseName}: ${d.cycleTimeDays} days ${d.isFinished ? '(Finished)' : '(Active)'}`}</title>
+              <title>{t(locale, 'cyclePointTitle', { name: d.phaseName, n: d.cycleTimeDays, status: d.isFinished ? t(locale, 'finishedParen') : t(locale, 'activeParen') })}</title>
             </circle>
           );
         })}

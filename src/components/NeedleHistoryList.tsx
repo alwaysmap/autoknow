@@ -1,6 +1,7 @@
 import { NeedleGaugeSvg } from './NeedleGauge';
 import Markdown from './Markdown';
-import { parseHealth, healthColor } from '../lib/health';
+import { parseHealth, healthColor, HEALTH_KEY } from '../lib/health';
+import { t, type Locale } from '../lib/i18n';
 import type { NeedleChange } from '../lib/history';
 import styles from './NeedleHistoryList.module.css';
 
@@ -10,13 +11,15 @@ import styles from './NeedleHistoryList.module.css';
 
 export default function NeedleHistoryList({
   changes,
-  emptyLabel = 'No updates recorded yet.',
+  emptyLabel,
+  locale = 'en',
 }: {
   changes: NeedleChange[];
   emptyLabel?: string;
+  locale?: Locale;
 }) {
   if (changes.length === 0) {
-    return <p className={styles.empty}>{emptyLabel}</p>;
+    return <p className={styles.empty}>{emptyLabel ?? t(locale, 'noUpdatesRecorded')}</p>;
   }
 
   return (
@@ -35,15 +38,15 @@ export default function NeedleHistoryList({
             </div>
             <div className={styles.body}>
               <div className={styles.head}>
-                <span className={styles.health} style={{ color: healthColor(health) }}>{health}</span>
+                <span className={styles.health} style={{ color: healthColor(health) }}>{t(locale, HEALTH_KEY[health])}</span>
                 <time className={styles.date} dateTime={c.timestamp}>
-                  {new Date(c.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  {new Date(c.timestamp).toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' })}
                 </time>
               </div>
               {c.notes ? (
                 <div className={styles.note}><Markdown>{c.notes}</Markdown></div>
               ) : (
-                <div className={styles.noteEmpty}>No note for this update.</div>
+                <div className={styles.noteEmpty}>{t(locale, 'noNoteForUpdate')}</div>
               )}
             </div>
           </article>

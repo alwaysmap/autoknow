@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
+import { t } from '../lib/i18n';
+import { useLocale } from './LocaleProvider';
 import styles from './HillChartControl.module.css';
 
 interface HillChartControlProps {
@@ -24,6 +26,7 @@ function getHillCoordinates(progress: number) {
 }
 
 export default function HillChartControl({ value, onChange, className = '' }: HillChartControlProps) {
+  const locale = useLocale();
   const [localVal, setLocalVal] = useState<number>(value);
   const [isDragging, setIsDragging] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -90,8 +93,8 @@ export default function HillChartControl({ value, onChange, className = '' }: Hi
         <circle cx={coords.x} cy={coords.y} r="6" className={styles.hillDot} />
         
         {/* Hill Chart Labels */}
-        <text x="50" y="94" textAnchor="middle" fontSize="8" fill="var(--muted)" fontWeight="600" letterSpacing="0.02em">Working it out</text>
-        <text x="150" y="94" textAnchor="middle" fontSize="8" fill="var(--muted)" fontWeight="600" letterSpacing="0.02em">Getting it done</text>
+        <text x="50" y="94" textAnchor="middle" fontSize="8" fill="var(--muted)" fontWeight="600" letterSpacing="0.02em">{t(locale, 'workingItOut')}</text>
+        <text x="150" y="94" textAnchor="middle" fontSize="8" fill="var(--muted)" fontWeight="600" letterSpacing="0.02em">{t(locale, 'gettingItDone')}</text>
       </svg>
     </div>
   );

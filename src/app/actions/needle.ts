@@ -47,7 +47,7 @@ export async function updateNeedleStatus(formData: FormData) {
       }
     });
 
-    revalidatePath(`/projects/${targetId}`);
+    revalidatePath(`/programs/${targetId}`);
   } else if (scope === 'partner') {
     // Preserve the latest recorded progress when this update is risk-only,
     // matching the project/phase scopes (which never reset progress to 0).

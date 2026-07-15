@@ -1,14 +1,16 @@
 import { signIn, authConfigured } from '../../auth';
+import { getLocale } from '../../lib/locale';
+import { t } from '../../lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const locale = await getLocale();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', gap: 20, textAlign: 'center' }}>
       <h1 style={{ fontSize: '2rem' }}>AutoKnow</h1>
       <p style={{ color: 'var(--muted, #666)', maxWidth: 420 }}>
-        Android Automotive partner & program intelligence. Sign in with your Google
-        Workspace account to continue.
+        {t(locale, 'loginIntro')}
       </p>
       {authConfigured ? (
         <form
@@ -21,15 +23,14 @@ export default function LoginPage() {
             type="submit"
             style={{ padding: '10px 20px', fontSize: 14, fontWeight: 600, borderRadius: 8, cursor: 'pointer', border: '1px solid var(--border, #ddd)' }}
           >
-            Sign in with Google
+            {t(locale, 'signInWithGoogle')}
           </button>
         </form>
       ) : (
         <p style={{ color: '#b06000', fontSize: 13, maxWidth: 460 }}>
-          Authentication is not configured. Set <code>AUTH_GOOGLE_ID</code>,{' '}
-          <code>AUTH_GOOGLE_SECRET</code>, <code>AUTH_SECRET</code>, and{' '}
-          <code>AUTH_ALLOWED_DOMAIN</code> to enable Google sign-in. Until then the app
-          runs on a stub identity.
+          {t(locale, 'authNotConfigured')} <code>AUTH_GOOGLE_ID</code>,{' '}
+          <code>AUTH_GOOGLE_SECRET</code>, <code>AUTH_SECRET</code>, {t(locale, 'authAnd')}{' '}
+          <code>AUTH_ALLOWED_DOMAIN</code> {t(locale, 'authEnableSignin')}
         </p>
       )}
     </div>

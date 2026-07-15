@@ -30,7 +30,7 @@ export async function ingestAction(_prev: IngestState, formData: FormData): Prom
   if (result.ok) {
     revalidatePath('/');
     if (result.attachedTo?.kind === 'project' && result.attachedTo.id) {
-      revalidatePath(`/projects/${result.attachedTo.id}`);
+      revalidatePath(`/programs/${result.attachedTo.id}`);
     }
     if (result.attachedTo?.kind === 'partner' && result.attachedTo.id) {
       revalidatePath(`/partners/${result.attachedTo.id}`);

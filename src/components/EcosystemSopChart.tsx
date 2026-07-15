@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { t } from '../lib/i18n';
+import { useLocale } from './LocaleProvider';
 import styles from './EcosystemSopChart.module.css';
 
 interface Project {
@@ -21,6 +23,7 @@ interface EcosystemSopChartProps {
 }
 
 export default function EcosystemSopChart({ projects }: EcosystemSopChartProps) {
+  const locale = useLocale();
   const [filterMode, setFilterMode] = useState<'all' | 'flight'>('all');
   const [hoveredProject, setHoveredProject] = useState<Project | null>(null);
 
@@ -74,10 +77,10 @@ export default function EcosystemSopChart({ projects }: EcosystemSopChartProps) 
     return (
       <div className={styles.chartContainer}>
         <div className={styles.chartHeader}>
-          <h3 className={styles.chartTitle}>Industry SOP &amp; Volume Target Timeline</h3>
+          <h3 className={styles.chartTitle}>{t(locale, 'sopChartTitle')}</h3>
         </div>
         <div className={styles.emptyState}>
-          No active projects with target SOP dates found. Edit projects to set SOP target dates.
+          {t(locale, 'sopChartEmpty')}
         </div>
       </div>
     );
@@ -116,7 +119,7 @@ export default function EcosystemSopChart({ projects }: EcosystemSopChartProps) 
     const date = new Date(t);
     return {
       x: paddingLeft + (idx / 3) * plotWidth,
-      label: date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' }),
+      label: date.toLocaleDateString(locale, { month: 'short', year: '2-digit' }),
     };
   });
 
@@ -153,9 +156,9 @@ export default function EcosystemSopChart({ projects }: EcosystemSopChartProps) 
     <div className={styles.chartContainer}>
       <div className={styles.chartHeader}>
         <div>
-          <h3 className={styles.chartTitle}>Industry SOP &amp; Volume Target Timeline</h3>
+          <h3 className={styles.chartTitle}>{t(locale, 'sopChartTitle')}</h3>
           <div className={styles.chartSub}>
-            Anticipated units shipping per program (bars) and running industry volume total (line)
+            {t(locale, 'sopChartSub')}
           </div>
         </div>
 
@@ -165,14 +168,14 @@ export default function EcosystemSopChart({ projects }: EcosystemSopChartProps) 
             data-active={filterMode === 'all'}
             className={styles.filterBtn}
           >
-            All SOPs
+            {t(locale, 'allSops')}
           </button>
           <button
             onClick={() => setFilterMode('flight')}
             data-active={filterMode === 'flight'}
             className={styles.filterBtn}
           >
-            In Flight Only
+            {t(locale, 'inFlightOnly')}
           </button>
         </div>
       </div>
@@ -211,7 +214,7 @@ export default function EcosystemSopChart({ projects }: EcosystemSopChartProps) 
             className={styles.axisText}
             style={{ fontWeight: 700 }}
           >
-            Units/Yr (SOP)
+            {t(locale, 'unitsPerYearAxis')}
           </text>
 
           {/* Right Y Axis (Cumulative Industry Volume) */}
@@ -235,7 +238,7 @@ export default function EcosystemSopChart({ projects }: EcosystemSopChartProps) 
             style={{ fontWeight: 700 }}
             textAnchor="end"
           >
-            Cum. Volume (Industry)
+            {t(locale, 'cumVolumeAxis')}
           </text>
 
           {/* X Axis */}
@@ -342,15 +345,15 @@ export default function EcosystemSopChart({ projects }: EcosystemSopChartProps) 
                       : 'var(--p-600)',
                 }}
               >
-                {hoveredProject.hillChartProgress === 100 ? 'Launched' : 'In Flight'}
+                {hoveredProject.hillChartProgress === 100 ? t(locale, 'launched') : t(locale, 'inFlight')}
               </span>
             </div>
             <div className={styles.tooltipMeta}>
-              Target SOP: <strong>{new Date(hoveredProject.sopDate!).toLocaleDateString()}</strong> | Vol: <strong>{hoveredProject.volumeFirstYear.toLocaleString()} units/yr</strong>
+              {t(locale, 'targetSop')} <strong>{new Date(hoveredProject.sopDate!).toLocaleDateString(locale)}</strong> {t(locale, 'volSep')} <strong>{t(locale, 'unitsPerYr', { n: hoveredProject.volumeFirstYear.toLocaleString(locale) })}</strong>
             </div>
           </>
         ) : (
-          <span className={styles.tooltipMeta}>Hover over any bar or node to examine program shipping volumes.</span>
+          <span className={styles.tooltipMeta}>{t(locale, 'sopHoverHint')}</span>
         )}
       </div>
     </div>

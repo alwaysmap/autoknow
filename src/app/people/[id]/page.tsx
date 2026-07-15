@@ -2,6 +2,8 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '../../../lib/db';
+import { getLocale } from '../../../lib/locale';
+import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
 
 export const dynamic = 'force-dynamic';
@@ -127,6 +129,7 @@ interface ActionWithPhase {
 export default async function PersonProfilePage(props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
   const personId = parseInt(id);
+  const locale = await getLocale();
 
   if (isNaN(personId)) {
     return notFound();
@@ -206,10 +209,10 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
       <header className={styles.header}>
         <h1>{person.name}</h1>
         <div className={styles.metaRow}>
-          <span className={styles.metaLabel}>Current Organization:</span>{' '}
+          <span className={styles.metaLabel}>{t(locale, 'currentOrganization')}</span>{' '}
           <strong className={styles.highlightText}>{person.currentPartner.name}</strong>
           <span className={styles.metaSeparator}>|</span>
-          <span className={styles.metaLabel}>Email:</span> {person.email}
+          <span className={styles.metaLabel}>{t(locale, 'emailLabel')}</span> {person.email}
         </div>
         {person.notes && <p className={styles.notes}>{person.notes}</p>}
       </header>
@@ -217,13 +220,13 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
       <main className={styles.main}>
         {/* Section 1: Career History Timeline */}
         <section className={styles.section}>
-          <h2>Career History</h2>
+          <h2>{t(locale, 'careerHistory')}</h2>
           <div className={styles.timeline}>
             {person.affiliations.map((aff) => {
-              const startStr = new Date(aff.startDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
-              const endStr = aff.endDate 
-                ? new Date(aff.endDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })
-                : 'Present';
+              const startStr = new Date(aff.startDate).toLocaleDateString(locale, { year: 'numeric', month: 'short' });
+              const endStr = aff.endDate
+                ? new Date(aff.endDate).toLocaleDateString(locale, { year: 'numeric', month: 'short' })
+                : t(locale, 'present');
               
               return (
                 <div key={aff.id} className={styles.timelineItem}>
@@ -240,13 +243,13 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
 
         {/* Section 2: Biographical Actions History */}
         <section className={styles.section}>
-          <h2>Action & Decision History</h2>
+          <h2>{t(locale, 'actionDecisionHistory')}</h2>
           <p className={styles.sectionSubtext}>
-            Historical activities and project decisions mapped to the organization/role they held at the time of action:
+            {t(locale, 'actionHistorySubtext')}
           </p>
 
           {person.affiliations.length === 0 ? (
-            <p className={styles.emptyText}>No career history found for this person.</p>
+            <p className={styles.emptyText}>{t(locale, 'noCareerHistory')}</p>
           ) : (
             person.affiliations.map((aff) => {
               const group = groupedActions[aff.id.toString()];
@@ -258,24 +261,24 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
                   </div>
 
                   {group.actions.length === 0 ? (
-                    <p className={styles.emptyActions}>No actions recorded during this tenure.</p>
+                    <p className={styles.emptyActions}>{t(locale, 'noActionsRecorded')}</p>
                   ) : (
                     <ul className={styles.actionList}>
                       {group.actions.map((action) => (
                         <li key={action.id} className={styles.actionItem}>
                           <div className={styles.actionMeta}>
                             <span className={styles.actionDate}>
-                              {new Date(action.createdAt).toLocaleDateString()}
+                              {new Date(action.createdAt).toLocaleDateString(locale)}
                             </span>
                             <span className={`${styles.statusBadge} ${action.status === 'Completed' ? styles.statusCompleted : styles.statusPending}`}>
-                              {action.status}
+                              {action.status === 'Completed' ? t(locale, 'statusCompleted') : action.status === 'Pending' ? t(locale, 'statusPending') : action.status}
                             </span>
                           </div>
                           <div className={styles.actionDetails}>
                             <p className={styles.actionDesc}>{action.description}</p>
                             <span className={styles.actionContext}>
-                              Project:{' '}
-                              <Link href={`/projects/${action.phase.project.id}`}>
+                              {t(locale, 'projectLabel')}:{' '}
+                              <Link href={`/programs/${action.phase.project.id}`}>
                                 {action.phase.project.name}
                               </Link>{' '}
                               ({action.phase.name})
@@ -293,24 +296,24 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
           {unassociatedActions.length > 0 && (
             <div className={styles.affiliationGroup}>
               <div className={styles.groupHeader}>
-                <h3>Other / Unassociated</h3>
+                <h3>{t(locale, 'otherUnassociated')}</h3>
               </div>
               <ul className={styles.actionList}>
                 {unassociatedActions.map((action) => (
                   <li key={action.id} className={styles.actionItem}>
                     <div className={styles.actionMeta}>
                       <span className={styles.actionDate}>
-                        {new Date(action.createdAt).toLocaleDateString()}
+                        {new Date(action.createdAt).toLocaleDateString(locale)}
                       </span>
                       <span className={`${styles.statusBadge} ${action.status === 'Completed' ? styles.statusCompleted : styles.statusPending}`}>
-                        {action.status}
+                        {action.status === 'Completed' ? t(locale, 'statusCompleted') : action.status === 'Pending' ? t(locale, 'statusPending') : action.status}
                       </span>
                     </div>
                     <div className={styles.actionDetails}>
                       <p className={styles.actionDesc}>{action.description}</p>
                       <span className={styles.actionContext}>
-                        Project:{' '}
-                        <Link href={`/projects/${action.phase.project.id}`}>
+                        {t(locale, 'projectLabel')}:{' '}
+                        <Link href={`/programs/${action.phase.project.id}`}>
                           {action.phase.project.name}
                         </Link>{' '}
                         ({action.phase.name})
@@ -325,56 +328,56 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
 
         {/* Profile Maintenance & Administration section */}
         <section className={styles.section}>
-          <h2>Profile Maintenance</h2>
+          <h2>{t(locale, 'profileMaintenance')}</h2>
           <div className={styles.adminGrid}>
             {/* Form 1: Move Company */}
             <div className={styles.adminFormCard}>
-              <h3>Move to Different Company</h3>
+              <h3>{t(locale, 'moveToDifferentCompany')}</h3>
               <form action={movePersonCompany} className={styles.adminForm}>
                 <input type="hidden" name="personId" value={personId} />
                 <div className={styles.formGroup}>
-                  <label htmlFor="newPartnerId" className={styles.formLabel}>New Organization</label>
+                  <label htmlFor="newPartnerId" className={styles.formLabel}>{t(locale, 'newOrganization')}</label>
                   <select id="newPartnerId" name="newPartnerId" required className={styles.select}>
-                    <option value="">Select Partner...</option>
+                    <option value="">{t(locale, 'selectPartner')}</option>
                     {partners.map(p => (
                       <option key={p.id} value={p.id}>{p.name} ({p.type?.name})</option>
                     ))}
                   </select>
                 </div>
                 <div className={styles.formGroup}>
-                  <label htmlFor="newRole" className={styles.formLabel}>Role / Title</label>
-                  <input type="text" id="newRole" name="newRole" placeholder="e.g. Lead Systems Architect" required className={styles.input} />
+                  <label htmlFor="newRole" className={styles.formLabel}>{t(locale, 'roleTitle')}</label>
+                  <input type="text" id="newRole" name="newRole" placeholder={t(locale, 'roleTitlePlaceholder')} required className={styles.input} />
                 </div>
                 <div className={styles.formGroup}>
-                  <label htmlFor="startDate" className={styles.formLabel}>Effective Date</label>
+                  <label htmlFor="startDate" className={styles.formLabel}>{t(locale, 'effectiveDate')}</label>
                   <input type="date" id="startDate" name="startDate" required className={styles.input} />
                 </div>
-                <button type="submit" className={styles.primaryButton}>Move Partner</button>
+                <button type="submit" className={styles.primaryButton}>{t(locale, 'movePartner')}</button>
               </form>
             </div>
 
             {/* Form 2: Copy Profile */}
             <div className={styles.adminFormCard}>
-              <h3>Copy Person Profile</h3>
-              <p className={styles.formHelp}>Creates a duplicated profile with a different email address.</p>
+              <h3>{t(locale, 'copyPersonProfile')}</h3>
+              <p className={styles.formHelp}>{t(locale, 'copyProfileHelp')}</p>
               <form action={copyPerson} className={styles.adminForm}>
                 <input type="hidden" name="personId" value={personId} />
                 <div className={styles.formGroup}>
-                  <label htmlFor="copyEmail" className={styles.formLabel}>New Email Address</label>
-                  <input type="email" id="copyEmail" name="copyEmail" placeholder="e.g. user.new@company.com" required className={styles.input} />
+                  <label htmlFor="copyEmail" className={styles.formLabel}>{t(locale, 'newEmailAddress')}</label>
+                  <input type="email" id="copyEmail" name="copyEmail" placeholder={t(locale, 'copyEmailPlaceholder')} required className={styles.input} />
                 </div>
-                <button type="submit" className={styles.primaryButton}>Copy Profile</button>
+                <button type="submit" className={styles.primaryButton}>{t(locale, 'copyProfile')}</button>
               </form>
             </div>
 
             {/* Form 3: Delete Profile */}
             <div className={styles.adminFormCard}>
-              <h3>Delete Person Profile</h3>
-              <p className={styles.formHelp}>Permanently removes this profile and career affiliations.</p>
+              <h3>{t(locale, 'deletePersonProfile')}</h3>
+              <p className={styles.formHelp}>{t(locale, 'deleteProfileHelp')}</p>
               <form action={deletePerson} className={styles.adminForm}>
                 <input type="hidden" name="personId" value={personId} />
                 <button type="submit" className={styles.dangerButton}>
-                  Delete Profile
+                  {t(locale, 'deleteProfileBtn')}
                 </button>
               </form>
             </div>

@@ -6,8 +6,10 @@ import DataTable from '../../components/DataTable';
 import EcosystemSopChart from '../../components/EcosystemSopChart';
 import styles from './EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../../lib/needle';
-import { HEALTHS, healthColor, healthOrder } from '../../lib/health';
+import { HEALTHS, HEALTH_KEY, healthKey, healthColor, healthOrder } from '../../lib/health';
 import { resolvePerson } from '../../lib/people';
+import { t } from '../../lib/i18n';
+import { useLocale } from '../../components/LocaleProvider';
 
 interface Project {
   id: number;
@@ -66,6 +68,7 @@ export default function EcosystemSummaryClient({
   p85LeadTime,
   people
 }: EcosystemSummaryClientProps) {
+  const locale = useLocale();
   const [minRiskVal, setMinRiskVal] = useState(0); // 0=Low, 1=Medium, 2=High, 3=Critical
   const [selectedOwner, setSelectedOwner] = useState('All');
   const [minProgress, setMinProgress] = useState(0);
@@ -163,12 +166,12 @@ export default function EcosystemSummaryClient({
 
   return (
     <div className={styles.clientWrapper}>
-      <h1 className={styles.pageTitle}>Ecosystem Summary</h1>
+      <h1 className={styles.pageTitle}>{t(locale, 'ecosystemSummary')}</h1>
       {/* Search & Filter Widgets Panel */}
       <section className={styles.filterSection}>
         <div className={styles.filterGroup}>
           <label htmlFor="riskSlider" className={styles.filterLabel}>
-            Health floor: <strong>{HEALTHS[minRiskVal] ?? '— none match —'}</strong>
+            {t(locale, 'healthFloor')}: <strong>{HEALTHS[minRiskVal] ? t(locale, HEALTH_KEY[HEALTHS[minRiskVal]]) : t(locale, 'noneMatch')}</strong>
           </label>
           <input
             id="riskSlider"
@@ -182,7 +185,7 @@ export default function EcosystemSummaryClient({
         </div>
 
         <div className={styles.filterGroup}>
-          <label htmlFor="ownerSelect" className={styles.filterLabel}>Program Owner (Googler)</label>
+          <label htmlFor="ownerSelect" className={styles.filterLabel}>{t(locale, 'programOwnerGoogler')}</label>
           <select
             id="ownerSelect"
             value={selectedOwner}
@@ -190,14 +193,14 @@ export default function EcosystemSummaryClient({
             className={styles.select}
           >
             {owners.map(owner => (
-              <option key={owner} value={owner}>{owner}</option>
+              <option key={owner} value={owner}>{owner === 'All' ? t(locale, 'allLabel') : owner}</option>
             ))}
           </select>
         </div>
 
         <div className={styles.progressFilterContainer}>
           <label className={styles.filterLabel}>
-            Filter progress range by dragging the handles
+            {t(locale, 'filterProgressRange')}
           </label>
 
           {/* Hidden inputs to preserve Playwright E2E automation compatibility */}
@@ -283,71 +286,71 @@ export default function EcosystemSummaryClient({
       {/* Leadership Scorecards */}
       <section className={styles.scorecards}>
         <div className={styles.card}>
-          <h3>Programs in Flight</h3>
+          <h3>{t(locale, 'programsInFlight')}</h3>
           <div className={styles.metric}>{filteredProjects.length}</div>
-          <div className={styles.subtext}>Active implementations</div>
+          <div className={styles.subtext}>{t(locale, 'activeImplementations')}</div>
         </div>
 
         <div className={styles.card}>
-          <h3>Total 12M Volume</h3>
+          <h3>{t(locale, 'total12mVolume')}</h3>
           <div className={styles.metric}>
-            {totalVolume.toLocaleString()}
+            {totalVolume.toLocaleString(locale)}
           </div>
-          <div className={styles.subtext}>Shipping units in first year</div>
+          <div className={styles.subtext}>{t(locale, 'shippingUnitsFirstYear')}</div>
         </div>
 
         <div className={styles.card}>
-          <h3>Programs in Range</h3>
+          <h3>{t(locale, 'programsInRange')}</h3>
           <div className={styles.metric}>
             {inRangeCount}
           </div>
-          <div className={styles.subtext}>Within selected progress range</div>
+          <div className={styles.subtext}>{t(locale, 'withinSelectedRange')}</div>
         </div>
 
         <div className={styles.card}>
-          <h3>Lead Time (p85)</h3>
-          <div className={styles.metric}>{p85LeadTime}d</div>
-          <div className={styles.subtext}>Average phase duration</div>
+          <h3>{t(locale, 'leadTimeP85')}</h3>
+          <div className={styles.metric}>{t(locale, 'daysShort', { n: p85LeadTime })}</div>
+          <div className={styles.subtext}>{t(locale, 'averagePhaseDuration')}</div>
         </div>
       </section>
 
       {/* Visual Stuck / Critical Blockers Alerts */}
       {criticalCount > 0 && (
         <div className={styles.blockerAlert}>
-          <strong>Attention Leaders:</strong> {criticalCount} programs are flagged Some Risk or Concerned. Immediate review of dependencies advised.
+          <strong>{t(locale, 'attentionLeaders')}</strong> {t(locale, 'flaggedPrograms', { n: criticalCount })}
         </div>
       )}
       {/* Ecosystem flow constraints diagnosis */}
       <section className={styles.constraintDiagnosis}>
         <div className={styles.diagnosisHeader}>
-          <h3>Flow Constraint Diagnosis (Typical Phase Timeframes)</h3>
-          <span className={styles.diagnosisSub}>Identifying the longest stages &amp; bottleneck constraints to flow</span>
+          <h3>{t(locale, 'flowConstraintDiagnosis')}</h3>
+          <span className={styles.diagnosisSub}>{t(locale, 'flowConstraintSub')}</span>
         </div>
         <div className={styles.diagnosisGrid}>
           <div className={`${styles.diagnosisItem} ${styles.constraintHighlight}`}>
             <span className={styles.phaseLabel}>Compliance Testing (Phase 3.1)</span>
-            <span className={styles.durationVal}>54 days</span>
-            <span className={styles.badgeDanger}>Slowest (Primary Constraint)</span>
+            <span className={styles.durationVal}>{t(locale, 'daysCount', { n: 54 })}</span>
+            <span className={styles.badgeDanger}>{t(locale, 'slowestPrimaryConstraint')}</span>
           </div>
           <div className={styles.diagnosisItem}>
             <span className={styles.phaseLabel}>Audio HAL Integration</span>
-            <span className={styles.durationVal}>45 days</span>
-            <span className={styles.badgeWarn}>Secondary Bottleneck</span>
+            <span className={styles.durationVal}>{t(locale, 'daysCount', { n: 45 })}</span>
+            <span className={styles.badgeWarn}>{t(locale, 'secondaryBottleneck')}</span>
           </div>
           <div className={styles.diagnosisItem}>
             <span className={styles.phaseLabel}>Car Service Integration</span>
-            <span className={styles.durationVal}>35 days</span>
-            <span className={styles.badgeInfo}>Normal Flow</span>
+            <span className={styles.durationVal}>{t(locale, 'daysCount', { n: 35 })}</span>
+            <span className={styles.badgeInfo}>{t(locale, 'normalFlow')}</span>
           </div>
           <div className={styles.diagnosisItem}>
             <span className={styles.phaseLabel}>VHAL Integration</span>
-            <span className={styles.durationVal}>30 days</span>
-            <span className={styles.badgeInfo}>Normal Flow</span>
+            <span className={styles.durationVal}>{t(locale, 'daysCount', { n: 30 })}</span>
+            <span className={styles.badgeInfo}>{t(locale, 'normalFlow')}</span>
           </div>
           <div className={styles.diagnosisItem}>
             <span className={styles.phaseLabel}>BSP &amp; Power-on</span>
-            <span className={styles.durationVal}>14 days</span>
-            <span className={styles.badgeInfo}>Fast Track</span>
+            <span className={styles.durationVal}>{t(locale, 'daysCount', { n: 14 })}</span>
+            <span className={styles.badgeInfo}>{t(locale, 'fastTrack')}</span>
           </div>
         </div>
       </section>
@@ -357,17 +360,17 @@ export default function EcosystemSummaryClient({
 
       {/* Active Implementation Pipelines */}
       <section className={styles.tableSection}>
-        <h2>Program Lifecycle &amp; Launches</h2>
+        <h2>{t(locale, 'programLifecycleLaunches')}</h2>
         <DataTable
           headers={[
-            { key: 'partner.name', label: 'Partner' },
-            { key: 'name', label: 'Program' },
-            { key: 'ownerName', label: 'Owner' },
-            { key: 'sopDate', label: 'SOP Date' },
-            { key: 'volumeFirstYear', label: '12M Volume' },
-            { key: 'theNeedle', label: 'Health' },
-            { key: 'hillChartProgress', label: 'Hill Chart' },
-            { key: 'forecast.sim.p85', label: 'Completion Forecast (p85)' }
+            { key: 'partner.name', label: t(locale, 'partnerLabel') },
+            { key: 'name', label: t(locale, 'programLabel') },
+            { key: 'ownerName', label: t(locale, 'ownerLabel') },
+            { key: 'sopDate', label: t(locale, 'sopDate') },
+            { key: 'volumeFirstYear', label: t(locale, 'volume12m') },
+            { key: 'theNeedle', label: t(locale, 'healthLabel') },
+            { key: 'hillChartProgress', label: t(locale, 'hillChartHeader') },
+            { key: 'forecast.sim.p85', label: t(locale, 'completionForecastP85') }
           ]}
           data={filteredProjects}
           renderRow={(p: Project) => {
@@ -381,15 +384,15 @@ export default function EcosystemSummaryClient({
                 </td>
                 <td>
                   <strong>
-                    <Link href={`/projects/${p.id}`} className={styles.link}>
+                    <Link href={`/programs/${p.id}`} className={styles.link}>
                       {p.name}
                     </Link>
                   </strong>
-                  {isEarlyStage && <span className={styles.earlyBadge}>Early Stage</span>}
+                  {isEarlyStage && <span className={styles.earlyBadge}>{t(locale, 'earlyStage')}</span>}
                 </td>
                 <td>
                   {(() => {
-                    if (!p.ownerName) return 'Unassigned';
+                    if (!p.ownerName) return t(locale, 'unassigned');
                     const matched = resolvePerson(people, p.ownerName);
                     if (matched) {
                       return (
@@ -401,8 +404,8 @@ export default function EcosystemSummaryClient({
                     return p.ownerName;
                   })()}
                 </td>
-                <td>{p.sopDate ? new Date(p.sopDate).toLocaleDateString() : 'TBD'}</td>
-                <td>{p.volumeFirstYear.toLocaleString()} units</td>
+                <td>{p.sopDate ? new Date(p.sopDate).toLocaleDateString(locale) : t(locale, 'tbd')}</td>
+                <td>{t(locale, 'unitsCount', { n: p.volumeFirstYear.toLocaleString(locale) })}</td>
                 <td>
                   {(() => {
                     const label = formatNeedleValue(p.theNeedle);
@@ -411,10 +414,10 @@ export default function EcosystemSummaryClient({
                         type="button"
                         onClick={() => setMinRiskVal(healthOrder(label))}
                         className={styles.badgeFilterBtn}
-                        title={`Filter health: ${label}`}
+                        title={t(locale, 'filterHealthTitle', { h: t(locale, healthKey(label)) })}
                       >
                         <span className={styles.badge} style={{ color: healthColor(label) }}>
-                          {label}
+                          {t(locale, healthKey(label))}
                         </span>
                       </button>
                     );
@@ -433,10 +436,10 @@ export default function EcosystemSummaryClient({
                 <td>
                   {p.forecast.remainingPhases > 0 ? (
                     <span className={styles.forecastText}>
-                      +{p.forecast.sim.p85} days likely
+                      {t(locale, 'daysLikely', { n: p.forecast.sim.p85 })}
                     </span>
                   ) : (
-                    <span className={styles.finishedText}>Finished</span>
+                    <span className={styles.finishedText}>{t(locale, 'finishedLabel')}</span>
                   )}
                 </td>
               </tr>
@@ -444,28 +447,28 @@ export default function EcosystemSummaryClient({
           }}
           defaultSortKey="name"
           pageSize={10}
-          emptyStateMessage="No programs match current filters."
+          emptyStateMessage={t(locale, 'noProgramsMatchFilters')}
         />
       </section>
 
       {/* AI Synthesis Briefings Row */}
       <section className={styles.synthesisSection}>
-        <h2>AI Status Synthesis</h2>
+        <h2>{t(locale, 'aiStatusSynthesis')}</h2>
         <div className={styles.briefingBlock}>
           <div className={styles.briefingHeader}>
-            <span className={styles.aiBadge}>Gemini Synthesis Report</span>
-            <span className={styles.briefingDate}>Live feeds compiled</span>
+            <span className={styles.aiBadge}>{t(locale, 'geminiSynthesisReport')}</span>
+            <span className={styles.briefingDate}>{t(locale, 'liveFeedsCompiled')}</span>
           </div>
           {briefings.length === 0 ? (
-            <p className={styles.emptyBriefing}>No active Google Chat webhook updates ingested yet.</p>
+            <p className={styles.emptyBriefing}>{t(locale, 'noWebhookUpdates')}</p>
           ) : (
             <div className={styles.synthesisContent}>
               <div className={styles.aiExecutiveSummary}>
-                <strong>Executive Blocker Summary:</strong>
+                <strong>{t(locale, 'executiveBlockerSummary')}</strong>
                 {briefings.map((b, idx) => (
                   <span key={idx}>
                     {' '}
-                    <strong>{b.partnerName} (<Link href={`/projects/${b.projectId}`} className={styles.briefingLink}>{b.projectName}</Link>)</strong>: &quot;{b.briefingText}&quot;
+                    <strong>{b.partnerName} (<Link href={`/programs/${b.projectId}`} className={styles.briefingLink}>{b.projectName}</Link>)</strong>: &quot;{b.briefingText}&quot;
                   </span>
                 ))}
               </div>

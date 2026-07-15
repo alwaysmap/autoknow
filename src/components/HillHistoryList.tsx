@@ -1,6 +1,7 @@
 import { PhaseHillSvg } from './PhaseHillGauge';
 import Markdown from './Markdown';
-import { hillStatus, hillStatusColor } from '../lib/phase';
+import { hillStatusColor } from '../lib/phase';
+import { t, statusKey, type Locale } from '../lib/i18n';
 import type { HillChange } from '../lib/history';
 import styles from './NeedleHistoryList.module.css';
 
@@ -11,14 +12,16 @@ import styles from './NeedleHistoryList.module.css';
 export default function HillHistoryList({
   changes,
   color,
-  emptyLabel = 'No updates recorded yet.',
+  emptyLabel,
+  locale = 'en',
 }: {
   changes: HillChange[];
   color: string;
   emptyLabel?: string;
+  locale?: Locale;
 }) {
   if (changes.length === 0) {
-    return <p className={styles.empty}>{emptyLabel}</p>;
+    return <p className={styles.empty}>{emptyLabel ?? t(locale, 'noUpdatesRecorded')}</p>;
   }
 
   return (
@@ -30,16 +33,16 @@ export default function HillHistoryList({
           </div>
           <div className={styles.body}>
             <div className={styles.head}>
-              <span className={styles.health} style={{ color: hillStatusColor(c.progress) }}>{hillStatus(c.progress)}</span>
+              <span className={styles.health} style={{ color: hillStatusColor(c.progress) }}>{t(locale, statusKey(c.progress))}</span>
               <time className={styles.date} dateTime={c.timestamp}>
-                {new Date(c.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                {c.source ? ` · by ${c.source}` : ''}
+                {new Date(c.timestamp).toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' })}
+                {c.source ? ` · ${t(locale, 'bySource', { name: c.source })}` : ''}
               </time>
             </div>
             {c.notes ? (
               <div className={styles.note}><Markdown>{c.notes}</Markdown></div>
             ) : (
-              <div className={styles.noteEmpty}>No note for this update.</div>
+              <div className={styles.noteEmpty}>{t(locale, 'noNoteForUpdate')}</div>
             )}
           </div>
         </article>

@@ -9,5 +9,5 @@ export async function regenerateBrief(formData: FormData) {
   if (isNaN(projectId)) throw new Error('Invalid project ID');
 
   await createProgramBrief(projectId, 'manual');
-  revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/programs/${projectId}`);
 }

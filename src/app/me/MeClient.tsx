@@ -5,8 +5,10 @@ import Link from 'next/link';
 import DataTable from '../../components/DataTable';
 import styles from './page.module.css';
 import { formatNeedleValue } from '../../lib/needle';
-import { healthColor } from '../../lib/health';
+import { healthColor, healthKey } from '../../lib/health';
 import { deriveEmail } from '../../lib/auth';
+import { t } from '../../lib/i18n';
+import { useLocale } from '../../components/LocaleProvider';
 
 interface Partner {
   id: number;
@@ -80,6 +82,7 @@ export default function MeClient({
   actionItems,
   partners,
 }: MeClientProps) {
+  const locale = useLocale();
   // Avatar initials
   const initials = useMemo(() => {
     if (person?.name) {
@@ -117,12 +120,12 @@ export default function MeClient({
         name: p.name,
         partnerName: p.partner.name,
         partnerId: p.partner.id,
-        activePhaseName: activePhase?.name || 'N/A',
+        activePhaseName: activePhase?.name || t(locale, 'notAvailable'),
         theNeedle: p.theNeedle,
         hillChartProgress: p.hillChartProgress,
       };
     });
-  }, [projects]);
+  }, [projects, locale]);
 
   // Map action items
   const actionItemsDisplayData = useMemo(() => {
@@ -133,9 +136,9 @@ export default function MeClient({
       projectId: ai.phase.project.id,
       phaseName: ai.phase.name,
       partnerName: ai.phase.project.partner.name,
-      createdAt: new Date(ai.createdAt).toLocaleDateString(),
+      createdAt: new Date(ai.createdAt).toLocaleDateString(locale),
     }));
-  }, [actionItems]);
+  }, [actionItems, locale]);
 
   return (
     <div className={styles.container}>
@@ -155,12 +158,12 @@ export default function MeClient({
         <div className={styles.leftCol}>
           {/* Card 1: My Action Items */}
           <div className={styles.card}>
-            <h2>My action items</h2>
+            <h2>{t(locale, 'myActionItems')}</h2>
             <DataTable
               headers={[
-                { key: 'description', label: 'Action Item Description' },
-                { key: 'projectName', label: 'Project Context' },
-                { key: 'createdAt', label: 'Assigned Date' },
+                { key: 'description', label: t(locale, 'actionItemDescription') },
+                { key: 'projectName', label: t(locale, 'projectContext') },
+                { key: 'createdAt', label: t(locale, 'assignedDate') },
               ]}
               data={actionItemsDisplayData}
               renderRow={(ai) => (
@@ -168,11 +171,11 @@ export default function MeClient({
                   <td>
                     <strong>{ai.description}</strong>
                     <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
-                      Phase: {ai.phaseName}
+                      {t(locale, 'phaseLabel')}: {ai.phaseName}
                     </div>
                   </td>
                   <td>
-                    <Link href={`/projects/${ai.projectId}`} className={styles.tableLink}>
+                    <Link href={`/programs/${ai.projectId}`} className={styles.tableLink}>
                       {ai.projectName}
                     </Link>{' '}
                     <span style={{ fontSize: '11px', color: 'var(--muted)' }}>({ai.partnerName})</span>
@@ -182,26 +185,26 @@ export default function MeClient({
               )}
               defaultSortKey="createdAt"
               pageSize={10}
-              emptyStateMessage="No pending action items assigned to you."
+              emptyStateMessage={t(locale, 'noPendingAssigned')}
             />
           </div>
 
           {/* Card 2: My Project Accountabilities */}
           <div className={styles.card}>
-            <h2>My projects</h2>
+            <h2>{t(locale, 'myProjects')}</h2>
             <DataTable
               headers={[
-                { key: 'name', label: 'Project Name' },
-                { key: 'partnerName', label: 'Partner' },
-                { key: 'activePhaseName', label: 'Active Phase' },
-                { key: 'theNeedle', label: 'Needle' },
-                { key: 'hillChartProgress', label: 'Progress' },
+                { key: 'name', label: t(locale, 'projectNameHeader') },
+                { key: 'partnerName', label: t(locale, 'partnerLabel') },
+                { key: 'activePhaseName', label: t(locale, 'activePhase') },
+                { key: 'theNeedle', label: t(locale, 'needleLabel') },
+                { key: 'hillChartProgress', label: t(locale, 'progressLabel') },
               ]}
               data={projectDisplayData}
               renderRow={(p) => (
                 <tr key={p.id}>
                   <td>
-                    <Link href={`/projects/${p.id}`} className={styles.tableLink}>
+                    <Link href={`/programs/${p.id}`} className={styles.tableLink}>
                       {p.name}
                     </Link>
                   </td>
@@ -211,7 +214,7 @@ export default function MeClient({
                     </Link>
                   </td>
                   <td>
-                    <Link href={`/projects/${p.id}`} className={styles.tableLink}>
+                    <Link href={`/programs/${p.id}`} className={styles.tableLink}>
                       {p.activePhaseName}
                     </Link>
                   </td>
@@ -220,7 +223,7 @@ export default function MeClient({
                       const label = formatNeedleValue(p.theNeedle);
                       return (
                         <span className={styles.badge} style={{ color: healthColor(label) }}>
-                          {label}
+                          {t(locale, healthKey(label))}
                         </span>
                       );
                     })()}
@@ -234,7 +237,7 @@ export default function MeClient({
               )}
               defaultSortKey="name"
               pageSize={10}
-              emptyStateMessage="No project accountabilities found for you."
+              emptyStateMessage={t(locale, 'noProjectAccountabilities')}
             />
           </div>
         </div>
@@ -244,7 +247,7 @@ export default function MeClient({
 
           {/* Card 2: My Partner Relationships */}
           <div className={styles.card}>
-            <h2>My partners</h2>
+            <h2>{t(locale, 'myPartners')}</h2>
             {partners.length > 0 ? (
               <div className={styles.partnerList}>
                 {partners.map((partner) => (
@@ -261,7 +264,7 @@ export default function MeClient({
                 ))}
               </div>
             ) : (
-              <p className={styles.emptyState}>No partner relationships associated with you.</p>
+              <p className={styles.emptyState}>{t(locale, 'noPartnerRelationships')}</p>
             )}
           </div>
         </div>
