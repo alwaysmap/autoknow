@@ -1,3 +1,5 @@
+import type { StringKey } from './i18n';
+
 // Program health — the COLOR of the Needle. Three states, replacing the old 4-level
 // risk (Low/Medium/High/Critical). parseHealth accepts the legacy risk labels and
 // numeric codes so existing data and forms keep working without a data migration.
@@ -48,4 +50,18 @@ export function healthColor(v: string | number | null | undefined): string {
 
 export function healthOrder(v: string | number | null | undefined): number {
   return HEALTH_ORDER[parseHealth(v)];
+}
+
+// Display-only localization: the i18n key for each health state. The English value of
+// each key is byte-identical to the stored Health string, so `t(locale, healthKey(v))`
+// never changes what English users (or tests) see — and nothing stored/submitted ever
+// goes through this mapping.
+export const HEALTH_KEY: Record<Health, StringKey> = {
+  'On Track': 'healthOnTrack',
+  'Some Risk': 'healthSomeRisk',
+  'Concerned': 'healthConcerned',
+};
+
+export function healthKey(v: string | number | null | undefined): StringKey {
+  return HEALTH_KEY[parseHealth(v)];
 }

@@ -1,4 +1,5 @@
 import type { FeedKind } from './feed';
+import type { StringKey } from './i18n';
 
 // Broad categories the activity feed filters by, derived from FeedKind so filtering
 // stays in sync with rendering as new update types are added. Lives outside lib/feed
@@ -22,12 +23,14 @@ export function feedCategory(kind: FeedKind): FeedCategory {
   }
 }
 
-export const FEED_CATEGORY_LABEL: Record<FeedCategory, string> = {
-  needle: 'Needle changes',
-  hill: 'Hill updates',
-  context: 'Context',
-  created: 'Created',
-  entity: 'Other',
+// Locale-aware labels: each category maps to an i18n key (rendered via t(locale, key));
+// the English values match the labels this table used to hold verbatim.
+export const FEED_CATEGORY_KEY: Record<FeedCategory, StringKey> = {
+  needle: 'feedCatNeedle',
+  hill: 'feedCatHill',
+  context: 'contextLabel',
+  created: 'feedCatCreated',
+  entity: 'otherLabel',
 };
 
 export const FEED_CATEGORY_ORDER: FeedCategory[] = ['needle', 'hill', 'context', 'created', 'entity'];

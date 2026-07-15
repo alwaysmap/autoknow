@@ -1,6 +1,7 @@
 import { prisma } from './db';
 import { runMonteCarlo } from './forecast';
 import { percentile } from './stats';
+import { computeCriticalChain } from './criticalChain';
 import type { CycleTimeData, CycleTimeStats } from '../components/CycleTimeScatterPlot';
 
 // Shared loader for the ecosystem dashboards. The home page (`/`) and the
@@ -17,6 +18,11 @@ export interface DashboardProject {
   sopDate: string | null;
   ownerName: string | null;
   volumeFirstYear: number;
+  hasGas: boolean;
+  hasGbi: boolean;
+  hasDigitalKey: boolean;
+  /** Remaining forecast days along the critical chain — the on-track signal vs SOP. */
+  chainRemainingDays: number;
   partner: { id: number; name: string };
   phases: {
     id: number;
@@ -56,6 +62,7 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
       phases: {
         include: {
           states: { orderBy: { timestamp: 'desc' }, take: 1 },
+          dependencies: true,
         },
       },
       contextUrls: { orderBy: { id: 'desc' } },
@@ -68,6 +75,17 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
     ).length;
     const sim = runMonteCarlo(unstartedCount, proj.id);
 
+    // Remaining chain work (days) — notional phase weeks against the SOP target.
+    const chain = computeCriticalChain(
+      proj.phases.map((p) => ({
+        id: p.id,
+        name: p.name,
+        forecastedDuration: p.forecastedDuration,
+        progress: p.states[0]?.hillChartProgress ?? 0,
+        parentIds: p.dependencies.map((d) => d.dependsOnPhaseId),
+      })),
+    );
+
     return {
       id: proj.id,
       name: proj.name,
@@ -77,6 +95,10 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
       sopDate: proj.sopDate ? proj.sopDate.toISOString() : null,
       ownerName: proj.ownerName,
       volumeFirstYear: proj.volumeFirstYear,
+      hasGas: proj.hasGas,
+      hasGbi: proj.hasGbi,
+      hasDigitalKey: proj.hasDigitalKey,
+      chainRemainingDays: chain.remainingDays,
       partner: { id: proj.partner.id, name: proj.partner.name },
       phases: proj.phases.map((p) => ({
         id: p.id,
