@@ -1,18 +1,20 @@
 'use client';
 
-import React, { useMemo, useRef, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Markdown from './Markdown';
-import { validateTemplateDag } from '../lib/templateDag';
+import MarkdownNoteEditor from './MarkdownNoteEditor';
 import { LEAD_ROLES } from '../lib/builtinTemplates';
-import {
-  updateTemplateMeta, cloneTemplate, addPhaseTemplate, updatePhaseTemplate, deletePhaseTemplate,
-} from '../app/actions/templates';
+import { updateTemplateMeta, cloneTemplate, saveTemplatePhases } from '../app/actions/templates';
+import PhaseDagEditor, { DagEditorNode } from './PhaseDagEditor';
+import { t } from '../lib/i18n';
+import { useLocale } from './LocaleProvider';
 import styles from './TemplateEditor.module.css';
 
-// Client editor for one program template: meta form, live DAG validation banner
-// (lib/templateDag — the same check instantiation enforces), a depth-column DAG
-// preview, and phase CRUD via a <dialog> (design.md §5). Built-ins are read-only.
+// Template authoring: meta form + the shared PhaseDagEditor — the SAME card-DAG
+// surface that edits a live program's layout builds template layouts. Built-ins are
+// read-only (clone to edit) and render the preview + table instead.
 
 export interface EditorPhase {
   id: number;
@@ -31,9 +33,18 @@ interface TemplateEditorProps {
   phases: EditorPhase[];
 }
 
-// Depth-column preview: monochrome stations by longest-path depth, straight gray
-// edges, the end phase ringed. Read-only — the table below is the editor.
-function DagPreview({ phases }: { phases: EditorPhase[] }) {
+// Depth-column preview for the READ-ONLY built-in view: monochrome stations by
+// longest-path depth, straight gray edges, the end phase ringed.
+export interface DagPreviewPhase {
+  id: number;
+  name: string;
+  isEndPhase: boolean;
+  sortOrder: number;
+  dependsOn: number[];
+}
+
+export function DagPreview({ phases }: { phases: DagPreviewPhase[] }) {
+  const locale = useLocale();
   const byId = new Map(phases.map((p) => [p.id, p]));
   const depthMemo = new Map<number, number>();
   const depth = (id: number, seen: Set<number>): number => {
@@ -47,7 +58,7 @@ function DagPreview({ phases }: { phases: EditorPhase[] }) {
   };
   phases.forEach((p) => depth(p.id, new Set()));
 
-  const columns = new Map<number, EditorPhase[]>();
+  const columns = new Map<number, DagPreviewPhase[]>();
   for (const p of [...phases].sort((a, b) => a.sortOrder - b.sortOrder)) {
     const d = depthMemo.get(p.id)!;
     columns.set(d, [...(columns.get(d) ?? []), p]);
@@ -65,7 +76,7 @@ function DagPreview({ phases }: { phases: EditorPhase[] }) {
 
   if (phases.length === 0) return null;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className={styles.preview} style={{ maxWidth: w }} aria-label="Template DAG preview">
+    <svg viewBox={`0 0 ${w} ${h}`} className={styles.preview} style={{ maxWidth: w }} aria-label={t(locale, 'templateDagPreview')}>
       {phases.flatMap((p) =>
         p.dependsOn.filter((d) => byId.has(d)).map((d) => {
           const a = pos.get(d)!, b = pos.get(p.id)!;
@@ -89,189 +100,88 @@ function DagPreview({ phases }: { phases: EditorPhase[] }) {
 }
 
 export default function TemplateEditor({ template, phases }: TemplateEditorProps) {
-  const sorted = useMemo(() => [...phases].sort((a, b) => a.sortOrder - b.sortOrder), [phases]);
+  const locale = useLocale();
+  const router = useRouter();
+  const sorted = [...phases].sort((a, b) => a.sortOrder - b.sortOrder);
   const byId = new Map(phases.map((p) => [p.id, p]));
-
-  const validation = useMemo(
-    () =>
-      validateTemplateDag(
-        phases.map((p) => ({ id: p.id, isEndPhase: p.isEndPhase, name: p.name })),
-        phases.flatMap((p) => p.dependsOn.map((d) => ({ nodeId: p.id, dependsOnId: d }))),
-      ),
-    [phases],
-  );
-
-  // The <dialog> serves both add and edit; a fresh key remounts the form so stale
-  // values never leak between opens.
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const [editing, setEditing] = useState<EditorPhase | null>(null);
-  const [formKey, setFormKey] = useState(0);
-  const openDialog = (p: EditorPhase | null) => {
-    setEditing(p);
-    setFormKey((k) => k + 1);
-    dialogRef.current?.showModal();
-  };
-  const onBackdrop = (e: React.MouseEvent<HTMLDialogElement>) => {
-    if (e.target === dialogRef.current) dialogRef.current?.close();
-  };
 
   if (template.isBuiltIn) {
     return (
       <div className={styles.container}>
-        <Link href="/templates" className={styles.backLink}>← Templates</Link>
+        <Link href="/templates" className={styles.backLink}>{t(locale, 'backToTemplates')}</Link>
         <div className={styles.headRow}>
           <h1 className={styles.title}>{template.name}</h1>
-          <span className={styles.builtinTag}>Built-in — clone to edit</span>
+          <span className={styles.builtinTag}>{t(locale, 'builtinCloneToEdit')}</span>
           <form action={cloneTemplate}>
             <input type="hidden" name="id" value={template.id} />
-            <button type="submit" className={styles.primaryBtn}>Clone</button>
+            <button type="submit" className={styles.primaryBtn}>{t(locale, 'clone')}</button>
           </form>
         </div>
         {template.description && (
           <div className={styles.templateDesc}><Markdown>{template.description}</Markdown></div>
         )}
         <DagPreview phases={phases} />
-        <PhaseTable phases={sorted} byId={byId} readOnly onEdit={() => {}} />
+        <table className={styles.table}>
+          <thead>
+            <tr><th>{t(locale, 'phaseLabel')}</th><th>{t(locale, 'leadLabel')}</th><th>{t(locale, 'weeksLabel')}</th><th>{t(locale, 'dependsOn')}</th></tr>
+          </thead>
+          <tbody>
+            {sorted.map((p) => (
+              <tr key={p.id} data-testid="phase-template-row">
+                <td>
+                  <span className={styles.phaseName}>{p.name}</span>
+                  {p.isEndPhase && <span className={styles.endTag}>{t(locale, 'endTag')}</span>}
+                </td>
+                <td className={styles.muted}>{p.leadRole ?? '—'}</td>
+                <td className={styles.numeric}>{t(locale, 'weeksUnit', { n: p.durationWeeks })}</td>
+                <td className={styles.muted}>
+                  {p.dependsOn.map((d) => byId.get(d)?.name).filter(Boolean).join(', ') || '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   }
 
+  // Editable: the shared card-DAG surface (weeks map 1:1 onto durationWeeks).
+  const initial: DagEditorNode[] = sorted.map((p) => ({
+    id: p.id, name: p.name, weeks: p.durationWeeks, dependsOn: p.dependsOn,
+    leadRole: p.leadRole, description: p.description, googleFocus: p.googleFocus,
+  }));
+
+  const onSave = async (draft: DagEditorNode[]) => {
+    const fd = new FormData();
+    fd.set('templateId', String(template.id));
+    fd.set('payload', JSON.stringify(draft.map((d) => ({
+      id: d.id, name: d.name, weeks: d.weeks, leadRole: d.leadRole ?? null,
+      description: d.description ?? null, googleFocus: d.googleFocus ?? null, dependsOn: d.dependsOn,
+    }))));
+    const result = await saveTemplatePhases(fd);
+    if (!result.error) router.refresh(); // re-sync `initial` so dirty resets
+    return result;
+  };
+
   return (
     <div className={styles.container}>
-      <Link href="/templates" className={styles.backLink}>← Templates</Link>
+      <Link href="/templates" className={styles.backLink}>{t(locale, 'backToTemplates')}</Link>
 
       {/* template meta */}
       <form action={updateTemplateMeta} className={styles.metaForm}>
         <input type="hidden" name="id" value={template.id} />
         <div className={styles.metaFields}>
           <input name="name" defaultValue={template.name} className={styles.nameInput}
-            aria-label="Template name" required />
-          <textarea name="description" defaultValue={template.description ?? ''} rows={2}
-            placeholder="Program-level description (markdown)…" className={styles.descInput}
-            aria-label="Template description" />
+            aria-label={t(locale, 'templateName')} required />
+          {/* rich markdown editor; the hidden input feeds the form as `description` */}
+          <MarkdownNoteEditor name="description" ariaLabel={t(locale, 'templateDescription')}
+            initialMarkdown={template.description ?? ''}
+            placeholder={t(locale, 'programLevelDescription')} />
         </div>
-        <button type="submit" className={styles.miniBtn}>Save</button>
+        <button type="submit" className={styles.miniBtn}>{t(locale, 'saveBtn')}</button>
       </form>
 
-      {/* live DAG validation — same rules instantiation enforces */}
-      {!validation.ok && (
-        <div className={styles.dagErrors} data-testid="dag-errors">
-          {validation.errors.map((e, i) => <div key={i}>{e.message}</div>)}
-        </div>
-      )}
-
-      <DagPreview phases={phases} />
-
-      <div className={styles.tableHead}>
-        <button type="button" className={styles.primaryBtn} onClick={() => openDialog(null)}>Add phase</button>
-      </div>
-      <PhaseTable phases={sorted} byId={byId} readOnly={false} onEdit={openDialog} />
-
-      {/* add/edit dialog (design.md §5) */}
-      <dialog ref={dialogRef} className={styles.dialog} onClick={onBackdrop}>
-        <h3 className={styles.dialogTitle}>{editing ? `Edit “${editing.name}”` : 'Add phase'}</h3>
-        <form
-          key={formKey}
-          action={async (fd) => {
-            if (editing) await updatePhaseTemplate(fd);
-            else await addPhaseTemplate(fd);
-            dialogRef.current?.close();
-          }}
-          className={styles.dialogForm}
-        >
-          {editing
-            ? <input type="hidden" name="id" value={editing.id} />
-            : <input type="hidden" name="templateId" value={template.id} />}
-
-          <label className={styles.fieldLabel}>Name
-            <input name="name" defaultValue={editing?.name ?? ''} required className={styles.textInput} />
-          </label>
-
-          <div className={styles.fieldRow}>
-            <label className={styles.fieldLabel}>Duration (weeks)
-              <input name="durationWeeks" type="number" min={1} defaultValue={editing?.durationWeeks ?? 4}
-                className={styles.numInput} />
-            </label>
-            <label className={styles.fieldLabel}>Lead role
-              <select name="leadRole" defaultValue={editing?.leadRole ?? ''} className={styles.selectInput}>
-                <option value="">—</option>
-                {LEAD_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </label>
-            <label className={styles.checkLabel}>
-              <input name="isEndPhase" type="checkbox" defaultChecked={editing?.isEndPhase ?? false} />
-              End phase
-            </label>
-          </div>
-
-          <label className={styles.fieldLabel}>Description — exit outcome + typical activities (markdown)
-            <textarea name="description" rows={4} defaultValue={editing?.description ?? ''} className={styles.areaInput} />
-          </label>
-
-          <label className={styles.fieldLabel}>Google focus (markdown)
-            <textarea name="googleFocus" rows={3} defaultValue={editing?.googleFocus ?? ''} className={styles.areaInput} />
-          </label>
-
-          <label className={styles.fieldLabel}>Depends on
-            <select name="dependsOn" multiple size={Math.min(6, Math.max(3, phases.length))}
-              defaultValue={(editing?.dependsOn ?? []).map(String)} className={styles.multiSelect}>
-              {sorted.filter((p) => p.id !== editing?.id).map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </label>
-
-          <div className={styles.dialogActions}>
-            <button type="button" className={styles.miniBtn} onClick={() => dialogRef.current?.close()}>Cancel</button>
-            <button type="submit" className={styles.primaryBtn}>Save phase</button>
-          </div>
-        </form>
-      </dialog>
+      <PhaseDagEditor initial={initial} onSave={onSave} templateFields leadRoles={[...LEAD_ROLES]} />
     </div>
-  );
-}
-
-function PhaseTable({ phases, byId, readOnly, onEdit }: {
-  phases: EditorPhase[];
-  byId: Map<number, EditorPhase>;
-  readOnly: boolean;
-  onEdit: (p: EditorPhase) => void;
-}) {
-  return (
-    <table className={styles.table}>
-      <thead>
-        <tr>
-          <th>Phase</th><th>Lead</th><th>Weeks</th><th>Depends on</th>{!readOnly && <th></th>}
-        </tr>
-      </thead>
-      <tbody>
-        {phases.map((p) => (
-          <tr key={p.id} data-testid="phase-template-row">
-            <td>
-              <span className={styles.phaseName}>{p.name}</span>
-              {p.isEndPhase && <span className={styles.endTag}>End</span>}
-            </td>
-            <td className={styles.muted}>{p.leadRole ?? '—'}</td>
-            <td className={styles.numeric}>{p.durationWeeks}w</td>
-            <td className={styles.muted}>
-              {p.dependsOn.map((d) => byId.get(d)?.name).filter(Boolean).join(', ') || '—'}
-            </td>
-            {!readOnly && (
-              <td className={styles.rowActions}>
-                <button type="button" className={styles.miniBtn} onClick={() => onEdit(p)}>Edit</button>
-                <form
-                  action={deletePhaseTemplate}
-                  className={styles.inlineForm}
-                  onSubmit={(e) => { if (!confirm(`Remove the “${p.name}” phase from this template?`)) e.preventDefault(); }}
-                >
-                  <input type="hidden" name="id" value={p.id} />
-                  <button type="submit" className={styles.dangerBtn}>Delete</button>
-                </form>
-              </td>
-            )}
-          </tr>
-        ))}
-      </tbody>
-    </table>
   );
 }

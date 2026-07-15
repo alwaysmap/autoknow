@@ -205,6 +205,10 @@
 .primaryBtn:hover {
   opacity: 0.85;
 }
+.primaryBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
 
 .miniBtn {
   font-size: 11px;

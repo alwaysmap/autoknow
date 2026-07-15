@@ -144,3 +144,92 @@ export async function deletePhaseTemplate(formData: FormData) {
   await prisma.phaseTemplate.delete({ where: { id } }); // deps cascade both directions
   revalidatePath(`/templates/${existing.templateId}/edit`);
 }
+
+// ---- Whole-graph save (the shared PhaseDagEditor surface) ----
+// The card-DAG editor edits the template's complete phase layout and submits it in
+// one shot, exactly like a program's layout: validated as a whole (acyclic + single
+// final node; isEndPhase is DERIVED as the unique sink) and applied atomically.
+// Errors are RETURNED — the editor shows them inline.
+
+export interface TemplatePhaseDraft {
+  id: number; // real id, or negative = create
+  name: string;
+  weeks: number;
+  leadRole: string | null;
+  description: string | null;
+  googleFocus: string | null;
+  dependsOn: number[];
+}
+
+export async function saveTemplatePhases(formData: FormData): Promise<{ error?: string }> {
+  const templateId = parseInt(formData.get('templateId') as string, 10);
+  if (isNaN(templateId)) return { error: 'Invalid template' };
+  try {
+    await requireEditable(templateId);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Not editable' };
+  }
+
+  let draft: TemplatePhaseDraft[];
+  try {
+    draft = JSON.parse(formData.get('payload') as string);
+  } catch {
+    return { error: 'Malformed payload' };
+  }
+  if (!Array.isArray(draft) || draft.some((d) => typeof d.id !== 'number' || !d.name?.trim())) {
+    return { error: 'Malformed payload' };
+  }
+
+  const { validateTemplateDag } = await import('../../lib/templateDag');
+  const { deriveEndPhase } = await import('../../lib/programDag');
+  const withEnd = deriveEndPhase(draft.map((d, i) => ({ id: d.id, name: d.name, sortOrder: i, dependsOn: d.dependsOn })));
+  const validation = validateTemplateDag(
+    withEnd.map((n) => ({ id: n.id, isEndPhase: n.isEndPhase, name: n.name })),
+    draft.flatMap((d) => d.dependsOn.map((up) => ({ nodeId: d.id, dependsOnId: up }))),
+  );
+  if (!validation.ok) return { error: validation.errors.map((e) => e.message).join(' ') };
+  const endIds = new Set(withEnd.filter((n) => n.isEndPhase).map((n) => n.id));
+
+  const existing = await prisma.phaseTemplate.findMany({ where: { templateId }, select: { id: true } });
+  const existingIds = new Set(existing.map((p) => p.id));
+  const keptIds = draft.filter((d) => d.id > 0).map((d) => d.id);
+  if (keptIds.some((id) => !existingIds.has(id))) return { error: 'Phase does not belong to this template' };
+  const removedIds = [...existingIds].filter((id) => !keptIds.includes(id));
+
+  await prisma.$transaction(async (tx) => {
+    if (removedIds.length > 0) {
+      await tx.phaseTemplate.deleteMany({ where: { id: { in: removedIds } } }); // deps cascade
+    }
+    const realId = new Map<number, number>();
+    for (const [i, d] of draft.entries()) {
+      const data = {
+        name: d.name.trim(),
+        durationWeeks: Math.max(1, Math.round(d.weeks)),
+        leadRole: d.leadRole?.trim() || null,
+        description: d.description?.trim() || null,
+        googleFocus: d.googleFocus?.trim() || null,
+        isEndPhase: endIds.has(d.id),
+        sortOrder: i,
+      };
+      if (d.id > 0) {
+        realId.set(d.id, d.id);
+        await tx.phaseTemplate.update({ where: { id: d.id }, data });
+      } else {
+        const created = await tx.phaseTemplate.create({ data: { templateId, ...data } });
+        realId.set(d.id, created.id);
+      }
+    }
+    await tx.phaseTemplateDep.deleteMany({ where: { phaseTemplateId: { in: [...realId.values()] } } });
+    for (const d of draft) {
+      for (const up of d.dependsOn) {
+        await tx.phaseTemplateDep.create({
+          data: { phaseTemplateId: realId.get(d.id)!, dependsOnId: realId.get(up)! },
+        });
+      }
+    }
+  });
+
+  revalidatePath('/templates');
+  revalidatePath(`/templates/${templateId}/edit`);
+  return {};
+}

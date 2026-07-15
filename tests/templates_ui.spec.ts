@@ -2,8 +2,9 @@ import { test, expect } from '@playwright/test';
 import { prisma } from './helpers/db';
 
 // The /templates authoring surface (PHASE_TEMPLATES_PLAN §6): built-ins listed and
-// clone-only; user templates fully editable — phase CRUD via <dialog>, live DAG
-// validation from templateDag, and the result usable from projects/new.
+// clone-only; user templates fully editable via the shared card-DAG editor (the same
+// surface that edits live program layouts) — live DAG validation from templateDag,
+// atomic whole-graph save, and the result usable from projects/new.
 
 test.describe('Program template authoring', () => {
   test.describe.configure({ mode: 'serial' });
@@ -28,7 +29,7 @@ test.describe('Program template authoring', () => {
     await expect(aaos.getByRole('button', { name: 'Delete' })).toHaveCount(0);
   });
 
-  test('clones a built-in into an editable copy', async ({ page }) => {
+  test('clones a built-in into an editable copy on the card-DAG editor', async ({ page }) => {
     await page.goto('/templates');
     await page.getByTestId('template-row')
       .filter({ hasText: 'Digital Key' })
@@ -36,56 +37,74 @@ test.describe('Program template authoring', () => {
 
     await page.waitForURL(/\/templates\/\d+\/edit/);
     await expect(page.getByLabel('Template name')).toHaveValue('Digital Key (copy)');
-    await expect(page.getByTestId('phase-template-row')).toHaveCount(3);
+    await expect(page.getByTestId('phase-card')).toHaveCount(3);
     // A valid clone shows no validation errors.
     await expect(page.getByTestId('dag-errors')).toHaveCount(0);
   });
 
-  test('authors a new template with live DAG validation', async ({ page }) => {
+  test('authors a new template on the card-DAG editor with live validation', async ({ page }) => {
+    const card = (name: string) => page.locator(`[data-testid="phase-card"][data-name="${name}"]`);
+    const panel = page.getByTestId('phase-panel');
+
     await page.goto('/templates');
     await page.getByRole('button', { name: 'New template' }).click();
     await page.waitForURL(/\/templates\/\d+\/edit/);
 
-    // Name it.
+    // Name it (template meta has its own Save; the canvas Save is disabled while empty).
     await page.getByLabel('Template name').fill('Cluster Display Bring-up');
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).first().click();
     await expect(page.getByLabel('Template name')).toHaveValue('Cluster Display Bring-up');
 
-    // Empty template → validation demands phases/end phase.
+    // Empty template → validation demands at least one phase.
     await expect(page.getByTestId('dag-errors')).toBeVisible();
 
-    // Add a first phase (not the end yet) — banner asks for an end phase.
+    // First phase via the detail panel — a single node is its own valid end.
     await page.getByRole('button', { name: 'Add phase' }).click();
-    const dialog = page.locator('dialog[open]');
-    await dialog.locator('input[name="name"]').fill('Kickoff');
-    await dialog.locator('input[name="durationWeeks"]').fill('2');
-    await dialog.getByRole('button', { name: 'Save phase' }).click();
-    await expect(page.getByTestId('phase-template-row')).toHaveCount(1);
-    await expect(page.getByTestId('dag-errors')).toContainText('end phase');
-
-    // Add the end phase depending on Kickoff — the DAG becomes valid.
-    await page.getByRole('button', { name: 'Add phase' }).click();
-    await dialog.locator('input[name="name"]').fill('Ship');
-    await dialog.locator('input[name="durationWeeks"]').fill('4');
-    await dialog.locator('input[name="isEndPhase"]').check();
-    await dialog.locator('select[name="dependsOn"]').selectOption({ label: 'Kickoff' });
-    await dialog.getByRole('button', { name: 'Save phase' }).click();
-    await expect(page.getByTestId('phase-template-row')).toHaveCount(2);
+    await panel.getByLabel('Phase name').fill('Kickoff');
+    await panel.getByLabel('Forecast (weeks)').fill('2');
+    await panel.getByLabel('Lead role').selectOption('Google');
     await expect(page.getByTestId('dag-errors')).toHaveCount(0);
 
-    // A dead-end branch is flagged with the offending phase, then clears on delete.
+    // Second phase; connect it after Kickoff (click upstream → CONNECT) — still valid,
+    // and the END ring rides on the derived sink.
     await page.getByRole('button', { name: 'Add phase' }).click();
-    await dialog.locator('input[name="name"]').fill('Stray');
-    await dialog.getByRole('button', { name: 'Save phase' }).click();
+    await panel.getByLabel('Phase name').fill('Ship');
+    await panel.getByLabel('Forecast (weeks)').fill('4');
+    await card('Kickoff').click();
+    await panel.getByTestId('connect-after').click();
+    await expect(card('Ship')).toHaveAttribute('title', /end phase/);
+    await expect(page.getByTestId('dag-errors')).toHaveCount(0);
+
+    // A dead-end branch is flagged with the offending phase, then clears on remove.
+    await page.getByRole('button', { name: 'Add phase' }).click();
+    await panel.getByLabel('Phase name').fill('Stray');
     await expect(page.getByTestId('dag-errors')).toContainText('Stray');
-    page.on('dialog', (d) => d.accept());
-    await page.getByTestId('phase-template-row').filter({ hasText: 'Stray' })
-      .getByRole('button', { name: 'Delete' }).click();
+    await panel.getByRole('button', { name: 'Remove phase' }).click();
     await expect(page.getByTestId('dag-errors')).toHaveCount(0);
+
+    // Atomic whole-graph save; the layout persists. The completion signal must NOT be
+    // "disabled" alone — the button is also disabled (as "Saving…") mid-flight, before
+    // the transaction commits. "Save" text + disabled = transition done AND draft
+    // clean against the refreshed server state.
+    const canvasSave = page.getByTestId('dag-save');
+    await canvasSave.click();
+    await expect(canvasSave).toHaveText('Save', { timeout: 10000 });
+    await expect(canvasSave).toBeDisabled();
+    await expect(page.getByTestId('save-error')).toHaveCount(0);
+    await expect(page.getByTestId('phase-card')).toHaveCount(2);
+    const saved = await prisma.programTemplate.findFirst({
+      where: { name: 'Cluster Display Bring-up' },
+      include: { phases: { include: { dependsOn: true } } },
+    });
+    expect(saved!.phases).toHaveLength(2);
+    const ship = saved!.phases.find((p) => p.name === 'Ship')!;
+    expect(ship.isEndPhase).toBe(true); // derived: the unique sink
+    expect(ship.durationWeeks).toBe(4);
+    expect(ship.dependsOn).toHaveLength(1);
   });
 
   test('the authored template is offered by project creation', async ({ page }) => {
-    await page.goto('/projects/new');
+    await page.goto('/programs/new');
     await expect(
       page.locator('select[name="template"] option', { hasText: 'Cluster Display Bring-up' }),
     ).toHaveCount(1);

@@ -1,0 +1,178 @@
+/* Card-DAG editor surface: cards in dependency-depth columns over a drawn-edge SVG,
+   plus the click-to-edit detail panel. Page chrome (title, buttons, error banner)
+   comes from TemplateEditor.module.css. */
+
+.hint {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  color: var(--muted);
+  max-width: 640px;
+}
+
+.wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.canvasWrap {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.canvas {
+  position: relative;
+  min-height: 120px;
+}
+
+.edges {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* NOTE: intentionally named "node", not "card" — globals.css strips border/background
+   from any [class*="card"] (the Tufte no-boxes rule), which would erase these. */
+.node {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+}
+.node:hover {
+  border-color: var(--muted);
+}
+
+/* The derived end phase — ringed, same grammar as the DAG previews. */
+.nodeEnd {
+  outline: 2px solid #c98a1a;
+  outline-offset: 2px;
+}
+
+/* Selected = the panel owner, the DOWNSTREAM side of any new edge. */
+.nodeSelected {
+  border: 2px solid #c98a1a;
+  padding: 7px 11px;
+}
+
+/* The armed upstream CONNECT candidate. */
+.nodeUpstream {
+  border: 2px dashed #c98a1a;
+  padding: 7px 11px;
+}
+
+.nodeDragging {
+  opacity: 0.75;
+  z-index: 10;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+.nodeName {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Detail panel: floats beside the canvas; the canvas stays clickable for CONNECT.
+   Wide enough that the rich markdown fields get a real writing canvas. */
+.panel {
+  position: relative;
+  width: 380px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-left: 3px solid #c98a1a;
+  border-radius: 10px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.10);
+}
+
+.panelClose {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+}
+.panelClose:hover {
+  color: var(--fg);
+}
+
+.panelLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.panelSection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.panelHead {
+  flex-basis: 100%;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.panelMuted {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.depChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 6px 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--fg);
+}
+
+.chipRemove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 0 2px;
+  line-height: 1;
+}
+.chipRemove:hover {
+  color: #c5221f;
+}
