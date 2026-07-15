@@ -88,7 +88,7 @@ export function DagPreview({ phases }: { phases: DagPreviewPhase[] }) {
         const c = pos.get(p.id)!;
         return (
           <g key={p.id}>
-            {p.isEndPhase && <circle cx={c.x} cy={c.y} r={8.5} fill="none" stroke="#c98a1a" strokeWidth={1.8} />}
+            {p.isEndPhase && <circle cx={c.x} cy={c.y} r={8.5} fill="none" stroke="var(--chain)" strokeWidth={1.8} />}
             <circle cx={c.x} cy={c.y} r={5} fill="hsl(0, 0%, 25%)" />
             <text x={c.x + 12} y={c.y + 3.5} fontSize={11} fill="var(--fg)">{truncate(p.name)}</text>
             <title>{p.name}</title>

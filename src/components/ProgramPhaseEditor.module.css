@@ -55,19 +55,19 @@
 
 /* The derived end phase — ringed, same grammar as the DAG previews. */
 .nodeEnd {
-  outline: 2px solid #c98a1a;
+  outline: 2px solid var(--chain);
   outline-offset: 2px;
 }
 
 /* Selected = the panel owner, the DOWNSTREAM side of any new edge. */
 .nodeSelected {
-  border: 2px solid #c98a1a;
+  border: 2px solid var(--chain);
   padding: 7px 11px;
 }
 
 /* The armed upstream CONNECT candidate. */
 .nodeUpstream {
-  border: 2px dashed #c98a1a;
+  border: 2px dashed var(--chain);
   padding: 7px 11px;
 }
 
@@ -98,7 +98,7 @@
   padding: 16px 18px;
   background: #fff;
   border: 1px solid var(--border);
-  border-left: 3px solid #c98a1a;
+  border-left: 3px solid var(--chain);
   border-radius: 10px;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.10);
 }

@@ -1,6 +1,13 @@
 :root {
   --hue: 142; /* WhatsApp-style green — locked */
 
+  /* Structural emphasis — critical chain, constraint evidence, END phase, editor
+     selection. Deliberately NOT amber: amber/red/green are the health palette, and
+     "constraint" is a structural fact, not a risk verdict. */
+  --chain: #6b4fa1;
+  --chain-ink: #5a4488;  /* readable text weight on the cream background */
+  --chain-soft: #c9b9e6; /* light variant, e.g. badges on solid-ink pills */
+
   --p-50:  hsla(var(--hue), 32%, 96%, 1);
   --p-100: hsla(var(--hue), 34%, 88%, 1);
   --p-200: hsla(var(--hue), 38%, 78%, 1);

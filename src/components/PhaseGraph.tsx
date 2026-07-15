@@ -243,7 +243,7 @@ export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGrap
                     cy={geom.ys[p.id]}
                     r={NODE_R + 3.5}
                     fill="none"
-                    stroke={isConstraint ? '#c98a1a' : 'var(--muted)'}
+                    stroke={isConstraint ? 'var(--chain)' : 'var(--muted)'}
                     strokeWidth={isConstraint ? 2 : 1.25}
                   />
                 )}

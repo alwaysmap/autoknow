@@ -173,7 +173,7 @@ function Station({ x, y, progress, onChain, isConstraint, title, onClick }: {
   const stroke = onChain ? INK : 'var(--muted)';
   return (
     <g onClick={onClick} className={styles.station}>
-      {isConstraint && <circle cx={x} cy={y} r={r + 4} fill="none" stroke="#c98a1a" strokeWidth={2} />}
+      {isConstraint && <circle cx={x} cy={y} r={r + 4} fill="none" stroke="var(--chain)" strokeWidth={2} />}
       <circle cx={x} cy={y} r={r} fill={progress >= 100 ? stroke : '#fff'} stroke={stroke} strokeWidth={onChain ? 2 : 1.5} />
       {progress > 0 && progress < 100 && (
         <path d={`M ${x} ${y - (r - 0.75)} A ${r - 0.75} ${r - 0.75} 0 0 1 ${x} ${y + (r - 0.75)} Z`} fill={stroke} stroke="none" />
@@ -817,7 +817,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
         <svg viewBox="0 0 14 14" className={styles.legendGlyph}><circle cx={7} cy={7} r={5} fill="#fff" stroke={INK} strokeWidth={1.5} /></svg>
         {status(0)}
         <svg viewBox="0 0 18 18" className={styles.legendGlyph}>
-          <circle cx={9} cy={9} r={7.5} fill="none" stroke="#c98a1a" strokeWidth={1.8} />
+          <circle cx={9} cy={9} r={7.5} fill="none" stroke="var(--chain)" strokeWidth={1.8} />
           <circle cx={9} cy={9} r={4} fill="#fff" stroke={INK} strokeWidth={1.5} />
           <path d="M 9 5.4 A 3.6 3.6 0 0 1 9 12.6 Z" fill={INK} />
         </svg>

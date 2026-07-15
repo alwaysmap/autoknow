@@ -19,7 +19,7 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-size: 10.5px;
-  color: #c98a1a;
+  color: var(--chain);
   margin-right: 8px;
 }
 
@@ -68,7 +68,7 @@
   animation: phaseFlash 1.4s ease-out;
 }
 @keyframes phaseFlash {
-  0% { background: rgba(201, 138, 26, 0.18); }
+  0% { background: rgba(107, 79, 161, 0.16); }
   100% { background: transparent; }
 }
 
@@ -103,8 +103,8 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #c98a1a;
-  border: 1px solid #c98a1a;
+  color: var(--chain);
+  border: 1px solid var(--chain);
   border-radius: 999px;
   padding: 1px 8px;
 }

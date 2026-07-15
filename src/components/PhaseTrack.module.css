@@ -63,7 +63,7 @@
   animation: trackFlash 1.4s ease-out;
 }
 @keyframes trackFlash {
-  0% { background: rgba(201, 138, 26, 0.18); }
+  0% { background: rgba(107, 79, 161, 0.16); }
   100% { background: transparent; }
 }
 
@@ -98,17 +98,6 @@
   white-space: nowrap;
 }
 
-.constraintTag {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #c98a1a;
-  border: 1px solid #c98a1a;
-  border-radius: 999px;
-  padding: 1px 8px;
-  white-space: nowrap;
-}
 
 /* The constraint tag's evidence: chain head, resource contention, buffer consumption.
    ONE clamped quiet-amber line (hover for the full text) — evidence supports the
@@ -117,7 +106,7 @@
   margin: 0;
   font-size: 11.5px;
   line-height: 1.5;
-  color: #a06f12;
+  color: var(--chain-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -129,10 +118,10 @@
   margin-left: 5px;
   font-size: 10.5px;
   font-weight: 700;
-  color: #c98a1a;
+  color: var(--chain);
 }
 .pillLead .pillLoad {
-  color: #f3c876;
+  color: var(--chain-soft);
 }
 
 /* The one door to structural editing. */
@@ -670,8 +659,8 @@
   width: min(720px, 100%);
   background: #fff;
   border: 1px solid var(--border);
-  /* the amber edge echoes the constraint marker — "you are focused on one station" */
-  border-left: 3px solid #c98a1a;
+  /* the chain-accent edge echoes the constraint marker — "you are focused on one station" */
+  border-left: 3px solid var(--chain);
   border-radius: 10px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
   padding: 22px 26px;

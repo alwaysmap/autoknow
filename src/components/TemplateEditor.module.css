@@ -166,8 +166,8 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #c98a1a;
-  border: 1px solid #c98a1a;
+  color: var(--chain);
+  border: 1px solid var(--chain);
   border-radius: 999px;
   padding: 1px 8px;
   margin-left: 8px;
