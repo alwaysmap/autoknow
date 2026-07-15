@@ -11,10 +11,10 @@ test.describe('Home Page (Dashboard)', () => {
     await expect(searchInput).toBeVisible();
   });
 
-  test('should display the Action Items section', async ({ page }) => {
-    // Expect a heading or section indicating critical action items
-    const actionHeading = page.getByRole('heading', { name: 'Action Items', exact: true });
-    await expect(actionHeading).toBeVisible();
+  test('should display the ecosystem activity section (Action Items retired)', async ({ page }) => {
+    // The old Action Items table is gone; the home page mirrors /activity instead.
+    await expect(page.getByRole('heading', { name: 'Recent activity', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Action Items', exact: true })).toHaveCount(0);
   });
 
   test('should display the Programs at Risk section', async ({ page }) => {

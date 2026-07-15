@@ -3,32 +3,39 @@
 import { useState, useEffect, useRef } from 'react';
 import FeedList from './FeedList';
 import type { FeedType, FeedScope, FeedItem } from '../lib/feed';
+import { t, type StringKey } from '../lib/i18n';
+import { useLocale } from './LocaleProvider';
 
 // One search component for every surface, backed by the standalone /api/search endpoint.
 // `scope` keeps results inside the current partner/program (omit for ecosystem-wide).
 // Type chips filter results in/out (partners, programs, people, context).
 
-const TYPE_LABEL: Record<FeedType, string> = {
-  partner: 'Partners',
-  program: 'Programs',
-  person: 'People',
-  context: 'Context',
+const TYPE_KEY: Record<FeedType, StringKey> = {
+  partner: 'partnersLabel',
+  program: 'navPrograms',
+  person: 'peopleLabel',
+  context: 'contextLabel',
 };
 const ALL: FeedType[] = ['partner', 'program', 'person', 'context'];
 
 export default function UnifiedSearch({
   scope,
   availableTypes = ALL,
-  placeholder = 'Search…',
+  placeholder,
   autoFocus = false,
   initialQuery = '',
+  showTypeChips = true,
 }: {
   scope?: FeedScope;
   availableTypes?: FeedType[];
   placeholder?: string;
   autoFocus?: boolean;
   initialQuery?: string;
+  /** Hide the type-filter chips (e.g. when a feed's own filter row sits right below). */
+  showTypeChips?: boolean;
 }) {
+  const locale = useLocale();
+  const inputPlaceholder = placeholder ?? t(locale, 'searchPlaceholderShort');
   const [query, setQuery] = useState(initialQuery);
   const [active, setActive] = useState<Set<FeedType>>(new Set(availableTypes));
   const [hits, setHits] = useState<FeedItem[] | null>(null);
@@ -86,24 +93,24 @@ export default function UnifiedSearch({
           autoFocus={autoFocus}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={placeholder}
-          aria-label={placeholder}
+          placeholder={inputPlaceholder}
+          aria-label={inputPlaceholder}
           style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border, #ddd)' }}
         />
         <button type="submit" disabled={loading} style={{ padding: '10px 18px', borderRadius: 8, cursor: 'pointer', border: '1px solid var(--border, #ddd)' }}>
-          {loading ? 'Searching…' : 'Search'}
+          {loading ? t(locale, 'searchingBtn') : t(locale, 'searchBtn')}
         </button>
       </form>
 
-      {availableTypes.length > 1 && (
+      {showTypeChips && availableTypes.length > 1 && (
         <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-          {availableTypes.map((t) => {
-            const on = active.has(t);
+          {availableTypes.map((ft) => {
+            const on = active.has(ft);
             return (
               <button
-                key={t}
+                key={ft}
                 type="button"
-                onClick={() => toggle(t)}
+                onClick={() => toggle(ft)}
                 aria-pressed={on}
                 style={{
                   fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 999, cursor: 'pointer',
@@ -112,7 +119,7 @@ export default function UnifiedSearch({
                   color: on ? '#fff' : 'var(--muted, #777)',
                 }}
               >
-                {TYPE_LABEL[t]}
+                {t(locale, TYPE_KEY[ft])}
               </button>
             );
           })}
@@ -123,11 +130,16 @@ export default function UnifiedSearch({
         <div style={{ marginTop: 14 }}>
           {!loading && (
             <div style={{ fontSize: 12, color: 'var(--muted, #777)', marginBottom: 8 }}>
-              {hits.length} result{hits.length === 1 ? '' : 's'}
-              {scope && scope.kind !== 'ecosystem' ? ' in this scope' : ' across the ecosystem'}
+              {scope && scope.kind !== 'ecosystem'
+                ? hits.length === 1
+                  ? t(locale, 'searchResultsScopeOne')
+                  : t(locale, 'searchResultsScope', { n: hits.length })
+                : hits.length === 1
+                  ? t(locale, 'searchResultsEcosystemOne')
+                  : t(locale, 'searchResultsEcosystem', { n: hits.length })}
             </div>
           )}
-          <FeedList items={hits} emptyLabel="No matches. Try different terms or enable more types." />
+          <FeedList items={hits} emptyLabel={t(locale, 'searchNoMatches')} />
         </div>
       )}
     </div>

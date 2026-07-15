@@ -767,5 +767,150 @@ export async function seedMockData() {
     'Snapdragon audio HAL driver deadlocks during system start. Cold boot freezes are caused by priority inversion in thread scheduling for hardware outputs.'
   );
 
+  // ---------------------------------------------------------------------------
+  // Ecosystem enrichment: several ACTIVE programs of each type (AAOS / GAS /
+  // Digital Key) with SOP targets spread across quarters, product flags, mixed
+  // health, and a broader supplier + person graph — data for validating the
+  // read-only surfaces (capacity chart, risk list, filters) and visual layouts.
+  // ---------------------------------------------------------------------------
+  console.log('Seeding ecosystem enrichment (partners, people, programs)...');
+
+  const mkPartner = (name: string, typeId: number, regionId: number, summary: string) =>
+    prisma.partner.create({ data: { name, typeId, regionId, summary } });
+
+  const honda = await mkPartner('Honda', typeOem.id, regApac.id, 'AAOS bring-up across the next Accord and CR-V cockpits.');
+  const gm = await mkPartner('GM', typeOem.id, regAmer.id, 'Ultifi platform migration onto AAOS with GAS.');
+  const volvoCars = await mkPartner('Volvo Cars', typeOem.id, regEmea.id, 'EX90 follow-on programs: AAOS refresh plus Digital Key.');
+  const hyundai = await mkPartner('Hyundai', typeOem.id, regApac.id, 'Ioniq line GAS integration wave.');
+  const stellantis = await mkPartner('Stellantis', typeOem.id, regEmea.id, 'STLA SmartCockpit GAS rollout across brands.');
+  const denso = await mkPartner('Denso', typeSupplier.id, regApac.id, 'Tier-1 cockpit integrator on Honda and Toyota programs.');
+  const continental = await mkPartner('Continental', typeSupplier.id, regEmea.id, 'Cluster + cockpit compute for European OEMs.');
+  const lge = await mkPartner('LG Electronics', typeSupplier.id, regApac.id, 'IVI head units for GM and Hyundai lines.');
+  const harman = await mkPartner('Harman', typeSupplier.id, regAmer.id, 'Audio + telematics stacks on Stellantis programs.');
+  const mediatek = await mkPartner('MediaTek', typeSupplier.id, regApac.id, 'Dimensity Auto silicon on mid-range cockpits.');
+
+  const mkPerson = (name: string, email: string, currentPartnerId: number, notes: string) =>
+    prisma.person.create({ data: { name, email, currentPartnerId, notes } });
+
+  const priya = await mkPerson('Priya Sharma', 'priyash@google.com', googlePartner.id, 'Partner engineer across GAS integrations.');
+  const marcus = await mkPerson('Marcus Webb', 'marcusw@google.com', googlePartner.id, 'TPM for the AAOS bring-up portfolio.');
+  const aiko = await mkPerson('Aiko Tanaka', 'aiko@honda.example', honda.id, 'Honda cockpit software lead.');
+  const lena = await mkPerson('Lena Fischer', 'lena@continental.example', continental.id, 'Continental integration architect.');
+  const carlos = await mkPerson('Carlos Ruiz', 'carlos@gm.example', gm.id, 'GM Ultifi platform owner.');
+  const minji = await mkPerson('Min-ji Park', 'minji@lge.example', lge.id, 'LGE head-unit delivery manager.');
+  const sven = await mkPerson('Sven Larsson', 'sven@volvocars.example', volvoCars.id, 'Volvo Digital Key security lead.');
+  const deepak = await mkPerson('Deepak Rao', 'deepak@mediatek.example', mediatek.id, 'MediaTek automotive FAE.');
+
+  // A little career history so people pages have texture.
+  await prisma.personAffiliation.createMany({
+    data: [
+      { personId: lena.id, partnerId: bosch.id, role: 'Platform engineer', startDate: new Date('2019-02-01'), endDate: new Date('2023-05-01') },
+      { personId: deepak.id, partnerId: qualcomm.id, role: 'FAE', startDate: new Date('2018-06-01'), endDate: new Date('2022-01-01') },
+      { personId: minji.id, partnerId: harman.id, role: 'Delivery lead', startDate: new Date('2020-03-01'), endDate: new Date('2024-08-01') },
+    ],
+  });
+
+  // Program specs: name, OEM, owner, SOP (month-end), 12-month volume, products,
+  // health, hill position, phases (name, days, progress) chained linearly, and the
+  // suppliers/people involved in the currently active phase.
+  interface MockPhase { n: string; d: number; p: number }
+  interface MockProgram {
+    name: string; partnerId: number; owner: string; sop: string; vol: number;
+    gas: boolean; gbi: boolean; dk: boolean; needle: string; hill: number;
+    phases: MockPhase[]; suppliers: number[]; people: number[];
+  }
+  const programs: MockProgram[] = [
+    // --- AAOS bring-ups ---
+    { name: 'Honda Accord AAOS Bring-up', partnerId: honda.id, owner: 'marcusw', sop: '2027-04-30', vol: 220000,
+      gas: true, gbi: true, dk: false, needle: 'Some Risk', hill: 45,
+      phases: [ { n: 'BSP & Power-on', d: 30, p: 100 }, { n: 'HAL Integration', d: 45, p: 55 }, { n: 'Cluster Bring-up', d: 30, p: 20 }, { n: 'Certification', d: 40, p: 0 } ],
+      suppliers: [denso.id, mediatek.id], people: [aiko.id, deepak.id, marcus.id] },
+    { name: 'GM Ultifi AAOS Migration', partnerId: gm.id, owner: 'marcusw', sop: '2027-09-30', vol: 340000,
+      gas: true, gbi: true, dk: false, needle: 'On Track', hill: 30,
+      phases: [ { n: 'Architecture Lock', d: 25, p: 100 }, { n: 'Compute Board Bring-up', d: 40, p: 40 }, { n: 'App Platform Port', d: 50, p: 0 }, { n: 'Fleet Validation', d: 45, p: 0 } ],
+      suppliers: [lge.id], people: [carlos.id, minji.id, marcus.id] },
+    { name: 'Volvo EX90 AAOS Refresh', partnerId: volvoCars.id, owner: 'dylan', sop: '2026-12-31', vol: 90000,
+      gas: true, gbi: false, dk: false, needle: 'Concerned', hill: 70,
+      phases: [ { n: 'Platform Rebase', d: 30, p: 100 }, { n: 'Driver Update Pass', d: 25, p: 80 }, { n: 'Regression & Cert', d: 35, p: 10 } ],
+      suppliers: [continental.id], people: [lena.id, sven.id] },
+    // --- GAS integrations ---
+    { name: 'Hyundai Ioniq GAS Integration', partnerId: hyundai.id, owner: 'priyash', sop: '2027-06-30', vol: 260000,
+      gas: true, gbi: false, dk: false, needle: 'On Track', hill: 35,
+      phases: [ { n: 'GMS Core Enablement', d: 30, p: 100 }, { n: 'Play Store Config', d: 20, p: 45 }, { n: 'Assistant Tuning', d: 25, p: 0 }, { n: 'GAS Certification', d: 30, p: 0 } ],
+      suppliers: [lge.id], people: [minji.id, priya.id] },
+    { name: 'Stellantis STLA GAS Rollout', partnerId: stellantis.id, owner: 'priyash', sop: '2028-03-31', vol: 410000,
+      gas: true, gbi: true, dk: false, needle: 'Some Risk', hill: 20,
+      phases: [ { n: 'Brand Matrix Scoping', d: 20, p: 100 }, { n: 'Reference Head Unit', d: 45, p: 30 }, { n: 'Per-brand Skinning', d: 40, p: 0 }, { n: 'Rollout Wave 1', d: 50, p: 0 } ],
+      suppliers: [harman.id], people: [priya.id] },
+    // --- Digital Key programs ---
+    { name: 'Honda Digital Key CCC', partnerId: honda.id, owner: 'dylan', sop: '2027-01-31', vol: 150000,
+      gas: false, gbi: false, dk: true, needle: 'Some Risk', hill: 50,
+      phases: [ { n: 'NFC Driver Bring-up', d: 20, p: 100 }, { n: 'Secure Element Config', d: 30, p: 60 }, { n: 'CCC Spec Compliance', d: 40, p: 0 } ],
+      suppliers: [denso.id], people: [aiko.id] },
+    { name: 'Volvo Digital Key', partnerId: volvoCars.id, owner: 'dylan', sop: '2027-08-31', vol: 70000,
+      gas: false, gbi: false, dk: true, needle: 'On Track', hill: 25,
+      phases: [ { n: 'Key Architecture', d: 25, p: 100 }, { n: 'UWB Ranging', d: 35, p: 25 }, { n: 'Companion App', d: 30, p: 0 }, { n: 'CCC Certification', d: 30, p: 0 } ],
+      suppliers: [continental.id], people: [sven.id, lena.id] },
+  ];
+
+  for (const spec of programs) {
+    const project = await prisma.project.create({
+      data: {
+        name: spec.name,
+        partnerId: spec.partnerId,
+        ownerName: spec.owner,
+        sopDate: new Date(spec.sop),
+        volumeFirstYear: spec.vol,
+        hasGas: spec.gas,
+        hasGbi: spec.gbi,
+        hasDigitalKey: spec.dk,
+        theNeedle: spec.needle,
+        hillChartProgress: spec.hill,
+      },
+    });
+    await prisma.projectState.create({
+      data: {
+        projectId: project.id,
+        theNeedle: spec.needle,
+        hillChartProgress: spec.hill,
+        notes: `Weekly update: tracking toward SOP ${spec.sop.slice(0, 7)}.`,
+        source: 'seed',
+      },
+    });
+
+    let prevPhaseId: number | null = null;
+    let activePhaseId: number | null = null;
+    for (const ph of spec.phases) {
+      const phase = await prisma.phase.create({
+        data: { name: ph.n, projectId: project.id, forecastedDuration: ph.d },
+      });
+      await prisma.phaseState.create({
+        data: {
+          phaseId: phase.id,
+          status: ph.p >= 100 ? 'Done' : ph.p > 0 ? 'In Progress' : 'Not Started',
+          theNeedle: 'On Track',
+          hillChartProgress: ph.p,
+          notes: ph.p > 0 && ph.p < 100 ? `${ph.n} in flight.` : null,
+          source: 'seed',
+        },
+      });
+      if (prevPhaseId != null) {
+        await prisma.phaseDependency.create({ data: { phaseId: phase.id, dependsOnPhaseId: prevPhaseId } });
+      }
+      if (activePhaseId == null && ph.p > 0 && ph.p < 100) activePhaseId = phase.id;
+      prevPhaseId = phase.id;
+    }
+
+    // Involvement rides on the active phase — pills, contention, partner pages.
+    if (activePhaseId != null) {
+      for (const supplierId of spec.suppliers) {
+        await prisma.phasePartner.create({ data: { phaseId: activePhaseId, partnerId: supplierId, role: null } });
+      }
+      for (const personId of spec.people) {
+        await prisma.phasePerson.create({ data: { phaseId: activePhaseId, personId, role: null } });
+      }
+    }
+  }
+
   console.log('Seeding completed successfully!');
 }

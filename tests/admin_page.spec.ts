@@ -9,9 +9,10 @@ test.describe('Onboarding and Seeding Controls', () => {
     await page.click('button:has-text("Seed Core Data")');
     await page.waitForURL('/');
 
-    // Verify onboarding boxes are visible
+    // Verify onboarding boxes are visible (home shows the activity feed's empty state
+    // now — the Action Items table is retired)
     await expect(page.locator('body')).toContainText('Welcome to AutoKnow');
-    await expect(page.locator('body')).toContainText('No pending action items detected. Clear skies!');
+    await expect(page.locator('body')).toContainText('No activity yet.');
 
     // Seed mock data
     await page.goto('/admin');

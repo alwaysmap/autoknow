@@ -1,0 +1,15 @@
+.select {
+  margin-right: 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+.select:hover {
+  border-color: var(--muted);
+}

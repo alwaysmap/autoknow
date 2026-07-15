@@ -3,12 +3,15 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import type { FeedItem } from '../lib/feed';
+import { t } from '../lib/i18n';
+import { useLocale } from './LocaleProvider';
 import styles from './Search.module.css';
 
 // Header quick-search: a compact dropdown over the same /api/search endpoint and
 // FeedItem shape used everywhere else. "See all results" opens the full /search page.
 
 export default function Search() {
+  const locale = useLocale();
   const [query, setQuery] = useState('');
   const [items, setItems] = useState<FeedItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -67,8 +70,8 @@ export default function Search() {
       <input
         ref={inputRef}
         type="search"
-        aria-label="Search partners, programs, people"
-        placeholder="Search partners, programs, people… (Press '/')"
+        aria-label={t(locale, 'searchGlobalAria')}
+        placeholder={t(locale, 'searchGlobalPlaceholder')}
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -81,7 +84,7 @@ export default function Search() {
       {isOpen && query.trim() && (
         <div className={styles.dropdown}>
           {items.length === 0 ? (
-            <div className={styles.emptyState}>No results found for &quot;{query}&quot;</div>
+            <div className={styles.emptyState}>{t(locale, 'searchNoResults', { q: query })}</div>
           ) : (
             <div className={styles.resultsWrapper}>
               <ul className={styles.list}>
@@ -108,7 +111,7 @@ export default function Search() {
               </ul>
               <div className={styles.allResultsWrapper}>
                 <Link href={`/search?q=${encodeURIComponent(query)}`} onClick={() => setIsOpen(false)} className={styles.allResultsLink}>
-                  See all results &rarr;
+                  {t(locale, 'searchSeeAll')}
                 </Link>
               </div>
             </div>

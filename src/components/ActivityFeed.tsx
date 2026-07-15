@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import type { FeedItem } from '../lib/feed';
-import { feedCategory, FEED_CATEGORY_LABEL, FEED_CATEGORY_ORDER, type FeedCategory } from '../lib/feedCategory';
+import { feedCategory, FEED_CATEGORY_KEY, FEED_CATEGORY_ORDER, type FeedCategory } from '../lib/feedCategory';
+import { t } from '../lib/i18n';
+import { useLocale } from './LocaleProvider';
 import FeedList from './FeedList';
 import styles from './ActivityFeed.module.css';
 
@@ -15,14 +17,16 @@ export default function ActivityFeed({
   items,
   deletable = false,
   revalidate,
-  emptyLabel = 'No activity yet.',
+  emptyLabel,
 }: {
   items: FeedItem[];
   deletable?: boolean;
   revalidate?: string;
   emptyLabel?: string;
 }) {
+  const locale = useLocale();
   const [active, setActive] = useState<'all' | FeedCategory>('all');
+  const defaultEmpty = emptyLabel ?? t(locale, 'noActivityYet');
 
   const present = useMemo(() => {
     const seen = new Set(items.map((i) => feedCategory(i.kind)));
@@ -47,13 +51,13 @@ export default function ActivityFeed({
     <div>
       {present.length > 1 && (
         <div className={styles.chips}>
-          {chip('all', 'All')}
-          {present.map((c) => chip(c, FEED_CATEGORY_LABEL[c]))}
+          {chip('all', t(locale, 'allLabel'))}
+          {present.map((c) => chip(c, t(locale, FEED_CATEGORY_KEY[c])))}
         </div>
       )}
       <FeedList
         items={shown}
-        emptyLabel={active === 'all' ? emptyLabel : 'No matching updates.'}
+        emptyLabel={active === 'all' ? defaultEmpty : t(locale, 'noMatchingUpdates')}
         deletable={deletable}
         revalidate={revalidate}
       />

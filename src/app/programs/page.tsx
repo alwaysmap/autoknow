@@ -1,10 +1,19 @@
 import { prisma } from '../../lib/db';
 import { runMonteCarlo } from '../../lib/forecast';
+import { getLocale } from '../../lib/locale';
+import { t } from '../../lib/i18n';
 import ProgramsClient from './ProgramsClient';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ProgramsPage() {
+export default async function ProgramsPage(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const locale = await getLocale();
+  const sp = await props.searchParams;
+  const initialMinRisk = typeof sp.minRisk === 'string' ? Math.max(0, Math.min(2, parseInt(sp.minRisk, 10) || 0)) : 0;
+  const initialSort = sp.sort === 'risk' ? ('risk' as const) : null;
+  const initialActiveOnly = sp.filter === 'active';
   const projects = await prisma.project.findMany({
     include: {
       partner: {
@@ -76,16 +85,19 @@ export default async function ProgramsPage() {
     <div style={{ padding: '0 40px', minHeight: '100vh', backgroundColor: 'var(--white)' }}>
       <header style={{ borderBottom: '1px solid var(--border)', padding: '24px 0' }}>
         <h1 style={{ fontFamily: 'var(--head-font)', fontSize: '1.5rem', fontWeight: 600, margin: 0, color: 'var(--fg)' }}>
-          Programs
+          {t(locale, 'navPrograms')}
         </h1>
       </header>
 
       <main style={{ padding: '32px 0' }}>
-        <ProgramsClient 
-          initialProjects={serializedProjects} 
-          people={people} 
+        <ProgramsClient
+          initialProjects={serializedProjects}
+          people={people}
           regions={regions.map(r => r.name)}
           partnerTypes={partnerTypes.map(t => t.name)}
+          initialMinRisk={initialMinRisk}
+          initialSort={initialSort}
+          initialActiveOnly={initialActiveOnly}
         />
       </main>
     </div>

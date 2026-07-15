@@ -6,8 +6,10 @@ import DataTable from '../../components/DataTable';
 import HillChartControl from '../../components/HillChartControl';
 import styles from '../ecosystem-summary/EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../../lib/needle';
-import { HEALTHS, healthColor, healthOrder } from '../../lib/health';
+import { HEALTHS, HEALTH_KEY, healthKey, healthColor, healthOrder } from '../../lib/health';
 import { resolvePerson } from '../../lib/people';
+import { t } from '../../lib/i18n';
+import { useLocale } from '../../components/LocaleProvider';
 
 interface Project {
   id: number;
@@ -54,15 +56,21 @@ interface ProgramsClientProps {
   people: Person[];
   regions?: string[];
   partnerTypes?: string[];
+  /** Deep-link support (e.g. the ecosystem High-risk list's "More →"). */
+  initialMinRisk?: number;
+  initialSort?: 'risk' | null;
+  initialActiveOnly?: boolean;
 }
 
-export default function ProgramsClient({ initialProjects, people, regions = [], partnerTypes = [] }: ProgramsClientProps) {
+export default function ProgramsClient({ initialProjects, people, regions = [], partnerTypes = [], initialMinRisk = 0, initialSort = null, initialActiveOnly = false }: ProgramsClientProps) {
+  const locale = useLocale();
   // State filters
   const [partnerType, setPartnerType] = useState('All'); // 'All' | 'OEM' | 'Supplier'
   const [region, setRegion] = useState('All'); // 'All' | 'APAC' | 'EMEA' | 'AMER' | 'Other'
   const [selectedOwner, setSelectedOwner] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [minRiskVal, setMinRiskVal] = useState(0); // 0=Low, 1=Medium, 2=High, 3=Critical
+  const [minRiskVal, setMinRiskVal] = useState(initialMinRisk); // health floor (see lib/health)
+  const [activeOnly, setActiveOnly] = useState(initialActiveOnly); // not archived, not done
   const [minProgress, setMinProgress] = useState(0);
   const [maxProgress, setMaxProgress] = useState(100);
   const [activeDrag, setActiveDrag] = useState<'min' | 'max' | null>(null);
@@ -104,6 +112,9 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
 
   // Dynamic filter function
   const filteredProjects = initialProjects.filter((proj) => {
+    // 0. Active only (not archived, not done) — deep-linked from the ecosystem stats
+    if (activeOnly && (proj.isArchived || proj.hillChartProgress >= 100)) return false;
+
     // 1. Partner Type filter
     if (partnerType !== 'All' && proj.partner.type !== partnerType) {
       return false;
@@ -138,6 +149,13 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
 
     return true;
   });
+
+  // Risk sort (deep-linked): worst health first, then least progressed.
+  if (initialSort === 'risk') {
+    filteredProjects.sort(
+      (a, b) => healthOrder(b.theNeedle) - healthOrder(a.theNeedle) || a.hillChartProgress - b.hillChartProgress,
+    );
+  }
 
   // Calculate coordinates for rendering handles in JSX
   const miniHighlightPath = React.useMemo(() => {
@@ -184,11 +202,11 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
       {/* Search & Filter Widgets Panel */}
       <section className={styles.filterSection}>
         <div className={styles.filterGroup}>
-          <label htmlFor="searchField" className={styles.filterLabel}>Search Programs</label>
+          <label htmlFor="searchField" className={styles.filterLabel}>{t(locale, 'searchPrograms')}</label>
           <input
             id="searchField"
             type="text"
-            placeholder="Search by name, partner..."
+            placeholder={t(locale, 'searchByNamePartner')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className={styles.input}
@@ -196,30 +214,42 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
           />
         </div>
 
+        {/* Active-only: deep-linked by the ecosystem Big Number (?filter=active) */}
         <div className={styles.filterGroup}>
-          <label htmlFor="partnerTypeSelect" className={styles.filterLabel}>Partner Type</label>
+          <label className={styles.filterLabel} htmlFor="activeOnly">{t(locale, 'activeOnly')}</label>
+          <input
+            id="activeOnly"
+            type="checkbox"
+            checked={activeOnly}
+            onChange={(e) => setActiveOnly(e.target.checked)}
+            style={{ width: 18, height: 18 }}
+          />
+        </div>
+
+        <div className={styles.filterGroup}>
+          <label htmlFor="partnerTypeSelect" className={styles.filterLabel}>{t(locale, 'partnerType')}</label>
           <select
             id="partnerTypeSelect"
             value={partnerType}
             onChange={(e) => setPartnerType(e.target.value)}
             className={styles.select}
           >
-            <option value="All">All Types</option>
-            {partnerTypes.map(t => (
-              <option key={t} value={t}>{t} Only</option>
+            <option value="All">{t(locale, 'allTypes')}</option>
+            {partnerTypes.map(pt => (
+              <option key={pt} value={pt}>{t(locale, 'typeOnly', { t: pt })}</option>
             ))}
           </select>
         </div>
 
         <div className={styles.filterGroup}>
-          <label htmlFor="regionSelect" className={styles.filterLabel}>Google Region</label>
+          <label htmlFor="regionSelect" className={styles.filterLabel}>{t(locale, 'googleRegion')}</label>
           <select
             id="regionSelect"
             value={region}
             onChange={(e) => setRegion(e.target.value)}
             className={styles.select}
           >
-            <option value="All">All Regions</option>
+            <option value="All">{t(locale, 'allRegions')}</option>
             {regions.map(r => (
               <option key={r} value={r}>{r}</option>
             ))}
@@ -227,7 +257,7 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
         </div>
 
         <div className={styles.filterGroup}>
-          <label htmlFor="ownerSelect" className={styles.filterLabel}>Program Owner</label>
+          <label htmlFor="ownerSelect" className={styles.filterLabel}>{t(locale, 'programOwner')}</label>
           <select
             id="ownerSelect"
             value={selectedOwner}
@@ -235,13 +265,13 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
             className={styles.select}
           >
             {owners.map(owner => (
-              <option key={owner} value={owner}>{owner}</option>
+              <option key={owner} value={owner}>{owner === 'All' ? t(locale, 'allLabel') : owner}</option>
             ))}
           </select>
         </div>
 
         <div className={styles.filterGroup} style={{ minWidth: '200px' }}>
-          <label className={styles.filterLabel}>Health floor</label>
+          <label className={styles.filterLabel}>{t(locale, 'healthFloor')}</label>
           <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
             {HEALTHS.map((h, i) => {
               const on = minRiskVal === i;
@@ -253,7 +283,7 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
                   aria-pressed={on}
                   style={{ fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 999, cursor: 'pointer', border: `1px solid ${healthColor(h)}`, background: on ? healthColor(h) : 'transparent', color: on ? '#fff' : healthColor(h) }}
                 >
-                  {h}
+                  {t(locale, HEALTH_KEY[h])}
                 </button>
               );
             })}
@@ -262,7 +292,7 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
 
         <div className={styles.progressFilterContainer}>
           <label className={styles.filterLabel}>
-            Filter progress range by dragging the handles
+            {t(locale, 'filterProgressRange')}
           </label>
 
           {/* Hidden inputs to preserve Playwright E2E automation compatibility */}
@@ -348,21 +378,21 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
       {/* Dynamic Big Number Scorecards */}
       <section className={styles.scorecards}>
         <div className={styles.card}>
-          <h3>Programs In Flight / All Time</h3>
+          <h3>{t(locale, 'programsInFlightAllTime')}</h3>
           <div className={styles.metric}>{scorecardRatio}</div>
-          <div className={styles.subtext}>Active vs total matches</div>
+          <div className={styles.subtext}>{t(locale, 'activeVsTotal')}</div>
         </div>
 
         <div className={styles.card}>
-          <h3>Some Risk / Concerned</h3>
+          <h3>{t(locale, 'someRiskConcerned')}</h3>
           <div className={styles.metric}>{highRiskCount}</div>
-          <div className={styles.subtext}>At elevated risk level</div>
+          <div className={styles.subtext}>{t(locale, 'atElevatedRisk')}</div>
         </div>
 
         <div className={styles.card}>
-          <h3>Average Progress</h3>
+          <h3>{t(locale, 'averageProgress')}</h3>
           <div className={styles.metric}>{averageProgress}</div>
-          <div className={styles.subtext}>Calculated average score</div>
+          <div className={styles.subtext}>{t(locale, 'calculatedAverageScore')}</div>
         </div>
       </section>
 
@@ -370,13 +400,13 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
       <section className={styles.tableSection}>
         <DataTable
           headers={[
-            { key: 'name', label: 'Program Name' },
-            { key: 'partner.name', label: 'Partner' },
-            { key: 'partner.region', label: 'Google Region' },
-            { key: 'ownerName', label: 'Program Owner' },
-            { key: 'sopDate', label: 'Target SOP' },
-            { key: 'theNeedle', label: 'Health' },
-            { key: 'hillChartProgress', label: 'Progress' }
+            { key: 'name', label: t(locale, 'programName') },
+            { key: 'partner.name', label: t(locale, 'partnerLabel') },
+            { key: 'partner.region', label: t(locale, 'googleRegion') },
+            { key: 'ownerName', label: t(locale, 'programOwner') },
+            { key: 'sopDate', label: t(locale, 'targetSopHeader') },
+            { key: 'theNeedle', label: t(locale, 'healthLabel') },
+            { key: 'hillChartProgress', label: t(locale, 'progressLabel') }
           ]}
           data={filteredProjects}
           renderRow={(p: Project) => {
@@ -385,7 +415,7 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
             return (
               <tr key={p.id}>
                 <td>
-                  <Link href={`/projects/${p.id}`} className={styles.tableLink}>
+                  <Link href={`/programs/${p.id}`} className={styles.tableLink}>
                     {p.name}
                   </Link>
                 </td>
@@ -394,7 +424,7 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
                     {p.partner.name}
                   </Link>
                 </td>
-                <td>{p.partner.region || 'Other'}</td>
+                <td>{p.partner.region || t(locale, 'otherLabel')}</td>
                 <td>
                   {(() => {
                     if (matched) {
@@ -407,7 +437,7 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
                     return p.ownerName;
                   })()}
                 </td>
-                <td>{p.sopDate ? new Date(p.sopDate).toLocaleDateString() : 'TBD'}</td>
+                <td>{p.sopDate ? new Date(p.sopDate).toLocaleDateString(locale) : t(locale, 'tbd')}</td>
                 <td>
                   {(() => {
                     const label = formatNeedleValue(p.theNeedle);
@@ -416,10 +446,10 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
                         type="button"
                         onClick={() => setMinRiskVal(healthOrder(label))}
                         className={styles.badgeFilterBtn}
-                        title={`Filter health: ${label}`}
+                        title={t(locale, 'filterHealthTitle', { h: t(locale, healthKey(label)) })}
                       >
                         <span className={styles.badge} style={{ color: healthColor(label) }}>
-                          {label}
+                          {t(locale, healthKey(label))}
                         </span>
                       </button>
                     );
@@ -440,7 +470,7 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
           }}
           defaultSortKey="name"
           pageSize={10}
-          emptyStateMessage="No programs match current filters."
+          emptyStateMessage={t(locale, 'noProgramsMatchFilters')}
         />
       </section>
     </div>
