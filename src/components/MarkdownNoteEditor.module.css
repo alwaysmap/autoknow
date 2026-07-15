@@ -1,0 +1,44 @@
+/* WYSIWYG markdown note field — quiet frame matching the app's inputs; the MDXEditor
+   toolbar is stripped to a thin strip so the field reads as a note box, not a word
+   processor. */
+
+/* Width comes from the container; the canvas is deliberately roomy — markdown fields
+   are for writing, not for one-liners. */
+.frame {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  width: 100%;
+}
+
+.loading {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  width: 100%;
+  min-height: 178px; /* toolbar + canvas — matches the loaded editor, no layout shift */
+}
+
+.toolbar {
+  border-bottom: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+  background: var(--surface);
+  padding: 1px 4px;
+  min-height: 28px;
+}
+
+.content {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--fg);
+  min-height: 140px;
+  padding: 8px 10px;
+}
+.content p {
+  margin: 0 0 6px;
+}
+.content ul,
+.content ol {
+  margin: 0 0 6px;
+  padding-left: 20px;
+}
