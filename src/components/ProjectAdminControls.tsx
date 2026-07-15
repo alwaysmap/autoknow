@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { archiveProject, deleteProject } from '../app/projects/[id]/actions';
+import { archiveProject, deleteProject } from '../app/programs/[id]/actions';
+import { t } from '../lib/i18n';
+import { useLocale } from './LocaleProvider';
 import styles from './ProjectAdminControls.module.css';
 
 interface ProjectAdminControlsProps {
@@ -15,6 +17,7 @@ export default function ProjectAdminControls({
   projectName,
   isArchived,
 }: ProjectAdminControlsProps) {
+  const locale = useLocale();
   const [confirmName, setConfirmName] = useState('');
   const deleteDialogRef = useRef<HTMLDialogElement>(null);
 
@@ -53,23 +56,23 @@ export default function ProjectAdminControls({
       <form action={archiveProject}>
         <input type="hidden" name="projectId" value={projectId} />
         <button type="submit" className={styles.archiveButton}>
-          {isArchived ? 'Unarchive Project' : 'Archive Project'}
+          {isArchived ? t(locale, 'unarchiveShort') : t(locale, 'archiveShort')}
         </button>
       </form>
 
       {/* Delete Project Trigger */}
       <button onClick={openDeleteDialog} className={styles.deleteButton}>
-        Delete Project
+        {t(locale, 'deleteLabel')}
       </button>
 
       {/* Delete Confirmation Dialog */}
       <dialog ref={deleteDialogRef} closedby="any" className={styles.dialog} aria-labelledby="deleteDialogTitle">
         <div className={styles.dialogHeader}>
-          <h3 id="deleteDialogTitle">Confirm Project Deletion</h3>
+          <h3 id="deleteDialogTitle">{t(locale, 'confirmProjectDeletion')}</h3>
         </div>
-        
+
         <p className={styles.warningText}>
-          Are you sure you want to delete this project? This will permanently remove all associated phases, action items, and status log histories. <strong>This action cannot be undone.</strong>
+          {t(locale, 'deleteWarning')} <strong>{t(locale, 'cannotBeUndone')}</strong>
         </p>
 
         <form
@@ -84,14 +87,14 @@ export default function ProjectAdminControls({
 
           <div className={styles.formGroup}>
             <label htmlFor="confirmProjectName" className={styles.formLabel}>
-              Please type the name of the project to confirm (<strong>{projectName}</strong>):
+              {t(locale, 'confirmTypeName')} (<strong>{projectName}</strong>):
             </label>
             <input
               id="confirmProjectName"
               type="text"
               value={confirmName}
               onChange={(e) => setConfirmName(e.target.value)}
-              placeholder="Type project name exactly"
+              placeholder={t(locale, 'typeProjectNameExactly')}
               className={styles.textInput}
               autoComplete="off"
             />
@@ -99,14 +102,14 @@ export default function ProjectAdminControls({
 
           <div className={styles.actionRow}>
             <button type="button" onClick={() => deleteDialogRef.current?.close()} className={styles.cancelBtn}>
-              Cancel
+              {t(locale, 'cancel')}
             </button>
             <button
               type="submit"
               disabled={!isConfirmed}
               className={styles.dangerBtn}
             >
-              Permanently Delete Project
+              {t(locale, 'permanentlyDeleteProject')}
             </button>
           </div>
         </form>

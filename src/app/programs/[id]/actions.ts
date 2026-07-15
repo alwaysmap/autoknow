@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '../../../lib/db';
 import { parseHealth } from '../../../lib/health';
+import { parseSopInput } from '../../../lib/sop';
 import { getCurrentUser } from '../../../lib/session';
 
 export async function updateActionItem(formData: FormData) {
@@ -25,7 +26,7 @@ export async function updateActionItem(formData: FormData) {
     });
   }
 
-  revalidatePath(`/projects/${projectIdStr}`);
+  revalidatePath(`/programs/${projectIdStr}`);
 }
 
 export async function updateProjectMetrics(formData: FormData) {
@@ -42,7 +43,11 @@ export async function updateProjectMetrics(formData: FormData) {
   const projectId = parseInt(projectIdStr);
   const hillChartProgress = parseInt(hillChartProgressStr);
   const volumeFirstYear = parseInt(volumeFirstYearStr);
-  const sopDate = sopDateStr ? new Date(sopDateStr) : null;
+  // SOP arrives as yyyy-MM (month picker) — stored as the LAST day of that month.
+  const sopDate = sopDateStr ? parseSopInput(sopDateStr) : null;
+  const hasGas = formData.get('hasGas') === 'on';
+  const hasGbi = formData.get('hasGbi') === 'on';
+  const hasDigitalKey = formData.get('hasDigitalKey') === 'on';
 
   if (!isNaN(projectId)) {
     await prisma.project.update({
@@ -52,7 +57,10 @@ export async function updateProjectMetrics(formData: FormData) {
         hillChartProgress: !isNaN(hillChartProgress) ? hillChartProgress : 0,
         ownerName: ownerName || null,
         sopDate,
-        volumeFirstYear: !isNaN(volumeFirstYear) ? volumeFirstYear : 0
+        volumeFirstYear: !isNaN(volumeFirstYear) ? volumeFirstYear : 0,
+        hasGas,
+        hasGbi,
+        hasDigitalKey
       }
     });
 
@@ -66,7 +74,7 @@ export async function updateProjectMetrics(formData: FormData) {
       }
     });
   }
-  revalidatePath(`/projects/${projectIdStr}`);
+  revalidatePath(`/programs/${projectIdStr}`);
 }
 
 export async function archiveProject(formData: FormData) {
@@ -81,7 +89,7 @@ export async function archiveProject(formData: FormData) {
       });
     }
   }
-  revalidatePath(`/projects/${projectIdStr}`);
+  revalidatePath(`/programs/${projectIdStr}`);
 }
 
 export async function deleteProject(formData: FormData) {
@@ -156,7 +164,7 @@ export async function addPhase(formData: FormData) {
     });
   }
 
-  revalidatePath(`/projects/${projectIdStr}`);
+  revalidatePath(`/programs/${projectIdStr}`);
 }
 
 export async function editPhase(formData: FormData) {
@@ -178,7 +186,7 @@ export async function editPhase(formData: FormData) {
     });
   }
 
-  revalidatePath(`/projects/${projectIdStr}`);
+  revalidatePath(`/programs/${projectIdStr}`);
 }
 
 export async function deletePhase(formData: FormData) {
@@ -207,5 +215,5 @@ export async function deletePhase(formData: FormData) {
     ]);
   }
 
-  revalidatePath(`/projects/${projectIdStr}`);
+  revalidatePath(`/programs/${projectIdStr}`);
 }

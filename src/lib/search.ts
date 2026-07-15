@@ -83,7 +83,7 @@ function branchSql(type: FeedType, vec: string, scope: FeedScope): Prisma.Sql {
             : Prisma.sql`TRUE`;
       return Prisma.sql`
         SELECT 'program' AS type, pr.id, pr.name AS title, COALESCE(pa.name, 'Program') AS subtitle,
-               ('/projects/' || pr.id) AS url, FALSE AS external, (pr.embedding <=> ${v}) AS dist
+               ('/programs/' || pr.id) AS url, FALSE AS external, (pr.embedding <=> ${v}) AS dist
         FROM "Project" pr LEFT JOIN "Partner" pa ON pa.id = pr."partnerId"
         WHERE pr.embedding IS NOT NULL AND ${where}`;
     }

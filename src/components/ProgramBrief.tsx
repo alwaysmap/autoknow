@@ -1,5 +1,6 @@
 import type { ProgramBriefView } from '../lib/brief';
 import RegenerateBriefButton from './RegenerateBriefButton';
+import { t, type Locale } from '../lib/i18n';
 import styles from './ProgramBrief.module.css';
 
 // The AI-generated program brief (spec §2.12) — the "read this first" slot at the top of
@@ -11,20 +12,21 @@ export default function ProgramBrief({
   projectId,
   brief,
   geminiConfigured,
+  locale = 'en',
 }: {
   projectId: number;
   brief: ProgramBriefView | null;
   geminiConfigured: boolean;
+  locale?: Locale;
 }) {
   if (!geminiConfigured) {
     return (
       <div className={styles.card}>
         <div className={styles.header}>
-          <h2 className={styles.title}>Program brief</h2>
+          <h2 className={styles.title}>{t(locale, 'programBrief')}</h2>
         </div>
         <p className={styles.empty}>
-          AI briefs are off — no Gemini API key is configured. Set <code>GEMINI_API_KEY</code> to
-          enable a daily synthesized summary of this program&apos;s updates.
+          {t(locale, 'briefsOffPrefix')} <code>GEMINI_API_KEY</code> {t(locale, 'briefsOffSuffix')}
         </p>
       </div>
     );
@@ -34,26 +36,23 @@ export default function ProgramBrief({
     return (
       <div className={styles.card}>
         <div className={styles.header}>
-          <h2 className={styles.title}>Program brief</h2>
+          <h2 className={styles.title}>{t(locale, 'programBrief')}</h2>
           <RegenerateBriefButton projectId={projectId} hasBrief={false} />
         </div>
-        <p className={styles.empty}>
-          No brief yet. Generate one to get a synthesized read of this program&apos;s recent
-          needle and phase updates, risks, decisions, and partner activity.
-        </p>
+        <p className={styles.empty}>{t(locale, 'briefEmpty')}</p>
       </div>
     );
   }
 
-  const generated = new Date(brief.generatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const generated = new Date(brief.generatedAt).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 
   return (
     <div className={styles.card}>
       <div className={styles.header}>
-        <h2 className={styles.title}>Program brief</h2>
+        <h2 className={styles.title}>{t(locale, 'programBrief')}</h2>
         <span className={styles.provenance}>
-          Generated {generated} by Gemini · from {brief.sourceCount} records
-          {brief.stale && <span className={styles.stale}> · new activity since</span>}
+          {t(locale, 'briefProvenance', { d: generated, n: brief.sourceCount })}
+          {brief.stale && <span className={styles.stale}> {t(locale, 'briefStale')}</span>}
         </span>
         <RegenerateBriefButton projectId={projectId} hasBrief />
       </div>

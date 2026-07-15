@@ -2,8 +2,11 @@ import { redirect } from 'next/navigation';
 import { prisma } from '../../../lib/db';
 import { listTemplates, getTemplateWithPhases } from '../../../lib/programTemplates';
 import { validateTemplateDag } from '../../../lib/templateDag';
+import { parseSopInput } from '../../../lib/sop';
 import { getCurrentUser } from '../../../lib/session';
 import { hillStatus } from '../../../lib/phase';
+import { getLocale } from '../../../lib/locale';
+import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
 
 // This page reads partners from the database at request time, so it must render
@@ -17,8 +20,13 @@ async function createProject(formData: FormData) {
   const partnerIdStr = formData.get('partnerId') as string;
   const templateIdStr = formData.get('template') as string;
   const owner = formData.get('owner') as string;
+  // Every program MUST carry a target SOP (month/year; last day of month assumed).
+  const sopDate = parseSopInput((formData.get('sopMonth') as string) || '');
+  const hasGas = formData.get('hasGas') === 'on';
+  const hasGbi = formData.get('hasGbi') === 'on';
+  const hasDigitalKey = formData.get('hasDigitalKey') === 'on';
 
-  if (!name || !partnerIdStr || !templateIdStr) {
+  if (!name || !partnerIdStr || !templateIdStr || !sopDate) {
     throw new Error('Missing fields');
   }
 
@@ -58,7 +66,7 @@ async function createProject(formData: FormData) {
 
   const project = await prisma.$transaction(async (tx) => {
     const created = await tx.project.create({
-      data: { name, partnerId, ownerName: owner || null }
+      data: { name, partnerId, ownerName: owner || null, sopDate, hasGas, hasGbi, hasDigitalKey }
     });
 
     // Log program creation so it appears in the activity feed.
@@ -124,10 +132,11 @@ async function createProject(formData: FormData) {
   });
 
   // Redirect to project details page (outside the transaction).
-  redirect(`/projects/${project.id}`);
+  redirect(`/programs/${project.id}`);
 }
 
 export default async function NewProjectPage() {
+  const locale = await getLocale();
   const partners = await prisma.partner.findMany({
     orderBy: { name: 'asc' },
     include: { type: true }
@@ -138,26 +147,26 @@ export default async function NewProjectPage() {
     <div className={styles.container}>
       <header className={styles.header}>
         <div className={styles.brand}>AutoKnow</div>
-        <h1>Create New Project</h1>
+        <h1>{t(locale, 'createNewProject')}</h1>
       </header>
 
       <main className={styles.main}>
         <form action={createProject} className={styles.form}>
           <div className={styles.field}>
-            <label htmlFor="name">Project Name</label>
+            <label htmlFor="name">{t(locale, 'projectNameHeader')}</label>
             <input
               type="text"
               id="name"
               name="name"
               required
-              placeholder="e.g. Ford F-150 AAOS Bring-up"
+              placeholder={t(locale, 'projectNamePlaceholder')}
             />
           </div>
 
           <div className={styles.field}>
-            <label htmlFor="partnerId">Partner (OEM / Supplier)</label>
+            <label htmlFor="partnerId">{t(locale, 'partnerOemSupplier')}</label>
             <select id="partnerId" name="partnerId" required>
-              <option value="">Select a partner...</option>
+              <option value="">{t(locale, 'selectAPartner')}</option>
               {partners.map(p => (
                 <option key={p.id} value={p.id}>
                   {p.name} ({p.type?.name})
@@ -167,28 +176,48 @@ export default async function NewProjectPage() {
           </div>
 
           <div className={styles.field}>
-            <label htmlFor="template">Project Template (Critical Chain DAG)</label>
+            <label htmlFor="template">{t(locale, 'projectTemplateDag')}</label>
             <select id="template" name="template" required>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
+              {templates.map((tpl) => (
+                <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
               ))}
             </select>
           </div>
 
           <div className={styles.field}>
-            <label htmlFor="owner">Owner (Handle)</label>
+            <label htmlFor="owner">{t(locale, 'ownerHandle')}</label>
             <input
               type="text"
               id="owner"
               name="owner"
               required
-              placeholder="e.g. jdoe@google.com"
+              placeholder={t(locale, 'ownerHandlePlaceholder')}
             />
+          </div>
+
+          {/* the SOP target is REQUIRED — it is the on-track yardstick and places the
+              program on the ecosystem capacity timeline (month-end assumed) */}
+          <div className={styles.field}>
+            <label htmlFor="sopMonth">{t(locale, 'sopMonthLabel')}</label>
+            <input type="month" id="sopMonth" name="sopMonth" required />
+          </div>
+
+          <div className={styles.field}>
+            <label>{t(locale, 'productsLabel')}</label>
+            <label style={{ display: 'block', fontWeight: 400 }}>
+              <input type="checkbox" name="hasGas" /> {t(locale, 'productGas')}
+            </label>
+            <label style={{ display: 'block', fontWeight: 400 }}>
+              <input type="checkbox" name="hasGbi" /> {t(locale, 'productGbi')}
+            </label>
+            <label style={{ display: 'block', fontWeight: 400 }}>
+              <input type="checkbox" name="hasDigitalKey" /> {t(locale, 'productDigitalKey')}
+            </label>
           </div>
 
           <div className={styles.actions}>
             <button type="submit" className={styles.submitBtn}>
-              Create Project
+              {t(locale, 'createProject')}
             </button>
           </div>
         </form>

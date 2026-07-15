@@ -1,0 +1,131 @@
+/* Header metadata strip: quiet linked facts left, the two KEY figures right as large
+   numerals (Tufte: big data, small labels — no boxes). */
+
+/* Title + its action links, floating together on one compact line. */
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.title {
+  font-family: var(--head-font);
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--fg);
+}
+
+.archived {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px 32px;
+  flex-wrap: wrap;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 13px;
+  color: var(--fg);
+}
+
+/* the products fact keeps its small-caps label; give it air after the pills */
+.facts .fact {
+  margin-left: 14px;
+}
+
+.fact {
+  white-space: nowrap;
+}
+
+.factLabel {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-right: 7px;
+}
+
+.factLink {
+  color: var(--fg);
+  font-weight: 600;
+  text-decoration: none;
+}
+.factLink:hover {
+  text-decoration: underline;
+}
+
+.factMuted {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Action cluster: a small set of links — Edit leads, the rest recede. */
+.actions {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.primaryAction {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--fg);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.primaryAction:hover {
+  opacity: 0.75;
+}
+
+/* Key numbers: large figures, small-caps labels. */
+.stats {
+  display: flex;
+  gap: 40px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.stat {
+  text-align: right;
+}
+
+.statLabel {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.statMuted {
+  font-size: 16px;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--muted);
+}

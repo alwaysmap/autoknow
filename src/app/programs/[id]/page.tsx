@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import styles from './page.module.css';
 import ProjectStatusDashboard from '../../../components/ProjectStatusDashboard';
+import ProjectMetaHeader from '../../../components/ProjectMetaHeader';
 import ProjectAdminControls from '../../../components/ProjectAdminControls';
 import PhaseGraph from '../../../components/PhaseGraph';
 import PhaseTrack from '../../../components/PhaseTrack';
-import { isLocale, Locale } from '../../../lib/i18n';
+import { isLocale, t, Locale } from '../../../lib/i18n';
 import ProgramBrief from '../../../components/ProgramBrief';
 import ActivityFeed from '../../../components/ActivityFeed';
 import UnifiedSearch from '../../../components/UnifiedSearch';
@@ -15,9 +16,6 @@ import { getActivity } from '../../../lib/activity';
 import { getLatestBrief } from '../../../lib/brief';
 import { geminiConfigured } from '../../../lib/gemini';
 import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
-import {
-  updateActionItem,
-} from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,8 +55,8 @@ export default async function ProjectDetailsPage(props: {
           actionItems: {
             orderBy: { id: 'asc' }
           },
-          partners: { include: { partner: true } },
-          people: { include: { person: true } },
+          partners: { include: { partner: { include: { type: true } } } },
+          people: { include: { person: { include: { currentPartner: { include: { type: true } } } } } },
           dependencies: true
         },
         orderBy: { id: 'asc' }
@@ -76,11 +74,6 @@ export default async function ProjectDetailsPage(props: {
   // The latest AI-generated brief (spec §2.12) — the page's "read this first" slot.
   const brief = await getLatestBrief(projectId);
 
-  const problemCount = project.phases.reduce(
-    (sum, phase) => sum + phase.actionItems.filter(item => item.status === 'Pending').length,
-    0
-  );
-
   const sopDateString = project.sopDate
     ? new Date(project.sopDate).toISOString().split('T')[0]
     : '';
@@ -92,6 +85,34 @@ export default async function ProjectDetailsPage(props: {
   // All partners + people (for the involvement pickers) + the graph's row shape.
   const allPartners = await prisma.partner.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } });
   const allPeople = await prisma.person.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } });
+
+  // Resource contention (CCPM's resource dimension, approximated with the signals we
+  // have): for every partner/person involved in THIS program's phases, count the
+  // ACTIVE phases (0 < progress < 100) they're simultaneously involved in across
+  // OTHER live programs. The counts ride on the involvement rows so the track can
+  // mark contended pills and explain the constraint.
+  const involvedPartnerIds = [...new Set(project.phases.flatMap((ph) => ph.partners.map((pp) => pp.partnerId)))];
+  const involvedPersonIds = [...new Set(project.phases.flatMap((ph) => ph.people.map((pp) => pp.personId)))];
+  const isActive = (states: { hillChartProgress: number | null }[]) => {
+    const p = states[0]?.hillChartProgress ?? 0;
+    return p > 0 && p < 100;
+  };
+  const partnerElsewhere = involvedPartnerIds.length === 0 ? [] : await prisma.phasePartner.findMany({
+    where: { partnerId: { in: involvedPartnerIds }, phase: { projectId: { not: projectId }, project: { isArchived: false } } },
+    include: { phase: { include: { states: { orderBy: { timestamp: 'desc' }, take: 1 } } } },
+  });
+  const personElsewhere = involvedPersonIds.length === 0 ? [] : await prisma.phasePerson.findMany({
+    where: { personId: { in: involvedPersonIds }, phase: { projectId: { not: projectId }, project: { isArchived: false } } },
+    include: { phase: { include: { states: { orderBy: { timestamp: 'desc' }, take: 1 } } } },
+  });
+  const partnerLoad = new Map<number, number>();
+  for (const pp of partnerElsewhere) {
+    if (isActive(pp.phase.states)) partnerLoad.set(pp.partnerId, (partnerLoad.get(pp.partnerId) ?? 0) + 1);
+  }
+  const personLoad = new Map<number, number>();
+  for (const pp of personElsewhere) {
+    if (isActive(pp.phase.states)) personLoad.set(pp.personId, (personLoad.get(pp.personId) ?? 0) + 1);
+  }
   const graphRows = project.phases.map((phase) => {
     // states are newest-first; walk oldest-first for anticipated-vs-actual timing.
     const asc = [...phase.states].reverse();
@@ -129,12 +150,17 @@ export default async function ProjectDetailsPage(props: {
         partnerId: pp.partnerId,
         name: pp.partner.name,
         role: pp.role,
+        type: pp.partner.type?.name ?? null,
+        otherActive: partnerLoad.get(pp.partnerId) ?? 0,
       })),
       people: phase.people.map((pp) => ({
         linkId: pp.id,
         personId: pp.personId,
         name: pp.person.name,
         role: pp.role,
+        company: pp.person.currentPartner?.name ?? null,
+        companyType: pp.person.currentPartner?.type?.name ?? null,
+        otherActive: personLoad.get(pp.personId) ?? 0,
       })),
     };
   });
@@ -156,8 +182,6 @@ export default async function ProjectDetailsPage(props: {
         .map((ph) => ({ projectId: o.id, projectName: o.name, phaseName: ph.name })),
     );
   }
-  const phasesWithActions = project.phases.filter((p) => p.actionItems.length > 0);
-
   // Identify the OEM for the project (heuristic name match; see lib/associations).
   const matchedOem = findPartnerInText(oems, project.name);
   const oemPartner = matchedOem || (project.partner.type?.name === 'OEM' ? project.partner : null);
@@ -194,51 +218,30 @@ export default async function ProjectDetailsPage(props: {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <div className={styles.headerLeft}>
-          <div className={styles.brand}>
-            <Link href={oemPartner ? `/partners/${oemPartner.id}` : `/partners`}>
-              &larr; Back to {oemPartner ? oemPartner.name : 'Partners'}
-            </Link>
-          </div>
-          <h1>
-            {project.name}
-            {project.isArchived && <span className={styles.archivedLabel}> [Archived]</span>}
-          </h1>
-          <div className={styles.metaCol}>
-            <div className={styles.metaRow}>
-              <span className={styles.metaLabel}>OEM:</span>{' '}
-              {oemPartner ? (
-                <Link href={`/partners/${oemPartner.id}`} className={styles.metaLink}>
-                  {oemPartner.name}
-                </Link>
-              ) : (
-                <strong>TBD</strong>
-              )}
-            </div>
-            <div className={styles.metaRow}>
-              <span className={styles.metaLabel}>Suppliers:</span>{' '}
-              {supplierList.length === 0 ? (
-                <span className={styles.empty}>None</span>
-              ) : (
-                supplierList.map((supplier, idx) => (
-                  <span key={supplier.id}>
-                    {idx > 0 && ', '}
-                    <Link href={`/partners/${supplier.id}`} className={styles.metaLink}>
-                      {supplier.name}
-                    </Link>
-                  </span>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-        <div className={styles.headerRight}>
-          <ProjectAdminControls
-            projectId={project.id}
-            projectName={project.name}
-            isArchived={project.isArchived}
-          />
-        </div>
+        {/* the whole header: compact title row + metadata strip. The old back-link is
+            gone — the OEM fact below IS the link back to the partner. */}
+        <ProjectMetaHeader
+          projectId={project.id}
+          projectName={project.name}
+          archivedTag={project.isArchived ? t(locale, 'archivedTag') : null}
+          actions={
+            <ProjectAdminControls
+              projectId={project.id}
+              projectName={project.name}
+              isArchived={project.isArchived}
+            />
+          }
+          currentNeedle={project.theNeedle}
+          currentHillChartProgress={project.hillChartProgress}
+          ownerName={project.ownerName || ''}
+          sopDateString={sopDateString}
+          volumeFirstYear={project.volumeFirstYear}
+          hasGas={project.hasGas}
+          hasGbi={project.hasGbi}
+          hasDigitalKey={project.hasDigitalKey}
+          oemPartner={oemPartner ? { id: oemPartner.id, name: oemPartner.name } : null}
+          suppliersList={supplierList.map((sp) => ({ id: sp.id, name: sp.name }))}
+        />
       </header>
 
       <main className={styles.main}>
@@ -246,19 +249,12 @@ export default async function ProjectDetailsPage(props: {
           <div className={styles.leftColumn}>
             <ProjectStatusDashboard
               projectId={project.id}
-              projectName={project.name}
               currentNeedle={project.theNeedle}
               currentHillChartProgress={project.hillChartProgress}
               previousProgress={project.states[1]?.hillChartProgress ?? null}
               previousHealth={project.states[1]?.theNeedle ?? null}
               updatedAt={project.states[0]?.timestamp?.toISOString() ?? null}
-              problemCount={problemCount}
-              ownerName={project.ownerName || ''}
-              sopDateString={sopDateString}
-              volumeFirstYear={project.volumeFirstYear}
               phases={project.phases}
-              oemPartner={oemPartner}
-              suppliersList={Array.from(associatedSuppliers.values())}
             />
 
           </div>
@@ -266,13 +262,13 @@ export default async function ProjectDetailsPage(props: {
           <div className={styles.rightColumn}>
             {/* The AI brief (spec §2.12): words beside the gauges' numbers, above the fold. */}
             <section className={styles.historySection}>
-              <ProgramBrief projectId={projectId} brief={brief} geminiConfigured={geminiConfigured} />
+              <ProgramBrief projectId={projectId} brief={brief} geminiConfigured={geminiConfigured} locale={locale} />
             </section>
 
             {/* Phases as a vertical rail (spec §2.13): node per phase, latest hill +
                 update + partners per row, Done rows collapsed, add/remove inline. */}
             <section className={styles.historySection}>
-              <h2>Phases</h2>
+              <h2>{t(locale, 'phasesCard')}</h2>
               {showTrack ? (
                 <PhaseTrack projectId={projectId} phases={graphRows} allPartners={allPartners}
                   allPeople={allPeople} locale={locale} owner={project.ownerName} otherActive={otherActive} />
@@ -281,99 +277,20 @@ export default async function ProjectDetailsPage(props: {
               )}
             </section>
 
-            {phasesWithActions.length > 0 && (
-              <section className={styles.historySection}>
-                <h2>Actions &amp; Decisions</h2>
-                {phasesWithActions.map((phase) => (
-                  <div key={phase.id} className={styles.actionsSection}>
-                    <h3>{phase.name}</h3>
-                    <div className={styles.actionGrid}>
-                      {phase.actionItems.map((item) => (
-                            <div key={item.id} className={`${styles.actionCard} action-item-${item.id}`}>
-                              <form action={updateActionItem}>
-                                <input type="hidden" name="actionItemId" value={item.id} />
-                                <input type="hidden" name="projectId" value={projectId} />
-
-                                <div className={styles.actionFormGroup}>
-                                  <label className={styles.actionLabel}>Description</label>
-                                  <p className={styles.actionDesc}>{item.description}</p>
-                                </div>
-
-                                <div className={styles.actionFormGroup}>
-                                  <label htmlFor={`status-${item.id}`} className={styles.actionLabel}>Status</label>
-                                  <select 
-                                    id={`status-${item.id}`}
-                                    name="status" 
-                                    defaultValue={item.status} 
-                                    className={styles.select}
-                                  >
-                                    <option value="Pending">Pending</option>
-                                    <option value="Completed">Completed</option>
-                                  </select>
-                                </div>
-
-                                <div className={styles.actionFormGroup}>
-                                  <label htmlFor={`nextStep-${item.id}`} className={styles.actionLabel}>Next Step</label>
-                                  <select 
-                                    id={`nextStep-${item.id}`}
-                                    name="nextStep" 
-                                    defaultValue={item.nextStep} 
-                                    className={styles.select}
-                                  >
-                                    <option value="Undecided">Undecided</option>
-                                    <option value="Resolved">Resolved</option>
-                                    <option value="Partner">Partner</option>
-                                    <option value="Googler">Googler</option>
-                                  </select>
-                                </div>
-
-                                <div className={styles.actionFormGroup}>
-                                  <label htmlFor={`linkUrl-${item.id}`} className={styles.actionLabel}>System of Record Link</label>
-                                  <input
-                                    id={`linkUrl-${item.id}`}
-                                    type="url"
-                                    name="linkUrl"
-                                    defaultValue={item.linkUrl || ''}
-                                    placeholder="Buganizer (b/...) or Google Doc Link"
-                                    className={styles.input}
-                                  />
-                                  {item.linkUrl && (
-                                    <div className={styles.activeLinkRow}>
-                                      <a href={item.linkUrl} target="_blank" rel="noreferrer" className={styles.linkAnchor}>
-                                        Open Link &rarr;
-                                      </a>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div className={styles.submitRow}>
-                                  <button type="submit" className={styles.saveButton}>
-                                    Save Changes
-                                  </button>
-                                </div>
-                              </form>
-                            </div>
-                          ))}
-                    </div>
-                  </div>
-                ))}
-              </section>
-            )}
-
             {/* Unified scoped search + ingested context for this program */}
             <section className={styles.historySection}>
-              <h2>Search</h2>
+              <h2>{t(locale, 'searchHeading')}</h2>
               <UnifiedSearch
                 scope={{ kind: 'project', id: projectId }}
-                placeholder="Search this program — context, people, partner…"
+                placeholder={t(locale, 'searchThisProgram')}
               />
             </section>
 
             {/* Unified activity: program/needle/hill/phase changes + ingested context */}
             <section className={styles.historySection}>
-              <h2>Activity</h2>
-              <p className={styles.historyIntro}>Needle and progress changes, phase updates, and ingested context for this program.</p>
-              <ActivityFeed items={activity} deletable revalidate={`/projects/${projectId}`} />
+              <h2>{t(locale, 'navActivity')}</h2>
+              <p className={styles.historyIntro}>{t(locale, 'programActivityIntro')}</p>
+              <ActivityFeed items={activity} deletable revalidate={`/programs/${projectId}`} />
             </section>
           </div>
         </div>

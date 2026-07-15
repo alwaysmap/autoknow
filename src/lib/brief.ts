@@ -103,7 +103,7 @@ async function gatherEvidence(projectId: number, windowStart: Date) {
     push(
       'chain',
       `critical chain (longest remaining-forecast path): ${chain.path.map(nameOf).join(' → ')}; about ${chain.remainingDays} forecast days of work remain on it${constraint ? `; current constraint: "${constraint}" — delay here delays the program end-to-end` : ''}`,
-      { label: 'Critical chain', href: `/projects/${projectId}`, external: false },
+      { label: 'Critical chain', href: `/programs/${projectId}`, external: false },
     );
   }
 
@@ -139,7 +139,7 @@ async function gatherEvidence(projectId: number, windowStart: Date) {
       push(
         'action',
         `open action on "${phase.name}": ${item.description}${item.assignedTo ? ` (owner ${item.assignedTo})` : ''}, next step ${item.nextStep}`,
-        { label: `Action · ${phase.name}`, href: item.linkUrl || `/projects/${projectId}`, external: !!item.linkUrl },
+        { label: `Action · ${phase.name}`, href: item.linkUrl || `/programs/${projectId}`, external: !!item.linkUrl },
       );
     }
   }

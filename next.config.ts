@@ -13,6 +13,13 @@ const nextConfig: NextConfig = {
   // server may be running on :3000 — a separate build dir keeps them from corrupting
   // each other's .next output.
   distDir: process.env.NEXT_DIST_DIR || undefined,
+  // Programs are the entity; detail pages moved from /projects/[id] to /programs/[id].
+  // Old bookmarks and externally shared links keep working.
+  async redirects() {
+    return [
+      { source: '/projects/:path*', destination: '/programs/:path*', permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

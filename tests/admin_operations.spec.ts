@@ -101,14 +101,14 @@ test.describe('Admin and Maintenance Operations', () => {
 
   test('should allow archiving and deleting a project', async ({ page }) => {
     const project = await prisma.project.findFirst({ where: { name: 'Waymo Autonomous Trucking' } });
-    await page.goto(`/projects/${project?.id}`);
+    await page.goto(`/programs/${project?.id}`);
 
     // Archive project
-    await page.click('button:has-text("Archive Project")');
+    await page.getByRole('button', { name: 'Archive', exact: true }).click();
     await expect(page.locator('body')).toContainText('[Archived]');
 
     // Delete project with confirmation name typing
-    await page.click('button:has-text("Delete Project")');
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
     await page.fill('input[id="confirmProjectName"]', 'Waymo Autonomous Trucking');
     await page.click('button:has-text("Permanently Delete Project")');
 

@@ -20,7 +20,7 @@ test.describe('Program brief', () => {
   });
 
   test('degrades to an honest empty state when Gemini is unconfigured', async ({ page }) => {
-    await page.goto(`/projects/${seeded.projectId}`);
+    await page.goto(`/programs/${seeded.projectId}`);
 
     await expect(page.getByRole('heading', { name: 'Program brief' })).toBeVisible();
     await expect(page.getByText('AI briefs are off')).toBeVisible();

@@ -2,8 +2,9 @@ import { test, expect } from '@playwright/test';
 import { prisma } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
-// Behavioral coverage for the status-history pages: programs chart progress AND health
-// with needle list-cards; phases chart progress only (no health axis) with hill cards.
+// Behavioral coverage for the status-update LOG pages: a list of updates (needle for
+// programs/partners, hill for phases), newest first — no chart, and a back affordance
+// that returns wherever the user actually came from.
 
 test.describe('History pages', () => {
   test.describe.configure({ mode: 'serial' });
@@ -18,24 +19,30 @@ test.describe('History pages', () => {
     await prisma.$disconnect();
   });
 
-  test('program history shows health + progress and needle list-cards', async ({ page }) => {
+  test('program history is a status-update log with an honest back', async ({ page }) => {
+    // Arrive FROM the home page — back must return there, not to a hardcoded guess.
+    await page.goto('/');
     await page.goto(`/history/project/${seeded.projectId}`);
 
     await expect(page.locator('h1')).toContainText('R2 AAOS Bring-up');
-    await expect(page.getByText('Progress & health over time.')).toBeVisible();
+    await expect(page.getByText('Every needle status update, newest first.')).toBeVisible();
+    // No chart — this page is a log, the gauges live on the program page.
+    await expect(page.locator('section svg')).toHaveCount(0);
 
     // The weekly update renders as a list-card: health word + markdown note.
     const changes = page.locator('article').filter({ hasText: 'Concerned' });
     await expect(changes.first()).toContainText('Codec blockers slowing integration.');
+
+    await page.getByRole('button', { name: '← Back' }).click();
+    await page.waitForURL('http://localhost:3100/');
   });
 
-  test('phase history charts progress only and shows hill list-cards', async ({ page }) => {
+  test('phase history is a hill-update log', async ({ page }) => {
     await page.goto(`/history/phase/${seeded.phases.integration}`);
 
     await expect(page.locator('h1')).toContainText('R2 AAOS Bring-up — Integration');
-    // Phases have no health — the subtitle and chart must not mention it.
-    await expect(page.getByText('Progress over time.')).toBeVisible();
-    await expect(page.getByText('Progress & health over time.')).toHaveCount(0);
+    // Phases have no health — the intro says hill updates, nothing more.
+    await expect(page.getByText('Every hill-chart update for this phase, newest first.')).toBeVisible();
 
     const card = page.locator('article').filter({ hasText: 'In Progress' });
     await expect(card.first()).toContainText('Codec drops blocking the DSP path.');
