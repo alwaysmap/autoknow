@@ -2,10 +2,11 @@ import { test, expect, type Page } from '@playwright/test';
 import { prisma } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
-// Behavioral coverage for the PhaseTrack train-line surface (spec §2.13): critical
-// chain emphasis, compact read-only cards whose only affordances are the fold chevron
-// and DETAILS, and the focused details surface (status update, involvement editing,
-// dependencies with cycle rejection, history, phase removal).
+// Behavioral coverage for the PhaseTrack train-line surface (spec §2.13) and the
+// program phase editor: critical chain + explained constraint, compact read-only
+// cards (typed involvement pills, no role labels, no status words), the focused
+// popover (required-note status update, involvement editing, read-only dependencies),
+// and structural editing gated behind whole-graph DAG validation.
 
 test.describe('PhaseTrack rail', () => {
   test.describe.configure({ mode: 'serial' });
@@ -21,7 +22,7 @@ test.describe('PhaseTrack rail', () => {
   });
 
   // Match by the row's name anchor exactly — substring matching would also catch rows
-  // whose notes/roles mention another phase's name (e.g. an "Audio lead" role).
+  // whose notes mention another phase's name.
   const row = (page: Page, name: string) =>
     page.getByTestId('phase-row').filter({ has: page.locator(`a:text-is("${name}")`) });
   const details = (page: Page) => page.getByTestId('phase-details');
@@ -30,42 +31,40 @@ test.describe('PhaseTrack rail', () => {
     await expect(details(page)).toBeVisible();
   };
 
-  test('shows the critical chain summary and tags the constraint', async ({ page }) => {
-    await page.goto(`/projects/${seeded.projectId}`);
+  test('constraint evidence rides the chain-head card; no pill, no chain summary', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
 
-    // Chain = Bring-up → Integration → Certification, ≈74 days of forecast work left.
-    const summary = page.locator('p').filter({ hasText: 'Critical chain' });
-    await expect(summary).toContainText('Bring-up');
-    await expect(summary).toContainText('Integration');
-    await expect(summary).toContainText('Certification');
-    await expect(summary).toContainText('≈74 days remaining');
+    // The first unfinished chain phase carries ONE compact evidence line (the amber
+    // station ring + this line are the signal — the CONSTRAINT pill is gone);
+    // the off-chain phase carries none.
+    const integration = row(page, 'Integration');
+    await expect(integration).toContainText('gates ≈74 days of downstream chain work');
+    await expect(integration.filter({ hasText: 'Constraint' })).toHaveCount(0);
+    await expect(row(page, 'Audio')).not.toContainText('gates ≈');
 
-    // The first unfinished chain phase is the constraint; the off-chain phase is not.
-    await expect(row(page, 'Integration').filter({ hasText: 'Constraint' })).toHaveCount(1);
-    await expect(row(page, 'Audio').filter({ hasText: 'Constraint' })).toHaveCount(0);
+    // The old duplicate chain summary line is gone — the track IS the chain.
+    await expect(page.locator('p').filter({ hasText: /Critical chain/ })).toHaveCount(0);
   });
 
-  test('cards are compact and read-only: chevron + Details are the only affordances', async ({ page }) => {
-    await page.goto(`/projects/${seeded.projectId}`);
+  test('cards are compact: typed pills without role labels, no status words', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
 
-    // Done phase starts collapsed: header line only.
+    // Done phase starts collapsed: header line only, no Details affordance.
     const bringUp = row(page, 'Bring-up');
-    await expect(bringUp).toContainText('Done');
     await expect(bringUp.getByRole('button', { name: 'Details' })).toHaveCount(0);
 
-    // Active phase starts open: Details visible; no history or editors on the card.
+    // Status is carried by glyphs, not words, on the card header.
+    await expect(bringUp).not.toContainText('Done');
     const integration = row(page, 'Integration');
-    await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
-    await expect(integration.getByText('History')).toHaveCount(0);
-    await expect(integration.getByText('Remove phase')).toHaveCount(0);
-    await expect(integration.getByText('After', { exact: true })).toHaveCount(0);
+    await expect(integration).not.toContainText('In Progress');
 
-    // Involvement is listed read-only with roles (partner + person).
+    // Involvement renders as pills — names only, the colour carries the company type.
     await expect(integration).toContainText('Denso');
     await expect(integration).toContainText('Kenji Sato');
-    await expect(integration).toContainText('FAE');
+    await expect(integration).not.toContainText('FAE');
 
-    // The chevron folds the card away and back.
+    // The caret folds the card away and back; Details rides in the header when open.
+    await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
     const toggle = integration.locator('button[aria-label^="Toggle detail"]');
     await toggle.click();
     await expect(integration.getByRole('button', { name: 'Details' })).toHaveCount(0);
@@ -74,7 +73,7 @@ test.describe('PhaseTrack rail', () => {
   });
 
   test('anticipated vs actual duration is shown per phase, in weeks', async ({ page }) => {
-    await page.goto(`/projects/${seeded.projectId}`);
+    await page.goto(`/programs/${seeded.projectId}`);
 
     // Done: planned vs took. In progress: planned vs elapsed. Not started: planned only.
     await expect(row(page, 'Bring-up')).toContainText(/[\d.]+w planned · took/);
@@ -82,74 +81,65 @@ test.describe('PhaseTrack rail', () => {
     await expect(row(page, 'Certification')).toContainText(/[\d.]+w planned/);
   });
 
-  test('dependencies can be added and removed on the details surface', async ({ page }) => {
-    await page.goto(`/projects/${seeded.projectId}`);
+  test('structure is read-only on the rail: no add/remove/rewire affordances', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
+
+    // No inline add-phase; the one door is the editor link.
+    await expect(page.getByLabel('New phase name')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Edit phases/ })).toBeVisible();
+
+    // The popover shows dependencies as jump chips only — nothing to add or remove —
+    // and has no phase removal.
+    await openDetails(page, 'Integration');
+    await expect(details(page)).toContainText('Bring-up'); // After chip
+    await expect(details(page).locator('select[aria-label="Add a dependency"]')).toHaveCount(0);
+    await expect(details(page).getByRole('button', { name: 'Remove dependency' })).toHaveCount(0);
+    await expect(details(page).getByRole('button', { name: 'Remove phase' })).toHaveCount(0);
+  });
+
+  test('the popover is a modal over the rail; Esc closes it', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
+    const url = page.url();
+
+    await openDetails(page, 'Audio');
+    expect(page.url()).toBe(url); // same page — no navigation, no <dialog>
+    await expect(page.getByRole('dialog', { name: 'Audio' })).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(details(page)).toHaveCount(0);
+  });
+
+  test('a hill update REQUIRES a note; saving records history', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
     await openDetails(page, 'Audio');
 
-    // Add "after Integration" via the quiet select.
-    await details(page).locator('select[aria-label="Add a dependency"]').selectOption({ label: 'Integration' });
-    const chip = details(page).locator('[class*="depChip"]').filter({ hasText: 'Integration' });
-    await expect(chip).toHaveCount(1);
+    // Move the dot but say nothing → blocked with the inline error, still open.
+    await details(page).locator('input[id^="phaseHillProgress-"]').fill('55');
+    await details(page).getByRole('button', { name: 'Save Update' }).click();
+    await expect(details(page)).toContainText('A progress change needs a note');
+    await expect(details(page)).toBeVisible();
 
-    // Remove it again via the chip's ✕.
-    await chip.locator('button[title="Remove dependency"]').click();
-    await expect(details(page).locator('[class*="depChip"]').filter({ hasText: 'Integration' })).toHaveCount(0);
+    // Write the note in the WYSIWYG editor (markdown under the hood) and save.
+    await details(page).locator('[data-testid="note-editor"] [contenteditable="true"]').click();
+    await page.keyboard.type('Codec samples landed; over the hill.');
+    await details(page).getByRole('button', { name: 'Save Update' }).click();
+
+    // Back on the track: the card shows the new note but NOT the history list.
+    const audio = row(page, 'Audio');
+    await expect(audio).toContainText('Codec samples landed; over the hill.', { timeout: 10000 });
+    await expect(audio.getByText('History')).toHaveCount(0);
+
+    // The history (with the prior update) lives on the popover.
+    await openDetails(page, 'Audio');
+    await expect(details(page).getByText('History', { exact: true })).toBeVisible();
+    await expect(details(page).locator('[class*="historyItem"]')).toHaveCount(2);
   });
 
-  test('rejects a dependency that would create a cycle', async ({ page }) => {
-    await page.goto(`/projects/${seeded.projectId}`);
-    await openDetails(page, 'Integration');
-    await expect(details(page).locator('select[aria-label="Add a dependency"]')).toBeVisible();
-
-    // The client already filters cycle-creating options out of the select (Integration
-    // is only offered "Audio"), so force the request the way a stale client could:
-    // inject Certification — Integration's own descendant — and fire the change.
-    await page.evaluate(
-      ({ certId }) => {
-        const sel = document.querySelector(
-          '[data-testid="phase-details"] select[aria-label="Add a dependency"]',
-        ) as HTMLSelectElement;
-        const opt = document.createElement('option');
-        opt.value = String(certId);
-        sel.appendChild(opt);
-        Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')!.set!.call(sel, String(certId));
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-      },
-      { certId: seeded.phases.certification },
-    );
-
-    await expect(details(page).getByText(/Rejected — .* \(cycle\)/)).toBeVisible();
-
-    // And nothing was written: Integration still has exactly its seeded parent.
-    const deps = await prisma.phaseDependency.count({ where: { phaseId: seeded.phases.integration } });
-    expect(deps).toBe(1);
-  });
-
-  test('adds a phase with an "after" dependency and removes it from details', async ({ page }) => {
-    await page.goto(`/projects/${seeded.projectId}`);
-
-    await page.getByLabel('New phase name').fill('Field Trials');
-    await page.getByLabel('After phase (optional)').selectOption({ label: 'Certification' });
-    await page.getByRole('button', { name: 'Add phase', exact: true }).click();
-
-    const fieldTrials = row(page, 'Field Trials');
-    await expect(fieldTrials).toHaveCount(1);
-    // The chain extends through the new phase: 74 + 30 (default forecast) ≈ 104 days.
-    await expect(page.locator('p').filter({ hasText: 'Critical chain' })).toContainText('≈104 days remaining');
-
-    // Remove it entirely (on the details surface, confirmed) — the chain returns.
-    page.on('dialog', (d) => d.accept());
-    await openDetails(page, 'Field Trials');
-    await details(page).getByRole('button', { name: 'Remove phase' }).click();
-    await expect(row(page, 'Field Trials')).toHaveCount(0);
-    await expect(page.locator('p').filter({ hasText: 'Critical chain' })).toContainText('≈74 days remaining');
-  });
-
-  test('partner involvement is editable on the details surface', async ({ page }) => {
-    await page.goto(`/projects/${seeded.projectId}`);
+  test('partner involvement is editable on the popover', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
     await openDetails(page, 'Integration');
 
-    // Seeded involvement is visible with its role.
+    // Seeded involvement is visible with its role (roles live HERE, not on the rail).
     const densoChip = details(page).locator('[class*="partnerChip"]').filter({ hasText: 'Denso' });
     await expect(densoChip).toContainText('Supplier');
 
@@ -168,8 +158,8 @@ test.describe('PhaseTrack rail', () => {
     await expect(details(page).locator('[class*="partnerChip"]').filter({ hasText: 'Rivian' })).toHaveCount(0);
   });
 
-  test('people involvement is editable on the details surface', async ({ page }) => {
-    await page.goto(`/projects/${seeded.projectId}`);
+  test('people involvement is editable on the popover', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
     await openDetails(page, 'Integration');
 
     // Seeded person is visible with role; remove them.
@@ -188,30 +178,141 @@ test.describe('PhaseTrack rail', () => {
     await expect(restored).toBeVisible();
     await expect(restored).toContainText('Audio lead');
   });
+});
 
-  test('the details surface takes a status update inline and records history', async ({ page }) => {
-    await page.goto(`/projects/${seeded.projectId}`);
-    const url = page.url();
+test.describe('Program phase editor', () => {
+  test.describe.configure({ mode: 'serial' });
 
-    await openDetails(page, 'Audio');
+  let seeded: SeededProgram;
 
-    // Same page — the surface swapped in place of the track (no dialog, no navigation).
-    expect(page.url()).toBe(url);
-    await expect(details(page).getByRole('heading', { name: 'Audio' })).toBeVisible();
-    await expect(page.locator('dialog[open]')).toHaveCount(0);
+  test.beforeAll(async () => {
+    seeded = await seedProgram();
+  });
 
-    await details(page).locator('input[id^="phaseHillProgress-"]').fill('55');
-    await details(page).locator('textarea[name="notes"]').fill('Codec samples landed; over the hill.');
-    await details(page).getByRole('button', { name: 'Save Update' }).click();
+  test.afterAll(async () => {
+    await prisma.$disconnect();
+  });
 
-    // Back on the track: the card shows the new note but NOT the history list.
-    const audio = row(page, 'Audio');
-    await expect(audio).toContainText('Codec samples landed; over the hill.', { timeout: 10000 });
-    await expect(audio.getByText('History')).toHaveCount(0);
+  // The card-DAG canvas: nodes carry only the name; everything else lives in the panel.
+  const card = (page: Page, name: string) =>
+    page.locator(`[data-testid="phase-card"][data-name="${name}"]`);
+  const panel = (page: Page) => page.getByTestId('phase-panel');
+  const saveBtn = (page: Page) => page.getByRole('button', { name: 'Save', exact: true });
+  // Chain math shows on the rail as the constraint card's evidence line.
+  const railRow = (page: Page, name: string) =>
+    page.getByTestId('phase-row').filter({ has: page.locator(`a:text-is("${name}")`) });
 
-    // The history (with the prior update) lives on the details surface.
-    await openDetails(page, 'Audio');
-    await expect(details(page).getByText('History', { exact: true })).toBeVisible();
-    await expect(details(page).locator('[class*="historyItem"]')).toHaveCount(2);
+  test('flags the seeded dead-end branch and disables Save', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}/phases`);
+
+    // Audio never converges on Certification — two sinks, so the graph is invalid.
+    await expect(page.getByTestId('dag-errors')).toContainText('“Audio” dead-ends');
+    await expect(saveBtn(page)).toBeDisabled();
+  });
+
+  test('click downstream, click upstream, CONNECT — the save persists', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}/phases`);
+
+    // Certification (downstream) opens the panel; Audio becomes the upstream candidate.
+    await card(page, 'Certification').click();
+    await expect(panel(page)).toBeVisible();
+    await card(page, 'Audio').click();
+    await panel(page).getByTestId('connect-after').click();
+
+    // Single sink again → valid → savable.
+    await expect(page.getByTestId('dag-errors')).toHaveCount(0);
+    await expect(saveBtn(page)).toBeEnabled();
+    await saveBtn(page).click();
+
+    await page.waitForURL(`**/programs/${seeded.projectId}`);
+    const deps = await prisma.phaseDependency.count({ where: { phaseId: seeded.phases.certification } });
+    expect(deps).toBe(2);
+  });
+
+  test('a cycle is flagged live and cannot be saved', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}/phases`);
+
+    // Integration already depends on Bring-up; wiring Bring-up after Certification cycles.
+    await card(page, 'Bring-up').click();
+    await card(page, 'Certification').click();
+    await panel(page).getByTestId('connect-after').click();
+
+    await expect(page.getByTestId('dag-errors')).toContainText('cycle');
+    await expect(saveBtn(page)).toBeDisabled();
+  });
+
+  test('renames and re-forecasts (weeks) via the detail panel', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}/phases`);
+
+    await card(page, 'Audio').click();
+    await panel(page).getByLabel('Phase name').fill('Audio & Media');
+    await panel(page).getByLabel('Forecast (weeks)').fill('3.5'); // ≈ the seeded 25 days
+    await saveBtn(page).click();
+    await page.waitForURL(`**/programs/${seeded.projectId}`);
+
+    // The rail reflects the rename and the weeks-based forecast.
+    const renamed = page.getByTestId('phase-row').filter({ has: page.locator('a:text-is("Audio & Media")') });
+    await expect(renamed).toHaveCount(1);
+    await expect(renamed).toContainText('3.6w planned'); // 25 days ≈ 3.6w
+  });
+
+  test('adds a phase after the end; removes it again', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}/phases`);
+
+    // Add opens the new card's panel; name it, forecast it, connect it after the end.
+    await page.getByRole('button', { name: 'Add phase' }).click();
+    await panel(page).getByLabel('Phase name').fill('Field Trials');
+    await panel(page).getByLabel('Forecast (weeks)').fill('4');
+    await card(page, 'Certification').click();
+    await panel(page).getByTestId('connect-after').click();
+
+    // The END ring follows the new single sink; the graph is valid; save.
+    await expect(card(page, 'Field Trials')).toHaveAttribute('title', /end phase/);
+    await expect(page.getByTestId('dag-errors')).toHaveCount(0);
+    await saveBtn(page).click();
+    await page.waitForURL(`**/programs/${seeded.projectId}`);
+
+    // The chain extends through the new phase: 74 + 28 ≈ 102 days — visible on the
+    // constraint card's evidence line (Integration still heads the chain).
+    await expect(railRow(page, 'Integration')).toContainText('gates ≈102 days of downstream chain work');
+
+    // Remove it from its panel (no history yet → no confirm) and save.
+    await page.goto(`/programs/${seeded.projectId}/phases`);
+    await card(page, 'Field Trials').click();
+    await panel(page).getByRole('button', { name: 'Remove phase' }).click();
+    await expect(page.getByTestId('dag-errors')).toHaveCount(0);
+    await saveBtn(page).click();
+    await page.waitForURL(`**/programs/${seeded.projectId}`);
+    await expect(railRow(page, 'Integration')).toContainText('gates ≈74 days of downstream chain work');
+  });
+
+  test('adds a phase UPSTREAM of existing work via “before”', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}/phases`);
+
+    // New node; click Bring-up as the other side; connect this one BEFORE it.
+    await page.getByRole('button', { name: 'Add phase' }).click();
+    await panel(page).getByLabel('Phase name').fill('Prep');
+    await panel(page).getByLabel('Forecast (weeks)').fill('4');
+    await card(page, 'Bring-up').click();
+    await panel(page).getByTestId('connect-before').click();
+
+    // Prep is now the root (Bring-up depends on it); the graph stays valid.
+    await expect(page.getByTestId('dag-errors')).toHaveCount(0);
+    await saveBtn(page).click();
+    await page.waitForURL(`**/programs/${seeded.projectId}`);
+
+    // The chain grew from the TOP: Prep (28d) + the old ≈74 ≈ 102 — and the
+    // CONSTRAINT moves to Prep, the new first unfinished stop on the chain.
+    await expect(railRow(page, 'Prep')).toContainText('gates ≈102 days of downstream chain work');
+    const bringUpDeps = await prisma.phaseDependency.count({ where: { phaseId: seeded.phases.bringUp } });
+    expect(bringUpDeps).toBe(1);
+
+    // Restore: remove Prep again.
+    await page.goto(`/programs/${seeded.projectId}/phases`);
+    await card(page, 'Prep').click();
+    await panel(page).getByRole('button', { name: 'Remove phase' }).click();
+    await saveBtn(page).click();
+    await page.waitForURL(`**/programs/${seeded.projectId}`);
+    await expect(railRow(page, 'Integration')).toContainText('gates ≈74 days of downstream chain work');
   });
 });

@@ -2,6 +2,9 @@
 
 import React, { useRef, useState } from 'react';
 import styles from './NeedleGauge.module.css';
+import MarkdownNoteEditor from './MarkdownNoteEditor';
+import { t, statusKey } from '../lib/i18n';
+import { useLocale } from './LocaleProvider';
 import { HILL_PATH, hillCoordinates } from '../lib/geometry';
 import { hillStatus, hillStatusColor, phaseColor } from '../lib/phase';
 import { updatePhaseHill } from '../app/actions/hill';
@@ -30,18 +33,7 @@ export interface HillGaugeStrings {
   statusText?: (progress: number) => string;
 }
 
-const EN_STRINGS: HillGaugeStrings = {
-  figuringItOut: 'Figuring it out',
-  makingItHappen: 'Making it happen',
-  update: 'Update',
-  dialogTitle: 'Phase progress update',
-  dragHint: 'Drag the dot to set progress',
-  noteFieldLabel: 'Update — what changed (optional, markdown)',
-  notePlaceholder: 'e.g. Cleared the codec blocker; entering integration.',
-  cancel: 'Cancel',
-  save: 'Save Update',
-  saving: 'Saving…',
-};
+
 
 export function PhaseHillSvg({
   progress,
@@ -49,7 +41,7 @@ export function PhaseHillSvg({
   color,
   label,
   className,
-  axisLabels = { left: EN_STRINGS.figuringItOut, right: EN_STRINGS.makingItHappen },
+  axisLabels,
 }: {
   progress: number; // 0..100
   previousProgress?: number | null;
@@ -58,6 +50,9 @@ export function PhaseHillSvg({
   className?: string;
   axisLabels?: { left: string; right: string } | null; // null hides the axis text
 }) {
+  const locale = useLocale();
+  const labels = axisLabels === null ? null
+    : axisLabels ?? { left: t(locale, 'figuringItOut'), right: t(locale, 'makingItHappen') };
   const cur = hillCoordinates(progress);
   const prev = previousProgress != null ? hillCoordinates(previousProgress) : null;
   return (
@@ -68,10 +63,10 @@ export function PhaseHillSvg({
       <circle cx={cur.x} cy={cur.y} r={6} fill={color} stroke="#fff" strokeWidth={1.6}>
         {label && <title>{label}</title>}
       </circle>
-      {axisLabels && (
+      {labels && (
         <>
-          <text x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.left}</text>
-          <text x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.right}</text>
+          <text x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{labels.left}</text>
+          <text x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{labels.right}</text>
         </>
       )}
     </svg>
@@ -93,8 +88,23 @@ interface PhaseHillGaugeProps {
 
 export default function PhaseHillGauge({
   phaseId, projectId, progress, previousProgress, updatedAt, phaseName, editable = true, showStatus = true,
-  color: colorProp, strings = EN_STRINGS,
+  color: colorProp, strings: stringsProp,
 }: PhaseHillGaugeProps) {
+  const locale = useLocale();
+  // Defaults come from the app-wide catalog; explicit `strings` still override.
+  const strings: HillGaugeStrings = stringsProp ?? {
+    figuringItOut: t(locale, 'figuringItOut'),
+    makingItHappen: t(locale, 'makingItHappen'),
+    update: t(locale, 'update'),
+    dialogTitle: t(locale, 'dialogTitle'),
+    dragHint: t(locale, 'dragHint'),
+    noteFieldLabel: t(locale, 'noteFieldLabel'),
+    notePlaceholder: t(locale, 'notePlaceholder'),
+    cancel: t(locale, 'cancel'),
+    save: t(locale, 'save'),
+    saving: t(locale, 'saving'),
+    statusText: (p: number) => t(locale, statusKey(p)),
+  };
   const color = colorProp ?? phaseColor(phaseId);
   const statusText = strings.statusText ?? hillStatus;
   const axisLabels = { left: strings.figuringItOut, right: strings.makingItHappen };
@@ -103,8 +113,9 @@ export default function PhaseHillGauge({
   const [drag, setDrag] = useState(progress);
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [noteError, setNoteError] = useState(false);
 
-  const open = () => { setDrag(progress); dialogRef.current?.showModal(); };
+  const open = () => { setDrag(progress); setNoteError(false); dialogRef.current?.showModal(); };
   const close = () => dialogRef.current?.close();
   const onBackdrop = (e: React.MouseEvent<HTMLDialogElement>) => { if (e.target === dialogRef.current) dialogRef.current?.close(); };
 
@@ -131,7 +142,7 @@ export default function PhaseHillGauge({
       </div>
 
       {showStatus && <div className={styles.statusValue} style={{ color: hillStatusColor(progress) }}>{statusText(progress)}</div>}
-      {updatedAt && <div className={styles.updatedAt}>Updated {new Date(updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>}
+      {updatedAt && <div className={styles.updatedAt}>{t(locale, 'updatedOn', { d: new Date(updatedAt).toLocaleDateString(locale, { month: 'short', day: 'numeric' }) })}</div>}
 
       {editable && <button type="button" onClick={open} className={styles.updateBtn}>{strings.update}</button>}
 
@@ -139,6 +150,10 @@ export default function PhaseHillGauge({
         <div className={styles.dialogHeader}><h3>{strings.dialogTitle}</h3></div>
         <form
           action={async (formData) => {
+            // updatePhaseHill requires a note — gate client-side (hidden input has no
+            // native `required`).
+            if (!((formData.get('notes') as string) || '').trim()) { setNoteError(true); return; }
+            setNoteError(false);
             setSubmitting(true);
             try { await updatePhaseHill(formData); dialogRef.current?.close(); }
             catch (err) { console.error(err); }
@@ -180,8 +195,10 @@ export default function PhaseHillGauge({
           </div>
 
           <div className={styles.formGroup}>
-            <label htmlFor={`phaseHillNotes-${phaseId}`} className={styles.formLabel}>{strings.noteFieldLabel}</label>
-            <textarea id={`phaseHillNotes-${phaseId}`} name="notes" rows={4} placeholder={strings.notePlaceholder} className={styles.textArea} />
+            <span className={styles.formLabel}>{strings.noteFieldLabel}</span>
+            <MarkdownNoteEditor name="notes" ariaLabel={strings.noteFieldLabel}
+              placeholder={strings.notePlaceholder} />
+            {noteError && <div style={{ color: '#c5221f', fontSize: 12 }}>{t(locale, 'noteRequired')}</div>}
           </div>
 
           <div className={styles.actionRow}>

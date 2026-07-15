@@ -87,7 +87,7 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
       subtitle: meta(s.project.name, s.source, true),
       detail: created ? null : s.notes,
       // Metric changes link to the value-over-time chart; creation links to the program.
-      href: created ? `/projects/${s.project.id}` : `/history/project/${s.project.id}`,
+      href: created ? `/programs/${s.project.id}` : `/history/project/${s.project.id}`,
       external: false,
       timestamp: s.timestamp.toISOString(),
       needle: created ? null : {

@@ -56,6 +56,9 @@ export async function seedProgram(): Promise<SeededProgram> {
       theNeedle: 'Concerned',
       hillChartProgress: 40,
       volumeFirstYear: 150000,
+      // every program must carry a target SOP (month-end) — the on-track yardstick
+      sopDate: new Date(Date.UTC(2027, 2, 31)),
+      hasGas: true,
     },
   });
 

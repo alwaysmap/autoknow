@@ -54,7 +54,7 @@ export async function addPhaseDependency(formData: FormData): Promise<Dependency
   }
 
   await prisma.phaseDependency.create({ data: { phaseId, dependsOnPhaseId } });
-  revalidatePath(`/projects/${projectIdStr}`);
+  revalidatePath(`/programs/${projectIdStr}`);
   return {};
 }
 
@@ -64,6 +64,6 @@ export async function removePhaseDependency(formData: FormData): Promise<Depende
   if (isNaN(id)) return { error: 'Invalid dependency' };
 
   await prisma.phaseDependency.deleteMany({ where: { id } });
-  revalidatePath(`/projects/${projectIdStr}`);
+  revalidatePath(`/programs/${projectIdStr}`);
   return {};
 }

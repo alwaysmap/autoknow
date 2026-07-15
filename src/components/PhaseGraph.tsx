@@ -6,7 +6,7 @@ import PhaseHillGauge from './PhaseHillGauge';
 import Markdown from './Markdown';
 import { hillStatus, hillStatusColor, phaseColor } from '../lib/phase';
 import { computeCriticalChain } from '../lib/criticalChain';
-import { addPhase, deletePhase } from '../app/projects/[id]/actions';
+import { addPhase, deletePhase } from '../app/programs/[id]/actions';
 import { addPhasePartner, removePhasePartner } from '../app/actions/phasePartners';
 import { addPhaseDependency, removePhaseDependency } from '../app/actions/dependencies';
 import styles from './PhaseGraph.module.css';
@@ -24,6 +24,8 @@ export interface PhaseGraphPartner {
   partnerId: number;
   name: string;
   role: string | null;
+  type?: string | null; // PartnerType name (OEM / Supplier / …) — drives the involvement pill
+  otherActive?: number; // active phases in OTHER programs involving this partner (resource contention)
 }
 
 export interface PhaseGraphParent {

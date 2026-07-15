@@ -49,31 +49,21 @@ test.describe('Project Details and Action Item Operations', () => {
     await prisma.$disconnect();
   });
 
-  test('should display project details and allow updating action item properties', async ({ page }) => {
-    await page.goto(`/projects/${projectId}`);
+  test('should display project details; the retired action-item editor is gone', async ({ page }) => {
+    await page.goto(`/programs/${projectId}`);
 
     // Verify page content
     await expect(page.locator('h1')).toContainText('Android Car 2026');
     await expect(page.locator('body')).toContainText('Compliance Testing');
-    await expect(page.locator('body')).toContainText('Fix CTS testCarService failing');
 
-    // Perform update on action item status, next step, and link
-    const itemContainer = page.locator(`.action-item-${actionItemId}`);
-    await itemContainer.locator('select[name="nextStep"]').selectOption('Partner');
-    await itemContainer.locator('input[name="linkUrl"]').fill('https://buganizer.corp.google.com/issues/12345');
-    await itemContainer.locator('select[name="status"]').selectOption('Completed');
-    
-    // Submit the update
-    await itemContainer.locator('button[type="submit"]').click();
-
-    // Verify redirected page shows updated details
-    await expect(page.locator(`.action-item-${actionItemId}`)).toContainText('Partner');
-    await expect(page.locator(`.action-item-${actionItemId} a`)).toHaveAttribute('href', 'https://buganizer.corp.google.com/issues/12345');
-    await expect(page.locator(`.action-item-${actionItemId}`)).toContainText('Completed');
+    // Action items no longer have a page-level editor (activities retired from the
+    // phase surface; updates flow through Needle/Hill notes → the Gemini brief).
+    await expect(page.getByRole('heading', { name: 'Actions & Decisions' })).toHaveCount(0);
+    await expect(page.locator(`.action-item-${actionItemId}`)).toHaveCount(0);
   });
 
   test('should allow updating program progress + health via the gauge dialog', async ({ page }) => {
-    await page.goto(`/projects/${projectId}`);
+    await page.goto(`/programs/${projectId}`);
 
     // The Progress & Health card in the status dashboard
     const card = page.locator('[class*="summaryCard"]').filter({ hasText: 'Progress & Health' }).filter({ has: page.getByRole('button', { name: 'Update', exact: true }) });
@@ -82,7 +72,8 @@ test.describe('Project Details and Action Item Operations', () => {
     const dialog = page.locator('dialog[open]');
     await dialog.locator('input[type="range"]').fill('85');
     await dialog.locator('button:has-text("Concerned")').click();
-    await dialog.locator('textarea[name="notes"]').fill('Critical timeline blockers piling up');
+    await dialog.locator('[data-testid="note-editor"] [contenteditable="true"]').click();
+    await page.keyboard.type('Critical timeline blockers piling up');
     await dialog.locator('button:has-text("Save Update")').click();
 
     // Verify the gauge card and activity reflect the update
@@ -91,23 +82,24 @@ test.describe('Project Details and Action Item Operations', () => {
     await expect(page.locator('body')).toContainText('Critical timeline blockers piling up');
   });
 
-  test('should allow updating a phase from its details surface', async ({ page }) => {
-    await page.goto(`/projects/${projectId}`);
+  test('should allow updating a phase from its details popover', async ({ page }) => {
+    await page.goto(`/programs/${projectId}`);
 
-    // The phase's row on the PhaseTrack (status derives from progress: 10 -> In Progress)
+    // The phase's row on the PhaseTrack — status reads from glyphs, not words.
     const row = page.getByTestId('phase-row').filter({ hasText: 'Compliance Testing' });
-    await expect(row).toContainText('In Progress');
 
-    // Details swaps the phases surface in place — no dialog, no navigation.
+    // Details lifts the phase into the focused popover over a scrim.
     await row.getByRole('button', { name: 'Details' }).click();
     const details = page.getByTestId('phase-details');
     await expect(details.getByRole('heading', { name: 'Compliance Testing' })).toBeVisible();
     await details.locator('input[id^="phaseHillProgress-"]').fill('100');
-    await details.locator('textarea[name="notes"]').fill('All CTS modules passing; phase complete.');
+    await details.locator('[data-testid="note-editor"] [contenteditable="true"]').click();
+    await page.keyboard.type('All CTS modules passing; phase complete.');
     await details.getByRole('button', { name: 'Save Update' }).click();
 
     // Progress 100 derives Done — the row collapses into the quiet completed state
-    await expect(row).toContainText('Done', { timeout: 10000 });
+    // (header only: the Details affordance folds away with the card body).
+    await expect(row.getByRole('button', { name: 'Details' })).toHaveCount(0, { timeout: 10000 });
     await expect(page.locator('body')).toContainText('All CTS modules passing; phase complete.');
   });
 });

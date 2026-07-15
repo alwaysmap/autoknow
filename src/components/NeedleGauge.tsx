@@ -2,8 +2,11 @@
 
 import React, { useRef, useState } from 'react';
 import styles from './NeedleGauge.module.css';
+import MarkdownNoteEditor from './MarkdownNoteEditor';
+import { t } from '../lib/i18n';
+import { useLocale } from './LocaleProvider';
 import { updateNeedleStatus } from '../app/actions/needle';
-import { HEALTHS, healthColor, parseHealth, type Health } from '../lib/health';
+import { HEALTHS, healthColor, healthKey, parseHealth, type Health } from '../lib/health';
 
 // Program status drawn as a Basecamp-style gauge: a WHITE track (a thick band with a
 // thin outline) whose health color fills up to the current progress, with graticules
@@ -144,7 +147,9 @@ export default function NeedleGauge({
   const [dragProgress, setDragProgress] = useState<number>(progress);
   const [pickHealth, setPickHealth] = useState<Health>(currentHealth);
   const [dragging, setDragging] = useState(false);
+  const locale = useLocale();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [noteError, setNoteError] = useState(false);
 
   const open = () => { setDragProgress(progress); setPickHealth(currentHealth); dialogRef.current?.showModal(); };
   const close = () => dialogRef.current?.close();
@@ -170,15 +175,18 @@ export default function NeedleGauge({
         </svg>
       </div>
 
-      <div className={styles.statusValue} style={{ color: healthColor(currentHealth) }}>{currentHealth}</div>
-      {updatedAt && <div className={styles.updatedAt}>Updated {new Date(updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>}
+      <div className={styles.statusValue} style={{ color: healthColor(currentHealth) }}>{t(locale, healthKey(currentHealth))}</div>
+      {updatedAt && <div className={styles.updatedAt}>{t(locale, 'updatedOn', { d: new Date(updatedAt).toLocaleDateString(locale, { month: 'short', day: 'numeric' }) })}</div>}
 
-      {editable && <button type="button" onClick={open} className={styles.updateBtn}>Update</button>}
+      {editable && <button type="button" onClick={open} className={styles.updateBtn}>{t(locale, 'update')}</button>}
 
       <dialog ref={dialogRef} className={styles.dialog} onClick={onBackdrop}>
-        <div className={styles.dialogHeader}><h3>Weekly program update</h3></div>
+        <div className={styles.dialogHeader}><h3>{t(locale, 'weeklyUpdate')}</h3></div>
         <form
           action={async (formData) => {
+            // The rich editor's hidden input can't carry native `required` — gate here.
+            if (!((formData.get('notes') as string) || '').trim()) { setNoteError(true); return; }
+            setNoteError(false);
             setIsSubmitting(true);
             try { await updateNeedleStatus(formData); dialogRef.current?.close(); }
             catch (err) { console.error(err); }
@@ -192,7 +200,7 @@ export default function NeedleGauge({
           <input type="hidden" name="hillChartProgress" value={dragProgress} />
 
           <div className={styles.previewContainer} style={{ userSelect: 'none' }}>
-            <span className={styles.previewLabel}>Drag the needle to set progress</span>
+            <span className={styles.previewLabel}>{t(locale, 'dragNeedleHint')}</span>
             <svg
               ref={svgRef}
               className={styles.gaugeSvg}
@@ -206,7 +214,7 @@ export default function NeedleGauge({
             </svg>
             <input
               id="needleProgress"
-              aria-label="Program progress"
+              aria-label={t(locale, 'programProgressAria')}
               type="range"
               min="0"
               max="100"
@@ -217,25 +225,27 @@ export default function NeedleGauge({
           </div>
 
           <div className={styles.formGroup}>
-            <label className={styles.formLabel}>Health</label>
+            <label className={styles.formLabel}>{t(locale, 'healthLabel')}</label>
             <div className={styles.healthPicker}>
               {HEALTHS.map((h) => (
                 <button key={h} type="button" onClick={() => setPickHealth(h)} aria-pressed={pickHealth === h} className={styles.healthChip}
                   style={{ borderColor: healthColor(h), background: pickHealth === h ? healthColor(h) : 'transparent', color: pickHealth === h ? '#fff' : healthColor(h) }}>
-                  {h}
+                  {t(locale, healthKey(h))}
                 </button>
               ))}
             </div>
           </div>
 
           <div className={styles.formGroup}>
-            <label htmlFor="needleNotes" className={styles.formLabel}>Update — what changed &amp; why (markdown)</label>
-            <textarea id="needleNotes" name="notes" required rows={5} placeholder={"e.g. **Deploying** first week of cooldown.\n- timesheet widget scoped to recordings\n- one blocker on export"} className={styles.textArea} />
+            <span className={styles.formLabel}>{t(locale, 'updateWhatWhy')}</span>
+            <MarkdownNoteEditor name="notes" ariaLabel={t(locale, 'updateWhatWhy')}
+              placeholder={t(locale, 'needleNotePlaceholder')} />
+            {noteError && <div style={{ color: '#c5221f', fontSize: 12 }}>{t(locale, 'updateNeedsNote')}</div>}
           </div>
 
           <div className={styles.actionRow}>
-            <button type="button" onClick={close} disabled={isSubmitting} className={styles.cancelBtn}>Cancel</button>
-            <button type="submit" disabled={isSubmitting} className={styles.submitBtn}>{isSubmitting ? 'Saving…' : 'Save Update'}</button>
+            <button type="button" onClick={close} disabled={isSubmitting} className={styles.cancelBtn}>{t(locale, 'cancel')}</button>
+            <button type="submit" disabled={isSubmitting} className={styles.submitBtn}>{isSubmitting ? t(locale, 'saving') : t(locale, 'save')}</button>
           </div>
         </form>
       </dialog>

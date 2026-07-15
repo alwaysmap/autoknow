@@ -63,7 +63,8 @@ test.describe('Progress & Health gauge updates', () => {
     const dialog = page.locator('dialog[open]');
     await dialog.locator('input[type="range"]').fill('65');
     await dialog.locator('button:has-text("Some Risk")').click();
-    await dialog.locator('textarea[name="notes"]').fill('Tesla partnership risk is elevated due to supply chains.');
+    await dialog.locator('[data-testid="note-editor"] [contenteditable="true"]').click();
+    await page.keyboard.type('Tesla partnership risk is elevated due to supply chains.');
     await dialog.locator('button:has-text("Save Update")').click();
 
     // Verify it closed and the header gauge now reads Some Risk
@@ -72,7 +73,7 @@ test.describe('Progress & Health gauge updates', () => {
   });
 
   test('should allow updating progress + health at the Project level', async ({ page }) => {
-    await page.goto(`/projects/${projectId}`);
+    await page.goto(`/programs/${projectId}`);
 
     // The Progress & Health card in the status dashboard
     const card = page.locator('[class*="summaryCard"]').filter({ hasText: 'Progress & Health' }).filter({ has: page.getByRole('button', { name: 'Update', exact: true }) });
@@ -82,7 +83,8 @@ test.describe('Progress & Health gauge updates', () => {
     const dialog = page.locator('dialog[open]');
     await dialog.locator('input[type="range"]').fill('35');
     await dialog.locator('button:has-text("Concerned")').click();
-    await dialog.locator('textarea[name="notes"]').fill('Codec blockers piling up');
+    await dialog.locator('[data-testid="note-editor"] [contenteditable="true"]').click();
+    await page.keyboard.type('Codec blockers piling up');
     await dialog.locator('button:has-text("Save Update")').click();
 
     // Verify the gauge card shows the new health and the note landed in activity

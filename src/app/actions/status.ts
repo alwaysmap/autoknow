@@ -32,6 +32,6 @@ export async function deleteFeedItem(formData: FormData) {
       return;
   }
 
-  revalidatePath('/activity');
+  revalidatePath('/'); // the ecosystem feed lives on the home page
   if (revalidate) revalidatePath(revalidate);
 }

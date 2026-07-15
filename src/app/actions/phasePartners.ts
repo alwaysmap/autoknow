@@ -20,7 +20,7 @@ export async function addPhasePartner(formData: FormData) {
     create: { phaseId, partnerId, role },
   });
 
-  revalidatePath(`/projects/${projectIdStr}`);
+  revalidatePath(`/programs/${projectIdStr}`);
   revalidatePath(`/partners/${partnerId}`);
 }
 
@@ -35,5 +35,5 @@ export async function removePhasePartner(formData: FormData) {
     await prisma.phasePartner.delete({ where: { id } });
     revalidatePath(`/partners/${existing.partnerId}`);
   }
-  revalidatePath(`/projects/${projectIdStr}`);
+  revalidatePath(`/programs/${projectIdStr}`);
 }

@@ -6,74 +6,6 @@
   width: 100%;
 }
 
-/* Prototype-only variant/locale switcher — quiet, review scaffolding. */
-.protoBar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 14px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-}
-.protoOn {
-  color: var(--fg);
-  text-decoration: none;
-  border-bottom: 2px solid #c98a1a;
-  padding-bottom: 1px;
-}
-.protoOff {
-  color: var(--muted);
-  text-decoration: none;
-}
-.protoOff:hover {
-  color: var(--fg);
-}
-.protoSep {
-  color: var(--border);
-}
-
-/* Critical-chain summary (variants a/b). Slightly stronger than the old one — it is
-   the most important line on the surface. */
-.chainSummary {
-  margin: 0 0 14px;
-  font-size: 13.5px;
-  line-height: 1.7;
-  color: var(--muted);
-}
-
-.chainLabel {
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 11px;
-  color: #c98a1a;
-  margin-right: 8px;
-}
-
-.chainArrow {
-  color: var(--border);
-}
-
-.chainLink {
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  font-weight: 600;
-  color: var(--fg);
-  cursor: pointer;
-}
-.chainLink:hover {
-  text-decoration: underline;
-}
-
-.chainDays {
-  white-space: nowrap;
-  font-weight: 600;
-  color: var(--fg);
-}
-
 /* CCPM resource line: the owner's concurrent load across other programs. */
 .resourceLine {
   margin: -6px 0 14px;
@@ -178,6 +110,44 @@
   white-space: nowrap;
 }
 
+/* The constraint tag's evidence: chain head, resource contention, buffer consumption.
+   ONE clamped quiet-amber line (hover for the full text) — evidence supports the
+   update, it must not out-shout it. */
+.constraintWhy {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #a06f12;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Contention badge inside an involvement pill: +n active phases elsewhere. */
+.pillLoad {
+  margin-left: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #c98a1a;
+}
+.pillLead .pillLoad {
+  color: #f3c876;
+}
+
+/* The one door to structural editing. */
+.editPhasesLink {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+}
+.editPhasesLink:hover {
+  color: var(--fg);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* Single-line rows (variants b/c): partners ride in the header. */
 .headPartners {
   font-size: 12.5px;
@@ -211,14 +181,15 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Disclosure caret — deliberately NOT a circular +/- button (that read as "Add").
+   A rotating chevron is unambiguous: down = open, right = collapsed. */
 .chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  width: 22px;
-  height: 22px;
-  line-height: 1;
-  font-size: 13px;
+  border: none;
+  padding: 2px;
   color: var(--muted);
   cursor: pointer;
   flex-shrink: 0;
@@ -271,6 +242,13 @@
 .noteEmpty {
   font-size: 13px;
   font-style: italic;
+  color: var(--muted);
+}
+
+/* The update's attribution — rides directly under the note it belongs to. */
+.noteBy {
+  margin-top: -6px;
+  font-size: 11.5px;
   color: var(--muted);
 }
 
@@ -356,13 +334,6 @@
   text-decoration-color: var(--fg);
 }
 
-/* Card actions: Status update (primary path) + Edit (structural, gated). */
-.cardBtns {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-top: 2px;
-}
 .primaryQuietBtn {
   font-size: 11px;
   font-weight: 600;
@@ -376,6 +347,76 @@
 .primaryQuietBtn:hover {
   background: var(--fg);
   color: #fff;
+}
+
+/* Icon-only "Details" affordance, riding in the header next to the fold caret —
+   same spot on every card. It lifts the phase into the focused popover. */
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 0;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.iconBtn:hover {
+  color: var(--fg);
+  background: var(--surface);
+}
+
+/* Involvement pills: the pill's colour carries the company's kind, so role labels
+   ("Supplier", "FAE") drop away. People inherit their employer's kind. */
+.pillRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+/* Deliberately small and quiet — who's involved is context, not the headline. */
+.pill {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  text-decoration: none;
+  white-space: nowrap;
+  opacity: 0.92;
+}
+/* Lead partner (OEM / Supplier): solid ink, light text. */
+.pillLead {
+  background: var(--fg);
+  color: #fff;
+}
+.pillLead:hover {
+  opacity: 0.85;
+}
+/* Any other company: light chip, dark text. */
+.pillCompany {
+  background: var(--surface);
+  color: var(--fg);
+  border-color: var(--border);
+}
+.pillCompany:hover {
+  border-color: var(--muted);
+}
+/* Google-internal: a dotted outline — shape, not just color, sets Googlers apart.
+   The blue stays as a quiet tint on the border/text, never a fill. */
+.pillGoogler {
+  background: transparent;
+  color: var(--fg);
+  border: 1.5px dotted #5b7bb8;
+}
+.pillGoogler:hover {
+  border-color: #1a56c4;
+  color: #1a56c4;
 }
 
 /* Structural editors, revealed only behind Edit. */
@@ -605,11 +646,62 @@
   border-radius: 2px;
 }
 
-/* Focused DETAILS surface: replaces the whole track — no dialog, no separate page.
+/* Focused DETAILS popover: the phase lifts off the rail and floats over a scrim —
+   a clearly different mode, not a denser inline card. Click-scrim or Esc to close.
    Status update, involvement editing, dependencies, history, and removal live here. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(20, 20, 20, 0.4);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 6vh 16px 16px;
+  overflow-y: auto;
+  animation: scrimIn 0.12s ease-out;
+}
+@keyframes scrimIn {
+  from { background: rgba(20, 20, 20, 0); }
+  to { background: rgba(20, 20, 20, 0.4); }
+}
+.popover {
+  position: relative;
+  width: min(720px, 100%);
+  background: #fff;
+  border: 1px solid var(--border);
+  /* the amber edge echoes the constraint marker — "you are focused on one station" */
+  border-left: 3px solid #c98a1a;
+  border-radius: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+  padding: 22px 26px;
+  animation: popIn 0.14s ease-out;
+}
+@keyframes popIn {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.popClose {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+}
+.popClose:hover {
+  color: var(--fg);
+}
+.popStation {
+  align-self: center;
+  flex-shrink: 0;
+}
 .details {
   max-width: 720px;
-  padding: 4px 0 8px;
   display: flex;
   flex-direction: column;
   gap: 16px;
