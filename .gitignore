@@ -56,3 +56,6 @@ node_modules/
 
 # Scratch scripts
 *.py
+
+# Review artifacts from agent-driven visual verification
+/screenshots/

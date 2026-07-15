@@ -52,9 +52,13 @@ model Project {
   isArchived        Boolean        @default(false)
   theNeedle         String         @default("Low")
   hillChartProgress Int            @default(0)
-  sopDate           DateTime?
+  sopDate           DateTime? // target SOP — month/year minimum, stored as month-end
   ownerName         String?
   volumeFirstYear   Int            @default(0)
+  // Included Google products — which capacity this program brings online.
+  hasGas            Boolean        @default(false) // Google Automotive Services
+  hasGbi            Boolean        @default(false) // Google Built-In
+  hasDigitalKey     Boolean        @default(false)
   states            ProjectState[]
   briefs            ProgramBrief[]
   embedding         Unsupported("vector(768)")?
