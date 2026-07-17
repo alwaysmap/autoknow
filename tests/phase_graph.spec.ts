@@ -27,8 +27,16 @@ test.describe('PhaseTrack rail', () => {
     page.getByTestId('phase-row').filter({ has: page.locator(`a:text-is("${name}")`) });
   const details = (page: Page) => page.getByTestId('phase-details');
   const openDetails = async (page: Page, name: string) => {
-    await row(page, name).getByRole('button', { name: 'Details' }).click();
-    await expect(details(page)).toBeVisible();
+    // Hydration-resilient open: a click can land before React attaches the handler
+    // on a cold dev-server load, and a swallowed click is never retried by expect().
+    // Only click while the popover is closed (a late-opening popover scrims the
+    // button, so a blind retry-click would hang on it).
+    await expect(async () => {
+      if (!(await details(page).isVisible())) {
+        await row(page, name).getByRole('button', { name: 'Details' }).click({ timeout: 2000 });
+      }
+      await expect(details(page)).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
   };
 
   test('constraint evidence rides the chain-head card; no pill, no chain summary', async ({ page }) => {
@@ -198,6 +206,25 @@ test.describe('Program phase editor', () => {
     page.locator(`[data-testid="phase-card"][data-name="${name}"]`);
   const panel = (page: Page) => page.getByTestId('phase-panel');
   const saveBtn = (page: Page) => page.getByRole('button', { name: 'Save', exact: true });
+  // Hydration-resilient interactions: on a cold dev-server load a click can land
+  // before React attaches handlers; retry until the intended state appears.
+  const openPanel = async (page: Page, name: string) => {
+    await expect(async () => {
+      if (!(await panel(page).isVisible())) {
+        await card(page, name).click({ timeout: 2000 });
+      }
+      await expect(panel(page)).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+  };
+  const addPhaseOpensPanel = async (page: Page) => {
+    await expect(async () => {
+      if (!(await panel(page).isVisible())) {
+        await page.getByRole('button', { name: 'Add phase' }).click({ timeout: 2000 });
+      }
+      await expect(panel(page)).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+  };
+
   // Chain math shows on the rail as the constraint card's evidence line.
   const railRow = (page: Page, name: string) =>
     page.getByTestId('phase-row').filter({ has: page.locator(`a:text-is("${name}")`) });
@@ -214,8 +241,7 @@ test.describe('Program phase editor', () => {
     await page.goto(`/programs/${seeded.projectId}/phases`);
 
     // Certification (downstream) opens the panel; Audio becomes the upstream candidate.
-    await card(page, 'Certification').click();
-    await expect(panel(page)).toBeVisible();
+    await openPanel(page, 'Certification');
     await card(page, 'Audio').click();
     await panel(page).getByTestId('connect-after').click();
 
@@ -233,7 +259,7 @@ test.describe('Program phase editor', () => {
     await page.goto(`/programs/${seeded.projectId}/phases`);
 
     // Integration already depends on Bring-up; wiring Bring-up after Certification cycles.
-    await card(page, 'Bring-up').click();
+    await openPanel(page, 'Bring-up');
     await card(page, 'Certification').click();
     await panel(page).getByTestId('connect-after').click();
 
@@ -244,7 +270,7 @@ test.describe('Program phase editor', () => {
   test('renames and re-forecasts (weeks) via the detail panel', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}/phases`);
 
-    await card(page, 'Audio').click();
+    await openPanel(page, 'Audio');
     await panel(page).getByLabel('Phase name').fill('Audio & Media');
     await panel(page).getByLabel('Forecast (weeks)').fill('3.5'); // ≈ the seeded 25 days
     await saveBtn(page).click();
@@ -260,7 +286,7 @@ test.describe('Program phase editor', () => {
     await page.goto(`/programs/${seeded.projectId}/phases`);
 
     // Add opens the new card's panel; name it, forecast it, connect it after the end.
-    await page.getByRole('button', { name: 'Add phase' }).click();
+    await addPhaseOpensPanel(page);
     await panel(page).getByLabel('Phase name').fill('Field Trials');
     await panel(page).getByLabel('Forecast (weeks)').fill('4');
     await card(page, 'Certification').click();
@@ -278,7 +304,7 @@ test.describe('Program phase editor', () => {
 
     // Remove it from its panel (no history yet → no confirm) and save.
     await page.goto(`/programs/${seeded.projectId}/phases`);
-    await card(page, 'Field Trials').click();
+    await openPanel(page, 'Field Trials');
     await panel(page).getByRole('button', { name: 'Remove phase' }).click();
     await expect(page.getByTestId('dag-errors')).toHaveCount(0);
     await saveBtn(page).click();
@@ -290,7 +316,7 @@ test.describe('Program phase editor', () => {
     await page.goto(`/programs/${seeded.projectId}/phases`);
 
     // New node; click Bring-up as the other side; connect this one BEFORE it.
-    await page.getByRole('button', { name: 'Add phase' }).click();
+    await addPhaseOpensPanel(page);
     await panel(page).getByLabel('Phase name').fill('Prep');
     await panel(page).getByLabel('Forecast (weeks)').fill('4');
     await card(page, 'Bring-up').click();
@@ -309,7 +335,7 @@ test.describe('Program phase editor', () => {
 
     // Restore: remove Prep again.
     await page.goto(`/programs/${seeded.projectId}/phases`);
-    await card(page, 'Prep').click();
+    await openPanel(page, 'Prep');
     await panel(page).getByRole('button', { name: 'Remove phase' }).click();
     await saveBtn(page).click();
     await page.waitForURL(`**/programs/${seeded.projectId}`);

@@ -88,9 +88,15 @@ test.describe('Project Details and Action Item Operations', () => {
     // The phase's row on the PhaseTrack — status reads from glyphs, not words.
     const row = page.getByTestId('phase-row').filter({ hasText: 'Compliance Testing' });
 
-    // Details lifts the phase into the focused popover over a scrim.
-    await row.getByRole('button', { name: 'Details' }).click();
+    // Details lifts the phase into the focused popover over a scrim. Hydration-
+    // resilient open: click only while closed (see phase_graph.spec.ts helper).
     const details = page.getByTestId('phase-details');
+    await expect(async () => {
+      if (!(await details.isVisible())) {
+        await row.getByRole('button', { name: 'Details' }).click({ timeout: 2000 });
+      }
+      await expect(details).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
     await expect(details.getByRole('heading', { name: 'Compliance Testing' })).toBeVisible();
     await details.locator('input[id^="phaseHillProgress-"]').fill('100');
     await details.locator('[data-testid="note-editor"] [contenteditable="true"]').click();

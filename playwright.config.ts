@@ -19,7 +19,9 @@ export default defineConfig({
      must never run concurrently — parallel workers clobber each other's fixtures. */
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // One local retry: under heavy desktop load the dev server's first-interaction
+  // hydration can lag beyond even generous in-test guards; isolated runs are stable.
+  retries: process.env.CI ? 2 : 1,
   workers: 1,
   reporter: process.env.CI ? 'html' : 'line',
   use: {

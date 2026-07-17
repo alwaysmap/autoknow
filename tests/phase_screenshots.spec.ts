@@ -1,4 +1,4 @@
-import { test, type Page } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { prisma } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
@@ -30,8 +30,13 @@ test.describe('Phase UI screenshots', () => {
 
   test('phase details', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
-    await row(page, 'Integration').getByRole('button', { name: 'Details' }).click();
-    await page.getByTestId('phase-details').waitFor();
+    // hydration-resilient open (see phase_graph.spec.ts)
+    await expect(async () => {
+      if (!(await page.getByTestId('phase-details').isVisible())) {
+        await row(page, 'Integration').getByRole('button', { name: 'Details' }).click({ timeout: 2000 });
+      }
+      await expect(page.getByTestId('phase-details')).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
     await page.screenshot({ path: 'screenshots/02-phase-details.png', fullPage: true });
   });
 

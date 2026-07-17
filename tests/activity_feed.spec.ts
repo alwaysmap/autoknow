@@ -29,10 +29,13 @@ test.describe('Activity feed', () => {
     // Items name their program at ecosystem scope.
     await expect(page.getByText('R2 AAOS Bring-up').first()).toBeVisible();
 
-    // Filter to Context: the doc stays, the needle update goes.
-    await page.locator('button[class*="ActivityFeed"]').filter({ hasText: 'Context' }).click();
+    // Filter to Context: the doc stays, the needle update goes. Retry the chip click —
+    // on a cold load it can land before hydration attaches the handler.
+    await expect(async () => {
+      await page.locator('button[class*="ActivityFeed"]').filter({ hasText: 'Context' }).click();
+      await expect(page.getByText('Weekly update: Concerned')).toHaveCount(0, { timeout: 1500 });
+    }).toPass({ timeout: 15000 });
     await expect(page.getByText('Codec delivery plan')).toBeVisible();
-    await expect(page.getByText('Weekly update: Concerned')).toHaveCount(0);
 
     // Filter to Progress (needle changes): the reverse.
     await page.locator('button[class*="ActivityFeed"]').filter({ hasText: 'Progress' }).click();
