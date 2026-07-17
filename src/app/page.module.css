@@ -31,7 +31,7 @@
 .main {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 48px 0;
+  padding: 24px 0 40px;
 }
 
 .searchSection {
@@ -64,7 +64,7 @@
 }
 
 .dashboardSection {
-  margin-bottom: 48px;
+  margin-bottom: 30px;
 }
 
 .sectionHeader {
