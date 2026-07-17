@@ -548,6 +548,12 @@ const STRINGS = {
     ja: 'AutoKnow が取り込んだすべてのソースと、その鮮度の保ち方。監視中のソースはコネクタの周期で再確認され、スナップショットは再確認されません。',
     ko: 'AutoKnow가 수집한 모든 소스와 최신 상태 유지 방식. 감시 중인 소스는 커넥터 주기에 따라 재확인되며 스냅샷은 재확인되지 않습니다.',
   },
+  sourcesDriveOn: {
+    en: 'Drive sync is on — share a Doc or folder with {email} and it will be indexed automatically within the hour.',
+    de: 'Drive-Sync ist aktiv — ein mit {email} geteiltes Dokument oder ein Ordner wird innerhalb einer Stunde automatisch indexiert.',
+    ja: 'Drive 同期は有効です — {email} に共有したドキュメントやフォルダは 1 時間以内に自動でインデックスされます。',
+    ko: 'Drive 동기화가 켜져 있습니다 — {email}과 공유한 문서나 폴더는 1시간 이내에 자동으로 색인됩니다.',
+  },
   sourcesDriveOff: {
     en: 'Background refresh of Google Docs starts once the service account is configured; until then use Refresh now while signed in.',
     de: 'Die Hintergrund-Aktualisierung von Google Docs startet, sobald das Servicekonto konfiguriert ist; bis dahin „Jetzt aktualisieren“ bei aktiver Anmeldung nutzen.',

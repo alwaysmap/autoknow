@@ -1,5 +1,6 @@
 import { prisma } from '../../../lib/db';
 import { refreshSourceAction, toggleSourcePause, toggleSourceMode } from '../../actions/context';
+import { driveConfigured, serviceAccountEmail } from '../../../lib/googleAuth';
 import { getLocale } from '../../../lib/locale';
 import { t, type StringKey } from '../../../lib/i18n';
 
@@ -41,7 +42,6 @@ export default async function SourcesPage() {
     orderBy: { createdAt: 'desc' },
   });
 
-  const driveSyncOff = !process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !process.env.GOOGLE_APPLICATION_CREDENTIALS;
   const fmt = (d: Date | null) =>
     d ? d.toLocaleDateString(locale, { month: 'short', day: 'numeric' }) : t(locale, 'neverChecked');
 
@@ -52,10 +52,16 @@ export default async function SourcesPage() {
         <p style={{ color: 'var(--muted, #666)', fontSize: 14, marginTop: 4, maxWidth: 720 }}>
           {t(locale, 'sourcesIntro')}
         </p>
-        {driveSyncOff && sources.some((s) => s.type === 'Doc' && s.mode === 'watched') && (
-          <p style={{ color: 'var(--muted, #666)', fontSize: 13, marginTop: 6, maxWidth: 720, fontStyle: 'italic' }}>
-            {t(locale, 'sourcesDriveOff')}
+        {driveConfigured ? (
+          <p data-testid="drive-on" style={{ color: 'var(--muted, #666)', fontSize: 13, marginTop: 6, maxWidth: 720 }}>
+            {t(locale, 'sourcesDriveOn', { email: serviceAccountEmail() ?? '' })}
           </p>
+        ) : (
+          sources.some((s) => s.type === 'Doc' && s.mode === 'watched') && (
+            <p style={{ color: 'var(--muted, #666)', fontSize: 13, marginTop: 6, maxWidth: 720, fontStyle: 'italic' }}>
+              {t(locale, 'sourcesDriveOff')}
+            </p>
+          )
         )}
       </header>
 

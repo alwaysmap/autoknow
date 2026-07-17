@@ -4,6 +4,7 @@ import { prisma } from './db';
 import { summarizeDocument, digestToText, embedText } from './gemini';
 import { fetchWebUrl, hashContent } from './ingest';
 import { parseGoogleDocId, fetchGoogleDocText } from './google-docs';
+import { driveConfigured, getServiceAccountToken } from './googleAuth';
 import { inferSource } from './sources';
 
 // Refresh a watched source (docs/INGEST_FRESHNESS_PLAN.md §4, §6, §7): Gate 1 (did
@@ -44,10 +45,13 @@ export async function refreshSource(
   let sourceVersion: string | null = row.sourceVersion;
 
   if (kind === 'drive') {
-    // Until the service account lands (plan slice 3), Drive refresh needs a signed-in
-    // user's token — the cron worker skips Drive rows.
-    const token = opts?.userAccessToken;
-    if (!token) return { ok: false, error: 'Drive refresh needs a signed-in Google session for now.' };
+    // Prefer the caller's user token (manual Refresh now while signed in); fall back
+    // to the service account (background sync — plan slice 3).
+    const token =
+      opts?.userAccessToken ?? (driveConfigured ? await getServiceAccountToken() : null);
+    if (!token) {
+      return { ok: false, error: 'Drive refresh needs a signed-in session or the service account (docs/OPERATIONS.md §5).' };
+    }
     const docId = row.sourceRef?.slice('drive:'.length) || parseGoogleDocId(row.url);
     if (!docId) return { ok: false, error: 'No Drive file id on this source.' };
     try {

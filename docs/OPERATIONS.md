@@ -7,10 +7,10 @@ rather than failing to start.
 Two kinds of sections:
 
 - **Active today** — used by the running app: database, Gemini, Google sign-in,
-  refresh worker.
-- **Prepared (not yet active)** — the service account and Chat app power the
-  upcoming Drive/Chat sync (docs/INGEST_FRESHNESS_PLAN.md slices 3–4). You can
-  provision them now; the app only starts using them when those slices ship.
+  refresh worker, Drive share-to-ingest (service account).
+- **Prepared (not yet active)** — the Chat app powers the upcoming chat ingestion
+  (docs/INGEST_FRESHNESS_PLAN.md slice 4). You can configure it now; the app only
+  starts using it when that slice ships.
 
 ---
 
@@ -196,18 +196,19 @@ AUTOKNOW_SECRET=6f2a…
 0 * * * * curl -s -H "Authorization: Bearer $AUTOKNOW_SECRET" https://YOUR_HOST/api/cron/refresh > /dev/null
 ```
 
-Google Docs are skipped by the worker until the service account (§5) is active —
-refresh those manually from **Manage → Sources** while signed in. The worker route
+Without the service account (§5), Google Docs are skipped by the worker — refresh
+those manually from **Manage → Sources** while signed in. With it, the same cycle
+also runs the Drive sweep (the report gains a `drive` section). The worker route
 is exempt from the sign-in gate (`src/proxy.ts`) precisely because a scheduler can
 never hold a session; the secret is its authentication.
 
 ---
 
-## 5. Service account for Drive sync (prepared — not yet active)
+## 5. Service account for Drive sync (active)
 
-This is the identity users will *share docs and folders with* so AutoKnow can
-discover and re-index them in the background. Decision record: plan §5 (service
-account over a dedicated Workspace user or domain-wide delegation).
+This is the identity users *share Docs and folders with* so AutoKnow discovers
+and re-indexes them in the background. Decision record: plan §5 (service account
+over a dedicated Workspace user or domain-wide delegation).
 
 1. In the GCP project: **IAM & Admin → Service Accounts → Create service account**.
    Name e.g. `autoknow`. **Grant it NO roles** — Drive access comes purely from
@@ -227,9 +228,14 @@ GOOGLE_APPLICATION_CREDENTIALS="/path/to/key.json"
    Google Workspace → Drive and Docs → Sharing settings — external sharing must be
    allowed, or the address allowlisted, for users to share files with it.
 
-Today the key's presence only switches the notice on **Manage → Sources**; the
-Drive delta feed, folder subscriptions, and background Doc refresh land with plan
-slice 3.
+With the key in place (restart the app), every refresh-worker cycle (§4) sweeps
+what's shared with the account: newly shared Google Docs are ingested and
+classified automatically (folders count as subscriptions, one level deep), and
+already-tracked Docs are re-checked when Drive metadata says they changed.
+**Manage → Sources** shows the shareable address once the key is loaded. Current
+limits: Google Docs only (Sheets/Slides are skipped), and per-cycle caps of 5
+discoveries + 5 refreshes bound Gemini spend — the hourly cadence drains any
+backlog quickly.
 
 ---
 
@@ -279,4 +285,4 @@ There is also an existing plain-webhook endpoint `POST /api/integrations/chat`
 | `AUTH_ALLOWED_DOMAIN` | domain-restricted sign-in | any Google account may sign in |
 | `CRON_SECRET` | refresh worker route | worker refuses (503) |
 | `ADMIN_TOKEN` | seeding API in production | destructive ops blocked in prod |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` / `GOOGLE_APPLICATION_CREDENTIALS` | future Drive sync (slice 3) | Manage → Sources shows "Drive sync off" |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` / `GOOGLE_APPLICATION_CREDENTIALS` | Drive share-to-ingest + background Doc refresh | worker skips Docs; manual refresh only |

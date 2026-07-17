@@ -40,6 +40,10 @@ export default defineConfig({
       AUTH_GOOGLE_SECRET: '',
       GEMINI_API_KEY: '',
       ADMIN_TOKEN: '',
+      // Deterministic degraded states regardless of the operator's .env.
+      CRON_SECRET: '',
+      GOOGLE_SERVICE_ACCOUNT_JSON: '',
+      GOOGLE_APPLICATION_CREDENTIALS: '',
     },
   },
   projects: [

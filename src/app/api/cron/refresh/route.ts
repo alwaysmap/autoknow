@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runRefreshCycle } from '../../../../lib/refresh';
+import { runDriveSync } from '../../../../lib/driveSync';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // Drive first (discovery + metadata-gate refreshes), then the generic cycle.
+  const drive = await runDriveSync();
   const report = await runRefreshCycle();
-  return NextResponse.json(report);
+  return NextResponse.json({ ...report, drive });
 }
