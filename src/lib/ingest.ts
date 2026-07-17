@@ -59,6 +59,7 @@ export interface IngestContentOptions {
   modeSource: 'inferred' | 'user';
   sourceVersion?: string | null; // Drive version / ETag
   anchor?: IngestAnchor | null; // host-page anchor: skips global classification
+  addedBy?: string | null; // who brought this in (user handle / Drive sharer)
 }
 
 /**
@@ -135,12 +136,12 @@ export async function ingestContent(opts: IngestContentOptions): Promise<IngestR
     INSERT INTO "ContextUrl" (
       "projectId", "partnerId", "phaseId", "url", "type", "title", "ingestedText", "embedding",
       "mode", "modeSource", "sourceRef", "sourceVersion", "contentHash", "sourceStatus",
-      "lastCheckedAt", "lastChangedAt"
+      "addedBy", "lastCheckedAt", "lastChangedAt"
     )
     VALUES (
       ${projectId}, ${partnerId}, ${phaseId}, ${opts.url}, ${legacyType}, ${title}, ${digestText}, ${vectorStr}::vector,
       ${opts.mode}, ${opts.modeSource}, ${opts.source.sourceRef}, ${opts.sourceVersion ?? null}, ${hash}, ${digest.sourceStatus},
-      ${now}, ${now}
+      ${opts.addedBy ?? null}, ${now}, ${now}
     )
     RETURNING id
   `);
@@ -174,7 +175,7 @@ export async function ingestContent(opts: IngestContentOptions): Promise<IngestR
 export async function ingestGoogleDoc(
   url: string,
   accessToken: string,
-  extra?: { anchor?: IngestAnchor | null; mode?: TrackingMode; modeSource?: 'inferred' | 'user' },
+  extra?: { anchor?: IngestAnchor | null; mode?: TrackingMode; modeSource?: 'inferred' | 'user'; addedBy?: string | null },
 ): Promise<IngestResult> {
   const docId = parseGoogleDocId(url);
   if (!docId) return { ok: false, error: 'Could not find a Google Doc id in that URL.' };
@@ -195,6 +196,7 @@ export async function ingestGoogleDoc(
     mode: extra?.mode ?? source.mode,
     modeSource: extra?.modeSource ?? 'inferred',
     anchor: extra?.anchor ?? null,
+    addedBy: extra?.addedBy ?? null,
   });
 }
 
@@ -275,6 +277,7 @@ export async function ingestLink(opts: {
   mode?: TrackingMode; // user override from the chip
   anchor?: IngestAnchor | null;
   userAccessToken?: string | null; // for Drive fetches
+  addedBy?: string | null;
 }): Promise<IngestResult> {
   const source = inferSource(opts.url);
   const mode = opts.mode ?? source.mode;
@@ -284,7 +287,7 @@ export async function ingestLink(opts: {
     if (!opts.userAccessToken) {
       return { ok: false, error: 'Sign in with Google to fetch Docs, or share the doc with the AutoKnow service account.' };
     }
-    return ingestGoogleDoc(opts.url, opts.userAccessToken, { anchor: opts.anchor, mode, modeSource });
+    return ingestGoogleDoc(opts.url, opts.userAccessToken, { anchor: opts.anchor, mode, modeSource, addedBy: opts.addedBy });
   }
 
   if (source.kind === 'chat') {
@@ -310,5 +313,6 @@ export async function ingestLink(opts: {
     modeSource,
     sourceVersion: fetched.etag ?? null,
     anchor: opts.anchor ?? null,
+    addedBy: opts.addedBy ?? null,
   });
 }

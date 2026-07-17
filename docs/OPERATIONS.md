@@ -310,10 +310,12 @@ Scopes for the Chat paths, for reference:
 | Path | Who authenticates | Scope | Where it's configured |
 |---|---|---|---|
 | `@AutoKnow` in a space (primary) | the app, as the service account | `https://www.googleapis.com/auth/chat.bot` | nowhere in the console — requested by the app's own credentials at call time |
-| Copied message link pasted into `/ingest` (fallback) | the signed-in user | `https://www.googleapis.com/auth/chat.messages.readonly` | OAuth client **Data Access** screen (§3.1) |
+| Copied message link pasted into an Add-link control (fallback) | the signed-in user | `https://www.googleapis.com/auth/chat.messages.readonly` | OAuth client **Data Access** screen (§3.1) |
 
 There is also an existing plain-webhook endpoint `POST /api/integrations/chat`
 (see README) that accepts pasted chat text today, independent of the Chat app.
+The former `/ingest` page is retired — pasting links lives in the **+ Add link**
+control on program/partner pages (scoped) and Manage → Sources (unscoped).
 
 ---
 

@@ -211,6 +211,7 @@ model ContextUrl {
   sourceVersion String?   // Drive version / ETag / patchset
   contentHash   String?   // sha256 of normalized fetched text
   sourceStatus  String?   // open | resolved | not-applicable (digest-extracted)
+  addedBy       String?   // who brought this in: user handle, or the Drive sharer
   lastCheckedAt DateTime?
   lastChangedAt DateTime?
   frozenAt      DateTime?

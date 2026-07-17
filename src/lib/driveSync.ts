@@ -18,9 +18,10 @@ interface DriveFile {
   mimeType: string;
   version?: string;
   modifiedTime?: string;
+  sharingUser?: { emailAddress?: string; displayName?: string };
 }
 
-const FILE_FIELDS = 'nextPageToken,files(id,name,mimeType,version,modifiedTime)';
+const FILE_FIELDS = 'nextPageToken,files(id,name,mimeType,version,modifiedTime,sharingUser(emailAddress,displayName))';
 const DOC_MIME = 'application/vnd.google-apps.document';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 // Per-cycle caps bound Gemini spend; the hourly cadence drains any backlog fast.
@@ -107,6 +108,8 @@ export async function runDriveSync(): Promise<DriveSyncReport> {
           modeSource: 'inferred',
           sourceVersion: doc.version ?? null,
           anchor: null,
+          // Attribution: the person who shared it with the account, when Drive says.
+          addedBy: doc.sharingUser?.emailAddress ?? doc.sharingUser?.displayName ?? 'drive-share',
         });
         if (result.ok && !result.duplicateOf) report.discovered++;
       } catch {

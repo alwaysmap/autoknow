@@ -94,8 +94,9 @@ implicates, are still open questions.
   phases, if any?"; partner anchor → "which of this partner's programs, if any?".
   Choosing among ~5 named phases is a far easier task than guessing across the whole
   portfolio, so this is both cheaper *and* more accurate than v1's global classify.
-- **Unscoped paste** (`/ingest` page, Chat @mention): global classifier runs as
-  today, then the same constrained enrichment.
+- **Unscoped paste** (Manage → Sources add-link, Chat @mention): global classifier
+  runs, then the same constrained enrichment. (The standalone /ingest page is
+  retired — the QuickIngest control covers both scoped and unscoped pastes.)
 - **Wrong-page pastes**: no mismatch detection in v1 — items are deletable from the
   feed and re-pasteable on the right page. (Deliberate: detection adds a model call
   and a UI flow to every ingest to catch a rare, self-evident, cheaply-fixed error.)
@@ -202,13 +203,13 @@ nature. A slash command and DM-the-app fall out of the same handler. **Message
 actions** (⋮ menu "Save to AutoKnow") are Developer Preview as of mid-2026 —
 register now, treat as progressive enhancement.
 
-**Fallback (app not in the space)**: copy message link → paste into `/ingest`;
+**Fallback (app not in the space)**: copy message link → paste into an Add-link control;
 fetch with the signed-in user's token (`chat.messages.readonly`), like manual Doc
 ingestion today.
 
 Implementation scope (extends slice 3): Chat app config in GCP console, a
 `POST /api/chat/events` route verifying the request bearer token, thread fetch +
-dedupe + in-thread ack, link-paste fallback in `/ingest`.
+dedupe + in-thread ack, link-paste fallback in the QuickIngest control.
 
 ### 5.2 Scoped quick-ingest component
 

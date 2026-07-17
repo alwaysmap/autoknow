@@ -26,8 +26,9 @@ export default function QuickIngest({
   phaseId,
   path,
 }: {
-  anchorKind: 'program' | 'partner';
-  anchorId: number;
+  /** Omit both anchor props for an UNSCOPED paste — the global classifier places it. */
+  anchorKind?: 'program' | 'partner';
+  anchorId?: number;
   phaseId?: number;
   path: string; // revalidated after a successful ingest
 }) {
@@ -56,8 +57,12 @@ export default function QuickIngest({
 
   return (
     <form action={formAction} className={styles.form} data-testid="quick-ingest">
-      <input type="hidden" name="anchorKind" value={anchorKind} />
-      <input type="hidden" name="anchorId" value={anchorId} />
+      {anchorKind && anchorId != null && (
+        <>
+          <input type="hidden" name="anchorKind" value={anchorKind} />
+          <input type="hidden" name="anchorId" value={anchorId} />
+        </>
+      )}
       {phaseId != null && <input type="hidden" name="phaseId" value={phaseId} />}
       <input type="hidden" name="path" value={path} />
       <input type="hidden" name="mode" value={mode} />

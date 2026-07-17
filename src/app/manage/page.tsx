@@ -13,7 +13,6 @@ export default async function ManagePage() {
     { href: '/templates', label: t(locale, 'navTemplates'), desc: t(locale, 'manageTemplatesDesc') },
     { href: '/manage/prompts', label: t(locale, 'promptsTitle'), desc: t(locale, 'managePromptsDesc') },
     { href: '/manage/sources', label: t(locale, 'sourcesTitle'), desc: t(locale, 'manageSourcesDesc') },
-    { href: '/ingest', label: t(locale, 'navIngest'), desc: t(locale, 'manageIngestDesc') },
     { href: '/admin', label: t(locale, 'navDevConsole'), desc: t(locale, 'manageAdminDesc') },
   ];
 

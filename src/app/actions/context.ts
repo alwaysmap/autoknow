@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '../../lib/db';
 import { ingestLink, type IngestResult, type IngestAnchor } from '../../lib/ingest';
 import { refreshSource } from '../../lib/refresh';
-import { getAccessToken } from '../../lib/session';
+import { getAccessToken, getCurrentUser } from '../../lib/session';
 import { geminiConfigured } from '../../lib/gemini';
 
 // Actions for the scoped QuickIngest component and the Manage → Sources operator
@@ -37,6 +37,7 @@ export async function quickIngestAction(_prev: QuickIngestState, formData: FormD
     mode,
     anchor,
     userAccessToken: await getAccessToken(),
+    addedBy: (await getCurrentUser()).handle,
   });
 
   const path = (formData.get('path') as string) || null;
