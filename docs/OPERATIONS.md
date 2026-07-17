@@ -124,23 +124,82 @@ for real use.
 
 ## 4. Refresh worker (active)
 
-Watched sources (web pages, trackers) are re-checked by `GET /api/cron/refresh` —
-the route refuses to run until `CRON_SECRET` is set:
+Watched sources (web pages, trackers) are re-checked by `GET /api/cron/refresh`.
+The whole mechanism is **one shared string in two places**: the app's `.env` (so
+the route can verify callers) and the scheduler's job definition (so it can present
+it). Nothing else — no account, no OAuth.
+
+**Step 1 — generate and configure:**
+
+```bash
+openssl rand -hex 24        # hex on purpose: no +/= characters (see note below)
+```
+
+Put it in `.env` and restart the app:
 
 ```
-CRON_SECRET=""            # openssl rand -hex 24
+CRON_SECRET="6f2a…"
 ```
 
-Point any scheduler at it; hourly is right (per-connector cadences are enforced
-inside — trackers 6h, generic web weekly, snapshots never):
+**Step 2 — verify by hand** before scheduling anything:
+
+```bash
+curl -s -H "Authorization: Bearer $YOUR_SECRET" https://YOUR_HOST/api/cron/refresh
+```
+
+- Correct secret → a JSON report: `{"due":0,"checked":0,"changed":0,"frozen":0,"errors":0,"skippedDrive":0}`
+- Wrong/missing secret → `{"error":"Unauthorized"}` (401)
+- `CRON_SECRET` not set server-side → 503 telling you so
+
+Prefer the `Authorization: Bearer` header. `?secret=` also works, but if your
+secret is base64 (from `openssl rand -base64 …` or `npx auth secret`) its `+`
+characters decode as spaces in a query string and the match fails — the header
+carries any characters verbatim; hex secrets are safe either way.
+
+**Step 3 — schedule it.** Hourly is right; the per-connector cadences (trackers
+6h, generic web weekly, snapshots never) are enforced inside the route, so calling
+often is cheap.
+
+*macOS — launchd (recommended over cron):* it's the native scheduler, and if the
+Mac was asleep at the scheduled time launchd runs the job on wake, where cron
+silently skips it. Save as `~/Library/LaunchAgents/com.autoknow.refresh.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.autoknow.refresh</string>
+  <key>ProgramArguments</key><array>
+    <string>/usr/bin/curl</string>
+    <string>-s</string>
+    <string>-H</string><string>Authorization: Bearer PASTE_SECRET_HERE</string>
+    <string>http://localhost:3100/api/cron/refresh</string>
+  </array>
+  <key>StartInterval</key><integer>3600</integer>
+  <key>StandardOutPath</key><string>/tmp/autoknow-refresh.log</string>
+  <key>StandardErrorPath</key><string>/tmp/autoknow-refresh.log</string>
+</dict></plist>
+```
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.autoknow.refresh.plist   # install + start
+launchctl start com.autoknow.refresh                               # fire once to test
+tail /tmp/autoknow-refresh.log                                     # should show the JSON report
+```
+
+*Linux / anywhere with cron:* `crontab -e`, define the secret at the top (cron
+does not read the app's `.env`):
 
 ```cron
-0 * * * * curl -s "https://YOUR_HOST/api/cron/refresh?secret=$CRON_SECRET" > /dev/null
+AUTOKNOW_SECRET=6f2a…
+0 * * * * curl -s -H "Authorization: Bearer $AUTOKNOW_SECRET" https://YOUR_HOST/api/cron/refresh > /dev/null
 ```
 
-The response is a JSON report (`due / checked / changed / frozen / errors /
-skippedDrive`). Google Docs are skipped by the worker until the service account
-(§5) is active — refresh those manually from **Manage → Sources** while signed in.
+Google Docs are skipped by the worker until the service account (§5) is active —
+refresh those manually from **Manage → Sources** while signed in. The worker route
+is exempt from the sign-in gate (`src/proxy.ts`) precisely because a scheduler can
+never hold a session; the secret is its authentication.
 
 ---
 

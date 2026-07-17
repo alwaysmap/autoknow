@@ -12,7 +12,13 @@ import { auth, authConfigured } from './auth';
 export default authConfigured
   ? auth((req) => {
       const { pathname } = req.nextUrl;
-      const isPublic = pathname.startsWith('/api/auth') || pathname === '/login';
+      const isPublic =
+        pathname.startsWith('/api/auth') ||
+        pathname === '/login' ||
+        // The refresh worker is called by a scheduler, not a browser — it can never
+        // hold a session. It carries its own CRON_SECRET auth (the route 401s
+        // without the secret), so the session gate must let it through.
+        pathname.startsWith('/api/cron');
 
       if (!req.auth && !isPublic) {
         return NextResponse.redirect(new URL('/login', req.nextUrl.origin));
