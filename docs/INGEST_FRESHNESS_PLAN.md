@@ -159,8 +159,54 @@ that address *is* the consent boundary and the discovery mechanism:
 - The service account's own credential also fixes the background-identity gap in
   §1 — scheduled refresh cannot use a user's session token.
 
-Manual `/ingest` paste stays as the second trigger (and the only one for chat, web,
-bugs, CRs).
+Manual `/ingest` paste stays as the second trigger (and the only one for web, bugs,
+CRs).
+
+### 5.1 Google Chat mechanics — the app is the mentionable identity
+
+A service-account *email* cannot be mentioned or shared-to inside Google Chat; the
+mentionable identity is a **Chat app** ("AutoKnow"), configured on the same GCP
+project and authenticating with the same service-account credentials (`chat.bot`
+scope, app auth). One GCP project therefore yields both share targets: the SA email
+for Drive, the app name for Chat.
+
+Two directional facts shape the design:
+
+- **Incoming webhooks are the wrong direction.** Chat webhooks only POST messages
+  *into* a space; nothing pushes messages *out*. The Chat app's HTTP endpoint is the
+  receiving mechanism, and by design it only receives events addressed to the app
+  (@mention, DM, command) — apps never get a space's firehose.
+- **App auth can read a space's messages only where the app is a member** (`chat.bot`
+  works in spaces the app has been added to; the broader
+  `chat.app.messages.readonly` scope needs admin approval and is public-message-only).
+
+**Primary gesture (GA today): add the app to the space once, then `@AutoKnow` on the
+message or as a thread reply.** The app receives the MESSAGE event (text, thread,
+space, sender), fetches the surrounding thread via app auth (it is now a member),
+ingests thread-as-of-now through the normal digest→classify→embed pipeline, and
+replies in-thread with one line: "Saved — linked to *Volvo EX90 AAOS Refresh*". The
+confirmation doubles as discoverability for everyone else in the space.
+
+- Dedupe on thread: re-mentioning the same thread later creates a **ContextRevision**
+  on the existing row (with a what's-new delta), not a duplicate. Chat therefore
+  stays `immutable`-class — no polling; freshness is user-pulled by re-mentioning,
+  which fits chat's episodic nature.
+- **Message action** ("Save to AutoKnow" in a message's ⋮ menu) is the ideal
+  zero-typing gesture but is **Developer Preview** as of mid-2026 — register the
+  command config now if convenient, treat as progressive enhancement, adopt at GA.
+- A **slash command** (`/autoknow`) and DM-the-app both fall out of the same event
+  handler for free.
+
+**Fallback (app not in the space): copy message link → paste into `/ingest`.** The
+app isn't a member, so app auth cannot read it; the fetch uses the *signed-in
+user's* token (`chat.messages.readonly` user scope) — the same pattern as manual
+Doc ingestion today. Link parsing maps `chat.google.com/room/<space>/<thread>/<msg>`
+to the API resource name.
+
+Implementation scope (extends slice 3): Chat app configuration in the GCP console
+(name, avatar, HTTP endpoint URL, slash command + preview-registered message
+action), a `POST /api/chat/events` route verifying the request's bearer token,
+thread fetch + dedupe + in-thread ack, and the link-paste fallback in `/ingest`.
 
 Implementation scope for the service account (slice 3):
 
