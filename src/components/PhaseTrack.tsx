@@ -18,8 +18,10 @@ import styles from './PhaseTrack.module.css';
 // solid track. Branch phases follow; their real dependencies arrive as express bypass
 // loops in an outer lane. Where two adjacent stations share no dependency there is NO
 // connector at all — a line would imply a relationship that doesn't exist. Each
-// dependency segment fills monochrome (ink on gray) along its length as the ARRIVING
-// phase progresses — the train's position between stations.
+// dependency segment carries STATE ONLY: it inks solid once the phase it departs is
+// done, and stays gray otherwise. Never a proportional fill — a part-inked segment
+// beside a filled "done" station read as a contradiction. Schedule pace (ahead/over
+// plan) is words instead: a small chip beside the planned/elapsed label.
 //
 // Critical chain: the longest remaining-duration dependency path, unbuffered, PLUS the
 // resource dimension — the same Googler driving active phases in other programs is
@@ -87,7 +89,7 @@ interface PhaseTrackProps {
   otherActive: OtherActivePhase[]; // the owner's active phases in OTHER programs
 }
 
-const RAIL_PAD = 10, LANE_W = 14, INK = 'hsl(0, 0%, 25%)';
+const RAIL_PAD = 10, LANE_W = 20, INK = 'hsl(0, 0%, 25%)';
 const DAY_MS = 86_400_000;
 
 // Involvement pills replace the old "· Role" text. A company's kind drives its colour,
@@ -129,7 +131,7 @@ interface Edge {
   fromIdx: number;
   toIdx: number;
   onChain: boolean;
-  fill: number; // 0..100 — the arriving phase's progress
+  done: boolean; // the departing phase is complete — the only claim a segment's ink makes
   lane: number; // 0 = mainline; bypasses get 1.. (outer lanes)
 }
 
@@ -138,6 +140,7 @@ interface Edge {
 // loops never share one (interval coloring).
 function classifyEdges(ordered: PhaseTrackRow[], chainKeys: Set<string>): { edges: Edge[]; laneCount: number } {
   const idx = new Map(ordered.map((r, i) => [r.id, i]));
+  const progressById = new Map(ordered.map((r) => [r.id, r.progress]));
   const raw: Omit<Edge, 'lane'>[] = [];
   for (const r of ordered) {
     for (const p of r.parents) {
@@ -147,7 +150,7 @@ function classifyEdges(ordered: PhaseTrackRow[], chainKeys: Set<string>): { edge
         from: p.id, to: r.id,
         fromIdx: Math.min(fromIdx, toIdx), toIdx: Math.max(fromIdx, toIdx),
         onChain: chainKeys.has(`${p.id}-${r.id}`),
-        fill: Math.max(0, Math.min(100, r.progress)),
+        done: (progressById.get(p.id) ?? 0) >= 100,
       });
     }
   }
@@ -264,6 +267,29 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     return t(locale, 'plannedOnly', { p: planned });
   };
 
+  // Schedule pace, kept OUT of the rail: words in a quiet chip, never a fill, so it
+  // cannot be misread as completion. Done under plan → "early"; running or finished
+  // past the forecast → "over plan". A phase in progress but within plan is simply
+  // on plan — no chip. Sub-day deltas stay silent (rounding noise, not signal).
+  const pace = (p: PhaseTrackRow): { over: boolean; text: string } | null => {
+    let actualDays: number | null = null;
+    if (p.progress >= 100 && p.startedAt && p.completedAt) {
+      actualDays = (+new Date(p.completedAt) - +new Date(p.startedAt)) / DAY_MS;
+    } else if (p.progress > 0 && p.startedAt) {
+      actualDays = (now - +new Date(p.startedAt)) / DAY_MS;
+    }
+    if (actualDays == null) return null;
+    const delta = actualDays - p.forecastedDuration;
+    if (p.progress >= 100 && delta <= -1) return { over: false, text: t(locale, 'paceEarly', { d: fmtW(-delta) }) };
+    if (delta >= 1) return { over: true, text: t(locale, 'paceOver', { d: fmtW(delta) }) };
+    return null;
+  };
+  const paceChip = (p: PhaseTrackRow) => {
+    const pc = pace(p);
+    if (!pc) return null;
+    return <span className={`${styles.pace} ${pc.over ? styles.paceOver : styles.paceEarly}`}>{pc.text}</span>;
+  };
+
   // WHY a phase wears the CONSTRAINT tag — one COMPACT clause per signal: (1) it
   // heads the critical chain (time), (2) its people/partners/owner are multiplexed
   // across programs right now (resource — CCPM's other half), (3) it has outrun its
@@ -306,6 +332,27 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   const isCollapsed = (p: PhaseTrackRow) => collapsed[p.id] ?? p.progress >= 100;
   const toggle = (p: PhaseTrackRow) => setCollapsed((s) => ({ ...s, [p.id]: !isCollapsed(p) }));
   const [detailsId, setDetailsId] = useState<number | null>(null);
+
+  // Title ⋯ menu: bulk expand/hide plus the one door to structural editing.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    window.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+  const setAll = (value: boolean) => {
+    setCollapsed(Object.fromEntries(phases.map((p) => [p.id, value])));
+    setMenuOpen(false);
+  };
 
   // Jump-and-flash (station clicks, chain links, dependency chips).
   const [flashId, setFlashId] = useState<number | null>(null);
@@ -428,6 +475,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               <StationGlyph progress={p.progress} />
               <h3 className={styles.detailsTitle} title={status(p.progress)}>{p.name}</h3>
               <span className={styles.plan}>{planWords(p)}</span>
+              {paceChip(p)}
             </div>
 
             {isConstraint && (
@@ -634,6 +682,37 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
 
   return (
     <div className={styles.wrapper}>
+      {/* Title + ⋯ actions: bulk expand/hide and the door to the phase editor live
+          here, off the rail — the rail itself stays read-only reporting. */}
+      <div className={styles.trackHead}>
+        <h2 className={styles.trackTitle}>{t(locale, 'phasesCard')}</h2>
+        <div className={styles.menuWrap} ref={menuRef}>
+          <button type="button" className={styles.menuBtn} aria-haspopup="menu" aria-expanded={menuOpen}
+            aria-label={t(locale, 'phaseActions')} title={t(locale, 'phaseActions')}
+            onClick={() => setMenuOpen((o) => !o)}>
+            <svg viewBox="0 0 18 18" width={18} height={18} aria-hidden>
+              <circle cx={9} cy={3.5} r={1.8} fill="currentColor" />
+              <circle cx={9} cy={9} r={1.8} fill="currentColor" />
+              <circle cx={9} cy={14.5} r={1.8} fill="currentColor" />
+            </svg>
+          </button>
+          {menuOpen && (
+            <div className={styles.menu} role="menu">
+              <button type="button" role="menuitem" className={styles.menuItem} onClick={() => setAll(false)}>
+                {t(locale, 'expandAll')}
+              </button>
+              <button type="button" role="menuitem" className={styles.menuItem} onClick={() => setAll(true)}>
+                {t(locale, 'collapseAll')}
+              </button>
+              <Link href={`/programs/${projectId}/phases`} role="menuitem" className={styles.menuItem}
+                onClick={() => setMenuOpen(false)}>
+                {t(locale, 'editPhases')}
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* No chain summary up top — the chain is already the rail's heavy track, and the
           constraint card carries the evidence line. A second rendering said it twice. */}
 
@@ -666,11 +745,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
             return (
               <g key={`m${e.from}-${e.to}`}>
                 <line x1={mainX} y1={y1} x2={mainX} y2={y2}
-                  stroke="var(--border)" strokeWidth={e.onChain ? 3.5 : 2} strokeLinecap="round" />
-                {e.fill > 0 && (
-                  <line x1={mainX} y1={y1} x2={mainX} y2={y1 + (e.fill / 100) * (y2 - y1)}
-                    stroke={INK} strokeWidth={e.onChain ? 3.5 : 2} strokeLinecap="round" />
-                )}
+                  stroke={e.done ? INK : 'var(--border)'} strokeWidth={e.onChain ? 3.5 : 2} strokeLinecap="round" />
                 <title>{edgeTitle(e)}</title>
               </g>
             );
@@ -681,12 +756,8 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
             const d = bypassPath(e, y1, y2);
             return (
               <g key={`b${e.from}-${e.to}`}>
-                <path d={d} fill="none" stroke="var(--border)" strokeWidth={e.onChain ? 3.5 : 1.8}
+                <path d={d} fill="none" stroke={e.done ? INK : 'var(--border)'} strokeWidth={e.onChain ? 3.5 : 1.8}
                   strokeLinecap="round" pathLength={100} className={styles.hoverable} />
-                {e.fill > 0 && (
-                  <path d={d} fill="none" stroke={INK} strokeWidth={e.onChain ? 3.5 : 1.8}
-                    strokeLinecap="round" pathLength={100} strokeDasharray={`${e.fill} ${100 - e.fill}`} />
-                )}
                 <title>{edgeTitle(e)}</title>
               </g>
             );
@@ -733,6 +804,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                 </a>
                 <span className={styles.headRight}>
                   <span className={styles.plan}>{planWords(p)}</span>
+                  {paceChip(p)}
                   {open && (
                     <button type="button" className={styles.iconBtn} onClick={() => openDetails(p)}
                       title={t(locale, 'details')} aria-label={t(locale, 'details')}>
@@ -796,13 +868,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
             </div>
           );
         })}
-
-        {/* structure is edited in one place: the DAG-validated program phase editor */}
-        <div className={styles.addRow}>
-          <Link href={`/programs/${projectId}/phases`} className={styles.editPhasesLink}>
-            {t(locale, 'editPhases')}
-          </Link>
-        </div>
       </div>
 
       {/* legend: the station/track vocabulary, one quiet line */}

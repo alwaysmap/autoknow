@@ -270,12 +270,16 @@ export default async function ProjectDetailsPage(props: {
             {/* Phases as a vertical rail (spec §2.13): node per phase, latest hill +
                 update + partners per row, Done rows collapsed, add/remove inline. */}
             <section className={styles.historySection}>
-              <h2>{t(locale, 'phasesCard')}</h2>
               {showTrack ? (
+                // PhaseTrack owns its title row — the ⋯ menu (expand/hide/edit) rides
+                // beside it and needs the component's collapse state.
                 <PhaseTrack projectId={projectId} phases={graphRows} allPartners={allPartners}
                   allPeople={allPeople} locale={locale} owner={project.ownerName} otherActive={otherActive} />
               ) : (
-                <PhaseGraph projectId={projectId} phases={graphRows} allPartners={allPartners} />
+                <>
+                  <h2>{t(locale, 'phasesCard')}</h2>
+                  <PhaseGraph projectId={projectId} phases={graphRows} allPartners={allPartners} />
+                </>
               )}
             </section>
 

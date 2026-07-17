@@ -92,9 +92,11 @@ test.describe('PhaseTrack rail', () => {
   test('structure is read-only on the rail: no add/remove/rewire affordances', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
 
-    // No inline add-phase; the one door is the editor link.
+    // No inline add-phase; the one door is the editor link, tucked in the ⋯ menu.
     await expect(page.getByLabel('New phase name')).toHaveCount(0);
-    await expect(page.getByRole('link', { name: /Edit phases/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Phase actions' }).click();
+    await expect(page.getByRole('menuitem', { name: /Edit phases/ })).toBeVisible();
+    await page.keyboard.press('Escape');
 
     // The popover shows dependencies as jump chips only — nothing to add or remove —
     // and has no phase removal.

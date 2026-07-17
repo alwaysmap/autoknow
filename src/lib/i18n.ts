@@ -90,10 +90,10 @@ const STRINGS = {
     ko: '우회 — 단계 건너뜀',
   },
   legendTrack: {
-    en: 'track fills as a phase progresses',
-    de: 'Strecke füllt sich mit dem Phasenfortschritt',
-    ja: '線路はフェーズの進捗に応じて塗られます',
-    ko: '트랙은 단계 진행률에 따라 채워집니다',
+    en: 'track darkens when the preceding phase is done',
+    de: 'Strecke färbt sich, wenn die vorangehende Phase abgeschlossen ist',
+    ja: '線路は先行フェーズの完了で塗られます',
+    ko: '트랙은 선행 단계가 완료되면 채워집니다',
   },
   toggleDetail: {
     en: 'Toggle detail',
@@ -236,6 +236,16 @@ const STRINGS = {
   },
   plannedOnly: { en: '{p} planned', de: '{p} geplant', ja: '予定{p}', ko: '계획 {p}' },
   weeksUnit: { en: '{n}w', de: '{n} Wo.', ja: '{n}週', ko: '{n}주' },
+  paceEarly: { en: '{d} early', de: '{d} früher', ja: '{d}前倒し', ko: '{d} 단축' },
+  paceOver: { en: '{d} over plan', de: '{d} über Plan', ja: '計画超過{d}', ko: '계획 초과 {d}' },
+  expandAll: { en: 'Expand all', de: 'Alle ausklappen', ja: 'すべて展開', ko: '모두 펼치기' },
+  collapseAll: { en: 'Hide all', de: 'Alle einklappen', ja: 'すべて隠す', ko: '모두 숨기기' },
+  phaseActions: {
+    en: 'Phase actions',
+    de: 'Phasen-Aktionen',
+    ja: 'フェーズ操作',
+    ko: '단계 작업',
+  },
   backToPhases: { en: '← Phases', de: '← Phasen', ja: '← フェーズ', ko: '← 단계' },
   history: { en: 'History', de: 'Verlauf', ja: '履歴', ko: '기록' },
   fullHistory: {

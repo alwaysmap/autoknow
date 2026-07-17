@@ -124,17 +124,68 @@
   color: var(--chain-soft);
 }
 
-/* The one door to structural editing. */
-.editPhasesLink {
+/* Title row: the component owns its heading so the ⋯ menu can drive collapse state.
+   The h2 inherits the section's heading style; this row only lays the two out. */
+.trackHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+/* Outrank the page's `.historySection h2` margin so the ⋯ button centers true. */
+.trackHead h2.trackTitle {
+  margin: 0;
+}
+.menuWrap {
+  position: relative;
+  display: inline-flex;
+}
+.menuBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 5px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.menuBtn:hover,
+.menuBtn[aria-expanded='true'] {
+  color: var(--fg);
+  background: var(--surface);
+}
+.menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  min-width: 150px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+}
+.menuItem {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 5px;
+  background: none;
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--muted);
-  text-decoration: none;
-}
-.editPhasesLink:hover {
   color: var(--fg);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.menuItem:hover {
+  background: var(--border);
 }
 
 /* Single-line rows (variants b/c): partners ride in the header. */
@@ -168,6 +219,26 @@
   color: var(--fg);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+/* Pace chip — schedule pace in words, never a fill, so it can't be misread as
+   completion. Early rides the brand green; over-plan wears the constraint ink
+   (buffer consumption is the same signal the evidence line reports). */
+.pace {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+.paceEarly {
+  color: var(--p-600);
+  border: 1px solid var(--p-200);
+}
+.paceOver {
+  color: var(--chain-ink);
+  border: 1px solid var(--chain-soft);
 }
 
 /* Disclosure caret — deliberately NOT a circular +/- button (that read as "Add").
@@ -575,25 +646,6 @@
 }
 .removeBtn:hover {
   color: #c5221f;
-}
-
-.addRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 0 4px;
-  flex-wrap: wrap;
-}
-
-.addInput {
-  font-size: 13px;
-  padding: 5px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: #fff;
-  color: var(--fg);
-  width: 200px;
-  max-width: 100%;
 }
 
 /* Legend: one quiet line naming the station/track vocabulary. */
