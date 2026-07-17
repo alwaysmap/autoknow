@@ -1,7 +1,7 @@
-# Ingested Content Freshness — Design Plan
+# Ingested Content Freshness — Design Plan (v2)
 
-Status: **Plan only** (no code written yet). Decisions below are proposed; the one
-explicitly flagged for review is §3 (how volatility is decided and what users see).
+Status: **Plan only** (no code written yet). v2 = v1 after an adversarial review;
+§11 lists what the review found and what got simplified away.
 
 ## Goal
 
@@ -12,7 +12,8 @@ refresh visible as product signal (activity feed + summary staleness) rather tha
 silent database write.
 
 Non-goals: real-time sync, full-text archival of sources (we store digests, never
-originals), crawling anything not explicitly shared/linked.
+originals), crawling anything not explicitly shared/linked, cross-entity many-to-many
+attachment (see §11 G3).
 
 ---
 
@@ -31,76 +32,73 @@ One-shot snapshot ingestion (`src/lib/ingest.ts`):
 - Leadership summaries already compute staleness from "scope-relevant rows newer than
   the cached summary" (`src/lib/summaries.ts`) — refreshed context automatically makes
   summaries regenerate. ✅ no new plumbing needed downstream.
+- Feed items are already deletable — that plus re-paste is the v1 correction path for
+  a link attached to the wrong entity.
 
 ---
 
-## 2. Volatility model
+## 2. Tracking model: two modes, one terminal state
 
-Every watched source gets a **volatility class** — a property of the *source*, not of
-the schedule:
+Every source is either:
 
-| Class | Meaning | Refresh behavior |
+| Mode | Meaning | Standing cost |
 |---|---|---|
-| `immutable` | A point-in-time event. The content it had at ingest is the content it will always have. | Never re-checked. Zero standing cost. |
-| `living` | An artifact people keep editing (running notes, specs). | Re-checked on the adaptive schedule (§6). |
-| `until-closed` | An artifact with a lifecycle that ends (bug, change request). | Re-checked while open; **frozen** (→ effectively immutable) when it reaches a terminal state. Reopening unfreezes. |
+| `snapshot` | Indexed once, never re-checked (chat messages, pasted text, one-off exports). | Zero. |
+| `watched` | Re-checked on its connector's cadence (§6) until frozen. | One metadata check per cadence tick. |
 
-Freezing is a one-way state transition recorded on the row (`frozenAt`,
-`frozenReason`: `closed` | `merged` | `access-revoked` | `deleted` | `user-paused`),
-so the UI can say honestly *why* a source is no longer tracked.
+**Freezing** is the terminal state for watched sources, always with a recorded reason:
+`resolved` (bug fixed / CR merged — see §5.3), `access-revoked`, `deleted`,
+`auth-required`, `user-paused`. Frozen rows are never checked again; the only
+unfreeze is a human clicking **Refresh now** (reopened bugs are rare; a stale
+"resolved" is visible and cheap to fix by hand — v1 had automated reopen detection
+that could never fire because frozen rows aren't checked).
 
-This single classification removes most re-indexing pressure: chat messages and closed
-CRs — the bulk of volume over time — cost nothing forever.
+> v1 had a third class, `until-closed`. It's gone as a *class*: bug/CR behavior is
+> now **emergent** — a watched source freezes when its connector reports a terminal
+> status or its digest's extracted `sourceStatus` says `resolved` (§5.3). One less
+> concept for users and code alike.
+
+### 2.1 Mode inference (URL shape → mode; user-correctable)
+
+| Source | Detected by | Mode |
+|---|---|---|
+| Google Drive file / folder | `docs.google.com`, `drive.google.com`, fileId | `watched` |
+| Chat message / pasted raw text | `chat.google.com` permalink / text paste | `snapshot` |
+| Bug / issue / change request | Gerrit, GitHub issue/PR, Buganizer URL shapes | `watched` (freezes on terminal status) |
+| Generic web URL | anything else | `watched` |
+
+`modeSource: 'inferred' | 'user'` — a user correction is never re-inferred away.
+
+### 2.2 What the user sees
+
+- **Quick-ingest chip (§5.2)**: the inferred mode as a visible, tappable
+  **two-state toggle** — `Watched` / `Snapshot` — prefilled, never required.
+- **Context items**: freshness provenance ("checked 2h ago · changed Jul 12") and a
+  frozen badge with its reason ("frozen — resolved Jul 3").
+- **Manage → Sources**: the operator view — full watch list, last/next check,
+  **Refresh now** / **Pause** / mode toggle per row.
 
 ---
 
-## 3. DECISION — who decides volatility, and what the user sees
+## 3. Anchor + constrained enrichment (classification)
 
-**Decision: the system infers volatility deterministically from the source type;
-users see the *consequence* (freshness provenance), never the class as a required
-input.** A per-item override exists, tucked away, for the one genuinely ambiguous
-case (generic web URLs).
+The host page provides the **anchor**, not the whole truth: a link pasted on
+program X's page is *about* program X, but which phase, and which partner it
+implicates, are still open questions.
 
-Rationale:
-
-- At ingest time, a user pasting a link neither knows nor cares about our taxonomy.
-  A required "how volatile is this?" picker is friction that will be answered wrong
-  and then be sticky — worse than a good default.
-- For four of the five source types the class is not a judgment call; it is a fact
-  about the medium (a sent chat message does not change; a Gerrit change merges).
-  Asking the user to confirm a fact is noise.
-- What users *do* care about is trust: "is this fresh?" So the UI surfaces
-  **provenance, not taxonomy**: "checked 2h ago · last changed Jul 12", a frozen
-  badge with its reason, and a manual **Refresh now** on living items.
-
-### 3.1 Inference table (per source, keyed on URL shape / connector)
-
-| Source | Detected by | Class | Why |
-|---|---|---|---|
-| Google Drive file (Doc/Sheet/Slide) | `docs.google.com/…`, `drive.google.com/file/…`, Drive fileId | `living` | Drive exposes `version`/`modifiedTime` and a delta feed; docs are edited indefinitely. Meeting-notes docs are the canonical case. |
-| Google Drive **folder** | folder URL / shared with service account | `living` (a *subscription*, §5) | New children appear; children are classified individually. |
-| Chat message (Google Chat permalink, pasted transcript) | `chat.google.com/…` / raw text paste | `immutable` | A sent message is an event. Edits are rare and immaterial to leadership signal. Pasted raw text has no re-fetchable source at all. |
-| Bug / issue (Buganizer, GitHub issue) | `b.corp.google.com/issues/…`, `github.com/../issues/…` | `until-closed` | Status + comments move while open; terminal on `FIXED`/`closed`. Reopen events unfreeze. |
-| Change request (Gerrit, GitHub PR) | `…-review.googlesource.com/c/…`, `github.com/../pull/…` | `until-closed` | Active until `merged`/`abandoned`, then permanently frozen. |
-| Generic web URL | anything else | `living`, **low confidence** | No reliable change metadata. Conditional GET (`ETag`/`If-Modified-Since`) where the server supports it, else content hash on a slow cadence that decays fast (§6). |
-
-Each row stores `volatilitySource: 'inferred' | 'user'` so an override is never
-silently re-inferred away.
-
-### 3.2 Where it surfaces in the UI
-
-- **Quick-ingest component (§5.2)**: on paste, the inferred tracking mode appears as
-  a **visible, tappable chip** — "Watched (Google Doc)" / "Until closed (bug)" /
-  "Snapshot (chat message)". Inference prefills it; clicking Add accepts it; tapping
-  the chip cycles Snapshot / Watch / Until closed. Never a required question — but
-  always visible and correctable at the moment the user has the most context.
-- **Ingest result** (existing `/ingest` flow): same chip, same behavior.
-- **Context items in feeds/search**: freshness provenance on hover/subtitle
-  ("checked 2h ago"), frozen badge where applicable ("frozen — merged Jul 3").
-- **Manage → Sources** (new page, consistent with Manage → Prompts): the full watch
-  list — every tracked source, class, cadence, `lastCheckedAt`/`lastChangedAt`, next
-  check, and per-row actions **Refresh now** / **Pause** / **Change tracking**. This
-  is the operator view; day-to-day users never need it.
+- **Scoped paste** (§5.2): anchor is set deterministically from the host page —
+  `projectId` (program page), `partnerId` (partner page), `projectId+phaseId`
+  (phase popover). The global Gemini classifier is **skipped**.
+- **Enrichment, constrained**: after digesting, one small classification call runs
+  *within the anchor's space only* — program anchor → "which of this program's
+  phases, if any?"; partner anchor → "which of this partner's programs, if any?".
+  Choosing among ~5 named phases is a far easier task than guessing across the whole
+  portfolio, so this is both cheaper *and* more accurate than v1's global classify.
+- **Unscoped paste** (`/ingest` page, Chat @mention): global classifier runs as
+  today, then the same constrained enrichment.
+- **Wrong-page pastes**: no mismatch detection in v1 — items are deletable from the
+  feed and re-pasteable on the right page. (Deliberate: detection adds a model call
+  and a UI flow to every ingest to catch a rare, self-evident, cheaply-fixed error.)
 
 ---
 
@@ -110,20 +108,28 @@ Two gates before any Gemini spend:
 
 **Gate 1 — did the source *say* it changed?** (no content fetch)
 
-- **Drive**: one `changes.list` call per refresh cycle with a stored `pageToken` —
-  returns only fileIds changed since the last cycle, for the whole corpus, O(1) calls
-  regardless of corpus size. Also reports new shares and removals (§5). Per-file
-  fallback: `files.get?fields=version,modifiedTime`.
-- **Web**: conditional GET with stored `ETag`/`Last-Modified`; a `304` costs ~nothing.
-  Servers without either → fetch and rely on Gate 2.
-- **Gerrit / issues**: status endpoint (`GET /changes/<id>?o=CURRENT_REVISION` etc.);
-  compare `status` + `updated`. Terminal status → freeze, skip Gate 2 forever.
-- **Chat**: no gate — never checked.
+- **Drive**: one `changes.list` call per worker cycle with a stored `pageToken` —
+  all changed fileIds, new shares, and removals for the whole corpus in O(1) calls.
+  ⚠️ implementation risk to verify early: the delta feed must cover *shared-with-me*
+  items for the service account; fallback is batched `files.get?fields=version,modifiedTime`.
+- **Web**: conditional GET (`ETag`/`If-Modified-Since`); `304` costs ~nothing.
+  No validators → fetch and rely on Gate 2.
+- **Gerrit / GitHub**: status endpoint; terminal status → freeze, no Gate 2 needed.
+- **Snapshots**: no gate — never checked.
 
-**Gate 2 — did the *text* change?** `modifiedTime` moves on renames, comment
-resolutions, permission tweaks. So: fetch, normalize (strip whitespace runs, export
-artifacts), SHA-256, compare to stored `contentHash`. Unchanged → touch
-`lastCheckedAt`, widen the interval (§6), stop. Changed → §7.
+**Gate 2 — did the *text* change?** `modifiedTime` moves on renames and
+comment-resolutions too. Fetch, normalize (whitespace, export artifacts, and URL
+canonicalization — strip tracking params/fragments so the same page hashes the
+same), SHA-256, compare `contentHash`. Unchanged → touch `lastCheckedAt`, stop.
+
+**Fetch guards** (both new in v2):
+
+- **SSRF**: server-side fetch of user-pasted URLs must resolve-and-reject private
+  address space (localhost, RFC-1918, link-local/metadata IPs) before connecting.
+- **Auth walls**: a fetch that lands on a login page (SSO redirect, `401/403`,
+  sign-in HTML heuristics) must NOT hash-compare or digest it — that would record a
+  bogus "change" and poison the digest with login-page text. Freeze as
+  `auth-required`, surface the badge.
 
 ---
 
@@ -137,181 +143,137 @@ considered and rejected:
   interactively-minted OAuth refresh token — a fragile artifact subject to expiry,
   admin revocation, and human-account policy (2FA/password rotation/inactive-account
   sweeps) — plus a seat license and a full Gmail-bearing attack surface.
-- *Service account + domain-wide delegation* (key-based auth impersonating a domain
-  user): the impersonation grant is a far bigger security ask than the problem
-  warrants.
+- *Service account + domain-wide delegation*: the impersonation grant is a far
+  bigger security ask than the problem warrants.
 
 The service account authenticates by key (no session, no consent flow, no token to
 lose), costs no seat, and can do exactly one thing: read what was shared with it.
-**Prerequisite this creates**: the service-account address is *external* to the
-Workspace domain — the domain's Drive sharing policy must permit sharing to it
-(Admin console → Drive → Sharing settings; allowlist the address/domain if external
-sharing is otherwise blocked). Slice 3 of the rollout starts with verifying this.
+**Prerequisite**: the address is *external* to the Workspace domain — the domain's
+Drive sharing policy must permit sharing to it (allowlist if external sharing is
+blocked). Slice 3 starts by verifying this.
 
-The service account gives the app a shareable email address
-(`autoknow@<gcp-project>.iam.gserviceaccount.com`). Sharing a file or folder with
-that address *is* the consent boundary and the discovery mechanism:
+Sharing a file or folder with `autoknow@<gcp-project>.iam.gserviceaccount.com` *is*
+the consent boundary and the discovery mechanism:
 
-- Shared **file** → ingested as a normal `living` source.
-- Shared **folder** → a standing subscription: children (current and future) are
-  discovered via the same `changes.list` feed, ingested and classified individually,
-  announced in the activity feed ("3 documents shared via *EX90 Weekly Notes*").
-- **Unsharing** appears in the delta feed → row frozen as `access-revoked` (honest
-  state, not an error loop).
-- The service account's own credential also fixes the background-identity gap in
-  §1 — scheduled refresh cannot use a user's session token.
+- Shared **file** → ingested as a `watched` source.
+- Shared **folder** → standing subscription: current and future children discovered
+  via the same delta feed, announced in the activity feed.
+- **Unsharing** appears in the delta feed → freeze as `access-revoked`.
+- The SA credential is also the background identity — scheduled refresh cannot use a
+  user's session token (§1 gap).
 
-Manual `/ingest` paste stays as the second trigger (and the only one for web, bugs,
-CRs).
+**Dedupe (new in v2)**: every source gets a canonical `sourceRef` (Drive fileId /
+Chat thread name / Gerrit change / normalized URL). `sourceRef` is unique: pasting a
+link that's already tracked — on any page, or already discovered via a folder
+subscription — does not create a second row; the UI points at the existing item
+("Already tracked — attached to *Volvo EX90*"). One source = one row = one anchor;
+cross-entity visibility already exists because partner-scoped queries include the
+partner's programs' context.
+
+Implementation scope (slice 3): operator provisions the account (no IAM roles —
+access comes purely from sharing); key in `GOOGLE_SERVICE_ACCOUNT_JSON` or
+`GOOGLE_APPLICATION_CREDENTIALS` (documented in `.env.sample`; absent key ⇒
+share-to-ingest degrades honestly, manual ingest unaffected — same pattern as
+`GEMINI_API_KEY`). `src/lib/googleAuth.ts` mints cached JWT-grant tokens;
+`google-docs.ts` uses the SA token for watched sources, the user token only for
+one-off manual ingests of unshared docs. The shareable address is displayed with a
+copy button in Manage → Sources. Drive cursor lives in `SyncCursor` (§8).
 
 ### 5.1 Google Chat mechanics — the app is the mentionable identity
 
-A service-account *email* cannot be mentioned or shared-to inside Google Chat; the
-mentionable identity is a **Chat app** ("AutoKnow"), configured on the same GCP
-project and authenticating with the same service-account credentials (`chat.bot`
-scope, app auth). One GCP project therefore yields both share targets: the SA email
-for Drive, the app name for Chat.
+A service-account *email* cannot be mentioned in Chat; the mentionable identity is a
+**Chat app** ("AutoKnow") on the same GCP project, authenticating with the same SA
+credentials (`chat.bot`, app auth). One GCP project = both share targets: SA email
+for Drive, app name for Chat.
 
-Two directional facts shape the design:
+Directional facts: incoming webhooks only POST *into* spaces (wrong direction); the
+Chat app's HTTP endpoint is the receiving mechanism and only receives events
+addressed to the app — never a space firehose. App auth reads messages only in
+spaces the app is a member of. Caveat: thread fetch needs the space's history
+setting on; degrade to the mentioning message alone when off.
 
-- **Incoming webhooks are the wrong direction.** Chat webhooks only POST messages
-  *into* a space; nothing pushes messages *out*. The Chat app's HTTP endpoint is the
-  receiving mechanism, and by design it only receives events addressed to the app
-  (@mention, DM, command) — apps never get a space's firehose.
-- **App auth can read a space's messages only where the app is a member** (`chat.bot`
-  works in spaces the app has been added to; the broader
-  `chat.app.messages.readonly` scope needs admin approval and is public-message-only).
+**Primary gesture (GA today)**: add the app to the space once, then `@AutoKnow` a
+message or thread-reply. The app receives the event, fetches the thread (it's a
+member now), ingests thread-as-of-now, and acks in-thread: "Saved — linked to
+*Volvo EX90 AAOS Refresh*". Re-mentioning the same thread later writes a
+**ContextRevision** on the existing row (dedupe via `sourceRef` = thread name) —
+chat stays `snapshot`-mode; freshness is user-pulled, which fits chat's episodic
+nature. A slash command and DM-the-app fall out of the same handler. **Message
+actions** (⋮ menu "Save to AutoKnow") are Developer Preview as of mid-2026 —
+register now, treat as progressive enhancement.
 
-**Primary gesture (GA today): add the app to the space once, then `@AutoKnow` on the
-message or as a thread reply.** The app receives the MESSAGE event (text, thread,
-space, sender), fetches the surrounding thread via app auth (it is now a member),
-ingests thread-as-of-now through the normal digest→classify→embed pipeline, and
-replies in-thread with one line: "Saved — linked to *Volvo EX90 AAOS Refresh*". The
-confirmation doubles as discoverability for everyone else in the space.
+**Fallback (app not in the space)**: copy message link → paste into `/ingest`;
+fetch with the signed-in user's token (`chat.messages.readonly`), like manual Doc
+ingestion today.
 
-- Dedupe on thread: re-mentioning the same thread later creates a **ContextRevision**
-  on the existing row (with a what's-new delta), not a duplicate. Chat therefore
-  stays `immutable`-class — no polling; freshness is user-pulled by re-mentioning,
-  which fits chat's episodic nature.
-- **Message action** ("Save to AutoKnow" in a message's ⋮ menu) is the ideal
-  zero-typing gesture but is **Developer Preview** as of mid-2026 — register the
-  command config now if convenient, treat as progressive enhancement, adopt at GA.
-- A **slash command** (`/autoknow`) and DM-the-app both fall out of the same event
-  handler for free.
+Implementation scope (extends slice 3): Chat app config in GCP console, a
+`POST /api/chat/events` route verifying the request bearer token, thread fetch +
+dedupe + in-thread ack, link-paste fallback in `/ingest`.
 
-**Fallback (app not in the space): copy message link → paste into `/ingest`.** The
-app isn't a member, so app auth cannot read it; the fetch uses the *signed-in
-user's* token (`chat.messages.readonly` user scope) — the same pattern as manual
-Doc ingestion today. Link parsing maps `chat.google.com/room/<space>/<thread>/<msg>`
-to the API resource name.
+### 5.2 Scoped quick-ingest component
 
-Implementation scope (extends slice 3): Chat app configuration in the GCP console
-(name, avatar, HTTP endpoint URL, slash command + preview-registered message
-action), a `POST /api/chat/events` route verifying the request's bearer token,
-thread fetch + dedupe + in-thread ack, and the link-paste fallback in `/ingest`.
+`<QuickIngest scope={{kind, id}}>` embedded where links arrive: program page,
+partner page, phase popover. Collapsed to "+ Add link"; expands to input + the
+two-state mode chip (§2.2) + Add. The host page sets the anchor (§3); constrained
+enrichment fills in the rest; the chip records mode corrections. On a `sourceRef`
+hit it links to the existing item instead of duplicating.
 
-### 5.2 Scoped quick-ingest component — "paste a link" everywhere it has context
+### 5.3 Lifecycle — how a resolved bug stops reading as a blocker
 
-A small reusable client component, `<QuickIngest scope={{kind, id}}>`, embedded on
-the pages where links naturally arrive: program page, partner page, and the phase
-detail popover. Collapsed to a quiet "+ Add link" affordance (Tufte: no standing
-form chrome); expands to input + tracking chip + Add.
-
-**The host page IS the classification.** Today's `/ingest` runs a Gemini classifier
-to guess which program/partner a document belongs to. Pasted from a program page,
-there is nothing to guess: the link attaches to that program (phase scope also
-records the phase). The classifier step is skipped entirely — cheaper, and never
-wrong. The global `/ingest` page keeps the classifier for unscoped pastes.
-
-**The tracking chip** (§3.2) shows the inferred volatility on paste and is tappable:
-
-- `Snapshot` — index once, never re-check (chat, one-off exports).
-- `Watched` — living document behavior (§6 cadence).
-- `Until closed` — bug/CR behavior; see lifecycle below.
-
-Inference from the URL prefills the chip (§3.1); the user corrects it only when they
-know better — e.g. marking a generic tracker URL as `Until closed`. `volatilitySource`
-records the correction so re-inference never undoes it.
-
-### 5.3 Until-closed lifecycle — how a resolved bug stops reading as a blocker
-
-Three layers, in order of reliability:
-
-1. **Connectored trackers** (Gerrit, GitHub issues/PRs): status is machine-readable.
-   The §6 worker polls the status endpoint (6h cadence while active); a terminal
-   status (`FIXED`/`merged`/`closed`/`abandoned`) freezes the row with
-   `frozenReason: closed`, writes a final revision whose delta records the
-   resolution, and emits a feed event ("Bug 4711 resolved").
-2. **Unconnectored URLs marked `Until closed`** (the chip on a generic tracker
-   link): no status API exists, so the row is watched like a living doc — and every
-   re-digest asks Gemini to also extract a structured `sourceStatus:
-   open | resolved | unknown` from the page text. A `resolved` extraction triggers
-   the same freeze + final revision + feed event. Reopen (visible on a later manual
-   refresh or via the connectored feed) unfreezes.
-3. **Summary evidence carries lifecycle, not just text.** Evidence lines for tracked
-   sources are prefixed with their live state — `OPEN bug (since May 3): …` vs
-   `RESOLVED Jun 30: …` — and the summary prompts already forbid synthesizing
-   beyond the evidence. The moment a resolution revision lands, the scope's summary
-   goes stale, SummaryPanel auto-regenerates, and the "blocker" disappears from
-   Risks (typically resurfacing once under Progress as "resolved"). This is the
-   precise mechanism by which AutoKnow *stops believing* stale blockers: freshness
-   invalidation is already wired from revisions → staleness → regeneration; the
-   lifecycle layers above just make revisions happen at the right moments.
-
-Implementation scope for the service account (slice 3):
-
-- Operator provisions the account (GCP console; no roles/IAM grants needed — Drive
-  access comes purely from sharing) and puts the key in env:
-  `GOOGLE_SERVICE_ACCOUNT_JSON` (inline) or `GOOGLE_APPLICATION_CREDENTIALS` (path).
-  `.env.sample` documents both; absent key ⇒ share-to-ingest degrades honestly
-  (Manage → Sources shows "Drive sync off", manual ingest unaffected) — same pattern
-  as `GEMINI_API_KEY`.
-- `src/lib/googleAuth.ts`: mint access tokens from the key (JWT grant, cached until
-  expiry). `src/lib/google-docs.ts` fetches with the service-account token for
-  watched sources; the signed-in user's token remains only as the fallback for
-  one-off manual ingests of docs not shared with the app.
-- Startup/settings surface shows the shareable address (copy button) so users know
-  what to share to; the address is also printed in Manage → Sources.
-- Drive `changes.list` cursor stored in `SyncCursor` (§8); the same feed drives
-  new-share discovery, edit detection, and unshare-freezing.
+- **Every digest extracts status.** The standard digest schema (all sources, not a
+  special case) includes `sourceStatus: open | resolved | not-applicable`. Meeting
+  notes come back `not-applicable`; a bug or CR page comes back `open`/`resolved`.
+- **Freeze on terminal**: a connector's terminal status (Gerrit `MERGED`, GitHub
+  `closed`) or an extracted `resolved` freezes the row (`frozenReason: resolved`),
+  writes a final revision whose delta records the resolution, and emits a feed
+  event ("Bug 4711 resolved").
+- **Summary evidence carries lifecycle**: evidence lines are prefixed with live
+  state — `OPEN bug (since May 3): …` vs `RESOLVED Jun 30: …` — and the prompts
+  already forbid synthesizing beyond evidence. When the resolution revision lands,
+  the scope summary goes stale and auto-regenerates; the blocker drops out of Risks
+  (resurfacing once under Progress as "resolved"). The invalidation chain
+  (revision → staleness → regeneration) already exists; the lifecycle just makes
+  revisions land at the right moments.
 
 ---
 
-## 6. Adaptive scheduling
+## 6. Scheduling — fixed per-connector cadence
 
-A refresh worker (cron-hit route, e.g. `GET /api/cron/refresh`, guarded by a shared
-secret) processes rows where `nextCheckAt <= now()`, oldest first, budget-capped.
+> v1 specified an AIMD adaptive-interval scheme with jitter. Killed: the corpus is
+> hundreds of sources, not millions, and the expensive work is already gated twice.
+> For Drive, per-row scheduling is pointless — the delta feed reports all changes in
+> one call per cycle regardless of cadence. Adaptive intervals optimized the cheap
+> part.
 
-- **Interval algorithm (AIMD-flavored)**: on *unchanged* check, `interval = min(interval × 2, 30d)`;
-  on *changed* check, `interval = base` (per class: Drive 1d, web 3d, until-closed 6h
-  when active). A weekly-edited notes doc settles at a 2–4 day rhythm; an abandoned
-  doc decays to monthly metadata peeks; a hot doc tightens automatically.
-- **Jitter** ±20% so checks don't convoy.
-- **Budget guards**: per cycle, max N content fetches and M Gemini re-digests
-  (overflow simply waits — `nextCheckAt` ordering makes this fair). Drive Gate 1 is
-  exempt (single delta call).
-- **Manual Refresh now** bypasses the schedule but still honors both gates.
+A worker (cron-hit `GET /api/cron/refresh`, shared-secret guarded) runs each cycle:
+
+| Connector | Cadence | Cost per cycle |
+|---|---|---|
+| Drive (all files + folder discovery) | every cycle (~hourly) | 1 API call (delta feed) |
+| Gerrit / GitHub (unfrozen) | 6h | 1 status call per open item |
+| Generic web (unfrozen) | weekly | 1 conditional GET per item |
+| Snapshots / frozen | never | 0 |
+
+Plus: **Refresh now** on any item (bypasses cadence, honors both gates), and a
+per-cycle cap on Gemini re-digests (overflow carries to the next cycle, oldest
+first). That's the whole scheduler.
 
 ---
 
-## 7. Re-distill incrementally; keep revisions; emit signal
+## 7. Re-distill on change; keep revisions; emit signal
 
-When Gate 2 finds real change:
+> v1 said "incremental digest with the tail diff". Contradiction: diffing needs the
+> previous *text*, and we deliberately store only digests. Dropped — on change, send
+> Gemini the **full current text + the previous digest** and ask for an updated
+> digest plus a "what's new vs. the previous digest" delta (1–3 bullets). Changes
+> are rare events; a full re-distill per change is cheap and simpler.
 
-- **Incremental digest**: prompt Gemini with the *previous digest* + the fetched text
-  (and, for appende-style docs like running notes, the tail diff) → returns an
-  **updated digest** and a **"what's new" delta** (1–3 bullets).
-- **Revisions, not overwrites**: new `ContextRevision` row (digest, contentHash,
-  sourceVersion, checkedAt); `ContextUrl.ingestedText` becomes the *latest* digest
-  (search keeps working unmodified). Append-only history matches the
-  ProjectState/PartnerState pattern.
-- **Re-embed** only if the digest text hash changed (a content edit that doesn't move
-  the digest costs no embedding call).
-- **Activity feed event** per revision: "Meeting notes updated — decision to move
-  cert to Q3" (the delta), linked to the source. This is the product payoff: a doc
-  update becomes a first-class signal.
-- **Summaries**: nothing to do — new revision rows make scope summaries stale, and
-  SummaryPanel already auto-regenerates.
+- **Revisions, not overwrites**: new `ContextRevision` (digest, contentHash,
+  sourceVersion, sourceStatus, delta); `ContextUrl.ingestedText` holds the latest
+  digest so search works unmodified. Append-only, matching the State-row pattern.
+- **Re-embed** only when the digest text actually changed.
+- **Feed event per revision**: "Meeting notes updated — decision to move cert to Q3".
+- **Summaries**: nothing to do — staleness + auto-regeneration already wired.
 
 ---
 
@@ -320,20 +282,18 @@ When Gate 2 finds real change:
 ```prisma
 model ContextUrl {
   // …existing fields…
-  volatility       String    @default("immutable") // immutable | living | until-closed
-  volatilitySource String    @default("inferred")  // inferred | user
-  sourceRef        String?   // Drive fileId / Gerrit change / issue id
-  sourceVersion    String?   // Drive version / ETag / patchset
-  contentHash      String?   // sha256 of normalized text
-  lastCheckedAt    DateTime?
-  lastChangedAt    DateTime?
-  nextCheckAt      DateTime? // null = never check (immutable/frozen)
-  checkIntervalH   Int       @default(24)
-  sourceStatus     String?   // open | resolved | unknown (until-closed rows, §5.3)
-  frozenAt         DateTime?
-  frozenReason     String?   // closed | merged | access-revoked | deleted | user-paused
-  revisions        ContextRevision[]
-  @@index([nextCheckAt])
+  mode          String    @default("snapshot") // snapshot | watched
+  modeSource    String    @default("inferred") // inferred | user
+  sourceRef     String?   @unique // canonical id: Drive fileId / Chat thread / normalized URL
+  sourceVersion String?   // Drive version / ETag / patchset
+  contentHash   String?   // sha256 of normalized text
+  sourceStatus  String?   // open | resolved | not-applicable (extracted, §5.3)
+  lastCheckedAt DateTime?
+  lastChangedAt DateTime?
+  frozenAt      DateTime?
+  frozenReason  String?   // resolved | access-revoked | deleted | auth-required | user-paused
+  revisions     ContextRevision[]
+  @@index([mode, frozenAt])
 }
 
 model ContextRevision {
@@ -343,8 +303,9 @@ model ContextRevision {
   checkedAt     DateTime   @default(now())
   sourceVersion String?
   contentHash   String
+  sourceStatus  String?
   digest        String     // full digest at this revision
-  delta         String?    // "what's new" bullets; null for the initial ingest
+  delta         String?    // "what's new" bullets; null for initial ingest
 }
 
 model SyncCursor { // one row per feed (Drive changes pageToken, etc.)
@@ -354,31 +315,73 @@ model SyncCursor { // one row per feed (Drive changes pageToken, etc.)
 }
 ```
 
-Existing rows migrate as `immutable` (their current de-facto behavior); a backfill
-pass re-infers classes from stored URLs and schedules living ones.
+(No `nextCheckAt`/`checkIntervalH` — §6 killed per-row scheduling; cadence is a
+property of the connector, derived from the URL/sourceRef at check time.)
+
+Existing rows migrate as `snapshot` (their de-facto behavior); a backfill re-infers
+mode from stored URLs and starts watching the living ones.
 
 ---
 
 ## 9. Failure handling
 
-- `403`/`404` from source → freeze as `access-revoked`/`deleted`; surface the badge;
-  never retry-loop.
-- Quota/5xx → leave `nextCheckAt` untouched plus backoff bump; budget guard already
-  bounds blast radius.
-- A revision whose digest fails validation → keep previous digest, log, retry next
-  cycle (never replace good data with a failed distillation).
+- `403`/`404` → freeze `access-revoked`/`deleted`; badge; never retry-loop.
+- Login-page/auth-wall content → freeze `auth-required` (never hash or digest it).
+- Quota/5xx → skip this cycle; the fixed cadence retries naturally next cycle.
+- Digest that fails validation → keep the previous digest, log, retry next cycle.
 
 ## 10. Rollout
 
-1. **Foundation**: volatility columns + inference + content-hash gate + revisions
-   (manual Refresh-now button as the only trigger), plus the scoped `<QuickIngest>`
-   component with its tracking chip (§5.2) — it exercises inference and override
-   end-to-end before any worker exists. Pure additions; no new infra.
-2. **Worker + cadence**: cron route, AIMD scheduling, budget guards, until-closed
-   status polling + extraction (§5.3), evidence lifecycle prefixes in summaries,
-   Manage → Sources.
-3. **Service account** (decided, §5): first verify the Workspace domain's sharing
-   policy permits sharing to the external service-account address, then provision
-   the account and build share-to-ingest, folder subscriptions, and the Drive delta
-   feed.
-4. **Until-closed connectors**: Gerrit/issue status polling + freeze transitions.
+1. **Foundation**: mode columns + inference + hash gate + revisions + `sourceRef`
+   dedupe + SSRF/auth-wall guards, plus `<QuickIngest>` with the mode chip and
+   anchor+constrained-enrichment classification. Manual Refresh-now is the only
+   trigger. Pure additions; no new infra.
+2. **Worker**: cron route, fixed cadences, re-digest cap, `sourceStatus` extraction
+   in the standard digest, evidence lifecycle prefixes, Manage → Sources.
+3. **Service account** (§5): verify domain sharing policy → provision → Drive delta
+   feed, folder subscriptions, unshare-freezing. Verify shared-with-me delta
+   coverage first (§4 risk).
+4. **Chat app + tracker connectors**: @mention ingestion (§5.1); Gerrit/GitHub
+   status polling (§5.3).
+
+---
+
+## 11. v2 changelog — what the adversarial review found
+
+Gaps fixed:
+
+- **G1** "Host page IS the classification" overclaimed — the host gives an *anchor*;
+  phase/partner enrichment still needs a (now constrained, cheaper, more accurate)
+  classification step. (§3)
+- **G2** Incremental "tail diff" digestion required the previous full text, which we
+  deliberately don't store — impossible as specified. Replaced with full-text +
+  previous-digest re-distillation. (§7)
+- **G3** Duplicate rows: same doc pasted on two pages, or pasted *and* discovered
+  via a folder subscription, created independent watchers. Fixed with canonical
+  `sourceRef` dedupe; one row per source is an accepted, documented limitation. (§5)
+- **G4** "Reopen events unfreeze" could never fire — frozen rows are never checked.
+  Now: manual Refresh-now is the only unfreeze, deliberately. (§2)
+- **G5** Auth-wall fetches (SSO redirects) would have hashed and digested login-page
+  HTML as a "change". Detect and freeze `auth-required`. (§4)
+- **G6** SSRF: the server fetches arbitrary pasted URLs; must reject private address
+  space. (§4)
+- **G7** URL canonicalization (tracking params, fragments) was unspecified — needed
+  for both dedupe and hash stability. (§4)
+- **G8** Drive delta-feed coverage of shared-with-me items flagged as a
+  verify-early implementation risk with a stated fallback. (§4)
+- **G9** Chat thread fetch silently assumed space history is on; degrade path
+  stated. (§5.1)
+- **G10** No correction path for wrong-page pastes; v1 answer is delete + re-paste
+  (feed deletion already exists), stated as a deliberate cut. (§3)
+
+Simplified away:
+
+- **S1** Three volatility classes → **two modes** (`snapshot`/`watched`); bug/CR
+  behavior is emergent from status, not a class; the chip is a two-state toggle.
+- **S2** AIMD adaptive scheduling + jitter + per-row `nextCheckAt` → fixed
+  per-connector cadences; Drive needs no per-row schedule at all. Two schema columns
+  deleted.
+- **S3** `sourceStatus` extraction is part of the standard digest for all sources —
+  the until-closed special case disappears.
+- **S4** Freeze semantics unified under one `frozenReason` enum; `immutable` vs
+  `frozen` (behaviorally identical) merged.
