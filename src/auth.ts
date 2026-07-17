@@ -32,7 +32,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             params: {
               scope: GOOGLE_SCOPES,
               access_type: 'offline',
-              prompt: 'consent',
+              // select_account: always show the account picker — with several Google
+              // sessions in the browser, Google otherwise auto-picks the active one
+              // (often a personal gmail) and the domain check then rejects it.
+              prompt: 'select_account consent',
             },
           },
         }),

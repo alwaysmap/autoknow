@@ -81,7 +81,9 @@ export default async function RootLayout({
             <LocaleSwitcher locale={locale} />
             <div className={styles.sessionIndicator}>
               <div className={styles.googleLogo}>G</div>
-              <span>{user.email}</span>
+              {/* Show an identity only when it's real: the signed-in session, or the
+                  stub in unauthenticated dev mode. Never the stub NEXT TO "Sign in". */}
+              {(!authConfigured || session?.user) && <span>{user.email}</span>}
               {authConfigured && (
                 session?.user ? (
                   <form
