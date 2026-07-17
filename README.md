@@ -2,6 +2,9 @@
 
 A relationship and project tracking system for Android Automotive Partner Engineering.
 
+> Operational setup (Gemini key, GCP project, OAuth sign-in, service account,
+> Chat app, refresh worker): see [docs/OPERATIONS.md](docs/OPERATIONS.md).
+
 ## Development Workflow
 
 All key actions are accessible via `npm run` scripts.
