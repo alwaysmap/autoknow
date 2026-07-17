@@ -86,7 +86,9 @@ test.describe('Ecosystem Partners Page', () => {
     const editDialog = page.locator('dialog[open]');
     await expect(async () => {
       if (!(await editDialog.isVisible())) {
-        await page.getByRole('button', { name: 'Edit', exact: true }).click({ timeout: 2000 });
+        const item = page.getByRole('button', { name: 'Edit', exact: true });
+        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+        await item.click({ timeout: 2000 });
       }
       await expect(editDialog).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
@@ -98,7 +100,11 @@ test.describe('Ecosystem Partners Page', () => {
     // DELETE — no programs/people on Rivian, so the name-confirm flow applies.
     const delDialog = page.locator('dialog[open]');
     await expect(async () => {
-      if (!(await delDialog.isVisible())) await page.getByTestId('delete-partner').click({ timeout: 2000 });
+      if (!(await delDialog.isVisible())) {
+        const item = page.getByTestId('delete-partner');
+        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+        await item.click({ timeout: 2000 });
+      }
       await expect(delDialog).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
     const confirmBtn = delDialog.locator('button:has-text("Permanently delete partner")');
@@ -115,7 +121,11 @@ test.describe('Ecosystem Partners Page', () => {
 
     const dialog = page.locator('dialog[open]');
     await expect(async () => {
-      if (!(await dialog.isVisible())) await page.getByTestId('delete-partner').click({ timeout: 2000 });
+      if (!(await dialog.isVisible())) {
+        const item = page.getByTestId('delete-partner');
+        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+        await item.click({ timeout: 2000 });
+      }
       await expect(dialog).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
 

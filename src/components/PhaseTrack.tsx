@@ -176,7 +176,9 @@ function Station({ x, y, progress, onChain, isConstraint, title, onClick }: {
   const stroke = onChain ? INK : 'var(--muted)';
   return (
     <g onClick={onClick} className={styles.station}>
-      {isConstraint && <circle cx={x} cy={y} r={r + 4} fill="none" stroke="var(--chain)" strokeWidth={2} />}
+      {/* interchange-station treatment: the ring's interior is solid white so the
+          track visibly terminates at the station instead of passing through */}
+      {isConstraint && <circle cx={x} cy={y} r={r + 4} fill="#fff" stroke="var(--chain)" strokeWidth={2} />}
       <circle cx={x} cy={y} r={r} fill={progress >= 100 ? stroke : '#fff'} stroke={stroke} strokeWidth={onChain ? 2 : 1.5} />
       {progress > 0 && progress < 100 && (
         <path d={`M ${x} ${y - (r - 0.75)} A ${r - 0.75} ${r - 0.75} 0 0 1 ${x} ${y + (r - 0.75)} Z`} fill={stroke} stroke="none" />
@@ -366,6 +368,17 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     flashTimer.current = setTimeout(() => setFlashId(null), 1400);
   };
   useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
+
+  // Deeplinks from the dashboard's hill chart: a dot click jump-and-flashes here.
+  useEffect(() => {
+    const onJump = (e: Event) => {
+      const id = (e as CustomEvent<number>).detail;
+      if (phases.some((p) => p.id === id)) jumpTo(id);
+    };
+    window.addEventListener('autoknow:jump-phase', onJump);
+    return () => window.removeEventListener('autoknow:jump-phase', onJump);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phases]);
 
   // Esc closes the focused popover — the scrim is the other way out.
   useEffect(() => {

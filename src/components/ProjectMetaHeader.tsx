@@ -11,6 +11,7 @@ import dash from './ProjectStatusDashboard.module.css';
 // IS the label.
 import pills from './PhaseTrack.module.css';
 import styles from './ProjectMetaHeader.module.css';
+import KebabMenu from './KebabMenu';
 
 // Project metadata lives in the page HEADER — one strip, no sidebar card, no
 // duplication. Quiet facts on the left (OEM · suppliers · owner, all links per
@@ -88,11 +89,13 @@ export default function ProjectMetaHeader({
           {archivedTag && <span className={styles.archived}> {archivedTag}</span>}
         </h1>
         <span className={styles.actions}>
-          <button type="button" className={styles.primaryAction} title={t(locale, 'editMetadata')}
-            onClick={() => dialogRef.current?.showModal()}>
-            {t(locale, 'edit')}
-          </button>
-          {actions}
+          <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+            <button type="button" title={t(locale, 'editMetadata')}
+              onClick={() => dialogRef.current?.showModal()}>
+              {t(locale, 'edit')}
+            </button>
+            {actions}
+          </KebabMenu>
         </span>
       </div>
 

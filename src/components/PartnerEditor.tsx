@@ -7,6 +7,7 @@ import { useLocale } from './LocaleProvider';
 import dash from './ProjectStatusDashboard.module.css';
 import meta from './ProjectMetaHeader.module.css';
 import admin from './ProjectAdminControls.module.css';
+import KebabMenu from './KebabMenu';
 
 // Partner CRUD surfaces. One shared form (create + edit); the partner page gets the
 // small Edit · Delete links beside the name (same quiet grammar as programs), the
@@ -142,14 +143,16 @@ export default function PartnerAdminControls({
 
   return (
     <span className={meta.actions}>
-      <button type="button" className={meta.primaryAction} title={t(locale, 'editPartnerTitle')}
-        onClick={() => editRef.current?.showModal()}>
-        {t(locale, 'edit')}
-      </button>
-      <button type="button" className={admin.deleteButton} data-testid="delete-partner"
-        onClick={() => { setConfirmName(''); deleteRef.current?.showModal(); }}>
-        {t(locale, 'deleteLabel')}
-      </button>
+      <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+        <button type="button" title={t(locale, 'editPartnerTitle')}
+          onClick={() => editRef.current?.showModal()}>
+          {t(locale, 'edit')}
+        </button>
+        <button type="button" data-testid="delete-partner"
+          onClick={() => { setConfirmName(''); deleteRef.current?.showModal(); }}>
+          {t(locale, 'deleteLabel')}
+        </button>
+      </KebabMenu>
 
       {/* edit dialog */}
       <dialog ref={editRef} closedby="any" className={admin.dialog} aria-labelledby="editPartnerTitle">

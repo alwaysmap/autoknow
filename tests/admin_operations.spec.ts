@@ -103,12 +103,22 @@ test.describe('Admin and Maintenance Operations', () => {
     const project = await prisma.project.findFirst({ where: { name: 'Waymo Autonomous Trucking' } });
     await page.goto(`/programs/${project?.id}`);
 
+    // Header actions live in the ⋯ menu now; open it (hydration-guarded), then act.
+    const viaKebab = async (label: string) => {
+      const item = page.getByRole('button', { name: label, exact: true });
+      await expect(async () => {
+        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+        await expect(item).toBeVisible({ timeout: 1500 });
+      }).toPass({ timeout: 20000 });
+      await item.click();
+    };
+
     // Archive project
-    await page.getByRole('button', { name: 'Archive', exact: true }).click();
+    await viaKebab('Archive');
     await expect(page.locator('body')).toContainText('[Archived]');
 
     // Delete project with confirmation name typing
-    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+    await viaKebab('Delete');
     await page.fill('input[id="confirmProjectName"]', 'Waymo Autonomous Trucking');
     await page.click('button:has-text("Permanently Delete Project")');
 

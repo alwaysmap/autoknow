@@ -74,7 +74,9 @@ test.describe('Project Details and Action Item Operations', () => {
     const dialog = page.locator('dialog[open]');
     await expect(async () => {
       if (!(await dialog.isVisible())) {
-        await page.getByTestId('project-meta').getByRole('button', { name: 'Edit', exact: true }).click({ timeout: 2000 });
+        const item = page.getByTestId('project-meta').getByRole('button', { name: 'Edit', exact: true });
+        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+        await item.click({ timeout: 2000 });
       }
       await expect(dialog).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
