@@ -75,6 +75,7 @@ export async function deletePartner(formData: FormData) {
   await prisma.$transaction([
     prisma.partnerState.deleteMany({ where: { partnerId } }),
     prisma.personAffiliation.deleteMany({ where: { partnerId } }),
+    prisma.contextRevision.deleteMany({ where: { contextUrl: { partnerId } } }),
     prisma.contextUrl.deleteMany({ where: { partnerId } }),
     prisma.phasePartner.deleteMany({ where: { partnerId } }),
     prisma.phase.updateMany({ where: { leadPartnerId: partnerId }, data: { leadPartnerId: null } }),

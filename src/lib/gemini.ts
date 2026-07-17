@@ -26,6 +26,10 @@ export interface DocDigest {
   decisions: string[];
   openQuestions: string[];
   entities: { partners: string[]; programs: string[]; people: string[] };
+  // Lifecycle extracted from the content itself, for every source (plan §5.3): a bug
+  // or CR page reads open/resolved; meeting notes read not-applicable. A `resolved`
+  // extraction freezes a watched row so stale blockers stop being believed.
+  sourceStatus: 'open' | 'resolved' | 'not-applicable';
 }
 
 export interface ClassifyCandidate {
@@ -49,7 +53,7 @@ export function digestToText(d: DocDigest): string {
   return parts.join('\n');
 }
 
-export async function summarizeDocument(text: string): Promise<DocDigest> {
+export async function summarizeDocument(text: string, previousDigest?: string): Promise<DocDigest & { delta?: string }> {
   if (!ai) {
     return {
       summary: text.slice(0, 500),
@@ -57,12 +61,23 @@ export async function summarizeDocument(text: string): Promise<DocDigest> {
       decisions: [],
       openQuestions: [],
       entities: { partners: [], programs: [], people: [] },
+      sourceStatus: 'not-applicable',
     };
   }
 
+  // Re-distillation (plan §7): the previous digest rides along so the model can also
+  // report what's NEW — the delta becomes an activity-feed event.
   const prompt = `You are an analyst for an Android Automotive (AAOS / Google Automotive Services) partner-program tracker.
 Distill the document below into structured, decision-useful intelligence for a Googler who is either prepping for a partner meeting or reviewing a program. Be concise and specific; capture discussion topics even when they do not map to formal program status.
 
+sourceStatus: if the document is a bug, issue, or change request, report whether it is currently open or resolved/merged/closed; anything else is "not-applicable".
+${previousDigest ? `
+This document was distilled before. PREVIOUS DIGEST:
+"""
+${previousDigest.slice(0, 4000)}
+"""
+Also produce "delta": 1-3 short bullets (joined by "; ") covering only what is new or changed versus the previous digest. If nothing material changed, delta = "".
+` : ''}
 DOCUMENT:
 """
 ${text.slice(0, MAX_DOC_CHARS)}
@@ -89,13 +104,49 @@ ${text.slice(0, MAX_DOC_CHARS)}
             },
             required: ['partners', 'programs', 'people'],
           },
+          sourceStatus: { type: Type.STRING, enum: ['open', 'resolved', 'not-applicable'] },
+          ...(previousDigest ? { delta: { type: Type.STRING } } : {}),
         },
-        required: ['summary', 'keyTopics', 'decisions', 'openQuestions', 'entities'],
+        required: ['summary', 'keyTopics', 'decisions', 'openQuestions', 'entities', 'sourceStatus'],
       },
     },
   });
 
-  return JSON.parse(resp.text ?? '{}') as DocDigest;
+  return JSON.parse(resp.text ?? '{}') as DocDigest & { delta?: string };
+}
+
+/**
+ * Constrained enrichment (plan §3): the anchor is already known; pick at most one
+ * item from a SMALL candidate list (this program's phases, or this partner's
+ * programs). Far cheaper and more accurate than portfolio-wide classification.
+ */
+export async function classifyWithinAnchor(
+  digest: DocDigest,
+  candidates: ClassifyCandidate[],
+  candidateLabel: 'phase' | 'program',
+): Promise<number | null> {
+  if (!ai || candidates.length === 0) return null;
+
+  const prompt = `A document has already been attached to the right place; the only question is whether it is specifically about ONE of these ${candidateLabel}s. Pick its id, or null if it is general / spans several.
+
+DIGEST: ${JSON.stringify({ summary: digest.summary, keyTopics: digest.keyTopics })}
+CANDIDATES: ${JSON.stringify(candidates)}`;
+
+  const resp = await ai.models.generateContent({
+    model: SUMMARY_MODEL,
+    contents: prompt,
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: { id: { type: Type.NUMBER, nullable: true } },
+        required: ['id'],
+      },
+    },
+  });
+
+  const id = (JSON.parse(resp.text ?? '{}') as { id: number | null }).id;
+  return candidates.some((c) => c.id === id) ? id : null;
 }
 
 // ---- Leadership summaries ------------------------------------------------------------

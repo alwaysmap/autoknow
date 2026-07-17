@@ -40,6 +40,7 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
     where: contextWhere,
     select: {
       id: true, url: true, type: true, title: true, ingestedText: true, createdAt: true,
+      mode: true, frozenReason: true, lastCheckedAt: true,
       project: { select: { name: true } },
       partner: { select: { name: true } },
     },
@@ -47,15 +48,54 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
     take,
   });
   for (const c of context) {
+    // Freshness provenance rides on the subtitle (plan §2.2): watched sources say
+    // when they were last checked; frozen ones say why they no longer are.
+    const provenance = c.frozenReason
+      ? `frozen — ${c.frozenReason}`
+      : c.mode === 'watched' && c.lastCheckedAt
+        ? `checked ${c.lastCheckedAt.toISOString().slice(0, 10)}`
+        : null;
     push(events, {
       id: `ctx-${c.id}`,
       kind: 'context',
       title: c.title || 'Ingested document',
-      subtitle: meta(c.project?.name ?? c.partner?.name ?? null, c.type, false),
+      subtitle: [meta(c.project?.name ?? c.partner?.name ?? null, c.type, false), provenance]
+        .filter(Boolean)
+        .join(' · ') || null,
       detail: c.ingestedText,
       href: c.url,
       external: true,
       timestamp: c.createdAt.toISOString(),
+    });
+  }
+
+  // ---- Source updates: one event per re-distillation with a real delta (plan §7) ----
+  const revisions = await prisma.contextRevision.findMany({
+    where: { delta: { not: null }, contextUrl: contextWhere },
+    select: {
+      id: true, delta: true, checkedAt: true, sourceStatus: true,
+      contextUrl: {
+        select: {
+          url: true, title: true,
+          project: { select: { name: true } },
+          partner: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: { checkedAt: 'desc' },
+    take,
+  });
+  for (const r of revisions) {
+    const resolvedTag = r.sourceStatus === 'resolved' ? ' (resolved)' : '';
+    push(events, {
+      id: `rev-${r.id}`,
+      kind: 'context',
+      title: `Updated: ${r.contextUrl.title || 'Ingested document'}${resolvedTag}`,
+      subtitle: meta(r.contextUrl.project?.name ?? r.contextUrl.partner?.name ?? null, null, false),
+      detail: r.delta,
+      href: r.contextUrl.url,
+      external: true,
+      timestamp: r.checkedAt.toISOString(),
     });
   }
 

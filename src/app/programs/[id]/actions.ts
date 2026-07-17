@@ -113,6 +113,9 @@ export async function deleteProject(formData: FormData) {
           ]
         }
       }),
+      prisma.contextRevision.deleteMany({
+        where: { contextUrl: { OR: [{ projectId }, { phaseId: { in: phaseIds } }] } }
+      }),
       prisma.contextUrl.deleteMany({
         where: { OR: [{ projectId }, { phaseId: { in: phaseIds } }] }
       }),

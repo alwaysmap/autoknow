@@ -7,6 +7,7 @@ import PartnerAdminControls from '../../../components/PartnerEditor';
 import SummaryPanel from '../../../components/SummaryPanel';
 import ActivityFeed from '../../../components/ActivityFeed';
 import UnifiedSearch from '../../../components/UnifiedSearch';
+import QuickIngest from '../../../components/QuickIngest';
 import PartnerPrograms from '../../../components/PartnerPrograms';
 import { getPartnerPrograms } from '../../../lib/partnerPrograms';
 import { getActivity } from '../../../lib/activity';
@@ -135,6 +136,10 @@ export default async function PartnerDetailPage(props: PageProps) {
                 placeholder={t(locale, 'searchThisPartner')}
                 showTypeChips={false}
               />
+            </div>
+            {/* scoped paste-a-link: this page IS the anchor (plan §5.2) */}
+            <div style={{ margin: '0 0 12px' }}>
+              <QuickIngest anchorKind="partner" anchorId={partner.id} path={`/partners/${partner.id}`} />
             </div>
             <ActivityFeed items={activity} deletable revalidate={`/partners/${partner.id}`} />
           </section>

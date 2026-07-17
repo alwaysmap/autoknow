@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { getAccessToken } from '../../lib/session';
 import { authConfigured } from '../../auth';
-import { ingestGoogleDoc, type IngestResult } from '../../lib/ingest';
+import { ingestLink, type IngestResult } from '../../lib/ingest';
+import { inferSource } from '../../lib/sources';
 
 export interface IngestState {
   result?: IngestResult;
@@ -11,10 +12,12 @@ export interface IngestState {
 
 export async function ingestAction(_prev: IngestState, formData: FormData): Promise<IngestState> {
   const url = ((formData.get('url') as string) || '').trim();
-  if (!url) return { result: { ok: false, error: 'Paste a Google Doc URL.' } };
+  if (!url) return { result: { ok: false, error: 'Paste a link.' } };
 
+  // Unscoped ingest: no anchor — the global classifier places it. Drive fetches
+  // ride on the signed-in user's token until the service account lands.
   const token = await getAccessToken();
-  if (!token) {
+  if (!token && inferSource(url).kind === 'drive') {
     return {
       result: {
         ok: false,
@@ -25,7 +28,7 @@ export async function ingestAction(_prev: IngestState, formData: FormData): Prom
     };
   }
 
-  const result = await ingestGoogleDoc(url, token);
+  const result = await ingestLink({ url, userAccessToken: token });
 
   if (result.ok) {
     revalidatePath('/');

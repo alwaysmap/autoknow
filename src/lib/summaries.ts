@@ -58,6 +58,16 @@ export interface SummaryView {
 
 const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
 
+// Evidence carries lifecycle, not just text (plan §5.3): a resolved bug must stop
+// reading as a blocker the moment its resolution revision lands.
+const lifecyclePrefix = (c: { sourceStatus: string | null; frozenReason: string | null; lastChangedAt: Date | null }): string => {
+  if (c.sourceStatus === 'resolved' || c.frozenReason === 'resolved') {
+    return `RESOLVED${c.lastChangedAt ? ` ${fmtDate(c.lastChangedAt)}` : ''} `;
+  }
+  if (c.sourceStatus === 'open') return 'OPEN ';
+  return '';
+};
+
 interface EvidenceRecord extends SummaryEvidence {
   citation: SummaryCitation;
 }
@@ -158,7 +168,7 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
     .forEach((c) => {
       ev.push(
         'context',
-        `ingested ${c.type} ${fmtDate(c.createdAt)}${c.title ? ` "${c.title}"` : ''} (${project.name}): ${c.ingestedText!.slice(0, 600)}`,
+        `${lifecyclePrefix(c)}ingested ${c.type} ${fmtDate(c.createdAt)}${c.title ? ` "${c.title}"` : ''} (${project.name}): ${c.ingestedText!.slice(0, 600)}`,
         { label: c.title || `${c.type} source`, href: c.url, external: true },
       );
     });
@@ -193,7 +203,7 @@ async function gatherPartnerEvidence(partnerId: number, windowStart: Date, ev: E
     .forEach((c) => {
       ev.push(
         'context',
-        `ingested ${c.type} ${fmtDate(c.createdAt)}${c.title ? ` "${c.title}"` : ''}: ${c.ingestedText!.slice(0, 600)}`,
+        `${lifecyclePrefix(c)}ingested ${c.type} ${fmtDate(c.createdAt)}${c.title ? ` "${c.title}"` : ''}: ${c.ingestedText!.slice(0, 600)}`,
         { label: c.title || `${c.type} source`, href: c.url, external: true },
       );
     });
@@ -277,7 +287,7 @@ async function gatherEcosystemEvidence(windowStart: Date, ev: EvidenceList) {
   for (const c of recentContext) {
     ev.push(
       'context',
-      `ingested ${c.type} ${fmtDate(c.createdAt)}${c.title ? ` "${c.title}"` : ''}${c.project ? ` (${c.project.name})` : ''}: ${c.ingestedText!.slice(0, 500)}`,
+      `${lifecyclePrefix(c)}ingested ${c.type} ${fmtDate(c.createdAt)}${c.title ? ` "${c.title}"` : ''}${c.project ? ` (${c.project.name})` : ''}: ${c.ingestedText!.slice(0, 500)}`,
       { label: c.title || `${c.type} source`, href: c.url, external: true },
     );
   }

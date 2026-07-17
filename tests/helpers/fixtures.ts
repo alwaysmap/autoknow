@@ -5,6 +5,8 @@ import { prisma } from './db';
 /** Wipe the TEST database in FK-safe order. */
 export async function wipeAll() {
   await prisma.actionItem.deleteMany();
+  await prisma.contextRevision.deleteMany();
+  await prisma.syncCursor.deleteMany();
   await prisma.contextUrl.deleteMany();
   await prisma.phasePartner.deleteMany();
   await prisma.phasePerson.deleteMany();

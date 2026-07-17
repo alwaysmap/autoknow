@@ -12,6 +12,7 @@ import { isLocale, t, Locale } from '../../../lib/i18n';
 import SummaryPanel from '../../../components/SummaryPanel';
 import ActivityFeed from '../../../components/ActivityFeed';
 import UnifiedSearch from '../../../components/UnifiedSearch';
+import QuickIngest from '../../../components/QuickIngest';
 import { getActivity } from '../../../lib/activity';
 import { getSummary } from '../../../lib/summaries';
 import { geminiConfigured } from '../../../lib/gemini';
@@ -293,6 +294,10 @@ export default async function ProjectDetailsPage(props: {
                   placeholder={t(locale, 'searchThisProgram')}
                   showTypeChips={false}
                 />
+              </div>
+              {/* scoped paste-a-link: this page IS the anchor (plan §5.2) */}
+              <div style={{ margin: '0 0 12px' }}>
+                <QuickIngest anchorKind="program" anchorId={projectId} path={`/programs/${projectId}`} />
               </div>
               <ActivityFeed items={activity} deletable revalidate={`/programs/${projectId}`} />
             </section>

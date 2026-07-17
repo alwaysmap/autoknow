@@ -200,6 +200,47 @@ model ContextUrl {
   ingestedText String?  // the AI-distilled digest, not the raw document
   createdAt    DateTime @default(now())
   embedding    Unsupported("vector(768)")?
+
+  // Freshness tracking (docs/INGEST_FRESHNESS_PLAN.md). Two modes: snapshot rows are
+  // never re-checked; watched rows are re-checked on their connector's cadence until
+  // frozen (always with a reason). sourceRef is the canonical identity used for
+  // dedupe — one source, one row, one anchor.
+  mode          String    @default("snapshot") // snapshot | watched
+  modeSource    String    @default("inferred") // inferred | user
+  sourceRef     String?   @unique // Drive fileId / Chat thread / normalized URL
+  sourceVersion String?   // Drive version / ETag / patchset
+  contentHash   String?   // sha256 of normalized fetched text
+  sourceStatus  String?   // open | resolved | not-applicable (digest-extracted)
+  lastCheckedAt DateTime?
+  lastChangedAt DateTime?
+  frozenAt      DateTime?
+  frozenReason  String?   // resolved | access-revoked | deleted | auth-required | user-paused
+  revisions     ContextRevision[]
+
+  @@index([mode, frozenAt])
+}
+
+// One row per re-distillation of a watched source — append-only history matching the
+// State-row pattern. The parent's ingestedText always holds the LATEST digest.
+model ContextRevision {
+  id            Int        @id @default(autoincrement())
+  contextUrlId  Int
+  contextUrl    ContextUrl @relation(fields: [contextUrlId], references: [id])
+  checkedAt     DateTime   @default(now())
+  sourceVersion String?
+  contentHash   String
+  sourceStatus  String?
+  digest        String // full digest at this revision
+  delta         String? // "what's new vs. previous digest" bullets; null for initial ingest
+
+  @@index([contextUrlId, checkedAt])
+}
+
+// One row per external delta feed (e.g. Drive changes pageToken).
+model SyncCursor {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 model Person {

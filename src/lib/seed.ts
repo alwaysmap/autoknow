@@ -35,6 +35,8 @@ const QUALCOMM_PROGRESS: Record<string, number> = {
 export async function wipeAllData() {
   console.log('Wiping all database records...');
   await prisma.actionItem.deleteMany();
+  await prisma.contextRevision.deleteMany();
+  await prisma.syncCursor.deleteMany();
   await prisma.contextUrl.deleteMany();
   await prisma.phasePartner.deleteMany();
   await prisma.phasePerson.deleteMany();
