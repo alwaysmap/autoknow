@@ -18,7 +18,9 @@ export default authConfigured
         // The refresh worker is called by a scheduler, not a browser — it can never
         // hold a session. It carries its own CRON_SECRET auth (the route 401s
         // without the secret), so the session gate must let it through.
-        pathname.startsWith('/api/cron');
+        pathname.startsWith('/api/cron') ||
+        // Chat events arrive from Google's servers with their own JWT auth.
+        pathname.startsWith('/api/chat');
 
       if (!req.auth && !isPublic) {
         return NextResponse.redirect(new URL('/login', req.nextUrl.origin));

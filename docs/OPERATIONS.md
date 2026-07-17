@@ -8,9 +8,9 @@ Two kinds of sections:
 
 - **Active today** — used by the running app: database, Gemini, Google sign-in,
   refresh worker, Drive share-to-ingest (service account).
-- **Prepared (not yet active)** — the Chat app powers the upcoming chat ingestion
-  (docs/INGEST_FRESHNESS_PLAN.md slice 4). You can configure it now; the app only
-  starts using it when that slice ships.
+- **Needs a public endpoint** — the Chat app (§6): the code ships, but Google Chat
+  delivers events over public HTTPS, so a laptop deployment needs a tunnel or a
+  real host before @mention ingestion works.
 
 ---
 
@@ -295,15 +295,26 @@ saved). A service-account email can't be mentioned in Chat; the Chat *app* is th
 share target, backed by the same GCP project.
 
 1. Enable the **Google Chat API** in the project (APIs & Services → Library).
-2. **APIs & Services → Google Chat API → Configuration** tab:
+2. Set the project NUMBER in `.env` (the audience of the JWTs Chat sends):
+
+```
+GOOGLE_PROJECT_NUMBER=""   # gcloud projects describe <project-id> --format="value(projectNumber)"
+```
+
+3. **APIs & Services → Google Chat API → Configuration** tab:
    - App name `AutoKnow`, avatar URL, description.
-   - **Interactive features** → App URL: `https://YOUR_HOST/api/chat/events`
-     (the route ships with plan slice 4 — configuring earlier is harmless; Chat
-     just gets errors until it exists).
+   - **Interactive features** → App URL: `https://YOUR_PUBLIC_HOST/api/chat/events`.
+     Google Chat calls this over public HTTPS — `localhost` will not work. For a
+     laptop deployment run a tunnel (e.g. `cloudflared tunnel --url
+     http://localhost:3100`) and use its URL; note quick tunnels get a NEW URL on
+     every restart, so re-edit the config (or use a named tunnel / real host).
    - Optionally register a `/autoknow` slash command, and a message action
      ("Save to AutoKnow") — message actions are Developer Preview as of mid-2026.
    - **Visibility**: make the app available to your domain.
-3. Users then add the app to a space and `@AutoKnow` messages to ingest them.
+4. Users then add the app to a space and `@AutoKnow` messages to ingest them.
+   The endpoint (`/api/chat/events`) verifies the JWT Chat sends (issuer
+   `chat@system.gserviceaccount.com`, audience = your project number), saves the
+   thread-as-of-now (re-mentions become revisions), and replies in-thread.
 
 Scopes for the Chat paths, for reference:
 

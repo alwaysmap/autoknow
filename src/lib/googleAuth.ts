@@ -14,6 +14,7 @@ interface ServiceAccountKey {
 }
 
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+export const CHAT_BOT_SCOPE = 'https://www.googleapis.com/auth/chat.bot';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
 function loadKey(): ServiceAccountKey | null {
@@ -40,11 +41,13 @@ export function serviceAccountEmail(): string | null {
 const b64url = (input: string | Buffer): string =>
   Buffer.from(input).toString('base64url');
 
-let cached: { token: string; expiresAt: number } | null = null;
+const cache = new Map<string, { token: string; expiresAt: number }>();
 
-/** Mint (and cache) an access token via the signed-JWT grant. */
-export async function getServiceAccountToken(): Promise<string> {
+/** Mint (and cache per scope-set) an access token via the signed-JWT grant. */
+export async function getServiceAccountToken(scopes: string[] = [DRIVE_SCOPE]): Promise<string> {
   if (!key) throw new Error('No service-account key configured.');
+  const scope = scopes.join(' ');
+  const cached = cache.get(scope);
   if (cached && Date.now() < cached.expiresAt - 60_000) return cached.token;
 
   const now = Math.floor(Date.now() / 1000);
@@ -52,7 +55,7 @@ export async function getServiceAccountToken(): Promise<string> {
   const claims = b64url(
     JSON.stringify({
       iss: key.client_email,
-      scope: DRIVE_SCOPE,
+      scope,
       aud: TOKEN_URL,
       iat: now,
       exp: now + 3600,
@@ -76,6 +79,6 @@ export async function getServiceAccountToken(): Promise<string> {
     throw new Error(`Service-account token grant failed (${res.status}). ${body.slice(0, 200)}`);
   }
   const data = (await res.json()) as { access_token: string; expires_in: number };
-  cached = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
-  return cached.token;
+  cache.set(scope, { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 });
+  return data.access_token;
 }
