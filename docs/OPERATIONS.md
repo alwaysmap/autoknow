@@ -215,6 +215,7 @@ over a dedicated Workspace user or domain-wide delegation).
    users sharing files with it, which is the consent boundary.
 2. Note its email: `autoknow@<project-id>.iam.gserviceaccount.com`.
 3. **Keys → Add key → Create new key → JSON** — download once, treat as a secret.
+   If this is blocked, see §5.1 — new organizations block key creation by default.
 4. Put the key in `.env`, either inline or as a path:
 
 ```
@@ -227,6 +228,49 @@ GOOGLE_APPLICATION_CREDENTIALS="/path/to/key.json"
    service-account address is *external* to your domain. Admin console → Apps →
    Google Workspace → Drive and Docs → Sharing settings — external sharing must be
    allowed, or the address allowlisted, for users to share files with it.
+
+### 5.1 "Service account key creation is disabled" — the sanctioned exception
+
+New organizations ship with Google's Secure-by-Default org policy
+`iam.disableServiceAccountKeyCreation` enforced, so step 3 fails with a policy
+error. The console recommends Workload Identity Federation — the right answer
+when the app runs somewhere with its own identity (GitHub Actions, AWS, GKE),
+but a laptop/self-hosted deployment has no external identity provider to
+federate from.
+
+**Decision (recorded): use a key, via a project-scoped policy exception.** This
+is proportionate because the account is designed with a tiny blast radius — zero
+IAM roles; its only capability is reading documents explicitly shared with it. A
+compromised key cannot touch the GCP project, billing, or infrastructure. This is
+exactly the "if you must authenticate with a key" case in Google's own guidance.
+
+As an org administrator (you may first need to grant yourself **Organization
+Policy Administrator**, `roles/orgpolicy.policyAdmin`, on the *organization* node):
+
+1. Console → select the **AutoKnow project** (not the org) →
+   **IAM & Admin → Organization Policies**.
+2. Search `iam.disableServiceAccountKeyCreation` → **Manage policy**.
+3. **Override parent's policy** → rule: **Off (not enforced)** → **Set policy**.
+4. Create the JSON key (§5 step 3), then optionally flip the override back
+   **On** — existing keys keep working; you've only re-closed the door for
+   future key creation.
+
+Key hygiene that makes this genuinely fine:
+
+- The key lives only in `.env` (mode `600`, gitignored) — never in a repo, chat,
+  or doc.
+- **Rotate ~90 days**: create new key → swap `.env` → restart → delete the old
+  key in the console. Deleting a key kills it instantly org-wide — that is the
+  kill switch if anything ever feels off.
+- One key, one purpose: don't reuse this account or key for anything else.
+- Keep secrets per-capability (this app already does: `CRON_SECRET`,
+  `ADMIN_TOKEN`, `AUTH_SECRET`, `GEMINI_API_KEY` are all separate) so revoking
+  one never breaks the rest.
+
+Revisit keyless auth if the deployment moves off a personal machine: Workload
+Identity Federation for CI/cloud hosts, or service-account impersonation via
+`gcloud` ADC for a workstation (no stored key, but adds a gcloud dependency and
+is not currently supported by `src/lib/googleAuth.ts`).
 
 With the key in place (restart the app), every refresh-worker cycle (§4) sweeps
 what's shared with the account: newly shared Google Docs are ingested and
