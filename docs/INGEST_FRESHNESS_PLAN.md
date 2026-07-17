@@ -89,16 +89,18 @@ silently re-inferred away.
 
 ### 3.2 Where it surfaces in the UI
 
-- **Ingest result** (existing `/ingest` flow): one quiet line — "Will be tracked for
-  changes (Google Doc)" / "Snapshot — chat messages aren't re-checked". Informative,
-  not interactive. For **generic web URLs only**, the line carries an inline toggle:
-  "Track for changes ▾ / Snapshot only" (default: track).
+- **Quick-ingest component (§5.2)**: on paste, the inferred tracking mode appears as
+  a **visible, tappable chip** — "Watched (Google Doc)" / "Until closed (bug)" /
+  "Snapshot (chat message)". Inference prefills it; clicking Add accepts it; tapping
+  the chip cycles Snapshot / Watch / Until closed. Never a required question — but
+  always visible and correctable at the moment the user has the most context.
+- **Ingest result** (existing `/ingest` flow): same chip, same behavior.
 - **Context items in feeds/search**: freshness provenance on hover/subtitle
   ("checked 2h ago"), frozen badge where applicable ("frozen — merged Jul 3").
 - **Manage → Sources** (new page, consistent with Manage → Prompts): the full watch
   list — every tracked source, class, cadence, `lastCheckedAt`/`lastChangedAt`, next
-  check, and per-row actions **Refresh now** / **Pause** / (web URLs) **Change
-  tracking**. This is the operator view; day-to-day users never need it.
+  check, and per-row actions **Refresh now** / **Pause** / **Change tracking**. This
+  is the operator view; day-to-day users never need it.
 
 ---
 
@@ -208,6 +210,54 @@ Implementation scope (extends slice 3): Chat app configuration in the GCP consol
 action), a `POST /api/chat/events` route verifying the request's bearer token,
 thread fetch + dedupe + in-thread ack, and the link-paste fallback in `/ingest`.
 
+### 5.2 Scoped quick-ingest component — "paste a link" everywhere it has context
+
+A small reusable client component, `<QuickIngest scope={{kind, id}}>`, embedded on
+the pages where links naturally arrive: program page, partner page, and the phase
+detail popover. Collapsed to a quiet "+ Add link" affordance (Tufte: no standing
+form chrome); expands to input + tracking chip + Add.
+
+**The host page IS the classification.** Today's `/ingest` runs a Gemini classifier
+to guess which program/partner a document belongs to. Pasted from a program page,
+there is nothing to guess: the link attaches to that program (phase scope also
+records the phase). The classifier step is skipped entirely — cheaper, and never
+wrong. The global `/ingest` page keeps the classifier for unscoped pastes.
+
+**The tracking chip** (§3.2) shows the inferred volatility on paste and is tappable:
+
+- `Snapshot` — index once, never re-check (chat, one-off exports).
+- `Watched` — living document behavior (§6 cadence).
+- `Until closed` — bug/CR behavior; see lifecycle below.
+
+Inference from the URL prefills the chip (§3.1); the user corrects it only when they
+know better — e.g. marking a generic tracker URL as `Until closed`. `volatilitySource`
+records the correction so re-inference never undoes it.
+
+### 5.3 Until-closed lifecycle — how a resolved bug stops reading as a blocker
+
+Three layers, in order of reliability:
+
+1. **Connectored trackers** (Gerrit, GitHub issues/PRs): status is machine-readable.
+   The §6 worker polls the status endpoint (6h cadence while active); a terminal
+   status (`FIXED`/`merged`/`closed`/`abandoned`) freezes the row with
+   `frozenReason: closed`, writes a final revision whose delta records the
+   resolution, and emits a feed event ("Bug 4711 resolved").
+2. **Unconnectored URLs marked `Until closed`** (the chip on a generic tracker
+   link): no status API exists, so the row is watched like a living doc — and every
+   re-digest asks Gemini to also extract a structured `sourceStatus:
+   open | resolved | unknown` from the page text. A `resolved` extraction triggers
+   the same freeze + final revision + feed event. Reopen (visible on a later manual
+   refresh or via the connectored feed) unfreezes.
+3. **Summary evidence carries lifecycle, not just text.** Evidence lines for tracked
+   sources are prefixed with their live state — `OPEN bug (since May 3): …` vs
+   `RESOLVED Jun 30: …` — and the summary prompts already forbid synthesizing
+   beyond the evidence. The moment a resolution revision lands, the scope's summary
+   goes stale, SummaryPanel auto-regenerates, and the "blocker" disappears from
+   Risks (typically resurfacing once under Progress as "resolved"). This is the
+   precise mechanism by which AutoKnow *stops believing* stale blockers: freshness
+   invalidation is already wired from revisions → staleness → regeneration; the
+   lifecycle layers above just make revisions happen at the right moments.
+
 Implementation scope for the service account (slice 3):
 
 - Operator provisions the account (GCP console; no roles/IAM grants needed — Drive
@@ -279,6 +329,7 @@ model ContextUrl {
   lastChangedAt    DateTime?
   nextCheckAt      DateTime? // null = never check (immutable/frozen)
   checkIntervalH   Int       @default(24)
+  sourceStatus     String?   // open | resolved | unknown (until-closed rows, §5.3)
   frozenAt         DateTime?
   frozenReason     String?   // closed | merged | access-revoked | deleted | user-paused
   revisions        ContextRevision[]
@@ -320,8 +371,12 @@ pass re-infers classes from stored URLs and schedules living ones.
 ## 10. Rollout
 
 1. **Foundation**: volatility columns + inference + content-hash gate + revisions
-   (manual Refresh-now button as the only trigger). Pure additions; no new infra.
-2. **Worker + cadence**: cron route, AIMD scheduling, budget guards, Manage → Sources.
+   (manual Refresh-now button as the only trigger), plus the scoped `<QuickIngest>`
+   component with its tracking chip (§5.2) — it exercises inference and override
+   end-to-end before any worker exists. Pure additions; no new infra.
+2. **Worker + cadence**: cron route, AIMD scheduling, budget guards, until-closed
+   status polling + extraction (§5.3), evidence lifecycle prefixes in summaries,
+   Manage → Sources.
 3. **Service account** (decided, §5): first verify the Workspace domain's sharing
    policy permits sharing to the external service-account address, then provision
    the account and build share-to-ingest, folder subscriptions, and the Drive delta
