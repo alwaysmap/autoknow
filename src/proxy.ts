@@ -5,17 +5,23 @@ import { auth, authConfigured } from './auth';
 // configured (no Google credentials) this is a no-op so the app and the E2E suite run
 // unauthenticated on the stub identity. When configured, unauthenticated requests are
 // redirected to /login.
-export default auth((req) => {
-  if (!authConfigured) return NextResponse.next();
+// Wrap with auth() ONLY when auth is enforced. The wrapper is pure overhead when
+// unconfigured — and in Next 16.2.9 dev it leaves the server allocating promise-
+// tracking garbage at ~10MB/s forever after the first request (heap-profiled
+// 2026-07-17), which OOMs the dev server on small machines.
+export default authConfigured
+  ? auth((req) => {
+      const { pathname } = req.nextUrl;
+      const isPublic = pathname.startsWith('/api/auth') || pathname === '/login';
 
-  const { pathname } = req.nextUrl;
-  const isPublic = pathname.startsWith('/api/auth') || pathname === '/login';
-
-  if (!req.auth && !isPublic) {
-    return NextResponse.redirect(new URL('/login', req.nextUrl.origin));
-  }
-  return NextResponse.next();
-});
+      if (!req.auth && !isPublic) {
+        return NextResponse.redirect(new URL('/login', req.nextUrl.origin));
+      }
+      return NextResponse.next();
+    })
+  : function proxy() {
+      return NextResponse.next();
+    };
 
 export const config = {
   // Run on everything except static assets — and sw.js, which must stay reachable
