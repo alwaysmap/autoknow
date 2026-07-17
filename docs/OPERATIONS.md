@@ -91,8 +91,19 @@ Sign-in is what lets the app fetch a pasted Google Doc *as the signed-in user*
 2. Authorized JavaScript origin: `http://localhost:3000` (plus your real origin).
 3. Authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
    (same path on your real origin).
-4. On the **Data Access / scopes** screen add
-   `https://www.googleapis.com/auth/drive.readonly`.
+4. On the **Data Access / scopes** screen add:
+   - `https://www.googleapis.com/auth/drive.readonly` — used today (fetching a
+     pasted Doc's text as the signed-in user).
+   - `https://www.googleapis.com/auth/chat.messages.readonly` — prepared for the
+     Chat link-paste fallback (plan slice 4): reading a copied Chat message link
+     with the *user's* token when the AutoKnow app isn't in that space. Harmless
+     to add now; the code doesn't request it yet (`src/auth.ts` will, in slice 4).
+
+   These user scopes are separate from the Chat app's own scope: when the app
+   itself calls the Chat API (reading @mentioned threads, replying), it
+   authenticates as the service account with
+   `https://www.googleapis.com/auth/chat.bot` — an app-auth scope that is NOT
+   added on this screen and needs no user consent.
 5. Fill `.env`:
 
 ```
@@ -179,6 +190,13 @@ share target, backed by the same GCP project.
      ("Save to AutoKnow") — message actions are Developer Preview as of mid-2026.
    - **Visibility**: make the app available to your domain.
 3. Users then add the app to a space and `@AutoKnow` messages to ingest them.
+
+Scopes for the Chat paths, for reference:
+
+| Path | Who authenticates | Scope | Where it's configured |
+|---|---|---|---|
+| `@AutoKnow` in a space (primary) | the app, as the service account | `https://www.googleapis.com/auth/chat.bot` | nowhere in the console — requested by the app's own credentials at call time |
+| Copied message link pasted into `/ingest` (fallback) | the signed-in user | `https://www.googleapis.com/auth/chat.messages.readonly` | OAuth client **Data Access** screen (§3.1) |
 
 There is also an existing plain-webhook endpoint `POST /api/integrations/chat`
 (see README) that accepts pasted chat text today, independent of the Chat app.
