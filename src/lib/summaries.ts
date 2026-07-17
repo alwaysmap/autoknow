@@ -427,3 +427,55 @@ export async function getSummary(scope: SummaryScope, targetId: number): Promise
     stale,
   };
 }
+
+// ---- Scheduled generation (worker) ---------------------------------------------------
+// Summaries shouldn't wait for a human click: the refresh worker backfills scopes that
+// have never been summarized and re-generates stale ones, capped per cycle to bound
+// Gemini spend. Never-summarized scopes go first (an empty panel is worse than an
+// aging one).
+
+export interface SummaryCycleReport {
+  configured: boolean;
+  scopes: number;
+  generated: number;
+  skipped: number;
+  errors: number;
+}
+
+const MAX_SUMMARIES_PER_CYCLE = 10;
+
+export async function runSummaryCycle(): Promise<SummaryCycleReport> {
+  const report: SummaryCycleReport = { configured: geminiConfigured, scopes: 0, generated: 0, skipped: 0, errors: 0 };
+  if (!geminiConfigured) return report;
+
+  const [partners, programs] = await Promise.all([
+    prisma.partner.findMany({ select: { id: true } }),
+    prisma.project.findMany({ where: { isArchived: false }, select: { id: true } }),
+  ]);
+  const targets: Array<{ scope: SummaryScope; id: number }> = [
+    { scope: 'ecosystem' as SummaryScope, id: 0 },
+    ...partners.map((p) => ({ scope: 'partner' as SummaryScope, id: p.id })),
+    ...programs.map((p) => ({ scope: 'program' as SummaryScope, id: p.id })),
+  ];
+  report.scopes = targets.length;
+
+  const missing: typeof targets = [];
+  const stale: typeof targets = [];
+  for (const t of targets) {
+    const view = await getSummary(t.scope, t.id);
+    if (!view) missing.push(t);
+    else if (view.stale) stale.push(t);
+  }
+
+  for (const t of [...missing, ...stale]) {
+    if (report.generated >= MAX_SUMMARIES_PER_CYCLE) { report.skipped++; continue; }
+    try {
+      const id = await createSummary(t.scope, t.id, 'auto');
+      if (id) report.generated++;
+      else report.skipped++;
+    } catch {
+      report.errors++;
+    }
+  }
+  return report;
+}
