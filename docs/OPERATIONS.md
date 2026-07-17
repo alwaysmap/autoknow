@@ -91,6 +91,11 @@ Sign-in is what lets the app fetch a pasted Google Doc *as the signed-in user*
 2. Authorized JavaScript origin: `http://localhost:3000` (plus your real origin).
 3. Authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
    (same path on your real origin).
+   **The port must match wherever the app actually runs** — a production build on
+   :3100 needs `http://localhost:3100` and
+   `http://localhost:3100/api/auth/callback/google` registered too, or sign-in
+   fails with `redirect_uri_mismatch`. Registering several localhost ports on one
+   client is fine.
 4. On the **Data Access / scopes** screen add:
    - `https://www.googleapis.com/auth/drive.readonly` — used today (fetching a
      pasted Doc's text as the signed-in user).
