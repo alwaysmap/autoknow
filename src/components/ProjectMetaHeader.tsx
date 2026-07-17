@@ -22,6 +22,12 @@ interface PartnerRef {
   name: string;
 }
 
+interface PartnerOption {
+  id: number;
+  name: string;
+  isOem: boolean;
+}
+
 interface ProjectMetaHeaderProps {
   projectId: number;
   projectName: string;
@@ -38,11 +44,14 @@ interface ProjectMetaHeaderProps {
   hasDigitalKey: boolean;
   oemPartner?: PartnerRef | null;
   suppliersList?: PartnerRef[];
+  currentPartnerId?: number;
+  partnerOptions?: PartnerOption[];
 }
 
 export default function ProjectMetaHeader({
   projectId, projectName, archivedTag, actions, currentNeedle, currentHillChartProgress,
   ownerName, sopDateString, volumeFirstYear, hasGas, hasGbi, hasDigitalKey, oemPartner, suppliersList,
+  currentPartnerId, partnerOptions,
 }: ProjectMetaHeaderProps) {
   const locale = useLocale();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -156,6 +165,18 @@ export default function ProjectMetaHeader({
           <input type="hidden" name="theNeedle" value={currentNeedle} />
           <input type="hidden" name="hillChartProgress" value={currentHillChartProgress} />
 
+          {(partnerOptions?.length ?? 0) > 0 && (
+            <div className={dash.textInputGroup}>
+              <label htmlFor="editLeadPartner" className={dash.formLabel}>{t(locale, 'leadPartnerLabel')}</label>
+              <select id="editLeadPartner" name="partnerId" defaultValue={currentPartnerId} className={dash.textInput}>
+                {[...partnerOptions!].sort((a, b) => Number(b.isOem) - Number(a.isOem) || a.name.localeCompare(b.name)).map((po) => (
+                  <option key={po.id} value={po.id}>
+                    {po.name}{po.isOem ? ' (OEM)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className={dash.textInputGroup}>
             <label htmlFor="editOwner" className={dash.formLabel}>{t(locale, 'googlerOwner')}</label>
             <input id="editOwner" type="text" name="ownerName" defaultValue={ownerName || ''} placeholder="e.g. jsmith@google.com" className={dash.textInput} />

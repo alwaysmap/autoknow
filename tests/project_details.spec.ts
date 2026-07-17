@@ -62,6 +62,35 @@ test.describe('Project Details and Action Item Operations', () => {
     await expect(page.locator(`.action-item-${actionItemId}`)).toHaveCount(0);
   });
 
+  test('lead partner (OEM) is editable from the program Edit dialog', async ({ page }) => {
+    // A second OEM to switch to.
+    const bmw = await prisma.partner.create({
+      data: { name: 'BMW Group', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } } },
+    });
+
+    await page.goto(`/programs/${projectId}`);
+
+    // Hydration-guarded open of the metadata edit dialog.
+    const dialog = page.locator('dialog[open]');
+    await expect(async () => {
+      if (!(await dialog.isVisible())) {
+        await page.getByTestId('project-meta').getByRole('button', { name: 'Edit', exact: true }).click({ timeout: 2000 });
+      }
+      await expect(dialog).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+
+    await dialog.locator('#editLeadPartner').selectOption({ label: 'BMW Group (OEM)' });
+    await dialog.locator('#editSop').fill('2027-06');
+    await dialog.getByRole('button', { name: /Save/ }).click();
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+
+    // The header's OEM pill now names the new lead partner…
+    await expect(page.getByTestId('project-meta')).toContainText('BMW Group');
+    // …and the change is persisted, not cosmetic.
+    const row = await prisma.project.findUnique({ where: { id: projectId }, select: { partnerId: true } });
+    expect(row?.partnerId).toBe(bmw.id);
+  });
+
   test('should allow updating program progress + health via the gauge dialog', async ({ page }) => {
     await page.goto(`/programs/${projectId}`);
 

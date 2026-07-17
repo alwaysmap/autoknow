@@ -37,6 +37,7 @@ export async function updateProjectMetrics(formData: FormData) {
   const sopDateStr = formData.get('sopDate') as string;
   const volumeFirstYearStr = formData.get('volumeFirstYear') as string;
   const notes = formData.get('notes') as string || null;
+  const partnerId = parseInt((formData.get('partnerId') as string) || '', 10);
 
   const theNeedle = parseHealth(theNeedleVal);
 
@@ -60,7 +61,9 @@ export async function updateProjectMetrics(formData: FormData) {
         volumeFirstYear: !isNaN(volumeFirstYear) ? volumeFirstYear : 0,
         hasGas,
         hasGbi,
-        hasDigitalKey
+        hasDigitalKey,
+        // Lead partner (OEM) is editable post-creation; ignore junk ids.
+        ...(Number.isNaN(partnerId) ? {} : { partnerId }),
       }
     });
 

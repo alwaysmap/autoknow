@@ -591,6 +591,7 @@ const STRINGS = {
     ko: '수집된 모든 소스와 추적 모드, 최신성 — 새로고침, 일시중지, 모드 변경이 가능합니다.',
   },
 
+  leadPartnerLabel: { en: 'Lead partner (OEM)', de: 'Lead-Partner (OEM)', ja: 'リードパートナー（OEM）', ko: '리드 파트너 (OEM)' },
   // ---- partner CRUD ----
   newPartner: { en: 'New partner', de: 'Neuer Partner', ja: '新規パートナー', ko: '새 파트너' },
   editPartnerTitle: { en: 'Edit partner', de: 'Partner bearbeiten', ja: 'パートナーを編集', ko: '파트너 편집' },

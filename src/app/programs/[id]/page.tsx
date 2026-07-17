@@ -241,6 +241,8 @@ export default async function ProjectDetailsPage(props: {
           hasGas={project.hasGas}
           hasGbi={project.hasGbi}
           hasDigitalKey={project.hasDigitalKey}
+          currentPartnerId={project.partnerId}
+          partnerOptions={[...oems, ...suppliers].map((pa) => ({ id: pa.id, name: pa.name, isOem: oems.some((o) => o.id === pa.id) }))}
           oemPartner={oemPartner ? { id: oemPartner.id, name: oemPartner.name } : null}
           suppliersList={supplierList.map((sp) => ({ id: sp.id, name: sp.name }))}
         />
