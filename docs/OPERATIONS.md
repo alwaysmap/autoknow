@@ -74,8 +74,13 @@ service account, and the Chat app (both prepared):
 
 1. https://console.cloud.google.com → project picker → **New project** → name it
    (e.g. `autoknow`).
-2. Enable APIs (**APIs & Services → Library**): **Google Drive API** now;
-   **Google Chat API** when you set up the Chat app (§6).
+2. Enable APIs (**APIs & Services → Library**):
+   - **Google Drive API** (service id `drive.googleapis.com`) — the plain
+     "Google Drive API", nothing else. The Library also lists **Drive Activity
+     API** and **Drive Labels API**; AutoKnow uses neither. Everything here —
+     exporting a Doc's text (`/drive/v3/files/{id}/export`) and the future
+     `changes.list` delta feed — is the core Drive API v3.
+   - **Google Chat API** — only when you set up the Chat app (§6).
 
 ### 3.1 Google sign-in / OAuth client (active)
 
