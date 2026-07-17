@@ -38,7 +38,11 @@ export default function KebabMenu({ ariaLabel, children }: { ariaLabel: string; 
         data-testid="kebab-menu"
         onClick={() => setOpen((v) => !v)}
       >
-        ⋯
+        <svg viewBox="0 0 18 18" width={16} height={16} aria-hidden>
+          <circle cx={9} cy={3.5} r={1.8} fill="currentColor" />
+          <circle cx={9} cy={9} r={1.8} fill="currentColor" />
+          <circle cx={9} cy={14.5} r={1.8} fill="currentColor" />
+        </svg>
       </button>
       {open && (
         // No auto-close on inner clicks: unmounting form children aborts their
