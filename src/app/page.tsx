@@ -2,6 +2,9 @@ import Link from 'next/link';
 import ActivityFeed from '../components/ActivityFeed';
 import UnifiedSearch from '../components/UnifiedSearch';
 import EcosystemStats from '../components/EcosystemStats';
+import SummaryPanel from '../components/SummaryPanel';
+import { getSummary } from '../lib/summaries';
+import { geminiConfigured } from '../lib/gemini';
 import CapacityChart from '../components/CapacityChart';
 import HighRiskPrograms from '../components/HighRiskPrograms';
 import { getActivity } from '../lib/activity';
@@ -18,6 +21,7 @@ export default async function Home() {
   // Ecosystem-wide activity — the same content /activity renders: ingested context
   // + program/needle/hill/phase changes, merged chronologically.
   const events = await getActivity({ kind: 'ecosystem' });
+  const summary = await getSummary('ecosystem', 0);
 
   // 2. Load the shared dashboard data (projects, forecasts, cycle times, briefings).
   const {
@@ -43,7 +47,7 @@ export default async function Home() {
         {/* the leadership strip, in reading order: what threatens capacity first,
             then when capacity lands (with/without GAS), then how many programs */}
         <section className={styles.dashboardSection}
-          style={{ marginBottom: '40px', display: 'flex', flexWrap: 'wrap', gap: '28px 48px', alignItems: 'flex-start' }}>
+          style={{ display: 'flex', flexWrap: 'wrap', gap: '28px 48px', alignItems: 'flex-start' }}>
           <div style={{ flex: '1 1 340px', minWidth: 300, maxWidth: 460 }}>
             <HighRiskPrograms now={now} programs={serializedProjects} />
           </div>
@@ -58,9 +62,15 @@ export default async function Home() {
           </div>
           <EcosystemStats activeCount={activeCount} allTimeCount={serializedProjects.length} />
         </section>
+
+        {/* the ecosystem leadership summary — risks/actions first, fully cited */}
+        <section className={styles.dashboardSection}>
+          <SummaryPanel scope="ecosystem" targetId={0} path="/"
+            summary={summary} configured={geminiConfigured} />
+        </section>
         {/* Ecosystem activity — mirrors the /activity page (the retired Action Items
             table lived here; updates now flow through needle/hill notes + ingest) */}
-        <section className={styles.dashboardSection} style={{ marginBottom: '40px' }}>
+        <section className={styles.dashboardSection}>
           <div className={styles.sectionHeader}>
             <h2>{t(locale, 'recentActivity')}</h2>
           </div>

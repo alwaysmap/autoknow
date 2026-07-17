@@ -9,11 +9,11 @@ import ProjectAdminControls from '../../../components/ProjectAdminControls';
 import PhaseGraph from '../../../components/PhaseGraph';
 import PhaseTrack from '../../../components/PhaseTrack';
 import { isLocale, t, Locale } from '../../../lib/i18n';
-import ProgramBrief from '../../../components/ProgramBrief';
+import SummaryPanel from '../../../components/SummaryPanel';
 import ActivityFeed from '../../../components/ActivityFeed';
 import UnifiedSearch from '../../../components/UnifiedSearch';
 import { getActivity } from '../../../lib/activity';
-import { getLatestBrief } from '../../../lib/brief';
+import { getSummary } from '../../../lib/summaries';
 import { geminiConfigured } from '../../../lib/gemini';
 import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
 
@@ -71,8 +71,9 @@ export default async function ProjectDetailsPage(props: {
   // Unified activity for this program: status/needle/hill/phase changes + context.
   const activity = await getActivity({ kind: 'project', id: projectId });
 
-  // The latest AI-generated brief (spec §2.12) — the page's "read this first" slot.
-  const brief = await getLatestBrief(projectId);
+  // The leadership summary — the page's "read this first" slot (cached; the panel
+  // refreshes it in the background when newer content exists).
+  const summary = await getSummary('program', projectId);
 
   const sopDateString = project.sopDate
     ? new Date(project.sopDate).toISOString().split('T')[0]
@@ -260,9 +261,10 @@ export default async function ProjectDetailsPage(props: {
           </div>
 
           <div className={styles.rightColumn}>
-            {/* The AI brief (spec §2.12): words beside the gauges' numbers, above the fold. */}
+            {/* The leadership summary: words beside the gauges' numbers, above the fold. */}
             <section className={styles.historySection}>
-              <ProgramBrief projectId={projectId} brief={brief} geminiConfigured={geminiConfigured} locale={locale} />
+              <SummaryPanel scope="program" targetId={projectId} path={`/programs/${projectId}`}
+                summary={summary} configured={geminiConfigured} />
             </section>
 
             {/* Phases as a vertical rail (spec §2.13): node per phase, latest hill +
@@ -277,19 +279,17 @@ export default async function ProjectDetailsPage(props: {
               )}
             </section>
 
-            {/* Unified scoped search + ingested context for this program */}
-            <section className={styles.historySection}>
-              <h2>{t(locale, 'searchHeading')}</h2>
-              <UnifiedSearch
-                scope={{ kind: 'project', id: projectId }}
-                placeholder={t(locale, 'searchThisProgram')}
-              />
-            </section>
-
-            {/* Unified activity: program/needle/hill/phase changes + ingested context */}
+            {/* Activity: scoped search riding on top of the feed — one section, one
+                chip row (the feed's), no duplicated heading or intro */}
             <section className={styles.historySection}>
               <h2>{t(locale, 'navActivity')}</h2>
-              <p className={styles.historyIntro}>{t(locale, 'programActivityIntro')}</p>
+              <div style={{ margin: '4px 0 14px' }}>
+                <UnifiedSearch
+                  scope={{ kind: 'project', id: projectId }}
+                  placeholder={t(locale, 'searchThisProgram')}
+                  showTypeChips={false}
+                />
+              </div>
               <ActivityFeed items={activity} deletable revalidate={`/programs/${projectId}`} />
             </section>
           </div>

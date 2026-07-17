@@ -12,7 +12,8 @@ export async function wipeAll() {
   await prisma.phaseDependency.deleteMany();
   await prisma.phase.deleteMany();
   await prisma.projectState.deleteMany();
-  await prisma.programBrief.deleteMany();
+  await prisma.summary.deleteMany();
+  await prisma.summaryPrompt.deleteMany();
   await prisma.partnerState.deleteMany();
   await prisma.project.deleteMany();
   await prisma.personAffiliation.deleteMany();

@@ -11,6 +11,7 @@ export default async function ManagePage() {
 
   const entries = [
     { href: '/templates', label: t(locale, 'navTemplates'), desc: t(locale, 'manageTemplatesDesc') },
+    { href: '/manage/prompts', label: t(locale, 'promptsTitle'), desc: t(locale, 'managePromptsDesc') },
     { href: '/ingest', label: t(locale, 'navIngest'), desc: t(locale, 'manageIngestDesc') },
     { href: '/admin', label: t(locale, 'navDevConsole'), desc: t(locale, 'manageAdminDesc') },
   ];

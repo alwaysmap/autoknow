@@ -60,25 +60,36 @@ model Project {
   hasGbi            Boolean        @default(false) // Google Built-In
   hasDigitalKey     Boolean        @default(false)
   states            ProjectState[]
-  briefs            ProgramBrief[]
   embedding         Unsupported("vector(768)")?
 }
 
-// A Gemini-generated program brief (spec §2.12) — append-only, one row per generation.
-// Synthesized ONLY from stored data (state rows + ingested digests); never re-fetches
-// original sources. `body` holds the structured sections with per-bullet citations.
-model ProgramBrief {
+// Leadership summary for one scope (ecosystem / partner / program): risks, progress,
+// themes, actions. Synthesized ONLY from stored data (state rows + ingested digests);
+// never re-fetches original sources. `body` holds the structured sections with
+// per-bullet citations back to exact in-app/source links. Cached append-only; a
+// summary is stale when scope-relevant content is newer than generatedAt.
+model Summary {
   id           Int      @id @default(autoincrement())
-  projectId    Int
-  project      Project  @relation(fields: [projectId], references: [id])
+  scope        String // "ecosystem" | "partner" | "program"
+  targetId     Int      @default(0) // partner/project id; 0 for ecosystem
   generatedAt  DateTime @default(now())
-  trigger      String // "scheduled" | "manual"
-  model        String // e.g. "gemini-2.5-flash"
+  trigger      String // "auto" | "manual"
+  model        String // e.g. "gemini-flash-latest"
   windowStart  DateTime
   windowEnd    DateTime
   tldr         String
-  body         Json // { sections: [{ key, title, bullets: [{ text, citations: [{ label, href, external }] }] }] }
-  sourceCounts Json // { needle, hill, context, actions }
+  body         Json // { sections: [{ key, bullets: [{ text, citations: [{ label, href, external }] }] }] }
+  sourceCounts Json
+
+  @@index([scope, targetId, generatedAt])
+}
+
+// The generation prompts, DB-resident so leadership language can be tuned without a
+// deploy. Defaults live (readably) in src/lib/summaryPrompts.ts; a row here overrides.
+model SummaryPrompt {
+  scope     String   @id // "ecosystem" | "partner" | "program"
+  prompt    String
+  updatedAt DateTime @updatedAt
 }
 
 model Phase {

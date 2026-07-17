@@ -1,25 +1,13 @@
-/* The "read this first" brief card — words next to the gauges' numbers. Tufte-quiet:
-   typography carries the structure, citations stay tiny and out of the reading line. */
-
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+/* The leadership summary — the "read this first" slot. Tufte-quiet: typography
+   carries the structure, citations stay tiny and out of the reading line. Risks get
+   the one loud accent (a thin red rule) because that's what leadership scans for. */
 
 .header {
   display: flex;
   align-items: baseline;
   gap: 12px;
   flex-wrap: wrap;
-}
-
-.title {
-  font-family: var(--head-font);
-  font-size: 1.4rem;
-  font-weight: 600;
-  color: var(--fg);
-  margin: 0;
+  margin-bottom: 6px;
 }
 
 .provenance {
@@ -27,8 +15,9 @@
   color: var(--muted);
 }
 
+/* "Updating…" — freshness in motion, not an alarm. */
 .stale {
-  color: #c98a1a;
+  color: var(--chain-ink);
   font-weight: 600;
 }
 
@@ -59,17 +48,24 @@
   font-size: 15px;
   line-height: 1.6;
   color: var(--fg);
-  margin: 0;
+  margin: 0 0 6px;
+  max-width: 860px;
 }
 
-.sections {
+/* Risks / Actions on the first row, Progress / Themes beneath. */
+.grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 6px 28px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 6px 32px;
 }
 
 .section {
   min-width: 0;
+}
+
+.riskSection {
+  border-left: 2px solid #c5221f;
+  padding-left: 12px;
 }
 
 .sectionTitle {
@@ -116,4 +112,5 @@
   font-style: italic;
   color: var(--muted);
   margin: 0;
+  max-width: 640px;
 }

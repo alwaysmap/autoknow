@@ -1,8 +1,8 @@
 // Critical chain over the phase DAG: the longest path by REMAINING duration, where a
 // phase's remaining work is forecastedDuration × (100 − progress) / 100. This is the
 // spine of the PhaseGraph visualization (heavier edges, ringed nodes, Constraint tag)
-// and an evidence record for the ProgramBrief generator. Pure and client-safe — no
-// server-only imports; used by both the client rail and lib/brief on the server.
+// and an evidence record for the leadership-summary generator. Pure and client-safe —
+// no server-only imports; used by both the client rail and lib/summaries on the server.
 
 export interface ChainPhase {
   id: number;

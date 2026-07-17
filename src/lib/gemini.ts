@@ -98,29 +98,28 @@ ${text.slice(0, MAX_DOC_CHARS)}
   return JSON.parse(resp.text ?? '{}') as DocDigest;
 }
 
-// ---- Program brief (spec §2.12) ------------------------------------------------------
+// ---- Leadership summaries ------------------------------------------------------------
 // The model reasons ONLY over the evidence records we hand it (already-stored state rows
 // and ingested digests — never original sources) and must cite evidence by id so we can
 // attach exact in-app links server-side.
 
-export interface BriefEvidence {
+export interface SummaryEvidence {
   id: number; // index into the evidence list, for citations
-  kind: 'needle' | 'hill' | 'context' | 'action' | 'chain';
+  kind: 'needle' | 'hill' | 'context' | 'action' | 'chain' | 'relationship' | 'portfolio';
   text: string; // one-line rendering of the record
 }
 
-export interface RawBriefBullet {
+export interface RawSummaryBullet {
   text: string;
-  evidence: number[]; // BriefEvidence ids
+  evidence: number[];
 }
 
-export interface RawBrief {
+export interface RawSummary {
   tldr: string;
-  health: RawBriefBullet[];
-  risks: RawBriefBullet[];
-  decisions: RawBriefBullet[];
-  nextSteps: RawBriefBullet[];
-  partnerActivity: RawBriefBullet[];
+  progress: RawSummaryBullet[];
+  risks: RawSummaryBullet[];
+  themes: RawSummaryBullet[];
+  actions: RawSummaryBullet[];
 }
 
 const BULLETS = {
@@ -135,28 +134,12 @@ const BULLETS = {
   },
 } as const;
 
-/** Synthesize a program brief from the supplied evidence. Returns null when Gemini is
- *  not configured — callers render an honest empty state, never a fake synthesis. */
-export async function generateProgramBrief(
-  programName: string,
-  partnerName: string,
-  evidence: BriefEvidence[],
-): Promise<RawBrief | null> {
+/** Synthesize a structured leadership summary (tldr / progress / risks / themes /
+ *  actions) from a fully-assembled prompt (see lib/summaries + lib/summaryPrompts).
+ *  Returns null when Gemini is not configured — callers render an honest empty
+ *  state, never a fake synthesis. */
+export async function generateStructuredSummary(prompt: string): Promise<RawSummary | null> {
   if (!ai) return null;
-
-  const prompt = `You are an analyst for an Android Automotive (AAOS / Google Automotive Services) partner-program tracker.
-Write a brief for a Googler exec opening the "${programName}" program page (partner: ${partnerName}) cold. Synthesize ONLY from the numbered evidence records below — do not invent facts. Every bullet must list the evidence record ids it draws from in its "evidence" array, and ONLY there — never write ids or bracketed references like [0, 3] inside the prose itself. Flag stagnation or risk plainly. Keep bullets short and specific; skip a section (empty array) when the evidence has nothing for it. Never include numeric progress percentages — describe position in words.
-
-Sections:
-- tldr: 2-3 sentences — the state of the program and what needs attention.
-- health: current health and direction of travel vs. previous updates.
-- risks: what could go wrong, what is blocked or stagnant.
-- decisions: decisions made or pending.
-- nextSteps: what should happen next.
-- partnerActivity: what partners did, said, or owe.
-
-EVIDENCE:
-${evidence.map((e) => `[${e.id}] (${e.kind}) ${e.text}`).join('\n')}`;
 
   const resp = await ai.models.generateContent({
     model: SUMMARY_MODEL,
@@ -167,18 +150,17 @@ ${evidence.map((e) => `[${e.id}] (${e.kind}) ${e.text}`).join('\n')}`;
         type: Type.OBJECT,
         properties: {
           tldr: { type: Type.STRING },
-          health: BULLETS,
+          progress: BULLETS,
           risks: BULLETS,
-          decisions: BULLETS,
-          nextSteps: BULLETS,
-          partnerActivity: BULLETS,
+          themes: BULLETS,
+          actions: BULLETS,
         },
-        required: ['tldr', 'health', 'risks', 'decisions', 'nextSteps', 'partnerActivity'],
+        required: ['tldr', 'progress', 'risks', 'themes', 'actions'],
       },
     },
   });
 
-  return JSON.parse(resp.text ?? 'null') as RawBrief | null;
+  return JSON.parse(resp.text ?? 'null') as RawSummary | null;
 }
 
 export async function classifyContext(

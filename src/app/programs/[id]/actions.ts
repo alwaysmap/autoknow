@@ -104,6 +104,7 @@ export async function deleteProject(formData: FormData) {
       prisma.actionItem.deleteMany({ where: { phaseId: { in: phaseIds } } }),
       prisma.phaseState.deleteMany({ where: { phaseId: { in: phaseIds } } }),
       prisma.phasePartner.deleteMany({ where: { phaseId: { in: phaseIds } } }),
+      prisma.phasePerson.deleteMany({ where: { phaseId: { in: phaseIds } } }),
       prisma.phaseDependency.deleteMany({
         where: {
           OR: [
@@ -116,7 +117,7 @@ export async function deleteProject(formData: FormData) {
         where: { OR: [{ projectId }, { phaseId: { in: phaseIds } }] }
       }),
       prisma.phase.deleteMany({ where: { projectId } }),
-      prisma.programBrief.deleteMany({ where: { projectId } }),
+      prisma.summary.deleteMany({ where: { scope: 'program', targetId: projectId } }),
       prisma.project.delete({ where: { id: projectId } })
     ]);
   }
