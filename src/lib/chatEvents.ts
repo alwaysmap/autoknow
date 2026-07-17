@@ -27,20 +27,41 @@ async function googleChatKeys(): Promise<Jwk[]> {
   return jwkCache.keys;
 }
 
-/** Verify the bearer JWT Chat sends: signature, issuer, audience, expiry. */
-export async function verifyChatToken(bearer: string | null): Promise<boolean> {
-  if (!bearer || !process.env.GOOGLE_PROJECT_NUMBER) return false;
+/** Verify the bearer JWT Chat sends: signature, issuer, audience, expiry.
+ *  Chat signs with EITHER the project number or the configured app URL as the
+ *  audience (console setting), so both are accepted; the signature check against
+ *  Google's keys is what makes either safe. */
+export async function verifyChatToken(bearer: string | null, expectedUrl?: string | null): Promise<boolean> {
+  if (!bearer || !process.env.GOOGLE_PROJECT_NUMBER) {
+    console.log('[chat] reject: no bearer token (probe or misconfig)');
+    return false;
+  }
   const parts = bearer.split('.');
-  if (parts.length !== 3) return false;
+  if (parts.length !== 3) {
+    console.log('[chat] reject: bearer is not a JWT');
+    return false;
+  }
   try {
     const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString());
     const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
-    if (payload.iss !== CHAT_ISSUER) return false;
-    if (String(payload.aud) !== process.env.GOOGLE_PROJECT_NUMBER) return false;
+    if (payload.iss !== CHAT_ISSUER) {
+      console.log(`[chat] reject: issuer=${JSON.stringify(payload.iss)} (want ${CHAT_ISSUER})`);
+      return false;
+    }
+    const audOk =
+      String(payload.aud) === process.env.GOOGLE_PROJECT_NUMBER ||
+      (!!expectedUrl && String(payload.aud) === expectedUrl);
+    if (!audOk) {
+      console.log(`[chat] JWT rejected: aud=${JSON.stringify(payload.aud)} (expected ${process.env.GOOGLE_PROJECT_NUMBER} or ${expectedUrl})`);
+      return false;
+    }
     if (typeof payload.exp !== 'number' || payload.exp * 1000 < Date.now()) return false;
 
     const jwk = (await googleChatKeys()).find((k) => k.kid === header.kid);
-    if (!jwk) return false;
+    if (!jwk) {
+      console.log(`[chat] reject: unknown signing key kid=${header.kid}`);
+      return false;
+    }
     const pub = createPublicKey({ key: jwk as unknown as import('crypto').JsonWebKey, format: 'jwk' });
     return cryptoVerify(
       'RSA-SHA256',

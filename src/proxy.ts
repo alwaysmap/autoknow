@@ -12,6 +12,8 @@ import { auth, authConfigured } from './auth';
 export default authConfigured
   ? auth((req) => {
       const { pathname } = req.nextUrl;
+      // Temporary diagnostics: surface where external POSTs actually land.
+      if (pathname.startsWith('/api') || req.method === 'POST') console.log(`[req] ${req.method} ${pathname}`);
       const isPublic =
         pathname.startsWith('/api/auth') ||
         pathname === '/login' ||

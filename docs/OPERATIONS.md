@@ -304,10 +304,20 @@ GOOGLE_PROJECT_NUMBER=""   # gcloud projects describe <project-id> --format="val
 3. **APIs & Services → Google Chat API → Configuration** tab:
    - App name `AutoKnow`, avatar URL, description.
    - **Interactive features** → App URL: `https://YOUR_PUBLIC_HOST/api/chat/events`.
-     Google Chat calls this over public HTTPS — `localhost` will not work. For a
-     laptop deployment run a tunnel (e.g. `cloudflared tunnel --url
-     http://localhost:3100`) and use its URL; note quick tunnels get a NEW URL on
-     every restart, so re-edit the config (or use a named tunnel / real host).
+     Google Chat calls this over public HTTPS — `localhost` will not work, and in
+     practice Chat's delivery is only dependable to standard-port, reputable hosts.
+     The proven laptop architecture (infra/chat-relay): a ~25-line Cloud Run relay
+     (public :443, `--no-invoker-iam-check` — avoids the allUsers-vs-org-policy
+     fight) forwards POSTs to a Tailscale Funnel (`tailscale funnel --bg
+     --https=10000 http://localhost:3100`), which reaches the app. The app's JWT
+     verification remains the sole security boundary; the relay forwards the
+     original host so URL-audience checks still match. Deploy:
+     `gcloud run deploy autoknow-relay --source infra/chat-relay
+     --allow-unauthenticated --region us-central1`.
+     Cache warning: Chat aggressively caches app metadata/config — after config
+     changes, wait (up to an hour) before judging a test; rapid edit/reinstall
+     cycles keep hitting stale state and can themselves produce
+     "internal error" delivery failures.
    - Optionally register a `/autoknow` slash command, and a message action
      ("Save to AutoKnow") — message actions are Developer Preview as of mid-2026.
    - **Visibility**: make the app available to your domain.
