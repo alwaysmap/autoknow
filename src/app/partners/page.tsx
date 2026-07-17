@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/db';
 import { PartnerQueries } from '../../lib/partnerQueries';
 import { getCurrentUser } from '../../lib/session';
+import { deriveScore } from '../../lib/relationship';
 import PartnersClient from './PartnersClient';
 
 export const dynamic = 'force-dynamic';
@@ -27,11 +28,33 @@ export default async function PartnersPage(props: { searchParams: Promise<Search
     }
   });
 
+  // Relationship health per partner: latest state → score, previous → ghost ring.
+  // One query, newest-first, reduced to the first two rows per partner.
+  const states = await prisma.partnerState.findMany({
+    orderBy: { timestamp: 'desc' },
+    select: { partnerId: true, relationshipScore: true, theNeedle: true },
+  });
+  const relationship: Record<number, { score: number | null; prev: number | null }> = {};
+  for (const s of states) {
+    const entry = relationship[s.partnerId];
+    if (!entry) relationship[s.partnerId] = { score: deriveScore(s), prev: null };
+    else if (entry.prev === null) entry.prev = deriveScore(s);
+  }
+
+  // Type/region options for the New partner form.
+  const [types, regions] = await Promise.all([
+    prisma.partnerType.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
+    prisma.region.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
+  ]);
+
   return (
     <PartnersClient
       partners={partners}
       currentUser={user}
       people={people}
+      relationship={relationship}
+      types={types}
+      regions={regions}
     />
   );
 }

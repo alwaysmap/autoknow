@@ -283,6 +283,10 @@ model PartnerState {
   timestamp         DateTime @default(now())
   theNeedle         String   @default("Low") // "Low", "Medium", "High", "Critical"
   hillChartProgress Int      @default(0)     // 0-100
+  // Relationship health on a discrete 1 (critical) .. 7 (exemplary) scale — partner
+  // health is NOT a needle/progress metric. theNeedle stays derived-in-sync so the
+  // activity feed and legacy filters keep working; null on pre-scale rows.
+  relationshipScore Int?
   notes             String?
   source            String?
   sourceUrl         String?

@@ -3,6 +3,9 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
+import { NewPartnerButton } from '../../components/PartnerEditor';
+import { RelationshipCell } from '../../components/RelationshipScale';
+import { parseScore } from '../../lib/relationship';
 import { deriveEmail, normalizeHandle } from '../../lib/auth';
 import { resolvePerson } from '../../lib/people';
 import { t } from '../../lib/i18n';
@@ -35,13 +38,22 @@ interface Partner {
   personAffiliations: Affiliation[];
 }
 
+interface Option {
+  id: number;
+  name: string;
+}
+
 interface PartnersClientProps {
   partners: Partner[];
   currentUser: string;
   people: Person[];
+  /** partnerId → latest/previous relationship score (see lib/relationship). */
+  relationship: Record<number, { score: number | null; prev: number | null }>;
+  types: Option[];
+  regions: Option[];
 }
 
-export default function PartnersClient({ partners, currentUser, people }: PartnersClientProps) {
+export default function PartnersClient({ partners, currentUser, people, relationship, types, regions }: PartnersClientProps) {
   const locale = useLocale();
   const [selectedType, setSelectedType] = useState<string>('All');
   const [myPartnersOnly, setMyPartnersOnly] = useState<boolean>(false);
@@ -104,13 +116,15 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
         id: partner.id,
         name: partner.name,
         type: partner.type,
+        // Numeric for sorting; 0 = never rated, sorts below every real score.
+        relationship: relationship[partner.id]?.score ?? 0,
         activePrograms,
         lifetimePrograms,
         tels,
         team,
       };
     });
-  }, [filteredPartners]);
+  }, [filteredPartners, relationship]);
 
   return (
     <div className={styles.container}>
@@ -119,6 +133,7 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
         <div className={styles.userLabel}>
           {t(locale, 'loggedUser')} <code>{currentUser}</code>
         </div>
+        <NewPartnerButton types={types} regions={regions} />
       </header>
 
       <main className={styles.main}>
@@ -160,6 +175,7 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
             headers={[
               { key: 'name', label: t(locale, 'partnerName') },
               { key: 'type', label: t(locale, 'partnerType') },
+              { key: 'relationship', label: t(locale, 'relationshipLabel') },
               { key: 'activePrograms', label: t(locale, 'activePrograms') },
               { key: 'lifetimePrograms', label: t(locale, 'lifetimePrograms') },
               { key: 'tels', label: t(locale, 'telsHeader') },
@@ -187,6 +203,13 @@ export default function PartnersClient({ partners, currentUser, people }: Partne
                       {p.type}
                     </span>
                   </button>
+                </td>
+                <td>
+                  {/* aligned 1..7 tracks: relative relationship health, scannable down the column */}
+                  <RelationshipCell
+                    score={parseScore(relationship[p.id]?.score)}
+                    previousScore={parseScore(relationship[p.id]?.prev)}
+                  />
                 </td>
                 <td>
                   <Link href={`/partners/${p.id}?filter=active`} className={styles.activeProgramsLink}>

@@ -41,9 +41,16 @@
   padding: 24px;
   width: 480px;
   max-width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
   background-color: var(--white);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   box-sizing: border-box;
+  /* globals' `* { margin: 0 }` defeats the native <dialog> auto-centering */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .dialog::backdrop {

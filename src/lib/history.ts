@@ -37,10 +37,13 @@ export interface NeedleChange {
   health: string | null;
   previousProgress: number | null;
   previousHealth: string | null;
+  /** Partner scope only: the stored 1..7 relationship score (lib/relationship). */
+  score?: number | null;
+  previousScore?: number | null;
   notes: string | null;
 }
 
-type RawState = { theNeedle: string | null; hillChartProgress: number | null; notes: string | null; timestamp: Date };
+type RawState = { theNeedle: string | null; hillChartProgress: number | null; relationshipScore?: number | null; notes: string | null; timestamp: Date };
 
 // Turn ascending states into changes ordered most-recent-first, each carrying the prior
 // state so the mini gauge can draw the "previous" marker.
@@ -52,6 +55,8 @@ const toChanges = (asc: RawState[]): NeedleChange[] =>
       health: s.theNeedle,
       previousProgress: i > 0 ? asc[i - 1].hillChartProgress ?? null : null,
       previousHealth: i > 0 ? asc[i - 1].theNeedle : null,
+      score: s.relationshipScore ?? null,
+      previousScore: i > 0 ? asc[i - 1].relationshipScore ?? null : null,
       notes: s.notes,
     }))
     .reverse();
@@ -69,7 +74,11 @@ export async function getNeedleHistory(
     const ph = await prisma.phase.findUnique({ where: { id }, select: { name: true, project: { select: { name: true } }, states: { orderBy: { timestamp: 'asc' }, select } } });
     return ph ? { title: `${ph.project.name} — ${ph.name}`, changes: toChanges(ph.states) } : null;
   }
-  const pa = await prisma.partner.findUnique({ where: { id }, select: { name: true, states: { orderBy: { timestamp: 'asc' }, select } } });
+  // Partners also carry the 1..7 relationship score per state.
+  const pa = await prisma.partner.findUnique({
+    where: { id },
+    select: { name: true, states: { orderBy: { timestamp: 'asc' }, select: { ...select, relationshipScore: true } } },
+  });
   return pa ? { title: pa.name, changes: toChanges(pa.states) } : null;
 }
 

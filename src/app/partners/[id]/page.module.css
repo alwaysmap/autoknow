@@ -8,10 +8,10 @@
 
 .header {
   border-bottom: 1px solid var(--border);
-  padding: 24px 0;
+  padding: 14px 0 12px;
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
 }
 
 .brand {
@@ -30,20 +30,30 @@
   margin: 0;
 }
 
+/* name + its small Edit · Delete links, program-page grammar */
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
 .partnerType {
-  font-size: 14px;
+  font-size: 11px;
+  font-weight: 700;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  margin-top: 2px;
 }
 
 .main {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 48px 0;
+  padding: 22px 0 40px;
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 40px;
+  align-items: start;
+  gap: 32px;
 }
 
 @media (max-width: 900px) {
@@ -54,9 +64,21 @@
 
 .projectsSection h2 {
   font-family: var(--head-font);
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   font-weight: 600;
-  margin-bottom: 24px;
+  margin: 0 0 12px;
+}
+
+/* Left column: sections separated by thin rules, program-page rhythm. */
+.colMain {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.colMain > .projectsSection + .projectsSection {
+  margin-top: 26px;
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
 }
 
 .empty {
@@ -169,14 +191,14 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 18px;
+  min-width: 0;
 }
 
+/* Flat per design.md — a thin rule instead of a shaded box. */
 .sidebarCard {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 20px;
+  border-top: 1px solid var(--border);
+  padding: 14px 0 4px;
 }
 
 .sidebarCard h3 {

@@ -28,7 +28,8 @@ export default async function HistoryPage(props: { params: Promise<{ type: strin
   if (Number.isNaN(nid)) return notFound();
   const locale = await getLocale();
 
-  // Phases are tracked with the hill chart; programs and partners with the needle.
+  // Phases are tracked with the hill chart; programs with the needle; partners with
+  // the 1..7 relationship scale (same state rows, different rendering).
   const [history, needle, hill] = await Promise.all([
     getStatusHistory(ht, nid),
     ht === 'phase' ? Promise.resolve(null) : getNeedleHistory(ht, nid),
@@ -45,7 +46,7 @@ export default async function HistoryPage(props: { params: Promise<{ type: strin
         </div>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{history.title}</h1>
         <p style={{ color: 'var(--muted, #666)', fontSize: 14, marginTop: 4 }}>
-          {ht === 'phase' ? t(locale, 'historyHillIntro') : t(locale, 'historyNeedleIntro')}
+          {ht === 'phase' ? t(locale, 'historyHillIntro') : ht === 'partner' ? t(locale, 'historyRelIntro') : t(locale, 'historyNeedleIntro')}
         </p>
       </header>
 
@@ -53,7 +54,7 @@ export default async function HistoryPage(props: { params: Promise<{ type: strin
       {ht === 'phase' ? (
         <HillHistoryList changes={hill?.changes ?? []} color={phaseColor(nid)} emptyLabel={t(locale, 'noChangesRecorded')} locale={locale} />
       ) : (
-        <NeedleHistoryList changes={needle?.changes ?? []} emptyLabel={t(locale, 'noChangesRecorded')} locale={locale} />
+        <NeedleHistoryList changes={needle?.changes ?? []} relationship={ht === 'partner'} emptyLabel={t(locale, 'noChangesRecorded')} locale={locale} />
       )}
     </div>
   );

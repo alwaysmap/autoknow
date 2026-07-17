@@ -1,0 +1,211 @@
+/* Partner relationship scale — colorless by design. Position on the common 1..7 axis
+   is the signal; stacked tracks (list rows) compare partners without a legend. */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.readout {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.score {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--fg);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.den {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-left: 1px;
+}
+
+.descriptor {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.track {
+  display: block;
+}
+
+.updatedAt {
+  font-size: 11px;
+  color: var(--muted, #888);
+}
+
+.updateBtn {
+  background-color: var(--white);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.updateBtn:hover {
+  border-color: var(--p-400);
+  color: var(--p-600);
+  background-color: var(--p-50);
+}
+
+/* list-row readout */
+.cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cellScore {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.cellDen {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.notRated {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--muted);
+}
+
+/* dialog (matches the app's modal grammar) */
+.dialog {
+  border: none;
+  border-radius: 12px;
+  padding: 24px;
+  background-color: var(--white);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  max-width: 460px;
+  width: 90%;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+}
+.dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.dialogHeader h3 {
+  font-family: var(--head-font);
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  color: var(--fg);
+}
+
+.dialogForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.scaleHint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.picker {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.pickBtn {
+  border: 1px solid var(--border);
+  background: var(--white);
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 8px 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.pickBtn:hover {
+  border-color: var(--muted);
+}
+
+.pickBtnActive {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--white);
+}
+
+.pickDescriptor {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  min-height: 1.2em;
+}
+
+.noteError {
+  color: #c5221f;
+  font-size: 12px;
+}
+
+.actionRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.cancelBtn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submitBtn {
+  background-color: var(--p-600);
+  border: none;
+  color: var(--white);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.submitBtn:hover {
+  background-color: var(--p-700);
+}

@@ -2,12 +2,17 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import styles from './page.module.css';
-import NeedleGauge from '../../../components/NeedleGauge';
+import RelationshipScale from '../../../components/RelationshipScale';
+import PartnerAdminControls from '../../../components/PartnerEditor';
+import SummaryPanel from '../../../components/SummaryPanel';
 import ActivityFeed from '../../../components/ActivityFeed';
 import UnifiedSearch from '../../../components/UnifiedSearch';
 import PartnerPrograms from '../../../components/PartnerPrograms';
 import { getPartnerPrograms } from '../../../lib/partnerPrograms';
 import { getActivity } from '../../../lib/activity';
+import { getSummary } from '../../../lib/summaries';
+import { geminiConfigured } from '../../../lib/gemini';
+import { deriveScore } from '../../../lib/relationship';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 
@@ -51,62 +56,91 @@ export default async function PartnerDetailPage(props: PageProps) {
     return notFound();
   }
 
-  // Fetch the two latest partner state logs (current + previous for the ghost marker)
-  const partnerStates = await prisma.partnerState.findMany({
-    where: { partnerId: partner.id },
-    orderBy: { timestamp: 'desc' },
-    take: 2,
-  });
+  // The two latest relationship states (current + previous for the ghost ring),
+  // plus what the edit/delete affordances need to be honest about.
+  const [partnerStates, types, regions, employeeCount] = await Promise.all([
+    prisma.partnerState.findMany({
+      where: { partnerId: partner.id },
+      orderBy: { timestamp: 'desc' },
+      take: 2,
+    }),
+    prisma.partnerType.findMany({ orderBy: { name: 'asc' } }),
+    prisma.region.findMany({ orderBy: { name: 'asc' } }),
+    prisma.person.count({ where: { currentPartnerId: partner.id } }),
+  ]);
   const latestState = partnerStates[0];
   const previousState = partnerStates[1];
 
   // Programs this partner OWNS plus programs they're INVOLVED in via phase links.
   const allPrograms = await getPartnerPrograms(partner.id);
   const programs = activeOnly ? allPrograms.filter((p) => !p.isArchived) : allPrograms;
+  const ownedCount = allPrograms.filter((p) => p.relationship === 'owner').length;
 
   // Unified activity for this partner and its programs.
   const activity = await getActivity({ kind: 'partner', id: partner.id });
+  const summary = await getSummary('partner', partner.id);
 
   return (
     <div className={styles.container}>
       <header className={styles.header}>
         <div>
-          <h1>{partner.name}</h1>
+          <div className={styles.titleRow}>
+            <h1>{partner.name}</h1>
+            <PartnerAdminControls
+              partner={{
+                id: partner.id,
+                name: partner.name,
+                typeId: partner.typeId,
+                regionId: partner.regionId,
+                phone: partner.phone,
+                website: partner.website,
+                internalDetailsUrl: partner.internalDetailsUrl,
+                summary: partner.summary,
+              }}
+              types={types}
+              regions={regions}
+              programCount={ownedCount}
+              employeeCount={employeeCount}
+            />
+          </div>
           <div className={styles.partnerType}>{t(locale, 'partnerProfileSuffix', { t: partner.type?.name ?? '' })}</div>
         </div>
-        <div style={{ minWidth: '200px' }}>
-          <NeedleGauge
-            progress={latestState?.hillChartProgress ?? 0}
-            health={latestState?.theNeedle ?? 'On Track'}
-            previousProgress={previousState?.hillChartProgress ?? null}
-            previousHealth={previousState?.theNeedle ?? null}
-            updatedAt={latestState?.timestamp?.toISOString() ?? null}
-            targetId={partner.id}
-            scope="partner"
-          />
-        </div>
+        {/* relationship health: a 7-point scale, not a needle — see lib/relationship */}
+        <RelationshipScale
+          partnerId={partner.id}
+          score={latestState ? deriveScore(latestState) : null}
+          previousScore={previousState ? deriveScore(previousState) : null}
+          updatedAt={latestState?.timestamp?.toISOString() ?? null}
+        />
       </header>
 
       <main className={styles.main}>
-        <section className={styles.projectsSection}>
-          <h2>{t(locale, 'navPrograms')}</h2>
-          <PartnerPrograms programs={programs} locale={locale} />
-        </section>
+        {/* Programs are the main event; the summary and the feed read in their light. */}
+        <div className={styles.colMain}>
+          <section className={styles.projectsSection}>
+            <h2>{t(locale, 'navPrograms')}</h2>
+            <PartnerPrograms programs={programs} locale={locale} />
+          </section>
 
-        <section className={styles.projectsSection}>
-          <h2>{t(locale, 'searchHeading')}</h2>
-          <UnifiedSearch
-            scope={{ kind: 'partner', id: partner.id }}
-            placeholder={t(locale, 'searchThisPartner')}
-          />
-        </section>
+          <section className={styles.projectsSection}>
+            <SummaryPanel scope="partner" targetId={partner.id} path={`/partners/${partner.id}`}
+              summary={summary} configured={geminiConfigured} />
+          </section>
 
-        <section className={styles.projectsSection}>
-          <h2>{t(locale, 'navActivity')}</h2>
-          <ActivityFeed items={activity} deletable revalidate={`/partners/${partner.id}`} />
-        </section>
+          <section className={styles.projectsSection}>
+            <h2>{t(locale, 'navActivity')}</h2>
+            <div style={{ margin: '4px 0 14px' }}>
+              <UnifiedSearch
+                scope={{ kind: 'partner', id: partner.id }}
+                placeholder={t(locale, 'searchThisPartner')}
+                showTypeChips={false}
+              />
+            </div>
+            <ActivityFeed items={activity} deletable revalidate={`/partners/${partner.id}`} />
+          </section>
+        </div>
 
-        {/* Sidebar for Metadata */}
+        {/* Side column: partner metadata only — reference material, not the event */}
         <aside className={styles.sidebar}>
           {partner.summary && (
             <div className={styles.sidebarCard}>

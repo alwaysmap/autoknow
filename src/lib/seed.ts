@@ -37,11 +37,13 @@ export async function wipeAllData() {
   await prisma.actionItem.deleteMany();
   await prisma.contextUrl.deleteMany();
   await prisma.phasePartner.deleteMany();
+  await prisma.phasePerson.deleteMany();
   await prisma.phaseState.deleteMany();
   await prisma.phaseDependency.deleteMany();
   await prisma.phase.deleteMany();
   await prisma.projectState.deleteMany();
-  await prisma.programBrief.deleteMany();
+  await prisma.summary.deleteMany();
+  await prisma.summaryPrompt.deleteMany();
   await prisma.partnerState.deleteMany();
   await prisma.project.deleteMany();
   await prisma.personAffiliation.deleteMany();
@@ -296,12 +298,13 @@ export async function seedMockData() {
     }
   });
 
-  // Partner relationship state logs for Ford
+  // Partner relationship state logs for Ford (1..7 scale; theNeedle stays derived)
   await prisma.partnerState.create({
     data: {
       partnerId: ford.id,
       theNeedle: 'Low', // Low
       hillChartProgress: 25,
+      relationshipScore: 6,
       notes: 'Executive alignment calls are positive.',
       source: 'Google Chat',
       sourceUrl: 'https://chat.google.com/room/ford-exec-chat',
@@ -314,6 +317,7 @@ export async function seedMockData() {
       partnerId: ford.id,
       theNeedle: 'Medium', // Medium
       hillChartProgress: 35,
+      relationshipScore: 4,
       notes: 'Medium risk due to supplier delivery timelines.',
       source: 'Google Doc',
       sourceUrl: 'https://docs.google.com/document/d/ford-partnership-status',
@@ -910,6 +914,37 @@ export async function seedMockData() {
         await prisma.phasePerson.create({ data: { phaseId: activePhaseId, personId, role: null } });
       }
     }
+  }
+
+  // Relationship health (1..7 scale) spread across the partner set so the
+  // /partners Relationship column shows real relative variation. Two entries for
+  // some partners so the "previous" ghost ring renders.
+  const relStates: Array<{ partnerId: number; score: number; prev?: number; note: string }> = [
+    { partnerId: honda.id, score: 5, prev: 4, note: 'Cadence is healthy; codec supply worry contained for now.' },
+    { partnerId: gm.id, score: 6, prev: 6, note: 'Ultifi leadership fully bought in; joint roadmap review done.' },
+    { partnerId: volvoCars.id, score: 2, prev: 4, note: 'Cert slip triggered exec escalation; trust needs rebuilding.' },
+    { partnerId: hyundai.id, score: 7, note: 'Model partnership — co-marketing GAS launch.' },
+    { partnerId: stellantis.id, score: 3, prev: 3, note: 'Brand-matrix decisions keep stalling; sponsor is disengaged.' },
+    { partnerId: denso.id, score: 5, note: 'Reliable execution; limited strategic alignment discussions.' },
+    { partnerId: continental.id, score: 4, note: 'Delivery fine, but Volvo slip strained the three-way relationship.' },
+    { partnerId: lge.id, score: 6, note: 'Strong delivery track record across GM and Hyundai lines.' },
+  ];
+  const relHealth = (s: number) => (s >= 6 ? 'On Track' : s >= 3 ? 'Some Risk' : 'Concerned');
+  for (const r of relStates) {
+    if (r.prev != null) {
+      await prisma.partnerState.create({
+        data: {
+          partnerId: r.partnerId, relationshipScore: r.prev, theNeedle: relHealth(r.prev),
+          notes: 'Prior quarterly relationship review.', source: 'seed', timestamp: new Date('2026-04-15'),
+        },
+      });
+    }
+    await prisma.partnerState.create({
+      data: {
+        partnerId: r.partnerId, relationshipScore: r.score, theNeedle: relHealth(r.score),
+        notes: r.note, source: 'seed', timestamp: new Date('2026-07-01'),
+      },
+    });
   }
 
   console.log('Seeding completed successfully!');

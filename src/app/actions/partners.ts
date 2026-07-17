@@ -1,0 +1,87 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { prisma } from '../../lib/db';
+
+// Partner CRUD. Partners used to be ingest/seed-only; these actions make the record
+// fully editable in the UI. Delete is deliberately conservative: a partner that still
+// owns programs or is someone's current employer cannot be deleted — reassign first.
+// (Person.currentPartnerId is a required FK, and silently cascading programs away
+// would destroy the portfolio history.)
+
+interface PartnerFields {
+  name: string;
+  typeId: number | null;
+  regionId: number | null;
+  phone: string | null;
+  website: string | null;
+  internalDetailsUrl: string | null;
+  summary: string | null;
+}
+
+function readFields(formData: FormData): PartnerFields {
+  const name = ((formData.get('name') as string) || '').trim();
+  if (!name) throw new Error('Partner name is required');
+  const optInt = (key: string): number | null => {
+    const v = (formData.get(key) as string) || '';
+    const n = parseInt(v, 10);
+    return Number.isNaN(n) ? null : n;
+  };
+  const optStr = (key: string): string | null => {
+    const v = ((formData.get(key) as string) || '').trim();
+    return v || null;
+  };
+  return {
+    name,
+    typeId: optInt('typeId'),
+    regionId: optInt('regionId'),
+    phone: optStr('phone'),
+    website: optStr('website'),
+    internalDetailsUrl: optStr('internalDetailsUrl'),
+    summary: optStr('summary'),
+  };
+}
+
+export async function createPartner(formData: FormData) {
+  const fields = readFields(formData);
+  const partner = await prisma.partner.create({ data: fields });
+  revalidatePath('/partners');
+  redirect(`/partners/${partner.id}`);
+}
+
+export async function updatePartner(formData: FormData) {
+  const partnerId = parseInt((formData.get('partnerId') as string) || '', 10);
+  if (Number.isNaN(partnerId)) throw new Error('Invalid partner ID');
+  const fields = readFields(formData);
+  await prisma.partner.update({ where: { id: partnerId }, data: fields });
+  revalidatePath(`/partners/${partnerId}`);
+  revalidatePath('/partners');
+}
+
+export async function deletePartner(formData: FormData) {
+  const partnerId = parseInt((formData.get('partnerId') as string) || '', 10);
+  if (Number.isNaN(partnerId)) throw new Error('Invalid partner ID');
+
+  const [programCount, employeeCount] = await Promise.all([
+    prisma.project.count({ where: { partnerId } }),
+    prisma.person.count({ where: { currentPartnerId: partnerId } }),
+  ]);
+  if (programCount > 0) throw new Error(`Partner still owns ${programCount} program(s) — reassign or delete them first`);
+  if (employeeCount > 0) throw new Error(`Partner is still the current employer of ${employeeCount} person(s) — reassign them first`);
+
+  // Atomic: relationship history, affiliations, context, phase involvements, lead
+  // links, and cached summaries all go with the record.
+  await prisma.$transaction([
+    prisma.partnerState.deleteMany({ where: { partnerId } }),
+    prisma.personAffiliation.deleteMany({ where: { partnerId } }),
+    prisma.contextUrl.deleteMany({ where: { partnerId } }),
+    prisma.phasePartner.deleteMany({ where: { partnerId } }),
+    prisma.phase.updateMany({ where: { leadPartnerId: partnerId }, data: { leadPartnerId: null } }),
+    prisma.summary.deleteMany({ where: { scope: 'partner', targetId: partnerId } }),
+    prisma.partner.delete({ where: { id: partnerId } }),
+  ]);
+
+  revalidatePath('/partners');
+  redirect('/partners');
+}

@@ -2,9 +2,10 @@ import { test, expect } from '@playwright/test';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
-// The Progress & Health gauge ("Needle" internally) exists at two scopes:
-//  - Partner: relationship health, in the partner page header.
-//  - Project: program progress + health, in the status dashboard.
+// Status controls by scope:
+//  - Partner: relationship health on the colorless 1..7 scale, in the partner page
+//    header (NOT a needle — see lib/relationship).
+//  - Project: program progress + health via the Needle gauge, in the status dashboard.
 // Phase progress is a separate control (the hill chart) — see project_details.spec.ts.
 
 test.describe('Progress & Health gauge updates', () => {
@@ -54,22 +55,43 @@ test.describe('Progress & Health gauge updates', () => {
     });
   });
 
-  test('should allow updating health at the Partner (relationship) level', async ({ page }) => {
+  test('should allow updating relationship health on the 1..7 scale at the Partner level', async ({ page }) => {
     await page.goto(`/partners/${partnerId}`);
 
     const header = page.locator('header').filter({ hasText: 'Tesla Motors' });
-    await header.getByRole('button', { name: 'Update', exact: true }).click();
+    const scale = header.getByTestId('relationship-scale');
+    await expect(scale).toContainText('Not rated'); // no state logged yet — honest empty
 
+    // Hydration-guarded open (first click can be swallowed under load).
     const dialog = page.locator('dialog[open]');
-    await dialog.locator('input[type="range"]').fill('65');
-    await dialog.locator('button:has-text("Some Risk")').click();
+    await expect(async () => {
+      if (!(await dialog.isVisible())) {
+        await scale.getByRole('button', { name: 'Update', exact: true }).click({ timeout: 2000 });
+      }
+      await expect(dialog).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+
+    // Pick 3 on the scale — the descriptor confirms the selection, no colors involved.
+    await dialog.getByRole('radio', { name: '3', exact: true }).click();
+    await expect(dialog).toContainText('Fragile');
+
+    // The note is required.
+    await dialog.locator('button:has-text("Save Update")').click();
+    await expect(dialog).toContainText('An update needs a note');
+
     await dialog.locator('[data-testid="note-editor"] [contenteditable="true"]').click();
-    await page.keyboard.type('Tesla partnership risk is elevated due to supply chains.');
+    await page.keyboard.type('Tesla relationship is strained due to supply chains.');
     await dialog.locator('button:has-text("Save Update")').click();
 
-    // Verify it closed and the header gauge now reads Some Risk
+    // Verify it closed and the header now reads the new position.
     await expect(page.locator('dialog[open]')).toHaveCount(0);
-    await expect(header).toContainText('Some Risk');
+    await expect(scale).toContainText('3/7');
+    await expect(scale).toContainText('Fragile');
+
+    // The state row carries the score AND the derived health (feed/filters coherence).
+    const state = await prisma.partnerState.findFirst({ where: { partnerId }, orderBy: { timestamp: 'desc' } });
+    expect(state?.relationshipScore).toBe(3);
+    expect(state?.theNeedle).toBe('Some Risk');
   });
 
   test('should allow updating progress + health at the Project level', async ({ page }) => {

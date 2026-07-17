@@ -1,6 +1,7 @@
 import 'server-only';
 import { prisma } from './db';
 import { formatNeedleValue } from './needle';
+import { deriveScore } from './relationship';
 import { hillStatus, phaseColor } from './phase';
 import type { FeedItem, FeedScope, FeedKind } from './feed';
 
@@ -142,7 +143,7 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
     const partnerStates = await prisma.partnerState.findMany({
       where: partnerStateWhere,
       select: {
-        id: true, theNeedle: true, hillChartProgress: true, notes: true, source: true, timestamp: true,
+        id: true, theNeedle: true, relationshipScore: true, notes: true, source: true, timestamp: true,
         partner: { select: { id: true, name: true } },
       },
       orderBy: { timestamp: 'desc' },
@@ -151,21 +152,21 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
     for (let i = 0; i < partnerStates.length; i++) {
       const s = partnerStates[i];
       const prev = partnerStates.slice(i + 1).find((o) => o.partner.id === s.partner.id) ?? null;
+      // Relationship health is a 1..7 position, not a needle (lib/relationship).
+      const score = deriveScore(s);
       push(events, {
         id: `pas-${s.id}`,
         kind: 'relationship',
         // On the partner's own page the name is redundant — only label at ecosystem scope.
-        title: `Relationship: ${formatNeedleValue(s.theNeedle)}`,
+        title: `Relationship: ${score}/7`,
         subtitle: meta(scope.kind === 'ecosystem' ? s.partner.name : null, s.source, true),
         detail: s.notes,
         href: `/history/partner/${s.partner.id}`,
         external: false,
         timestamp: s.timestamp.toISOString(),
-        needle: {
-          progress: s.hillChartProgress ?? 0,
-          health: s.theNeedle,
-          previousProgress: prev ? prev.hillChartProgress ?? null : null,
-          previousHealth: prev ? prev.theNeedle : null,
+        relationship: {
+          score,
+          previousScore: prev ? deriveScore(prev) : null,
         },
       });
     }
