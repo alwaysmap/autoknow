@@ -1,6 +1,10 @@
 :root {
   --hue: 142; /* WhatsApp-style green — locked */
 
+  /* Height of the pinned nav bar — sticky page rails offset by this so they sit
+     below it, never under it. Bumped where the nav wraps to two rows (≤960px). */
+  --nav-h: 56px;
+
   /* Structural emphasis — critical chain, constraint evidence, END phase, editor
      selection. Deliberately NOT amber: amber/red/green are the health palette, and
      "constraint" is a structural fact, not a risk verdict. */
@@ -39,6 +43,14 @@
   --head-font: var(--font-rubik), "Rubik", sans-serif;
   --body-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono-font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* The nav wraps to a taller two-row layout on narrow screens — sticky rails offset
+   by --nav-h track that so they still clear it. */
+@media (max-width: 960px) {
+  :root {
+    --nav-h: 96px;
+  }
 }
 
 html {

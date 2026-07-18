@@ -5,6 +5,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  /* Pinned to the top so it stays visible on long, scrollable pages (the partner
+     briefing's sticky rail used to be the only thing pinned, leaving no nav "up
+     top" once you scrolled). Sits above page content, including sticky sidebars. */
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .leftSection {
