@@ -1,6 +1,7 @@
 import 'server-only';
 import { GoogleGenAI, Type } from '@google/genai';
 import { generateDeterministicEmbedding } from './embedding-fallback';
+import { parseDocDigest, parseClassification, parseRawSummary } from './geminiSchemas';
 
 // Gemini: distill a document into decision-useful intelligence, classify which entity
 // it concerns, and embed the digest. All three degrade gracefully when GEMINI_API_KEY
@@ -112,7 +113,7 @@ ${text.slice(0, MAX_DOC_CHARS)}
     },
   });
 
-  return JSON.parse(resp.text ?? '{}') as DocDigest & { delta?: string };
+  return parseDocDigest(resp.text);
 }
 
 /**
@@ -145,7 +146,12 @@ CANDIDATES: ${JSON.stringify(candidates)}`;
     },
   });
 
-  const id = (JSON.parse(resp.text ?? '{}') as { id: number | null }).id;
+  let id: number | null = null;
+  try {
+    id = (JSON.parse(resp.text ?? 'null') as { id: number | null } | null)?.id ?? null;
+  } catch {
+    // enrichment is best-effort — an unparseable pick means no pick
+  }
   return candidates.some((c) => c.id === id) ? id : null;
 }
 
@@ -211,7 +217,7 @@ export async function generateStructuredSummary(prompt: string): Promise<RawSumm
     },
   });
 
-  return JSON.parse(resp.text ?? 'null') as RawSummary | null;
+  return parseRawSummary(resp.text);
 }
 
 export async function classifyContext(
@@ -246,7 +252,7 @@ PARTNERS: ${JSON.stringify(partners)}`;
     },
   });
 
-  return JSON.parse(resp.text ?? '{}') as Classification;
+  return parseClassification(resp.text);
 }
 
 /** Embed text to a 768-dim vector (real Gemini when configured, deterministic otherwise). */

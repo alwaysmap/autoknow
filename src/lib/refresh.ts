@@ -94,6 +94,21 @@ export async function refreshSource(
   const now = new Date();
 
   const resolved = digest.sourceStatus === 'resolved';
+
+  // The embedding is computed BEFORE the digest commits and written in the same
+  // transaction: if the embed write sat outside and failed, contentHash would already
+  // match on the next cycle ('unchanged' forever) and search would serve the stale
+  // vector with no recovery path. Re-embed only on real digest change (plan §7).
+  const writes: Prisma.PrismaPromise<unknown>[] = [];
+  if (digestText !== row.ingestedText) {
+    const vectorStr = `[${(await embedText(digestText)).join(',')}]`;
+    writes.push(
+      prisma.$executeRaw(
+        Prisma.sql`UPDATE "ContextUrl" SET "embedding" = ${vectorStr}::vector WHERE id = ${row.id}`,
+      ),
+    );
+  }
+
   await prisma.$transaction([
     prisma.contextUrl.update({
       where: { id: row.id },
@@ -120,15 +135,8 @@ export async function refreshSource(
         delta,
       },
     }),
+    ...writes,
   ]);
-
-  // Re-embed only on real digest change (plan §7).
-  if (digestText !== row.ingestedText) {
-    const vectorStr = `[${(await embedText(digestText)).join(',')}]`;
-    await prisma.$executeRaw(
-      Prisma.sql`UPDATE "ContextUrl" SET "embedding" = ${vectorStr}::vector WHERE id = ${row.id}`,
-    );
-  }
 
   return resolved
     ? { ok: true, result: 'frozen', frozenReason: 'resolved', delta }
@@ -168,10 +176,25 @@ export async function runRefreshCycle(): Promise<CycleReport> {
 
   const report: CycleReport = { due: due.length, checked: 0, changed: 0, frozen: 0, errors: 0, skippedDrive };
   for (const c of due.slice(0, MAX_REFRESHES_PER_CYCLE)) {
-    const outcome = await refreshSource(c.id);
+    // One broken source must not abort the cycle: everything a source can hit —
+    // fetch, distillation, embedding, its own writes — stays inside this try.
+    let outcome: RefreshOutcome;
+    try {
+      outcome = await refreshSource(c.id);
+    } catch (e) {
+      console.error(`refresh: source ${c.id} (${c.url}) failed:`, e);
+      outcome = { ok: false, error: (e as Error).message };
+    }
     report.checked++;
-    if (!outcome.ok) report.errors++;
-    else if (outcome.result === 'changed') report.changed++;
+    if (!outcome.ok) {
+      report.errors++;
+      // Rotate the failing source to the back of the lastCheckedAt queue. Without
+      // this, orderBy lastCheckedAt asc re-selects the same failing sources every
+      // cycle until MAX_REFRESHES_PER_CYCLE of them starve all healthy ones forever.
+      await prisma.contextUrl
+        .update({ where: { id: c.id }, data: { lastCheckedAt: new Date() } })
+        .catch(() => {});
+    } else if (outcome.result === 'changed') report.changed++;
     else if (outcome.result === 'frozen') report.frozen++;
   }
   return report;
