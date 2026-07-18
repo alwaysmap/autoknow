@@ -1,5 +1,6 @@
 import 'server-only';
 import { createHash } from 'crypto';
+import { lookup } from 'node:dns/promises';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import {
@@ -242,37 +243,78 @@ export interface WebFetchResult {
   notModified?: boolean;
 }
 
+/**
+ * DNS-rebinding guard: the hostname STRING can be innocent while its A/AAAA records
+ * point inside (evil.example → 127.0.0.1 / 169.254.169.254). Resolve names and run
+ * the same range checks on every returned address. Unresolvable names are not
+ * fetchable either. (Residual TOCTOU: the fetch re-resolves; true pinning would need
+ * a custom dispatcher — this closes the practical rebinding-by-record bypass.)
+ */
+async function hostResolvesForbidden(hostname: string): Promise<boolean> {
+  if (isForbiddenHost(hostname)) return true;
+  // Literal IPs were fully judged above; only names need resolution.
+  if (/^[\d.]+$/.test(hostname) || hostname.includes(':')) return false;
+  try {
+    const addrs = await lookup(hostname, { all: true, verbatim: true });
+    return addrs.some((a) => isForbiddenHost(a.address.replace(/^::ffff:/i, '')));
+  } catch {
+    return true;
+  }
+}
+
 /** Fetch a generic web/tracker URL with the plan's §4 guards (SSRF, auth walls). */
 export async function fetchWebUrl(url: string, priorEtag?: string | null): Promise<WebFetchResult> {
   const canonical = canonicalizeUrl(url);
   if (!canonical) return { ok: false, error: 'Not a fetchable http(s) URL.' };
-  if (isForbiddenHost(new URL(canonical).hostname)) {
-    return { ok: false, error: 'That address is not fetchable from the server.' };
-  }
 
-  let res: Response;
-  try {
-    res = await fetch(canonical, {
-      redirect: 'follow',
-      signal: AbortSignal.timeout(15000),
-      headers: {
-        'User-Agent': 'AutoKnow/1.0 (+context ingestion)',
-        // Pin the language: auto-localizing sites would otherwise serve per-request
-        // variants, breaking hash stability (and titles).
-        'Accept-Language': 'en',
-        ...(priorEtag ? { 'If-None-Match': priorEtag } : {}),
-      },
-    });
-  } catch (e) {
-    return { ok: false, error: `Fetch failed: ${(e as Error).message}` };
+  // Redirects are followed MANUALLY so every hop's host is resolved and validated —
+  // redirect:'follow' would only let us judge the final URL after the internal
+  // requests already happened.
+  const fetchHeaders = {
+    'User-Agent': 'AutoKnow/1.0 (+context ingestion)',
+    // Pin the language: auto-localizing sites would otherwise serve per-request
+    // variants, breaking hash stability (and titles).
+    'Accept-Language': 'en',
+    ...(priorEtag ? { 'If-None-Match': priorEtag } : {}),
+  };
+  const MAX_HOPS = 5;
+  let current = canonical;
+  let res: Response | null = null;
+  for (let hop = 0; hop <= MAX_HOPS; hop++) {
+    if (await hostResolvesForbidden(new URL(current).hostname)) {
+      return {
+        ok: false,
+        error: hop === 0
+          ? 'That address is not fetchable from the server.'
+          : 'That address redirects somewhere not fetchable.',
+      };
+    }
+    try {
+      res = await fetch(current, {
+        redirect: 'manual',
+        signal: AbortSignal.timeout(15000),
+        headers: fetchHeaders,
+      });
+    } catch (e) {
+      return { ok: false, error: `Fetch failed: ${(e as Error).message}` };
+    }
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get('location');
+      if (!loc) break;
+      try {
+        current = new URL(loc, current).toString();
+      } catch {
+        return { ok: false, error: 'That address redirects somewhere not fetchable.' };
+      }
+      res = null;
+      continue;
+    }
+    break;
   }
+  if (!res) return { ok: false, error: 'Too many redirects.' };
 
   if (res.status === 304) return { ok: true, notModified: true };
-  // Post-redirect host must pass the same guard (a public URL can bounce inward).
-  const finalUrl = res.url || canonical;
-  if (isForbiddenHost(new URL(finalUrl).hostname)) {
-    return { ok: false, error: 'That address redirects somewhere not fetchable.' };
-  }
+  const finalUrl = current;
   if (res.status === 401 || res.status === 403) return { ok: true, authWall: true, finalUrl };
   if (!res.ok) return { ok: false, status: res.status, error: `Fetch failed with HTTP ${res.status}.` };
 

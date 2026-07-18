@@ -25,6 +25,18 @@ const GOOGLE_SCOPES = [
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
+  // Pin the session cookie explicitly (these ARE the v5 defaults, but CSRF
+  // resistance rests on them — they must not drift silently with an upgrade).
+  cookies: {
+    sessionToken: {
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+      },
+    },
+  },
   providers: authConfigured
     ? [
         Google({
@@ -53,16 +65,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, account }) {
       // Persist the Google access token so server actions can call Drive on the
       // user's behalf. (Tokens are fresh right after sign-in; refresh is a TODO.)
+      // The token lives ONLY in the encrypted JWT cookie: it must never be copied
+      // onto the session object, which Auth.js serves verbatim to the browser via
+      // /api/auth/session — that exposed a drive.readonly bearer token to any
+      // script with DOM access. Server code reads it via lib/session.getAccessToken.
       if (account) {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.expiresAt = account.expires_at;
       }
       return token;
-    },
-    async session({ session, token }) {
-      session.accessToken = token.accessToken;
-      return session;
     },
   },
 });

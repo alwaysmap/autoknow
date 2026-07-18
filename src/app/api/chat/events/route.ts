@@ -28,9 +28,11 @@ export async function POST(req: NextRequest) {
 
   const event = (await req.json().catch(() => null)) as ChatEvent | null;
   if (!event) return NextResponse.json({ error: 'Bad request' }, { status: 400 });
-  console.log(`[chat] type=${event.type} sender=${event.message?.sender?.email ?? '-'}`);
+  // Log opaque thread ids, not sender emails or message/reply text — PII in logs
+  // has retention implications, and the thread id is enough to correlate.
+  console.log(`[chat] type=${event.type} thread=${event.message?.thread?.name ?? '-'}`);
 
   const reply = await handleChatEvent(event);
-  console.log(`[chat] reply: ${JSON.stringify(reply).slice(0, 140)}`);
+  console.log(`[chat] replied (${reply && 'text' in reply ? 'text' : 'empty'})`);
   return NextResponse.json(reply);
 }

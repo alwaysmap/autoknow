@@ -1,13 +1,12 @@
 import 'next-auth';
 import 'next-auth/jwt';
 
-// Surface the Google access token (and refresh metadata) on the session/JWT so the
-// ingestion server action can read a Google Doc with the signed-in user's credentials.
+// Surface the Google access token (and refresh metadata) on the JWT so the ingestion
+// server action can read a Google Doc with the signed-in user's credentials. The
+// token deliberately does NOT ride on Session — the session object is served to the
+// browser via /api/auth/session (see lib/session.getAccessToken for server reads).
 
 declare module 'next-auth' {
-  interface Session {
-    accessToken?: string;
-  }
   interface Profile {
     hd?: string;
   }

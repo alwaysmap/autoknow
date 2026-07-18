@@ -20,6 +20,37 @@ const nextConfig: NextConfig = {
       { source: '/projects/:path*', destination: '/programs/:path*', permanent: true },
     ];
   },
+  // The app is served publicly through a Tailscale Funnel — baseline security
+  // headers are non-negotiable. CSP notes: Next's bootstrap + React inline styles
+  // need 'unsafe-inline'; dev additionally needs 'unsafe-eval' (react-refresh).
+  // No third-party origins are loaded — everything else is 'self'.
+  async headers() {
+    const dev = process.env.NODE_ENV !== 'production';
+    const csp = [
+      "default-src 'self'",
+      `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ''}`,
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "font-src 'self' data:",
+      "connect-src 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join('; ');
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'Content-Security-Policy', value: csp },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
