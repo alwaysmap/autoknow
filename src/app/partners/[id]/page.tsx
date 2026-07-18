@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import styles from './page.module.css';
-import RelationshipScale, { RelationshipFace } from '../../../components/RelationshipScale';
+import RelationshipScale from '../../../components/RelationshipScale';
 import PartnerAdminControls from '../../../components/PartnerEditor';
 import SummaryPanel from '../../../components/SummaryPanel';
 import ActivityFeed from '../../../components/ActivityFeed';
@@ -105,12 +105,6 @@ export default async function PartnerDetailPage(props: PageProps) {
           </div>
           <div className={styles.partnerType}>{t(locale, 'partnerProfileSuffix', { t: partner.type?.name ?? '' })}</div>
         </div>
-        {/* relationship health: a 7-point scale, not a needle — see lib/relationship */}
-        <RelationshipScale
-          partnerId={partner.id}
-          score={latestState ? deriveScore(latestState) : null}
-          updatedAt={latestState?.timestamp?.toISOString() ?? null}
-        />
       </header>
 
       <main className={styles.main}>
@@ -155,14 +149,18 @@ export default async function PartnerDetailPage(props: PageProps) {
           <div className={styles.sidebarCard}>
             <h3>{t(locale, 'keyDetails')}</h3>
             <div className={styles.metaList}>
-              {latestState && (
-                <div className={styles.metaItem}>
-                  <span className={styles.metaLabel}>{t(locale, 'relationshipLabel')}</span>
-                  <span className={styles.metaVal}>
-                    <RelationshipFace score={deriveScore(latestState)} size={24} />
-                  </span>
-                </div>
-              )}
+              {/* current relationship health + the one place to update it; the
+                  narrative history lives in the activity feed */}
+              <div className={styles.metaItem}>
+                <span className={styles.metaLabel}>{t(locale, 'relationshipLabel')}</span>
+                <span className={styles.metaVal}>
+                  <RelationshipScale
+                    partnerId={partner.id}
+                    score={latestState ? deriveScore(latestState) : null}
+                    updatedAt={latestState?.timestamp?.toISOString() ?? null}
+                  />
+                </span>
+              </div>
               {partner.region && (
                 <div className={styles.metaItem}>
                   <span className={styles.metaLabel}>{t(locale, 'googleRegion')}</span>

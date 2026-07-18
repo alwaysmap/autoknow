@@ -58,8 +58,8 @@ test.describe('Progress & Health gauge updates', () => {
   test('should allow updating relationship health on the 1..5 scale at the Partner level', async ({ page }) => {
     await page.goto(`/partners/${partnerId}`);
 
-    const header = page.locator('header').filter({ hasText: 'Tesla Motors' });
-    const scale = header.getByTestId('relationship-scale');
+    // The relationship unit lives in the Key Details sidebar block.
+    const scale = page.getByTestId('relationship-scale');
     await expect(scale).toContainText('Not rated'); // no state logged yet — honest empty
 
     // Hydration-guarded open (first click can be swallowed under load).

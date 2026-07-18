@@ -198,7 +198,7 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
         id: `pas-${s.id}`,
         kind: 'relationship',
         // On the partner's own page the name is redundant — only label at ecosystem scope.
-        title: `Relationship: ${score}/5`,
+        title: 'Relationship update',
         subtitle: meta(scope.kind === 'ecosystem' ? s.partner.name : null, s.source, true),
         detail: s.notes,
         href: `/history/partner/${s.partner.id}`,

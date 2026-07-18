@@ -1,5 +1,5 @@
 import { NeedleGaugeSvg } from './NeedleGauge';
-import { RelationshipScaleTrack } from './RelationshipScale';
+import { RelationshipFace } from './RelationshipScale';
 import Markdown from './Markdown';
 import { parseHealth, healthColor, HEALTH_KEY } from '../lib/health';
 import { deriveScore, REL_KEY } from '../lib/relationship';
@@ -39,7 +39,7 @@ export default function NeedleHistoryList({
           <article key={`${c.timestamp}-${i}`} className={styles.card}>
             <div className={styles.gauge}>
               {relationship && score !== null ? (
-                <RelationshipScaleTrack score={score} previousScore={prevScore} />
+                <RelationshipFace score={score} size={30} />
               ) : (
                 <NeedleGaugeSvg
                   progress={c.progress}
@@ -52,7 +52,7 @@ export default function NeedleHistoryList({
             <div className={styles.body}>
               <div className={styles.head}>
                 {relationship && score !== null ? (
-                  <span className={styles.health}>{score}/5 — {t(locale, REL_KEY[score])}</span>
+                  <span className={styles.health}>{t(locale, REL_KEY[score])}</span>
                 ) : (
                   <span className={styles.health} style={{ color: healthColor(health) }}>{t(locale, HEALTH_KEY[health])}</span>
                 )}

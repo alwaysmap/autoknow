@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { FeedItem, FeedKind } from '../lib/feed';
 import Markdown from './Markdown';
 import { NeedleGaugeSvg } from './NeedleGauge';
-import { RelationshipScaleTrack } from './RelationshipScale';
+import { RelationshipFace } from './RelationshipScale';
 import { parseScore } from '../lib/relationship';
 import { PhaseHillSvg } from './PhaseHillGauge';
 import { deleteFeedItem } from '../app/actions/status';
@@ -67,12 +67,8 @@ export default function FeedList({
         <article key={it.id} className={styles.item}>
           {it.relationship ? (
             <div className={styles.gauge}>
-              {/* relationship health: a 1..7 position, never a needle */}
-              <RelationshipScaleTrack
-                score={parseScore(it.relationship.score)}
-                previousScore={parseScore(it.relationship.previousScore)}
-                compact
-              />
+              {/* the standard relationship-update view: face + date + author + text */}
+              <RelationshipFace score={parseScore(it.relationship.score) ?? 3} size={28} />
             </div>
           ) : it.needle ? (
             <div className={styles.gauge}>
