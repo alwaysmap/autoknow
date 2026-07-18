@@ -137,6 +137,12 @@ resource "random_password" "admin_token" {
 }
 
 locals {
+  # Cloud Run's stable, deterministic per-project URL (knowable before the service is
+  # created — unlike the random-hash *.a.run.app alias — so it can pin AUTH_URL without
+  # a self-reference). This is the canonical origin: register its callback in OAuth and
+  # visit the app here.
+  service_url = "https://${var.service_name}-${google_project.autoknow.number}.${var.region}.run.app"
+
   db_connection = google_sql_database_instance.db.connection_name
   # Unix-socket DSN via the Cloud SQL Auth Proxy mounted at /cloudsql.
   database_url = "postgresql://app:${random_password.db.result}@localhost/autoknow?host=/cloudsql/${local.db_connection}&schema=public"
@@ -203,6 +209,13 @@ resource "google_cloud_run_v2_service" "app" {
       env {
         name  = "NODE_ENV"
         value = "production"
+      }
+      # Pin Auth.js's origin to the public URL. Without it, behind the Cloud Run proxy
+      # Auth.js falls back to the container's HOSTNAME (0.0.0.0:3000) and OAuth callbacks
+      # break with error=Configuration.
+      env {
+        name  = "AUTH_URL"
+        value = local.service_url
       }
       # Secret env — one block per secret
       dynamic "env" {

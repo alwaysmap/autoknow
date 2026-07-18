@@ -3,13 +3,18 @@ output "project_id" {
 }
 
 output "service_url" {
-  description = "Public Cloud Run URL — the OAuth redirect + Chat App URL point here."
+  description = "Canonical public Cloud Run URL (== AUTH_URL) — visit the app and point Chat here."
+  value       = local.service_url
+}
+
+output "service_url_alias" {
+  description = "The random-hash alias Cloud Run also serves the app on (informational)."
   value       = google_cloud_run_v2_service.app.uri
 }
 
 output "oauth_redirect_uri" {
   description = "Add this to the OAuth client's Authorized redirect URIs."
-  value       = "${google_cloud_run_v2_service.app.uri}/api/auth/callback/google"
+  value       = "${local.service_url}/api/auth/callback/google"
 }
 
 output "sql_connection_name" {
