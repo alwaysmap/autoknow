@@ -63,7 +63,7 @@ export default async function PartnerDetailPage(props: PageProps) {
     prisma.partnerState.findMany({
       where: { partnerId: partner.id },
       orderBy: { timestamp: 'desc' },
-      take: 2,
+      take: 12,
     }),
     prisma.partnerType.findMany({ orderBy: { name: 'asc' } }),
     prisma.region.findMany({ orderBy: { name: 'asc' } }),
@@ -111,6 +111,7 @@ export default async function PartnerDetailPage(props: PageProps) {
           partnerId={partner.id}
           score={latestState ? deriveScore(latestState) : null}
           previousScore={previousState ? deriveScore(previousState) : null}
+          history={[...partnerStates].reverse().map((s) => deriveScore(s))}
           updatedAt={latestState?.timestamp?.toISOString() ?? null}
         />
       </header>

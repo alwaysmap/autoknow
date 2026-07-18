@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
 import { NewPartnerButton } from '../../components/PartnerEditor';
+import KebabMenu from '../../components/KebabMenu';
 import { RelationshipCell } from '../../components/RelationshipScale';
 import { parseScore } from '../../lib/relationship';
 import { deriveEmail, normalizeHandle } from '../../lib/auth';
@@ -47,8 +48,8 @@ interface PartnersClientProps {
   partners: Partner[];
   currentUser: string;
   people: Person[];
-  /** partnerId → latest/previous relationship score (see lib/relationship). */
-  relationship: Record<number, { score: number | null; prev: number | null }>;
+  /** partnerId → latest score + oldest→newest history (see lib/relationship). */
+  relationship: Record<number, { score: number | null; history: number[] }>;
   types: Option[];
   regions: Option[];
 }
@@ -130,10 +131,9 @@ export default function PartnersClient({ partners, currentUser, people, relation
     <div className={styles.container}>
       <header className={styles.header}>
         <h1>{t(locale, 'partnersLabel')}</h1>
-        <div className={styles.userLabel}>
-          {t(locale, 'loggedUser')} <code>{currentUser}</code>
-        </div>
-        <NewPartnerButton types={types} regions={regions} />
+        <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+          <NewPartnerButton types={types} regions={regions} />
+        </KebabMenu>
       </header>
 
       <main className={styles.main}>
@@ -190,30 +190,28 @@ export default function PartnersClient({ partners, currentUser, people, relation
                   </Link>
                 </td>
                 <td>
-                  <button
-                    onClick={() => setSelectedType(p.type)}
-                    className={styles.typeFilterBtn}
-                    title={t(locale, 'filterByType', { t: p.type })}
-                  >
-                    <span
-                      className={`${styles.badge} ${
-                        p.type === 'OEM' ? styles.oemBadge : styles.supplierBadge
-                      }`}
+                  {p.type ? (
+                    <button
+                      onClick={() => setSelectedType(p.type)}
+                      className={styles.typeFilterBtn}
+                      title={t(locale, 'filterByType', { t: p.type })}
                     >
-                      {p.type}
-                    </span>
-                  </button>
+                      <span className={styles.typeText}>{p.type}</span>
+                    </button>
+                  ) : (
+                    <span className={styles.typeText}>—</span>
+                  )}
                 </td>
                 <td>
                   {/* aligned 1..7 tracks: relative relationship health, scannable down the column */}
                   <RelationshipCell
                     score={parseScore(relationship[p.id]?.score)}
-                    previousScore={parseScore(relationship[p.id]?.prev)}
+                    history={relationship[p.id]?.history}
                   />
                 </td>
                 <td>
                   <Link href={`/partners/${p.id}?filter=active`} className={styles.activeProgramsLink}>
-                    <strong>{p.activePrograms}</strong> {t(locale, 'activeSuffix')}
+                    {p.activePrograms} {t(locale, 'activeSuffix')}
                   </Link>
                 </td>
                 <td>

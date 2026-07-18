@@ -52,17 +52,76 @@ export function RelationshipScaleTrack({
   );
 }
 
+// ---- Face + sparkline (the legible form of the scale) --------------------------
+// A pain-scale/"airport bathroom" face carries the VALENCE the dot-axis couldn't:
+// nobody has to ask whether 7 is good when 7 is beaming. Ink-only (the scale stays
+// colorless by design) — mouth curvature and eyes do all the work.
+
+export function RelationshipFace({ score, size = 22, decorative = false }: {
+  score: RelScore; size?: number;
+  /** Inside an already-labeled control (e.g. the picker radios) the face must not
+   *  contribute to the accessible name. */
+  decorative?: boolean;
+}) {
+  const locale = useLocale();
+  // curvature: -1 (deep frown, 1) .. +1 (big smile, 7); 4 is a flat "steady".
+  const c = (score - 4) / 3;
+  const endY = 3.6 - c * 1.6;
+  const ctlY = 3.6 + c * 3.4;
+  return (
+    <svg
+      viewBox="-10 -10 20 20"
+      width={size}
+      height={size}
+      {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': `${score}/7 — ${t(locale, REL_KEY[score])}` })}
+    >
+      <circle cx={0} cy={0} r={8.6} fill="none" stroke="var(--fg, #333)" strokeWidth={1.5} />
+      <circle cx={-3.1} cy={-2.6} r={1.15} fill="var(--fg, #333)" />
+      <circle cx={3.1} cy={-2.6} r={1.15} fill="var(--fg, #333)" />
+      <path
+        d={`M -4 ${endY} Q 0 ${ctlY} 4 ${endY}`}
+        fill="none"
+        stroke="var(--fg, #333)"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      {!decorative && (
+        <title>{`${score}/7 — ${t(locale, REL_KEY[score])} (1 = ${t(locale, REL_KEY[1])}, 7 = ${t(locale, REL_KEY[7])})`}</title>
+      )}
+    </svg>
+  );
+}
+
+/** Tiny 1..7 history line, oldest → newest, latest point emphasized. */
+export function RelationshipSparkline({ history, width = 64, height = 18 }: {
+  history: number[]; width?: number; height?: number;
+}) {
+  if (history.length < 2) return null;
+  const pad = 3;
+  const x = (i: number) => pad + (i / (history.length - 1)) * (width - 2 * pad);
+  const y = (v: number) => height - pad - ((clampScore(v) - 1) / 6) * (height - 2 * pad);
+  const points = history.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const last = history[history.length - 1];
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} aria-hidden style={{ display: 'block' }}>
+      <polyline points={points} fill="none" stroke="var(--muted, #9a948a)" strokeWidth={1.3} strokeLinejoin="round" />
+      <circle cx={x(history.length - 1)} cy={y(last)} r={2.2} fill="var(--fg, #333)" />
+    </svg>
+  );
+}
+
 // Compact readout for list rows: aligned track + numeral. Sorting the column and
 // scanning dot positions are the two ways to compare partners; both need no color.
-export function RelationshipCell({ score, previousScore }: { score: RelScore | null; previousScore?: RelScore | null }) {
+export function RelationshipCell({ score, history }: { score: RelScore | null; history?: number[] }) {
   const locale = useLocale();
   if (score === null) {
     return <span className={styles.notRated}>{t(locale, 'relNotRated')}</span>;
   }
   return (
-    <span className={styles.cell} title={t(locale, REL_KEY[score])}>
-      <RelationshipScaleTrack score={score} previousScore={previousScore} compact />
+    <span className={styles.cell} title={`${t(locale, REL_KEY[score])} · ${t(locale, 'relScaleHint')}`}>
+      <RelationshipFace score={score} size={20} />
       <span className={styles.cellScore}>{score}<span className={styles.cellDen}>/7</span></span>
+      {history && <RelationshipSparkline history={history} />}
     </span>
   );
 }
@@ -73,12 +132,15 @@ export default function RelationshipScale({
   partnerId,
   score,
   previousScore,
+  history,
   updatedAt,
   editable = true,
 }: {
   partnerId: number;
   score: RelScore | null;
   previousScore?: RelScore | null;
+  /** Oldest → newest scores for the sparkline; falls back to the dot track. */
+  history?: number[];
   updatedAt?: string | null;
   editable?: boolean;
 }) {
@@ -94,10 +156,13 @@ export default function RelationshipScale({
   return (
     <div className={styles.wrapper} data-testid="relationship-scale">
       <div className={styles.readout}>
+        {score !== null && <RelationshipFace score={score} size={26} />}
         <span className={styles.score}>{score ?? '–'}<span className={styles.den}>/7</span></span>
         <span className={styles.descriptor}>{score === null ? t(locale, 'relNotRated') : t(locale, REL_KEY[score])}</span>
       </div>
-      <RelationshipScaleTrack score={score} previousScore={previousScore} />
+      {history && history.length > 1
+        ? <RelationshipSparkline history={history} width={110} height={22} />
+        : <RelationshipScaleTrack score={score} previousScore={previousScore} />}
       {updatedAt && (
         <div className={styles.updatedAt}>
           {t(locale, 'updatedOn', { d: new Date(updatedAt).toLocaleDateString(locale, { month: 'short', day: 'numeric' }) })}
@@ -135,6 +200,7 @@ export default function RelationshipScale({
                   onClick={() => setPick(clampScore(s))}
                   className={`${styles.pickBtn} ${pick === s ? styles.pickBtnActive : ''}`}
                 >
+                  <RelationshipFace score={s} size={20} decorative />
                   {s}
                 </button>
               ))}

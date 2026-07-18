@@ -70,7 +70,11 @@ test.describe('Ecosystem Partners Page', () => {
     // CREATE — hydration-guarded open, then the form, then the redirect to the new page.
     const dialog = page.locator('dialog[open]');
     await expect(async () => {
-      if (!(await dialog.isVisible())) await page.getByTestId('new-partner').click({ timeout: 2000 });
+      if (!(await dialog.isVisible())) {
+        const item = page.getByTestId('new-partner');
+        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+        await item.click({ timeout: 2000 });
+      }
       await expect(dialog).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
     await dialog.locator('#pfName').fill('Rivian');

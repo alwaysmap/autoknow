@@ -34,11 +34,11 @@ export default async function PartnersPage(props: { searchParams: Promise<Search
     orderBy: { timestamp: 'desc' },
     select: { partnerId: true, relationshipScore: true, theNeedle: true },
   });
-  const relationship: Record<number, { score: number | null; prev: number | null }> = {};
+  // Newest-first rows → latest score + a capped oldest→newest history per partner.
+  const relationship: Record<number, { score: number | null; history: number[] }> = {};
   for (const s of states) {
-    const entry = relationship[s.partnerId];
-    if (!entry) relationship[s.partnerId] = { score: deriveScore(s), prev: null };
-    else if (entry.prev === null) entry.prev = deriveScore(s);
+    const entry = (relationship[s.partnerId] ??= { score: deriveScore(s), history: [] });
+    if (entry.history.length < 10) entry.history.unshift(deriveScore(s));
   }
 
   // Type/region options for the New partner form.

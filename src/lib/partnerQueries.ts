@@ -41,8 +41,9 @@ export class PartnerQueries {
    * Fetches all partners along with projects, current employees, and affiliations.
    */
   async getAllPartners(): Promise<PartnerWithRelations[]> {
-    return this.prisma.partner.findMany({
+    const rows = await this.prisma.partner.findMany({
       include: {
+        type: { select: { name: true } },
         projects: {
           select: {
             id: true,
@@ -73,7 +74,9 @@ export class PartnerQueries {
       orderBy: {
         name: 'asc'
       }
-    }) as unknown as PartnerWithRelations[];
+    });
+    // Flatten the type relation to its name — the UI's contract is a string.
+    return rows.map((r) => ({ ...r, type: r.type?.name ?? '' })) as unknown as PartnerWithRelations[];
   }
 
   /**

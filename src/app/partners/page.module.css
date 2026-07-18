@@ -93,33 +93,19 @@
 }
 
 .tableLink {
-  color: var(--p-600);
+  color: var(--fg);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .tableLink:hover {
   text-decoration: underline;
-  color: var(--p-700);
 }
 
-.badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.oemBadge {
-  background-color: #e8f0fe;
-  color: var(--p-600);
-}
-
-.supplierBadge {
-  background-color: #f1f3f4;
-  color: #5f6368;
+/* Partner type: quiet muted text (still clickable to filter). */
+.typeText {
+  font-size: 12.5px;
+  color: var(--muted);
 }
 
 .telList {

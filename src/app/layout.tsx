@@ -1,3 +1,4 @@
+import UserMenu from '../components/UserMenu';
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Rubik } from "next/font/google";
 import Link from 'next/link';
@@ -79,33 +80,20 @@ export default async function RootLayout({
             <SwCleanup />
             <Search />
             <LocaleSwitcher locale={locale} />
-            <div className={styles.sessionIndicator}>
-              <div className={styles.googleLogo}>G</div>
-              {/* Show an identity only when it's real: the signed-in session, or the
-                  stub in unauthenticated dev mode. Never the stub NEXT TO "Sign in". */}
-              {(!authConfigured || session?.user) && <span>{user.email}</span>}
-              {authConfigured && (
-                session?.user ? (
-                  <form
-                    action={async () => {
-                      'use server';
-                      await signOut({ redirectTo: '/login' });
-                    }}
-                  >
-                    <button type="submit" style={{ marginLeft: 8, fontSize: 12, cursor: 'pointer', background: 'none', border: 'none', textDecoration: 'underline', color: 'inherit' }}>{t(locale, 'signOut')}</button>
-                  </form>
-                ) : (
-                  <form
-                    action={async () => {
-                      'use server';
-                      await signIn('google', { redirectTo: '/' });
-                    }}
-                  >
-                    <button type="submit" style={{ marginLeft: 8, fontSize: 12, cursor: 'pointer', background: 'none', border: 'none', textDecoration: 'underline', color: 'inherit' }}>{t(locale, 'signIn')}</button>
-                  </form>
-                )
-              )}
-            </div>
+            <UserMenu
+              name={session?.user?.name ?? user.display}
+              email={user.email}
+              signedIn={!!session?.user}
+              authConfigured={authConfigured}
+              signInAction={async () => {
+                'use server';
+                await signIn('google', { redirectTo: '/' });
+              }}
+              signOutAction={async () => {
+                'use server';
+                await signOut({ redirectTo: '/login' });
+              }}
+            />
           </div>
         </nav>
         {children}
