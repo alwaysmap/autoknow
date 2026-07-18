@@ -14,17 +14,24 @@ All key actions are accessible via `npm run` scripts.
 - Docker and Docker Compose (for the PostgreSQL database with pgvector)
 
 ### 2. Starting the Application
-First, start the local database container:
+First, create your `.env` from the sample. `DATABASE_URL` is the only required
+variable — everything else is optional and gates a specific feature (see
+[docs/OPERATIONS.md](docs/OPERATIONS.md)):
+```bash
+cp .env.sample .env
+```
+
+Start the local database container:
 ```bash
 npm run db:up
 ```
 
-Then, push the Prisma schema to initialize your database:
+Push the Prisma schema to initialize your database:
 ```bash
 npm run db:push
 ```
 
-Finally, start the Next.js development server:
+Start the Next.js development server (http://localhost:3000):
 ```bash
 npm run dev
 ```
@@ -32,15 +39,20 @@ npm run dev
 ### 3. Testing
 This project strictly enforces TDD (Test-Driven Development). Any new code changes must have tests written first. We use black-box behavioral testing to ensure we test expectations, not implementation details.
 
+Jest runs serially against a dedicated `<name>_test` database (derived from
+`DATABASE_URL`); it can never touch your main database.
+
 **Unit and Component Tests (Jest):**
 ```bash
 npm run test
 npm run test:watch
-npx jest --coverage  # Generate coverage reports (strictly >80%)
+npm run test:coverage  # Generate a coverage report
 ```
 
 **End-to-End Tests (Playwright):**
-Our Playwright configuration automatically starts a dev server in the background for you.
+The Playwright config starts its own dev server on **:3130** (its own `_test`
+database and a separate `.next-test` build dir), so it never disturbs a dev server
+you're running on :3000.
 ```bash
 npm run test:e2e
 npm run test:e2e:ui  # Opens the Playwright interactive UI
@@ -71,7 +83,11 @@ npm run db:studio  # Opens Prisma Studio on port 5555 to view/edit database cont
 ```
 
 ### 6. Production Build
+The dev server is not suitable for long-running use (it accumulates memory); serve
+a production build instead. `npm run start` serves on :3000; add `-- -p <port>` to
+change it (env vars are read at boot, so restart after editing `.env`).
 ```bash
 npm run build
-npm run start
+npm run start            # http://localhost:3000
+# or: npm run start -- -p 3100
 ```

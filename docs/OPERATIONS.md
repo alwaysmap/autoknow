@@ -22,9 +22,10 @@ Two kinds of sections:
 
 ```bash
 npm install
-npm run db:up      # start Postgres (docker compose service "db")
-npm run db:push    # apply prisma/schema.prisma
-npm run dev        # dev server on :3000   (production: npm run build && npm run start)
+cp .env.sample .env  # DATABASE_URL is the only required var (below); the rest gate features
+npm run db:up        # start Postgres (docker compose service "db")
+npm run db:push      # apply prisma/schema.prisma
+npm run dev          # dev server on :3000   (production: npm run build && npm run start)
 ```
 
 `.env` (gitignored) is the single configuration surface — copy `.env.sample` and
@@ -35,9 +36,12 @@ AI features off.
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/autoknow?schema=public"
 ```
 
-Mock data: open `/admin` and click **Seed Mock Data**. In production the seeding
-API (`/api/admin/seed`) requires the `x-admin-token` header matching `ADMIN_TOKEN`
-in `.env`; without `ADMIN_TOKEN` set, destructive admin ops are allowed only in
+Seeding: open `/admin`. **Seed Core Data** is idempotent and non-destructive —
+it upserts the reference rows (regions, partner types, the Google partner) and
+never wipes, so it's safe to re-run on a live database. **Seed Mock Data** and
+**Wipe All Data** ARE destructive (they clear everything first). In production the
+seeding API (`/api/admin/seed`) requires the `x-admin-token` header matching
+`ADMIN_TOKEN` in `.env`; without `ADMIN_TOKEN` set, those ops are allowed only in
 non-production.
 
 **Wipe/re-seed is fail-closed against the wrong database.** Independent of the
@@ -144,7 +148,7 @@ it). Nothing else — no account, no OAuth.
 **Step 1 — generate and configure:**
 
 ```bash
-openssl rand -hex 24        # hex on purpose: no +/= characters (see note below)
+openssl rand -hex 24        # any random string works; hex is just tidy
 ```
 
 Put it in `.env` and restart the app:
@@ -159,14 +163,16 @@ CRON_SECRET="6f2a…"
 curl -s -H "Authorization: Bearer $YOUR_SECRET" https://YOUR_HOST/api/cron/refresh
 ```
 
-- Correct secret → a JSON report: `{"due":0,"checked":0,"changed":0,"frozen":0,"errors":0,"skippedDrive":0}`
+- Correct secret → a JSON report combining the refresh counts with the Drive-sweep
+  and summary-cycle results, e.g.
+  `{"due":0,"checked":0,"changed":0,"frozen":0,"errors":0,"skippedDrive":0,"drive":{…},"summaries":{…}}`
 - Wrong/missing secret → `{"error":"Unauthorized"}` (401)
 - `CRON_SECRET` not set server-side → 503 telling you so
 
-Prefer the `Authorization: Bearer` header. `?secret=` also works, but if your
-secret is base64 (from `openssl rand -base64 …` or `npx auth secret`) its `+`
-characters decode as spaces in a query string and the match fails — the header
-carries any characters verbatim; hex secrets are safe either way.
+The secret is accepted **only** in the `Authorization: Bearer` header — a
+`?secret=` query parameter is not supported (query strings land in access/tunnel
+logs). The header carries any characters verbatim, so a base64 secret is fine; the
+comparison is constant-time.
 
 **Step 3 — schedule it.** Hourly is right; the per-connector cadences (trackers
 6h, generic web weekly, snapshots never) are enforced inside the route, so calling
@@ -377,9 +383,12 @@ Scopes for the Chat paths, for reference:
   @-popup — typed plain "@autoknow" text posts silently and delivers nothing.
 
 There is also an existing plain-webhook endpoint `POST /api/integrations/chat`
-(see README) that accepts pasted chat text today, independent of the Chat app.
-The former `/ingest` page is retired — pasting links lives in the **+ Add link**
-control on program/partner pages (scoped) and Manage → Sources (unscoped).
+(see README) that accepts pasted chat text today, independent of the Chat app. It
+is NOT open — it requires a signed-in session or the `x-admin-token` header — and
+it stores briefings through the normal ingest pipeline (digest, embedding,
+revision history). The former `/ingest` page is retired — pasting links lives in
+the **+ Add link** control on program/partner pages (scoped) and Manage → Sources
+(unscoped).
 
 ---
 
@@ -388,8 +397,13 @@ control on program/partner pages (scoped) and Manage → Sources (unscoped).
 - `npm run build && npm run start -- -p <port>`. The dev server is not suitable
   for long-running demo use (it accumulates memory); use a production build.
 - All env vars are read at server boot — restart after editing `.env`.
+- The app serves baseline security headers (CSP, HSTS, `X-Frame-Options: DENY`,
+  `nosniff`, `Referrer-Policy`) on every response — relevant if it sits behind a
+  proxy that also sets them (avoid duplicates). See `next.config.ts`.
 - Databases: e2e tests use a dedicated `<name>_test` database derived from
-  `DATABASE_URL` and wipe it; they never touch the main one.
+  `DATABASE_URL` and wipe it; they never touch the main one. Destructive app ops
+  (wipe / mock-seed) additionally refuse any non-`*_test` database unless
+  `DESTRUCTIVE_DB_ALLOWED` names it exactly (see §1).
 - Secrets recap (all in `.env`, all optional except `DATABASE_URL`):
 
 | Var | Enables | Off ⇒ |
@@ -398,7 +412,8 @@ control on program/partner pages (scoped) and Manage → Sources (unscoped).
 | `GEMINI_API_KEY` | digests, summaries, semantic search | honest "AI off" states |
 | `AUTH_SECRET` + `AUTH_GOOGLE_ID/SECRET` | Google sign-in, user-token Doc fetch | Doc links refuse; rest works |
 | `AUTH_ALLOWED_DOMAIN` | domain-restricted sign-in | any Google account may sign in |
-| `CRON_SECRET` | refresh worker route | worker refuses (503) |
-| `ADMIN_TOKEN` | seeding API in production | destructive ops blocked in prod |
+| `CRON_SECRET` | refresh worker route (bearer only) | worker refuses (503) |
+| `ADMIN_TOKEN` | admin API auth (seed/reindex/chat webhook) | in prod, admin ops need it; unset ⇒ blocked in prod |
+| `DESTRUCTIVE_DB_ALLOWED` | wipe / mock-seed of a non-`*_test` DB | destructive ops refuse (fail closed) |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` / `GOOGLE_APPLICATION_CREDENTIALS` | Drive share-to-ingest + background Doc refresh | worker skips Docs; manual refresh only |
 | `GOOGLE_PROJECT_NUMBER` | Chat event JWT verification (§6) | /api/chat/events refuses (503) |
