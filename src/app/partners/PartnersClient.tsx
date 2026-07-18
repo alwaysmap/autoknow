@@ -168,10 +168,13 @@ export default function PartnersClient({ partners, currentUser, people, relation
                 key: 'relationship',
                 label: t(locale, 'relationshipLabel'),
                 filterable: true,
+                // filterValue keeps the numeric prefix so options order by score;
+                // filterLabel strips it so the dropdown shows just the label.
                 filterValue: (row) => {
                   const score = (row as { relationship: number }).relationship;
                   return score === 0 ? t(locale, 'relNotRated') : `${score} — ${t(locale, REL_KEY[clampScore(score)])}`;
                 },
+                filterLabel: (v) => v.replace(/^\d+\s*—\s*/, ''),
               },
               { key: 'activePrograms', label: t(locale, 'activePrograms') },
               { key: 'lifetimePrograms', label: t(locale, 'lifetimePrograms') },

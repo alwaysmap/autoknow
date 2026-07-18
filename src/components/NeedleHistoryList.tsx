@@ -1,5 +1,5 @@
 import { NeedleGaugeSvg } from './NeedleGauge';
-import { RelationshipFace } from './RelationshipScale';
+import { RelationshipFace, RelationshipNoValue } from './RelationshipScale';
 import Markdown from './Markdown';
 import { parseHealth, healthColor, HEALTH_KEY } from '../lib/health';
 import { deriveScore, REL_KEY } from '../lib/relationship';
@@ -44,10 +44,14 @@ export default function NeedleHistoryList({
             <div className={styles.gauge}>
               {relationship && score !== null ? (
                 <span className={styles.relFaces}>
-                  {priorScore !== null && priorScore !== score && (
+                  {/* Prior slot: previous face, or a "was unrated" glyph on the first
+                      rating (health went from nothing to a value). Hidden if unchanged. */}
+                  {priorScore !== score && (
                     <>
                       <span className={styles.priorFace}>
-                        <RelationshipFace score={priorScore} size={24} decorative />
+                        {priorScore !== null
+                          ? <RelationshipFace score={priorScore} size={24} decorative />
+                          : <RelationshipNoValue size={24} decorative />}
                       </span>
                       <span className={styles.relArrow} aria-hidden>
                         <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

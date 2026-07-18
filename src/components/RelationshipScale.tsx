@@ -55,6 +55,24 @@ export function RelationshipFace({ score, size = 22, decorative = false }: {
   );
 }
 
+/** "Was unrated" — the prior slot when health goes from nothing to its first value.
+ *  A dashed empty ring with a centre dash; not a face (there was no reading). */
+export function RelationshipNoValue({ size = 26, decorative = false }: { size?: number; decorative?: boolean }) {
+  const locale = useLocale();
+  return (
+    <svg
+      viewBox="-10 -10 20 20"
+      width={size}
+      height={size}
+      {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': t(locale, 'relNotRated') })}
+    >
+      <circle cx={0} cy={0} r={8.6} fill="none" stroke="currentColor" strokeWidth={1.4} strokeDasharray="2.4 2.4" />
+      <line x1={-3.6} y1={0} x2={3.6} y2={0} stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
+      {!decorative && <title>{t(locale, 'relNotRated')}</title>}
+    </svg>
+  );
+}
+
 // Compact readout for list rows: aligned track + numeral. Sorting the column and
 // scanning dot positions are the two ways to compare partners; both need no color.
 export function RelationshipCell({ score }: { score: RelScore | null; history?: number[] }) {
@@ -100,10 +118,15 @@ export default function RelationshipScale({
       <div className={styles.readout}>
         {score !== null ? (
           <span className={styles.faces}>
-            {previousScore != null && previousScore !== score && (
+            {/* Prior slot: the previous face, OR a "was unrated" glyph when this is the
+                first-ever rating (health went from nothing to a value). Hidden only
+                when the value is unchanged. */}
+            {previousScore !== score && (
               <>
                 <span className={styles.priorFace}>
-                  <RelationshipFace score={previousScore} size={26} decorative />
+                  {previousScore != null
+                    ? <RelationshipFace score={previousScore} size={26} decorative />
+                    : <RelationshipNoValue size={26} decorative />}
                 </span>
                 <span className={styles.faceArrow} aria-hidden>
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

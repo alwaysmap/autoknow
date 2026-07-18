@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { FeedItem, FeedKind } from '../lib/feed';
 import Markdown from './Markdown';
 import { NeedleGaugeSvg } from './NeedleGauge';
-import { RelationshipFace } from './RelationshipScale';
+import { RelationshipFace, RelationshipNoValue } from './RelationshipScale';
 import { parseScore } from '../lib/relationship';
 import { PhaseHillSvg } from './PhaseHillGauge';
 import { deleteFeedItem } from '../app/actions/status';
@@ -75,10 +75,14 @@ export default function FeedList({
                 const prior = it.relationship.previousScore != null ? parseScore(it.relationship.previousScore) : null;
                 return (
                   <span className={styles.relFaces}>
-                    {prior != null && prior !== cur && (
+                    {/* Prior slot: previous face, or a "was unrated" glyph on the first
+                        rating (nothing → first value). Hidden if unchanged. */}
+                    {prior !== cur && (
                       <>
                         <span className={styles.priorFace}>
-                          <RelationshipFace score={prior} size={22} decorative />
+                          {prior != null
+                            ? <RelationshipFace score={prior} size={22} decorative />
+                            : <RelationshipNoValue size={22} decorative />}
                         </span>
                         <span className={styles.relArrow} aria-hidden>
                           <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
