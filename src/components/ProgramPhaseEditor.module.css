@@ -75,6 +75,11 @@
   opacity: 0.75;
   z-index: 10;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  /* The ghost must not swallow the drop hit-test: with pointer-events on, the
+     card under the cursor IS the dragged card, elementFromPoint returns it, and
+     drag-to-connect silently never fires. Pointer capture still delivers the
+     move/up events to the card — capture bypasses hit-testing entirely. */
+  pointer-events: none;
 }
 
 .nodeName {

@@ -159,9 +159,14 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, leadRo
     setDragPos(null);
     if (!s?.moved) return;
     suppressClick.current = true; // the browser fires click after pointerup — ignore it
-    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-card-id]');
-    const targetId = el ? parseInt(el.getAttribute('data-card-id')!, 10) : NaN;
-    if (!isNaN(targetId) && targetId !== s.id) connect(s.id, targetId); // dragged node comes AFTER the drop target
+    // elementsFromPoint + skip-self: belt to the CSS pointer-events:none braces —
+    // the dragged ghost sits under the cursor and must never be its own drop target.
+    const targetId = document
+      .elementsFromPoint(e.clientX, e.clientY)
+      .map((n) => n.closest('[data-card-id]'))
+      .map((n) => (n ? parseInt(n.getAttribute('data-card-id')!, 10) : NaN))
+      .find((id) => !isNaN(id) && id !== s.id);
+    if (targetId !== undefined) connect(s.id, targetId); // dragged node comes AFTER the drop target
   };
   const onCardClick = (id: number) => () => {
     if (suppressClick.current) { suppressClick.current = false; return; }

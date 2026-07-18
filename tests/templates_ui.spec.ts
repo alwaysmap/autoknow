@@ -103,6 +103,36 @@ test.describe('Program template authoring', () => {
     expect(ship.dependsOn).toHaveLength(1);
   });
 
+  test('drag-to-connect: dropping one card onto another creates the edge', async ({ page }) => {
+    const card = (name: string) => page.locator(`[data-testid="phase-card"][data-name="${name}"]`);
+    const panel = page.getByTestId('phase-panel');
+
+    await page.goto('/templates');
+    await page.getByRole('button', { name: 'New template' }).click();
+    await page.waitForURL(/\/templates\/\d+\/edit/);
+    await page.getByLabel('Template name').fill('Drag Connect Fixture');
+    await page.getByRole('button', { name: 'Save', exact: true }).first().click();
+
+    await page.getByRole('button', { name: 'Add phase' }).click();
+    await panel.getByLabel('Phase name').fill('Base');
+    await page.getByRole('button', { name: 'Add phase' }).click();
+    await panel.getByLabel('Phase name').fill('Cert');
+
+    // Two disconnected roots → the validator objects. Drag Cert onto Base: the
+    // dragged node comes AFTER the drop target. Regression: the dragged card used
+    // to swallow the drop hit-test (elementFromPoint found the ghost itself), so
+    // the edge silently never appeared.
+    const from = (await card('Cert').boundingBox())!;
+    const to = (await card('Base').boundingBox())!;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 });
+    await page.mouse.up();
+
+    await expect(card('Cert')).toHaveAttribute('title', /end phase/);
+    await expect(page.getByTestId('dag-errors')).toHaveCount(0);
+  });
+
   test('the authored template is offered by project creation', async ({ page }) => {
     await page.goto('/programs/new');
     await expect(
