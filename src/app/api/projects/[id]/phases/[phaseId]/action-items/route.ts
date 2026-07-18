@@ -1,33 +1,41 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../../../lib/db';
 import { jsonError, serverError } from '../../../../../../../lib/api';
+import { requireRouteAuth } from '../../../../../../../lib/routeAuth';
+import { parseBody, actionItemApiSchema } from '../../../../../../../lib/schemas';
 
 export async function POST(
   req: Request,
   props: { params: Promise<{ id: string; phaseId: string }> }
 ) {
   try {
-    const { phaseId } = await props.params;
+    if (!(await requireRouteAuth(req))) return jsonError('Unauthorized', 401);
+
+    const { id, phaseId } = await props.params;
+    const projectId = parseInt(id, 10);
     const pId = parseInt(phaseId, 10);
-    if (isNaN(pId)) {
-      return jsonError('Invalid phase ID', 400);
+    if (isNaN(projectId) || isNaN(pId)) {
+      return jsonError('Invalid project or phase ID', 400);
     }
 
-    const body = await req.json();
-    const { description, assignedTo, status, nextStep, linkUrl } = body;
+    const parsed = parseBody(actionItemApiSchema, await req.json().catch(() => null));
+    if (!parsed.ok) return jsonError(parsed.error, 400);
+    const { description, assignedTo, status, nextStep, linkUrl } = parsed.data;
 
-    if (!description || !status) {
-      return jsonError('Missing description or status', 400);
-    }
+    const phase = await prisma.phase.findFirst({
+      where: { id: pId, projectId },
+      select: { id: true },
+    });
+    if (!phase) return jsonError('Phase not found in this project', 404);
 
     const actionItem = await prisma.actionItem.create({
       data: {
         phaseId: pId,
         description,
-        assignedTo: assignedTo || null,
+        assignedTo: assignedTo ?? null,
         status,
-        nextStep: nextStep || 'Undecided',
-        linkUrl: linkUrl || null
+        nextStep: nextStep ?? 'Undecided',
+        linkUrl: linkUrl ?? null
       }
     });
 

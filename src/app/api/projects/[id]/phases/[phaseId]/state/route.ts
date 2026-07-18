@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../../../lib/db';
 import { jsonError, serverError } from '../../../../../../../lib/api';
+import { requireRouteAuth } from '../../../../../../../lib/routeAuth';
+import { parseBody, phaseStateApiSchema } from '../../../../../../../lib/schemas';
 import { parseHealth } from '../../../../../../../lib/health';
 import { hillStatus } from '../../../../../../../lib/phase';
 
@@ -9,14 +11,26 @@ export async function POST(
   props: { params: Promise<{ id: string; phaseId: string }> }
 ) {
   try {
-    const { phaseId } = await props.params;
+    if (!(await requireRouteAuth(req))) return jsonError('Unauthorized', 401);
+
+    const { id, phaseId } = await props.params;
+    const projectId = parseInt(id, 10);
     const pId = parseInt(phaseId, 10);
-    if (isNaN(pId)) {
-      return jsonError('Invalid phase ID', 400);
+    if (isNaN(projectId) || isNaN(pId)) {
+      return jsonError('Invalid project or phase ID', 400);
     }
 
-    const body = await req.json();
-    const { theNeedle, hillChartProgress, notes, source } = body;
+    const parsed = parseBody(phaseStateApiSchema, await req.json().catch(() => null));
+    if (!parsed.ok) return jsonError(parsed.error, 400);
+    const { theNeedle, hillChartProgress, notes, source } = parsed.data;
+
+    // Parentage check: the phase must belong to the project in the URL — a
+    // mismatched pair is a 404, never a silent write to someone else's phase.
+    const phase = await prisma.phase.findFirst({
+      where: { id: pId, projectId },
+      select: { id: true },
+    });
+    if (!phase) return jsonError('Phase not found in this project', 404);
 
     // A notes/risk-only update must not move the dot: the newest PhaseState is the
     // phase's current progress everywhere, so default to the latest value, not 0
@@ -26,13 +40,7 @@ export async function POST(
       orderBy: { timestamp: 'desc' },
       select: { hillChartProgress: true },
     });
-    const progress =
-      hillChartProgress !== undefined
-        ? parseInt(hillChartProgress, 10)
-        : latest?.hillChartProgress ?? 0;
-    if (isNaN(progress) || progress < 0 || progress > 100) {
-      return jsonError('hillChartProgress must be 0-100', 400);
-    }
+    const progress = hillChartProgress ?? latest?.hillChartProgress ?? 0;
 
     const phaseState = await prisma.phaseState.create({
       data: {
@@ -42,8 +50,8 @@ export async function POST(
         status: hillStatus(progress),
         theNeedle: parseHealth(theNeedle),
         hillChartProgress: progress,
-        notes: notes || null,
-        source: source || 'API'
+        notes: notes ?? null,
+        source: source ?? 'API'
       }
     });
 

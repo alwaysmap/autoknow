@@ -8,6 +8,11 @@ import { seedProgram, SeededProgram } from './helpers/fixtures';
 
 process.env.DATABASE_URL = testDatabaseUrl();
 
+jest.mock('server-only', () => ({}));
+// next-auth v5 is ESM-only and won't compile under jest; auth-unconfigured is the
+// deterministic test posture (requireRouteAuth admits in test mode).
+jest.mock('../src/auth', () => ({ authConfigured: false, auth: jest.fn(async () => null) }));
+
 type StateRoute = typeof import('../src/app/api/projects/[id]/phases/[phaseId]/state/route');
 
 let route: StateRoute;

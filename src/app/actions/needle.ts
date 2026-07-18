@@ -21,25 +21,27 @@ export async function updateNeedleStatus(formData: FormData) {
     const proj = await prisma.project.findUnique({ where: { id: targetId } });
     const finalProgress = !isNaN(hillChartProgress) ? hillChartProgress : (proj?.hillChartProgress ?? 0);
 
-    // Update project risk level
-    await prisma.project.update({
-      where: { id: targetId },
-      data: {
-        theNeedle,
-        hillChartProgress: finalProgress
-      }
-    });
-
-    // Log history state
-    await prisma.projectState.create({
-      data: {
-        projectId: targetId,
-        theNeedle,
-        hillChartProgress: finalProgress,
-        notes,
-        source
-      }
-    });
+    // Column update and state log commit together — partnerPrograms mixes "current"
+    // (the column) with "previous" (states[1]), so a partial write renders an
+    // incoherent pair.
+    await prisma.$transaction([
+      prisma.project.update({
+        where: { id: targetId },
+        data: {
+          theNeedle,
+          hillChartProgress: finalProgress
+        }
+      }),
+      prisma.projectState.create({
+        data: {
+          projectId: targetId,
+          theNeedle,
+          hillChartProgress: finalProgress,
+          notes,
+          source
+        }
+      }),
+    ]);
 
     revalidatePath(`/programs/${targetId}`);
   } else if (scope === 'partner') {

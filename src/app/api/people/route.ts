@@ -3,6 +3,7 @@ import { prisma } from '../../../lib/db';
 import { jsonError, serverError } from '../../../lib/api';
 import { indexEntity } from '../../../lib/search';
 import { parseBody, personApiSchema } from '../../../lib/schemas';
+import { requireRouteAuth } from '../../../lib/routeAuth';
 
 export async function GET() {
   try {
@@ -15,6 +16,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    if (!(await requireRouteAuth(req))) return jsonError('Unauthorized', 401);
     const parsed = parseBody(personApiSchema, await req.json());
     if (!parsed.ok) return jsonError(parsed.error, 400);
     const { name, email, currentPartnerId, notes } = parsed.data;

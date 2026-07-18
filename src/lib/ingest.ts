@@ -50,6 +50,16 @@ export function hashContent(text: string): string {
   return createHash('sha256').update(normalizeText(text)).digest('hex');
 }
 
+/** Unique-constraint violation, whether surfaced as Prisma P2002 or as a raw-query
+ *  Postgres 23505 (the ContextUrl insert is raw SQL for the vector column). */
+function isUniqueViolation(e: unknown): boolean {
+  if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e.code === 'P2002') return true;
+    if (String((e.meta as { code?: unknown } | undefined)?.code) === '23505') return true;
+  }
+  return /duplicate key value|23505/.test(String(e));
+}
+
 export interface IngestContentOptions {
   url: string;
   title?: string;
@@ -132,33 +142,53 @@ export async function ingestContent(opts: IngestContentOptions): Promise<IngestR
   const now = new Date();
   const legacyType = opts.source.kind === 'chat' ? 'Chat' : opts.source.kind === 'tracker' ? 'Gerrit' : 'Doc';
 
-  const rows = await prisma.$queryRaw<{ id: number }[]>(Prisma.sql`
-    INSERT INTO "ContextUrl" (
-      "projectId", "partnerId", "phaseId", "url", "type", "title", "ingestedText", "embedding",
-      "mode", "modeSource", "sourceRef", "sourceVersion", "contentHash", "sourceStatus",
-      "addedBy", "lastCheckedAt", "lastChangedAt"
-    )
-    VALUES (
-      ${projectId}, ${partnerId}, ${phaseId}, ${opts.url}, ${legacyType}, ${title}, ${digestText}, ${vectorStr}::vector,
-      ${opts.mode}, ${opts.modeSource}, ${opts.source.sourceRef}, ${opts.sourceVersion ?? null}, ${hash}, ${digest.sourceStatus},
-      ${opts.addedBy ?? null}, ${now}, ${now}
-    )
-    RETURNING id
-  `);
-  const contextUrlId = rows[0]?.id;
-
-  // The initial revision (delta null) so history starts at ingest.
-  if (contextUrlId) {
-    await prisma.contextRevision.create({
-      data: {
-        contextUrlId,
-        sourceVersion: opts.sourceVersion ?? null,
-        contentHash: hash,
-        sourceStatus: digest.sourceStatus,
-        digest: digestText,
-        delta: null,
-      },
+  // Row + initial revision commit together (a source with no revision history reads
+  // as broken), and the sourceRef unique constraint is the dedupe of record: two
+  // concurrent ingests of the same source both pass the findUnique above — the
+  // loser's insert lands on the constraint and resolves to duplicateOf, not a 500.
+  let contextUrlId: number | undefined;
+  try {
+    contextUrlId = await prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<{ id: number }[]>(Prisma.sql`
+        INSERT INTO "ContextUrl" (
+          "projectId", "partnerId", "phaseId", "url", "type", "title", "ingestedText", "embedding",
+          "mode", "modeSource", "sourceRef", "sourceVersion", "contentHash", "sourceStatus",
+          "addedBy", "lastCheckedAt", "lastChangedAt"
+        )
+        VALUES (
+          ${projectId}, ${partnerId}, ${phaseId}, ${opts.url}, ${legacyType}, ${title}, ${digestText}, ${vectorStr}::vector,
+          ${opts.mode}, ${opts.modeSource}, ${opts.source.sourceRef}, ${opts.sourceVersion ?? null}, ${hash}, ${digest.sourceStatus},
+          ${opts.addedBy ?? null}, ${now}, ${now}
+        )
+        RETURNING id
+      `);
+      const id = rows[0]?.id;
+      if (id) {
+        // The initial revision (delta null) so history starts at ingest.
+        await tx.contextRevision.create({
+          data: {
+            contextUrlId: id,
+            sourceVersion: opts.sourceVersion ?? null,
+            contentHash: hash,
+            sourceStatus: digest.sourceStatus,
+            digest: digestText,
+            delta: null,
+          },
+        });
+      }
+      return id;
     });
+  } catch (e) {
+    if (opts.source.sourceRef && isUniqueViolation(e)) {
+      const existing = await prisma.contextUrl.findUnique({
+        where: { sourceRef: opts.source.sourceRef },
+        select: { id: true, title: true },
+      });
+      if (existing) {
+        return { ok: true, duplicateOf: { contextUrlId: existing.id, title: existing.title } };
+      }
+    }
+    throw e;
   }
 
   return {

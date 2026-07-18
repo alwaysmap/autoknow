@@ -145,6 +145,45 @@ export const projectApiSchema = z.object({
   volumeFirstYear: z.coerce.number().int().min(0).optional(),
 });
 
+// ---- nested phase routes (JSON API) ---------------------------------------------
+
+export const phaseCreateApiSchema = z.object({
+  name: zText.max(200),
+  forecastedDuration: z.coerce.number().int().positive().max(3650).optional(),
+});
+
+/** Progress/needle/notes update; every field optional — the route preserves the
+ *  latest recorded progress when the dot isn't being moved. */
+export const phaseStateApiSchema = z.object({
+  theNeedle: zTextOrNull.optional(),
+  hillChartProgress: z.preprocess(
+    (v) => (v === '' || v == null ? undefined : v),
+    z.coerce.number().int().min(0).max(100).optional(),
+  ),
+  notes: zTextOrNull.optional(),
+  source: zTextOrNull.optional(),
+});
+
+/** status/nextStep are closed enums: summaries filter on exactly 'Pending', so a
+ *  free-text 'pending'/'Open' would create items invisible to every AI summary. */
+export const actionItemApiSchema = z.object({
+  description: zText.max(2_000),
+  assignedTo: zTextOrNull.optional(),
+  status: z.enum(['Pending', 'Completed']),
+  nextStep: z.enum(['Undecided', 'Resolved', 'Partner', 'Googler']).optional(),
+  linkUrl: zUrlOrNull.optional(),
+});
+
+export const affiliationApiSchema = z.object({
+  partnerId: zId,
+  role: zText.max(100),
+  startDate: z.coerce.date(),
+  endDate: z.preprocess(
+    (v) => (v === '' || v == null ? null : v),
+    z.coerce.date().nullable(),
+  ).optional(),
+});
+
 // ---- helpers --------------------------------------------------------------------
 
 function formatIssues(error: z.ZodError): string {

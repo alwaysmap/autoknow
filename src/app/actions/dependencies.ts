@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/db';
 
 // CRUD for phase dependencies (the DAG edges the PhaseGraph rail draws). Errors are
@@ -12,11 +13,15 @@ export interface DependencyResult {
 }
 
 /** Walk upstream from `fromId`; true if `targetId` is reachable (i.e. an ancestor). */
-async function isAncestor(targetId: number, fromId: number): Promise<boolean> {
+async function isAncestor(
+  db: Prisma.TransactionClient,
+  targetId: number,
+  fromId: number,
+): Promise<boolean> {
   const seen = new Set<number>();
   let frontier = [fromId];
   while (frontier.length > 0) {
-    const edges = await prisma.phaseDependency.findMany({
+    const edges = await db.phaseDependency.findMany({
       where: { phaseId: { in: frontier } },
       select: { dependsOnPhaseId: true },
     });
@@ -44,16 +49,34 @@ export async function addPhaseDependency(formData: FormData): Promise<Dependency
     return { error: 'Phases must belong to the same program' };
   }
 
-  const existing = await prisma.phaseDependency.findFirst({ where: { phaseId, dependsOnPhaseId } });
-  if (existing) return { error: 'Already a dependency' };
-
-  // Reject cycles: the new parent must not already sit downstream of this phase —
-  // i.e. this phase must not be an ancestor of the proposed parent.
-  if (await isAncestor(phaseId, dependsOnPhaseId)) {
-    return { error: `Rejected — "${parent.name}" already depends on this phase (cycle)` };
+  // Insert-then-revalidate inside one serializable transaction: two concurrent adds
+  // (A→B and B→A) each pass a pre-insert cycle walk, so the cycle check must run
+  // AFTER the insert, where serializable isolation forces one writer to abort. The
+  // @@unique backstop turns a duplicate race into a readable error, not a second edge.
+  try {
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.phaseDependency.create({ data: { phaseId, dependsOnPhaseId } });
+        // Reject cycles: the new parent must not already sit downstream of this
+        // phase — i.e. this phase must not be an ancestor of the proposed parent.
+        if (await isAncestor(tx, phaseId, dependsOnPhaseId)) {
+          throw new Error('CYCLE');
+        }
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+  } catch (e) {
+    if (e instanceof Error && e.message === 'CYCLE') {
+      return { error: `Rejected — "${parent.name}" already depends on this phase (cycle)` };
+    }
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      return { error: 'Already a dependency' };
+    }
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2034') {
+      return { error: 'Concurrent edit collided — try again' };
+    }
+    throw e;
   }
-
-  await prisma.phaseDependency.create({ data: { phaseId, dependsOnPhaseId } });
   revalidatePath(`/programs/${projectIdStr}`);
   return {};
 }

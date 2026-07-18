@@ -1,6 +1,7 @@
 // DB access for program templates: idempotent built-in seeding plus the fetch shapes
 // the creation flow and authoring UI share. Server-only (imports prisma).
 
+import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { BUILTIN_TEMPLATES } from './builtinTemplates';
 
@@ -18,7 +19,20 @@ export async function ensureBuiltinTemplates(): Promise<void> {
 
   for (const t of BUILTIN_TEMPLATES) {
     if (have.has(t.name)) continue;
-    await prisma.$transaction(async (tx) => {
+    try {
+      await seedOneTemplate(t);
+    } catch (e) {
+      // Two pages can call this concurrently (check-then-create): the
+      // @@unique([name, isBuiltIn]) backstop means the loser lands here — the
+      // template exists, which is all we wanted.
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') continue;
+      throw e;
+    }
+  }
+}
+
+async function seedOneTemplate(t: (typeof BUILTIN_TEMPLATES)[number]): Promise<void> {
+  await prisma.$transaction(async (tx) => {
       const created = await tx.programTemplate.create({
         data: { name: t.name, description: t.description, isBuiltIn: true },
       });
@@ -45,8 +59,7 @@ export async function ensureBuiltinTemplates(): Promise<void> {
           });
         }
       }
-    });
-  }
+  });
 }
 
 /** A template with its phases (sorted) and dependency edges — the shape both the

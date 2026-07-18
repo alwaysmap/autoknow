@@ -19,6 +19,10 @@ const config: Config = {
   // The main checkout hosts Claude Code worktrees under .claude/ — without this, jest
   // discovers each worktree's copy of the tests and the duplicates race on the test DB.
   testPathIgnorePatterns: ['/node_modules/', '<rootDir>/.claude/', '<rootDir>/.next'],
+  // Several suites wipe/seed the ONE shared *_test database (same rule as the
+  // Playwright config: fixtures must never run concurrently). The suite is small;
+  // serial is cheap and deterministic.
+  maxWorkers: 1,
 }
  
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

@@ -3,6 +3,7 @@ import { getSummary, createSummary } from '../../../../../lib/summaries';
 import { geminiConfigured } from '../../../../../lib/gemini';
 import { isSummaryScope } from '../../../../../lib/summaryPrompts';
 import { serverError, jsonError } from '../../../../../lib/api';
+import { requireRouteAuth } from '../../../../../lib/routeAuth';
 
 // The structured-summary API. GET returns the cached summary (with a staleness flag);
 // POST regenerates from current evidence and returns the fresh one. Scopes:
@@ -33,6 +34,9 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ scope: str
 }
 
 export async function POST(_req: NextRequest, ctx: { params: Promise<{ scope: string; id: string }> }) {
+  // Regeneration burns a Gemini call — session/token required (fail-closed even if
+  // the proxy perimeter is misconfigured).
+  if (!(await requireRouteAuth(_req))) return jsonError('Unauthorized', 401);
   const { scope, id } = await ctx.params;
   const parsed = parseParams(scope, id);
   if (!parsed) return jsonError('Unknown summary scope or id', 404);
