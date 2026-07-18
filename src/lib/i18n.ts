@@ -480,6 +480,13 @@ const STRINGS = {
     ja: '作成・管理系のページ — AutoKnowを形作るが日々のプログラム閲覧ではないもの。',
     ko: '작성 및 관리 — AutoKnow를 구성하지만 일상적인 프로그램 열람은 아닌 항목들.',
   },
+  settingsLanguage: { en: 'Language', de: 'Sprache', ja: '言語', ko: '언어' },
+  settingsLanguageDesc: {
+    en: 'The display language for the whole app (stored as a cookie).',
+    de: 'Die Anzeigesprache für die gesamte App (als Cookie gespeichert).',
+    ja: 'アプリ全体の表示言語（Cookieに保存されます）。',
+    ko: '앱 전체의 표시 언어(쿠키로 저장됩니다).',
+  },
   manageTemplatesDesc: {
     en: 'Author program phase templates on the card-DAG editor; clone built-ins.',
     de: 'Programmphasen-Vorlagen im Karten-DAG-Editor erstellen; Built-ins klonen.',

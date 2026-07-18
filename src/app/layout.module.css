@@ -52,6 +52,17 @@
   gap: 20px;
 }
 
+/* Settings cog — the retired "Manage" text link, now a quiet icon beside search. */
+.settingsCog {
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  transition: color 0.2s ease;
+}
+.settingsCog:hover {
+  color: var(--fg);
+}
+
 .sessionIndicator {
   display: flex;
   align-items: center;

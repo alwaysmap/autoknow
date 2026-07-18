@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getLocale } from '../../lib/locale';
 import { t } from '../../lib/i18n';
+import LocaleSwitcher from '../../components/LocaleSwitcher';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,15 @@ export default async function ManagePage() {
             <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--muted, #666)' }}>{e.desc}</p>
           </li>
         ))}
+
+        {/* Language: the locale picker lives here now, not in the global nav. */}
+        <li style={{ padding: '16px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--fg, #222)' }}>{t(locale, 'settingsLanguage')}</div>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--muted, #666)' }}>{t(locale, 'settingsLanguageDesc')}</p>
+          </div>
+          <LocaleSwitcher locale={locale} />
+        </li>
       </ul>
     </div>
   );
