@@ -25,6 +25,7 @@ export interface PartnerWithRelations {
   id: number;
   name: string;
   type: string;
+  region: string;
   projects: ProjectSummary[];
   currentEmployees: EmployeeSummary[];
   personAffiliations: AffiliationSummary[];
@@ -44,6 +45,7 @@ export class PartnerQueries {
     const rows = await this.prisma.partner.findMany({
       include: {
         type: { select: { name: true } },
+        region: { select: { name: true } },
         projects: {
           select: {
             id: true,
@@ -75,8 +77,8 @@ export class PartnerQueries {
         name: 'asc'
       }
     });
-    // Flatten the type relation to its name — the UI's contract is a string.
-    return rows.map((r) => ({ ...r, type: r.type?.name ?? '' })) as unknown as PartnerWithRelations[];
+    // Flatten the type/region relations to names — the UI's contract is strings.
+    return rows.map((r) => ({ ...r, type: r.type?.name ?? '', region: r.region?.name ?? '' })) as unknown as PartnerWithRelations[];
   }
 
   /**

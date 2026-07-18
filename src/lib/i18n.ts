@@ -909,6 +909,7 @@ const STRINGS = {
   allTypes: { en: 'All Types', de: 'Alle Typen', ja: 'すべての種別', ko: '모든 유형' },
   typeOnly: { en: '{t} Only', de: 'Nur {t}', ja: '{t}のみ', ko: '{t}만' },
   googleRegion: { en: 'Google Region', de: 'Google-Region', ja: 'Googleリージョン', ko: 'Google 지역' },
+  regionLabel: { en: 'Region', de: 'Region', ja: '地域', ko: '지역' },
   allRegions: { en: 'All Regions', de: 'Alle Regionen', ja: 'すべてのリージョン', ko: '모든 지역' },
   programsInFlightAllTime: { en: 'Programs In Flight / All Time', de: 'Laufende Programme / Gesamt', ja: '進行中 / 全期間のプログラム', ko: '진행 중 / 전체 프로그램' },
   activeVsTotal: { en: 'Active vs total matches', de: 'Aktive vs. Gesamttreffer', ja: 'アクティブ vs 全一致件数', ko: '활성 대 전체 일치' },

@@ -8,6 +8,8 @@ export const dynamic = 'force-dynamic';
 
 interface SearchParams {
   user?: string;
+  type?: string;   // deep link: preselect the Type column filter
+  region?: string; // deep link: preselect the Region column filter
 }
 
 export default async function PartnersPage(props: { searchParams: Promise<SearchParams> }) {
@@ -47,9 +49,15 @@ export default async function PartnersPage(props: { searchParams: Promise<Search
     prisma.region.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
   ]);
 
+  // Deep-linked column filters (design.md §6): partner-page identity links land here.
+  const initialFilters: Record<string, string[]> = {};
+  if (searchParams.type) initialFilters.type = [searchParams.type];
+  if (searchParams.region) initialFilters.region = [searchParams.region];
+
   return (
     <PartnersClient
       partners={partners}
+      initialFilters={initialFilters}
       currentUser={user}
       people={people}
       relationship={relationship}

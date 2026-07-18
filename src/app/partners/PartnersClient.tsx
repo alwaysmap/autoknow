@@ -34,6 +34,7 @@ interface Partner {
   id: number;
   name: string;
   type: string;
+  region: string;
   projects: Project[];
   currentEmployees: Person[];
   personAffiliations: Affiliation[];
@@ -52,11 +53,14 @@ interface PartnersClientProps {
   relationship: Record<number, { score: number | null; history: number[] }>;
   types: Option[];
   regions: Option[];
+  /** Deep-linked column-filter preselection (?type= / ?region=), design.md §6. */
+  initialFilters?: Record<string, string[]>;
 }
 
-export default function PartnersClient({ partners, currentUser, people, relationship, types, regions }: PartnersClientProps) {
+export default function PartnersClient({ partners, currentUser, people, relationship, types, regions, initialFilters }: PartnersClientProps) {
   const locale = useLocale();
-  const [selectedType, setSelectedType] = useState<string>('All');
+  // Column filters are controlled here so type/region cell clicks can set them.
+  const [filters, setFilters] = useState<Record<string, string[]>>(initialFilters ?? {});
   const [myPartnersOnly, setMyPartnersOnly] = useState<boolean>(false);
 
   // Derive the current user's canonical email/handle once for filtering.
@@ -81,18 +85,10 @@ export default function PartnersClient({ partners, currentUser, people, relation
     return partner.personAffiliations.some((pa) => isCurrentUser(pa.person.email));
   };
 
-  // Filter partners list
+  // Base predicate only; type/region live in the per-column funnel filters.
   const filteredPartners = useMemo(() => {
-    return partners.filter((partner) => {
-      if (selectedType !== 'All' && partner.type !== selectedType) {
-        return false;
-      }
-      if (myPartnersOnly && !isMyPartner(partner)) {
-        return false;
-      }
-      return true;
-    });
-  }, [partners, selectedType, myPartnersOnly, currentUser]);
+    return partners.filter((partner) => !myPartnersOnly || isMyPartner(partner));
+  }, [partners, myPartnersOnly, currentUser]);
 
   // Map partners to displayable data structure
   const displayData = useMemo(() => {
@@ -117,6 +113,7 @@ export default function PartnersClient({ partners, currentUser, people, relation
         id: partner.id,
         name: partner.name,
         type: partner.type,
+        region: partner.region,
         // Numeric for sorting; 0 = never rated, sorts below every real score.
         relationship: relationship[partner.id]?.score ?? 0,
         activePrograms,
@@ -137,24 +134,9 @@ export default function PartnersClient({ partners, currentUser, people, relation
       </header>
 
       <main className={styles.main}>
-        {/* Filters Widget panel */}
+        {/* Type/region filtering lives in the column funnels; only the ownership
+            toggle (not a column) keeps a standalone control. */}
         <section className={styles.filterSection}>
-          <div className={styles.filterGroup}>
-            <label htmlFor="typeSelect" className={styles.filterLabel}>
-              {t(locale, 'partnerType')}:
-            </label>
-            <select
-              id="typeSelect"
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className={styles.select}
-            >
-              <option value="All">{t(locale, 'allTypes')}</option>
-              <option value="OEM">OEM</option>
-              <option value="Supplier">Supplier</option>
-            </select>
-          </div>
-
           <div className={styles.checkboxGroup}>
             <input
               id="myPartnersCheckbox"
@@ -174,7 +156,8 @@ export default function PartnersClient({ partners, currentUser, people, relation
           <DataTable
             headers={[
               { key: 'name', label: t(locale, 'partnerName') },
-              { key: 'type', label: t(locale, 'partnerType') },
+              { key: 'type', label: t(locale, 'partnerType'), filterable: true, filterValue: (row) => (row as { type: string }).type || '—' },
+              { key: 'region', label: t(locale, 'regionLabel'), filterable: true, filterValue: (row) => (row as { region: string }).region || '—' },
               { key: 'relationship', label: t(locale, 'relationshipLabel') },
               { key: 'activePrograms', label: t(locale, 'activePrograms') },
               { key: 'lifetimePrograms', label: t(locale, 'lifetimePrograms') },
@@ -192,11 +175,24 @@ export default function PartnersClient({ partners, currentUser, people, relation
                 <td>
                   {p.type ? (
                     <button
-                      onClick={() => setSelectedType(p.type)}
+                      onClick={() => setFilters({ ...filters, type: [p.type] })}
                       className={styles.typeFilterBtn}
                       title={t(locale, 'filterByType', { t: p.type })}
                     >
                       <span className={styles.typeText}>{p.type}</span>
+                    </button>
+                  ) : (
+                    <span className={styles.typeText}>—</span>
+                  )}
+                </td>
+                <td>
+                  {p.region ? (
+                    <button
+                      onClick={() => setFilters({ ...filters, region: [p.region] })}
+                      className={styles.typeFilterBtn}
+                      title={t(locale, 'filterColumn', { c: t(locale, 'regionLabel') })}
+                    >
+                      <span className={styles.typeText}>{p.region}</span>
                     </button>
                   ) : (
                     <span className={styles.typeText}>—</span>
@@ -268,6 +264,8 @@ export default function PartnersClient({ partners, currentUser, people, relation
               </tr>
             )}
             defaultSortKey="name"
+            filters={filters}
+            onFiltersChange={setFilters}
             pageSize={10}
             emptyStateMessage={t(locale, 'noPartnersMatchFilters')}
           />

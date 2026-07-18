@@ -42,6 +42,7 @@
 .updatedAt {
   font-size: 11px;
   color: var(--muted, #888);
+  white-space: nowrap;
 }
 
 .updateBtn {

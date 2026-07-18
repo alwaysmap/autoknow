@@ -42,6 +42,25 @@ function hostOf(url: string): string {
   }
 }
 
+// Inline contact facts — labels are a last resort: each value self-labels (a
+// number reads as the phone, a hostname as the website), separated by middots.
+// Only the docs link needs words. Classification facts (type, region) live in
+// the header identity line as links into the filtered partner list.
+function FactsInline({
+  facts,
+}: {
+  facts: { key: string; node: React.ReactNode }[];
+}) {
+  if (facts.length === 0) return null;
+  return (
+    <div className={styles.factsInline}>
+      {facts.map((f) => (
+        <span key={f.key} className={styles.fact}>{f.node}</span>
+      ))}
+    </div>
+  );
+}
+
 export default async function PartnerDetailPage(props: PageProps) {
   const params = await props.params;
   const searchParams = await props.searchParams;
@@ -92,6 +111,38 @@ export default async function PartnerDetailPage(props: PageProps) {
 
   const googleTeam = (partner.googleTeam as TeamMember[] | null) || [];
 
+  const contactFacts: { key: string; node: React.ReactNode }[] = [];
+  if (partner.phone) {
+    contactFacts.push({
+      key: 'phone',
+      node: (
+        <a href={`tel:${partner.phone.replace(/[^+\d]/g, '')}`} className={styles.factLink}>
+          {partner.phone}
+        </a>
+      ),
+    });
+  }
+  if (partner.website) {
+    contactFacts.push({
+      key: 'website',
+      node: (
+        <a href={partner.website} target="_blank" rel="noopener noreferrer" className={styles.externalLink}>
+          {hostOf(partner.website)}
+        </a>
+      ),
+    });
+  }
+  if (partner.internalDetailsUrl) {
+    contactFacts.push({
+      key: 'docs',
+      node: (
+        <a href={partner.internalDetailsUrl} target="_blank" rel="noopener noreferrer" className={styles.externalLink}>
+          {t(locale, 'internalDocumentation')} →
+        </a>
+      ),
+    });
+  }
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -115,7 +166,27 @@ export default async function PartnerDetailPage(props: PageProps) {
               employeeCount={employeeCount}
             />
           </div>
-          <div className={styles.partnerType}>{t(locale, 'partnerProfileSuffix', { t: partner.type?.name ?? '' })}</div>
+          {/* Classification is navigation (design.md §2/§6): type and region jump to
+              the partner list pre-filtered to that slice. */}
+          <div className={styles.partnerType}>
+            <Link
+              href={`/partners?type=${encodeURIComponent(partner.type?.name ?? '')}`}
+              className={styles.identLink}
+            >
+              {t(locale, 'partnerProfileSuffix', { t: partner.type?.name ?? '' })}
+            </Link>
+            {partner.region && (
+              <>
+                <span className={styles.identSep}>·</span>
+                <Link
+                  href={`/partners?region=${encodeURIComponent(partner.region.name)}`}
+                  className={styles.identLink}
+                >
+                  {partner.region.name}
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -153,51 +224,15 @@ export default async function PartnerDetailPage(props: PageProps) {
             metadata stays in view while the briefing scrolls. */}
         <aside className={styles.sidebar}>
           <div className={styles.sidebarCard}>
-            <div className={styles.metaList}>
-              <div className={styles.metaItem}>
-                <span className={styles.metaLabel}>{t(locale, 'relationshipLabel')}</span>
-                <span className={styles.metaVal}>
-                  <RelationshipScale
-                    partnerId={partner.id}
-                    score={latestState ? deriveScore(latestState) : null}
-                    updatedAt={latestState?.timestamp?.toISOString() ?? null}
-                  />
-                </span>
-              </div>
-              {partner.summary && <p className={styles.summaryText}>{partner.summary}</p>}
-              {partner.region && (
-                <div className={styles.metaItem}>
-                  <span className={styles.metaLabel}>{t(locale, 'googleRegion')}</span>
-                  <span className={styles.metaVal}>{partner.region.name}</span>
-                </div>
-              )}
-              {partner.phone && (
-                <div className={styles.metaItem}>
-                  <span className={styles.metaLabel}>{t(locale, 'telephone')}</span>
-                  <span className={styles.metaVal}>{partner.phone}</span>
-                </div>
-              )}
-              {partner.website && (
-                <div className={styles.metaItem}>
-                  <span className={styles.metaLabel}>{t(locale, 'website')}</span>
-                  <span className={styles.metaVal}>
-                    <a href={partner.website} target="_blank" rel="noopener noreferrer" className={styles.externalLink}>
-                      {hostOf(partner.website)}
-                    </a>
-                  </span>
-                </div>
-              )}
-              {partner.internalDetailsUrl && (
-                <div className={styles.metaItem}>
-                  <span className={styles.metaLabel}>{t(locale, 'internalDocumentation')}</span>
-                  <span className={styles.metaVal}>
-                    <a href={partner.internalDetailsUrl} target="_blank" rel="noopener noreferrer" className={styles.externalLink}>
-                      {t(locale, 'readMoreSharedDrive')}
-                    </a>
-                  </span>
-                </div>
-              )}
-            </div>
+            {/* health · updated · Update — one horizontal cluster (§7), no label:
+                the face is the relationship signal and its hover spells it out */}
+            <RelationshipScale
+              partnerId={partner.id}
+              score={latestState ? deriveScore(latestState) : null}
+              updatedAt={latestState?.timestamp?.toISOString() ?? null}
+            />
+            {partner.summary && <p className={styles.summaryText}>{partner.summary}</p>}
+            <FactsInline facts={contactFacts} />
           </div>
 
           <div className={styles.sidebarCard}>
