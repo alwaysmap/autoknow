@@ -33,9 +33,6 @@ export default function NeedleHistoryList({
       {changes.map((c, i) => {
         const health = parseHealth(c.health);
         const score = relationship ? deriveScore({ relationshipScore: c.score, theNeedle: c.health }) : null;
-        const prevScore = relationship && (c.previousScore != null || c.previousHealth != null)
-          ? deriveScore({ relationshipScore: c.previousScore, theNeedle: c.previousHealth })
-          : null;
         return (
           <article key={`${c.timestamp}-${i}`} className={styles.card}>
             <div className={styles.gauge}>

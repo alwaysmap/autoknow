@@ -12,6 +12,17 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Alternate build dirs this project uses (demo/test/screenshot servers) and other
+    // generated output — build artifacts must never be linted; without these the
+    // signal is 40k+ noise lines from compiled bundles.
+    ".next-*/**",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
+    // Standalone Node/CommonJS deploy scripts — their own runtime, not the app's
+    // TS/ESM build, so the Next TypeScript ruleset doesn't apply.
+    "infra/**",
+    "scripts/**",
   ]),
 ]);
 

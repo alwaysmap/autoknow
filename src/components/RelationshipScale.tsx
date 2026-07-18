@@ -130,8 +130,6 @@ export function RelationshipCell({ score }: { score: RelScore | null; history?: 
 export default function RelationshipScale({
   partnerId,
   score,
-  previousScore,
-  history,
   updatedAt,
   editable = true,
 }: {

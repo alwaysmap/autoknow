@@ -81,22 +81,23 @@ export function NewPartnerButton({ types, regions }: { types: Option[]; regions:
   // A failed action must surface INSIDE the dialog — a throw would hit the route
   // error boundary and destroy the user's modal input. Actions return { error };
   // redirect()-on-success still propagates as a throw and navigates.
-  const submit =
-    (action: (fd: FormData) => Promise<{ error?: string }>, onOk?: () => void) =>
-    async (formData: FormData) => {
-      setSaving(true);
-      setError(null);
-      try {
-        const result = await action(formData);
-        if (result?.error) {
-          setError(result.error);
-          return;
-        }
-        onOk?.();
-      } finally {
-        setSaving(false);
+  const runAction = async (
+    formData: FormData,
+    action: (fd: FormData) => Promise<{ error?: string }>,
+  ): Promise<boolean> => {
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await action(formData);
+      if (result?.error) {
+        setError(result.error);
+        return false;
       }
-    };
+      return true;
+    } finally {
+      setSaving(false);
+    }
+  };
   const errorLine = error && <p role="alert" className={admin.warningText}>{error}</p>;
 
   return (
@@ -108,7 +109,7 @@ export function NewPartnerButton({ types, regions }: { types: Option[]; regions:
       <dialog ref={dialogRef} closedby="any" className={admin.dialog} aria-labelledby="newPartnerTitle">
         <div className={admin.dialogHeader}><h3 id="newPartnerTitle">{t(locale, 'newPartner')}</h3></div>
         <form
-          action={submit(createPartner)}
+          action={async (fd) => { await runAction(fd, createPartner); }}
           className={dash.dialogForm}
         >
           {errorLine}
@@ -145,22 +146,23 @@ export default function PartnerAdminControls({
   // A failed action must surface INSIDE the dialog — a throw would hit the route
   // error boundary and destroy the user's modal input. Actions return { error };
   // redirect()-on-success still propagates as a throw and navigates.
-  const submit =
-    (action: (fd: FormData) => Promise<{ error?: string }>, onOk?: () => void) =>
-    async (formData: FormData) => {
-      setSaving(true);
-      setError(null);
-      try {
-        const result = await action(formData);
-        if (result?.error) {
-          setError(result.error);
-          return;
-        }
-        onOk?.();
-      } finally {
-        setSaving(false);
+  const runAction = async (
+    formData: FormData,
+    action: (fd: FormData) => Promise<{ error?: string }>,
+  ): Promise<boolean> => {
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await action(formData);
+      if (result?.error) {
+        setError(result.error);
+        return false;
       }
-    };
+      return true;
+    } finally {
+      setSaving(false);
+    }
+  };
   const errorLine = error && <p role="alert" className={admin.warningText}>{error}</p>;
 
 
@@ -184,7 +186,7 @@ export default function PartnerAdminControls({
       <dialog ref={editRef} closedby="any" className={admin.dialog} aria-labelledby="editPartnerTitle">
         <div className={admin.dialogHeader}><h3 id="editPartnerTitle">{t(locale, 'editPartnerTitle')}</h3></div>
         <form
-          action={submit(updatePartner, () => editRef.current?.close())}
+          action={async (fd) => { if (await runAction(fd, updatePartner)) editRef.current?.close(); }}
           className={dash.dialogForm}
         >
           {errorLine}
@@ -214,7 +216,7 @@ export default function PartnerAdminControls({
               {t(locale, 'deleteWarning')} <strong>{t(locale, 'cannotBeUndone')}</strong>
             </p>
             <form
-              action={submit(async (formData) => (isConfirmed ? deletePartner(formData) : {}))}
+              action={async (fd) => { await runAction(fd, async (f) => (isConfirmed ? deletePartner(f) : {})); }}
               className={admin.dialogForm}
             >
               {errorLine}

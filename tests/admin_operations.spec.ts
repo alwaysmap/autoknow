@@ -5,9 +5,6 @@ import { wipeAll } from './helpers/fixtures';
 test.describe('Admin and Maintenance Operations', () => {
   test.describe.configure({ mode: 'serial' });
 
-  let personId: number;
-  let projectId: number;
-  let fordId: number;
 
   test.beforeAll(async () => {
     // Clear and seed clean tables
@@ -16,7 +13,6 @@ test.describe('Admin and Maintenance Operations', () => {
     const ford = await prisma.partner.create({
       data: { name: 'Ford', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } }
     });
-    fordId = ford.id;
 
     const waymo = await prisma.partner.create({
       data: { name: 'Waymo', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } }
@@ -24,10 +20,9 @@ test.describe('Admin and Maintenance Operations', () => {
 
 
     // Create project
-    const project = await prisma.project.create({
+    await prisma.project.create({
       data: { name: 'Waymo Autonomous Trucking', partnerId: waymo.id }
     });
-    projectId = project.id;
 
     // Create person starting at Ford, currently at Waymo
     const person = await prisma.person.create({
@@ -38,7 +33,6 @@ test.describe('Admin and Maintenance Operations', () => {
         notes: 'Platform engineer'
       }
     });
-    personId = person.id;
 
     // Bob worked at Ford from 2024 to 2025
     await prisma.personAffiliation.create({

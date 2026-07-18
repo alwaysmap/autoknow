@@ -142,7 +142,7 @@ export default function DataTable<T>({
       if (strA > strB) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [filteredData, sortKey, sortOrder]);
+  }, [filteredData, sortKey, sortOrder, sortType]);
 
   // 2. Paginate the sorted data
   const totalPages = Math.max(1, Math.ceil(sortedData.length / pageSize));

@@ -1,5 +1,3 @@
-import { prisma } from '../../lib/db';
-import { ingestRecord } from '../../lib/vector';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getLocale } from '../../lib/locale';

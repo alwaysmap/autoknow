@@ -321,7 +321,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     };
     window.addEventListener('autoknow:jump-phase', onJump);
     return () => window.removeEventListener('autoknow:jump-phase', onJump);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phases]);
 
   // Esc closes the focused popover — the scrim is the other way out.

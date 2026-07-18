@@ -75,27 +75,20 @@ export default function PartnersClient({ partners, currentUser, people, relation
   const userHandle = useMemo(() => normalizeHandle(currentUser), [currentUser]);
 
   // Whether a project owner / employee / affiliate string refers to the current user.
-  // Matches on canonical email or bare handle only — never a name substring (which
-  // previously made "My partners" include people whose name merely contained the handle).
-  const isCurrentUser = (value: string | null | undefined) => {
-    if (!value) return false;
-    return deriveEmail(value) === userEmail || normalizeHandle(value) === userHandle;
-  };
-
-  const isMyPartner = (partner: Partner) => {
-    const isTel = partner.projects.some((p) => isCurrentUser(p.ownerName));
-    if (isTel) return true;
-
-    const isEmployee = partner.currentEmployees.some((e) => isCurrentUser(e.email));
-    if (isEmployee) return true;
-
-    return partner.personAffiliations.some((pa) => isCurrentUser(pa.person.email));
-  };
-
-  // Base predicate only; type/region live in the per-column funnel filters.
+  // Base predicate only; type/region live in the per-column funnel filters. The
+  // ownership test lives inside the memo so it closes over only the stable primitives
+  // (userEmail/userHandle) — matches on canonical email or bare handle, never a name
+  // substring (which previously made "My partners" include people whose name merely
+  // contained the handle).
   const filteredPartners = useMemo(() => {
+    const isCurrentUser = (value: string | null | undefined) =>
+      !!value && (deriveEmail(value) === userEmail || normalizeHandle(value) === userHandle);
+    const isMyPartner = (partner: Partner) =>
+      partner.projects.some((p) => isCurrentUser(p.ownerName)) ||
+      partner.currentEmployees.some((e) => isCurrentUser(e.email)) ||
+      partner.personAffiliations.some((pa) => isCurrentUser(pa.person.email));
     return partners.filter((partner) => !myPartnersOnly || isMyPartner(partner));
-  }, [partners, myPartnersOnly, currentUser]);
+  }, [partners, myPartnersOnly, userEmail, userHandle]);
 
   // Map partners to displayable data structure
   const displayData = useMemo(() => {

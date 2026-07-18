@@ -49,23 +49,26 @@ export default function PersonAdminControls({ personId, personName, partners, pr
 
   // A failed action must surface INSIDE the dialog — a throw would hit the route
   // error boundary and destroy the user's modal input. Actions return { error };
-  // redirect()-on-success still propagates as a throw and navigates.
-  const submit =
-    (action: (fd: FormData) => Promise<{ error?: string }>, onOk?: () => void) =>
-    async (formData: FormData) => {
-      setSaving(true);
-      setError(null);
-      try {
-        const result = await action(formData);
-        if (result?.error) {
-          setError(result.error);
-          return;
-        }
-        onOk?.();
-      } finally {
-        setSaving(false);
+  // redirect()-on-success still propagates as a throw and navigates. Returns true on
+  // success so the caller's inline (deferred) form action closes its own dialog —
+  // keeping every ref read out of render.
+  const runAction = async (
+    formData: FormData,
+    action: (fd: FormData) => Promise<{ error?: string }>,
+  ): Promise<boolean> => {
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await action(formData);
+      if (result?.error) {
+        setError(result.error);
+        return false;
       }
-    };
+      return true;
+    } finally {
+      setSaving(false);
+    }
+  };
   const errorLine = error && <p role="alert" className={admin.warningText}>{error}</p>;
 
   return (
@@ -90,7 +93,7 @@ export default function PersonAdminControls({ personId, personName, partners, pr
       <dialog ref={assignRef} closedby="any" className={admin.dialog} aria-labelledby="assignPersonTitle">
         <div className={admin.dialogHeader}><h3 id="assignPersonTitle">{t(locale, 'addToProgram')}</h3></div>
         <form
-          action={submit(addPhasePerson, () => assignRef.current?.close())}
+          action={async (fd) => { if (await runAction(fd, addPhasePerson)) assignRef.current?.close(); }}
           className={dash.dialogForm}
         >
           <input type="hidden" name="personId" value={personId} />
@@ -126,7 +129,7 @@ export default function PersonAdminControls({ personId, personName, partners, pr
       <dialog ref={moveRef} closedby="any" className={admin.dialog} aria-labelledby="movePersonTitle">
         <div className={admin.dialogHeader}><h3 id="movePersonTitle">{t(locale, 'moveToDifferentCompany')}</h3></div>
         <form
-          action={submit(movePersonCompany, () => moveRef.current?.close())}
+          action={async (fd) => { if (await runAction(fd, movePersonCompany)) moveRef.current?.close(); }}
           className={dash.dialogForm}
         >
           <input type="hidden" name="personId" value={personId} />
@@ -157,7 +160,7 @@ export default function PersonAdminControls({ personId, personName, partners, pr
       <dialog ref={copyRef} closedby="any" className={admin.dialog} aria-labelledby="copyPersonTitle">
         <div className={admin.dialogHeader}><h3 id="copyPersonTitle">{t(locale, 'copyPersonProfile')}</h3></div>
         <form
-          action={submit(copyPerson)}
+          action={async (fd) => { await runAction(fd, copyPerson); }}
           className={dash.dialogForm}
         >
           <input type="hidden" name="personId" value={personId} />
@@ -178,7 +181,7 @@ export default function PersonAdminControls({ personId, personName, partners, pr
       <dialog ref={deleteRef} closedby="any" className={admin.dialog} aria-labelledby="deletePersonTitle">
         <div className={admin.dialogHeader}><h3 id="deletePersonTitle">{t(locale, 'deletePersonProfile')}</h3></div>
         <form
-          action={submit(deletePerson)}
+          action={async (fd) => { await runAction(fd, deletePerson); }}
           className={dash.dialogForm}
         >
           <input type="hidden" name="personId" value={personId} />

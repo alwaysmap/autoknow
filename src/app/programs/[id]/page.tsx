@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
-import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import styles from './page.module.css';
 import ProjectStatusDashboard from '../../../components/ProjectStatusDashboard';

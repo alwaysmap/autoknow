@@ -91,7 +91,7 @@ export async function seedMockData() {
   const regAmer = await prisma.region.create({ data: { name: 'AMER' } });
   const regApac = await prisma.region.create({ data: { name: 'APAC' } });
   const regEmea = await prisma.region.create({ data: { name: 'EMEA' } });
-  const regOther = await prisma.region.create({ data: { name: 'Other' } });
+  await prisma.region.create({ data: { name: 'Other' } });
 
   console.log('Seeding partners (Google self + external OEM & supplier)...');
   // First seed Google LLC as a partner to hold Googlers

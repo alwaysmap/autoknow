@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useActionState, useEffect, useState } from 'react';
+import React, { useActionState, useState } from 'react';
 import { quickIngestAction, type QuickIngestState } from '../app/actions/context';
 import { inferSource, type SourceKind, type TrackingMode } from '../lib/sources';
 import { t, type StringKey } from '../lib/i18n';
@@ -44,12 +44,17 @@ export default function QuickIngest({
 
   // Clear the field after a genuine save so a stray Enter can't re-submit the same
   // URL (the server dedupes it, but an empty field is the honest post-save state).
-  useEffect(() => {
+  // React's sanctioned "adjust state when an input changes during render" pattern:
+  // compare against the last-seen action result held in state (not an effect, not a
+  // ref) so the reset fires exactly once per new result.
+  const [seenResult, setSeenResult] = useState(state);
+  if (state !== seenResult) {
+    setSeenResult(state);
     if (result?.ok && !result.duplicateOf) {
       setUrl('');
       setOverride(null);
     }
-  }, [result]);
+  }
 
   if (!open) {
     return (

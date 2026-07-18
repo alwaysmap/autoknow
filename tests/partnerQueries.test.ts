@@ -13,8 +13,6 @@ let getActivePrograms: PQ['getActivePrograms'];
 let getLifetimePrograms: PQ['getLifetimePrograms'];
 
 describe('partnerQueries module', () => {
-  let testPartnerId: number;
-
   beforeAll(async () => {
     ({ getAllPartners, getActivePrograms, getLifetimePrograms } = await import('../src/lib/partnerQueries'));
     // Clean up any left-over test data
@@ -27,7 +25,6 @@ describe('partnerQueries module', () => {
         type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } }
       }
     });
-    testPartnerId = partner.id;
 
     // Seed a mix of active and archived projects
     await prisma.project.create({

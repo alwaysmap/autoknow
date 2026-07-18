@@ -21,7 +21,11 @@ export default async function Home() {
     serializedProjects,
   } = await getEcosystemDashboardData();
 
-  // Snapshot "now" server-side so SSR and hydration agree.
+  // Snapshot "now" server-side so SSR and hydration agree. This is an async Server
+  // Component — Date.now() runs once per request on the server, not on every client
+  // render, so the react-hooks purity rule (which assumes client re-render) is a
+  // false positive here.
+  // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
   const activeCount = serializedProjects.filter((p) => !p.isArchived && p.hillChartProgress < 100).length;
 

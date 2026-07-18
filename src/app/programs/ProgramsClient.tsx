@@ -73,7 +73,7 @@ interface ProgramsClientProps {
 
 const SHOW_SCORECARDS = false;
 
-export default function ProgramsClient({ initialProjects, people, regions = [], partnerTypes = [], initialMinRisk = 0, initialSort = null, initialActiveOnly = false, initialFilters, initialTableSort = null, initialQ = '' }: ProgramsClientProps) {
+export default function ProgramsClient({ initialProjects, people, initialMinRisk = 0, initialSort = null, initialActiveOnly = false, initialFilters, initialTableSort = null, initialQ = '' }: ProgramsClientProps) {
   const locale = useLocale();
   // Column filters live in the table headers (design.md: table filtering pattern).
   // The ?minRisk deep-link becomes a Health-column preselection.

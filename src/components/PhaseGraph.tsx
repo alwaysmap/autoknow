@@ -188,7 +188,6 @@ export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGrap
     const ro = new ResizeObserver(measure);
     ro.observe(c);
     return () => ro.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const laneX = (id: number) => RAIL_PAD + (lane.get(id) ?? 0) * LANE_W;
