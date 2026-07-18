@@ -6,6 +6,7 @@ import DateCell from '../../components/DateCell';
 import DataTable from '../../components/DataTable';
 import HillChartControl from '../../components/HillChartControl';
 import styles from '../ecosystem-summary/EcosystemSummaryClient.module.css';
+import local from './page.module.css';
 import { formatNeedleValue } from '../../lib/needle';
 import { HEALTHS, HEALTH_KEY, healthKey, healthColor, healthOrder } from '../../lib/health';
 import { resolvePerson } from '../../lib/people';
@@ -118,14 +119,14 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
     <div className={styles.clientWrapper}>
       {/* One compact search input; every categorical filter lives in its column
           header (funnel = secondary action; clicking the label sorts). */}
-      <div className={styles.searchRow}>
+      <div className={local.searchRow}>
         <input
           id="searchField"
           type="search"
           placeholder={t(locale, 'searchByNamePartner')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className={styles.searchInput}
+          className={local.searchInput}
         />
       </div>
 

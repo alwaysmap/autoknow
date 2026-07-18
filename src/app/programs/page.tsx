@@ -83,7 +83,7 @@ export default async function ProgramsPage(props: {
 
   return (
     <div style={{ padding: '0 40px', minHeight: '100vh', backgroundColor: 'var(--white)' }}>
-      <header style={{ borderBottom: '1px solid var(--border)', padding: '24px 0' }}>
+      <header style={{ borderBottom: '1px solid var(--border)', padding: '14px 0 10px' }}>
         <h1 style={{ fontFamily: 'var(--head-font)', fontSize: '1.5rem', fontWeight: 600, margin: 0, color: 'var(--fg)' }}>
           {t(locale, 'navPrograms')}
         </h1>

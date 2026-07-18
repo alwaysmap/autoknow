@@ -136,14 +136,13 @@
 }
 
 .tableLink {
-  color: var(--p-600);
+  color: var(--fg);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .tableLink:hover {
   text-decoration: underline;
-  color: var(--p-700);
 }
 
 .badge {

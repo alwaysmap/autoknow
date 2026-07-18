@@ -158,10 +158,10 @@
 .tableLink {
   color: var(--fg);
   text-decoration: none;
+  font-weight: 500;
 }
 
 .tableLink:hover {
-  color: var(--p-600);
   text-decoration: underline;
 }
 

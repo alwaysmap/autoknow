@@ -215,21 +215,23 @@
 
 .summaryText {
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.55;
   color: var(--fg);
-  margin: 0;
+  margin: 2px 0 4px;
 }
 
 .metaList {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 7px;
 }
 
 .metaItem {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .metaLabel {
@@ -264,8 +266,9 @@
 .teamItem {
   font-size: 13px;
   display: flex;
-  flex-direction: column;
-  line-height: 1.4;
+  align-items: baseline;
+  gap: 7px;
+  line-height: 1.5;
 }
 
 .teamItem strong {
@@ -287,8 +290,9 @@
 .personItem {
   font-size: 13px;
   display: flex;
-  flex-direction: column;
-  line-height: 1.4;
+  align-items: baseline;
+  gap: 7px;
+  line-height: 1.5;
 }
 
 .personLink {

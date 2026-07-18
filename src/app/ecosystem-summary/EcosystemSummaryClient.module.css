@@ -1,7 +1,7 @@
 .clientWrapper {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 14px;
 }
 
 /* Filters styling */
@@ -446,14 +446,13 @@
 }
 
 .ownerLink {
-  color: var(--p-600);
+  color: var(--fg);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .ownerLink:hover {
   text-decoration: underline;
-  color: var(--p-700);
 }
 
 .badgeFilterBtn {

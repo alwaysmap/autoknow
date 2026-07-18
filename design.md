@@ -73,3 +73,24 @@ tables) so nothing has to be relearned page to page.
   forms live in the tooltip/accessible name.
 * Implementation home: `src/components/DataTable.tsx` (sort, pagination, column
   filters) + `DateCell`. New tables must use them rather than re-implementing.
+
+---
+
+## 7. Information density & scanning
+
+The test for every block: could a human scan it top-to-bottom without their eyes
+stopping on empty space? Rules:
+
+* **Label:value pairs live on ONE line** — small-caps label left, value right (or
+  inline) — never stacked, except when the value is multi-line prose.
+* **Icon + fact + action cluster horizontally**: a status glyph, its date, and its
+  action button form one row (e.g. face · "Updated Jun 30" · Update), never a
+  three-line stack.
+* **Vertical rhythm scale**: ~14px between sibling blocks, ~7px between rows
+  inside a block, one thin rule (no double borders, no rule + heading + rule
+  sandwiches). Page headers are one line of title + one hairline, ≤ ~26px tall.
+* **Few titles**: a sidebar gets at most one heading; groups of facts flow in one
+  list rather than one titled section each. If a heading merely restates what the
+  content obviously is, delete it.
+* **Prose is the exception**: summaries and notes get comfortable line-height and
+  width; facts get density.

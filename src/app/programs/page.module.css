@@ -1,7 +1,7 @@
 
 /* Compact search row — the categorical filters live in the column headers. */
 .searchRow {
-  margin: 14px 0 10px;
+  margin: 0;
 }
 .searchInput {
   width: 280px;
