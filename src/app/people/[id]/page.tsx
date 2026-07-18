@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '../../../lib/db';
+import { indexEntity } from '../../../lib/search';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
@@ -70,6 +71,7 @@ async function copyPerson(formData: FormData) {
         }
       });
       newPersonId = copy.id;
+      await indexEntity('person', copy.id);
 
       // Duplicate active affiliations if any
       const activeAff = await prisma.personAffiliation.findFirst({

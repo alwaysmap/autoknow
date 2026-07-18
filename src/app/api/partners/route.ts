@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/db';
 import { jsonError, serverError } from '../../../lib/api';
+import { indexEntity } from '../../../lib/search';
 
 export async function GET() {
   try {
@@ -48,6 +49,7 @@ export async function POST(req: Request) {
         phone: phone || null
       }
     });
+    await indexEntity('partner', partner.id);
 
     return NextResponse.json({ partner }, { status: 201 });
   } catch (error) {

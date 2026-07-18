@@ -4,6 +4,7 @@ import { listTemplates, getTemplateWithPhases } from '../../../lib/programTempla
 import { validateTemplateDag } from '../../../lib/templateDag';
 import { parseSopInput } from '../../../lib/sop';
 import { getCurrentUser } from '../../../lib/session';
+import { indexEntity } from '../../../lib/search';
 import { hillStatus } from '../../../lib/phase';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
@@ -130,6 +131,8 @@ async function createProject(formData: FormData) {
 
     return created;
   });
+
+  await indexEntity('program', project.id);
 
   // Redirect to project details page (outside the transaction).
   redirect(`/programs/${project.id}`);

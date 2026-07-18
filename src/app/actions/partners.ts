@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '../../lib/db';
+import { indexEntity } from '../../lib/search';
 
 // Partner CRUD. Partners used to be ingest/seed-only; these actions make the record
 // fully editable in the UI. Delete is deliberately conservative: a partner that still
@@ -46,6 +47,7 @@ function readFields(formData: FormData): PartnerFields {
 export async function createPartner(formData: FormData) {
   const fields = readFields(formData);
   const partner = await prisma.partner.create({ data: fields });
+  await indexEntity('partner', partner.id);
   revalidatePath('/partners');
   redirect(`/partners/${partner.id}`);
 }
@@ -55,6 +57,7 @@ export async function updatePartner(formData: FormData) {
   if (Number.isNaN(partnerId)) throw new Error('Invalid partner ID');
   const fields = readFields(formData);
   await prisma.partner.update({ where: { id: partnerId }, data: fields });
+  await indexEntity('partner', partnerId);
   revalidatePath(`/partners/${partnerId}`);
   revalidatePath('/partners');
 }

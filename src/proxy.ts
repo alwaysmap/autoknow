@@ -22,7 +22,10 @@ export default authConfigured
         // without the secret), so the session gate must let it through.
         pathname.startsWith('/api/cron') ||
         // Chat events arrive from Google's servers with their own JWT auth.
-        pathname.startsWith('/api/chat');
+        pathname.startsWith('/api/chat') ||
+        // Admin operations that present a token bypass the session gate the same
+        // way cron does: the route itself 403s unless the token matches ADMIN_TOKEN.
+        (pathname.startsWith('/api/admin') && req.headers.get('x-admin-token') !== null);
 
       if (!req.auth && !isPublic) {
         return NextResponse.redirect(new URL('/login', req.nextUrl.origin));

@@ -1,6 +1,7 @@
 import { prisma } from './db';
 import { TEMPLATES } from './templates';
 import { ingestRecord } from './vector';
+import { reindexAll } from './search';
 import { hillStatus } from './phase';
 
 // Per-program phase progress (0..100), spread across the hill so each program's summary
@@ -950,6 +951,11 @@ export async function seedMockData() {
       },
     });
   }
+
+  // Seeded records must be searchable immediately — build the vector index now
+  // rather than waiting for a manual /api/admin/reindex.
+  const indexed = await reindexAll();
+  console.log('Search index built:', indexed);
 
   console.log('Seeding completed successfully!');
 }
