@@ -25,6 +25,17 @@
   align-self: center;
 }
 
+/* Relationship feed cards: prior (gray) → arrow → current (dark) faces. */
+.relFaces {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.priorFace { color: var(--muted); }
+.relArrow { display: inline-flex; color: var(--muted); }
+.currentFace { color: var(--fg); }
+
 .body { flex: 1; min-width: 0; }
 
 .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }

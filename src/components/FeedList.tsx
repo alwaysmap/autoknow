@@ -69,8 +69,30 @@ export default function FeedList({
         <article key={it.id} className={styles.item}>
           {it.relationship ? (
             <div className={styles.gauge}>
-              {/* the standard relationship-update view: face + date + author + text */}
-              <RelationshipFace score={parseScore(it.relationship.score) ?? 3} size={28} />
+              {/* prior (gray) → arrow → current (dark) faces — the relationship's move */}
+              {(() => {
+                const cur = parseScore(it.relationship.score) ?? 3;
+                const prior = it.relationship.previousScore != null ? parseScore(it.relationship.previousScore) : null;
+                return (
+                  <span className={styles.relFaces}>
+                    {prior != null && prior !== cur && (
+                      <>
+                        <span className={styles.priorFace}>
+                          <RelationshipFace score={prior} size={22} decorative />
+                        </span>
+                        <span className={styles.relArrow} aria-hidden>
+                          <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 8 h9 M9 5 l3 3 -3 3" />
+                          </svg>
+                        </span>
+                      </>
+                    )}
+                    <span className={styles.currentFace}>
+                      <RelationshipFace score={cur} size={28} />
+                    </span>
+                  </span>
+                );
+              })()}
             </div>
           ) : it.needle ? (
             <div className={styles.gauge}>

@@ -33,7 +33,12 @@ function previousByGroup<T>(items: T[], keyOf: (item: T) => number): (T | null)[
   return prev;
 }
 
-export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem[]> {
+// Page size for every activity stream. Each source is SQL-limited to this (take),
+// then the merged list is sliced to it — so no query is ever unbounded and no page
+// loads more than this many cards.
+export const ACTIVITY_PAGE_SIZE = 25;
+
+export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): Promise<FeedItem[]> {
   // Name the program/partner on each item except when the page IS that program —
   // a partner page spans many programs, so items there stay ambiguous without it.
   const showEntity = scope.kind !== 'project';
