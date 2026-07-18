@@ -915,8 +915,6 @@ const STRINGS = {
   activeVsTotal: { en: 'Active vs total matches', de: 'Aktive vs. Gesamttreffer', ja: 'アクティブ vs 全一致件数', ko: '활성 대 전체 일치' },
   someRiskConcerned: { en: 'Some Risk / Concerned', de: 'Etwas Risiko / Besorgt', ja: 'ややリスク / 懸念あり', ko: '다소 위험 / 우려' },
   atElevatedRisk: { en: 'At elevated risk level', de: 'Mit erhöhtem Risiko', ja: 'リスク水準が高い', ko: '높은 위험 수준' },
-  averageProgress: { en: 'Average Progress', de: 'Durchschnittlicher Fortschritt', ja: '平均進捗', ko: '평균 진행률' },
-  calculatedAverageScore: { en: 'Calculated average score', de: 'Berechneter Durchschnittswert', ja: '算出された平均スコア', ko: '계산된 평균 점수' },
   // ---- partners list + partner detail ----
   loggedUser: { en: 'Logged User:', de: 'Angemeldeter Nutzer:', ja: 'ログインユーザー:', ko: '로그인 사용자:' },
   myPartners: { en: 'My partners', de: 'Meine Partner', ja: 'マイパートナー', ko: '내 파트너' },

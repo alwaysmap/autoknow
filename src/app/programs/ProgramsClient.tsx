@@ -62,6 +62,8 @@ interface ProgramsClientProps {
   initialActiveOnly?: boolean;
 }
 
+const SHOW_SCORECARDS = false;
+
 export default function ProgramsClient({ initialProjects, people, regions = [], partnerTypes = [], initialMinRisk = 0, initialSort = null, initialActiveOnly = false }: ProgramsClientProps) {
   const locale = useLocale();
   // State filters
@@ -192,10 +194,6 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
     return healthOrder(p.theNeedle) >= 1;
   }).length;
 
-  // Average progress
-  const averageProgress = totalMatching > 0
-    ? Math.round(filteredProjects.reduce((sum, p) => sum + p.hillChartProgress, 0) / totalMatching)
-    : 0;
 
   return (
     <div className={styles.clientWrapper}>
@@ -375,26 +373,26 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
         </div>
       </section>
 
-      {/* Dynamic Big Number Scorecards */}
-      <section className={styles.scorecards}>
-        <div className={styles.card}>
-          <h3>{t(locale, 'programsInFlightAllTime')}</h3>
-          <div className={styles.metric}>{scorecardRatio}</div>
-          <div className={styles.subtext}>{t(locale, 'activeVsTotal')}</div>
-        </div>
+      {/* Scorecards hidden for now (2026-07-18): count/risk added little over the
+          table itself, and the ecosystem page owns the real big numbers. The
+          average-progress card is gone for good — a mean across unlike programs
+          reads as precision without meaning. Set SHOW_SCORECARDS to bring the
+          remaining two back. */}
+      {SHOW_SCORECARDS && (
+        <section className={styles.scorecards}>
+          <div className={styles.card}>
+            <h3>{t(locale, 'programsInFlightAllTime')}</h3>
+            <div className={styles.metric}>{scorecardRatio}</div>
+            <div className={styles.subtext}>{t(locale, 'activeVsTotal')}</div>
+          </div>
 
-        <div className={styles.card}>
-          <h3>{t(locale, 'someRiskConcerned')}</h3>
-          <div className={styles.metric}>{highRiskCount}</div>
-          <div className={styles.subtext}>{t(locale, 'atElevatedRisk')}</div>
-        </div>
-
-        <div className={styles.card}>
-          <h3>{t(locale, 'averageProgress')}</h3>
-          <div className={styles.metric}>{averageProgress}</div>
-          <div className={styles.subtext}>{t(locale, 'calculatedAverageScore')}</div>
-        </div>
-      </section>
+          <div className={styles.card}>
+            <h3>{t(locale, 'someRiskConcerned')}</h3>
+            <div className={styles.metric}>{highRiskCount}</div>
+            <div className={styles.subtext}>{t(locale, 'atElevatedRisk')}</div>
+          </div>
+        </section>
+      )}
 
       {/* Main Database Table */}
       <section className={styles.tableSection}>
