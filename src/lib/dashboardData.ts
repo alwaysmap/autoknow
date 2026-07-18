@@ -59,14 +59,15 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
           dependencies: true,
         },
       },
-      contextUrls: { orderBy: { id: 'desc' } },
       states: { orderBy: { timestamp: 'desc' }, take: 1, select: { notes: true } },
     },
   });
 
   const serializedProjects: DashboardProject[] = projects.map((proj) => {
+    // Unstarted = the dot never left zero. Derived from progress — the stored status
+    // string is legacy and never authoritative (see lib/phase.hillStatus).
     const unstartedCount = proj.phases.filter(
-      (p) => p.states[0]?.status === 'Not Started' || !p.states[0],
+      (p) => (p.states[0]?.hillChartProgress ?? 0) <= 0,
     ).length;
     const sim = runMonteCarlo(unstartedCount, proj.id);
 
@@ -119,35 +120,33 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
   // off zero) to the first completed state (progress reached 100), or to now if still
   // in flight, for non-archived projects. Derived from progress — the stored status
   // string is legacy and never authoritative (see lib/phase.hillStatus).
-  const allPhases = await prisma.phase.findMany({
-    include: {
-      states: { orderBy: { timestamp: 'asc' } },
-      project: { select: { isArchived: true } },
-    },
-  });
+  //
+  // PhaseState is append-only and this loader runs on every dashboard request, so the
+  // start/finish timestamps are aggregated in SQL — never by materializing each
+  // phase's full state history into memory.
+  const spans = await prisma.$queryRaw<
+    { id: number; name: string; startedAt: Date | null; finishedAt: Date | null }[]
+  >`
+    SELECT p.id, p.name,
+           MIN(s."timestamp") FILTER (WHERE s."hillChartProgress" > 0)    AS "startedAt",
+           MIN(s."timestamp") FILTER (WHERE s."hillChartProgress" >= 100) AS "finishedAt"
+    FROM "Phase" p
+    JOIN "Project" proj ON proj.id = p."projectId"
+    LEFT JOIN "PhaseState" s ON s."phaseId" = p.id
+    WHERE proj."isArchived" = false
+    GROUP BY p.id, p.name`;
 
   const cycleTimeData: CycleTimeData[] = [];
-  for (const phase of allPhases) {
-    if (phase.project.isArchived) continue;
-
-    let startWipDate: Date | null = null;
-    let finishedDate: Date | null = null;
-    for (const state of phase.states) {
-      const progress = state.hillChartProgress ?? 0;
-      if (progress > 0 && !startWipDate) startWipDate = state.timestamp;
-      if (progress >= 100 && !finishedDate) finishedDate = state.timestamp;
-    }
-
-    if (startWipDate) {
-      const end = finishedDate ? finishedDate : new Date();
-      const days = Math.max(1, Math.round((end.getTime() - startWipDate.getTime()) / (1000 * 60 * 60 * 24)));
-      cycleTimeData.push({
-        phaseId: phase.id,
-        phaseName: phase.name,
-        cycleTimeDays: days,
-        isFinished: !!finishedDate,
-      });
-    }
+  for (const span of spans) {
+    if (!span.startedAt) continue;
+    const end = span.finishedAt ?? new Date();
+    const days = Math.max(1, Math.round((end.getTime() - span.startedAt.getTime()) / (1000 * 60 * 60 * 24)));
+    cycleTimeData.push({
+      phaseId: span.id,
+      phaseName: span.name,
+      cycleTimeDays: days,
+      isFinished: !!span.finishedAt,
+    });
   }
 
   const cycleTimeStats: Record<string, CycleTimeStats> = {};
