@@ -68,16 +68,19 @@ test.describe('PhaseTrack rail', () => {
     const integration = row(page, 'Integration');
     await expect(integration).not.toContainText('In Progress');
 
-    // Involvement renders as pills — names only, the colour carries the company type.
+    // Involvement renders as pills — names only, the colour carries the company
+    // type. Rows default collapsed: expand first.
+    const toggle = integration.locator('button[aria-label^="Toggle detail"]');
+    await toggle.click();
     await expect(integration).toContainText('Denso');
     await expect(integration).toContainText('Kenji Sato');
     await expect(integration).not.toContainText('FAE');
 
-    // The caret folds the card away and back; Details rides in the header when open.
+    // The caret folds the card away again; Details stays reachable either way.
     await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
-    const toggle = integration.locator('button[aria-label^="Toggle detail"]');
     await toggle.click();
-    await expect(integration.getByRole('button', { name: 'Details' })).toHaveCount(0);
+    await expect(integration).not.toContainText('Denso');
+    await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
     await toggle.click();
     await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
   });
@@ -136,8 +139,10 @@ test.describe('PhaseTrack rail', () => {
     await page.keyboard.type('Codec samples landed; over the hill.');
     await details(page).getByRole('button', { name: 'Save Update' }).click();
 
-    // Back on the track: the card shows the new note but NOT the history list.
+    // Back on the track: the card (expanded — rows default collapsed) shows the
+    // new note but NOT the history list.
     const audio = row(page, 'Audio');
+    await audio.locator('button[aria-label^="Toggle detail"]').click();
     await expect(audio).toContainText('Codec samples landed; over the hill.', { timeout: 10000 });
     await expect(audio.getByText('History')).toHaveCount(0);
 
@@ -337,6 +342,8 @@ test.describe('Program phase editor', () => {
 
     // The chain grew from the TOP: Prep (28d) + the old ≈74 ≈ 102 — and the
     // CONSTRAINT moves to Prep, the new first unfinished stop on the chain.
+    // (rows default collapsed — expand before reading the evidence line)
+    await railRow(page, 'Prep').getByRole('button', { name: /Toggle detail/ }).click();
     await expect(railRow(page, 'Prep')).toContainText('gates ≈102 days of downstream chain work');
     const bringUpDeps = await prisma.phaseDependency.count({ where: { phaseId: seeded.phases.bringUp } });
     expect(bringUpDeps).toBe(1);

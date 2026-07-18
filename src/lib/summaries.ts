@@ -75,8 +75,11 @@ interface EvidenceRecord extends SummaryEvidence {
 class EvidenceList {
   records: EvidenceRecord[] = [];
   counts: Record<string, number> = {};
+  get isFull(): boolean {
+    return this.records.length >= MAX_EVIDENCE;
+  }
   push(kind: SummaryEvidence['kind'], text: string, citation: SummaryCitation) {
-    if (this.records.length >= MAX_EVIDENCE) return;
+    if (this.isFull) return;
     this.counts[kind] = (this.counts[kind] ?? 0) + 1;
     this.records.push({ id: this.records.length, kind, text, citation });
   }
@@ -209,7 +212,10 @@ async function gatherPartnerEvidence(partnerId: number, windowStart: Date, ev: E
     });
 
   // Their program portfolio, each with full program evidence (capped by MAX_EVIDENCE).
+  // Stop querying once the cap is hit — an OEM with 20 programs must not pay 20
+  // heavy include-trees when the first few filled the list.
   for (const proj of partner.projects) {
+    if (ev.isFull) break;
     await gatherProgramEvidence(proj.id, windowStart, ev);
   }
 
@@ -450,7 +456,7 @@ export async function runSummaryCycle(): Promise<SummaryCycleReport> {
 
   const [partners, programs] = await Promise.all([
     prisma.partner.findMany({ select: { id: true } }),
-    prisma.project.findMany({ where: { isArchived: false }, select: { id: true } }),
+    prisma.project.findMany({ where: { isArchived: false }, select: { id: true, partnerId: true } }),
   ]);
   const targets: Array<{ scope: SummaryScope; id: number }> = [
     { scope: 'ecosystem' as SummaryScope, id: 0 },
@@ -459,12 +465,55 @@ export async function runSummaryCycle(): Promise<SummaryCycleReport> {
   ];
   report.scopes = targets.length;
 
+  // Set-based staleness for the whole portfolio: the per-target getSummary probes
+  // were an N+1 (4-5 findFirsts × every partner and program, every hour). Seven
+  // aggregates cover all scopes; the verdicts match getSummary's exactly.
+  const [latest, projStateMax, phaseStateMax, partnerStateMax, ctxProjMax, ctxPartnerMax, ctxGlobalMax] =
+    await Promise.all([
+      prisma.summary.groupBy({ by: ['scope', 'targetId'], _max: { generatedAt: true } }),
+      prisma.projectState.groupBy({ by: ['projectId'], _max: { timestamp: true } }),
+      prisma.$queryRaw<{ projectId: number; m: Date }[]>`
+        SELECT ph."projectId", MAX(s."timestamp") AS m
+        FROM "PhaseState" s JOIN "Phase" ph ON ph.id = s."phaseId"
+        GROUP BY ph."projectId"`,
+      prisma.partnerState.groupBy({ by: ['partnerId'], _max: { timestamp: true } }),
+      prisma.contextUrl.groupBy({ by: ['projectId'], where: { projectId: { not: null } }, _max: { createdAt: true } }),
+      prisma.contextUrl.groupBy({ by: ['partnerId'], where: { partnerId: { not: null } }, _max: { createdAt: true } }),
+      prisma.contextUrl.aggregate({ _max: { createdAt: true } }),
+    ]);
+
+  const maxDate = (...ds: (Date | null | undefined)[]): Date | null =>
+    ds.reduce<Date | null>((acc, d) => (d && (!acc || d > acc) ? d : acc), null);
+
+  const generatedBy = new Map(latest.map((r) => [`${r.scope}:${r.targetId}`, r._max.generatedAt]));
+  const projStateBy = new Map(projStateMax.map((r) => [r.projectId, r._max.timestamp]));
+  const phaseStateBy = new Map(phaseStateMax.map((r) => [r.projectId, r.m]));
+  const partnerStateBy = new Map(partnerStateMax.map((r) => [r.partnerId, r._max.timestamp]));
+  const ctxProjBy = new Map(ctxProjMax.map((r) => [r.projectId as number, r._max.createdAt]));
+  const ctxPartnerBy = new Map(ctxPartnerMax.map((r) => [r.partnerId as number, r._max.createdAt]));
+
+  const programActivity = (id: number) => maxDate(projStateBy.get(id), phaseStateBy.get(id), ctxProjBy.get(id));
+  const activityOf = (scope: SummaryScope, id: number): Date | null => {
+    if (scope === 'program') return programActivity(id);
+    if (scope === 'partner') {
+      return maxDate(
+        partnerStateBy.get(id),
+        ctxPartnerBy.get(id),
+        ...programs.filter((p) => p.partnerId === id).map((p) => programActivity(p.id)),
+      );
+    }
+    return maxDate(...programs.map((p) => programActivity(p.id)), ctxGlobalMax._max.createdAt);
+  };
+
   const missing: typeof targets = [];
   const stale: typeof targets = [];
   for (const t of targets) {
-    const view = await getSummary(t.scope, t.id);
-    if (!view) missing.push(t);
-    else if (view.stale) stale.push(t);
+    const gen = generatedBy.get(`${t.scope}:${t.id}`);
+    if (!gen) missing.push(t);
+    else {
+      const activity = activityOf(t.scope, t.id);
+      if (activity && activity > gen) stale.push(t);
+    }
   }
 
   for (const t of [...missing, ...stale]) {

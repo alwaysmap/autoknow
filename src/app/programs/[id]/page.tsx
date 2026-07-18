@@ -40,18 +40,23 @@ export default async function ProjectDetailsPage(props: {
     return notFound();
   }
 
-  // 1. Fetch Project with partner and phases containing action items
+  // 1. Fetch Project with partner and phases containing action items. State history
+  // is append-only and unbounded — only what the page renders is fetched: current +
+  // previous project state, and the 6 newest per phase (current, previous, history
+  // popover). First-started/first-completed come from a SQL aggregate below.
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: {
       partner: { include: { type: true, region: true } },
       states: {
-        orderBy: { timestamp: 'desc' }
+        orderBy: { timestamp: 'desc' },
+        take: 2
       },
       phases: {
         include: {
           states: {
-            orderBy: { timestamp: 'desc' }
+            orderBy: { timestamp: 'desc' },
+            take: 6
           },
           actionItems: {
             orderBy: { id: 'asc' }
@@ -68,6 +73,20 @@ export default async function ProjectDetailsPage(props: {
   if (!project) {
     return notFound();
   }
+
+  // Anticipated-vs-actual timing per phase, aggregated in SQL — never by loading
+  // each phase's full state history (same pattern as lib/dashboardData).
+  const spans = await prisma.$queryRaw<
+    { phaseId: number; startedAt: Date | null; finishedAt: Date | null }[]
+  >`
+    SELECT p.id AS "phaseId",
+           MIN(s."timestamp") FILTER (WHERE s."hillChartProgress" > 0)    AS "startedAt",
+           MIN(s."timestamp") FILTER (WHERE s."hillChartProgress" >= 100) AS "finishedAt"
+    FROM "Phase" p
+    LEFT JOIN "PhaseState" s ON s."phaseId" = p.id
+    WHERE p."projectId" = ${projectId}
+    GROUP BY p.id`;
+  const spanByPhase = new Map(spans.map((s) => [s.phaseId, s]));
 
   // Unified activity for this program: status/needle/hill/phase changes + context.
   const activity = await getActivity({ kind: 'project', id: projectId });
@@ -116,8 +135,6 @@ export default async function ProjectDetailsPage(props: {
     if (isActive(pp.phase.states)) personLoad.set(pp.personId, (personLoad.get(pp.personId) ?? 0) + 1);
   }
   const graphRows = project.phases.map((phase) => {
-    // states are newest-first; walk oldest-first for anticipated-vs-actual timing.
-    const asc = [...phase.states].reverse();
     return {
       id: phase.id,
       name: phase.name,
@@ -129,8 +146,8 @@ export default async function ProjectDetailsPage(props: {
       forecastedDuration: phase.forecastedDuration,
       description: phase.description ?? null,
       googleFocus: phase.googleFocus ?? null,
-      startedAt: asc.find((s) => (s.hillChartProgress ?? 0) > 0)?.timestamp?.toISOString() ?? null,
-      completedAt: asc.find((s) => (s.hillChartProgress ?? 0) >= 100)?.timestamp?.toISOString() ?? null,
+      startedAt: spanByPhase.get(phase.id)?.startedAt?.toISOString() ?? null,
+      completedAt: spanByPhase.get(phase.id)?.finishedAt?.toISOString() ?? null,
       history: phase.states.slice(0, 6).map((s) => ({
         at: s.timestamp.toISOString(),
         progress: s.hillChartProgress ?? 0,
@@ -260,7 +277,17 @@ export default async function ProjectDetailsPage(props: {
               previousProgress={project.states[1]?.hillChartProgress ?? null}
               previousHealth={project.states[1]?.theNeedle ?? null}
               updatedAt={project.states[0]?.timestamp?.toISOString() ?? null}
-              phases={project.phases}
+              // Only the fields the client component reads — the raw Prisma include
+              // tree (people, partners, notes markdown…) would be serialized into
+              // the RSC payload wholesale.
+              phases={project.phases.map((p) => ({
+                id: p.id,
+                name: p.name,
+                states: p.states.slice(0, 1).map((s) => ({
+                  status: s.status,
+                  hillChartProgress: s.hillChartProgress,
+                })),
+              }))}
             />
 
           </div>

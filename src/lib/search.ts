@@ -66,19 +66,42 @@ export async function indexEntity(kind: FeedType, id: number): Promise<void> {
   }
 }
 
-/** (Re)embed every searchable record into its vector column so search works. */
+/**
+ * (Re)embed every searchable record into its vector column so search works.
+ * Batched reads (one query per table, not a findUnique per record) and a small
+ * embed-concurrency pool: the serial version was a 5+ minute request at ~1.5k
+ * records; unbounded parallelism would trip Gemini rate limits instead.
+ */
 export async function reindexAll(): Promise<{ partners: number; programs: number; people: number; context: number }> {
   const [partners, projects, people, context] = await Promise.all([
-    prisma.partner.findMany({ select: { id: true } }),
-    prisma.project.findMany({ select: { id: true } }),
-    prisma.person.findMany({ select: { id: true } }),
-    prisma.contextUrl.findMany({ select: { id: true } }),
+    prisma.partner.findMany({ select: { id: true, name: true, summary: true, type: { select: { name: true } } } }),
+    prisma.project.findMany({ select: { id: true, name: true, ownerName: true } }),
+    prisma.person.findMany({ select: { id: true, name: true, email: true, notes: true } }),
+    prisma.contextUrl.findMany({ select: { id: true, title: true, ingestedText: true } }),
   ]);
 
-  for (const p of partners) await indexEntity('partner', p.id);
-  for (const p of projects) await indexEntity('program', p.id);
-  for (const p of people) await indexEntity('person', p.id);
-  for (const c of context) await indexEntity('context', c.id);
+  const joined = (parts: (string | null | undefined)[]) => parts.filter(Boolean).join('. ');
+  const jobs: { table: 'Partner' | 'Project' | 'Person' | 'ContextUrl'; id: number; text: string }[] = [
+    ...partners.map((p) => ({ table: 'Partner' as const, id: p.id, text: joined([p.name, p.type?.name, p.summary]) })),
+    ...projects.map((p) => ({ table: 'Project' as const, id: p.id, text: joined([p.name, p.ownerName]) })),
+    ...people.map((p) => ({ table: 'Person' as const, id: p.id, text: joined([p.name, p.email, p.notes]) })),
+    ...context.map((c) => ({ table: 'ContextUrl' as const, id: c.id, text: joined([c.title, c.ingestedText]) })),
+  ];
+
+  const CONCURRENCY = 4;
+  let next = 0;
+  const worker = async () => {
+    while (next < jobs.length) {
+      const job = jobs[next++];
+      try {
+        await setEmbedding(job.table, job.id, job.text);
+      } catch (err) {
+        // One failed record must not abort the sweep; it stays lexically findable.
+        console.error(`reindex ${job.table}#${job.id} failed:`, err);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, () => worker()));
 
   return {
     partners: partners.length,
