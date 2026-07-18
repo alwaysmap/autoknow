@@ -3,7 +3,7 @@ import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
 // Status controls by scope:
-//  - Partner: relationship health on the colorless 1..7 scale, in the partner page
+//  - Partner: relationship health on the colorless 1..5 scale, in the partner page
 //    header (NOT a needle — see lib/relationship).
 //  - Project: program progress + health via the Needle gauge, in the status dashboard.
 // Phase progress is a separate control (the hill chart) — see project_details.spec.ts.
@@ -55,7 +55,7 @@ test.describe('Progress & Health gauge updates', () => {
     });
   });
 
-  test('should allow updating relationship health on the 1..7 scale at the Partner level', async ({ page }) => {
+  test('should allow updating relationship health on the 1..5 scale at the Partner level', async ({ page }) => {
     await page.goto(`/partners/${partnerId}`);
 
     const header = page.locator('header').filter({ hasText: 'Tesla Motors' });
@@ -73,7 +73,7 @@ test.describe('Progress & Health gauge updates', () => {
 
     // Pick 3 on the scale — the descriptor confirms the selection, no colors involved.
     await dialog.getByRole('radio', { name: '3', exact: true }).click();
-    await expect(dialog).toContainText('Fragile');
+    await expect(dialog).toContainText('Steady');
 
     // The note is required.
     await dialog.locator('button:has-text("Save Update")').click();
@@ -85,8 +85,8 @@ test.describe('Progress & Health gauge updates', () => {
 
     // Verify it closed and the header now reads the new position.
     await expect(page.locator('dialog[open]')).toHaveCount(0);
-    await expect(scale).toContainText('3/7');
-    await expect(scale).toContainText('Fragile');
+    await expect(scale).toContainText('3/5');
+    await expect(scale).toContainText('Steady');
 
     // The state row carries the score AND the derived health (feed/filters coherence).
     const state = await prisma.partnerState.findFirst({ where: { partnerId }, orderBy: { timestamp: 'desc' } });

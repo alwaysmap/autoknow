@@ -25,8 +25,8 @@ export function RelationshipScaleTrack({
 }) {
   const locale = useLocale();
   // Fixed geometry so tracks align row-to-row regardless of container width.
-  const W = 132, H = compact ? 14 : 18, PAD = 7;
-  const x = (s: number) => PAD + ((s - 1) / 6) * (W - 2 * PAD);
+  const W = 132, H = compact ? 14 : 18, PAD = 9;
+  const x = (s: number) => PAD + ((s - 1) / (REL_SCORES.length - 1)) * (W - 2 * PAD);
   const cy = H / 2;
 
   return (
@@ -35,10 +35,10 @@ export function RelationshipScaleTrack({
       height={H}
       viewBox={`0 0 ${W} ${H}`}
       role="img"
-      aria-label={score === null ? t(locale, 'relNotRated') : `${score}/7 — ${t(locale, REL_KEY[score])}`}
+      aria-label={score === null ? t(locale, 'relNotRated') : `${score}/5 — ${t(locale, REL_KEY[score])}`}
       className={styles.track}
     >
-      <line x1={x(1)} y1={cy} x2={x(7)} y2={cy} stroke="var(--border, #d6d6d6)" strokeWidth={1.2} />
+      <line x1={x(1)} y1={cy} x2={x(REL_SCORES.length)} y2={cy} stroke="var(--border, #d6d6d6)" strokeWidth={1.2} />
       {REL_SCORES.map((s) => (
         <circle key={s} cx={x(s)} cy={cy} r={1.7} fill="var(--muted, #9a948a)" opacity={0.55} />
       ))}
@@ -65,7 +65,7 @@ export function RelationshipFace({ score, size = 22, decorative = false }: {
 }) {
   const locale = useLocale();
   // curvature: -1 (deep frown, 1) .. +1 (big smile, 7); 4 is a flat "steady".
-  const c = (score - 4) / 3;
+  const c = (score - 3) / 2;
   const endY = 3.6 - c * 1.6;
   const ctlY = 3.6 + c * 3.4;
   return (
@@ -75,18 +75,18 @@ export function RelationshipFace({ score, size = 22, decorative = false }: {
       height={size}
       {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': `${score}/7 — ${t(locale, REL_KEY[score])}` })}
     >
-      <circle cx={0} cy={0} r={8.6} fill="none" stroke="var(--fg, #333)" strokeWidth={1.5} />
-      <circle cx={-3.1} cy={-2.6} r={1.15} fill="var(--fg, #333)" />
-      <circle cx={3.1} cy={-2.6} r={1.15} fill="var(--fg, #333)" />
+      <circle cx={0} cy={0} r={8.6} fill="none" stroke="currentColor" strokeWidth={1.5} />
+      <circle cx={-3.1} cy={-2.6} r={1.15} fill="currentColor" />
+      <circle cx={3.1} cy={-2.6} r={1.15} fill="currentColor" />
       <path
         d={`M -4 ${endY} Q 0 ${ctlY} 4 ${endY}`}
         fill="none"
-        stroke="var(--fg, #333)"
+        stroke="currentColor"
         strokeWidth={1.5}
         strokeLinecap="round"
       />
       {!decorative && (
-        <title>{`${score}/7 — ${t(locale, REL_KEY[score])} (1 = ${t(locale, REL_KEY[1])}, 7 = ${t(locale, REL_KEY[7])})`}</title>
+        <title>{`${score}/5 — ${t(locale, REL_KEY[score])} (1 = ${t(locale, REL_KEY[1])}, 5 = ${t(locale, REL_KEY[5])})`}</title>
       )}
     </svg>
   );
@@ -99,7 +99,7 @@ export function RelationshipSparkline({ history, width = 64, height = 18 }: {
   if (history.length < 2) return null;
   const pad = 3;
   const x = (i: number) => pad + (i / (history.length - 1)) * (width - 2 * pad);
-  const y = (v: number) => height - pad - ((clampScore(v) - 1) / 6) * (height - 2 * pad);
+  const y = (v: number) => height - pad - ((clampScore(v) - 1) / (REL_SCORES.length - 1)) * (height - 2 * pad);
   const points = history.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
   const last = history[history.length - 1];
   return (
@@ -120,7 +120,7 @@ export function RelationshipCell({ score, history }: { score: RelScore | null; h
   return (
     <span className={styles.cell} title={`${t(locale, REL_KEY[score])} · ${t(locale, 'relScaleHint')}`}>
       <RelationshipFace score={score} size={20} />
-      <span className={styles.cellScore}>{score}<span className={styles.cellDen}>/7</span></span>
+      <span className={styles.cellScore}>{score}<span className={styles.cellDen}>/5</span></span>
       {history && <RelationshipSparkline history={history} />}
     </span>
   );
@@ -157,7 +157,7 @@ export default function RelationshipScale({
     <div className={styles.wrapper} data-testid="relationship-scale">
       <div className={styles.readout}>
         {score !== null && <RelationshipFace score={score} size={26} />}
-        <span className={styles.score}>{score ?? '–'}<span className={styles.den}>/7</span></span>
+        <span className={styles.score}>{score ?? '–'}<span className={styles.den}>/5</span></span>
         <span className={styles.descriptor}>{score === null ? t(locale, 'relNotRated') : t(locale, REL_KEY[score])}</span>
       </div>
       {history && history.length > 1

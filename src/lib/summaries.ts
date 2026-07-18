@@ -193,7 +193,7 @@ async function gatherPartnerEvidence(partnerId: number, windowStart: Date, ev: E
     .forEach((s, i) => {
       ev.push(
         'relationship',
-        `${i === 0 ? 'CURRENT ' : ''}relationship update ${fmtDate(s.timestamp)}: score ${deriveScore(s)}/7 (1=critical, 7=exemplary)${s.notes ? ` — ${s.notes}` : ''}${s.source ? ` (by ${s.source})` : ''}`,
+        `${i === 0 ? 'CURRENT ' : ''}relationship update ${fmtDate(s.timestamp)}: score ${deriveScore(s)}/5 (1=critical, 5=exemplary)${s.notes ? ` — ${s.notes}` : ''}${s.source ? ` (by ${s.source})` : ''}`,
         { label: `Relationship · ${fmtDate(s.timestamp)}`, href: `/history/partner/${partnerId}`, external: false },
       );
     });

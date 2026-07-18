@@ -160,10 +160,17 @@
   border-color: var(--muted);
 }
 
+.pickBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
 .pickBtnActive {
-  background: var(--fg);
-  border-color: var(--fg);
-  color: var(--white);
+  background: var(--p-600);
+  border-color: var(--p-600);
+  color: var(--white, #fff); /* faces draw in currentColor, so they invert too */
 }
 
 .pickDescriptor {

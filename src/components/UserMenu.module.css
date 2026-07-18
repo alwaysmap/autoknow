@@ -23,7 +23,7 @@
   box-shadow: 0 0 0 3px var(--surface);
 }
 
-.card {
+.pop {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
@@ -40,7 +40,7 @@
   gap: 2px;
 }
 
-.cardAvatar {
+.popAvatar {
   width: 44px;
   height: 44px;
   border-radius: 50%;

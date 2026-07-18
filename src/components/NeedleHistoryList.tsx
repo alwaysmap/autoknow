@@ -52,7 +52,7 @@ export default function NeedleHistoryList({
             <div className={styles.body}>
               <div className={styles.head}>
                 {relationship && score !== null ? (
-                  <span className={styles.health}>{score}/7 — {t(locale, REL_KEY[score])}</span>
+                  <span className={styles.health}>{score}/5 — {t(locale, REL_KEY[score])}</span>
                 ) : (
                   <span className={styles.health} style={{ color: healthColor(health) }}>{t(locale, HEALTH_KEY[health])}</span>
                 )}

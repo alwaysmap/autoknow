@@ -73,8 +73,8 @@ export default function UserMenu({
         {initialsOf(name, email)}
       </button>
       {open && (
-        <div className={styles.card}>
-          <div className={styles.cardAvatar}>{initialsOf(name, email)}</div>
+        <div className={styles.pop}>
+          <div className={styles.popAvatar}>{initialsOf(name, email)}</div>
           <div className={styles.name}>{name}</div>
           <div className={styles.email}>{email}</div>
           {authConfigured && signedIn && (

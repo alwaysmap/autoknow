@@ -52,16 +52,16 @@ test.describe('Ecosystem Partners Page', () => {
     await expect(page.locator('body')).toContainText('Continental AG');
   });
 
-  test('shows relative relationship health (1..7) for every partner', async ({ page }) => {
+  test('shows relative relationship health (1..5) for every partner', async ({ page }) => {
     // Rate Continental so the list has a real position to show.
     await prisma.partnerState.create({
-      data: { partnerId, relationshipScore: 5, theNeedle: 'Some Risk', notes: 'Quarterly review.' },
+      data: { partnerId, relationshipScore: 4, theNeedle: 'On Track', notes: 'Quarterly review.' },
     });
 
     await page.goto('/partners');
     await expect(page.locator('th', { hasText: 'Relationship' })).toBeVisible();
     const row = page.locator('tr').filter({ hasText: 'Continental AG' });
-    await expect(row).toContainText('5/7');
+    await expect(row).toContainText('4/5');
   });
 
   test('partner CRUD: create, edit, then delete', async ({ page }) => {
