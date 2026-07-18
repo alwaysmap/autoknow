@@ -11,6 +11,27 @@ import type { FeedItem, FeedScope, FeedKind } from './feed';
 // the FeedItem shape with search so one component renders both.
 
 const PROGRAM_CREATED_NOTE = 'Program created';
+// Feed cards clamp the detail visually; truncating here keeps whole ingested digests
+// (up to `take` of them) out of the serialized page payload.
+const DETAIL_MAX = 600;
+const clampDetail = (text: string | null | undefined): string | null =>
+  !text ? null : text.length > DETAIL_MAX ? `${text.slice(0, DETAIL_MAX)}…` : text;
+
+/**
+ * For a newest-first list, map each index to the next OLDER item sharing its group
+ * (the "previous" state for the ghost marker) in one linear pass — the per-item
+ * `slice(i+1).find(...)` it replaces is O(n²).
+ */
+function previousByGroup<T>(items: T[], keyOf: (item: T) => number): (T | null)[] {
+  const lastSeen = new Map<number, T>();
+  const prev: (T | null)[] = new Array(items.length);
+  for (let i = items.length - 1; i >= 0; i--) {
+    const key = keyOf(items[i]);
+    prev[i] = lastSeen.get(key) ?? null; // the older neighbour seen so far
+    lastSeen.set(key, items[i]);
+  }
+  return prev;
+}
 
 export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem[]> {
   // Name the program/partner on each item except when the page IS that program —
@@ -62,7 +83,7 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
       subtitle: [meta(c.project?.name ?? c.partner?.name ?? null, c.type, false), provenance]
         .filter(Boolean)
         .join(' · ') || null,
-      detail: c.ingestedText,
+      detail: clampDetail(c.ingestedText),
       href: c.url,
       external: true,
       timestamp: c.createdAt.toISOString(),
@@ -92,7 +113,7 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
       kind: 'context',
       title: `Updated: ${r.contextUrl.title || 'Ingested document'}${resolvedTag}`,
       subtitle: meta(r.contextUrl.project?.name ?? r.contextUrl.partner?.name ?? null, null, false),
-      detail: r.delta,
+      detail: clampDetail(r.delta),
       href: r.contextUrl.url,
       external: true,
       timestamp: r.checkedAt.toISOString(),
@@ -115,18 +136,19 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
     orderBy: { timestamp: 'desc' },
     take,
   });
+  const projectPrev = previousByGroup(projectStates, (o) => o.project.id);
   for (let i = 0; i < projectStates.length; i++) {
     const s = projectStates[i];
     const created = s.notes?.startsWith(PROGRAM_CREATED_NOTE);
     const kind: FeedKind = created ? 'program-created' : 'status';
     // previous (older) state for this same project, for the ghost marker
-    const prev = created ? null : projectStates.slice(i + 1).find((o) => o.project.id === s.project.id) ?? null;
+    const prev = created ? null : projectPrev[i];
     push(events, {
       id: `ps-${s.id}`,
       kind,
       title: created ? 'Program created' : `Weekly update: ${formatNeedleValue(s.theNeedle)}`,
       subtitle: meta(s.project.name, s.source, true),
-      detail: created ? null : s.notes,
+      detail: created ? null : clampDetail(s.notes),
       // Metric changes link to the value-over-time chart; creation links to the program.
       href: created ? `/programs/${s.project.id}` : `/history/project/${s.project.id}`,
       external: false,
@@ -156,16 +178,17 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
     orderBy: { timestamp: 'desc' },
     take,
   });
+  const phasePrev = previousByGroup(phaseStates, (o) => o.phaseId);
   for (let i = 0; i < phaseStates.length; i++) {
     const s = phaseStates[i];
-    const prev = phaseStates.slice(i + 1).find((o) => o.phaseId === s.phaseId) ?? null;
+    const prev = phasePrev[i];
     const progress = s.hillChartProgress ?? 0;
     push(events, {
       id: `phs-${s.id}`,
       kind: 'phase',
       title: `${s.phase.name}: ${hillStatus(progress)}`,
       subtitle: meta(s.phase.project.name, s.source, true),
-      detail: s.notes,
+      detail: clampDetail(s.notes),
       href: `/history/phase/${s.phaseId}`,
       external: false,
       timestamp: s.timestamp.toISOString(),
@@ -189,9 +212,10 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
       orderBy: { timestamp: 'desc' },
       take,
     });
+    const partnerPrev = previousByGroup(partnerStates, (o) => o.partner.id);
     for (let i = 0; i < partnerStates.length; i++) {
       const s = partnerStates[i];
-      const prev = partnerStates.slice(i + 1).find((o) => o.partner.id === s.partner.id) ?? null;
+      const prev = partnerPrev[i];
       // Relationship health is a 1..5 position, not a needle (lib/relationship).
       const score = deriveScore(s);
       push(events, {
@@ -200,7 +224,7 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
         // On the partner's own page the name is redundant — only label at ecosystem scope.
         title: 'Relationship update',
         subtitle: meta(scope.kind === 'ecosystem' ? s.partner.name : null, s.source, true),
-        detail: s.notes,
+        detail: clampDetail(s.notes),
         href: `/history/partner/${s.partner.id}`,
         external: false,
         timestamp: s.timestamp.toISOString(),

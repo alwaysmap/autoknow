@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   buildProductCapacitySeries,
@@ -112,7 +112,8 @@ function ProductAreaChart({
     }
     return bounds;
   };
-  const stacks = points.map(stackAt);
+  // Recomputed on every hover otherwise — a pure function of points+activeBands.
+  const stacks = useMemo(() => points.map(stackAt), [points, activeBands]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const bandPath = (k: ProductKey) => {
     const up = points.map((_, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(stacks[i][k].hi).toFixed(1)}`).join(' ');
@@ -261,7 +262,9 @@ function ProductAreaChart({
 
 export default function CapacityChart({ programs, now }: { programs: CapacityChartProgram[]; now: number }) {
   const locale = useLocale();
-  const { points, excluded } = buildProductCapacitySeries(programs, now);
+  // Both the inline and expanded charts re-render on every hover; the series is a
+  // pure function of programs+now, so compute it once.
+  const { points, excluded } = useMemo(() => buildProductCapacitySeries(programs, now), [programs, now]);
   const quarterRef = useRef<HTMLDialogElement>(null);
   const expandRef = useRef<HTMLDialogElement>(null);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);

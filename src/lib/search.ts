@@ -215,6 +215,23 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope): Pr
   }
 }
 
+// Every search pays one Gemini embedding round trip for the query. Cache the vector
+// by normalized query text — searches repeat (same term across scopes, back-button,
+// re-filter) and the embedding is deterministic. Bounded so it can't grow unbounded.
+const QUERY_EMBED_CACHE = new Map<string, number[]>();
+const QUERY_EMBED_CACHE_MAX = 500;
+async function embedQuery(q: string): Promise<number[]> {
+  const key = q.toLowerCase();
+  const hit = QUERY_EMBED_CACHE.get(key);
+  if (hit) return hit;
+  const vec = await embedText(q);
+  if (QUERY_EMBED_CACHE.size >= QUERY_EMBED_CACHE_MAX) {
+    QUERY_EMBED_CACHE.delete(QUERY_EMBED_CACHE.keys().next().value!); // evict oldest
+  }
+  QUERY_EMBED_CACHE.set(key, vec);
+  return vec;
+}
+
 export async function unifiedSearch(
   query: string,
   opts: { types?: FeedType[]; scope?: FeedScope; limit?: number } = {},
@@ -226,7 +243,7 @@ export async function unifiedSearch(
 
   try {
     const q = query.trim();
-    const vec = `[${(await embedText(q)).join(',')}]`;
+    const vec = `[${(await embedQuery(q)).join(',')}]`;
     const branches = types.map((t) => branchSql(t, q, vec, scope));
     const unioned = Prisma.join(branches, ' UNION ALL ');
 

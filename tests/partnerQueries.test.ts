@@ -1,15 +1,22 @@
 /** @jest-environment node */
+import { testDatabaseUrl } from './helpers/testDatabaseUrl';
+process.env.DATABASE_URL = testDatabaseUrl(); // bind lib/db to the *_test database
+
 import { prisma, disconnectTestDb } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
-import { PartnerQueries } from '../src/lib/partnerQueries';
 
-describe('PartnerQueries Class Service Unit Tests', () => {
-  let partnerQueries: PartnerQueries;
+// Dynamic import AFTER the env assignment above — a static import is hoisted and
+// would evaluate src/lib/db (binding its prisma client) before DATABASE_URL is set.
+type PQ = typeof import('../src/lib/partnerQueries');
+let getAllPartners: PQ['getAllPartners'];
+let getActivePrograms: PQ['getActivePrograms'];
+let getLifetimePrograms: PQ['getLifetimePrograms'];
+
+describe('partnerQueries module', () => {
   let testPartnerId: number;
 
   beforeAll(async () => {
-    partnerQueries = new PartnerQueries(prisma);
-
+    ({ getAllPartners, getActivePrograms, getLifetimePrograms } = await import('../src/lib/partnerQueries'));
     // Clean up any left-over test data
     await wipeAll();
 
@@ -52,22 +59,23 @@ describe('PartnerQueries Class Service Unit Tests', () => {
     await disconnectTestDb();
   });
 
-  it('should retrieve seeded partners and their projects successfully via getAllPartners()', async () => {
-    const results = await partnerQueries.getAllPartners();
+  it('retrieves seeded partners and their projects via getAllPartners()', async () => {
+    const results = await getAllPartners();
     expect(results.length).toBe(1);
     expect(results[0].name).toBe('Tesla Inc');
     expect(results[0].projects.length).toBe(2);
+    // type/region are flattened to strings (the UI contract), not relation objects
+    expect(typeof results[0].type).toBe('string');
+    expect(results[0].type).toBe('OEM');
   });
 
-  it('should correctly count active (non-archived) projects using getActivePrograms()', async () => {
-    const results = await partnerQueries.getAllPartners();
-    const activeCount = partnerQueries.getActivePrograms(results[0]);
-    expect(activeCount).toBe(1); // 1 active, 1 archived
+  it('counts active (non-archived) projects with getActivePrograms()', async () => {
+    const results = await getAllPartners();
+    expect(getActivePrograms(results[0])).toBe(1); // 1 active, 1 archived
   });
 
-  it('should correctly count all lifetime projects using getLifetimePrograms()', async () => {
-    const results = await partnerQueries.getAllPartners();
-    const lifetimeCount = partnerQueries.getLifetimePrograms(results[0]);
-    expect(lifetimeCount).toBe(2); // Both projects
+  it('counts all lifetime projects with getLifetimePrograms()', async () => {
+    const results = await getAllPartners();
+    expect(getLifetimePrograms(results[0])).toBe(2);
   });
 });

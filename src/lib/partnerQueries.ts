@@ -1,4 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './db';
+
+// Partner list data for /partners. Plain module functions on the shared prisma
+// singleton (the rest of the codebase's convention) — not a constructor-injected
+// class, which was the lone outlier here.
 
 export interface ProjectSummary {
   id: number;
@@ -31,67 +35,38 @@ export interface PartnerWithRelations {
   personAffiliations: AffiliationSummary[];
 }
 
-export class PartnerQueries {
-  private prisma: PrismaClient;
-
-  constructor(prismaClient: PrismaClient) {
-    this.prisma = prismaClient;
-  }
-
-  /**
-   * Fetches all partners along with projects, current employees, and affiliations.
-   */
-  async getAllPartners(): Promise<PartnerWithRelations[]> {
-    const rows = await this.prisma.partner.findMany({
-      include: {
-        type: { select: { name: true } },
-        region: { select: { name: true } },
-        projects: {
-          select: {
-            id: true,
-            name: true,
-            isArchived: true,
-            ownerName: true,
-          }
-        },
-        currentEmployees: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          }
-        },
-        personAffiliations: {
-          include: {
-            person: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              }
-            }
-          }
-        }
+/** All partners with projects, current employees, and affiliations. */
+export async function getAllPartners(): Promise<PartnerWithRelations[]> {
+  const rows = await prisma.partner.findMany({
+    include: {
+      type: { select: { name: true } },
+      region: { select: { name: true } },
+      projects: { select: { id: true, name: true, isArchived: true, ownerName: true } },
+      currentEmployees: { select: { id: true, name: true, email: true } },
+      personAffiliations: {
+        select: { person: { select: { id: true, name: true, email: true } } },
       },
-      orderBy: {
-        name: 'asc'
-      }
-    });
-    // Flatten the type/region relations to names — the UI's contract is strings.
-    return rows.map((r) => ({ ...r, type: r.type?.name ?? '', region: r.region?.name ?? '' })) as unknown as PartnerWithRelations[];
-  }
+    },
+    orderBy: { name: 'asc' },
+  });
+  // Map to the string-typed UI contract — an explicit projection, not an `as unknown`.
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    type: r.type?.name ?? '',
+    region: r.region?.name ?? '',
+    projects: r.projects,
+    currentEmployees: r.currentEmployees,
+    personAffiliations: r.personAffiliations,
+  }));
+}
 
-  /**
-   * Returns the count of non-archived projects (active programs) for a partner.
-   */
-  getActivePrograms(partner: { projects: { isArchived: boolean }[] }): number {
-    return partner.projects.filter(p => !p.isArchived).length;
-  }
+/** Count of non-archived projects (active programs) for a partner. */
+export function getActivePrograms(partner: { projects: { isArchived: boolean }[] }): number {
+  return partner.projects.filter((p) => !p.isArchived).length;
+}
 
-  /**
-   * Returns the count of total projects (lifetime programs) for a partner.
-   */
-  getLifetimePrograms(partner: { projects: unknown[] }): number {
-    return partner.projects.length;
-  }
+/** Count of total projects (lifetime programs) for a partner. */
+export function getLifetimePrograms(partner: { projects: unknown[] }): number {
+  return partner.projects.length;
 }
