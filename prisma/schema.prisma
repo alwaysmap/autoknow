@@ -8,6 +8,15 @@ datasource db {
   extensions = [vector]
 }
 
+// Semantic search (lib/search, lib/vector) scans the vector(768) columns exactly —
+// correct and fast at the current scale (hundreds of rows). Prisma can't express an
+// ANN index on an Unsupported() column; once ContextUrl passes ~10k rows, add one via
+// a raw statement (like ensureVectorExtension), e.g.:
+//   CREATE INDEX IF NOT EXISTS context_embedding_hnsw
+//     ON "ContextUrl" USING hnsw (embedding vector_cosine_ops);
+// Note the `embedding IS NOT NULL OR lex > 0` OR-filter in branchSql will defeat a
+// pure index scan — split the lexical and semantic branches if latency shows up.
+
 model Partner {
   id                 Int                 @id @default(autoincrement())
   name               String
