@@ -1,5 +1,6 @@
 'use client';
 
+import DateCell from '../../components/DateCell';
 import { useMemo } from 'react';
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
@@ -136,7 +137,7 @@ export default function MeClient({
       projectId: ai.phase.project.id,
       phaseName: ai.phase.name,
       partnerName: ai.phase.project.partner.name,
-      createdAt: new Date(ai.createdAt).toLocaleDateString(locale),
+      createdAt: new Date(ai.createdAt).toISOString(),
     }));
   }, [actionItems, locale]);
 
@@ -180,7 +181,7 @@ export default function MeClient({
                     </Link>{' '}
                     <span style={{ fontSize: '11px', color: 'var(--muted)' }}>({ai.partnerName})</span>
                   </td>
-                  <td>{ai.createdAt}</td>
+                  <td><DateCell value={ai.createdAt} /></td>
                 </tr>
               )}
               defaultSortKey="createdAt"

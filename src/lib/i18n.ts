@@ -531,7 +531,6 @@ const STRINGS = {
   qiSaved: { en: 'Saved — {t}', de: 'Gespeichert — {t}', ja: '保存済み — {t}', ko: '저장됨 — {t}' },
   qiAttached: { en: 'linked to {n}', de: 'verknüpft mit {n}', ja: '{n} に関連付け', ko: '{n}에 연결됨' },
   qiDuplicate: { en: 'Already tracked — this link is in the system.', de: 'Bereits erfasst — dieser Link ist im System.', ja: '追跡済み — このリンクは登録されています。', ko: '이미 추적 중 — 이 링크는 시스템에 있습니다.' },
-  checkedOn: { en: 'Checked {d}', de: 'Geprüft {d}', ja: '{d} に確認', ko: '{d} 확인' },
   frozenLabel: { en: 'frozen — {r}', de: 'eingefroren — {r}', ja: '凍結 — {r}', ko: '동결 — {r}' },
   frzResolved: { en: 'resolved', de: 'gelöst', ja: '解決済み', ko: '해결됨' },
   frzAccess: { en: 'access revoked', de: 'Zugriff entzogen', ja: 'アクセス取消', ko: '접근 취소됨' },

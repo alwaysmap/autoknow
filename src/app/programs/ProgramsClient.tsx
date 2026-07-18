@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import DateCell from '../../components/DateCell';
 import DataTable from '../../components/DataTable';
 import HillChartControl from '../../components/HillChartControl';
 import styles from '../ecosystem-summary/EcosystemSummaryClient.module.css';
@@ -435,7 +436,7 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
                     return p.ownerName;
                   })()}
                 </td>
-                <td>{p.sopDate ? new Date(p.sopDate).toLocaleDateString(locale) : t(locale, 'tbd')}</td>
+                <td><DateCell value={p.sopDate} fallback={t(locale, 'tbd')} /></td>
                 <td>
                   {(() => {
                     const label = formatNeedleValue(p.theNeedle);

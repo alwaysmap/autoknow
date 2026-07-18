@@ -1,5 +1,6 @@
 'use client';
 
+import DateCell from '../../components/DateCell';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
@@ -404,7 +405,7 @@ export default function EcosystemSummaryClient({
                     return p.ownerName;
                   })()}
                 </td>
-                <td>{p.sopDate ? new Date(p.sopDate).toLocaleDateString(locale) : t(locale, 'tbd')}</td>
+                <td><DateCell value={p.sopDate} fallback={t(locale, 'tbd')} /></td>
                 <td>{t(locale, 'unitsCount', { n: p.volumeFirstYear.toLocaleString(locale) })}</td>
                 <td>
                   {(() => {

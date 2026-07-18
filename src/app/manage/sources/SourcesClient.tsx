@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import DataTable from '../../../components/DataTable';
+import DateCell from '../../../components/DateCell';
 import { refreshSourceAction, toggleSourcePause, toggleSourceMode } from '../../actions/context';
 import { inferSource } from '../../../lib/sources';
 import { t, type StringKey } from '../../../lib/i18n';
@@ -111,9 +112,6 @@ export default function SourcesClient({ sources }: { sources: SourceRow[] }) {
       }));
   }, [sources, text, kind, state, person, locale]);
 
-  const fmt = (iso: string | null) =>
-    iso ? new Date(iso).toLocaleDateString(locale, { month: 'short', day: 'numeric' }) : t(locale, 'neverChecked');
-
   return (
     <>
       {/* filters: free text + the three facets that matter at scale */}
@@ -191,7 +189,9 @@ export default function SourcesClient({ sources }: { sources: SourceRow[] }) {
               {s.addedBy || '—'}
             </td>
             <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--muted, #666)' }}>
-              {!s.frozenReason && s.mode === 'watched' ? t(locale, 'checkedOn', { d: fmt(s.lastCheckedAt) }) : '—'}
+              {!s.frozenReason && s.mode === 'watched'
+                ? <DateCell value={s.lastCheckedAt} fallback={t(locale, 'neverChecked')} />
+                : '—'}
             </td>
             <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--muted, #666)', fontVariantNumeric: 'tabular-nums' }}>
               {s.revisions}
