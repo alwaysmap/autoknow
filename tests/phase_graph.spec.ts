@@ -44,8 +44,9 @@ test.describe('PhaseTrack rail', () => {
 
     // The first unfinished chain phase carries ONE compact evidence line (the amber
     // station ring + this line are the signal — the CONSTRAINT pill is gone);
-    // the off-chain phase carries none.
+    // the off-chain phase carries none. Rows default collapsed — expand first.
     const integration = row(page, 'Integration');
+    await integration.getByRole('button', { name: /Toggle detail/ }).click();
     await expect(integration).toContainText('gates ≈74 days of downstream chain work');
     await expect(integration.filter({ hasText: 'Constraint' })).toHaveCount(0);
     await expect(row(page, 'Audio')).not.toContainText('gates ≈');
@@ -57,9 +58,10 @@ test.describe('PhaseTrack rail', () => {
   test('cards are compact: typed pills without role labels, no status words', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
 
-    // Done phase starts collapsed: header line only, no Details affordance.
+    // Done phase starts collapsed: header line only. Details stays reachable even
+    // collapsed (rows default to hide-all).
     const bringUp = row(page, 'Bring-up');
-    await expect(bringUp.getByRole('button', { name: 'Details' })).toHaveCount(0);
+    await expect(bringUp.getByRole('button', { name: 'Details' })).toBeVisible();
 
     // Status is carried by glyphs, not words, on the card header.
     await expect(bringUp).not.toContainText('Done');
@@ -301,7 +303,9 @@ test.describe('Program phase editor', () => {
     await page.waitForURL(`**/programs/${seeded.projectId}`);
 
     // The chain extends through the new phase: 74 + 28 ≈ 102 days — visible on the
-    // constraint card's evidence line (Integration still heads the chain).
+    // constraint card's evidence line (Integration still heads the chain; rows
+    // default collapsed, so expand first).
+    await railRow(page, 'Integration').getByRole('button', { name: /Toggle detail/ }).click();
     await expect(railRow(page, 'Integration')).toContainText('gates ≈102 days of downstream chain work');
 
     // Remove it from its panel (no history yet → no confirm) and save.
@@ -311,6 +315,8 @@ test.describe('Program phase editor', () => {
     await expect(page.getByTestId('dag-errors')).toHaveCount(0);
     await saveBtn(page).click();
     await page.waitForURL(`**/programs/${seeded.projectId}`);
+    // rows default collapsed — expand the constraint card before reading evidence
+    await railRow(page, 'Integration').getByRole('button', { name: /Toggle detail/ }).click();
     await expect(railRow(page, 'Integration')).toContainText('gates ≈74 days of downstream chain work');
   });
 
@@ -341,6 +347,8 @@ test.describe('Program phase editor', () => {
     await panel(page).getByRole('button', { name: 'Remove phase' }).click();
     await saveBtn(page).click();
     await page.waitForURL(`**/programs/${seeded.projectId}`);
+    // rows default collapsed — expand the constraint card before reading evidence
+    await railRow(page, 'Integration').getByRole('button', { name: /Toggle detail/ }).click();
     await expect(railRow(page, 'Integration')).toContainText('gates ≈74 days of downstream chain work');
   });
 });

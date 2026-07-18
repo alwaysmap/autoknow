@@ -265,6 +265,9 @@ export default function CapacityChart({ programs, now }: { programs: CapacityCha
   const quarterRef = useRef<HTMLDialogElement>(null);
   const expandRef = useRef<HTMLDialogElement>(null);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
+  // The big chart mounts only while its dialog is open — a hidden duplicate would
+  // double every sop-dot/testid in the DOM.
+  const [expandOpen, setExpandOpen] = useState(false);
 
   const openQuarter = (i: number) => {
     setPickedIdx(i);
@@ -318,7 +321,8 @@ export default function CapacityChart({ programs, now }: { programs: CapacityCha
       <div className={styles.headRow}>
         <div className={styles.title}>{t(locale, 'capacityTitle')}</div>
         <button type="button" className={styles.expandBtn} title={t(locale, 'capacityExpand')}
-          aria-label={t(locale, 'capacityExpand')} onClick={() => expandRef.current?.showModal()}>
+          aria-label={t(locale, 'capacityExpand')}
+          onClick={() => { setExpandOpen(true); expandRef.current?.showModal(); }}>
           <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden>
             <path d="M 7 1 H 11 V 5 M 11 1 L 6.6 5.4 M 5 11 H 1 V 7 M 1 11 L 5.4 6.6"
               fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
@@ -332,18 +336,20 @@ export default function CapacityChart({ programs, now }: { programs: CapacityCha
       </div>
 
       {/* the same chart near-fullscreen */}
-      <dialog ref={expandRef} className={styles.expandDialog}
+      <dialog ref={expandRef} className={styles.expandDialog} onClose={() => setExpandOpen(false)}
         onClick={(e) => { if (e.target === expandRef.current) expandRef.current?.close(); }}>
-        <div className={styles.expandBody}>
-          <div className={styles.title}>{t(locale, 'capacityTitle')}</div>
-          <ProductAreaChart {...chartProps} w={1380} h={560} big />
-          <div className={styles.legend}>
-            <span className={styles.note}>{t(locale, 'capacityProductNote')}</span>
+        {expandOpen && (
+          <div className={styles.expandBody}>
+            <div className={styles.title}>{t(locale, 'capacityTitle')}</div>
+            <ProductAreaChart {...chartProps} w={1380} h={560} big />
+            <div className={styles.legend}>
+              <span className={styles.note}>{t(locale, 'capacityProductNote')}</span>
+            </div>
+            <button type="button" className={styles.dialogClose} onClick={() => expandRef.current?.close()}>
+              {t(locale, 'closeEdit')}
+            </button>
           </div>
-          <button type="button" className={styles.dialogClose} onClick={() => expandRef.current?.close()}>
-            {t(locale, 'closeEdit')}
-          </button>
-        </div>
+        )}
       </dialog>
 
       {/* the drill-down: which programs ship in the picked quarter */}

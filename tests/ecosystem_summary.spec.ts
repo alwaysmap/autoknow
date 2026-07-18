@@ -100,8 +100,8 @@ test.describe('Ecosystem Summary Page (Deterministic + AI)', () => {
     await expect(page.locator('body')).toContainText('Compliance Testing (Phase 3.1)');
     await expect(page.locator('body')).toContainText('54 days');
 
-    // 7. Check AI-synthesized context
+    // 7. The program table names the program; the ingested digest itself lives in
+    // the feeds now (the pseudo-synthesis block is retired).
     await expect(page.locator('body')).toContainText('Waymo Generation 6 AAOS');
-    await expect(page.locator('body')).toContainText('Audio HAL integration is blocked');
   });
 });
