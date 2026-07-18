@@ -22,7 +22,10 @@ export default async function globalSetup() {
   await client.end();
 
   // Sync the schema (also creates the pgvector extension declared in schema.prisma).
-  execSync('npx prisma db push', {
+  // --accept-data-loss: the *_test database is disposable (fixtures wipe it), and a
+  // schema change that needs confirmation (e.g. a new unique constraint) must never
+  // wedge the suite behind an interactive prompt.
+  execSync('npx prisma db push --accept-data-loss', {
     env: { ...process.env, DATABASE_URL: url.toString() },
     stdio: 'pipe',
   });

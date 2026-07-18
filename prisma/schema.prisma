@@ -128,6 +128,8 @@ model Phase {
   leadPartnerId      Int?    // concrete partner mapped from the template's leadRole
   leadPartner        Partner? @relation("PhaseLeadPartner", fields: [leadPartnerId], references: [id])
   isEndPhase         Boolean @default(false) // the program's single convergence point
+
+  @@index([projectId])
 }
 
 // Real per-phase partner attribution: which partners are involved in a phase's work.
@@ -141,6 +143,9 @@ model PhasePartner {
   role      String? // e.g. "Supplier", "Silicon", "Integrator"
 
   @@unique([phaseId, partnerId])
+  // Partner pages ask "which phases involve this partner" — the unique above only
+  // serves phaseId-leading lookups.
+  @@index([partnerId])
 }
 
 // Real per-phase people attribution: which individuals are involved in a phase's
@@ -154,6 +159,7 @@ model PhasePerson {
   role     String? // e.g. "FAE", "TPM", "Audio lead"
 
   @@unique([phaseId, personId])
+  @@index([personId])
 }
 
 model PhaseDependency {
@@ -162,6 +168,11 @@ model PhaseDependency {
   phase            Phase @relation("PhaseDependencies", fields: [phaseId], references: [id])
   dependsOnPhaseId Int
   dependsOnPhase   Phase @relation("PhaseDependents", fields: [dependsOnPhaseId], references: [id])
+
+  // One edge per pair — the DB backstop for the check-then-create race in
+  // actions/dependencies (its template twin PhaseTemplateDep always had this).
+  @@unique([phaseId, dependsOnPhaseId])
+  @@index([dependsOnPhaseId])
 }
 
 model PhaseState {
@@ -179,6 +190,10 @@ model PhaseState {
   notes             String?
   source            String?
   sourceUrl         String?
+
+  // The dominant read is "latest state for this phase" (orderBy timestamp desc,
+  // take 1) — Postgres does not auto-index FK columns.
+  @@index([phaseId, timestamp])
 }
 
 model ActionItem {
@@ -195,6 +210,9 @@ model ActionItem {
   source             String?
   sourceUrl          String?
   createdAt          DateTime @default(now())
+
+  @@index([phaseId])
+  @@index([assignedToPersonId])
 }
 
 model ContextUrl {
@@ -232,6 +250,10 @@ model ContextUrl {
   revisions     ContextRevision[]
 
   @@index([mode, frozenAt])
+  @@index([projectId])
+  @@index([partnerId])
+  @@index([phaseId])
+  @@index([createdAt])
 }
 
 // One row per re-distillation of a watched source — append-only history matching the
@@ -280,6 +302,10 @@ model ProgramTemplate {
   createdBy   String?
   createdAt   DateTime        @default(now())
   phases      PhaseTemplate[]
+
+  // Backstop for the concurrent built-in seeding race in lib/programTemplates —
+  // and duplicate template names within a tier are a data bug anyway.
+  @@unique([name, isBuiltIn])
 }
 
 model PhaseTemplate {
@@ -317,6 +343,9 @@ model PersonAffiliation {
   role      String
   startDate DateTime
   endDate   DateTime? // null means current
+
+  @@index([personId])
+  @@index([partnerId])
 }
 
 model ProjectState {
@@ -329,6 +358,8 @@ model ProjectState {
   notes             String?
   source            String?
   sourceUrl         String?
+
+  @@index([projectId, timestamp])
 }
 
 model PartnerState {
@@ -338,14 +369,17 @@ model PartnerState {
   timestamp         DateTime @default(now())
   theNeedle         String   @default("Low") // "Low", "Medium", "High", "Critical"
   hillChartProgress Int      @default(0)     // 0-100
-  // Relationship health on a discrete 1 (critical) .. 7 (exemplary) scale — partner
-  // health is NOT a needle/progress metric. theNeedle stays derived-in-sync so the
-  // activity feed and legacy filters keep working; null on pre-scale rows.
+  // Relationship health on a discrete 1 (critical) .. 5 (exemplary) scale (see
+  // lib/relationship.ts, the authority) — partner health is NOT a needle/progress
+  // metric. theNeedle stays derived-in-sync so the activity feed and legacy filters
+  // keep working; null on pre-scale rows.
   relationshipScore Int?
   // Every relationship update carries its written note (the dialog requires one;
   // the schema agrees).
   notes             String
   source            String?
   sourceUrl         String?
+
+  @@index([partnerId, timestamp])
 }
 
