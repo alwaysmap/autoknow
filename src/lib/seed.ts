@@ -3,6 +3,7 @@ import { TEMPLATES } from './templates';
 import { ingestRecord } from './vector';
 import { reindexAll } from './search';
 import { hillStatus } from './phase';
+import { assertDestructiveDbAllowed } from './dbSafety';
 
 // Per-program phase progress (0..100), spread across the hill so each program's summary
 // chart shows a distinguishable dot per phase. Status is derived from progress.
@@ -34,6 +35,10 @@ const QUALCOMM_PROGRESS: Record<string, number> = {
 };
 
 export async function wipeAllData() {
+  // Fail closed: refuse unless the target DB is a disposable *_test database or the
+  // operator has explicitly named THIS database in DESTRUCTIVE_DB_ALLOWED. seedCore/
+  // seedMock both funnel through here, so this one guard covers every wipe path.
+  assertDestructiveDbAllowed('wipe all data');
   console.log('Wiping all database records...');
   await prisma.actionItem.deleteMany();
   await prisma.contextRevision.deleteMany();

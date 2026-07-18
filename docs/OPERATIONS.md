@@ -40,6 +40,13 @@ API (`/api/admin/seed`) requires the `x-admin-token` header matching `ADMIN_TOKE
 in `.env`; without `ADMIN_TOKEN` set, destructive admin ops are allowed only in
 non-production.
 
+**Wipe/re-seed is fail-closed against the wrong database.** Independent of the
+auth above, `wipeAllData` (which seeding also runs first) refuses unless the
+resolved `DATABASE_URL` names a `*_test` database OR `DESTRUCTIVE_DB_ALLOWED`
+equals the exact database name. So a fat-fingered `DATABASE_URL` can never be
+wiped by a confirmation meant for a different database — to wipe/seed the demo DB
+you must set `DESTRUCTIVE_DB_ALLOWED="<its exact name>"` in that environment.
+
 ---
 
 ## 2. Gemini API key (active)
