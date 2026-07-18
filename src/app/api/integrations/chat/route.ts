@@ -1,18 +1,38 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '../../../../lib/db';
+import { jsonError, serverError } from '../../../../lib/api';
+import { requireRouteAuth } from '../../../../lib/routeAuth';
+import { ingestContent, hashContent } from '../../../../lib/ingest';
+
+// Plain-webhook chat ingestion (see README / admin page): accepts pasted chat text,
+// independent of the JWT-verified Chat app at /api/chat/events. Because the text is
+// attacker-controllable prose that ends up in Gemini prompts and the UI, this route
+// carries its own auth (session or admin token — never proxy-only), validates its
+// body, and stores briefings through the real ingest pipeline (digest, embedding,
+// revision history, sourceRef dedupe) instead of writing bare ContextUrl rows.
 
 const GENERIC_STOP_WORDS = new Set([
   'integration', 'project', 'platform', 'testing', 'core', 'system',
   'bring-up', 'configuration', 'bringup', 'power-on', 'poweron', 'compliance'
 ]);
 
+const zBody = z.object({
+  message: z.string().trim().min(1).max(20_000),
+  sender: z.string().trim().max(200).optional(),
+});
+
 export async function POST(request: Request) {
   try {
-    const { message } = await request.json();
-
-    if (!message || typeof message !== 'string') {
-      return NextResponse.json({ error: 'Invalid message' }, { status: 400 });
+    if (!(await requireRouteAuth(request))) {
+      return jsonError('Unauthorized', 401);
     }
+
+    const parsed = zBody.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) {
+      return jsonError('Invalid message', 400);
+    }
+    const { message, sender } = parsed.data;
 
     // 1. Detect if it is a Status Briefing/Update share command
     const isShareUpdate = /share\s+update|status\s+update/i.test(message);
@@ -41,13 +61,13 @@ export async function POST(request: Request) {
 
         const projectKeywords = cleanProjectName.split(/\s+/).filter(w => w.length > 2);
         const partnerKeywords = cleanPartnerName.split(/\s+/).filter(w => w.length > 2);
-        
+
         // Unique set of keywords
         const rawKeywords = Array.from(new Set([...projectKeywords, ...partnerKeywords]));
-        
+
         // Filter out generic domain stop words
         const keywords = rawKeywords.filter(kw => !GENERIC_STOP_WORDS.has(kw));
-        
+
         // Count how many unique project keywords appear in the inbound message
         let matchCount = 0;
         for (const kw of keywords) {
@@ -82,30 +102,39 @@ export async function POST(request: Request) {
       // High-confidence matching project
       const matchedProject = matchingProjects[0].project;
 
-      // Ingest status update under contextUrl
-      await prisma.contextUrl.create({
-        data: {
-          projectId: matchedProject.id,
-          url: `google-chat://status-update/${Date.now()}`,
-          type: 'Chat',
-          title: `Chat Status Update by @user`,
-          ingestedText: briefingText
-        }
+      // Store through the real pipeline: digest + embedding + initial revision +
+      // sourceRef dedupe (a re-posted briefing points at the existing row instead
+      // of accumulating invisible-to-search duplicates).
+      const briefingHash = hashContent(`${sender ?? ''}:${briefingText}`).slice(0, 16);
+      const result = await ingestContent({
+        url: `google-chat://status-update/${briefingHash}`,
+        title: `Chat status update by ${sender ?? '@user'}`,
+        text: briefingText,
+        source: { kind: 'chat', mode: 'snapshot', sourceRef: `chat:status-update:${briefingHash}` },
+        mode: 'snapshot',
+        modeSource: 'inferred',
+        anchor: { projectId: matchedProject.id },
+        addedBy: sender ?? null,
       });
+
+      if (!result.ok) {
+        return jsonError(result.error ?? 'Ingest failed', 422);
+      }
 
       return NextResponse.json({
         ingested: true,
-        projectName: matchedProject.name
+        projectName: matchedProject.name,
+        duplicate: !!result.duplicateOf,
       });
     }
 
     // 2. Fallback to extracting individual action items if mentioned
     const isMentioned = message.includes('@autoknow');
-    
+
     // Look for assignees like @jdoe or @dylan
     const assigneeMatch = message.match(/@(\w+)\b/g);
-    const assignedTo = assigneeMatch 
-      ? assigneeMatch.find(name => name !== '@autoknow') || null 
+    const assignedTo = assigneeMatch
+      ? assigneeMatch.find(name => name !== '@autoknow') || null
       : null;
 
     const actionKeywords = ['need', 'needs', 'should', 'must', 'block', 'action'];
@@ -136,7 +165,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       actionItem: null
     });
-  } catch {
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  } catch (error) {
+    return serverError(error, 'POST /api/integrations/chat');
   }
 }

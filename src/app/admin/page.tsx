@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 
 const CURL_COMMAND_1 = `curl -X POST http://localhost:3000/api/integrations/chat \\
   -H "Content-Type: application/json" \\
+  -H "x-admin-token: $ADMIN_TOKEN" \\
   -d '{
     "sender": "@dylan",
     "message": "@autoknow status update for \\"Ford Evos AAOS Bring-up\\": BSP & power-on is green. Audio HAL integration is blocked due to delayed codec samples from supplier."
@@ -17,6 +18,7 @@ const CURL_COMMAND_1 = `curl -X POST http://localhost:3000/api/integrations/chat
 
 const CURL_COMMAND_2 = `curl -X POST http://localhost:3000/api/integrations/chat \\
   -H "Content-Type: application/json" \\
+  -H "x-admin-token: $ADMIN_TOKEN" \\
   -d '{
     "sender": "@dylan",
     "message": "@autoknow assign @unassigned to check cause for VHAL wait time on Ford Evos AAOS Bring-up"
