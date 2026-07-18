@@ -1,0 +1,20 @@
+# Copy to terraform.tfvars and fill in. No secrets here — secret *values* are loaded
+# into Secret Manager out-of-band from the local .env (see deploy notes below).
+#
+# project_id must be globally unique.
+project_id      = "autoknow-prod-XXXX"
+billing_account = "XXXXXX-XXXXXX-XXXXXX" # gcloud billing accounts list
+org_id          = "1043306095275"        # AlwaysMap
+region          = "us-central1"
+allowed_domain  = "alwaysmap.com"
+# image is set by the deploy step once the first image is pushed:
+# image = "us-central1-docker.pkg.dev/<project>/autoknow/autoknow:<sha>"
+
+# --- Populating the external secrets after `terraform apply` (from local .env) ---
+#   for k in gemini-api-key:GEMINI_API_KEY auth-google-id:AUTH_GOOGLE_ID \
+#            auth-google-secret:AUTH_GOOGLE_SECRET google-project-number:GOOGLE_PROJECT_NUMBER; do
+#     s=${k%%:*}; e=${k##*:}; v=$(grep -E "^$e=" .env | cut -d= -f2- | tr -d '"');
+#     printf '%s' "$v" | gcloud secrets versions add "$s" --data-file=- --project <project>
+#   done
+#   # service-account JSON from the key file that GOOGLE_APPLICATION_CREDENTIALS points at:
+#   gcloud secrets versions add google-service-account-json --data-file="$KEY_PATH" --project <project>
