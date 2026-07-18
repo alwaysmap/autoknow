@@ -16,6 +16,10 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await wipeAll();
+  // wipeAll intentionally leaves the lookup tables (partner types, regions); this
+  // test asserts exact counts, so clear them for a deterministic starting point.
+  await prisma.partnerType.deleteMany();
+  await prisma.region.deleteMany();
 });
 
 afterAll(async () => {

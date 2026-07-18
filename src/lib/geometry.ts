@@ -2,8 +2,6 @@
 // bell-shaped hill (uphill "figuring it out" -> peak -> downhill "making it happen"),
 // in a 200 x 100 SVG viewBox. Used by the Needle flag and the per-phase dots.
 
-export const HILL_VIEWBOX = { w: 200, h: 100 };
-
 // The base curve path for the hill (matches the coordinate math below).
 export const HILL_PATH = 'M 10 80 C 50 80, 70 10, 100 10 C 130 10, 150 80, 190 80';
 

@@ -87,64 +87,6 @@ export async function updateTemplateMeta(formData: FormData) {
   revalidatePath(`/templates/${id}/edit`);
 }
 
-function phaseFields(formData: FormData) {
-  const name = ((formData.get('name') as string) || '').trim();
-  if (!name) throw new Error('Phase name is required');
-  const durationWeeks = Math.max(1, parseInt((formData.get('durationWeeks') as string) || '4', 10) || 4);
-  return {
-    name,
-    description: ((formData.get('description') as string) || '').trim() || null,
-    googleFocus: ((formData.get('googleFocus') as string) || '').trim() || null,
-    leadRole: ((formData.get('leadRole') as string) || '').trim() || null,
-    durationWeeks,
-    isEndPhase: formData.get('isEndPhase') === 'on',
-  };
-}
-
-const depIds = (formData: FormData) =>
-  formData.getAll('dependsOn').map((v) => parseInt(v as string, 10)).filter((n) => !isNaN(n));
-
-export async function addPhaseTemplate(formData: FormData) {
-  const templateId = parseInt(formData.get('templateId') as string, 10);
-  await requireEditable(templateId);
-  const fields = phaseFields(formData);
-  const max = await prisma.phaseTemplate.aggregate({ where: { templateId }, _max: { sortOrder: true } });
-  await prisma.$transaction(async (tx) => {
-    const row = await tx.phaseTemplate.create({
-      data: { templateId, ...fields, sortOrder: (max._max.sortOrder ?? -1) + 1 },
-    });
-    for (const dep of depIds(formData)) {
-      await tx.phaseTemplateDep.create({ data: { phaseTemplateId: row.id, dependsOnId: dep } });
-    }
-  });
-  revalidatePath(`/templates/${templateId}/edit`);
-}
-
-export async function updatePhaseTemplate(formData: FormData) {
-  const id = parseInt(formData.get('id') as string, 10);
-  const existing = await prisma.phaseTemplate.findUnique({ where: { id } });
-  if (!existing) throw new Error('Unknown phase');
-  await requireEditable(existing.templateId);
-  const fields = phaseFields(formData);
-  await prisma.$transaction(async (tx) => {
-    await tx.phaseTemplate.update({ where: { id }, data: fields });
-    await tx.phaseTemplateDep.deleteMany({ where: { phaseTemplateId: id } });
-    for (const dep of depIds(formData)) {
-      if (dep !== id) await tx.phaseTemplateDep.create({ data: { phaseTemplateId: id, dependsOnId: dep } });
-    }
-  });
-  revalidatePath(`/templates/${existing.templateId}/edit`);
-}
-
-export async function deletePhaseTemplate(formData: FormData) {
-  const id = parseInt(formData.get('id') as string, 10);
-  const existing = await prisma.phaseTemplate.findUnique({ where: { id } });
-  if (!existing) return;
-  await requireEditable(existing.templateId);
-  await prisma.phaseTemplate.delete({ where: { id } }); // deps cascade both directions
-  revalidatePath(`/templates/${existing.templateId}/edit`);
-}
-
 // ---- Whole-graph save (the shared PhaseDagEditor surface) ----
 // The card-DAG editor edits the template's complete phase layout and submits it in
 // one shot, exactly like a program's layout: validated as a whole (acyclic + single

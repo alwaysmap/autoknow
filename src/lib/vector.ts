@@ -1,10 +1,6 @@
 import { prisma } from './db';
 import { embedText } from './gemini';
 
-// Re-exported for callers that still want the raw fallback; real ingest/search go
-// through gemini.embedText (Gemini when configured, deterministic otherwise).
-export { generateDeterministicEmbedding } from './embedding-fallback';
-
 function toVectorLiteral(embedding: number[]): string {
   return `[${embedding.join(',')}]`;
 }

@@ -8,28 +8,6 @@ import { parseHealth } from '../../../lib/health';
 import { parseSopInput } from '../../../lib/sop';
 import { getCurrentUser } from '../../../lib/session';
 
-export async function updateActionItem(formData: FormData) {
-  const actionItemIdStr = formData.get('actionItemId') as string;
-  const status = formData.get('status') as string;
-  const nextStep = formData.get('nextStep') as string;
-  const linkUrl = formData.get('linkUrl') as string;
-  const projectIdStr = formData.get('projectId') as string;
-
-  const actionItemId = parseInt(actionItemIdStr);
-  if (!isNaN(actionItemId)) {
-    await prisma.actionItem.update({
-      where: { id: actionItemId },
-      data: {
-        status,
-        nextStep,
-        linkUrl: linkUrl ? linkUrl.trim() : null
-      }
-    });
-  }
-
-  revalidatePath(`/programs/${projectIdStr}`);
-}
-
 export async function updateProjectMetrics(formData: FormData) {
   const projectIdStr = formData.get('projectId') as string;
   const theNeedleVal = formData.get('theNeedle') as string;
@@ -178,28 +156,6 @@ export async function addPhase(formData: FormData) {
         if (parent?.projectId === projectId) {
           await tx.phaseDependency.create({ data: { phaseId: phase.id, dependsOnPhaseId } });
         }
-      }
-    });
-  }
-
-  revalidatePath(`/programs/${projectIdStr}`);
-}
-
-export async function editPhase(formData: FormData) {
-  const projectIdStr = formData.get('projectId') as string;
-  const phaseIdStr = formData.get('phaseId') as string;
-  const name = formData.get('name') as string;
-  const durationStr = formData.get('forecastedDuration') as string;
-
-  const phaseId = parseInt(phaseIdStr, 10);
-  const forecastedDuration = parseInt(durationStr, 10) || 30;
-
-  if (!isNaN(phaseId) && name) {
-    await prisma.phase.update({
-      where: { id: phaseId },
-      data: {
-        name: name.trim(),
-        forecastedDuration
       }
     });
   }

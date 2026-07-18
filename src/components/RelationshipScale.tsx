@@ -15,44 +15,6 @@ import { localDate } from '../lib/dates';
 // partner renders the same fixed axis, stacking these tracks (the /partners list)
 // makes relative health across all relationships legible at a glance.
 
-export function RelationshipScaleTrack({
-  score,
-  previousScore,
-  compact = false,
-}: {
-  score: RelScore | null;
-  previousScore?: RelScore | null;
-  compact?: boolean;
-}) {
-  const locale = useLocale();
-  // Fixed geometry so tracks align row-to-row regardless of container width.
-  const W = 132, H = compact ? 14 : 18, PAD = 9;
-  const x = (s: number) => PAD + ((s - 1) / (REL_SCORES.length - 1)) * (W - 2 * PAD);
-  const cy = H / 2;
-
-  return (
-    <svg
-      width={W}
-      height={H}
-      viewBox={`0 0 ${W} ${H}`}
-      role="img"
-      aria-label={score === null ? t(locale, 'relNotRated') : `${score}/5 — ${t(locale, REL_KEY[score])}`}
-      className={styles.track}
-    >
-      <line x1={x(1)} y1={cy} x2={x(REL_SCORES.length)} y2={cy} stroke="var(--border, #d6d6d6)" strokeWidth={1.2} />
-      {REL_SCORES.map((s) => (
-        <circle key={s} cx={x(s)} cy={cy} r={1.7} fill="var(--muted, #9a948a)" opacity={0.55} />
-      ))}
-      {/* previous score: an open ring — where the relationship was last time */}
-      {previousScore != null && previousScore !== score && (
-        <circle cx={x(previousScore)} cy={cy} r={4.2} fill="none" stroke="var(--muted, #9a948a)" strokeWidth={1.4} />
-      )}
-      {/* current score: one solid ink dot */}
-      {score !== null && <circle cx={x(score)} cy={cy} r={compact ? 4.4 : 5.2} fill="var(--fg, #1f1c17)" />}
-    </svg>
-  );
-}
-
 // ---- Face + sparkline (the legible form of the scale) --------------------------
 // A pain-scale/"airport bathroom" face carries the VALENCE the dot-axis couldn't:
 // nobody has to ask whether 7 is good when 7 is beaming. Ink-only (the scale stays
@@ -89,24 +51,6 @@ export function RelationshipFace({ score, size = 22, decorative = false }: {
       {!decorative && (
         <title>{`${score}/5 — ${t(locale, REL_KEY[score])} (1 = ${t(locale, REL_KEY[1])}, 5 = ${t(locale, REL_KEY[5])})`}</title>
       )}
-    </svg>
-  );
-}
-
-/** Tiny 1..7 history line, oldest → newest, latest point emphasized. */
-export function RelationshipSparkline({ history, width = 64, height = 18 }: {
-  history: number[]; width?: number; height?: number;
-}) {
-  if (history.length < 2) return null;
-  const pad = 3;
-  const x = (i: number) => pad + (i / (history.length - 1)) * (width - 2 * pad);
-  const y = (v: number) => height - pad - ((clampScore(v) - 1) / (REL_SCORES.length - 1)) * (height - 2 * pad);
-  const points = history.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  const last = history[history.length - 1];
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} aria-hidden style={{ display: 'block' }}>
-      <polyline points={points} fill="none" stroke="var(--muted, #9a948a)" strokeWidth={1.3} strokeLinejoin="round" />
-      <circle cx={x(history.length - 1)} cy={y(last)} r={2.2} fill="var(--fg, #333)" />
     </svg>
   );
 }
