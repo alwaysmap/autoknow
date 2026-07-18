@@ -68,3 +68,14 @@
   color: var(--fg);
   border: none;
 }
+
+/* Nested wrappers (e.g. admin-control groups) must stack as full-width rows. */
+.menu > * {
+  width: 100%;
+}
+.menu div {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
