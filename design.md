@@ -87,8 +87,19 @@ stopping on empty space? Rules:
   action button form one row (e.g. face · "Updated Jun 30" · Update), never a
   three-line stack.
 * **Vertical rhythm scale**: ~14px between sibling blocks, ~7px between rows
-  inside a block, one thin rule (no double borders, no rule + heading + rule
-  sandwiches). Page headers are one line of title + one hairline, ≤ ~26px tall.
+  inside a block. Page headers are one line of title + one hairline, ≤ ~26px tall.
+* **Separation hierarchy — one mechanism per boundary, never stacked**:
+  1. *Rows within a block*: whitespace only (~7px). No rules.
+  2. *Sibling blocks in a column*: ONE hairline **between** them
+     (`.block + .block { border-top }`), never above the first — the page
+     header's rule already bounds the column.
+  3. *A block that needs naming*: the heading **is** the separator. A headed
+     block gets no border-top of its own and the heading gets no underline —
+     heading + spacing does all the work. Either a rule or a heading, never
+     both.
+  4. *Page level*: the title hairline is the only full-width rule.
+  If two horizontal lines are ever visible with nothing between them, one of
+  these levels is being double-applied.
 * **Few titles**: a sidebar gets at most one heading; groups of facts flow in one
   list rather than one titled section each. If a heading merely restates what the
   content obviously is, delete it.

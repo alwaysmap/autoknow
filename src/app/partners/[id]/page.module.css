@@ -60,6 +60,13 @@
   .main {
     grid-template-columns: 1fr;
   }
+  /* Single-column: identity/metadata reads FIRST, then the program content —
+     otherwise the relationship block lands below the whole activity feed. */
+  .sidebar {
+    order: -1;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 14px;
+  }
 }
 
 .projectsSection h2 {
@@ -195,10 +202,16 @@
   min-width: 0;
 }
 
-/* Flat per design.md — a thin rule instead of a shaded box. */
+/* Separation hierarchy (design.md §7): ONE mechanism per boundary. Sibling blocks
+   get a single hairline BETWEEN them (never above the first — the page header's
+   rule already bounds the column). A heading IS a separator, so headed blocks get
+   heading-only, no extra rules attached to it. */
 .sidebarCard {
+  padding: 0 0 4px;
+}
+.sidebarCard + .sidebarCard {
   border-top: 1px solid var(--border);
-  padding: 14px 0 4px;
+  padding-top: 14px;
 }
 
 .sidebarCard h3 {
@@ -208,9 +221,7 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--p-600);
-  margin: 0 0 16px 0;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 8px;
+  margin: 0 0 10px 0;
 }
 
 .summaryText {
