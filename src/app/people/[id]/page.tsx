@@ -71,6 +71,13 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
     select: { id: true, name: true },
   });
 
+  // For the Add-to-program dialog (lists hide archived — lib/lifecycle).
+  const assignablePrograms = await prisma.project.findMany({
+    where: { isArchived: false },
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true, phases: { orderBy: { id: 'asc' }, select: { id: true, name: true } } },
+  });
+
   // Programs worked on: TEL ownership + phase-level involvement; phases reached via
   // assigned action items fill in history the involvement table doesn't cover.
   interface ProgramRow {
@@ -108,12 +115,22 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
         <div className={styles.profileInfo}>
           <div className={styles.titleRow}>
             <h1>{person.name}</h1>
-            <PersonAdminControls personId={person.id} personName={person.name} partners={partners} />
+            <PersonAdminControls personId={person.id} personName={person.name} partners={partners} programs={assignablePrograms} />
           </div>
           <div className={styles.identLine}>
             <Link href={`/partners/${person.currentPartnerId}`} className={styles.identCompany}>
               {person.currentPartner.name}
             </Link>
+            {(() => {
+              // current role rides the identity line — History below is PRIOR companies
+              const active = person.affiliations.find((a) => !a.endDate && a.partnerId === person.currentPartnerId);
+              return active?.role ? (
+                <>
+                  <span className={styles.identSep}>·</span>
+                  <span className={styles.identRole}>{active.role}</span>
+                </>
+              ) : null;
+            })()}
             <span className={styles.identSep}>·</span>
             <a href={`mailto:${person.email}`} className={styles.identEmail}>{person.email}</a>
           </div>
@@ -151,12 +168,18 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
           </section>
 
           <section className={styles.section}>
-            <h2>{t(locale, 'companiesLabel')}</h2>
-            {person.affiliations.length === 0 ? (
-              <p className={styles.empty}>{t(locale, 'noCareerHistory')}</p>
-            ) : (
+            <h2>{t(locale, 'historyLabel')}</h2>
+            {(() => {
+              // prior companies only — the current post lives in the identity line
+              const prior = person.affiliations.filter(
+                (a) => a.endDate != null || a.partnerId !== person.currentPartnerId,
+              );
+              if (prior.length === 0) {
+                return <p className={styles.empty}>{t(locale, 'noPriorCompanies', { c: person.currentPartner.name })}</p>;
+              }
+              return (
               <div className={styles.rows}>
-                {person.affiliations.map((aff) => {
+                {prior.map((aff) => {
                   const startStr = new Date(aff.startDate).toLocaleDateString(locale, { year: 'numeric', month: 'short' });
                   const endStr = aff.endDate
                     ? new Date(aff.endDate).toLocaleDateString(locale, { year: 'numeric', month: 'short' })
@@ -170,7 +193,8 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
                   );
                 })}
               </div>
-            )}
+              );
+            })()}
           </section>
         </div>
       </main>

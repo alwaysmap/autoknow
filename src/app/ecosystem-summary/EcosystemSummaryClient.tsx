@@ -4,7 +4,6 @@ import DateCell from '../../components/DateCell';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
-import EcosystemSopChart from '../../components/EcosystemSopChart';
 import styles from './EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../../lib/needle';
 import { HEALTHS, HEALTH_KEY, healthKey, healthColor, healthOrder } from '../../lib/health';
@@ -52,21 +51,11 @@ interface Person {
 
 interface EcosystemSummaryClientProps {
   initialProjects: Project[];
-  briefings: {
-    projectId: number;
-    projectName: string;
-    partnerName: string;
-    briefingText: string;
-    timestamp: string;
-  }[];
-  p85LeadTime: number;
   people: Person[];
 }
 
 export default function EcosystemSummaryClient({
   initialProjects,
-  briefings,
-  p85LeadTime,
   people
 }: EcosystemSummaryClientProps) {
   const locale = useLocale();
@@ -137,8 +126,6 @@ export default function EcosystemSummaryClient({
   });
 
   // Calculate high level dashboard aggregations
-  const totalVolume = filteredProjects.reduce((sum, p) => sum + p.volumeFirstYear, 0);
-  const inRangeCount = initialProjects.filter(matchesProgressRange).length;
   const criticalCount = filteredProjects.filter(p => healthOrder(p.theNeedle) >= 1).length;
 
   // Build highlighted segment path for the mini Hill Chart preview
@@ -284,37 +271,6 @@ export default function EcosystemSummaryClient({
         </div>
       </section>
 
-      {/* Leadership Scorecards */}
-      <section className={styles.scorecards}>
-        <div className={styles.card}>
-          <h3>{t(locale, 'programsInFlight')}</h3>
-          <div className={styles.metric}>{filteredProjects.length}</div>
-          <div className={styles.subtext}>{t(locale, 'activeImplementations')}</div>
-        </div>
-
-        <div className={styles.card}>
-          <h3>{t(locale, 'total12mVolume')}</h3>
-          <div className={styles.metric}>
-            {totalVolume.toLocaleString(locale)}
-          </div>
-          <div className={styles.subtext}>{t(locale, 'shippingUnitsFirstYear')}</div>
-        </div>
-
-        <div className={styles.card}>
-          <h3>{t(locale, 'programsInRange')}</h3>
-          <div className={styles.metric}>
-            {inRangeCount}
-          </div>
-          <div className={styles.subtext}>{t(locale, 'withinSelectedRange')}</div>
-        </div>
-
-        <div className={styles.card}>
-          <h3>{t(locale, 'leadTimeP85')}</h3>
-          <div className={styles.metric}>{t(locale, 'daysShort', { n: p85LeadTime })}</div>
-          <div className={styles.subtext}>{t(locale, 'averagePhaseDuration')}</div>
-        </div>
-      </section>
-
       {/* Visual Stuck / Critical Blockers Alerts */}
       {criticalCount > 0 && (
         <div className={styles.blockerAlert}>
@@ -355,9 +311,6 @@ export default function EcosystemSummaryClient({
           </div>
         </div>
       </section>
-
-      {/* Industry SOP Target and Shipping Volume Curve */}
-      <EcosystemSopChart projects={filteredProjects} />
 
       {/* Active Implementation Pipelines */}
       <section className={styles.tableSection}>
@@ -452,31 +405,6 @@ export default function EcosystemSummaryClient({
         />
       </section>
 
-      {/* AI Synthesis Briefings Row */}
-      <section className={styles.synthesisSection}>
-        <h2>{t(locale, 'aiStatusSynthesis')}</h2>
-        <div className={styles.briefingBlock}>
-          <div className={styles.briefingHeader}>
-            <span className={styles.aiBadge}>{t(locale, 'geminiSynthesisReport')}</span>
-            <span className={styles.briefingDate}>{t(locale, 'liveFeedsCompiled')}</span>
-          </div>
-          {briefings.length === 0 ? (
-            <p className={styles.emptyBriefing}>{t(locale, 'noWebhookUpdates')}</p>
-          ) : (
-            <div className={styles.synthesisContent}>
-              <div className={styles.aiExecutiveSummary}>
-                <strong>{t(locale, 'executiveBlockerSummary')}</strong>
-                {briefings.map((b, idx) => (
-                  <span key={idx}>
-                    {' '}
-                    <strong>{b.partnerName} (<Link href={`/programs/${b.projectId}`} className={styles.briefingLink}>{b.projectName}</Link>)</strong>: &quot;{b.briefingText}&quot;
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
     </div>
   );
 }

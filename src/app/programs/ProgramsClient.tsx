@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useTableUrlSync } from '../../lib/useTableUrlSync';
+import type { TableSort } from '../../lib/tableUrlState';
 import Link from 'next/link';
 import DateCell from '../../components/DateCell';
 import DataTable from '../../components/DataTable';
@@ -10,6 +12,7 @@ import local from './page.module.css';
 import { formatNeedleValue } from '../../lib/needle';
 import { HEALTHS, HEALTH_KEY, healthKey, healthColor, healthOrder } from '../../lib/health';
 import { resolvePerson } from '../../lib/people';
+import { deriveProgramStatus, visibleInLists } from '../../lib/lifecycle';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 
@@ -17,6 +20,7 @@ interface Project {
   id: number;
   name: string;
   isArchived: boolean;
+  lifecycle: string;
   theNeedle: string;
   hillChartProgress: number;
   sopDate: string | null;
@@ -58,15 +62,19 @@ interface ProgramsClientProps {
   people: Person[];
   regions?: string[];
   partnerTypes?: string[];
-  /** Deep-link support (e.g. the ecosystem High-risk list's "More →"). */
+  /** Deep-link support (legacy ?minRisk / ?filter=active). */
   initialMinRisk?: number;
   initialSort?: 'risk' | null;
   initialActiveOnly?: boolean;
+  /** Canonical shareable state (per-column params + sort/dir + q). */
+  initialFilters?: Record<string, string[]>;
+  initialTableSort?: TableSort | null;
+  initialQ?: string;
 }
 
 const SHOW_SCORECARDS = false;
 
-export default function ProgramsClient({ initialProjects, people, regions = [], partnerTypes = [], initialMinRisk = 0, initialSort = null, initialActiveOnly = false }: ProgramsClientProps) {
+export default function ProgramsClient({ initialProjects, people, regions = [], partnerTypes = [], initialMinRisk = 0, initialSort = null, initialActiveOnly = false, initialFilters, initialTableSort = null, initialQ = '' }: ProgramsClientProps) {
   const locale = useLocale();
   // Column filters live in the table headers (design.md: table filtering pattern).
   // The ?minRisk deep-link becomes a Health-column preselection.
@@ -78,19 +86,30 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
       : initialMinRisk === 1
         ? { theNeedle: ['Some Risk', 'Concerned'] }
         : {}),
+    ...(initialFilters ?? {}),
   }));
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialQ);
+  const [sort, setSort] = useState<TableSort | null>(initialTableSort);
+  // Shareable URLs: filters, sort, and the search box round-trip through the query
+  // string. The legacy risk-sort deep link keeps its ?sort=risk form until the user
+  // picks a column sort of their own.
+  useTableUrlSync(filters, sort, {
+    q: searchQuery || null,
+    ...(initialSort === 'risk' && !sort ? { sort: 'risk' } : {}),
+  });
 
 
 
 
 
-  // Program lifecycle status is DERIVED (isArchived, else progress): a visible,
-  // filterable fact instead of a hidden ?filter=active predicate.
-  const statusOf = (p: Project): 'Active' | 'Done' | 'Archived' =>
-    p.isArchived ? 'Archived' : p.hillChartProgress >= 100 ? 'Done' : 'Active';
+  // Status = the lifecycle boundary's derivation (lib/lifecycle): explicit
+  // active/complete/cancelled facts + archived visibility, one precedence order.
+  const statusOf = deriveProgramStatus;
   const statusKeyOf = (v: string) =>
-    v === 'Archived' ? ('archived' as const) : v === 'Done' ? ('statusDone' as const) : ('statusActive' as const);
+    v === 'Archived' ? ('archived' as const)
+    : v === 'Cancelled' ? ('statusCancelled' as const)
+    : v === 'Done' ? ('statusDone' as const)
+    : ('statusActive' as const);
 
   // Base predicates only — everything categorical lives in the column filters.
   const filteredProjects = initialProjects.filter((proj) => {
@@ -257,7 +276,9 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
               </tr>
             );
           }}
-          defaultSortKey={initialSort === 'risk' ? '' : 'name'}
+          defaultSortKey={initialTableSort?.key ?? (initialSort === 'risk' ? '' : 'name')}
+          defaultSortOrder={initialTableSort?.dir ?? 'asc'}
+          onSortChange={(key, dir) => setSort({ key, dir })}
           pageSize={10}
           emptyStateMessage={t(locale, 'noProgramsMatchFilters')}
         />

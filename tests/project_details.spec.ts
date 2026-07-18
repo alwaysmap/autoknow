@@ -134,9 +134,9 @@ test.describe('Project Details and Action Item Operations', () => {
     await page.keyboard.type('All CTS modules passing; phase complete.');
     await details.getByRole('button', { name: 'Save Update' }).click();
 
-    // Progress 100 derives Done — the row collapses into the quiet completed state
-    // (header only: the Details affordance folds away with the card body).
-    await expect(row.getByRole('button', { name: 'Details' })).toHaveCount(0, { timeout: 10000 });
+    // Progress 100 derives Done — the row collapses into the quiet completed state.
+    // Details stays reachable even collapsed (rows default to hide-all now).
+    await expect(row.getByRole('button', { name: 'Details' })).toBeVisible({ timeout: 10000 });
     await expect(page.locator('body')).toContainText('All CTS modules passing; phase complete.');
   });
 });

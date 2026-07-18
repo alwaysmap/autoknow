@@ -4,7 +4,6 @@ import SummaryPanel from '../components/SummaryPanel';
 import { getSummary } from '../lib/summaries';
 import { geminiConfigured } from '../lib/gemini';
 import CapacityChart from '../components/CapacityChart';
-import HighRiskPrograms from '../components/HighRiskPrograms';
 import { getEcosystemDashboardData } from '../lib/dashboardData';
 import { getLocale } from '../lib/locale';
 import { t } from '../lib/i18n';
@@ -20,11 +19,6 @@ export default async function Home() {
   // 2. Load the shared dashboard data (projects, forecasts, cycle times, briefings).
   const {
     serializedProjects,
-    briefings,
-    p85LeadTime,
-    people,
-    cycleTimeData,
-    cycleTimeStats,
   } = await getEcosystemDashboardData();
 
   // Snapshot "now" server-side so SSR and hydration agree.
@@ -42,19 +36,20 @@ export default async function Home() {
             then when capacity lands (with/without GAS), then how many programs */}
         <section className={styles.dashboardSection}
           style={{ display: 'flex', flexWrap: 'wrap', gap: '28px 48px', alignItems: 'flex-start' }}>
-          <div style={{ flex: '1 1 340px', minWidth: 300, maxWidth: 460 }}>
-            <HighRiskPrograms now={now} programs={serializedProjects} />
-          </div>
-          <div style={{ flex: '1 1 300px', minWidth: 280, maxWidth: 420 }}>
-            <CapacityChart
-              now={now}
-              programs={serializedProjects.map((p) => ({
-                id: p.id, name: p.name,
-                sopDate: p.sopDate, volumeFirstYear: p.volumeFirstYear, hasGas: p.hasGas, isArchived: p.isArchived,
-              }))}
-            />
-          </div>
           <EcosystemStats activeCount={activeCount} allTimeCount={serializedProjects.length} />
+        </section>
+
+        {/* the capacity picture gets the full page width — it's the chart leadership
+            actually reads, and hover needs room */}
+        <section className={styles.dashboardSection}>
+          <CapacityChart
+            now={now}
+            programs={serializedProjects.map((p) => ({
+              id: p.id, name: p.name,
+              sopDate: p.sopDate, volumeFirstYear: p.volumeFirstYear, lifecycle: p.lifecycle,
+              hasGas: p.hasGas, hasGbi: p.hasGbi, hasDigitalKey: p.hasDigitalKey, hasAap: p.hasAap,
+            }))}
+          />
         </section>
 
         {/* the ecosystem leadership summary — risks/actions first, fully cited */}
@@ -87,11 +82,8 @@ export default async function Home() {
             </div>
           </section>
         ) : (
-          <EcosystemDashboardClient cycleTimeData={cycleTimeData} cycleTimeStats={cycleTimeStats}
+          <EcosystemDashboardClient now={now}
             initialProjects={serializedProjects}
-            briefings={briefings}
-            p85LeadTime={p85LeadTime}
-            people={people}
           />
         )}
       </main>

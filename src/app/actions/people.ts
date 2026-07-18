@@ -4,10 +4,50 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '../../lib/db';
 import { indexEntity } from '../../lib/search';
-import { parseForm, personCopySchema, personDeleteSchema, personMoveSchema } from '../../lib/schemas';
+import { getCurrentUser } from '../../lib/session';
+import { authConfigured } from '../../auth';
+import { deriveEmail } from '../../lib/auth';
+import { parseForm, personCopySchema, personCreateSchema, personDeleteSchema, personMoveSchema } from '../../lib/schemas';
 
 // Person maintenance (move / copy / delete), zod-gated (lib/schemas). Lives here —
 // not inline in the page — so the kebab-dialog client component can call them.
+
+export async function createPerson(formData: FormData) {
+  const { name, email, partnerId, role } = parseForm(personCreateSchema, formData);
+  const person = await prisma.person.create({
+    data: { name, email, currentPartnerId: partnerId },
+  });
+  await prisma.personAffiliation.create({
+    data: { personId: person.id, partnerId, role: role ?? 'Member', startDate: new Date() },
+  });
+  await indexEntity('person', person.id);
+  redirect(`/people/${person.id}`);
+}
+
+/** Self-provisioning from /me: the LOGIN is the identity source (name/email come
+ *  from the session, never the form); the caller only picks the organization. */
+export async function createMyProfile(formData: FormData) {
+  const current = await getCurrentUser();
+  // With real auth, the SESSION is the identity — the form can't spoof it. The
+  // ?user= override only exists in stub mode (no auth configured: dev, e2e).
+  const override = ((formData.get('user') as string) || '').trim();
+  const display = !authConfigured && override ? override : current.display;
+  const email = deriveEmail(display);
+  const partnerId = parseInt((formData.get('partnerId') as string) || '', 10);
+  if (Number.isNaN(partnerId) || partnerId <= 0) throw new Error('Pick an organization');
+
+  const existing = await prisma.person.findUnique({ where: { email } });
+  if (existing) redirect(`/people/${existing.id}`);
+
+  const person = await prisma.person.create({
+    data: { name: display.replace(/^@/, ''), email, currentPartnerId: partnerId },
+  });
+  await prisma.personAffiliation.create({
+    data: { personId: person.id, partnerId, role: 'Member', startDate: new Date() },
+  });
+  await indexEntity('person', person.id);
+  redirect(`/people/${person.id}`);
+}
 
 export async function movePersonCompany(formData: FormData) {
   const { personId, newPartnerId, newRole, startDate } = parseForm(personMoveSchema, formData);

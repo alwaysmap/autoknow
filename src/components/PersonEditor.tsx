@@ -2,6 +2,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { movePersonCompany, copyPerson, deletePerson } from '../app/actions/people';
+import { addPhasePerson } from '../app/actions/phasePeople';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import dash from './ProjectStatusDashboard.module.css';
@@ -18,6 +19,12 @@ interface Option {
   name: string;
 }
 
+export interface ProgramOption {
+  id: number;
+  name: string;
+  phases: Option[];
+}
+
 function useLightDismiss(ref: React.RefObject<HTMLDialogElement | null>) {
   useEffect(() => {
     const dialog = ref.current;
@@ -31,23 +38,31 @@ function useLightDismiss(ref: React.RefObject<HTMLDialogElement | null>) {
   }, [ref]);
 }
 
-export default function PersonAdminControls({ personId, personName, partners }: {
+export default function PersonAdminControls({ personId, personName, partners, programs }: {
   personId: number;
   personName: string;
   partners: Option[];
+  programs: ProgramOption[];
 }) {
   const locale = useLocale();
   const moveRef = useRef<HTMLDialogElement>(null);
   const copyRef = useRef<HTMLDialogElement>(null);
   const deleteRef = useRef<HTMLDialogElement>(null);
+  const assignRef = useRef<HTMLDialogElement>(null);
   const [saving, setSaving] = useState(false);
+  const [pickedProgram, setPickedProgram] = useState<number | ''>('');
   useLightDismiss(moveRef);
   useLightDismiss(copyRef);
   useLightDismiss(deleteRef);
+  useLightDismiss(assignRef);
+  const programPhases = programs.find((pr) => pr.id === pickedProgram)?.phases ?? [];
 
   return (
     <span className={meta.actions}>
       <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+        <button type="button" data-testid="add-to-program" onClick={() => { setPickedProgram(''); assignRef.current?.showModal(); }}>
+          {t(locale, 'addToProgram')}
+        </button>
         <button type="button" onClick={() => moveRef.current?.showModal()}>
           {t(locale, 'moveToDifferentCompany')}
         </button>
@@ -58,6 +73,46 @@ export default function PersonAdminControls({ personId, personName, partners }: 
           {t(locale, 'deleteLabel')}
         </button>
       </KebabMenu>
+
+      {/* assign-to-program dialog: program → phase → role. Any login can assign a
+          person (incl. themselves, via /me) onto a phase; the program derives. */}
+      <dialog ref={assignRef} closedby="any" className={admin.dialog} aria-labelledby="assignPersonTitle">
+        <div className={admin.dialogHeader}><h3 id="assignPersonTitle">{t(locale, 'addToProgram')}</h3></div>
+        <form
+          action={async (formData) => {
+            setSaving(true);
+            try { await addPhasePerson(formData); assignRef.current?.close(); }
+            finally { setSaving(false); }
+          }}
+          className={dash.dialogForm}
+        >
+          <input type="hidden" name="personId" value={personId} />
+          <input type="hidden" name="projectId" value={pickedProgram || ''} />
+          <div className={dash.textInputGroup}>
+            <label htmlFor="assignProgram" className={dash.formLabel}>{t(locale, 'programLabel')}</label>
+            <select id="assignProgram" required className={dash.textInput} value={pickedProgram}
+              onChange={(e) => setPickedProgram(e.target.value ? parseInt(e.target.value, 10) : '')}>
+              <option value="">{t(locale, 'selectProgram')}</option>
+              {programs.map((pr) => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
+            </select>
+          </div>
+          <div className={dash.textInputGroup}>
+            <label htmlFor="assignPhase" className={dash.formLabel}>{t(locale, 'phaseLabel')}</label>
+            <select id="assignPhase" name="phaseId" required className={dash.textInput} disabled={!pickedProgram} defaultValue="">
+              <option value="">{t(locale, 'selectPhase')}</option>
+              {programPhases.map((ph) => <option key={ph.id} value={ph.id}>{ph.name}</option>)}
+            </select>
+          </div>
+          <div className={dash.textInputGroup}>
+            <label htmlFor="assignRole" className={dash.formLabel}>{t(locale, 'roleTitle')}</label>
+            <input id="assignRole" type="text" name="role" placeholder={t(locale, 'roleTitlePlaceholder')} className={dash.textInput} />
+          </div>
+          <div className={dash.actionRow}>
+            <button type="button" onClick={() => assignRef.current?.close()} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
+            <button type="submit" disabled={saving || !pickedProgram} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'save')}</button>
+          </div>
+        </form>
+      </dialog>
 
       {/* move dialog */}
       <dialog ref={moveRef} closedby="any" className={admin.dialog} aria-labelledby="movePersonTitle">

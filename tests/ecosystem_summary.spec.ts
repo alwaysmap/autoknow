@@ -69,16 +69,14 @@ test.describe('Ecosystem Summary Page (Deterministic + AI)', () => {
     expect(contextUrl?.ingestedText).toContain('Audio HAL integration is blocked');
   });
 
-  test('should display deterministic metrics and AI synthesis on Ecosystem Summary page', async ({ page }) => {
+  test('should display deterministic metrics and filters on Ecosystem Summary page', async ({ page }) => {
     await page.goto('/ecosystem-summary');
 
     // 1. Check title
     await expect(page.locator('h1')).toContainText('Ecosystem');
 
-    // 2. Check leadership metrics
-    await expect(page.locator('body')).toContainText('Programs in Flight');
-    await expect(page.locator('body')).toContainText('150,000'); // volume
-    await expect(page.locator('body')).toContainText('Programs in Range');
+    // 2. The scorecard strip is retired — no big-number cards.
+    await expect(page.locator('body')).not.toContainText('Programs in Flight');
 
     // 3. Test filter by Googler Owner
     await page.selectOption('select[id="ownerSelect"]', 'Dylan');

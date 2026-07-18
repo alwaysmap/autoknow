@@ -62,6 +62,9 @@
   color: var(--p-600);
   text-decoration: underline;
 }
+.identRole {
+  color: var(--muted);
+}
 .identEmail {
   color: var(--muted);
   text-decoration: none;

@@ -1,3 +1,57 @@
+.headRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.expandBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 3px 6px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.expandBtn:hover {
+  color: var(--fg);
+  background: var(--surface);
+}
+
+.expandDialog {
+  border: none;
+  border-radius: 12px;
+  padding: 24px 28px;
+  background-color: var(--white, #fff);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  width: min(96vw, 1120px);
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+}
+.expandDialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.4);
+}
+.expandBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* the reading-size chart fills its dialog */
+.expandBody .svg {
+  max-width: none;
+}
+
+.note {
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .title {
   font-weight: 700;
   text-transform: uppercase;
@@ -7,10 +61,55 @@
   margin-bottom: 6px;
 }
 
+.chartWrap {
+  position: relative;
+}
+
+.hoverCard {
+  position: absolute;
+  top: 12px;
+  z-index: 10;
+  background: var(--white, #fff);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  padding: 8px 12px;
+  pointer-events: none;
+  min-width: 130px;
+}
+.hoverQuarter {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.hoverRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  padding: 1.5px 0;
+}
+.hoverSwatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.hoverCode {
+  font-weight: 600;
+  width: 38px;
+}
+.hoverVal {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
 .svg {
   display: block;
   width: 100%;
-  max-width: 420px;
   height: auto;
   overflow: visible;
 }

@@ -228,6 +228,7 @@ export default async function ProjectDetailsPage(props: {
           archivedTag={project.isArchived ? t(locale, 'archivedTag') : null}
           actions={
             <ProjectAdminControls
+              lifecycle={project.lifecycle}
               projectId={project.id}
               projectName={project.name}
               isArchived={project.isArchived}
@@ -241,6 +242,7 @@ export default async function ProjectDetailsPage(props: {
           hasGas={project.hasGas}
           hasGbi={project.hasGbi}
           hasDigitalKey={project.hasDigitalKey}
+          hasAap={project.hasAap}
           currentPartnerId={project.partnerId}
           partnerOptions={[...oems, ...suppliers].map((pa) => ({ id: pa.id, name: pa.name, isOem: oems.some((o) => o.id === pa.id) }))}
           oemPartner={oemPartner ? { id: oemPartner.id, name: oemPartner.name } : null}

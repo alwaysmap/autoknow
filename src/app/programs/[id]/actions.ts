@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { parseForm, projectLifecycleSchema } from '../../../lib/schemas';
 import { prisma } from '../../../lib/db';
 import { parseHealth } from '../../../lib/health';
 import { parseSopInput } from '../../../lib/sop';
@@ -49,6 +50,7 @@ export async function updateProjectMetrics(formData: FormData) {
   const hasGas = formData.get('hasGas') === 'on';
   const hasGbi = formData.get('hasGbi') === 'on';
   const hasDigitalKey = formData.get('hasDigitalKey') === 'on';
+  const hasAap = formData.get('hasAap') === 'on';
 
   if (!isNaN(projectId)) {
     await prisma.project.update({
@@ -62,6 +64,7 @@ export async function updateProjectMetrics(formData: FormData) {
         hasGas,
         hasGbi,
         hasDigitalKey,
+        hasAap,
         // Lead partner (OEM) is editable post-creation; ignore junk ids.
         ...(Number.isNaN(partnerId) ? {} : { partnerId }),
       }
@@ -78,6 +81,14 @@ export async function updateProjectMetrics(formData: FormData) {
     });
   }
   revalidatePath(`/programs/${projectIdStr}`);
+}
+
+export async function setProjectLifecycle(formData: FormData) {
+  const { projectId, lifecycle } = parseForm(projectLifecycleSchema, formData);
+  await prisma.project.update({ where: { id: projectId }, data: { lifecycle } });
+  revalidatePath(`/programs/${projectId}`);
+  revalidatePath('/programs');
+  revalidatePath('/');
 }
 
 export async function archiveProject(formData: FormData) {

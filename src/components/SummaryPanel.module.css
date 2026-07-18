@@ -114,3 +114,29 @@
   margin: 0;
   max-width: 640px;
 }
+
+/* The one summary control: a Gemini spark. Pulses while synthesizing. */
+.geminiBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.geminiBtn:hover {
+  color: var(--fg);
+  background: var(--surface);
+}
+.geminiBtn[data-pending] {
+  animation: sparkPulse 1.2s ease-in-out infinite;
+  cursor: default;
+}
+@keyframes sparkPulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}

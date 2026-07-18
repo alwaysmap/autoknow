@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Markdown from './Markdown';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
 import { computeCriticalChain } from '../lib/criticalChain';
+import { deriveEndPhase } from '../lib/programDag';
+import { validateTemplateDag } from '../lib/templateDag';
 import { HILL_PATH, hillCoordinates } from '../lib/geometry';
 import { t, statusKey, Locale } from '../lib/i18n';
 import { updatePhaseHill } from '../app/actions/hill';
@@ -329,15 +331,18 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     r.parents.forEach((p) => enables.set(p.id, [...(enables.get(p.id) ?? []), { linkId: p.linkId, id: r.id }])),
   );
 
-  // Cards: Done phases start collapsed. One phase may own the focused DETAILS popover.
+  // Cards: EVERY phase starts collapsed (hide-all default) — the rail itself is the
+  // overview; expand is opt-in per row or via the ⋯ menu. One phase may own the
+  // focused DETAILS popover.
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
-  const isCollapsed = (p: PhaseTrackRow) => collapsed[p.id] ?? p.progress >= 100;
+  const isCollapsed = (p: PhaseTrackRow) => collapsed[p.id] ?? true;
   const toggle = (p: PhaseTrackRow) => setCollapsed((s) => ({ ...s, [p.id]: !isCollapsed(p) }));
   const [detailsId, setDetailsId] = useState<number | null>(null);
 
   // Title ⋯ menu: bulk expand/hide plus the one door to structural editing.
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const legendRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: PointerEvent) => {
@@ -436,6 +441,20 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
 
   const fmtDate = (iso: string) =>
     new Date(iso).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+
+  // Structural DAG problems (cycles, dead-ending branches, unknown deps) join the
+  // notices list — the same validator the phase editor runs, so the rail and the
+  // editor never disagree about what "broken" means.
+  const structureIssues = useMemo(() => {
+    const nodes = deriveEndPhase(
+      phases.map((p, i) => ({ id: p.id, name: p.name, sortOrder: i, dependsOn: p.parents.map((x) => x.id) })),
+    );
+    const v = validateTemplateDag(
+      nodes.map((n) => ({ id: n.id, name: n.name, isEndPhase: n.isEndPhase })),
+      phases.flatMap((r) => r.parents.map((par) => ({ nodeId: r.id, dependsOnId: par.id }))),
+    );
+    return v.ok ? [] : v.errors.map((e) => e.message);
+  }, [phases]);
 
   // The owner's cross-program load, grouped by program (the resource constraint).
   const byProgram = new Map<number, { name: string; phaseNames: string[] }>();
@@ -699,6 +718,14 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
           here, off the rail — the rail itself stays read-only reporting. */}
       <div className={styles.trackHead}>
         <h2 className={styles.trackTitle}>{t(locale, 'phasesCard')}</h2>
+        <button type="button" className={styles.infoBtn} title={t(locale, 'phaseKeyTitle')}
+          aria-label={t(locale, 'phaseKeyTitle')} onClick={() => legendRef.current?.showModal()}>
+          <svg viewBox="0 0 16 16" width={15} height={15} aria-hidden>
+            <circle cx={8} cy={8} r={6.6} fill="none" stroke="currentColor" strokeWidth={1.4} />
+            <circle cx={8} cy={5} r={1} fill="currentColor" />
+            <line x1={8} y1={7.4} x2={8} y2={11.2} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" />
+          </svg>
+        </button>
         <div className={styles.menuWrap} ref={menuRef}>
           <button type="button" className={styles.menuBtn} aria-haspopup="menu" aria-expanded={menuOpen}
             aria-label={t(locale, 'phaseActions')} title={t(locale, 'phaseActions')}
@@ -729,22 +756,33 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
       {/* No chain summary up top — the chain is already the rail's heavy track, and the
           constraint card carries the evidence line. A second rendering said it twice. */}
 
-      {/* CCPM resource constraint: the same Googler on active phases elsewhere */}
-      {owner && byProgram.size > 0 && (
-        <p className={styles.resourceLine}>
-          <span className={styles.resourceLabel}>{t(locale, 'resource')}</span>
-          <span className={styles.resourceOwner}>{owner}</span>
-          {' — '}
-          {t(locale, otherActive.length === 1 ? 'alsoActiveOne' : 'alsoActive', { n: otherActive.length })}
-          {': '}
-          {[...byProgram.entries()].map(([pid, g], i) => (
-            <span key={pid}>
-              {i > 0 && '; '}
-              <Link href={`/programs/${pid}`} className={styles.resourceProgram}>{g.name}</Link>
-              {' ('}{g.phaseNames.join(', ')}{')'}
-            </span>
+      {/* Problems & notices — ONE list: structural DAG issues, then the CCPM
+          resource constraint (the same Googler on active phases elsewhere). */}
+      {(structureIssues.length > 0 || (owner && byProgram.size > 0)) && (
+        <ul className={styles.notices}>
+          {structureIssues.map((msg, i) => (
+            <li key={`st${i}`} className={styles.resourceLine}>
+              <span className={styles.resourceLabel}>{t(locale, 'structureLabel')}</span>
+              {msg}
+            </li>
           ))}
-        </p>
+          {owner && byProgram.size > 0 && (
+            <li className={styles.resourceLine}>
+              <span className={styles.resourceLabel}>{t(locale, 'resource')}</span>
+              <span className={styles.resourceOwner}>{owner}</span>
+              {' — '}
+              {t(locale, otherActive.length === 1 ? 'alsoActiveOne' : 'alsoActive', { n: otherActive.length })}
+              {': '}
+              {[...byProgram.entries()].map(([pid, g], i) => (
+                <span key={pid}>
+                  {i > 0 && '; '}
+                  <Link href={`/programs/${pid}`} className={styles.resourceProgram}>{g.name}</Link>
+                  {' ('}{g.phaseNames.join(', ')}{')'}
+                </span>
+              ))}
+            </li>
+          )}
+        </ul>
       )}
 
       <div ref={containerRef} className={styles.graph} style={{ paddingLeft: gutterW }}>
@@ -818,15 +856,14 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                 <span className={styles.headRight}>
                   <span className={styles.plan}>{planWords(p)}</span>
                   {paceChip(p)}
-                  {open && (
-                    <button type="button" className={styles.iconBtn} onClick={() => openDetails(p)}
-                      title={t(locale, 'details')} aria-label={t(locale, 'details')}>
-                      <svg viewBox="0 0 14 14" width={13} height={13} aria-hidden>
-                        <path d="M2 5 V2 H5 M9 2 H12 V5 M12 9 V12 H9 M5 12 H2 V9"
-                          fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </button>
-                  )}
+                  {/* Details stays reachable even collapsed — rows default closed now */}
+                  <button type="button" className={styles.iconBtn} onClick={() => openDetails(p)}
+                    title={t(locale, 'details')} aria-label={t(locale, 'details')}>
+                    <svg viewBox="0 0 14 14" width={13} height={13} aria-hidden>
+                      <path d="M2 5 V2 H5 M9 2 H12 V5 M12 9 V12 H9 M5 12 H2 V9"
+                        fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
                   <button type="button" className={styles.chevron} onClick={() => toggle(p)}
                     aria-expanded={open}
                     aria-label={`${t(locale, 'toggleDetail')}: ${open ? 'open' : 'collapsed'}`}>
@@ -883,32 +920,45 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
         })}
       </div>
 
-      {/* legend: the station/track vocabulary, one quiet line */}
-      <p className={styles.legend}>
-        <svg viewBox="0 0 14 14" className={styles.legendGlyph}><circle cx={7} cy={7} r={5} fill={INK} /></svg>
-        {status(100)}
-        <svg viewBox="0 0 14 14" className={styles.legendGlyph}>
-          <circle cx={7} cy={7} r={5} fill="#fff" stroke={INK} strokeWidth={1.5} />
-          <path d="M 7 2.6 A 4.4 4.4 0 0 1 7 11.4 Z" fill={INK} />
-        </svg>
-        {status(50)}
-        <svg viewBox="0 0 14 14" className={styles.legendGlyph}><circle cx={7} cy={7} r={5} fill="#fff" stroke={INK} strokeWidth={1.5} /></svg>
-        {status(0)}
-        <svg viewBox="0 0 18 18" className={styles.legendGlyph}>
-          <circle cx={9} cy={9} r={7.5} fill="none" stroke="var(--chain)" strokeWidth={1.8} />
-          <circle cx={9} cy={9} r={4} fill="#fff" stroke={INK} strokeWidth={1.5} />
-          <path d="M 9 5.4 A 3.6 3.6 0 0 1 9 12.6 Z" fill={INK} />
-        </svg>
-        {t(locale, 'legendConstraint')}
-        <svg viewBox="0 0 22 14" className={styles.legendGlyphWide}>
-          <path d="M 2 12 L 2 5 Q 2 2 5 2 L 17 2 Q 20 2 20 5 L 20 12" fill="none" stroke="var(--muted)" strokeWidth={1.6} />
-        </svg>
-        {t(locale, 'legendBypass')}
-        <span className={styles.legendTrack}>
+      {/* the key lives behind the ⓘ, not on the page (design.md §7: few titles,
+          less chrome) — the rail should be read, the key consulted */}
+      <dialog ref={legendRef} className={styles.legendDialog}
+        onClick={(e) => { if (e.target === legendRef.current) legendRef.current?.close(); }}>
+        <h3 className={styles.legendTitle}>{t(locale, 'phaseKeyTitle')}</h3>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 14 14" className={styles.legendGlyph}><circle cx={7} cy={7} r={5} fill={INK} /></svg>
+          {status(100)}
+        </div>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 14 14" className={styles.legendGlyph}>
+            <circle cx={7} cy={7} r={5} fill="#fff" stroke={INK} strokeWidth={1.5} />
+            <path d="M 7 2.6 A 4.4 4.4 0 0 1 7 11.4 Z" fill={INK} />
+          </svg>
+          {status(50)}
+        </div>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 14 14" className={styles.legendGlyph}><circle cx={7} cy={7} r={5} fill="#fff" stroke={INK} strokeWidth={1.5} /></svg>
+          {status(0)}
+        </div>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 18 18" className={styles.legendGlyph}>
+            <circle cx={9} cy={9} r={7.5} fill="none" stroke="var(--chain)" strokeWidth={1.8} />
+            <circle cx={9} cy={9} r={4} fill="#fff" stroke={INK} strokeWidth={1.5} />
+            <path d="M 9 5.4 A 3.6 3.6 0 0 1 9 12.6 Z" fill={INK} />
+          </svg>
+          {t(locale, 'legendConstraint')}
+        </div>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide}>
+            <path d="M 2 12 L 2 5 Q 2 2 5 2 L 17 2 Q 20 2 20 5 L 20 12" fill="none" stroke="var(--muted)" strokeWidth={1.6} />
+          </svg>
+          {t(locale, 'legendBypass')}
+        </div>
+        <div className={styles.legendRow}>
           <span className={styles.legendSwatch} />
           {t(locale, 'legendTrack')}
-        </span>
-      </p>
+        </div>
+      </dialog>
 
       {detailsOverlay}
     </div>

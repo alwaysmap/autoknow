@@ -32,6 +32,12 @@ model Partner {
   region             Region              @relation(fields: [regionId], references: [id])
 }
 
+enum ProjectLifecycle {
+  active
+  complete
+  cancelled
+}
+
 model Region {
   id       Int       @id @default(autoincrement())
   name     String    @unique
@@ -61,6 +67,11 @@ model Project {
   hasGas            Boolean        @default(false) // Google Automotive Services
   hasGbi            Boolean        @default(false) // Google Built-In
   hasDigitalKey     Boolean        @default(false)
+  hasAap            Boolean        @default(false) // Android Auto (projection)
+  // Explicit lifecycle — Active/Complete/Cancelled are FACTS someone sets, not
+  // inferences from progress. isArchived stays orthogonal (visibility): an
+  // archived program keeps its lifecycle.
+  lifecycle         ProjectLifecycle @default(active)
   states            ProjectState[]
   embedding         Unsupported("vector(768)")?
 }

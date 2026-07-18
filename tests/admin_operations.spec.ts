@@ -113,6 +113,38 @@ test.describe('Admin and Maintenance Operations', () => {
     await expect(page.locator('body')).toContainText('bmiller.copy@example.com');
   });
 
+  test('program lifecycle: cancel and reactivate from the kebab, visible in filters', async ({ page }) => {
+    const project = await prisma.project.findFirst({ where: { name: 'Waymo Autonomous Trucking' } });
+    await page.goto(`/programs/${project?.id}`);
+
+    const viaKebab = async (label: string) => {
+      const item = page.getByRole('button', { name: label, exact: true });
+      await expect(async () => {
+        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+        await expect(item).toBeVisible({ timeout: 1500 });
+      }).toPass({ timeout: 20000 });
+      await item.click();
+    };
+
+    // Cancel — an explicit lifecycle fact, set in the UI.
+    await viaKebab('Mark cancelled');
+    await expect.poll(async () =>
+      (await prisma.project.findUnique({ where: { id: project!.id } }))?.lifecycle,
+    { timeout: 10000 }).toBe('cancelled');
+
+    // The programs table derives Status=Cancelled from it.
+    await page.goto('/programs');
+    const row = page.locator('tr').filter({ hasText: 'Waymo Autonomous Trucking' });
+    await expect(row).toContainText('Cancelled');
+
+    // Reactivate (also leaves the project live for the archive/delete test below).
+    await page.goto(`/programs/${project?.id}`);
+    await viaKebab('Reactivate');
+    await expect.poll(async () =>
+      (await prisma.project.findUnique({ where: { id: project!.id } }))?.lifecycle,
+    { timeout: 10000 }).toBe('active');
+  });
+
   test('should allow archiving and deleting a project', async ({ page }) => {
     const project = await prisma.project.findFirst({ where: { name: 'Waymo Autonomous Trucking' } });
     await page.goto(`/programs/${project?.id}`);

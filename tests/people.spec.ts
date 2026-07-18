@@ -105,7 +105,9 @@ test.describe('People and Biographical History', () => {
     await expect(page.locator('body')).toContainText('Waymo');
     await expect(page.locator('body')).toContainText('Lead integration specialist');
 
-    // Verify Career History section
+    // History lists PRIOR companies; the current post (Waymo · Systems Engineer)
+    // lives in the identity line.
+    await expect(page.locator('body')).toContainText('History');
     await expect(page.locator('body')).toContainText('Embedded Software Engineer');
     await expect(page.locator('body')).toContainText('Ford');
     await expect(page.locator('body')).toContainText('Systems Engineer');
@@ -119,6 +121,55 @@ test.describe('People and Biographical History', () => {
     await expect(page.getByRole('link', { name: 'Waymo Gen 6 Integration' })).toBeVisible();
     // The action-item prose itself is no longer a person-page concern.
     await expect(page.locator('body')).not.toContainText('Resolve CAN bus packet drops');
+  });
+
+  test('any login can create a Person from the directory kebab', async ({ page }) => {
+    await page.goto('/people');
+
+    const dialog = page.locator('dialog[open]');
+    await expect(async () => {
+      if (!(await dialog.isVisible())) {
+        const item = page.getByTestId('new-person');
+        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+        await item.click({ timeout: 2000 });
+      }
+      await expect(dialog).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+
+    await dialog.locator('#npName').fill('Priya Nair');
+    await dialog.locator('#npEmail').fill('priya@ford.example');
+    await dialog.locator('#npPartner').selectOption({ label: 'Ford' });
+    await dialog.locator('#npRole').fill('Connectivity Lead');
+    await dialog.locator('button:has-text("Save")').last().click();
+
+    await page.waitForURL(/\/people\/\d+/);
+    await expect(page.locator('h1')).toContainText('Priya Nair');
+    await expect(page.locator('body')).toContainText('Ford');
+    await expect(page.locator('body')).toContainText('Connectivity Lead');
+  });
+
+  test('a login can assign a person onto a program phase from the kebab', async ({ page }) => {
+    await page.goto(`/people/${personId}`);
+
+    const dialog = page.locator('dialog[open]');
+    await expect(async () => {
+      if (!(await dialog.isVisible())) {
+        const item = page.getByTestId('add-to-program');
+        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+        await item.click({ timeout: 2000 });
+      }
+      await expect(dialog).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+
+    await dialog.locator('#assignProgram').selectOption({ label: 'Waymo Gen 6 Integration' });
+    await dialog.locator('#assignPhase').selectOption({ label: 'Compute integration' });
+    await dialog.locator('#assignRole').fill('Integration lead');
+    await dialog.locator('button:has-text("Save")').last().click();
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+
+    // The Programs section now carries the phase chip with the role.
+    await expect(page.getByRole('link', { name: /Compute integration/ })).toBeVisible();
+    await expect(page.locator('body')).toContainText('Integration lead');
   });
 
   test('the people directory lists everyone with company and role', async ({ page }) => {

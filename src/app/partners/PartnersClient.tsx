@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useTableUrlSync } from '../../lib/useTableUrlSync';
+import type { TableSort } from '../../lib/tableUrlState';
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
 import { NewPartnerButton } from '../../components/PartnerEditor';
@@ -55,13 +57,18 @@ interface PartnersClientProps {
   regions: Option[];
   /** Deep-linked column-filter preselection (?type= / ?region=), design.md §6. */
   initialFilters?: Record<string, string[]>;
+  initialSort?: TableSort | null;
+  initialMine?: boolean;
 }
 
-export default function PartnersClient({ partners, currentUser, people, relationship, types, regions, initialFilters }: PartnersClientProps) {
+export default function PartnersClient({ partners, currentUser, people, relationship, types, regions, initialFilters, initialSort, initialMine = false }: PartnersClientProps) {
   const locale = useLocale();
   // Column filters are controlled here so type/region cell clicks can set them.
   const [filters, setFilters] = useState<Record<string, string[]>>(initialFilters ?? {});
-  const [myPartnersOnly, setMyPartnersOnly] = useState<boolean>(false);
+  const [myPartnersOnly, setMyPartnersOnly] = useState<boolean>(initialMine);
+  const [sort, setSort] = useState<TableSort | null>(initialSort ?? null);
+  // every filter/sort choice is shareable — the URL mirrors the view
+  useTableUrlSync(filters, sort, { mine: myPartnersOnly ? '1' : null });
 
   // Derive the current user's canonical email/handle once for filtering.
   const userEmail = useMemo(() => deriveEmail(currentUser), [currentUser]);
@@ -277,7 +284,9 @@ export default function PartnersClient({ partners, currentUser, people, relation
                 </td>
               </tr>
             )}
-            defaultSortKey="name"
+            defaultSortKey={initialSort?.key ?? 'name'}
+            defaultSortOrder={initialSort?.dir ?? 'asc'}
+            onSortChange={(key, dir) => setSort({ key, dir })}
             filters={filters}
             onFiltersChange={setFilters}
             pageSize={10}

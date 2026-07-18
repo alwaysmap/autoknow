@@ -6,10 +6,11 @@ import PartnersClient from './PartnersClient';
 
 export const dynamic = 'force-dynamic';
 
+import { parseFilterParams, parseSortParams } from '../../lib/tableUrlState';
+
 interface SearchParams {
   user?: string;
-  type?: string;   // deep link: preselect the Type column filter
-  region?: string; // deep link: preselect the Region column filter
+  [key: string]: string | string[] | undefined; // per-column filters + sort/dir (shareable URLs)
 }
 
 export default async function PartnersPage(props: { searchParams: Promise<SearchParams> }) {
@@ -49,15 +50,18 @@ export default async function PartnersPage(props: { searchParams: Promise<Search
     prisma.region.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
   ]);
 
-  // Deep-linked column filters (design.md §6): partner-page identity links land here.
-  const initialFilters: Record<string, string[]> = {};
-  if (searchParams.type) initialFilters.type = [searchParams.type];
-  if (searchParams.region) initialFilters.region = [searchParams.region];
+  // Shareable table state (design.md §6): filters, sort, and the ownership toggle
+  // all round-trip through the URL.
+  const initialFilters = parseFilterParams(searchParams, ['type', 'region', 'relationship']);
+  const initialSort = parseSortParams(searchParams);
+  const initialMine = searchParams.mine === '1';
 
   return (
     <PartnersClient
       partners={partners}
       initialFilters={initialFilters}
+      initialSort={initialSort}
+      initialMine={initialMine}
       currentUser={user}
       people={people}
       relationship={relationship}

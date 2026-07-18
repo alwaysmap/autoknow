@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { archiveProject, deleteProject } from '../app/programs/[id]/actions';
+import { archiveProject, deleteProject, setProjectLifecycle } from '../app/programs/[id]/actions';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import styles from './ProjectAdminControls.module.css';
@@ -10,12 +10,14 @@ interface ProjectAdminControlsProps {
   projectId: number;
   projectName: string;
   isArchived: boolean;
+  lifecycle: string;
 }
 
 export default function ProjectAdminControls({
   projectId,
   projectName,
   isArchived,
+  lifecycle,
 }: ProjectAdminControlsProps) {
   const locale = useLocale();
   const [confirmName, setConfirmName] = useState('');
@@ -52,6 +54,35 @@ export default function ProjectAdminControls({
 
   return (
     <div className={styles.adminControls}>
+      {/* Lifecycle is a fact someone SETS (active/complete/cancelled) — archived is
+          orthogonal visibility (lib/lifecycle). */}
+      {lifecycle === 'active' ? (
+        <>
+          <form action={setProjectLifecycle}>
+            <input type="hidden" name="projectId" value={projectId} />
+            <input type="hidden" name="lifecycle" value="complete" />
+            <button type="submit" data-testid="mark-complete" className={styles.archiveButton}>
+              {t(locale, 'markComplete')}
+            </button>
+          </form>
+          <form action={setProjectLifecycle}>
+            <input type="hidden" name="projectId" value={projectId} />
+            <input type="hidden" name="lifecycle" value="cancelled" />
+            <button type="submit" data-testid="mark-cancelled" className={styles.archiveButton}>
+              {t(locale, 'markCancelled')}
+            </button>
+          </form>
+        </>
+      ) : (
+        <form action={setProjectLifecycle}>
+          <input type="hidden" name="projectId" value={projectId} />
+          <input type="hidden" name="lifecycle" value="active" />
+          <button type="submit" data-testid="reactivate-program" className={styles.archiveButton}>
+            {t(locale, 'reactivateProgram')}
+          </button>
+        </form>
+      )}
+
       {/* Archive Project Form */}
       <form action={archiveProject}>
         <input type="hidden" name="projectId" value={projectId} />

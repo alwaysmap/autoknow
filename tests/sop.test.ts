@@ -1,4 +1,4 @@
-import { monthEndDate, parseSopInput, sopOutlook, buildCapacitySeries, unitsAt, riskScore, DAY_MS } from '../src/lib/sop';
+import { monthEndDate, parseSopInput, sopOutlook, buildProductCapacitySeries, unitsAt, riskScore, DAY_MS } from '../src/lib/sop';
 
 // SOP-target math: month-end assumption, the on-track signal (remaining chain weeks
 // vs the SOP date), the quarterly capacity series (with/without GAS), and risk ranking.
@@ -52,17 +52,19 @@ describe('unitsAt — the 12-month post-SOP ramp', () => {
   });
 });
 
-describe('buildCapacitySeries', () => {
+describe('buildProductCapacitySeries', () => {
   const now = Date.UTC(2026, 6, 13);
   const iso = (y: number, m: number, d: number) => new Date(Date.UTC(y, m - 1, d)).toISOString();
 
-  it('ramps each program from its SOP to SOP+12mo, split by GAS', () => {
-    const { points, excluded } = buildCapacitySeries(
+  it('ramps each program from its SOP to SOP+12mo, stacked by product', () => {
+    const { points, excluded } = buildProductCapacitySeries(
       [
-        { sopDate: iso(2026, 9, 30), volumeFirstYear: 100_000, hasGas: true },
-        { sopDate: iso(2027, 3, 31), volumeFirstYear: 50_000, hasGas: false },
+        { sopDate: iso(2026, 9, 30), volumeFirstYear: 100_000, hasGas: true, hasGbi: true },
+        { sopDate: iso(2027, 3, 31), volumeFirstYear: 50_000, hasGas: false, hasDigitalKey: true, hasAap: true },
         { sopDate: null, volumeFirstYear: 999_999, hasGas: true }, // undated → excluded
-        { sopDate: iso(2027, 3, 31), volumeFirstYear: 77, hasGas: true, isArchived: true }, // archived → ignored
+        // lifecycle boundary: cancelled units never ship — out of the chart.
+        // (Archived programs STAY in charts — see the archived case below.)
+        { sopDate: iso(2027, 3, 31), volumeFirstYear: 77, hasGas: true, lifecycle: 'cancelled' },
       ],
       now,
     );
@@ -70,29 +72,44 @@ describe('buildCapacitySeries', () => {
 
     // At the SOP quarter's end the ramp has just begun: 0, not the full volume.
     const q326 = points.find((p) => p.label === 'Q3 ’26')!;
-    expect(q326.withGas).toBe(0);
-    expect(q326.withoutGas).toBe(0);
+    expect(q326.units.aaos).toBe(0);
 
-    // A quarter later, roughly a quarter of the first program's year has elapsed.
+    // A quarter later, roughly a quarter of the first program's year has elapsed —
+    // and that vehicle capacity counts once per product it carries (AAOS, GAS, GBI).
     const q426 = points.find((p) => p.label === 'Q4 ’26')!;
-    expect(q426.withGas).toBeGreaterThan(20_000);
-    expect(q426.withGas).toBeLessThan(30_000);
-    expect(q426.withoutGas).toBe(0);
+    expect(q426.units.aaos).toBeGreaterThan(20_000);
+    expect(q426.units.aaos).toBeLessThan(30_000);
+    expect(q426.units.gas).toBe(q426.units.aaos);
+    expect(q426.units.gbi).toBe(q426.units.aaos);
+    expect(q426.units.digitalKey).toBe(0);
 
-    // The series runs through the LAST ramp: everything delivered by the end.
+    // The series runs through the LAST ramp: everything delivered by the end —
+    // and the cancelled program's 77 units are nowhere in it.
     const last = points[points.length - 1];
-    expect(last.withGas).toBe(100_000);
-    expect(last.withoutGas).toBe(50_000);
+    expect(last.units.aaos).toBe(150_000); // every vehicle is an AAOS vehicle
+    expect(last.units.gas).toBe(100_000);
+    expect(last.units.gbi).toBe(100_000);
+    expect(last.units.digitalKey).toBe(50_000);
+    expect(last.units.aap).toBe(50_000);
 
     // Monotonic: units in consumer hands never go down.
     for (let i = 1; i < points.length; i++) {
-      expect(points[i].withGas).toBeGreaterThanOrEqual(points[i - 1].withGas);
-      expect(points[i].withoutGas).toBeGreaterThanOrEqual(points[i - 1].withoutGas);
+      expect(points[i].units.aaos).toBeGreaterThanOrEqual(points[i - 1].units.aaos);
     }
   });
 
+  it('keeps archived programs in the chart (lists hide them; charts never do)', () => {
+    // lib/lifecycle boundary: isArchived is VISIBILITY, not truth — an archived
+    // program's shipped/committed units still exist.
+    const { points } = buildProductCapacitySeries(
+      [{ sopDate: iso(2026, 9, 30), volumeFirstYear: 10_000, hasGas: false, lifecycle: 'complete' }],
+      now,
+    );
+    expect(points[points.length - 1].units.aaos).toBe(10_000);
+  });
+
   it('is empty (not crashing) with no dated programs', () => {
-    const { points, excluded } = buildCapacitySeries(
+    const { points, excluded } = buildProductCapacitySeries(
       [{ sopDate: null, volumeFirstYear: 10, hasGas: false }],
       now,
     );

@@ -42,14 +42,32 @@ export interface CapacityProgram {
   sopDate: string | null; // ISO
   volumeFirstYear: number;
   hasGas: boolean;
-  isArchived?: boolean;
+  hasGbi?: boolean;
+  hasDigitalKey?: boolean;
+  hasAap?: boolean;
+  /** lib/lifecycle boundary: archived programs STAY in this chart (history is
+   *  history); only cancelled ones stop counting — those units won't ship. */
+  lifecycle?: string | null;
 }
 
-export interface CapacityPoint {
+// The product dimension of the capacity chart. AAOS is the base platform — every
+// program carries it — so its band alone reads as "vehicles online"; the other
+// bands are the Google products riding on those vehicles.
+export const PRODUCT_KEYS = ['aaos', 'gbi', 'gas', 'digitalKey', 'aap'] as const;
+export type ProductKey = (typeof PRODUCT_KEYS)[number];
+
+export const productCarried: Record<ProductKey, (p: CapacityProgram) => boolean> = {
+  aaos: () => true,
+  gbi: (p) => !!p.hasGbi,
+  gas: (p) => !!p.hasGas,
+  digitalKey: (p) => !!p.hasDigitalKey,
+  aap: (p) => !!p.hasAap,
+};
+
+export interface ProductCapacityPoint {
   ms: number; // bucket end (quarter end)
   label: string; // e.g. "Q1 ’27"
-  withGas: number; // units in consumer hands running AAOS + GAS
-  withoutGas: number; // units in consumer hands running AAOS without GAS
+  units: Record<ProductKey, number>; // product units in consumer hands
 }
 
 const YEAR_MS = 365 * DAY_MS;
@@ -66,17 +84,20 @@ const quarterOf = (d: Date) => Math.floor(d.getUTCMonth() / 3) + 1;
 const label = (year: number, q: number) => `Q${q} ’${String(year).slice(2)}`;
 
 /**
- * Units in consumer hands per quarter, split by GAS. volumeFirstYear answers "how
- * many units within 12 months post-SOP?", so each program ramps LINEARLY from 0 at
- * its SOP to full volume at SOP + 12 months, then holds. Programs without an SOP
- * (or archived) can't be placed on the timeline — counted in `excluded`.
+ * Product units in consumer hands per quarter. volumeFirstYear answers "how many
+ * units within 12 months post-SOP?", so each program ramps LINEARLY from 0 at its
+ * SOP to full volume at SOP + 12 months, then holds. A vehicle contributes to the
+ * band of EVERY product it carries (bands overlap in vehicles, not in product
+ * units). Programs without an SOP (or archived) can't be placed on the timeline —
+ * counted in `excluded`.
  */
-export function buildCapacitySeries(programs: CapacityProgram[], now: number): {
-  points: CapacityPoint[];
+export function buildProductCapacitySeries(programs: CapacityProgram[], now: number): {
+  points: ProductCapacityPoint[];
   excluded: number;
 } {
-  const dated = programs.filter((p) => !p.isArchived && p.sopDate && p.volumeFirstYear > 0);
-  const excluded = programs.filter((p) => !p.isArchived).length - dated.length;
+  const counted = programs.filter((p) => p.lifecycle !== 'cancelled');
+  const dated = counted.filter((p) => p.sopDate && p.volumeFirstYear > 0);
+  const excluded = counted.length - dated.length;
   if (dated.length === 0) return { points: [], excluded };
 
   const sops = dated.map((p) => new Date(p.sopDate!));
@@ -84,19 +105,18 @@ export function buildCapacitySeries(programs: CapacityProgram[], now: number): {
   // run through the last program's FULL ramp: latest SOP + 12 months
   const end = new Date(Math.max(...sops.map(Number)) + YEAR_MS);
 
-  const points: CapacityPoint[] = [];
+  const points: ProductCapacityPoint[] = [];
   let year = start.getUTCFullYear();
   let q = quarterOf(start);
   const stopMs = +quarterEnd(end.getUTCFullYear(), quarterOf(end));
   for (let guard = 0; guard < 80; guard++) {
     const bucketEnd = quarterEnd(year, q);
-    let withGas = 0, withoutGas = 0;
+    const units = Object.fromEntries(PRODUCT_KEYS.map((k) => [k, 0])) as Record<ProductKey, number>;
     for (const p of dated) {
       const u = unitsAt(+new Date(p.sopDate!), p.volumeFirstYear, +bucketEnd);
-      if (p.hasGas) withGas += u;
-      else withoutGas += u;
+      for (const k of PRODUCT_KEYS) if (productCarried[k](p)) units[k] += u;
     }
-    points.push({ ms: +bucketEnd, label: label(year, q), withGas, withoutGas });
+    points.push({ ms: +bucketEnd, label: label(year, q), units });
     if (+bucketEnd >= stopMs) break;
     q += 1;
     if (q > 4) { q = 1; year += 1; }

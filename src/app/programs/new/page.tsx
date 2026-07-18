@@ -26,6 +26,7 @@ async function createProject(formData: FormData) {
   const hasGas = formData.get('hasGas') === 'on';
   const hasGbi = formData.get('hasGbi') === 'on';
   const hasDigitalKey = formData.get('hasDigitalKey') === 'on';
+  const hasAap = formData.get('hasAap') === 'on';
 
   if (!name || !partnerIdStr || !templateIdStr || !sopDate) {
     throw new Error('Missing fields');
@@ -67,7 +68,7 @@ async function createProject(formData: FormData) {
 
   const project = await prisma.$transaction(async (tx) => {
     const created = await tx.project.create({
-      data: { name, partnerId, ownerName: owner || null, sopDate, hasGas, hasGbi, hasDigitalKey }
+      data: { name, partnerId, ownerName: owner || null, sopDate, hasGas, hasGbi, hasDigitalKey, hasAap }
     });
 
     // Log program creation so it appears in the activity feed.
@@ -215,6 +216,9 @@ export default async function NewProjectPage() {
             </label>
             <label style={{ display: 'block', fontWeight: 400 }}>
               <input type="checkbox" name="hasDigitalKey" /> {t(locale, 'productDigitalKey')}
+            </label>
+            <label className={styles.checkboxLabel}>
+              <input type="checkbox" name="hasAap" /> {t(locale, 'productAap')}
             </label>
           </div>
 

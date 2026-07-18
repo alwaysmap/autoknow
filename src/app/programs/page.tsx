@@ -3,6 +3,7 @@ import { runMonteCarlo } from '../../lib/forecast';
 import { getLocale } from '../../lib/locale';
 import { t } from '../../lib/i18n';
 import ProgramsClient from './ProgramsClient';
+import { parseFilterParams, parseSortParams } from '../../lib/tableUrlState';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,12 @@ export default async function ProgramsPage(props: {
   const initialMinRisk = typeof sp.minRisk === 'string' ? Math.max(0, Math.min(2, parseInt(sp.minRisk, 10) || 0)) : 0;
   const initialSort = sp.sort === 'risk' ? ('risk' as const) : null;
   const initialActiveOnly = sp.filter === 'active';
+  // Shareable table state (design.md §6): canonical per-column params + sort/dir + q.
+  // The legacy ?minRisk / ?filter=active deep links above still preselect; any change
+  // in the UI rewrites the URL to the canonical form.
+  const initialFilters = parseFilterParams(sp, ['partner.name', 'partner.region', 'ownerName', 'theNeedle', 'status']);
+  const initialTableSort = sp.sort === 'risk' ? null : parseSortParams(sp);
+  const initialQ = typeof sp.q === 'string' ? sp.q : '';
   const projects = await prisma.project.findMany({
     include: {
       partner: {
@@ -43,6 +50,7 @@ export default async function ProgramsPage(props: {
       id: proj.id,
       name: proj.name,
       isArchived: proj.isArchived,
+      lifecycle: proj.lifecycle,
       theNeedle: proj.theNeedle,
       hillChartProgress: proj.hillChartProgress,
       sopDate: proj.sopDate ? proj.sopDate.toISOString() : null,
@@ -91,7 +99,10 @@ export default async function ProgramsPage(props: {
 
       <main style={{ padding: '32px 0' }}>
         <ProgramsClient
-          initialProjects={serializedProjects}
+      initialFilters={initialFilters}
+      initialTableSort={initialTableSort}
+      initialQ={initialQ}
+      initialProjects={serializedProjects}
           people={people}
           regions={regions.map(r => r.name)}
           partnerTypes={partnerTypes.map(t => t.name)}

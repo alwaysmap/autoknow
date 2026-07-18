@@ -24,6 +24,9 @@ interface DataTableProps<T> {
   renderRow: (item: T) => React.ReactNode;
   defaultSortKey?: string;
   defaultSortOrder?: 'asc' | 'desc';
+  /** Fires on every user sort change — hosts encode it into the URL (design.md §6:
+   *  table state is shareable). */
+  onSortChange?: (key: string, order: 'asc' | 'desc') => void;
   pageSize?: number;
   emptyStateMessage?: string;
   /** Controlled column filters (key → selected values). Omit for uncontrolled. */
@@ -43,6 +46,7 @@ export default function DataTable<T>({
   renderRow,
   defaultSortKey = '',
   defaultSortOrder = 'asc',
+  onSortChange,
   pageSize = 10,
   emptyStateMessage,
   filters: controlledFilters,
@@ -155,9 +159,11 @@ export default function DataTable<T>({
 
     if (sortKey === key) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+      onSortChange?.(key, sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(key);
       setSortOrder('asc');
+      onSortChange?.(key, 'asc');
     }
     setCurrentPage(1); // Reset page to 1 on sort change
   };

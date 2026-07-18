@@ -7,6 +7,62 @@
 }
 
 /* CCPM resource line: the owner's concurrent load across other programs. */
+.notices {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.infoBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 3px 5px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.infoBtn:hover {
+  color: var(--fg);
+  background: var(--surface);
+}
+
+.legendDialog {
+  border: none;
+  border-radius: 12px;
+  padding: 20px 24px;
+  background-color: var(--white, #fff);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  max-width: 380px;
+  width: 90%;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+}
+.legendDialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.4);
+}
+.legendTitle {
+  font-family: var(--head-font);
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
 .resourceLine {
   margin: -6px 0 14px;
   font-size: 12.5px;

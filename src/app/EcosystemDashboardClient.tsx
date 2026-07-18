@@ -4,14 +4,13 @@ import DateCell from '../components/DateCell';
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import DataTable from '../components/DataTable';
-import EcosystemSopChart from '../components/EcosystemSopChart';
-import HillChartControl from '../components/HillChartControl';
-import CycleTimeScatterPlot, { CycleTimeData, CycleTimeStats } from '../components/CycleTimeScatterPlot';
 
 import styles from './ecosystem-summary/EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../lib/needle';
+import { NeedleGaugeSvg } from '../components/NeedleGauge';
+import { sopOutlook } from '../lib/sop';
+import { deriveProgramStatus, visibleInLists } from '../lib/lifecycle';
 import { HEALTHS, HEALTH_KEY, healthKey, healthColor, healthOrder } from '../lib/health';
-import { resolvePerson } from '../lib/people';
 import { t } from '../lib/i18n';
 import { useLocale } from '../components/LocaleProvider';
 
@@ -24,6 +23,9 @@ interface Project {
   sopDate: string | null;
   ownerName: string | null;
   volumeFirstYear: number;
+  latestNote: string | null;
+  chainRemainingDays: number;
+  lifecycle: string;
   partner: {
     id: number;
     name: string;
@@ -54,211 +56,39 @@ interface Person {
 }
 
 interface EcosystemDashboardClientProps {
+  now: number;
   initialProjects: Project[];
-  briefings: {
-    projectId: number;
-    projectName: string;
-    partnerName: string;
-    briefingText: string;
-    timestamp: string;
-  }[];
-  p85LeadTime: number;
-  people: Person[];
-
-  cycleTimeData?: CycleTimeData[];
-  cycleTimeStats?: Record<string, CycleTimeStats>;
 }
 
 export default function EcosystemDashboardClient({
+  now,
   initialProjects,
-  briefings,
-  p85LeadTime,
-  people,
-  cycleTimeData = [],
-  cycleTimeStats = {},
 }: EcosystemDashboardClientProps) {
   const locale = useLocale();
-  const [minRiskVal, setMinRiskVal] = useState(0); // 0=Low, 1=Medium, 2=High, 3=Critical
-  const [selectedOwner, setSelectedOwner] = useState('All');
-  const [minProgress, setMinProgress] = useState(0);
 
-  // Extract unique program owners
-  const owners = ['All', ...Array.from(new Set(initialProjects.map(p => p.ownerName).filter(Boolean))) as string[]];
-
-  // Helper check to determine if project matches progress range
-  const matchesProgressRange = (proj: Project) => {
-    return proj.hillChartProgress >= minProgress;
-  };
-
-  // Filter projects (also filtering out archived projects on the dashboard)
-  const filteredProjects = initialProjects.filter(proj => {
-    if (proj.isArchived) return false;
-
-    // 1. Filter by Risk level from The Needle (Low, Medium, High, Critical)
-    const riskVal = healthOrder(proj.theNeedle);
-    if (riskVal < minRiskVal) return false;
-
-    // 2. Filter by Googler Program Owner
-    if (selectedOwner !== 'All' && proj.ownerName !== selectedOwner) {
-      return false;
-    }
-
-    // 3. Filter by Progress Range (Progress >= minProgress floor)
-    if (!matchesProgressRange(proj)) {
-      return false;
-    }
-
-    return true;
-  });
-
-
-  // Filter Cycle Time Data based on filteredProjects. cycleTimeData is keyed by
-  // phaseId, so build a phaseId -> projectId map from initialProjects to filter it.
-  const filteredProjectIds = new Set(filteredProjects.map(p => p.id));
-  const phaseToProjectMap = new Map<number, number>();
-  initialProjects.forEach(proj => {
-    proj.phases.forEach(phase => {
-      phaseToProjectMap.set(phase.id, proj.id);
-    });
-  });
-
-  const filteredCycleTimeData = cycleTimeData.filter(ct => {
-    const projId = phaseToProjectMap.get(ct.phaseId);
-    return projId !== undefined && filteredProjectIds.has(projId);
-  });
-
-  // Calculate high level dashboard aggregations
-  const totalVolume = filteredProjects.reduce((sum, p) => sum + p.volumeFirstYear, 0);
-  const criticalCount = filteredProjects.filter(p => healthOrder(p.theNeedle) >= 1).length;
-  // Count non-archived programs matching the progress floor (the dashboard never
-  // shows archived projects, so they must not inflate this card either).
-  const inRangeCount = initialProjects.filter(p => !p.isArchived && matchesProgressRange(p)).length;
+  // The fixed risk view: active programs (not archived, not done) at Some Risk or
+  // worse. No filter chrome here — the URL-shareable /programs table is the place
+  // for ad-hoc slicing.
+  const filteredProjects = initialProjects
+    .filter((proj) => visibleInLists(proj) && deriveProgramStatus(proj) === 'Active' && healthOrder(proj.theNeedle) >= 1)
+    // risk-first reading order: worst health on top, least-progressed breaking ties
+    .sort((a, b) => healthOrder(b.theNeedle) - healthOrder(a.theNeedle) || a.hillChartProgress - b.hillChartProgress);
 
   return (
     <div className={styles.clientWrapper}>
-      {/* Search & Filter Widgets Panel */}
-      <section className={styles.filterSection}>
-        <div className={styles.filterGroup} style={{ minWidth: '220px' }}>
-          <label className={styles.filterLabel}>{t(locale, 'healthFloor')}</label>
-          <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-            {HEALTHS.map((h, i) => {
-              const on = minRiskVal === i;
-              return (
-                <button
-                  key={h}
-                  type="button"
-                  onClick={() => setMinRiskVal(on ? 0 : i)}
-                  aria-pressed={on}
-                  style={{ fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 999, cursor: 'pointer', border: `1px solid ${healthColor(h)}`, background: on ? healthColor(h) : 'transparent', color: on ? '#fff' : healthColor(h) }}
-                >
-                  {t(locale, HEALTH_KEY[h])}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      {/* Filter panel + leader alert removed (2026-07-18, user call): the table
+          below IS the risk view — floored at Some Risk, active programs only. */}
 
-        <div className={styles.filterGroup}>
-          <label htmlFor="ownerSelect" className={styles.filterLabel}>{t(locale, 'programOwnerGoogler')}</label>
-          <select
-            id="ownerSelect"
-            value={selectedOwner}
-            onChange={(e) => setSelectedOwner(e.target.value)}
-            className={styles.select}
-          >
-            {owners.map(owner => (
-              <option key={owner} value={owner}>{owner === 'All' ? t(locale, 'allLabel') : owner}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className={styles.filterGroup} style={{ minWidth: '220px' }}>
-          <label className={styles.filterLabel}>
-            {t(locale, 'progressFloorHill')}
-          </label>
-          <div style={{ padding: '8px 0' }}>
-            <HillChartControl
-              value={minProgress}
-              onChange={(val) => {
-                setMinProgress(val);
-              }}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Hidden inputs to preserve Playwright E2E automation compatibility for min/max progress */}
-      <div style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, overflow: 'hidden' }}>
-        <input
-          id="riskSlider"
-          type="range"
-          min="0"
-          max="3"
-          value={minRiskVal}
-          onChange={(e) => setMinRiskVal(parseInt(e.target.value))}
-        />
-        <input
-          id="minProgressSlider"
-          type="range"
-          min="0"
-          max="100"
-          value={minProgress}
-          onChange={(e) => setMinProgress(parseInt(e.target.value))}
-        />
-        <input
-          id="maxProgressSlider"
-          type="range"
-          min="0"
-          max="100"
-          value={100}
-          onChange={() => {}}
-        />
-      </div>
-
-      {/* Leadership Scorecards */}
-      <section className={styles.scorecards}>
-        <div className={styles.card}>
-          <h3>{t(locale, 'programsInFlight')}</h3>
-          <div className={styles.metric}>{filteredProjects.length}</div>
-          <div className={styles.subtext}>{t(locale, 'activeImplementations')}</div>
-        </div>
-
-        <div className={styles.card}>
-          <h3>{t(locale, 'total12mVolume')}</h3>
-          <div className={styles.metric}>
-            {totalVolume.toLocaleString(locale)}
-          </div>
-          <div className={styles.subtext}>{t(locale, 'shippingUnitsFirstYear')}</div>
-        </div>
-
-        <div className={styles.card}>
-          <h3>{t(locale, 'programsInRange')}</h3>
-          <div className={styles.metric}>{inRangeCount}</div>
-          <div className={styles.subtext}>{t(locale, 'matchingProgressFilters')}</div>
-        </div>
-
-        <div className={styles.card}>
-          <h3>{t(locale, 'deterministicLeadTime')}</h3>
-          <div className={styles.metric}>{t(locale, 'p85Days', { n: p85LeadTime })}</div>
-          <div className={styles.subtext}>{t(locale, 'wipCompletionCycle')}</div>
-        </div>
-      </section>
-
-      {criticalCount > 0 && (
-        <div className={styles.blockerAlert}>
-          <strong>{t(locale, 'attentionLeaders')}</strong> {t(locale, 'flaggedPrograms', { n: criticalCount })}
-        </div>
-      )}
+      {/* Scorecard strip removed (2026-07-18, user call) — the numbers the
+          leadership strip and table don't already carry added noise, not signal. */}
 
 
       {/* Cycle-time point chart removed (2026-07-18, user call) — phase duration
           diagnostics live on the ecosystem-summary page if needed again. */}
 
-      {/* Scatter Chart visualization */}
-      <section className={styles.chartCard}>
-        <h2>{t(locale, 'targetLaunchTimeline')}</h2>
-        <EcosystemSopChart projects={filteredProjects} />
-      </section>
+      {/* SOP timeline chart removed entirely (2026-07-18, user call): redundant
+          with the capacity chart's quarter drill-down + the sortable Target SOP
+          column below. */}
 
       {/* Main Database Table */}
       <section className={styles.tableSection}>
@@ -266,18 +96,14 @@ export default function EcosystemDashboardClient({
         <DataTable
           headers={[
             { key: 'name', label: t(locale, 'programName') },
-            { key: 'partner.name', label: t(locale, 'oemPartnerHeader') },
-            { key: 'ownerName', label: t(locale, 'programOwner') },
             { key: 'sopDate', label: t(locale, 'targetSopHeader') },
             { key: 'volumeFirstYear', label: t(locale, 'targetVolume') },
             { key: 'theNeedle', label: t(locale, 'healthLabel') },
-            { key: 'hillChartProgress', label: t(locale, 'progressLabel') },
-            { key: 'forecast', label: t(locale, 'forecastLabel') }
+            { key: 'forecast', label: t(locale, 'forecastLabel') },
+            { key: 'latestNote', label: t(locale, 'latestUpdate'), sortable: false }
           ]}
           data={filteredProjects}
           renderRow={(p: Project) => {
-            const matched = p.ownerName ? resolvePerson(people, p.ownerName) : null;
-
             return (
               <tr key={p.id}>
                 <td>
@@ -285,95 +111,42 @@ export default function EcosystemDashboardClient({
                     {p.name}
                   </Link>
                 </td>
-                <td>
-                  <Link href={`/partners/${p.partner.id}`} className={styles.tableLink}>
-                    {p.partner.name}
-                  </Link>
-                </td>
-                <td>
-                  {(() => {
-                    if (matched) {
-                      return (
-                        <Link href={`/people/${matched.id}`} className={styles.ownerLink}>
-                          {p.ownerName}
-                        </Link>
-                      );
-                    }
-                    return p.ownerName;
-                  })()}
-                </td>
                 <td><DateCell value={p.sopDate} fallback={t(locale, 'tbd')} /></td>
                 <td>{t(locale, 'unitsCount', { n: p.volumeFirstYear.toLocaleString(locale) })}</td>
                 <td>
-                  {(() => {
-                    const label = formatNeedleValue(p.theNeedle);
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => setMinRiskVal(healthOrder(label))}
-                        className={styles.badgeFilterBtn}
-                        title={t(locale, 'filterHealthTitle', { h: t(locale, healthKey(label)) })}
-                      >
-                        <span className={styles.badge} style={{ color: healthColor(label) }}>
-                          {t(locale, healthKey(label))}
-                        </span>
-                      </button>
-                    );
-                  })()}
-                </td>
-                <td>
-                  <div className={styles.progressCell}>
-                    <div className={styles.progressTrack}>
-                      <div
-                        className={styles.progressBar}
-                        style={{ width: `${p.hillChartProgress}%` }}
-                      />
-                    </div>
+                  {/* ONE small needle carries health (color) + progress (angle) */}
+                  <div style={{ width: 72 }}
+                    title={`${t(locale, healthKey(formatNeedleValue(p.theNeedle)))} · ${p.hillChartProgress}%`}>
+                    <NeedleGaugeSvg progress={p.hillChartProgress} health={p.theNeedle} />
                   </div>
                 </td>
                 <td>
-                  {p.forecast.remainingPhases > 0 ? (
-                    <span className={styles.forecastText}>
-                      {t(locale, 'daysLikely', { n: p.forecast.sim.p85 })}
-                    </span>
-                  ) : (
-                    <span className={styles.finishedText}>{t(locale, 'finishedLabel')}</span>
-                  )}
+                  {/* Outlook from the REAL critical chain vs the SOP target — the
+                      Monte Carlo placeholder (normal(12,4) per phase, blind to actual
+                      plans) said "+16 days likely" on nearly every row. */}
+                  {(() => {
+                    if (!p.sopDate) return <span className={styles.finishedText}>{t(locale, 'tbd')}</span>;
+                    if (p.hillChartProgress >= 100) return <span className={styles.finishedText}>{t(locale, 'finishedLabel')}</span>;
+                    const { slackDays, onTrack } = sopOutlook(p.chainRemainingDays, p.sopDate, now);
+                    return onTrack
+                      ? <span style={{ color: 'var(--muted)', fontSize: 12.5 }}>{t(locale, 'slackWeeks', { n: Math.floor(slackDays / 7) })}</span>
+                      : <span className={styles.forecastText} style={{ color: '#b06000' }}>{t(locale, 'lateByWeeks', { n: Math.ceil(-slackDays / 7) })}</span>;
+                  })()}
+                </td>
+                <td>
+                  {p.latestNote
+                    ? <span className={styles.noteClamp} title={p.latestNote}>{p.latestNote}</span>
+                    : <span className={styles.finishedText}>—</span>}
                 </td>
               </tr>
             );
           }}
-          defaultSortKey="name"
+          defaultSortKey="" // pre-sorted by risk, then progress; headers re-sort
           pageSize={10}
           emptyStateMessage={t(locale, 'noProgramsMatchFilters')}
         />
       </section>
 
-      {/* AI Synthesis Briefings Row */}
-      <section className={styles.synthesisSection}>
-        <h2>{t(locale, 'aiStatusSynthesis')}</h2>
-        <div className={styles.briefingBlock}>
-          <div className={styles.briefingHeader}>
-            <span className={styles.aiBadge}>{t(locale, 'geminiSynthesisReport')}</span>
-            <span className={styles.briefingDate}>{t(locale, 'liveFeedsCompiled')}</span>
-          </div>
-          {briefings.length === 0 ? (
-            <p className={styles.emptyBriefing}>{t(locale, 'noWebhookUpdates')}</p>
-          ) : (
-            <div className={styles.synthesisContent}>
-              <div className={styles.aiExecutiveSummary}>
-                <strong>{t(locale, 'executiveBlockerSummary')}</strong>
-                {briefings.map((b, idx) => (
-                  <span key={idx}>
-                    {' '}
-                    <strong>{b.partnerName} (<Link href={`/programs/${b.projectId}`} className={styles.briefingLink}>{b.projectName}</Link>)</strong>: &quot;{b.briefingText}&quot;
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
     </div>
   );
 }

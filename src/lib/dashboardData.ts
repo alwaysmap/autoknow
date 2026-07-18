@@ -13,6 +13,7 @@ export interface DashboardProject {
   id: number;
   name: string;
   isArchived: boolean;
+  lifecycle: string;
   theNeedle: string;
   hillChartProgress: number;
   sopDate: string | null;
@@ -21,8 +22,10 @@ export interface DashboardProject {
   hasGas: boolean;
   hasGbi: boolean;
   hasDigitalKey: boolean;
+  hasAap: boolean;
   /** Remaining forecast days along the critical chain — the on-track signal vs SOP. */
   chainRemainingDays: number;
+  latestNote: string | null;
   partner: { id: number; name: string };
   phases: {
     id: number;
@@ -30,14 +33,6 @@ export interface DashboardProject {
     states: { status: string; theNeedle: string | null; hillChartProgress: number | null }[];
   }[];
   forecast: { remainingPhases: number; sim: { p50: number; p85: number; p95: number } };
-}
-
-export interface Briefing {
-  projectId: number;
-  projectName: string;
-  partnerName: string;
-  briefingText: string;
-  timestamp: string;
 }
 
 export interface DashboardPerson {
@@ -48,7 +43,6 @@ export interface DashboardPerson {
 
 export interface EcosystemDashboardData {
   serializedProjects: DashboardProject[];
-  briefings: Briefing[];
   p85LeadTime: number;
   people: DashboardPerson[];
   cycleTimeData: CycleTimeData[];
@@ -66,6 +60,7 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
         },
       },
       contextUrls: { orderBy: { id: 'desc' } },
+      states: { orderBy: { timestamp: 'desc' }, take: 1, select: { notes: true } },
     },
   });
 
@@ -90,6 +85,7 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
       id: proj.id,
       name: proj.name,
       isArchived: proj.isArchived,
+      lifecycle: proj.lifecycle,
       theNeedle: proj.theNeedle,
       hillChartProgress: proj.hillChartProgress,
       sopDate: proj.sopDate ? proj.sopDate.toISOString() : null,
@@ -98,7 +94,9 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
       hasGas: proj.hasGas,
       hasGbi: proj.hasGbi,
       hasDigitalKey: proj.hasDigitalKey,
+      hasAap: proj.hasAap,
       chainRemainingDays: chain.remainingDays,
+      latestNote: proj.states[0]?.notes ?? null,
       partner: { id: proj.partner.id, name: proj.partner.name },
       phases: proj.phases.map((p) => ({
         id: p.id,
@@ -112,18 +110,6 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
       forecast: { remainingPhases: unstartedCount, sim },
     };
   });
-
-  const briefings: Briefing[] = projects.flatMap((proj) =>
-    proj.contextUrls
-      .map((cu) => ({
-        projectId: proj.id,
-        projectName: proj.name,
-        partnerName: proj.partner.name,
-        briefingText: cu.ingestedText || '',
-        timestamp: new Date().toLocaleDateString(),
-      }))
-      .filter((b) => b.briefingText),
-  );
 
   const people = await prisma.person.findMany({
     select: { id: true, name: true, email: true },
@@ -186,5 +172,5 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
   const activeWipDurations = cycleTimeData.filter((ct) => !ct.isFinished).map((ct) => ct.cycleTimeDays);
   const p85LeadTime = activeWipDurations.length > 0 ? Math.round(percentile(activeWipDurations, 0.85)) : 14;
 
-  return { serializedProjects, briefings, p85LeadTime, people, cycleTimeData, cycleTimeStats };
+  return { serializedProjects, p85LeadTime, people, cycleTimeData, cycleTimeStats };
 }

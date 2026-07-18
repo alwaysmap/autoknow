@@ -72,6 +72,21 @@ test.describe('Me Landing Page', () => {
     await expect(page.locator('body')).toContainText('AAOS Google Integration');
   });
 
+  test('a login without a Person self-provisions from /me', async ({ page }) => {
+    // @casey has a login (any domain member can) but no Person record yet.
+    await page.goto('/me?user=@casey');
+    await expect(page.locator('body')).toContainText('No person profile matches');
+
+    await page.selectOption('select[name="partnerId"]', { label: 'Google LLC' });
+    await page.getByTestId('create-my-profile').click();
+
+    // Lands on the canonical person page; identity came from the login.
+    await page.waitForURL(/\/people\/\d+/);
+    await expect(page.locator('h1')).toContainText('casey');
+    await expect(page.locator('body')).toContainText('casey@google.com');
+    await expect(page.locator('body')).toContainText('Google LLC');
+  });
+
   test('should transparently redirect from legacy my-projects path to me page', async ({ page }) => {
     await page.goto('/my-projects?user=@dylan');
     // chains /my-projects → /me → the canonical person page

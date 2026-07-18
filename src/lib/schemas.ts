@@ -99,6 +99,32 @@ export const personDeleteSchema = z.object({
   personId: zId,
 });
 
+// ---- person creation & assignment ------------------------------------------------
+
+/** Person records are creatable by any login; a Person needs no Login (partner-side
+ *  contacts), and a Login needs no Person until they claim one (/me). */
+export const personCreateSchema = z.object({
+  name: zText.max(200),
+  email: z.email(),
+  partnerId: zId,
+  role: zTextOrNull,
+});
+
+/** Self/any assignment onto a phase (program derives from the phase). */
+export const phaseAssignSchema = z.object({
+  personId: zId,
+  projectId: zId,
+  phaseId: zId,
+  role: zTextOrNull,
+});
+
+// ---- program lifecycle ----------------------------------------------------------
+
+export const projectLifecycleSchema = z.object({
+  projectId: zId,
+  lifecycle: z.enum(['active', 'complete', 'cancelled']),
+});
+
 // ---- people / projects (JSON API) -----------------------------------------------
 
 export const personApiSchema = z.object({

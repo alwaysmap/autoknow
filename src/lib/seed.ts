@@ -823,7 +823,7 @@ export async function seedMockData() {
   interface MockPhase { n: string; d: number; p: number }
   interface MockProgram {
     name: string; partnerId: number; owner: string; sop: string; vol: number;
-    gas: boolean; gbi: boolean; dk: boolean; needle: string; hill: number;
+    gas: boolean; gbi: boolean; dk: boolean; aap?: boolean; needle: string; hill: number;
     phases: MockPhase[]; suppliers: number[]; people: number[];
   }
   const programs: MockProgram[] = [
@@ -871,6 +871,8 @@ export async function seedMockData() {
         hasGas: spec.gas,
         hasGbi: spec.gbi,
         hasDigitalKey: spec.dk,
+        hasAap: spec.aap ?? spec.gas, // projection typically rides along with GAS builds
+
         theNeedle: spec.needle,
         hillChartProgress: spec.hill,
       },

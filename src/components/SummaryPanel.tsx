@@ -17,7 +17,17 @@ import styles from './SummaryPanel.module.css';
 //
 // Freshness: summaries are cached append-only; when scope-relevant content is newer
 // than the cached copy the server marks it stale and this panel regenerates it in the
-// background (you keep reading the cached one meanwhile).
+// background (you keep reading the cached one meanwhile). A scope with NO summary
+// yet generates one automatically on first view — nobody should have to click for
+// the briefing to exist. The only control is a small Gemini spark (re-synthesize).
+
+function GeminiSpark({ size = 14 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 12 12" width={size} height={size} aria-hidden>
+      <path d="M 6 0.5 Q 6.9 4.4 11.5 6 Q 6.9 7.6 6 11.5 Q 5.1 7.6 0.5 6 Q 5.1 4.4 6 0.5 Z" fill="currentColor" />
+    </svg>
+  );
+}
 
 const SECTION_LABEL: Record<SectionKey, StringKey> = {
   risks: 'summaryRisks',
@@ -55,9 +65,10 @@ export default function SummaryPanel({
       await regenerateSummary(fd);
     });
 
-  // New content ingested or added ⇒ stale ⇒ refresh in the background, once.
+  // Stale content ⇒ refresh in the background; NO summary yet ⇒ generate one
+  // automatically — either way, once per mount.
   useEffect(() => {
-    if (configured && summary?.stale && !autoRan.current) {
+    if (configured && !autoRan.current && (!summary || summary.stale)) {
       autoRan.current = true;
       regenerate();
     }
@@ -81,9 +92,13 @@ export default function SummaryPanel({
     return (
       <div data-testid={`summary-${scope}`}>
         <div className={styles.header}>
-          <p className={styles.empty}>{t(locale, 'summaryEmpty')}</p>
-          <button type="button" className={styles.refreshBtn} disabled={pending} onClick={regenerate}>
-            {pending ? t(locale, 'summarySynthesizing') : t(locale, 'summaryGenerate')}
+          <p className={styles.empty}>
+            {pending || configured ? t(locale, 'summarySynthesizing') : t(locale, 'summaryEmpty')}
+          </p>
+          <button type="button" className={styles.geminiBtn} disabled={pending} onClick={regenerate}
+            title={t(locale, 'summaryGenerate')} aria-label={t(locale, 'summaryGenerate')}
+            data-pending={pending || undefined}>
+            <GeminiSpark />
           </button>
         </div>
       </div>
@@ -106,8 +121,10 @@ export default function SummaryPanel({
           )}
         </span>
         {configured && (
-          <button type="button" className={styles.refreshBtn} disabled={pending} onClick={regenerate}>
-            {pending ? t(locale, 'summarySynthesizing') : t(locale, 'summaryRefresh')}
+          <button type="button" className={styles.geminiBtn} disabled={pending} onClick={regenerate}
+            title={t(locale, 'summaryRefresh')} aria-label={t(locale, 'summaryRefresh')}
+            data-pending={pending || undefined}>
+            <GeminiSpark />
           </button>
         )}
       </div>

@@ -43,6 +43,7 @@ interface ProjectMetaHeaderProps {
   hasGas: boolean;
   hasGbi: boolean;
   hasDigitalKey: boolean;
+  hasAap: boolean;
   oemPartner?: PartnerRef | null;
   suppliersList?: PartnerRef[];
   currentPartnerId?: number;
@@ -51,7 +52,7 @@ interface ProjectMetaHeaderProps {
 
 export default function ProjectMetaHeader({
   projectId, projectName, archivedTag, actions, currentNeedle, currentHillChartProgress,
-  ownerName, sopDateString, volumeFirstYear, hasGas, hasGbi, hasDigitalKey, oemPartner, suppliersList,
+  ownerName, sopDateString, volumeFirstYear, hasGas, hasGbi, hasDigitalKey, hasAap, oemPartner, suppliersList,
   currentPartnerId, partnerOptions,
 }: ProjectMetaHeaderProps) {
   const locale = useLocale();
@@ -78,6 +79,7 @@ export default function ProjectMetaHeader({
     hasGas && 'GAS',
     hasGbi && 'GBI',
     hasDigitalKey && t(locale, 'productDigitalKey'),
+    hasAap && 'AAP',
   ].filter(Boolean) as string[];
 
   return (
@@ -198,6 +200,9 @@ export default function ProjectMetaHeader({
             </label>
             <label style={{ display: 'block', fontSize: 13 }}>
               <input type="checkbox" name="hasDigitalKey" defaultChecked={hasDigitalKey} /> {t(locale, 'productDigitalKey')}
+            </label>
+            <label>
+              <input type="checkbox" name="hasAap" defaultChecked={hasAap} /> {t(locale, 'productAap')}
             </label>
           </div>
           <div className={dash.textInputGroup}>

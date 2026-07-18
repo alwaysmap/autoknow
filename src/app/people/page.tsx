@@ -7,8 +7,10 @@ export const dynamic = 'force-dynamic';
 // role, and how many programs they touch. Company deep-links (?company=) preselect
 // the column funnel — same grammar as /partners (design.md §6).
 
+import { parseFilterParams, parseSortParams } from '../../lib/tableUrlState';
+
 interface SearchParams {
-  company?: string;
+  [key: string]: string | string[] | undefined;
 }
 
 export default async function PeoplePage(props: { searchParams: Promise<SearchParams> }) {
@@ -40,8 +42,10 @@ export default async function PeoplePage(props: { searchParams: Promise<SearchPa
     ]).size,
   }));
 
-  const initialFilters: Record<string, string[]> = {};
-  if (searchParams.company) initialFilters.company = [searchParams.company];
+  const initialFilters = parseFilterParams(searchParams, ['company', 'role']);
+  const initialSort = parseSortParams(searchParams);
 
-  return <PeopleClient people={rows} initialFilters={initialFilters} />;
+  const partners = await prisma.partner.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } });
+
+  return <PeopleClient people={rows} partners={partners} initialFilters={initialFilters} initialSort={initialSort} />;
 }
