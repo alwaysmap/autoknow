@@ -99,6 +99,10 @@ export default async function ProgramsPage(props: {
 
       <main style={{ padding: '32px 0' }}>
         <ProgramsClient
+          // Remount when the URL's params change: the client seeds its filter/sort
+          // state from initial* once, so same-route navigation (e.g. clicking the
+          // header "Programs" link while filtered) must not leave stale view state.
+          key={JSON.stringify(sp, Object.keys(sp).sort())}
       initialFilters={initialFilters}
       initialTableSort={initialTableSort}
       initialQ={initialQ}

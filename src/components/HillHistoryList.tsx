@@ -4,6 +4,7 @@ import { hillStatusColor } from '../lib/phase';
 import { t, statusKey, type Locale } from '../lib/i18n';
 import type { HillChange } from '../lib/history';
 import styles from './NeedleHistoryList.module.css';
+import { localDate } from '../lib/dates';
 
 // A scrollable list of "list cards" for a phase's hill-chart updates: a compact hill
 // (no UPDATE button) on the left, with the status, date, person, and markdown note to
@@ -35,7 +36,7 @@ export default function HillHistoryList({
             <div className={styles.head}>
               <span className={styles.health} style={{ color: hillStatusColor(c.progress) }}>{t(locale, statusKey(c.progress))}</span>
               <time className={styles.date} dateTime={c.timestamp}>
-                {new Date(c.timestamp).toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' })}
+                {localDate(c.timestamp, locale, { month: 'short', day: 'numeric', year: 'numeric' })}
                 {c.source ? ` · ${t(locale, 'bySource', { name: c.source })}` : ''}
               </time>
             </div>

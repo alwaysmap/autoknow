@@ -8,6 +8,7 @@ import { getCurrentUser } from '../../lib/session';
 import { authConfigured } from '../../auth';
 import { deriveEmail } from '../../lib/auth';
 import { parseForm, personCopySchema, personCreateSchema, personDeleteSchema, personMoveSchema } from '../../lib/schemas';
+import { guarded, type ActionResult } from '../../lib/actionResult';
 
 // Person maintenance (move / copy / delete), zod-gated (lib/schemas). Lives here —
 // not inline in the page — so the kebab-dialog client component can call them.
@@ -49,7 +50,8 @@ export async function createMyProfile(formData: FormData) {
   redirect(`/people/${person.id}`);
 }
 
-export async function movePersonCompany(formData: FormData) {
+export async function movePersonCompany(formData: FormData): Promise<ActionResult> {
+  return guarded(async () => {
   const { personId, newPartnerId, newRole, startDate } = parseForm(personMoveSchema, formData);
 
   // Close any currently active affiliations, then open the new one.
@@ -68,9 +70,11 @@ export async function movePersonCompany(formData: FormData) {
 
   revalidatePath(`/people/${personId}`);
   revalidatePath('/people');
+  });
 }
 
-export async function copyPerson(formData: FormData) {
+export async function copyPerson(formData: FormData): Promise<ActionResult> {
+  return guarded(async () => {
   const { personId, copyEmail } = parseForm(personCopySchema, formData);
 
   const source = await prisma.person.findUnique({ where: { id: personId } });
@@ -97,9 +101,11 @@ export async function copyPerson(formData: FormData) {
   }
 
   redirect(`/people/${copy.id}`);
+  });
 }
 
-export async function deletePerson(formData: FormData) {
+export async function deletePerson(formData: FormData): Promise<ActionResult> {
+  return guarded(async () => {
   const { personId } = parseForm(personDeleteSchema, formData);
 
   await prisma.personAffiliation.deleteMany({ where: { personId } });
@@ -111,4 +117,5 @@ export async function deletePerson(formData: FormData) {
   await prisma.person.delete({ where: { id: personId } });
 
   redirect('/people');
+  });
 }

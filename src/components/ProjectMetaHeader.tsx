@@ -12,6 +12,7 @@ import dash from './ProjectStatusDashboard.module.css';
 import pills from './PhaseTrack.module.css';
 import styles from './ProjectMetaHeader.module.css';
 import KebabMenu from './KebabMenu';
+import { localDate } from '../lib/dates';
 
 // Project metadata lives in the page HEADER — one strip, no sidebar card, no
 // duplication. Quiet facts on the left (OEM · suppliers · owner, all links per
@@ -72,7 +73,7 @@ export default function ProjectMetaHeader({
 
   // SOP is a month/year target (last day of month assumed) — display month + year.
   const sop = sopDateString
-    ? new Date(`${sopDateString}T00:00:00`).toLocaleDateString(locale, { year: 'numeric', month: 'short' })
+    ? localDate(`${sopDateString}T00:00:00Z`, locale, { year: 'numeric', month: 'short' })
     : null;
   const sopMonthValue = sopDateString ? sopDateString.slice(0, 7) : ''; // yyyy-MM for <input type="month">
   const products = [

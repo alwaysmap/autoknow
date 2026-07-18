@@ -9,6 +9,11 @@ interface Header {
   key: string;
   label: string;
   sortable?: boolean;
+  /** Comparison type for this column. Omitted → inferred (number/Date as-is, then
+   *  case-insensitive string). Set 'date' explicitly for ISO-date strings — the old
+   *  auto-sniff treated any Date.parse-able string with a '-' as a date, mis-sorting
+   *  columns like IDs or ranges ("3-2") and varying by engine. */
+  sortType?: 'date' | 'number' | 'string';
   /** Discrete per-column filter (funnel in the header): options are the unique
    *  values in the data; multi-select is OR within the column, columns AND. */
   filterable?: boolean;
@@ -97,6 +102,7 @@ export default function DataTable<T>({
   }, [data, headers, filters]);
 
   // 1. Sort the data client-side
+  const sortType = headers.find((h) => h.key === sortKey)?.sortType;
   const sortedData = useMemo(() => {
     if (!sortKey) return filteredData;
 
@@ -108,21 +114,19 @@ export default function DataTable<T>({
       if (valA === undefined || valA === null) valA = '';
       if (valB === undefined || valB === null) valB = '';
 
-      // Date comparison
+      // Date comparison — actual Date objects, or a column declared sortType 'date'.
       if (valA instanceof Date && valB instanceof Date) {
         return sortOrder === 'asc'
           ? valA.getTime() - valB.getTime()
           : valB.getTime() - valA.getTime();
       }
-
-      // Convert strings containing dates
-      if (
-        typeof valA === 'string' && !isNaN(Date.parse(valA)) && valA.includes('-') &&
-        typeof valB === 'string' && !isNaN(Date.parse(valB)) && valB.includes('-')
-      ) {
-        return sortOrder === 'asc'
-          ? Date.parse(valA) - Date.parse(valB)
-          : Date.parse(valB) - Date.parse(valA);
+      if (sortType === 'date') {
+        const da = Date.parse(String(valA)), db = Date.parse(String(valB));
+        const na = isNaN(da), nb = isNaN(db);
+        if (na && nb) return 0;
+        if (na) return 1; // unparseable dates sort last
+        if (nb) return -1;
+        return sortOrder === 'asc' ? da - db : db - da;
       }
 
       // Numeric comparison
@@ -184,13 +188,18 @@ export default function DataTable<T>({
                 <th
                   key={h.key}
                   className={`${styles.th} ${isSortable ? styles.sortable : ''} ${isSorted ? styles.sorted : ''}`}
+                  aria-sort={isSorted ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}
                 >
                   <div className={styles.headerCell}>
-                    <span onClick={() => handleSort(h.key, h.sortable)}>{h.label}</span>
-                    {isSorted && (
-                      <span className={styles.sortIndicator}>
-                        {sortOrder === 'asc' ? ' ▲' : ' ▼'}
-                      </span>
+                    {/* Sorting is a real control: a button so it's focusable and
+                        announced, not a click-only span. */}
+                    {isSortable ? (
+                      <button type="button" className={styles.sortButton} onClick={() => handleSort(h.key, h.sortable)}>
+                        {h.label}
+                        {isSorted && <span className={styles.sortIndicator}>{sortOrder === 'asc' ? ' ▲' : ' ▼'}</span>}
+                      </button>
+                    ) : (
+                      <span>{h.label}</span>
                     )}
                     {h.filterable && (
                       <span className={styles.filterWrap}>

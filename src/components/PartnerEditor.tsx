@@ -86,7 +86,29 @@ export function NewPartnerButton({ types, regions }: { types: Option[]; regions:
   const locale = useLocale();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   useLightDismiss(dialogRef);
+
+  // A failed action must surface INSIDE the dialog — a throw would hit the route
+  // error boundary and destroy the user's modal input. Actions return { error };
+  // redirect()-on-success still propagates as a throw and navigates.
+  const submit =
+    (action: (fd: FormData) => Promise<{ error?: string }>, onOk?: () => void) =>
+    async (formData: FormData) => {
+      setSaving(true);
+      setError(null);
+      try {
+        const result = await action(formData);
+        if (result?.error) {
+          setError(result.error);
+          return;
+        }
+        onOk?.();
+      } finally {
+        setSaving(false);
+      }
+    };
+  const errorLine = error && <p role="alert" className={admin.warningText}>{error}</p>;
 
   return (
     <>
@@ -97,13 +119,10 @@ export function NewPartnerButton({ types, regions }: { types: Option[]; regions:
       <dialog ref={dialogRef} closedby="any" className={admin.dialog} aria-labelledby="newPartnerTitle">
         <div className={admin.dialogHeader}><h3 id="newPartnerTitle">{t(locale, 'newPartner')}</h3></div>
         <form
-          action={async (formData) => {
-            setSaving(true);
-            // createPartner redirects on success — no close needed.
-            try { await createPartner(formData); } finally { setSaving(false); }
-          }}
+          action={submit(createPartner)}
           className={dash.dialogForm}
         >
+          {errorLine}
           <PartnerFormFields types={types} regions={regions} />
           <div className={dash.actionRow}>
             <button type="button" onClick={() => dialogRef.current?.close()} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
@@ -129,9 +148,32 @@ export default function PartnerAdminControls({
   const editRef = useRef<HTMLDialogElement>(null);
   const deleteRef = useRef<HTMLDialogElement>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [confirmName, setConfirmName] = useState('');
   useLightDismiss(editRef);
   useLightDismiss(deleteRef);
+
+  // A failed action must surface INSIDE the dialog — a throw would hit the route
+  // error boundary and destroy the user's modal input. Actions return { error };
+  // redirect()-on-success still propagates as a throw and navigates.
+  const submit =
+    (action: (fd: FormData) => Promise<{ error?: string }>, onOk?: () => void) =>
+    async (formData: FormData) => {
+      setSaving(true);
+      setError(null);
+      try {
+        const result = await action(formData);
+        if (result?.error) {
+          setError(result.error);
+          return;
+        }
+        onOk?.();
+      } finally {
+        setSaving(false);
+      }
+    };
+  const errorLine = error && <p role="alert" className={admin.warningText}>{error}</p>;
+
 
   const blocked = programCount > 0 || employeeCount > 0;
   const isConfirmed = confirmName.trim() === partner.name;
@@ -153,13 +195,10 @@ export default function PartnerAdminControls({
       <dialog ref={editRef} closedby="any" className={admin.dialog} aria-labelledby="editPartnerTitle">
         <div className={admin.dialogHeader}><h3 id="editPartnerTitle">{t(locale, 'editPartnerTitle')}</h3></div>
         <form
-          action={async (formData) => {
-            setSaving(true);
-            try { await updatePartner(formData); editRef.current?.close(); }
-            finally { setSaving(false); }
-          }}
+          action={submit(updatePartner, () => editRef.current?.close())}
           className={dash.dialogForm}
         >
+          {errorLine}
           <input type="hidden" name="partnerId" value={partner.id} />
           <PartnerFormFields defaults={partner} types={types} regions={regions} />
           <div className={dash.actionRow}>
@@ -186,11 +225,10 @@ export default function PartnerAdminControls({
               {t(locale, 'deleteWarning')} <strong>{t(locale, 'cannotBeUndone')}</strong>
             </p>
             <form
-              action={async (formData) => {
-                if (isConfirmed) await deletePartner(formData);
-              }}
+              action={submit(async (formData) => (isConfirmed ? deletePartner(formData) : {}))}
               className={admin.dialogForm}
             >
+              {errorLine}
               <input type="hidden" name="partnerId" value={partner.id} />
               <div className={admin.formGroup}>
                 <label htmlFor="confirmPartnerName" className={admin.formLabel}>

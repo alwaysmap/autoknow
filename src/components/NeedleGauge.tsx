@@ -7,6 +7,7 @@ import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import { updateNeedleStatus } from '../app/actions/needle';
 import { HEALTHS, healthColor, healthKey, parseHealth, type Health } from '../lib/health';
+import { localDate } from '../lib/dates';
 
 // Program status drawn as a Basecamp-style gauge: a WHITE track (a thick band with a
 // thin outline) whose health color fills up to the current progress, with graticules
@@ -176,7 +177,7 @@ export default function NeedleGauge({
       </div>
 
       <div className={styles.statusValue} style={{ color: healthColor(currentHealth) }}>{t(locale, healthKey(currentHealth))}</div>
-      {updatedAt && <div className={styles.updatedAt}>{t(locale, 'updatedOn', { d: new Date(updatedAt).toLocaleDateString(locale, { month: 'short', day: 'numeric' }) })}</div>}
+      {updatedAt && <div className={styles.updatedAt}>{t(locale, 'updatedOn', { d: localDate(updatedAt, locale, { month: 'short', day: 'numeric' }) })}</div>}
 
       {editable && <button type="button" onClick={open} className={styles.updateBtn}>{t(locale, 'update')}</button>}
 

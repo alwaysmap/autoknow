@@ -14,6 +14,7 @@ import { addPhasePartner, removePhasePartner } from '../app/actions/phasePartner
 import { addPhasePerson, removePhasePerson } from '../app/actions/phasePeople';
 import type { PhaseGraphRow } from './PhaseGraph';
 import styles from './PhaseTrack.module.css';
+import { localDate } from '../lib/dates';
 
 // The phase surface as a single train line. The CRITICAL CHAIN is the main line —
 // its stations come first, in chain order, so the chain renders as one contiguous
@@ -440,7 +441,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   };
 
   const fmtDate = (iso: string) =>
-    new Date(iso).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+    localDate(iso, locale, { month: 'short', day: 'numeric' });
 
   // Structural DAG problems (cycles, dead-ending branches, unknown deps) join the
   // notices list — the same validator the phase editor runs, so the rail and the
@@ -645,7 +646,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                 </span>
               ))}
               {availablePeople.length > 0 ? (
-                <form action={addPhasePerson} className={styles.addInlineForm}>
+                <form action={async (fd) => { await addPhasePerson(fd); }} className={styles.addInlineForm}>
                   <input type="hidden" name="phaseId" value={p.id} />
                   <input type="hidden" name="projectId" value={projectId} />
                   <select name="personId" className={styles.quietSelect} defaultValue="" required

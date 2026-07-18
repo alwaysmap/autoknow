@@ -58,6 +58,9 @@ export default async function PartnersPage(props: { searchParams: Promise<Search
 
   return (
     <PartnersClient
+      // Remount when the URL's params change — the client seeds filter/sort state
+      // from initial* once (see programs/page.tsx for the same rule).
+      key={JSON.stringify(searchParams, Object.keys(searchParams).sort())}
       partners={partners}
       initialFilters={initialFilters}
       initialSort={initialSort}

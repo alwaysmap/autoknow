@@ -12,6 +12,7 @@ import { t, type Locale, type StringKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import AiBadge from './AiBadge';
 import styles from './FeedList.module.css';
+import { localDate } from '../lib/dates';
 
 // One presentational list for both search results and the activity feed. Renders a
 // relevance "% match" when the item carries a score, otherwise a date when it carries
@@ -43,7 +44,7 @@ function aside(it: FeedItem, locale: Locale): string {
   // Search results are already ordered by relevance — never surface the numeric score.
   if (typeof it.score === 'number') return '';
   if (it.timestamp) {
-    return new Date(it.timestamp).toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' });
+    return localDate(it.timestamp, locale, { month: 'short', day: 'numeric', year: 'numeric' });
   }
   return '';
 }

@@ -10,6 +10,8 @@ import { addPhase, deletePhase } from '../app/programs/[id]/actions';
 import { addPhasePartner, removePhasePartner } from '../app/actions/phasePartners';
 import { addPhaseDependency, removePhaseDependency } from '../app/actions/dependencies';
 import styles from './PhaseGraph.module.css';
+import { localDate } from '../lib/dates';
+import { useLocale } from './LocaleProvider';
 
 // The program's phase surface (spec §2.13): a vertical tube-map of the phase DAG.
 // Rectilinear edges (90° jogs, small corner radii — never curves), one node per phase in
@@ -113,6 +115,7 @@ function descendantsOf(id: number, rows: PhaseGraphRow[]): Set<number> {
 const LANE_W = 16, RAIL_PAD = 14, NODE_R = 5.5;
 
 export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGraphProps) {
+  const locale = useLocale();
   const { ordered, lane, maxLane } = layout(phases);
   const gutterW = RAIL_PAD * 2 + maxLane * LANE_W;
   const byId = new Map(phases.map((p) => [p.id, p]));
@@ -281,7 +284,7 @@ export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGrap
                 {isConstraint && <span className={styles.constraintTag}>Constraint</span>}
                 {p.updatedAt && (
                   <span className={styles.when}>
-                    {new Date(p.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    {localDate(p.updatedAt, locale, { month: 'short', day: 'numeric' })}
                     {p.updatedBy ? ` · ${p.updatedBy}` : ''}
                   </span>
                 )}

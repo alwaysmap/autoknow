@@ -747,6 +747,7 @@ const STRINGS = {
   changesHeading: { en: 'Changes', de: 'Änderungen', ja: '変更履歴', ko: '변경 내역' },
 
   // ---- hill chart control + cycle time ----
+  hillProgressAria: { en: 'Progress on the hill (0–100%); use arrow keys to adjust', de: 'Fortschritt auf dem Hügel (0–100 %); mit den Pfeiltasten anpassen', ja: 'ヒル上の進捗（0〜100%）。矢印キーで調整', ko: '힐 진행도(0–100%); 화살표 키로 조정' },
   workingItOut: { en: 'Working it out', de: 'Klären', ja: '模索中', ko: '파악 중' },
   gettingItDone: { en: 'Getting it done', de: 'Umsetzen', ja: '仕上げ中', ko: '마무리 중' },
   notEnoughCycleTime: { en: 'Not enough cycle time data to visualize.', de: 'Nicht genug Zykluszeit-Daten für eine Darstellung.', ja: '可視化に十分なサイクルタイムデータがありません。', ko: '시각화할 사이클 타임 데이터가 부족합니다.' },

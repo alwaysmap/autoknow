@@ -6,6 +6,7 @@ import { phaseColor } from '../../../lib/phase';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
+import { localDate } from '../../../lib/dates';
 
 export const dynamic = 'force-dynamic';
 
@@ -180,9 +181,9 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
               return (
               <div className={styles.rows}>
                 {prior.map((aff) => {
-                  const startStr = new Date(aff.startDate).toLocaleDateString(locale, { year: 'numeric', month: 'short' });
+                  const startStr = localDate(aff.startDate, locale, { year: 'numeric', month: 'short' });
                   const endStr = aff.endDate
-                    ? new Date(aff.endDate).toLocaleDateString(locale, { year: 'numeric', month: 'short' })
+                    ? localDate(aff.endDate, locale, { year: 'numeric', month: 'short' })
                     : t(locale, 'present');
                   return (
                     <div key={aff.id} className={styles.row}>

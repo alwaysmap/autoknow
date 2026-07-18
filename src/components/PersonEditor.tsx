@@ -50,12 +50,34 @@ export default function PersonAdminControls({ personId, personName, partners, pr
   const deleteRef = useRef<HTMLDialogElement>(null);
   const assignRef = useRef<HTMLDialogElement>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [pickedProgram, setPickedProgram] = useState<number | ''>('');
   useLightDismiss(moveRef);
   useLightDismiss(copyRef);
   useLightDismiss(deleteRef);
   useLightDismiss(assignRef);
   const programPhases = programs.find((pr) => pr.id === pickedProgram)?.phases ?? [];
+
+  // A failed action must surface INSIDE the dialog — a throw would hit the route
+  // error boundary and destroy the user's modal input. Actions return { error };
+  // redirect()-on-success still propagates as a throw and navigates.
+  const submit =
+    (action: (fd: FormData) => Promise<{ error?: string }>, onOk?: () => void) =>
+    async (formData: FormData) => {
+      setSaving(true);
+      setError(null);
+      try {
+        const result = await action(formData);
+        if (result?.error) {
+          setError(result.error);
+          return;
+        }
+        onOk?.();
+      } finally {
+        setSaving(false);
+      }
+    };
+  const errorLine = error && <p role="alert" className={admin.warningText}>{error}</p>;
 
   return (
     <span className={meta.actions}>
@@ -79,14 +101,11 @@ export default function PersonAdminControls({ personId, personName, partners, pr
       <dialog ref={assignRef} closedby="any" className={admin.dialog} aria-labelledby="assignPersonTitle">
         <div className={admin.dialogHeader}><h3 id="assignPersonTitle">{t(locale, 'addToProgram')}</h3></div>
         <form
-          action={async (formData) => {
-            setSaving(true);
-            try { await addPhasePerson(formData); assignRef.current?.close(); }
-            finally { setSaving(false); }
-          }}
+          action={submit(addPhasePerson, () => assignRef.current?.close())}
           className={dash.dialogForm}
         >
           <input type="hidden" name="personId" value={personId} />
+          {errorLine}
           <input type="hidden" name="projectId" value={pickedProgram || ''} />
           <div className={dash.textInputGroup}>
             <label htmlFor="assignProgram" className={dash.formLabel}>{t(locale, 'programLabel')}</label>
@@ -118,14 +137,11 @@ export default function PersonAdminControls({ personId, personName, partners, pr
       <dialog ref={moveRef} closedby="any" className={admin.dialog} aria-labelledby="movePersonTitle">
         <div className={admin.dialogHeader}><h3 id="movePersonTitle">{t(locale, 'moveToDifferentCompany')}</h3></div>
         <form
-          action={async (formData) => {
-            setSaving(true);
-            try { await movePersonCompany(formData); moveRef.current?.close(); }
-            finally { setSaving(false); }
-          }}
+          action={submit(movePersonCompany, () => moveRef.current?.close())}
           className={dash.dialogForm}
         >
           <input type="hidden" name="personId" value={personId} />
+          {errorLine}
           <div className={dash.textInputGroup}>
             <label htmlFor="newPartnerId" className={dash.formLabel}>{t(locale, 'newOrganization')}</label>
             <select id="newPartnerId" name="newPartnerId" required className={dash.textInput} defaultValue="">
@@ -152,14 +168,11 @@ export default function PersonAdminControls({ personId, personName, partners, pr
       <dialog ref={copyRef} closedby="any" className={admin.dialog} aria-labelledby="copyPersonTitle">
         <div className={admin.dialogHeader}><h3 id="copyPersonTitle">{t(locale, 'copyPersonProfile')}</h3></div>
         <form
-          action={async (formData) => {
-            setSaving(true);
-            // copyPerson redirects on success — no close needed.
-            try { await copyPerson(formData); } finally { setSaving(false); }
-          }}
+          action={submit(copyPerson)}
           className={dash.dialogForm}
         >
           <input type="hidden" name="personId" value={personId} />
+          {errorLine}
           <p className={dash.formHelp ?? ''}>{t(locale, 'copyProfileHelp')}</p>
           <div className={dash.textInputGroup}>
             <label htmlFor="copyEmail" className={dash.formLabel}>{t(locale, 'newEmailAddress')}</label>
@@ -176,14 +189,11 @@ export default function PersonAdminControls({ personId, personName, partners, pr
       <dialog ref={deleteRef} closedby="any" className={admin.dialog} aria-labelledby="deletePersonTitle">
         <div className={admin.dialogHeader}><h3 id="deletePersonTitle">{t(locale, 'deletePersonProfile')}</h3></div>
         <form
-          action={async (formData) => {
-            setSaving(true);
-            // deletePerson redirects on success.
-            try { await deletePerson(formData); } finally { setSaving(false); }
-          }}
+          action={submit(deletePerson)}
           className={dash.dialogForm}
         >
           <input type="hidden" name="personId" value={personId} />
+          {errorLine}
           <p>{t(locale, 'deleteProfileHelp')} <strong>{personName}</strong></p>
           <div className={dash.actionRow}>
             <button type="button" onClick={() => deleteRef.current?.close()} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>

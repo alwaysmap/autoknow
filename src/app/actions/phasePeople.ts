@@ -3,10 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { parseForm, phaseAssignSchema } from '../../lib/schemas';
 import { prisma } from '../../lib/db';
+import { guarded, type ActionResult } from '../../lib/actionResult';
 
 // CRUD for per-phase people involvement (PhasePerson) — mirrors phasePartners.
 
-export async function addPhasePerson(formData: FormData) {
+export async function addPhasePerson(formData: FormData): Promise<ActionResult> {
+  return guarded(async () => {
   const { phaseId, personId, projectId, role } = parseForm(phaseAssignSchema, formData);
   const projectIdStr = String(projectId);
 
@@ -18,6 +20,7 @@ export async function addPhasePerson(formData: FormData) {
 
   revalidatePath(`/programs/${projectIdStr}`);
   revalidatePath(`/people/${personId}`);
+  });
 }
 
 export async function removePhasePerson(formData: FormData) {

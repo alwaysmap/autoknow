@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '../../lib/db';
 import { indexEntity } from '../../lib/search';
 import { parseForm, partnerFieldsSchema } from '../../lib/schemas';
+import { guarded, type ActionResult } from '../../lib/actionResult';
 
 // Partner CRUD. Partners used to be ingest/seed-only; these actions make the record
 // fully editable in the UI. Delete is deliberately conservative: a partner that still
@@ -18,15 +19,18 @@ function readFields(formData: FormData) {
   return parseForm(partnerFieldsSchema, formData);
 }
 
-export async function createPartner(formData: FormData) {
+export async function createPartner(formData: FormData): Promise<ActionResult> {
+  return guarded(async () => {
   const fields = readFields(formData);
   const partner = await prisma.partner.create({ data: fields });
   await indexEntity('partner', partner.id);
   revalidatePath('/partners');
   redirect(`/partners/${partner.id}`);
+  });
 }
 
-export async function updatePartner(formData: FormData) {
+export async function updatePartner(formData: FormData): Promise<ActionResult> {
+  return guarded(async () => {
   const partnerId = parseInt((formData.get('partnerId') as string) || '', 10);
   if (Number.isNaN(partnerId)) throw new Error('Invalid partner ID');
   const fields = readFields(formData);
@@ -34,9 +38,11 @@ export async function updatePartner(formData: FormData) {
   await indexEntity('partner', partnerId);
   revalidatePath(`/partners/${partnerId}`);
   revalidatePath('/partners');
+  });
 }
 
-export async function deletePartner(formData: FormData) {
+export async function deletePartner(formData: FormData): Promise<ActionResult> {
+  return guarded(async () => {
   const partnerId = parseInt((formData.get('partnerId') as string) || '', 10);
   if (Number.isNaN(partnerId)) throw new Error('Invalid partner ID');
 
@@ -62,4 +68,5 @@ export async function deletePartner(formData: FormData) {
 
   revalidatePath('/partners');
   redirect('/partners');
+  });
 }

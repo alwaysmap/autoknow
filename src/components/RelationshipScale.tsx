@@ -7,6 +7,7 @@ import { useLocale } from './LocaleProvider';
 import { updatePartnerRelationship } from '../app/actions/relationship';
 import { REL_SCORES, REL_KEY, clampScore, type RelScore } from '../lib/relationship';
 import styles from './RelationshipScale.module.css';
+import { localDate } from '../lib/dates';
 
 // Partner relationship health on a 7-point scale — deliberately NOT a needle and
 // deliberately colorless. Health is read as POSITION on a common 1..7 axis: a solid
@@ -160,7 +161,7 @@ export default function RelationshipScale({
       </div>
       {updatedAt && (
         <div className={styles.updatedAt}>
-          {t(locale, 'updatedOn', { d: new Date(updatedAt).toLocaleDateString(locale, { month: 'short', day: 'numeric' }) })}
+          {t(locale, 'updatedOn', { d: localDate(updatedAt, locale, { month: 'short', day: 'numeric' }) })}
         </div>
       )}
       {editable && (

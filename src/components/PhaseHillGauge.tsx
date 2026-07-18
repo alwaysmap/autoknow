@@ -8,6 +8,7 @@ import { useLocale } from './LocaleProvider';
 import { HILL_PATH, hillCoordinates } from '../lib/geometry';
 import { hillStatus, hillStatusColor, phaseColor } from '../lib/phase';
 import { updatePhaseHill } from '../app/actions/hill';
+import { localDate } from '../lib/dates';
 
 // The hill-chart analogue of the needle: task progress for a SINGLE phase. A display-only
 // SVG (the bell curve + a dot at progress, plus a ghost dot for the previous update) and
@@ -142,7 +143,7 @@ export default function PhaseHillGauge({
       </div>
 
       {showStatus && <div className={styles.statusValue} style={{ color: hillStatusColor(progress) }}>{statusText(progress)}</div>}
-      {updatedAt && <div className={styles.updatedAt}>{t(locale, 'updatedOn', { d: new Date(updatedAt).toLocaleDateString(locale, { month: 'short', day: 'numeric' }) })}</div>}
+      {updatedAt && <div className={styles.updatedAt}>{t(locale, 'updatedOn', { d: localDate(updatedAt, locale, { month: 'short', day: 'numeric' }) })}</div>}
 
       {editable && <button type="button" onClick={open} className={styles.updateBtn}>{strings.update}</button>}
 

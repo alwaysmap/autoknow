@@ -6,6 +6,20 @@ export function isoDate(value: string | Date): string {
   return new Date(value).toISOString().slice(0, 10);
 }
 
+/**
+ * Locale-aware date label rendered from UTC parts. Client components are
+ * server-rendered first, so a formatter that reads the machine's timezone
+ * hydrates to a DIFFERENT day near midnight boundaries (server TZ vs browser TZ)
+ * — every user-facing toLocaleDateString goes through here with the TZ pinned.
+ */
+export function localDate(
+  value: string | Date,
+  locale: string | undefined,
+  opts: Intl.DateTimeFormatOptions,
+): string {
+  return new Date(value).toLocaleDateString(locale, { timeZone: 'UTC', ...opts });
+}
+
 /** ISO-8601 week number, rendered as "W29" (weeks start Monday; W1 holds Jan 4). */
 export function isoWeekLabel(value: string | Date): string {
   const d = new Date(value);

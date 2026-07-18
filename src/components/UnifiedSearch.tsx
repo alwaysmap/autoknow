@@ -63,9 +63,15 @@ export default function UnifiedSearch({
     } catch (e) {
       if ((e as Error).name !== 'AbortError') console.error('Search failed:', e);
     } finally {
-      setLoading(false);
+      // Only the CURRENT request may clear the spinner: an aborted predecessor's
+      // finally resolves after the replacement set loading=true and would re-enable
+      // the button mid-flight.
+      if (abortRef.current === ctrl) setLoading(false);
     }
   };
+
+  // Abort any in-flight request on unmount — a late setHits after unmount is a leak.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   // Run once on mount when a query is supplied via the URL (?q=).
   const ranInitial = useRef(false);

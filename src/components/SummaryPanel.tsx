@@ -8,6 +8,7 @@ import { t, type StringKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import AiBadge from './AiBadge';
 import styles from './SummaryPanel.module.css';
+import { localDate } from '../lib/dates';
 
 // The leadership summary — the "read this first" slot for a scope (ecosystem /
 // partner / program). Highly structured: TL;DR, then Risks / Actions / Progress /
@@ -105,7 +106,7 @@ export default function SummaryPanel({
     );
   }
 
-  const generated = new Date(summary.generatedAt).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+  const generated = localDate(summary.generatedAt, locale, { month: 'short', day: 'numeric' });
   const ordered = SECTION_ORDER.map((key) => summary.body.sections.find((s) => s.key === key)).filter(
     (s): s is NonNullable<typeof s> => !!s && s.bullets.length > 0,
   );

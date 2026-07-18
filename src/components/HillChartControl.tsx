@@ -3,26 +3,13 @@
 import React, { useRef, useState } from 'react';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
+import { hillCoordinates, HILL_PATH } from '../lib/geometry';
 import styles from './HillChartControl.module.css';
 
 interface HillChartControlProps {
   value: number; // 0 - 100
   onChange?: (val: number) => void;
   className?: string;
-}
-
-function getHillCoordinates(progress: number) {
-  if (progress <= 50) {
-    const t = progress / 50;
-    const x = Math.pow(1 - t, 3) * 10 + 3 * Math.pow(1 - t, 2) * t * 50 + 3 * (1 - t) * Math.pow(t, 2) * 70 + Math.pow(t, 3) * 100;
-    const y = Math.pow(1 - t, 3) * 80 + 3 * Math.pow(1 - t, 2) * t * 80 + 3 * (1 - t) * Math.pow(t, 2) * 10 + Math.pow(t, 3) * 10;
-    return { x, y };
-  } else {
-    const t = (progress - 50) / 50;
-    const x = Math.pow(1 - t, 3) * 100 + 3 * Math.pow(1 - t, 2) * t * 130 + 3 * (1 - t) * Math.pow(t, 2) * 150 + Math.pow(t, 3) * 190;
-    const y = Math.pow(1 - t, 3) * 10 + 3 * Math.pow(1 - t, 2) * t * 10 + 3 * (1 - t) * Math.pow(t, 2) * 80 + Math.pow(t, 3) * 80;
-    return { x, y };
-  }
 }
 
 export default function HillChartControl({ value, onChange, className = '' }: HillChartControlProps) {
@@ -71,7 +58,24 @@ export default function HillChartControl({ value, onChange, className = '' }: Hi
     setIsDragging(false);
   };
 
-  const coords = getHillCoordinates(localVal);
+  const commit = (next: number) => {
+    const v = Math.max(0, Math.min(100, next));
+    setLocalVal(v);
+    onChange?.(v);
+  };
+  // Keyboard operation for the slider — arrows step, Home/End jump. Without this the
+  // required progress input in the update dialog is unusable without a mouse.
+  const handleKeyDown = (e: React.KeyboardEvent<SVGSVGElement>) => {
+    const step = e.shiftKey ? 10 : 1;
+    switch (e.key) {
+      case 'ArrowRight': case 'ArrowUp': e.preventDefault(); commit(localVal + step); break;
+      case 'ArrowLeft': case 'ArrowDown': e.preventDefault(); commit(localVal - step); break;
+      case 'Home': e.preventDefault(); commit(0); break;
+      case 'End': e.preventDefault(); commit(100); break;
+    }
+  };
+
+  const coords = hillCoordinates(localVal);
 
   return (
     <div className={`${styles.controlContainer} ${className}`} style={{ userSelect: 'none' }}>
@@ -79,14 +83,22 @@ export default function HillChartControl({ value, onChange, className = '' }: Hi
         ref={svgRef}
         className={styles.svg}
         viewBox="0 0 200 100"
+        role="slider"
+        tabIndex={0}
+        aria-label={t(locale, 'hillProgressAria')}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={localVal}
+        aria-valuetext={`${localVal}%`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
+        onKeyDown={handleKeyDown}
         style={{ cursor: 'ew-resize', touchAction: 'none' }}
       >
         <path
-          d="M 10 80 C 50 80, 70 10, 100 10 C 130 10, 150 80, 190 80"
+          d={HILL_PATH}
           className={styles.hillCurve}
         />
         <line x1="100" y1="10" x2="100" y2="80" stroke="var(--border)" strokeDasharray="3 3" />

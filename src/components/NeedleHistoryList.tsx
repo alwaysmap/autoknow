@@ -6,6 +6,7 @@ import { deriveScore, REL_KEY } from '../lib/relationship';
 import { t, type Locale } from '../lib/i18n';
 import type { NeedleChange } from '../lib/history';
 import styles from './NeedleHistoryList.module.css';
+import { localDate } from '../lib/dates';
 
 // A scrollable list of "list cards": a compact status graphic (no UPDATE button) on
 // the left, with the state, date, and markdown update note to the right. One card per
@@ -57,7 +58,7 @@ export default function NeedleHistoryList({
                   <span className={styles.health} style={{ color: healthColor(health) }}>{t(locale, HEALTH_KEY[health])}</span>
                 )}
                 <time className={styles.date} dateTime={c.timestamp}>
-                  {new Date(c.timestamp).toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  {localDate(c.timestamp, locale, { month: 'short', day: 'numeric', year: 'numeric' })}
                 </time>
               </div>
               {c.notes ? (

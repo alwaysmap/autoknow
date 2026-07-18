@@ -4,6 +4,7 @@ import { phaseColor } from '../lib/phase';
 import { t, statusKey, type Locale } from '../lib/i18n';
 import type { PartnerProgram } from '../lib/partnerPrograms';
 import styles from './PartnerProgramRows.module.css';
+import { localDate } from '../lib/dates';
 
 // Condensed program list for the Briefing layout: one scannable row per program
 // (name, ownership, gauge, updated date), phases behind a native <details>
@@ -50,7 +51,7 @@ export default function PartnerProgramRows({ programs, locale = 'en' }: { progra
             </span>
             {prog.updatedAt && (
               <span className={styles.updated}>
-                {new Date(prog.updatedAt).toLocaleDateString(locale, { month: 'short', day: 'numeric' })}
+                {localDate(prog.updatedAt, locale, { month: 'short', day: 'numeric' })}
               </span>
             )}
           </summary>

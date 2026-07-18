@@ -18,13 +18,17 @@ export default function Search() {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Focus on "/"
+  // Focus on "/" — but never steal it from another text surface: typing a literal
+  // "/" into a URL field, a dialog form, or the markdown editor must not jump the
+  // caret to the header search.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === '/' && document.activeElement !== inputRef.current) {
-        e.preventDefault();
-        inputRef.current?.focus();
-      }
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]'))) return;
+      if (document.querySelector('dialog[open]')) return;
+      e.preventDefault();
+      inputRef.current?.focus();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
