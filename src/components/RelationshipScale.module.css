@@ -88,6 +88,9 @@
 
 /* dialog (matches the app's modal grammar) */
 .dialog {
+  /* the trigger can sit inside right-aligned hosts (the rail's fact values);
+     a modal must not inherit their text-align */
+  text-align: left;
   border: none;
   border-radius: 12px;
   padding: 24px;
