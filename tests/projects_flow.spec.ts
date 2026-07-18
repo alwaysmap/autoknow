@@ -15,16 +15,16 @@ test.describe('Projects and Partners Flow', () => {
 
     // Create seed partners
     const ford = await prisma.partner.create({
-      data: { name: 'Ford', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } } }
+      data: { name: 'Ford', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } }
     });
     fordId = ford.id;
 
     await prisma.partner.create({
-      data: { name: 'Toyota', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } } }
+      data: { name: 'Toyota', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } }
     });
 
     const bosch = await prisma.partner.create({
-      data: { name: 'Bosch', type: { connectOrCreate: { where: { name: 'Supplier' }, create: { name: 'Supplier' } } } }
+      data: { name: 'Bosch', type: { connectOrCreate: { where: { name: 'Supplier' }, create: { name: 'Supplier' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } }
     });
     boschId = bosch.id;
 

@@ -21,7 +21,7 @@ test.describe('Progress & Health gauge updates', () => {
     const partner = await prisma.partner.create({
       data: {
         name: 'Tesla Motors',
-        type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }
+        type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } }
       }
     });
     partnerId = partner.id;

@@ -26,8 +26,10 @@ model Partner {
   summary            String?
   googleTeam         Json?
   phone              String?
-  regionId           Int?
-  region             Region?             @relation(fields: [regionId], references: [id])
+  // Region is part of a partner's identity — required (the header renders it as a
+  // classification link; a region-less partner is a data bug).
+  regionId           Int
+  region             Region              @relation(fields: [regionId], references: [id])
 }
 
 model Region {
@@ -329,7 +331,9 @@ model PartnerState {
   // health is NOT a needle/progress metric. theNeedle stays derived-in-sync so the
   // activity feed and legacy filters keep working; null on pre-scale rows.
   relationshipScore Int?
-  notes             String?
+  // Every relationship update carries its written note (the dialog requires one;
+  // the schema agrees).
+  notes             String
   source            String?
   sourceUrl         String?
 }

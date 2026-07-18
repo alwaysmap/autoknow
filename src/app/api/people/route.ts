@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/db';
 import { jsonError, serverError } from '../../../lib/api';
 import { indexEntity } from '../../../lib/search';
+import { parseBody, personApiSchema } from '../../../lib/schemas';
 
 export async function GET() {
   try {
@@ -14,19 +15,16 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { name, email, currentPartnerId, notes } = body;
-
-    if (!name || !email || !currentPartnerId) {
-      return jsonError('Missing name, email, or currentPartnerId', 400);
-    }
+    const parsed = parseBody(personApiSchema, await req.json());
+    if (!parsed.ok) return jsonError(parsed.error, 400);
+    const { name, email, currentPartnerId, notes } = parsed.data;
 
     const person = await prisma.person.create({
       data: {
         name,
         email,
-        currentPartnerId: parseInt(currentPartnerId, 10),
-        notes: notes || null
+        currentPartnerId,
+        notes: notes ?? null
       }
     });
     await indexEntity('person', person.id);

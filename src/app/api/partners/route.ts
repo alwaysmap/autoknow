@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/db';
 import { jsonError, serverError } from '../../../lib/api';
 import { indexEntity } from '../../../lib/search';
+import { parseBody, partnerApiSchema } from '../../../lib/schemas';
 
 export async function GET() {
   try {
@@ -19,34 +20,25 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { name, type, region, website, internalDetailsUrl, summary, phone } = body;
-    
-    if (!name || !type) {
-      return jsonError('Missing name or type', 400);
-    }
+    const parsed = parseBody(partnerApiSchema, await req.json());
+    if (!parsed.ok) return jsonError(parsed.error, 400);
+    const { name, type, region, website, internalDetailsUrl, summary, phone } = parsed.data;
 
-    let typeId = null;
-    if (type) {
-      const pType = await prisma.partnerType.findUnique({ where: { name: type } });
-      if (pType) typeId = pType.id;
-    }
-
-    let regionId = null;
-    if (region) {
-      const pReg = await prisma.region.findUnique({ where: { name: region } });
-      if (pReg) regionId = pReg.id;
-    }
+    // Names resolve to ids; unknown names are a 400, never a silent null.
+    const pType = await prisma.partnerType.findUnique({ where: { name: type } });
+    if (!pType) return jsonError(`Unknown partner type: ${type}`, 400);
+    const pReg = await prisma.region.findUnique({ where: { name: region } });
+    if (!pReg) return jsonError(`Unknown region: ${region}`, 400);
 
     const partner = await prisma.partner.create({
       data: {
         name,
-        typeId,
-        regionId,
-        website: website || null,
-        internalDetailsUrl: internalDetailsUrl || null,
-        summary: summary || null,
-        phone: phone || null
+        typeId: pType.id,
+        regionId: pReg.id,
+        website: website ?? null,
+        internalDetailsUrl: internalDetailsUrl ?? null,
+        summary: summary ?? null,
+        phone: phone ?? null
       }
     });
     await indexEntity('partner', partner.id);

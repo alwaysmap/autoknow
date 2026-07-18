@@ -61,7 +61,7 @@ function PartnerFormFields({ defaults, types, regions }: { defaults?: PartnerRec
       </div>
       <div className={dash.textInputGroup}>
         <label htmlFor="pfRegion" className={dash.formLabel}>{t(locale, 'googleRegion')}</label>
-        <select id="pfRegion" name="regionId" defaultValue={defaults?.regionId ?? ''} className={dash.textInput}>
+        <select id="pfRegion" name="regionId" defaultValue={defaults?.regionId ?? ''} className={dash.textInput} required>
           <option value="">—</option>
           {regions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>

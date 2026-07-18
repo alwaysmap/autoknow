@@ -3,19 +3,16 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '../../lib/db';
 import { getCurrentUser } from '../../lib/session';
-import { parseScore, scoreToHealth } from '../../lib/relationship';
+import { scoreToHealth, clampScore } from '../../lib/relationship';
+import { parseForm, relationshipUpdateSchema } from '../../lib/schemas';
 
 // Log a partner relationship update: a 1..7 score plus a required note. The needle
 // action stays program-only — partner health is a scale, not a gauge (lib/relationship).
 
 export async function updatePartnerRelationship(formData: FormData) {
-  const partnerId = parseInt(formData.get('partnerId') as string, 10);
-  const score = parseScore(formData.get('score') as string);
-  const notes = ((formData.get('notes') as string) || '').trim();
-
-  if (Number.isNaN(partnerId)) throw new Error('Invalid partner ID');
-  if (score === null) throw new Error('A relationship score (1–7) is required');
-  if (!notes) throw new Error('Every relationship update needs a note');
+  // One zod gate (lib/schemas): id, 1..5 score, and the required note.
+  const { partnerId, score: rawScore, notes } = parseForm(relationshipUpdateSchema, formData);
+  const score = clampScore(rawScore);
 
   const source = (await getCurrentUser()).handle;
 

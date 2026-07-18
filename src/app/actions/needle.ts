@@ -4,24 +4,18 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '../../lib/db';
 import { parseHealth } from '../../lib/health';
 import { getCurrentUser } from '../../lib/session';
+import { parseForm, statusUpdateSchema } from '../../lib/schemas';
 
 export async function updateNeedleStatus(formData: FormData) {
-  const scope = formData.get('scope') as 'project' | 'partner';
-  const targetIdStr = formData.get('targetId') as string;
-  const theNeedleVal = formData.get('theNeedle') as string; // a health label or legacy risk value
-  const notes = formData.get('notes') as string || null;
-  const hillChartProgressStr = formData.get('hillChartProgress') as string;
-
-  const targetId = parseInt(targetIdStr, 10);
-  if (isNaN(targetId)) {
-    throw new Error('Invalid target ID');
-  }
+  // One zod gate (lib/schemas): scope, id, required note, bounded progress.
+  const parsed = parseForm(statusUpdateSchema, formData);
+  const { scope, targetId, notes } = parsed;
 
   // The needle value is now program Health (On Track / Some Risk / Concerned).
-  const theNeedle = parseHealth(theNeedleVal);
+  const theNeedle = parseHealth(parsed.theNeedle);
   const source = (await getCurrentUser()).handle;
 
-  const hillChartProgress = hillChartProgressStr ? parseInt(hillChartProgressStr, 10) : NaN;
+  const hillChartProgress = parsed.hillChartProgress ?? NaN;
 
   if (scope === 'project') {
     const proj = await prisma.project.findUnique({ where: { id: targetId } });

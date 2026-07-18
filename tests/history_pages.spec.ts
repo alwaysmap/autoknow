@@ -34,7 +34,7 @@ test.describe('History pages', () => {
     await expect(changes.first()).toContainText('Codec blockers slowing integration.');
 
     await page.getByRole('button', { name: '← Back' }).click();
-    await page.waitForURL('http://localhost:3100/');
+    await page.waitForURL((u) => u.pathname === '/');
   });
 
   test('phase history is a hill-update log', async ({ page }) => {

@@ -12,7 +12,7 @@ test.describe('Ecosystem Summary Page (Deterministic + AI)', () => {
     await wipeAll();
 
     const partner = await prisma.partner.create({
-      data: { name: 'Waymo', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } } }
+      data: { name: 'Waymo', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } }
     });
 
     const project = await prisma.project.create({

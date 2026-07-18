@@ -14,10 +14,18 @@ test.describe('Ecosystem Partners Page', () => {
     const partner = await prisma.partner.create({
       data: {
         name: 'Continental AG',
-        type: { connectOrCreate: { where: { name: 'Supplier' }, create: { name: 'Supplier' } } }
+        type: { connectOrCreate: { where: { name: 'Supplier' }, create: { name: 'Supplier' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } }
       }
     });
     partnerId = partner.id;
+
+    // A second partner of another type so the Type funnel has a real choice.
+    await prisma.partner.create({
+      data: {
+        name: 'BMW Group',
+        type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } }
+      }
+    });
 
     // Create a program under this partner
     await prisma.project.create({
@@ -39,17 +47,31 @@ test.describe('Ecosystem Partners Page', () => {
     await expect(page.locator('body')).toContainText('Supplier');
     await expect(page.locator('body')).toContainText('1 active');
 
-    // Filter by OEM should hide Continental AG
-    await page.selectOption('select[id="typeSelect"]', 'OEM');
-    await expect(page.locator('body')).toContainText('No ecosystem partners found matching filters.');
+    // Column funnel (design.md §6): filtering Type to OEM hides the supplier.
+    await page.getByRole('button', { name: 'Filter Partner Type' }).click();
+    await page.getByRole('checkbox', { name: 'OEM', exact: true }).check();
+    await expect(page.locator('body')).toContainText('BMW Group');
+    await expect(page.locator('body')).not.toContainText('Continental AG');
 
-    // Reset filter
-    await page.selectOption('select[id="typeSelect"]', 'All');
+    // Clear restores the list.
+    await page.getByRole('button', { name: 'Clear' }).click();
+    await page.keyboard.press('Escape');
     await expect(page.locator('body')).toContainText('Continental AG');
 
     // Filter by "My Partners Only" (dylan is TEL on the project)
     await page.check('input[id="myPartnersCheckbox"]');
     await expect(page.locator('body')).toContainText('Continental AG');
+  });
+
+  test('deep links preselect column filters (?type=)', async ({ page }) => {
+    // The partner page's identity line links here; OEM-only hides the supplier.
+    await page.goto('/partners?type=OEM');
+    await expect(page.locator('body')).toContainText('BMW Group');
+    await expect(page.locator('body')).not.toContainText('Continental AG');
+
+    await page.goto('/partners?type=Supplier');
+    await expect(page.locator('body')).toContainText('Continental AG');
+    await expect(page.locator('body')).not.toContainText('BMW Group');
   });
 
   test('shows relative relationship health (1..5) for every partner', async ({ page }) => {
@@ -79,6 +101,7 @@ test.describe('Ecosystem Partners Page', () => {
     }).toPass({ timeout: 20000 });
     await dialog.locator('#pfName').fill('Rivian');
     await dialog.locator('#pfType').selectOption({ label: 'Supplier' });
+    await dialog.locator('#pfRegion').selectOption({ label: 'AMER' }); // region is required
     await dialog.locator('#pfWebsite').fill('https://rivian.example');
     await dialog.locator('#pfSummary').fill('Exploratory AAOS conversations.');
     await dialog.locator('button:has-text("Save Update")').click();

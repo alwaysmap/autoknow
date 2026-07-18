@@ -10,7 +10,7 @@ test.describe('Me Landing Page', () => {
     const partner = await prisma.partner.create({
       data: {
         name: 'Google LLC',
-        type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }
+        type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } }
       }
     });
 

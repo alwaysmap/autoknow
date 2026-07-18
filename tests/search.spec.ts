@@ -13,13 +13,13 @@ test.describe('Search Results Page (Text + pgvector)', () => {
     await wipeAll();
 
     const oem = { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } };
-    const ford = await prisma.partner.create({ data: { name: 'Ford', type: oem } });
+    const ford = await prisma.partner.create({ data: { name: 'Ford', type: oem, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } } });
     fordId = ford.id;
 
     const bosch = await prisma.partner.create({
       data: {
         name: 'Bosch',
-        type: { connectOrCreate: { where: { name: 'Tier 1' }, create: { name: 'Tier 1' } } },
+        type: { connectOrCreate: { where: { name: 'Tier 1' }, create: { name: 'Tier 1' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } },
       },
     });
     boschId = bosch.id;

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/db';
 import { jsonError, serverError } from '../../../lib/api';
 import { indexEntity } from '../../../lib/search';
+import { parseBody, projectApiSchema } from '../../../lib/schemas';
 
 export async function GET() {
   try {
@@ -16,20 +17,17 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { name, partnerId, ownerName, sopDate, volumeFirstYear } = body;
-    
-    if (!name || !partnerId) {
-      return jsonError('Missing name or partnerId', 400);
-    }
+    const parsed = parseBody(projectApiSchema, await req.json());
+    if (!parsed.ok) return jsonError(parsed.error, 400);
+    const { name, partnerId, ownerName, sopDate, volumeFirstYear } = parsed.data;
 
     const project = await prisma.project.create({
       data: {
         name,
-        partnerId: parseInt(partnerId, 10),
-        ownerName: ownerName || null,
-        sopDate: sopDate ? new Date(sopDate) : null,
-        volumeFirstYear: volumeFirstYear ? parseInt(volumeFirstYear, 10) : 0
+        partnerId,
+        ownerName: ownerName ?? null,
+        sopDate: sopDate ?? null,
+        volumeFirstYear: volumeFirstYear ?? 0
       }
     });
     await indexEntity('program', project.id);

@@ -17,7 +17,7 @@ describe('PartnerQueries Class Service Unit Tests', () => {
     const partner = await prisma.partner.create({
       data: {
         name: 'Tesla Inc',
-        type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }
+        type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } }
       }
     });
     testPartnerId = partner.id;

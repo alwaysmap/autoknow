@@ -13,7 +13,7 @@ test.describe('Project Details and Action Item Operations', () => {
     await wipeAll();
 
     const partner = await prisma.partner.create({
-      data: { name: 'Google Partner PE', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } } }
+      data: { name: 'Google Partner PE', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } }
     });
 
     const project = await prisma.project.create({
@@ -65,7 +65,7 @@ test.describe('Project Details and Action Item Operations', () => {
   test('lead partner (OEM) is editable from the program Edit dialog', async ({ page }) => {
     // A second OEM to switch to.
     const bmw = await prisma.partner.create({
-      data: { name: 'BMW Group', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } } },
+      data: { name: 'BMW Group', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } },
     });
 
     await page.goto(`/programs/${projectId}`);

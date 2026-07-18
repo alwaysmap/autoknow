@@ -5,7 +5,8 @@ import { testDatabaseUrl } from './tests/helpers/testDatabaseUrl';
 
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
-// The suite runs against ITS OWN Next server on :3100, bound to the dedicated
+// The suite runs against ITS OWN Next server on :3130 (NEVER :3100 — that is
+// the long-lived demo server), bound to the dedicated
 // `<name>_test` database (tests/helpers/testDatabaseUrl.ts — the name is forced to end
 // in `_test`, so the suite can never touch the real database). Auth and Gemini are
 // explicitly unconfigured so behavior is deterministic: stub identity, no AI calls.
@@ -25,12 +26,12 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? 'html' : 'line',
   use: {
-    baseURL: 'http://localhost:3100',
+    baseURL: 'http://localhost:3130',
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'npm run dev -- -p 3100',
-    url: 'http://localhost:3100/login',
+    command: 'npm run dev -- -p 3130',
+    url: 'http://localhost:3130/login',
     reuseExistingServer: false,
     timeout: 120_000,
     env: {

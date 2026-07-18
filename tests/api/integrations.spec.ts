@@ -10,7 +10,7 @@ test.describe('Google Chat Integration Webhook', () => {
     await wipeAll();
 
     const oem = await prisma.partner.create({
-      data: { name: 'Toyota', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } } }
+      data: { name: 'Toyota', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } }
     });
 
     await prisma.project.create({

@@ -45,10 +45,10 @@ export async function seedProgram(): Promise<SeededProgram> {
   await wipeAll();
 
   const oem = await prisma.partner.create({
-    data: { name: 'Rivian', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } } },
+    data: { name: 'Rivian', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } },
   });
   const supplier = await prisma.partner.create({
-    data: { name: 'Denso', type: { connectOrCreate: { where: { name: 'Supplier' }, create: { name: 'Supplier' } } } },
+    data: { name: 'Denso', type: { connectOrCreate: { where: { name: 'Supplier' }, create: { name: 'Supplier' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } },
   });
 
   const project = await prisma.project.create({
