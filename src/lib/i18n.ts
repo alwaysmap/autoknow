@@ -451,6 +451,12 @@ const STRINGS = {
   summaryRefresh: { en: 'Refresh', de: 'Aktualisieren', ja: '更新', ko: '새로 고침' },
   summaryGenerate: { en: 'Generate summary', de: 'Zusammenfassung erzeugen', ja: 'サマリーを生成', ko: '요약 생성' },
   summarySynthesizing: { en: 'Synthesizing…', de: 'Synthetisiert…', ja: '生成中…', ko: '생성 중…' },
+  summaryNoEvidence: {
+    en: 'Nothing to summarize yet — no stored updates or ingested context for this scope.',
+    de: 'Noch nichts zusammenzufassen — keine gespeicherten Updates oder Kontextquellen für diesen Bereich.',
+    ja: '要約する情報がまだありません。このスコープには保存された更新や取り込み済みのコンテキストがありません。',
+    ko: '아직 요약할 내용이 없습니다 — 이 범위에 저장된 업데이트나 수집된 컨텍스트가 없습니다.',
+  },
   managePromptsDesc: {
     en: 'Read and tune the Gemini prompts behind the leadership summaries.',
     de: 'Die Gemini-Prompts hinter den Leadership-Zusammenfassungen lesen und anpassen.',

@@ -56,6 +56,10 @@ export default function SummaryPanel({
   const locale = useLocale();
   const [pending, startTransition] = useTransition();
   const autoRan = useRef(false);
+  // Whether a generation has completed at least once this mount. Distinguishes
+  // "still synthesizing" from "finished, but there was nothing to synthesize" — the
+  // latter must show an honest empty state, not a perpetual spinner.
+  const [attempted, setAttempted] = React.useState(false);
 
   const regenerate = () =>
     startTransition(async () => {
@@ -64,6 +68,7 @@ export default function SummaryPanel({
       fd.set('targetId', String(targetId));
       fd.set('path', path);
       await regenerateSummary(fd);
+      setAttempted(true);
     });
 
   // Stale content ⇒ refresh in the background; NO summary yet ⇒ generate one
@@ -90,12 +95,21 @@ export default function SummaryPanel({
   }
 
   if (!summary) {
+    // Three honest states, never a stuck spinner:
+    //  - a generation is actually running (or the auto-run is about to fire) → synthesizing
+    //  - it finished and produced nothing (no evidence for this scope) → nothing-to-summarize
+    //  - Gemini configured but nothing attempted yet, or unconfigured → prompt to generate
+    const message = pending
+      ? 'summarySynthesizing'
+      : attempted
+        ? 'summaryNoEvidence'
+        : configured
+          ? 'summarySynthesizing' // the mount effect is about to auto-generate
+          : 'summaryEmpty';
     return (
       <div data-testid={`summary-${scope}`}>
         <div className={styles.header}>
-          <p className={styles.empty}>
-            {pending || configured ? t(locale, 'summarySynthesizing') : t(locale, 'summaryEmpty')}
-          </p>
+          <p className={styles.empty}>{t(locale, message)}</p>
           <button type="button" className={styles.geminiBtn} disabled={pending} onClick={regenerate}
             title={t(locale, 'summaryGenerate')} aria-label={t(locale, 'summaryGenerate')}
             data-pending={pending || undefined}>
