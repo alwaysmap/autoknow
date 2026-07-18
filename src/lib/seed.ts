@@ -61,22 +61,32 @@ export async function wipeAllData() {
   await prisma.partnerType.deleteMany();
 }
 
+/**
+ * Seed the core reference data (partner types, regions, the Google partner).
+ * IDEMPOTENT and non-destructive: it upserts the reference rows and find-or-creates
+ * Google LLC, so running it repeatedly converges to the same state without duplicates
+ * and without touching any operational data (partners, programs, history). Safe to run
+ * against a live database — it never wipes.
+ */
 export async function seedCoreData() {
-  console.log('Seeding core data only (Regions, Partner Types, Google)...');
-  await wipeAllData();
+  console.log('Seeding core reference data (idempotent)...');
 
-  const typeOem = await prisma.partnerType.create({ data: { name: 'OEM' } });
-  await prisma.partnerType.create({ data: { name: 'Supplier' } });
+  // PartnerType.name and Region.name are @unique — upsert by name.
+  const typeOem = await prisma.partnerType.upsert({ where: { name: 'OEM' }, update: {}, create: { name: 'OEM' } });
+  await prisma.partnerType.upsert({ where: { name: 'Supplier' }, update: {}, create: { name: 'Supplier' } });
 
-  const regAmer = await prisma.region.create({ data: { name: 'AMER' } });
-  await prisma.region.create({ data: { name: 'APAC' } });
-  await prisma.region.create({ data: { name: 'EMEA' } });
-  await prisma.region.create({ data: { name: 'Other' } });
+  const regAmer = await prisma.region.upsert({ where: { name: 'AMER' }, update: {}, create: { name: 'AMER' } });
+  for (const name of ['APAC', 'EMEA', 'Other']) {
+    await prisma.region.upsert({ where: { name }, update: {}, create: { name } });
+  }
 
-  // Create default Google partner so employees can be affiliated
-  await prisma.partner.create({
-    data: { name: 'Google LLC', typeId: typeOem.id, regionId: regAmer.id }
-  });
+  // Partner.name is NOT unique, so find-or-create the default Google partner
+  // (employees affiliate to it). A concurrent double-run could still race here; the
+  // reference-data path is single-operator, so a findFirst guard is sufficient.
+  const google = await prisma.partner.findFirst({ where: { name: 'Google LLC' }, select: { id: true } });
+  if (!google) {
+    await prisma.partner.create({ data: { name: 'Google LLC', typeId: typeOem.id, regionId: regAmer.id } });
+  }
 }
 
 interface SeedPhase {
