@@ -10,8 +10,25 @@
 
 .readout {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
+}
+
+/* Prior (gray) → arrow → current (dark) faces — the relationship's movement. */
+.faces {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.priorFace {
+  color: var(--muted);
+}
+.faceArrow {
+  display: inline-flex;
+  color: var(--muted);
+}
+.currentFace {
+  color: var(--fg);
 }
 
 .score {

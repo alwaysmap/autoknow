@@ -74,6 +74,7 @@ export function RelationshipCell({ score }: { score: RelScore | null; history?: 
 export default function RelationshipScale({
   partnerId,
   score,
+  previousScore,
   updatedAt,
   editable = true,
 }: {
@@ -97,9 +98,27 @@ export default function RelationshipScale({
   return (
     <div className={styles.wrapper} data-testid="relationship-scale">
       <div className={styles.readout}>
-        {score !== null
-          ? <RelationshipFace score={score} size={34} />
-          : <span className={styles.descriptor}>{t(locale, 'relNotRated')}</span>}
+        {score !== null ? (
+          <span className={styles.faces}>
+            {previousScore != null && previousScore !== score && (
+              <>
+                <span className={styles.priorFace}>
+                  <RelationshipFace score={previousScore} size={26} decorative />
+                </span>
+                <span className={styles.faceArrow} aria-hidden>
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 8 h9 M9 5 l3 3 -3 3" />
+                  </svg>
+                </span>
+              </>
+            )}
+            <span className={styles.currentFace}>
+              <RelationshipFace score={score} size={34} />
+            </span>
+          </span>
+        ) : (
+          <span className={styles.descriptor}>{t(locale, 'relNotRated')}</span>
+        )}
       </div>
       {updatedAt && (
         <div className={styles.updatedAt}>

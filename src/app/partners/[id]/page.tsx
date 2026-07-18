@@ -90,15 +90,19 @@ export default async function PartnerDetailPage(props: PageProps) {
 
   // Latest relationship state, plus what the edit/delete affordances need to be
   // honest about.
-  const [latestState, types, regions, employeeCount] = await Promise.all([
-    prisma.partnerState.findFirst({
+  const [recentStates, types, regions, employeeCount] = await Promise.all([
+    // Two newest — the header card shows the prior score alongside the current one.
+    prisma.partnerState.findMany({
       where: { partnerId: partner.id },
       orderBy: { timestamp: 'desc' },
+      take: 2,
     }),
     prisma.partnerType.findMany({ orderBy: { name: 'asc' } }),
     prisma.region.findMany({ orderBy: { name: 'asc' } }),
     prisma.person.count({ where: { currentPartnerId: partner.id } }),
   ]);
+  const latestState = recentStates[0] ?? null;
+  const priorState = recentStates[1] ?? null;
 
   // Programs this partner OWNS plus programs they're INVOLVED in via phase links.
   const allPrograms = await getPartnerPrograms(partner.id);
@@ -220,6 +224,7 @@ export default async function PartnerDetailPage(props: PageProps) {
             <RelationshipScale
               partnerId={partner.id}
               score={latestState ? deriveScore(latestState) : null}
+              previousScore={priorState ? deriveScore(priorState) : null}
               updatedAt={latestState?.timestamp?.toISOString() ?? null}
             />
             {partner.summary && <p className={styles.summaryText}>{partner.summary}</p>}
