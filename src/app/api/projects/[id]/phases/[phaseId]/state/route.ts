@@ -18,7 +18,18 @@ export async function POST(
     const body = await req.json();
     const { theNeedle, hillChartProgress, notes, source } = body;
 
-    const progress = hillChartProgress !== undefined ? parseInt(hillChartProgress, 10) : 0;
+    // A notes/risk-only update must not move the dot: the newest PhaseState is the
+    // phase's current progress everywhere, so default to the latest value, not 0
+    // (same rule as actions/hill.ts).
+    const latest = await prisma.phaseState.findFirst({
+      where: { phaseId: pId },
+      orderBy: { timestamp: 'desc' },
+      select: { hillChartProgress: true },
+    });
+    const progress =
+      hillChartProgress !== undefined
+        ? parseInt(hillChartProgress, 10)
+        : latest?.hillChartProgress ?? 0;
     if (isNaN(progress) || progress < 0 || progress > 100) {
       return jsonError('hillChartProgress must be 0-100', 400);
     }
