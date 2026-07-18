@@ -4,21 +4,10 @@
 
 .header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 6px;
-}
-
-.provenance {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-/* "Updating…" — freshness in motion, not an alarm. */
-.stale {
-  color: var(--chain-ink);
-  font-weight: 600;
 }
 
 .refreshBtn {

@@ -1,0 +1,48 @@
+/* Provenance row: badge, text, and refresh — all on one baseline-free, vertically
+   centered line so the sparkle badge and the reload icon sit level with the text. */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.provenance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* "Updating…" — freshness in motion, not an alarm. */
+.updating {
+  color: var(--chain-ink);
+  font-weight: 600;
+}
+
+.refreshBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.refreshBtn:hover {
+  color: var(--fg);
+  background: var(--surface);
+}
+.refreshBtn[data-pending] {
+  animation: spin 0.9s linear infinite;
+  cursor: default;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

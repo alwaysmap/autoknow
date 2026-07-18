@@ -6,7 +6,7 @@ import type { SummaryView, SectionKey } from '../lib/summaries';
 import type { SummaryScope } from '../lib/summaryPrompts';
 import { t, type StringKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
-import AiBadge from './AiBadge';
+import SummaryToolbar from './SummaryToolbar';
 import styles from './SummaryPanel.module.css';
 import { localDate } from '../lib/dates';
 
@@ -127,22 +127,13 @@ export default function SummaryPanel({
 
   return (
     <div data-testid={`summary-${scope}`}>
-      <div className={styles.header}>
-        <span className={styles.provenance}>
-          <AiBadge />{' '}
-          {t(locale, 'summaryProvenance', { d: generated, n: summary.sourceCount })}
-          {(summary.stale || pending) && (
-            <span className={styles.stale}> {t(locale, 'summaryUpdating')}</span>
-          )}
-        </span>
-        {configured && (
-          <button type="button" className={styles.geminiBtn} disabled={pending} onClick={regenerate}
-            title={t(locale, 'summaryRefresh')} aria-label={t(locale, 'summaryRefresh')}
-            data-pending={pending || undefined}>
-            <GeminiSpark />
-          </button>
-        )}
-      </div>
+      <SummaryToolbar
+        generatedLabel={generated}
+        sourceCount={summary.sourceCount}
+        updating={summary.stale || pending}
+        pending={pending}
+        onRefresh={configured ? regenerate : undefined}
+      />
 
       <p className={styles.tldr}>{summary.tldr}</p>
 
