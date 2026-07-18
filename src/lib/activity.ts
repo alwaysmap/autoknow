@@ -192,7 +192,7 @@ export async function getActivity(scope: FeedScope, take = 60): Promise<FeedItem
     for (let i = 0; i < partnerStates.length; i++) {
       const s = partnerStates[i];
       const prev = partnerStates.slice(i + 1).find((o) => o.partner.id === s.partner.id) ?? null;
-      // Relationship health is a 1..7 position, not a needle (lib/relationship).
+      // Relationship health is a 1..5 position, not a needle (lib/relationship).
       const score = deriveScore(s);
       push(events, {
         id: `pas-${s.id}`,

@@ -6,16 +6,6 @@ import { embedText } from './gemini';
 // through gemini.embedText (Gemini when configured, deterministic otherwise).
 export { generateDeterministicEmbedding } from './embedding-fallback';
 
-export interface ContextSearchRow {
-  id: number;
-  projectId: number | null;
-  url: string;
-  type: string;
-  title: string | null;
-  ingestedText: string | null;
-  similarity: number;
-}
-
 function toVectorLiteral(embedding: number[]): string {
   return `[${embedding.join(',')}]`;
 }
@@ -53,28 +43,4 @@ export async function ingestRecord(
     INSERT INTO "ContextUrl" ("projectId", "url", "type", "title", "ingestedText", "embedding")
     VALUES (${projectId}, ${url}, ${type}, ${title}, ${ingestedText}, ${vectorStr}::vector)
   `;
-}
-
-export async function searchVectorDatabase(
-  query: string,
-  limit: number = 10,
-): Promise<ContextSearchRow[]> {
-  try {
-    const vectorStr = toVectorLiteral(await embedText(query));
-
-    // Order by cosine distance (<=> operator); all inputs are bound parameters.
-    const results = await prisma.$queryRaw<ContextSearchRow[]>(Prisma.sql`
-      SELECT id, "projectId", url, type, title, "ingestedText",
-             (1 - (embedding <=> ${vectorStr}::vector)) as similarity
-      FROM "ContextUrl"
-      WHERE embedding IS NOT NULL
-      ORDER BY embedding <=> ${vectorStr}::vector
-      LIMIT ${limit}
-    `);
-
-    return results || [];
-  } catch (err) {
-    console.error('Vector search query failed:', err);
-    return [];
-  }
 }

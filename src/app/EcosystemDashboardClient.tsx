@@ -1,7 +1,6 @@
 'use client';
 
 import DateCell from '../components/DateCell';
-import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import DataTable from '../components/DataTable';
 
@@ -10,7 +9,7 @@ import { formatNeedleValue } from '../lib/needle';
 import { NeedleGaugeSvg } from '../components/NeedleGauge';
 import { sopOutlook } from '../lib/sop';
 import { deriveProgramStatus, visibleInLists } from '../lib/lifecycle';
-import { HEALTHS, HEALTH_KEY, healthKey, healthColor, healthOrder } from '../lib/health';
+import { healthKey, healthOrder } from '../lib/health';
 import { t } from '../lib/i18n';
 import { useLocale } from '../components/LocaleProvider';
 
@@ -47,12 +46,6 @@ interface Project {
       p95: number;
     };
   };
-}
-
-interface Person {
-  id: number;
-  name: string;
-  email: string;
 }
 
 interface EcosystemDashboardClientProps {

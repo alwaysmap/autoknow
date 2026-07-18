@@ -37,7 +37,7 @@ export interface NeedleChange {
   health: string | null;
   previousProgress: number | null;
   previousHealth: string | null;
-  /** Partner scope only: the stored 1..7 relationship score (lib/relationship). */
+  /** Partner scope only: the stored 1..5 relationship score (lib/relationship). */
   score?: number | null;
   previousScore?: number | null;
   notes: string | null;
@@ -74,7 +74,7 @@ export async function getNeedleHistory(
     const ph = await prisma.phase.findUnique({ where: { id }, select: { name: true, project: { select: { name: true } }, states: { orderBy: { timestamp: 'asc' }, select } } });
     return ph ? { title: `${ph.project.name} — ${ph.name}`, changes: toChanges(ph.states) } : null;
   }
-  // Partners also carry the 1..7 relationship score per state.
+  // Partners also carry the 1..5 relationship score per state.
   const pa = await prisma.partner.findUnique({
     where: { id },
     select: { name: true, states: { orderBy: { timestamp: 'asc' }, select: { ...select, relationshipScore: true } } },

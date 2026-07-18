@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { createPartner, updatePartner, deletePartner } from '../app/actions/partners';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
@@ -8,6 +8,7 @@ import dash from './ProjectStatusDashboard.module.css';
 import meta from './ProjectMetaHeader.module.css';
 import admin from './ProjectAdminControls.module.css';
 import KebabMenu from './KebabMenu';
+import { useLightDismiss } from '../lib/useLightDismiss';
 
 // Partner CRUD surfaces. One shared form (create + edit); the partner page gets the
 // small Edit · Delete links beside the name (same quiet grammar as programs), the
@@ -30,18 +31,6 @@ export interface PartnerRecord {
 }
 
 // Light-dismiss fallback for browsers without <dialog closedby> support.
-function useLightDismiss(ref: React.RefObject<HTMLDialogElement | null>) {
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog && !('closedBy' in HTMLDialogElement.prototype)) {
-      const onClick = (event: MouseEvent) => {
-        if (event.target === dialog) dialog.close();
-      };
-      dialog.addEventListener('click', onClick);
-      return () => dialog.removeEventListener('click', onClick);
-    }
-  }, [ref]);
-}
 
 function PartnerFormFields({ defaults, types, regions }: { defaults?: PartnerRecord | null; types: Option[]; regions: Option[] }) {
   const locale = useLocale();

@@ -34,10 +34,10 @@ export interface HillPayload {
   color: string;
 }
 
-/** Payload for partner relationship events -> renders the colorless 1..7 scale
+/** Payload for partner relationship events -> renders the colorless 1..5 scale
  *  track (lib/relationship) instead of a needle gauge. */
 export interface RelationshipPayload {
-  score: number; // 1..7
+  score: number; // 1..5
   previousScore?: number | null;
 }
 
@@ -53,7 +53,7 @@ export interface FeedItem {
   score?: number | null; // 0..1 relevance; present for search hits
   needle?: NeedlePayload | null; // present on needle-change events -> renders a mini gauge
   hill?: HillPayload | null; // present on phase hill updates -> renders a mini hill chart
-  relationship?: RelationshipPayload | null; // partner relationship updates -> 1..7 scale track
+  relationship?: RelationshipPayload | null; // partner relationship updates -> 1..5 scale track
 }
 
 export interface FeedQuery {

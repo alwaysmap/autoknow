@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { movePersonCompany, copyPerson, deletePerson } from '../app/actions/people';
 import { addPhasePerson } from '../app/actions/phasePeople';
 import { t } from '../lib/i18n';
@@ -9,6 +9,7 @@ import dash from './ProjectStatusDashboard.module.css';
 import meta from './ProjectMetaHeader.module.css';
 import admin from './ProjectAdminControls.module.css';
 import KebabMenu from './KebabMenu';
+import { useLightDismiss } from '../lib/useLightDismiss';
 
 // Person maintenance behind the title kebab (the app-wide grammar: quiet ⋯ beside
 // the name, dialogs for the work) — replaces the old full-width "Profile
@@ -25,18 +26,6 @@ export interface ProgramOption {
   phases: Option[];
 }
 
-function useLightDismiss(ref: React.RefObject<HTMLDialogElement | null>) {
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog && !('closedBy' in HTMLDialogElement.prototype)) {
-      const onClick = (event: MouseEvent) => {
-        if (event.target === dialog) dialog.close();
-      };
-      dialog.addEventListener('click', onClick);
-      return () => dialog.removeEventListener('click', onClick);
-    }
-  }, [ref]);
-}
 
 export default function PersonAdminControls({ personId, personName, partners, programs }: {
   personId: number;

@@ -6,13 +6,12 @@ import type { TableSort } from '../../lib/tableUrlState';
 import Link from 'next/link';
 import DateCell from '../../components/DateCell';
 import DataTable from '../../components/DataTable';
-import HillChartControl from '../../components/HillChartControl';
 import styles from '../ecosystem-summary/EcosystemSummaryClient.module.css';
 import local from './page.module.css';
 import { formatNeedleValue } from '../../lib/needle';
-import { HEALTHS, HEALTH_KEY, healthKey, healthColor, healthOrder } from '../../lib/health';
+import { healthKey, healthColor, healthOrder } from '../../lib/health';
 import { resolvePerson } from '../../lib/people';
-import { deriveProgramStatus, visibleInLists } from '../../lib/lifecycle';
+import { deriveProgramStatus } from '../../lib/lifecycle';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 

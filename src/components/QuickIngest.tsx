@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useActionState, useState } from 'react';
+import React, { useActionState, useEffect, useState } from 'react';
 import { quickIngestAction, type QuickIngestState } from '../app/actions/context';
 import { inferSource, type SourceKind, type TrackingMode } from '../lib/sources';
 import { t, type StringKey } from '../lib/i18n';
@@ -41,6 +41,15 @@ export default function QuickIngest({
   const inferred = inferSource(url || null);
   const mode: TrackingMode = override ?? inferred.mode;
   const result = state.result;
+
+  // Clear the field after a genuine save so a stray Enter can't re-submit the same
+  // URL (the server dedupes it, but an empty field is the honest post-save state).
+  useEffect(() => {
+    if (result?.ok && !result.duplicateOf) {
+      setUrl('');
+      setOverride(null);
+    }
+  }, [result]);
 
   if (!open) {
     return (

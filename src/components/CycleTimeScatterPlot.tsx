@@ -120,9 +120,10 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
         {data.map((d, i) => {
           const pIndex = phaseNames.indexOf(d.phaseName);
           if (pIndex === -1) return null;
-          // Deterministic vertical jitter seeded by the data point, so points keep a
-          // stable position across re-renders instead of jumping on every render.
-          const seed = (d.phaseId * 31 + i * 17) % 1000;
+          // Deterministic vertical jitter seeded by the data point's OWN identity —
+          // not its array index, which would move the point when upstream ordering
+          // changes despite the "stable across re-renders" intent.
+          const seed = (d.phaseId * 31 + Math.round(d.cycleTimeDays) * 17) % 1000;
           const jitter = (seed / 1000 - 0.5) * 15;
           const cx = xScale(d.cycleTimeDays);
           const cy = yScale(pIndex) + jitter;
