@@ -25,6 +25,8 @@ locals {
     "sts.googleapis.com",
     "chat.googleapis.com",
     "cloudresourcemanager.googleapis.com",
+    "orgpolicy.googleapis.com",
+    "serviceusage.googleapis.com", # quota/billing project for the orgpolicy provider alias
   ]
 }
 
@@ -60,6 +62,7 @@ resource "google_sql_database_instance" "db" {
 
   settings {
     tier              = var.db_tier
+    edition           = "ENTERPRISE" # shared-core tiers (db-f1-micro) are ENTERPRISE-only
     availability_type = "ZONAL"
     disk_size         = 10
     disk_autoresize   = true
@@ -240,8 +243,13 @@ resource "google_cloud_run_v2_service" "app" {
   }
 
   # App deploys update the image via gcloud/CI; don't let Terraform fight them.
+  # Service-level `scaling` is an API-managed block we don't set (autoscaling is
+  # configured under template.scaling); ignore it so plans stay a clean no-op.
   lifecycle {
-    ignore_changes = [template[0].containers[0].image]
+    ignore_changes = [
+      template[0].containers[0].image,
+      scaling,
+    ]
   }
 
   depends_on = [
@@ -251,6 +259,38 @@ resource "google_cloud_run_v2_service" "app" {
   ]
 }
 
+# The org enforces Domain Restricted Sharing (iam.allowedPolicyMemberDomains), which
+# blocks allUsers. Scope an exception to THIS project so the service is publicly
+# reachable; alwaysmap.com-only access is still enforced at the app layer (next-auth
+# AUTH_ALLOWED_DOMAIN, fail-closed routes, Chat JWT, CRON_SECRET). Managed via the
+# orgpolicy provider alias (needs a quota/billing project).
+
+# Enabling an API and immediately using it is eventually-consistent; wait before the
+# orgpolicy alias (which bills to this project) makes its first call.
+resource "time_sleep" "wait_apis" {
+  depends_on      = [google_project_service.apis]
+  create_duration = "60s"
+}
+
+resource "google_org_policy_policy" "allow_public_invoker" {
+  provider = google.orgpolicy
+  name     = "projects/${google_project.autoknow.number}/policies/iam.allowedPolicyMemberDomains"
+  parent   = "projects/${google_project.autoknow.number}"
+  spec {
+    rules {
+      allow_all = "TRUE"
+    }
+  }
+  depends_on = [time_sleep.wait_apis]
+}
+
+# Org-policy changes propagate asynchronously; the allUsers binding is rejected until
+# the exception lands. This deterministic wait replaces an imperative retry loop.
+resource "time_sleep" "wait_policy" {
+  depends_on      = [google_org_policy_policy.allow_public_invoker]
+  create_duration = "90s"
+}
+
 # Public ingress: browsers and Google Chat both call it; app-layer auth is the boundary.
 resource "google_cloud_run_v2_service_iam_member" "public" {
   project  = google_project.autoknow.project_id
@@ -258,6 +298,8 @@ resource "google_cloud_run_v2_service_iam_member" "public" {
   name     = google_cloud_run_v2_service.app.name
   role     = "roles/run.invoker"
   member   = "allUsers"
+
+  depends_on = [time_sleep.wait_policy]
 }
 
 # ---- Cloud Scheduler → the AI-update pipeline ----
