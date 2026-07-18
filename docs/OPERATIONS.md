@@ -288,13 +288,32 @@ backlog quickly.
 
 ---
 
-## 6. Google Chat app (prepared — not yet active)
+## 6. Google Chat app (code shipped; delivery gated by Workspace admin policy)
 
 The mentionable identity for chat ingestion (`@AutoKnow` on a message → thread
 saved). A service-account email can't be mentioned in Chat; the Chat *app* is the
-share target, backed by the same GCP project.
+share target. The receiving endpoint (`/api/chat/events`), JWT verification, and
+relay architecture are implemented and machine-verified; what remains
+environment-dependent is Google actually delivering events, which depends on the
+Workspace admin settings below.
+
+**Workspace admin prerequisites (checked first — these block delivery silently):**
+
+- admin.google.com → Apps → **Google Workspace Marketplace apps → Settings**:
+  app access must allow users to install and run apps (a new Secure-by-Default
+  org ships allowlist-restricted; a restricted org lets an internal app be
+  *installed and mentioned* while its event delivery fails with internal errors).
+- admin.google.com → Apps → Google Workspace → **Google Chat**: Chat apps must be
+  allowed for users.
+- Admin policy changes propagate slowly — **up to 24 hours**. Do not judge a test
+  minutes after changing these.
 
 1. Enable the **Google Chat API** in the project (APIs & Services → Library).
+   The Chat app may live in a **dedicated GCP project** — useful because a
+   config that has been through heavy churn can end up in a corrupted server-side
+   state that survives even disabling/re-enabling the API; a fresh project is a
+   fresh app identity. If you do this, `GOOGLE_PROJECT_NUMBER` must be THAT
+   project's number, while the service account/relay stay wherever they are.
 2. Set the project NUMBER in `.env` (the audience of the JWTs Chat sends):
 
 ```
@@ -333,6 +352,23 @@ Scopes for the Chat paths, for reference:
 | `@AutoKnow` in a space (primary) | the app, as the service account | `https://www.googleapis.com/auth/chat.bot` | nowhere in the console — requested by the app's own credentials at call time |
 | Copied message link pasted into an Add-link control (fallback) | the signed-in user | `https://www.googleapis.com/auth/chat.messages.readonly` | OAuth client **Data Access** screen (§3.1) |
 
+**Troubleshooting delivery ("app not responding" / silence):**
+
+- Enable **Log errors to Logging** in the Chat config, then read Google's own
+  delivery errors:
+  `gcloud logging read 'resource.type="chat.googleapis.com/Project"' --project=<chat-project> --freshness=1h`
+- Error **code 13 ("internal error … processing the bot response")** paired with
+  zero requests in your endpoint's logs means Chat failed *before making any
+  HTTP call* — the endpoint, tunnel, and config values are innocent; suspect the
+  Workspace admin prerequisites above (or their propagation window).
+- Ground truth for "did Google ever call us": Cloud Run request logs —
+  `gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="autoknow-relay" AND httpRequest.requestMethod="POST"' --project=<relay-project> --freshness=4h`
+  (every POST with status + user agent; your own curl probes are identifiable).
+- The app-side route logs every arrival and the precise JWT verdict (no bearer /
+  bad issuer / audience mismatch with both values / unknown key).
+- A mention only generates an event if the app was picked as a **chip** from the
+  @-popup — typed plain "@autoknow" text posts silently and delivers nothing.
+
 There is also an existing plain-webhook endpoint `POST /api/integrations/chat`
 (see README) that accepts pasted chat text today, independent of the Chat app.
 The former `/ingest` page is retired — pasting links lives in the **+ Add link**
@@ -358,3 +394,4 @@ control on program/partner pages (scoped) and Manage → Sources (unscoped).
 | `CRON_SECRET` | refresh worker route | worker refuses (503) |
 | `ADMIN_TOKEN` | seeding API in production | destructive ops blocked in prod |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` / `GOOGLE_APPLICATION_CREDENTIALS` | Drive share-to-ingest + background Doc refresh | worker skips Docs; manual refresh only |
+| `GOOGLE_PROJECT_NUMBER` | Chat event JWT verification (§6) | /api/chat/events refuses (503) |
