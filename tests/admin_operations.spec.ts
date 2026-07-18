@@ -66,6 +66,17 @@ test.describe('Admin and Maintenance Operations', () => {
     await prisma.$disconnect();
   });
 
+  // Maintenance lives behind the title kebab now — open the menu item (hydration-
+  // guarded), then work in its dialog.
+  const viaPersonKebab = async (page: import('@playwright/test').Page, label: string) => {
+    const item = page.getByRole('button', { name: label, exact: true });
+    await expect(async () => {
+      if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+      await expect(item).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+    await item.click();
+  };
+
   test('should allow moving a person to a different company', async ({ page }) => {
     const person = await prisma.person.findFirst({ where: { name: 'Bob Miller' } });
     const ford = await prisma.partner.findFirst({ where: { name: 'Ford' } });
@@ -74,13 +85,15 @@ test.describe('Admin and Maintenance Operations', () => {
     // Verify Bob starts at Waymo
     await expect(page.locator('body')).toContainText('Waymo');
 
-    // Fill the move company form
-    await page.selectOption('select[name="newPartnerId"]', ford?.id.toString() || '');
-    await page.fill('input[name="newRole"]', 'Lead Systems Architect');
-    await page.fill('input[name="startDate"]', '2026-06-01');
-    await page.click('button:has-text("Move Partner")');
+    await viaPersonKebab(page, 'Move to Different Company');
+    const dialog = page.locator('dialog[open]');
+    await dialog.locator('select[name="newPartnerId"]').selectOption(ford?.id.toString() || '');
+    await dialog.locator('input[name="newRole"]').fill('Lead Systems Architect');
+    await dialog.locator('input[name="startDate"]').fill('2026-06-01');
+    await dialog.locator('button:has-text("Move Partner")').click();
 
     // Verify updated details
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
     await expect(page.locator('body')).toContainText('Ford');
     await expect(page.locator('body')).toContainText('Lead Systems Architect');
   });
@@ -89,9 +102,10 @@ test.describe('Admin and Maintenance Operations', () => {
     const person = await prisma.person.findFirst({ where: { name: 'Bob Miller' } });
     await page.goto(`/people/${person?.id}`);
 
-    // Submit duplicate person form
-    await page.fill('input[name="copyEmail"]', 'bmiller.copy@example.com');
-    await page.click('button:has-text("Copy Profile")');
+    await viaPersonKebab(page, 'Copy Person Profile');
+    const dialog = page.locator('dialog[open]');
+    await dialog.locator('input[name="copyEmail"]').fill('bmiller.copy@example.com');
+    await dialog.locator('button:has-text("Copy Profile")').click();
 
     // Should redirect to the new person's details page
     await page.waitForURL(/\/people\/\d+/);

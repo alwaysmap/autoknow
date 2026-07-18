@@ -40,7 +40,6 @@ export const partnerFieldsSchema = z.object({
   name: zText.max(200),
   typeId: zIdOrNull,
   regionId: zId, // required
-  phone: zTextOrNull,
   website: zUrlOrNull,
   internalDetailsUrl: zUrlOrNull,
   summary: zTextOrNull,
@@ -52,7 +51,6 @@ export const partnerApiSchema = z.object({
   name: zText.max(200),
   type: zText.max(100),
   region: zText.max(100),
-  phone: zTextOrNull.optional(),
   website: zUrlOrNull.optional(),
   internalDetailsUrl: zUrlOrNull.optional(),
   summary: zTextOrNull.optional(),
@@ -81,6 +79,24 @@ export const statusUpdateSchema = z.object({
     (v) => (v === '' || v == null ? null : v),
     z.coerce.number().int().min(0).max(100).nullable(),
   ),
+});
+
+// ---- person maintenance (server actions) ----------------------------------------
+
+export const personMoveSchema = z.object({
+  personId: zId,
+  newPartnerId: zId,
+  newRole: zText.max(100),
+  startDate: z.coerce.date(),
+});
+
+export const personCopySchema = z.object({
+  personId: zId,
+  copyEmail: z.email(),
+});
+
+export const personDeleteSchema = z.object({
+  personId: zId,
 });
 
 // ---- people / projects (JSON API) -----------------------------------------------

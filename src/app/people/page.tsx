@@ -1,0 +1,47 @@
+import { prisma } from '../../lib/db';
+import PeopleClient from './PeopleClient';
+
+export const dynamic = 'force-dynamic';
+
+// The people directory: everyone AutoKnow knows about, with their current company,
+// role, and how many programs they touch. Company deep-links (?company=) preselect
+// the column funnel — same grammar as /partners (design.md §6).
+
+interface SearchParams {
+  company?: string;
+}
+
+export default async function PeoplePage(props: { searchParams: Promise<SearchParams> }) {
+  const searchParams = await props.searchParams;
+
+  const people = await prisma.person.findMany({
+    orderBy: { name: 'asc' },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      currentPartner: { select: { id: true, name: true } },
+      affiliations: { where: { endDate: null }, select: { role: true }, take: 1 },
+      phaseInvolvements: { select: { phase: { select: { projectId: true } } } },
+      actionItems: { select: { phase: { select: { projectId: true } } } },
+    },
+  });
+
+  const rows = people.map((p) => ({
+    id: p.id,
+    name: p.name,
+    email: p.email,
+    companyId: p.currentPartner.id,
+    company: p.currentPartner.name,
+    role: p.affiliations[0]?.role ?? '',
+    programs: new Set([
+      ...p.phaseInvolvements.map((i) => i.phase.projectId),
+      ...p.actionItems.map((a) => a.phase.projectId),
+    ]).size,
+  }));
+
+  const initialFilters: Record<string, string[]> = {};
+  if (searchParams.company) initialFilters.company = [searchParams.company];
+
+  return <PeopleClient people={rows} initialFilters={initialFilters} />;
+}

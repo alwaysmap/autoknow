@@ -68,6 +68,9 @@ export default async function RootLayout({
               <Link href="/partners" className={styles.navLink}>
                 {t(locale, 'navPartners')}
               </Link>
+              <Link href="/people" className={styles.navLink}>
+                {t(locale, 'peopleLabel')}
+              </Link>
               <Link href="/me" className={styles.navLink}>
                 {t(locale, 'navMe')}
               </Link>

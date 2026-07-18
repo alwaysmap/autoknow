@@ -590,6 +590,7 @@ const STRINGS = {
 
   filterColumn: { en: 'Filter {c}', de: '{c} filtern', ja: '{c} を絞り込み', ko: '{c} 필터' },
   clearFilter: { en: 'Clear', de: 'Zurücksetzen', ja: 'クリア', ko: '지우기' },
+  clearAllFilters: { en: 'Clear filters', de: 'Filter zurücksetzen', ja: 'フィルターをクリア', ko: '필터 지우기' },
   moreActions: { en: 'More actions', de: 'Weitere Aktionen', ja: 'その他の操作', ko: '추가 작업' },
   leadPartnerLabel: { en: 'Lead partner (OEM)', de: 'Lead-Partner (OEM)', ja: 'リードパートナー（OEM）', ko: '리드 파트너 (OEM)' },
   // ---- partner CRUD ----
@@ -622,6 +623,7 @@ const STRINGS = {
   personLabel: { en: 'Person', de: 'Person', ja: '担当者', ko: '사람' },
   contextLabel: { en: 'Context', de: 'Kontext', ja: 'コンテキスト', ko: '컨텍스트' },
   statusLabel: { en: 'Status', de: 'Status', ja: 'ステータス', ko: '상태' },
+  statusActive: { en: 'Active', de: 'Aktiv', ja: 'アクティブ', ko: '활성' },
   phaseLabel: { en: 'Phase', de: 'Phase', ja: 'フェーズ', ko: '단계' },
   ownerLabel: { en: 'Owner', de: 'Verantwortlich', ja: 'オーナー', ko: '담당자' },
   teamLabel: { en: 'Team', de: 'Team', ja: 'チーム', ko: '팀' },
@@ -910,6 +912,16 @@ const STRINGS = {
   typeOnly: { en: '{t} Only', de: 'Nur {t}', ja: '{t}のみ', ko: '{t}만' },
   googleRegion: { en: 'Google Region', de: 'Google-Region', ja: 'Googleリージョン', ko: 'Google 지역' },
   regionLabel: { en: 'Region', de: 'Region', ja: '地域', ko: '지역' },
+  nameLabel: { en: 'Name', de: 'Name', ja: '名前', ko: '이름' },
+  companyLabel: { en: 'Company', de: 'Unternehmen', ja: '会社', ko: '회사' },
+  emailHeader: { en: 'Email', de: 'E-Mail', ja: 'メール', ko: '이메일' },
+  companiesLabel: { en: 'Companies', de: 'Unternehmen', ja: '所属企業', ko: '소속 회사' },
+  noProfileForUser: {
+    en: 'No person profile matches {u} yet. Browse the directory:',
+    de: 'Noch kein Personenprofil für {u}. Zum Verzeichnis:',
+    ja: '{u} に一致する人物プロフィールがまだありません。ディレクトリへ:',
+    ko: '{u}와 일치하는 인물 프로필이 아직 없습니다. 디렉터리 보기:',
+  },
   allRegions: { en: 'All Regions', de: 'Alle Regionen', ja: 'すべてのリージョン', ko: '모든 지역' },
   programsInFlightAllTime: { en: 'Programs In Flight / All Time', de: 'Laufende Programme / Gesamt', ja: '進行中 / 全期間のプログラム', ko: '진행 중 / 전체 프로그램' },
   activeVsTotal: { en: 'Active vs total matches', de: 'Aktive vs. Gesamttreffer', ja: 'アクティブ vs 全一致件数', ko: '활성 대 전체 일치' },

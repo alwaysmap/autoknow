@@ -59,16 +59,14 @@ test.describe('Me Landing Page', () => {
     });
   });
 
-  test('should display biographical profile and project checklist accountabilities', async ({ page }) => {
+  test('redirects to the canonical person page with profile and programs', async ({ page }) => {
     // Navigate to /me
     await page.goto('/me?user=@dylan');
+    await page.waitForURL(/\/people\/\d+/); // /me is a shortcut to the person page
 
     // Verify profile info
     await expect(page.locator('body')).toContainText('Dylan Lead');
     await expect(page.locator('body')).toContainText('Technical Engagement Lead for Android Automotive');
-
-    // Verify Action Items checklist
-    await expect(page.locator('body')).toContainText('Verify HAL interface requirements with Google team');
 
     // Verify Project accountabilities
     await expect(page.locator('body')).toContainText('AAOS Google Integration');
@@ -76,7 +74,8 @@ test.describe('Me Landing Page', () => {
 
   test('should transparently redirect from legacy my-projects path to me page', async ({ page }) => {
     await page.goto('/my-projects?user=@dylan');
-    await page.waitForURL(/\/me\?user=.+/, { timeout: 5000 });
+    // chains /my-projects → /me → the canonical person page
+    await page.waitForURL(/\/people\/\d+/, { timeout: 5000 });
     await expect(page.locator('body')).toContainText('Dylan Lead');
   });
 });

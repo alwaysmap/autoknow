@@ -43,7 +43,7 @@ function hostOf(url: string): string {
 }
 
 // Inline contact facts — labels are a last resort: each value self-labels (a
-// number reads as the phone, a hostname as the website), separated by middots.
+// hostname reads as the website), separated by middots.
 // Only the docs link needs words. Classification facts (type, region) live in
 // the header identity line as links into the filtered partner list.
 function FactsInline({
@@ -111,17 +111,9 @@ export default async function PartnerDetailPage(props: PageProps) {
 
   const googleTeam = (partner.googleTeam as TeamMember[] | null) || [];
 
+  // No phone here: phone numbers belong to PEOPLE, not companies (the People
+  // block is where you find someone to call).
   const contactFacts: { key: string; node: React.ReactNode }[] = [];
-  if (partner.phone) {
-    contactFacts.push({
-      key: 'phone',
-      node: (
-        <a href={`tel:${partner.phone.replace(/[^+\d]/g, '')}`} className={styles.factLink}>
-          {partner.phone}
-        </a>
-      ),
-    });
-  }
   if (partner.website) {
     contactFacts.push({
       key: 'website',
@@ -155,7 +147,6 @@ export default async function PartnerDetailPage(props: PageProps) {
                 name: partner.name,
                 typeId: partner.typeId,
                 regionId: partner.regionId,
-                phone: partner.phone,
                 website: partner.website,
                 internalDetailsUrl: partner.internalDetailsUrl,
                 summary: partner.summary,

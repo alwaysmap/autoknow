@@ -1,13 +1,10 @@
 import Link from 'next/link';
-import ActivityFeed from '../components/ActivityFeed';
-import UnifiedSearch from '../components/UnifiedSearch';
 import EcosystemStats from '../components/EcosystemStats';
 import SummaryPanel from '../components/SummaryPanel';
 import { getSummary } from '../lib/summaries';
 import { geminiConfigured } from '../lib/gemini';
 import CapacityChart from '../components/CapacityChart';
 import HighRiskPrograms from '../components/HighRiskPrograms';
-import { getActivity } from '../lib/activity';
 import { getEcosystemDashboardData } from '../lib/dashboardData';
 import { getLocale } from '../lib/locale';
 import { t } from '../lib/i18n';
@@ -18,9 +15,6 @@ export const dynamic = 'force-dynamic';
 
 export default async function Home() {
   const locale = await getLocale();
-  // Ecosystem-wide activity — the same content /activity renders: ingested context
-  // + program/needle/hill/phase changes, merged chronologically.
-  const events = await getActivity({ kind: 'ecosystem' });
   const summary = await getSummary('ecosystem', 0);
 
   // 2. Load the shared dashboard data (projects, forecasts, cycle times, briefings).
@@ -68,18 +62,9 @@ export default async function Home() {
           <SummaryPanel scope="ecosystem" targetId={0} path="/"
             summary={summary} configured={geminiConfigured} />
         </section>
-        {/* Ecosystem activity — mirrors the /activity page (the retired Action Items
-            table lived here; updates now flow through needle/hill notes + ingest) */}
-        <section className={styles.dashboardSection}>
-          <div className={styles.sectionHeader}>
-            <h2>{t(locale, 'recentActivity')}</h2>
-          </div>
-          <section style={{ marginBottom: 20 }}>
-            {/* the feed's own filter chips sit directly below — no second chip row */}
-            <UnifiedSearch placeholder={t(locale, 'searchAllAutoknow')} showTypeChips={false} />
-          </section>
-          <ActivityFeed items={events} deletable revalidate="/" />
-        </section>
+        {/* Recent activity retired from this page (2026-07-18): the ecosystem page
+            is the leadership strip + briefing; activity lives on partner/program
+            pages where it has an anchor. */}
 
         {serializedProjects.length === 0 ? (
           <section className={styles.dashboardSection}>

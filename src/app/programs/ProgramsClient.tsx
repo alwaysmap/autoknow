@@ -70,24 +70,31 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
   const locale = useLocale();
   // Column filters live in the table headers (design.md: table filtering pattern).
   // The ?minRisk deep-link becomes a Health-column preselection.
-  const [filters, setFilters] = useState<Record<string, string[]>>(
-    initialMinRisk >= 2
+  const [filters, setFilters] = useState<Record<string, string[]>>(() => ({
+    // deep-linked (?filter=active) → the visible Status funnel, not a hidden predicate
+    ...(initialActiveOnly ? { status: ['Active'] } : {}),
+    ...(initialMinRisk >= 2
       ? { theNeedle: ['Concerned'] }
       : initialMinRisk === 1
         ? { theNeedle: ['Some Risk', 'Concerned'] }
-        : {},
-  );
+        : {}),
+  }));
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeOnly] = useState(initialActiveOnly); // deep-linked (?filter=active)
 
 
 
 
+
+  // Program lifecycle status is DERIVED (isArchived, else progress): a visible,
+  // filterable fact instead of a hidden ?filter=active predicate.
+  const statusOf = (p: Project): 'Active' | 'Done' | 'Archived' =>
+    p.isArchived ? 'Archived' : p.hillChartProgress >= 100 ? 'Done' : 'Active';
+  const statusKeyOf = (v: string) =>
+    v === 'Archived' ? ('archived' as const) : v === 'Done' ? ('statusDone' as const) : ('statusActive' as const);
 
   // Base predicates only — everything categorical lives in the column filters.
   const filteredProjects = initialProjects.filter((proj) => {
     // Active only (not archived, not done) — deep-linked from the ecosystem stats
-    if (activeOnly && (proj.isArchived || proj.hillChartProgress >= 100)) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       if (!proj.name.toLowerCase().includes(q) && !proj.partner.name.toLowerCase().includes(q)) return false;
@@ -169,9 +176,14 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
               filterValue: (row) => formatNeedleValue((row as Project).theNeedle),
               filterLabel: (v) => t(locale, healthKey(v)),
             },
-            { key: 'hillChartProgress', label: t(locale, 'progressLabel') }
+            { key: 'hillChartProgress', label: t(locale, 'progressLabel') },
+            {
+              key: 'status', label: t(locale, 'statusLabel'), filterable: true,
+              filterValue: (row) => statusOf(row as Project),
+              filterLabel: (v) => t(locale, statusKeyOf(v)),
+            }
           ]}
-          data={filteredProjects}
+          data={filteredProjects.map((p) => ({ ...p, status: statusOf(p) }))}
           filters={filters}
           onFiltersChange={setFilters}
           renderRow={(p: Project) => {
@@ -229,6 +241,18 @@ export default function ProgramsClient({ initialProjects, people, regions = [], 
                       />
                     </div>
                   </div>
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    onClick={() => setFilters((f) => ({ ...f, status: [statusOf(p)] }))}
+                    className={styles.badgeFilterBtn}
+                    title={t(locale, 'filterColumn', { c: t(locale, 'statusLabel') })}
+                  >
+                    <span className={styles.typeText ?? ''} style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>
+                      {t(locale, statusKeyOf(statusOf(p)))}
+                    </span>
+                  </button>
                 </td>
               </tr>
             );

@@ -1,131 +1,26 @@
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { revalidatePath } from 'next/cache';
 import { prisma } from '../../../lib/db';
-import { indexEntity } from '../../../lib/search';
+import PersonAdminControls from '../../../components/PersonEditor';
+import { phaseColor } from '../../../lib/phase';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
 
 export const dynamic = 'force-dynamic';
 
-async function movePersonCompany(formData: FormData) {
-  'use server';
-  const personIdStr = formData.get('personId') as string;
-  const newPartnerIdStr = formData.get('newPartnerId') as string;
-  const newRole = formData.get('newRole') as string;
-  const startDateStr = formData.get('startDate') as string;
+// THE person page (the /me route is just a shortcut here for the signed-in user).
+// A person is two facts: which companies they've been at (affiliations) and which
+// programs they've worked on (owned as TEL, phase involvement, assigned actions).
+// Maintenance lives behind the title kebab (PersonEditor), not a form farm.
 
-  const personId = parseInt(personIdStr);
-  const newPartnerId = parseInt(newPartnerIdStr);
-
-  if (!isNaN(personId) && !isNaN(newPartnerId)) {
-    const startDate = startDateStr ? new Date(startDateStr) : new Date();
-
-    // Close any currently active affiliations (where endDate is null)
-    await prisma.personAffiliation.updateMany({
-      where: { personId, endDate: null },
-      data: { endDate: startDate }
-    });
-
-    // Create a new affiliation
-    await prisma.personAffiliation.create({
-      data: {
-        personId,
-        partnerId: newPartnerId,
-        role: newRole || 'Engineer',
-        startDate
-      }
-    });
-
-    // Update current partner on the Person record
-    await prisma.person.update({
-      where: { id: personId },
-      data: { currentPartnerId: newPartnerId }
-    });
-  }
-
-  revalidatePath(`/people/${personIdStr}`);
-}
-
-async function copyPerson(formData: FormData) {
-  'use server';
-  const personIdStr = formData.get('personId') as string;
-  const copyEmail = formData.get('copyEmail') as string;
-
-  const personId = parseInt(personIdStr);
-  let newPersonId = personId;
-
-  if (!isNaN(personId) && copyEmail) {
-    const source = await prisma.person.findUnique({
-      where: { id: personId }
-    });
-
-    if (source) {
-      const copy = await prisma.person.create({
-        data: {
-          name: source.name,
-          email: copyEmail.trim(),
-          currentPartnerId: source.currentPartnerId,
-          notes: source.notes
-        }
-      });
-      newPersonId = copy.id;
-      await indexEntity('person', copy.id);
-
-      // Duplicate active affiliations if any
-      const activeAff = await prisma.personAffiliation.findFirst({
-        where: { personId, endDate: null }
-      });
-
-      if (activeAff) {
-        await prisma.personAffiliation.create({
-          data: {
-            personId: copy.id,
-            partnerId: activeAff.partnerId,
-            role: activeAff.role,
-            startDate: new Date()
-          }
-        });
-      }
-    }
-  }
-
-  redirect(`/people/${newPersonId}`);
-}
-
-async function deletePerson(formData: FormData) {
-  'use server';
-  const personIdStr = formData.get('personId') as string;
-  const personId = parseInt(personIdStr);
-
-  if (!isNaN(personId)) {
-    await prisma.personAffiliation.deleteMany({ where: { personId } });
-    await prisma.actionItem.updateMany({
-      where: { assignedToPersonId: personId },
-      data: { assignedToPersonId: null }
-    });
-    await prisma.person.delete({ where: { id: personId } });
-  }
-
-  redirect('/');
-}
-
-interface ActionWithPhase {
-  id: number;
-  description: string;
-  status: string;
-  createdAt: Date;
-  phase: {
-    name: string;
-    project: {
-      id: number;
-      name: string;
-      partner: {
-        name: string;
-      };
-    };
-  };
+function initialsOf(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0]!.toUpperCase())
+    .slice(0, 2)
+    .join('');
 }
 
 export default async function PersonProfilePage(props: { params: Promise<{ id: string }> }) {
@@ -137,254 +32,147 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
     return notFound();
   }
 
-  // 1. Fetch Person with current partner, affiliations, and action items
   const person = await prisma.person.findUnique({
     where: { id: personId },
     include: {
       currentPartner: true,
       affiliations: {
-        include: {
-          partner: true
-        },
-        orderBy: { startDate: 'asc' }
+        include: { partner: true },
+        orderBy: { startDate: 'desc' },
+      },
+      phaseInvolvements: {
+        include: { phase: { select: { id: true, name: true, project: { select: { id: true, name: true } } } } },
       },
       actionItems: {
-        include: {
-          phase: {
-            include: {
-              project: {
-                include: {
-                  partner: true
-                }
-              }
-            }
-          }
-        },
-        orderBy: { createdAt: 'desc' }
-      }
-    }
+        select: { phase: { select: { id: true, name: true, project: { select: { id: true, name: true } } } } },
+      },
+    },
   });
 
   if (!person) {
     return notFound();
   }
 
-  const partners = await prisma.partner.findMany({ 
+  // Programs owned as TEL: ownerName is a free-text handle/email, so match the
+  // person's email and its bare local-part/handle forms.
+  const local = person.email.split('@')[0];
+  const owned = await prisma.project.findMany({
+    where: {
+      OR: [person.email, `@${local}`, local].map((v) => ({
+        ownerName: { equals: v, mode: 'insensitive' as const },
+      })),
+    },
+    select: { id: true, name: true },
     orderBy: { name: 'asc' },
-    include: { type: true }
   });
 
-  // 2. Map action items to the affiliation they had at the time the action was created
-  const groupedActions: Record<string, { partnerName: string; role: string; actions: ActionWithPhase[] }> = {};
+  const partners = await prisma.partner.findMany({
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true },
+  });
 
-  // Initialize groups for each affiliation to make sure they all appear, even if empty
-  for (const aff of person.affiliations) {
-    groupedActions[aff.id.toString()] = {
-      partnerName: aff.partner.name,
-      role: aff.role,
-      actions: []
-    };
+  // Programs worked on: TEL ownership + phase-level involvement; phases reached via
+  // assigned action items fill in history the involvement table doesn't cover.
+  interface ProgramRow {
+    id: number;
+    name: string;
+    tel: boolean;
+    phases: { id: number; name: string; role: string | null }[];
   }
-
-  const unassociatedActions: ActionWithPhase[] = [];
-
-  // Group each action item
-  for (const action of person.actionItems) {
-    const actionDate = new Date(action.createdAt);
-    
-    // Find matching affiliation at actionDate
-    const matchingAff = person.affiliations.find(aff => {
-      const start = new Date(aff.startDate);
-      const end = aff.endDate ? new Date(aff.endDate) : null;
-      return actionDate >= start && (end === null || actionDate <= end);
-    });
-
-    if (matchingAff) {
-      groupedActions[matchingAff.id.toString()].actions.push(action);
-    } else {
-      unassociatedActions.push(action);
+  const programs = new Map<number, ProgramRow>();
+  const rowFor = (project: { id: number; name: string }) => {
+    const row = programs.get(project.id) ?? { id: project.id, name: project.name, tel: false, phases: [] };
+    programs.set(project.id, row);
+    return row;
+  };
+  for (const p of owned) rowFor(p).tel = true;
+  for (const inv of person.phaseInvolvements) {
+    const row = rowFor(inv.phase.project);
+    if (!row.phases.some((ph) => ph.id === inv.phase.id)) {
+      row.phases.push({ id: inv.phase.id, name: inv.phase.name, role: inv.role });
     }
   }
+  for (const a of person.actionItems) {
+    const row = rowFor(a.phase.project);
+    if (!row.phases.some((ph) => ph.id === a.phase.id)) {
+      row.phases.push({ id: a.phase.id, name: a.phase.name, role: null });
+    }
+  }
+  const programRows = [...programs.values()].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div className={styles.container}>
+      {/* Me-page profile grammar: initials avatar + name + identity line. */}
       <header className={styles.header}>
-        <h1>{person.name}</h1>
-        <div className={styles.metaRow}>
-          <span className={styles.metaLabel}>{t(locale, 'currentOrganization')}</span>{' '}
-          <strong className={styles.highlightText}>{person.currentPartner.name}</strong>
-          <span className={styles.metaSeparator}>|</span>
-          <span className={styles.metaLabel}>{t(locale, 'emailLabel')}</span> {person.email}
+        <div className={styles.avatar}>{initialsOf(person.name)}</div>
+        <div className={styles.profileInfo}>
+          <div className={styles.titleRow}>
+            <h1>{person.name}</h1>
+            <PersonAdminControls personId={person.id} personName={person.name} partners={partners} />
+          </div>
+          <div className={styles.identLine}>
+            <Link href={`/partners/${person.currentPartnerId}`} className={styles.identCompany}>
+              {person.currentPartner.name}
+            </Link>
+            <span className={styles.identSep}>·</span>
+            <a href={`mailto:${person.email}`} className={styles.identEmail}>{person.email}</a>
+          </div>
         </div>
-        {person.notes && <p className={styles.notes}>{person.notes}</p>}
       </header>
 
       <main className={styles.main}>
-        {/* Section 1: Career History Timeline */}
-        <section className={styles.section}>
-          <h2>{t(locale, 'careerHistory')}</h2>
-          <div className={styles.timeline}>
-            {person.affiliations.map((aff) => {
-              const startStr = new Date(aff.startDate).toLocaleDateString(locale, { year: 'numeric', month: 'short' });
-              const endStr = aff.endDate
-                ? new Date(aff.endDate).toLocaleDateString(locale, { year: 'numeric', month: 'short' })
-                : t(locale, 'present');
-              
-              return (
-                <div key={aff.id} className={styles.timelineItem}>
-                  <div className={styles.timelineDates}>{startStr} - {endStr}</div>
-                  <div className={styles.timelineContent}>
-                    <h3>{aff.role}</h3>
-                    <div className={styles.timelineOrg}>{aff.partner.name}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+        {person.notes && <p className={styles.notes}>{person.notes}</p>}
 
-        {/* Section 2: Biographical Actions History */}
-        <section className={styles.section}>
-          <h2>{t(locale, 'actionDecisionHistory')}</h2>
-          <p className={styles.sectionSubtext}>
-            {t(locale, 'actionHistorySubtext')}
-          </p>
-
-          {person.affiliations.length === 0 ? (
-            <p className={styles.emptyText}>{t(locale, 'noCareerHistory')}</p>
-          ) : (
-            person.affiliations.map((aff) => {
-              const group = groupedActions[aff.id.toString()];
-              return (
-                <div key={aff.id} className={styles.affiliationGroup}>
-                  <div className={styles.groupHeader}>
-                    <h3>{group.partnerName}</h3>
-                    <span className={styles.groupRole}>{group.role}</span>
-                  </div>
-
-                  {group.actions.length === 0 ? (
-                    <p className={styles.emptyActions}>{t(locale, 'noActionsRecorded')}</p>
-                  ) : (
-                    <ul className={styles.actionList}>
-                      {group.actions.map((action) => (
-                        <li key={action.id} className={styles.actionItem}>
-                          <div className={styles.actionMeta}>
-                            <span className={styles.actionDate}>
-                              {new Date(action.createdAt).toLocaleDateString(locale)}
-                            </span>
-                            <span className={`${styles.statusBadge} ${action.status === 'Completed' ? styles.statusCompleted : styles.statusPending}`}>
-                              {action.status === 'Completed' ? t(locale, 'statusCompleted') : action.status === 'Pending' ? t(locale, 'statusPending') : action.status}
-                            </span>
-                          </div>
-                          <div className={styles.actionDetails}>
-                            <p className={styles.actionDesc}>{action.description}</p>
-                            <span className={styles.actionContext}>
-                              {t(locale, 'projectLabel')}:{' '}
-                              <Link href={`/programs/${action.phase.project.id}`}>
-                                {action.phase.project.name}
-                              </Link>{' '}
-                              ({action.phase.name})
-                            </span>
-                          </div>
-                        </li>
+        <div className={styles.colMain}>
+          <section className={styles.section}>
+            <h2>{t(locale, 'navPrograms')}</h2>
+            {programRows.length === 0 ? (
+              <p className={styles.empty}>{t(locale, 'noPartnerPrograms')}</p>
+            ) : (
+              <div className={styles.rows}>
+                {programRows.map((prog) => (
+                  <div key={prog.id} className={styles.progRow}>
+                    <Link href={`/programs/${prog.id}`} className={styles.progName}>{prog.name}</Link>
+                    {prog.tel && <span className={styles.telMark}>TEL</span>}
+                    <span className={styles.phaseChips}>
+                      {prog.phases.map((ph) => (
+                        <Link key={ph.id} href={`/history/phase/${ph.id}`} className={styles.phaseChip}
+                          title={ph.role ? `${ph.name} · ${ph.role}` : ph.name}>
+                          <span className={styles.phaseDot} style={{ background: phaseColor(ph.id) }} />
+                          {ph.name}
+                          {ph.role && <span className={styles.phaseRole}>{ph.role}</span>}
+                        </Link>
                       ))}
-                    </ul>
-                  )}
-                </div>
-              );
-            })
-          )}
-
-          {unassociatedActions.length > 0 && (
-            <div className={styles.affiliationGroup}>
-              <div className={styles.groupHeader}>
-                <h3>{t(locale, 'otherUnassociated')}</h3>
-              </div>
-              <ul className={styles.actionList}>
-                {unassociatedActions.map((action) => (
-                  <li key={action.id} className={styles.actionItem}>
-                    <div className={styles.actionMeta}>
-                      <span className={styles.actionDate}>
-                        {new Date(action.createdAt).toLocaleDateString(locale)}
-                      </span>
-                      <span className={`${styles.statusBadge} ${action.status === 'Completed' ? styles.statusCompleted : styles.statusPending}`}>
-                        {action.status === 'Completed' ? t(locale, 'statusCompleted') : action.status === 'Pending' ? t(locale, 'statusPending') : action.status}
-                      </span>
-                    </div>
-                    <div className={styles.actionDetails}>
-                      <p className={styles.actionDesc}>{action.description}</p>
-                      <span className={styles.actionContext}>
-                        {t(locale, 'projectLabel')}:{' '}
-                        <Link href={`/programs/${action.phase.project.id}`}>
-                          {action.phase.project.name}
-                        </Link>{' '}
-                        ({action.phase.name})
-                      </span>
-                    </div>
-                  </li>
+                    </span>
+                  </div>
                 ))}
-              </ul>
-            </div>
-          )}
-        </section>
+              </div>
+            )}
+          </section>
 
-        {/* Profile Maintenance & Administration section */}
-        <section className={styles.section}>
-          <h2>{t(locale, 'profileMaintenance')}</h2>
-          <div className={styles.adminGrid}>
-            {/* Form 1: Move Company */}
-            <div className={styles.adminFormCard}>
-              <h3>{t(locale, 'moveToDifferentCompany')}</h3>
-              <form action={movePersonCompany} className={styles.adminForm}>
-                <input type="hidden" name="personId" value={personId} />
-                <div className={styles.formGroup}>
-                  <label htmlFor="newPartnerId" className={styles.formLabel}>{t(locale, 'newOrganization')}</label>
-                  <select id="newPartnerId" name="newPartnerId" required className={styles.select}>
-                    <option value="">{t(locale, 'selectPartner')}</option>
-                    {partners.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.type?.name})</option>
-                    ))}
-                  </select>
-                </div>
-                <div className={styles.formGroup}>
-                  <label htmlFor="newRole" className={styles.formLabel}>{t(locale, 'roleTitle')}</label>
-                  <input type="text" id="newRole" name="newRole" placeholder={t(locale, 'roleTitlePlaceholder')} required className={styles.input} />
-                </div>
-                <div className={styles.formGroup}>
-                  <label htmlFor="startDate" className={styles.formLabel}>{t(locale, 'effectiveDate')}</label>
-                  <input type="date" id="startDate" name="startDate" required className={styles.input} />
-                </div>
-                <button type="submit" className={styles.primaryButton}>{t(locale, 'movePartner')}</button>
-              </form>
-            </div>
-
-            {/* Form 2: Copy Profile */}
-            <div className={styles.adminFormCard}>
-              <h3>{t(locale, 'copyPersonProfile')}</h3>
-              <p className={styles.formHelp}>{t(locale, 'copyProfileHelp')}</p>
-              <form action={copyPerson} className={styles.adminForm}>
-                <input type="hidden" name="personId" value={personId} />
-                <div className={styles.formGroup}>
-                  <label htmlFor="copyEmail" className={styles.formLabel}>{t(locale, 'newEmailAddress')}</label>
-                  <input type="email" id="copyEmail" name="copyEmail" placeholder={t(locale, 'copyEmailPlaceholder')} required className={styles.input} />
-                </div>
-                <button type="submit" className={styles.primaryButton}>{t(locale, 'copyProfile')}</button>
-              </form>
-            </div>
-
-            {/* Form 3: Delete Profile */}
-            <div className={styles.adminFormCard}>
-              <h3>{t(locale, 'deletePersonProfile')}</h3>
-              <p className={styles.formHelp}>{t(locale, 'deleteProfileHelp')}</p>
-              <form action={deletePerson} className={styles.adminForm}>
-                <input type="hidden" name="personId" value={personId} />
-                <button type="submit" className={styles.dangerButton}>
-                  {t(locale, 'deleteProfileBtn')}
-                </button>
-              </form>
-            </div>
-          </div>
-        </section>
+          <section className={styles.section}>
+            <h2>{t(locale, 'companiesLabel')}</h2>
+            {person.affiliations.length === 0 ? (
+              <p className={styles.empty}>{t(locale, 'noCareerHistory')}</p>
+            ) : (
+              <div className={styles.rows}>
+                {person.affiliations.map((aff) => {
+                  const startStr = new Date(aff.startDate).toLocaleDateString(locale, { year: 'numeric', month: 'short' });
+                  const endStr = aff.endDate
+                    ? new Date(aff.endDate).toLocaleDateString(locale, { year: 'numeric', month: 'short' })
+                    : t(locale, 'present');
+                  return (
+                    <div key={aff.id} className={styles.row}>
+                      <span className={styles.rowDates}>{startStr} – {endStr}</span>
+                      <Link href={`/partners/${aff.partnerId}`} className={styles.rowCompany}>{aff.partner.name}</Link>
+                      <span className={styles.rowRole}>{aff.role}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
       </main>
     </div>
   );

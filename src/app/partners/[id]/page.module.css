@@ -151,7 +151,7 @@
 
 .factLink {
   color: var(--fg);
-  font-weight: 500;
+  font-weight: 400;
   text-decoration: none;
 }
 .factLink:hover {
@@ -162,7 +162,7 @@
 .externalLink {
   color: var(--p-600);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 400;
 }
 .externalLink:hover {
   text-decoration: underline;
@@ -200,7 +200,7 @@
 .personLink {
   color: var(--fg);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 400;
 }
 .personLink:hover {
   color: var(--p-600);

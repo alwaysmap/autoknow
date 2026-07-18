@@ -6,12 +6,15 @@
   font-family: var(--body-font);
 }
 
+/* Title + its kebab sit together (the app-wide grammar: actions live next to the
+   thing they act on, and the menu never opens off the viewport edge). */
 .header {
   border-bottom: 1px solid var(--border);
   padding: 24px 0;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
+  justify-content: flex-start;
+  align-items: baseline;
+  gap: 4px;
 }
 
 .header h1 {
@@ -30,60 +33,45 @@
 .main {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 40px 0;
+  padding: 10px 0 40px;
 }
 
-.filterSection {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px 24px;
-  margin-bottom: 32px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
-  align-items: center;
-}
-
-.filterGroup {
+/* Slim filter toolbar: one quiet line, no box — column funnels do the real
+   filtering, this row only hosts the ownership toggle and the global reset. */
+.toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 22px;
+  padding: 10px 0 2px;
+  font-size: 13px;
 }
 
-.filterLabel {
+.toolbarToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--fg);
+  cursor: pointer;
+  user-select: none;
+}
+.toolbarToggle input {
+  accent-color: var(--p-600);
+  margin: 0;
+}
+
+.clearAll {
+  background: none;
+  border: none;
+  padding: 2px 6px;
+  border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
-  text-transform: uppercase;
-}
-
-.select {
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background-color: var(--white);
-  font-family: var(--body-font);
-  font-size: 13px;
-}
-
-.checkboxGroup {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.checkbox {
-  width: 16px;
-  height: 16px;
   cursor: pointer;
 }
-
-.checkboxLabel {
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
+.clearAll:hover {
   color: var(--fg);
+  background: var(--surface);
 }
 
 .tableSection {
@@ -95,7 +83,7 @@
 .tableLink {
   color: var(--fg);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .tableLink:hover {
@@ -135,7 +123,7 @@
 .telLink {
   color: var(--p-600);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .telLink:hover {

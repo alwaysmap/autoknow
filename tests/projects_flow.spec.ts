@@ -23,6 +23,11 @@ test.describe('Projects and Partners Flow', () => {
       data: { name: 'Toyota', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } }
     });
 
+    // /my-projects → /me → the person page; @dylan needs a Person record.
+    await prisma.person.create({
+      data: { name: 'Dylan Lead', email: 'dylan@google.com', currentPartnerId: ford.id }
+    });
+
     const bosch = await prisma.partner.create({
       data: { name: 'Bosch', type: { connectOrCreate: { where: { name: 'Supplier' }, create: { name: 'Supplier' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } }
     });

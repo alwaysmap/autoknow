@@ -1,6 +1,8 @@
+/* Person profile — the Me-page grammar (initials avatar + identity header), then
+   one capped reading column of whitespace-separated rows (design.md §7). */
+
 .container {
   min-height: 100vh;
-  background-color: transparent;
   color: var(--fg);
   padding: 0 40px;
   font-family: var(--body-font);
@@ -8,325 +10,197 @@
 
 .header {
   border-bottom: 1px solid var(--border);
-  padding: 24px 0;
+  padding: 14px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
-.brand {
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--p-600);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-family: var(--head-font);
-  font-weight: 600;
-  font-size: 1.25rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 8px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.profileInfo {
+  min-width: 0;
 }
 
 .header h1 {
   font-family: var(--head-font);
   font-size: 1.5rem;
   font-weight: 600;
-  margin: 0 0 12px 0;
-  color: var(--fg);
-}
-
-.metaRow {
-  font-size: 14px;
-  color: var(--muted);
-  margin-bottom: 16px;
-}
-
-.metaLabel {
-  color: var(--muted);
-}
-
-.metaSeparator {
-  margin: 0 12px;
-  color: var(--border);
-}
-
-.highlightText {
-  color: var(--p-600);
-}
-
-.notes {
-  font-size: 15px;
-  line-height: 1.6;
-  max-width: 800px;
-  color: var(--fg);
   margin: 0;
-  padding-top: 8px;
-  border-top: 1px dashed var(--border);
+}
+
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.identLine {
+  font-size: 13px;
+  margin-top: 2px;
+}
+.identCompany {
+  font-weight: 400;
+  color: var(--fg);
+  text-decoration: none;
+}
+.identCompany:hover {
+  color: var(--p-600);
+  text-decoration: underline;
+}
+.identEmail {
+  color: var(--muted);
+  text-decoration: none;
+}
+.identEmail:hover {
+  color: var(--fg);
+  text-decoration: underline;
+}
+.identSep {
+  color: var(--muted);
+  margin: 0 8px;
 }
 
 .main {
-  max-width: 900px;
+  max-width: 860px;
   margin: 0 auto;
-  padding: 48px 0;
+  padding: 20px 0 40px;
 }
 
-.section {
-  margin-bottom: 48px;
+.notes {
+  font-size: 13.5px;
+  line-height: 1.55;
+  max-width: 72ch;
+  margin: 0 0 4px;
+}
+
+.colMain {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-top: 14px;
+}
+.colMain > .section + .section {
+  margin-top: 26px;
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
 }
 
 .section h2 {
   font-family: var(--head-font);
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   font-weight: 600;
-  margin-bottom: 20px;
-  border-bottom: 1px solid var(--fg);
-  padding-bottom: 6px;
+  margin: 0 0 12px;
 }
 
-.sectionSubtext {
+.empty {
   font-size: 14px;
-  color: var(--muted);
-  margin-bottom: 24px;
-}
-
-/* Timeline component */
-.timeline {
-  position: relative;
-  padding-left: 20px;
-  border-left: 2px solid var(--border);
-}
-
-.timelineItem {
-  position: relative;
-  margin-bottom: 24px;
-}
-
-.timelineItem::before {
-  content: "";
-  position: absolute;
-  left: -27px;
-  top: 4px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background-color: var(--p-500);
-  border: 2px solid var(--white);
-}
-
-.timelineDates {
-  font-size: 13px;
-  color: var(--muted);
-  margin-bottom: 4px;
-}
-
-.timelineContent h3 {
-  font-family: var(--head-font);
-  font-size: 16px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.timelineOrg {
-  font-size: 14px;
-  color: var(--p-600);
-  font-weight: 600;
-}
-
-/* Affiliation Groups */
-.affiliationGroup {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  margin-bottom: 24px;
-  padding: 24px;
-}
-
-.groupHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 12px;
-  margin-bottom: 16px;
-}
-
-.groupHeader h3 {
-  font-family: var(--head-font);
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.groupRole {
-  font-size: 13px;
-  color: var(--muted);
-  background-color: var(--white);
-  border: 1px solid var(--border);
-  padding: 2px 8px;
-  border-radius: 4px;
-}
-
-.emptyActions {
-  font-size: 13px;
   color: var(--muted);
   font-style: italic;
-  margin: 0;
 }
 
-.actionList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.actionItem {
-  display: flex;
-  justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px dashed var(--border);
-}
-
-.actionItem:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.actionMeta {
+/* Company / program rows: whitespace-separated one-liners. */
+.rows {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  text-align: right;
-  min-width: 100px;
+  gap: 7px;
 }
 
-.actionDate {
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13.5px;
+}
+.rowDates {
+  color: var(--muted);
   font-size: 12px;
-  color: var(--muted);
-  margin-bottom: 6px;
+  min-width: 150px;
+  font-variant-numeric: tabular-nums;
 }
-
-.statusBadge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
-  text-transform: uppercase;
+.rowCompany {
+  font-weight: 400;
+  color: var(--fg);
+  text-decoration: none;
 }
-
-.statusCompleted {
-  background-color: var(--p-100);
-  color: var(--p-700);
-}
-
-.statusPending {
-  background-color: var(--border);
-  color: var(--muted);
-}
-
-.actionDetails {
-  flex: 1;
-  padding-right: 24px;
-}
-
-.actionDesc {
-  font-size: 14px;
-  margin: 0 0 6px 0;
-  font-weight: 500;
-}
-
-.actionContext {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.actionContext a {
+.rowCompany:hover {
   color: var(--p-600);
   text-decoration: underline;
 }
-
-.actionContext a:hover {
-  color: var(--p-700);
+.rowRole {
+  color: var(--muted);
 }
 
-.emptyText {
+.progRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 2px 0;
+}
+.progName {
+  font-weight: 400;
   font-size: 14px;
-  color: var(--muted);
-}
-
-.adminGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 24px;
-  margin-top: 16px;
-}
-
-.adminFormCard {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 24px;
-}
-
-.adminFormCard h3 {
-  font-family: var(--head-font);
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 0 0 12px 0;
-}
-
-.formHelp {
-  font-size: 13px;
-  color: var(--muted);
-  margin: 0 0 16px 0;
-}
-
-.formGroup {
-  margin-bottom: 16px;
-}
-
-.formLabel {
-  display: block;
-  font-size: 13px;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-
-.select, .input {
-  width: 100%;
-  padding: 10px;
-  font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background-color: var(--white);
   color: var(--fg);
+  text-decoration: none;
+}
+.progName:hover {
+  text-decoration: underline;
 }
 
-.primaryButton {
-  background-color: var(--fg);
-  color: var(--white);
-  border: none;
-  padding: 10px 20px;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 4px;
-  cursor: pointer;
-  width: 100%;
-  transition: background-color 0.2s ease;
+.telMark {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--p-600);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.5px 7px;
 }
 
-.primaryButton:hover {
-  background-color: var(--p-600);
+.phaseChips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
-
-.dangerButton {
-  background-color: var(--t-100);
-  border: 1px solid var(--t-200);
-  color: var(--t-700);
-  padding: 10px 20px;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 4px;
-  cursor: pointer;
-  width: 100%;
-  transition: all 0.2s ease;
+.phaseChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--fg);
+  text-decoration: none;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
 }
-
-.dangerButton:hover {
-  background-color: var(--t-700);
-  color: var(--white);
-  border-color: var(--t-700);
+.phaseChip:hover {
+  border-color: var(--muted);
+}
+.phaseDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.phaseRole {
+  color: var(--muted);
+  font-weight: 400;
 }

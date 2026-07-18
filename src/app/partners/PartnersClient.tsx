@@ -6,7 +6,7 @@ import DataTable from '../../components/DataTable';
 import { NewPartnerButton } from '../../components/PartnerEditor';
 import KebabMenu from '../../components/KebabMenu';
 import { RelationshipCell } from '../../components/RelationshipScale';
-import { parseScore } from '../../lib/relationship';
+import { parseScore, clampScore, REL_KEY } from '../../lib/relationship';
 import { deriveEmail, normalizeHandle } from '../../lib/auth';
 import { resolvePerson } from '../../lib/people';
 import { t } from '../../lib/i18n';
@@ -134,22 +134,28 @@ export default function PartnersClient({ partners, currentUser, people, relation
       </header>
 
       <main className={styles.main}>
-        {/* Type/region filtering lives in the column funnels; only the ownership
-            toggle (not a column) keeps a standalone control. */}
-        <section className={styles.filterSection}>
-          <div className={styles.checkboxGroup}>
+        {/* Column filtering lives in the funnels; this slim row carries only the
+            ownership toggle (not a column) and the reset for everything at once. */}
+        <div className={styles.toolbar}>
+          <label htmlFor="myPartnersCheckbox" className={styles.toolbarToggle}>
             <input
               id="myPartnersCheckbox"
               type="checkbox"
               checked={myPartnersOnly}
               onChange={(e) => setMyPartnersOnly(e.target.checked)}
-              className={styles.checkbox}
             />
-            <label htmlFor="myPartnersCheckbox" className={styles.checkboxLabel}>
-              {t(locale, 'myPartners')}
-            </label>
-          </div>
-        </section>
+            {t(locale, 'myPartners')}
+          </label>
+          {(myPartnersOnly || Object.values(filters).some((v) => v && v.length > 0)) && (
+            <button
+              type="button"
+              className={styles.clearAll}
+              onClick={() => { setFilters({}); setMyPartnersOnly(false); }}
+            >
+              ✕ {t(locale, 'clearAllFilters')}
+            </button>
+          )}
+        </div>
 
         {/* Partners table list */}
         <section className={styles.tableSection}>
@@ -158,7 +164,15 @@ export default function PartnersClient({ partners, currentUser, people, relation
               { key: 'name', label: t(locale, 'partnerName') },
               { key: 'type', label: t(locale, 'partnerType'), filterable: true, filterValue: (row) => (row as { type: string }).type || '—' },
               { key: 'region', label: t(locale, 'regionLabel'), filterable: true, filterValue: (row) => (row as { region: string }).region || '—' },
-              { key: 'relationship', label: t(locale, 'relationshipLabel') },
+              {
+                key: 'relationship',
+                label: t(locale, 'relationshipLabel'),
+                filterable: true,
+                filterValue: (row) => {
+                  const score = (row as { relationship: number }).relationship;
+                  return score === 0 ? t(locale, 'relNotRated') : `${score} — ${t(locale, REL_KEY[clampScore(score)])}`;
+                },
+              },
               { key: 'activePrograms', label: t(locale, 'activePrograms') },
               { key: 'lifetimePrograms', label: t(locale, 'lifetimePrograms') },
               { key: 'tels', label: t(locale, 'telsHeader') },

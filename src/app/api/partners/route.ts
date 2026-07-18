@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   try {
     const parsed = parseBody(partnerApiSchema, await req.json());
     if (!parsed.ok) return jsonError(parsed.error, 400);
-    const { name, type, region, website, internalDetailsUrl, summary, phone } = parsed.data;
+    const { name, type, region, website, internalDetailsUrl, summary } = parsed.data;
 
     // Names resolve to ids; unknown names are a 400, never a silent null.
     const pType = await prisma.partnerType.findUnique({ where: { name: type } });
@@ -37,8 +37,7 @@ export async function POST(req: Request) {
         regionId: pReg.id,
         website: website ?? null,
         internalDetailsUrl: internalDetailsUrl ?? null,
-        summary: summary ?? null,
-        phone: phone ?? null
+        summary: summary ?? null
       }
     });
     await indexEntity('partner', partner.id);

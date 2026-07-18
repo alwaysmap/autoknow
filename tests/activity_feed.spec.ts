@@ -19,9 +19,10 @@ test.describe('Activity feed', () => {
     await prisma.$disconnect();
   });
 
-  test('ecosystem activity mixes kinds and filters by category chips', async ({ page }) => {
-    // The ecosystem feed lives on the home page now (/activity is retired).
-    await page.goto('/');
+  test('activity mixes kinds and filters by category chips', async ({ page }) => {
+    // The ecosystem page no longer carries a feed — the partner page is the
+    // canonical activity surface (items still name their program there).
+    await page.goto(`/partners/${seeded.oemId}`);
 
     // All three seeded kinds are present under "All".
     await expect(page.getByText('Weekly update: Concerned')).toBeVisible();

@@ -11,9 +11,8 @@ test.describe('Home Page (Dashboard)', () => {
     await expect(searchInput).toBeVisible();
   });
 
-  test('should display the ecosystem activity section (Action Items retired)', async ({ page }) => {
-    // The old Action Items table is gone; the home page mirrors /activity instead.
-    await expect(page.getByRole('heading', { name: 'Recent activity', exact: true })).toBeVisible();
+  test('carries no activity feed or Action Items (leadership strip + briefing only)', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'Recent activity', exact: true })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Action Items', exact: true })).toHaveCount(0);
   });
 

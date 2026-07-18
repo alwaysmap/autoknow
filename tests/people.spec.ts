@@ -111,13 +111,26 @@ test.describe('People and Biographical History', () => {
     await expect(page.locator('body')).toContainText('Systems Engineer');
   });
 
-  test('should correctly group historical actions under the company they were at when they occurred', async ({ page }) => {
+  test('lists the programs the person worked on, as links', async ({ page }) => {
     await page.goto(`/people/${personId}`);
 
-    // Expect the Ford section to list the CAN bus action item
-    await expect(page.locator('body')).toContainText('Resolve CAN bus packet drops');
+    // Programs derive from phase involvement + assigned actions — both appear, linked.
+    await expect(page.getByRole('link', { name: 'Ford F-150 AAOS Sync' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Waymo Gen 6 Integration' })).toBeVisible();
+    // The action-item prose itself is no longer a person-page concern.
+    await expect(page.locator('body')).not.toContainText('Resolve CAN bus packet drops');
+  });
 
-    // Expect the Waymo section to list the redundant power action item
-    await expect(page.locator('body')).toContainText('Verify redundant power supply config');
+  test('the people directory lists everyone with company and role', async ({ page }) => {
+    await page.goto('/people');
+
+    const row = page.locator('tr').filter({ hasText: 'Alice Smith' });
+    await expect(row).toBeVisible();
+    await expect(row).toContainText('Waymo');
+    await expect(row).toContainText('Systems Engineer');
+
+    // Company deep-link preselects the funnel (design.md §6).
+    await page.goto('/people?company=Ford');
+    await expect(page.locator('body')).not.toContainText('Alice Smith');
   });
 });

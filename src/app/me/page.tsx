@@ -1,14 +1,15 @@
-import type { ComponentProps } from 'react';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { prisma } from '../../lib/db';
 import { deriveEmail, normalizeHandle } from '../../lib/auth';
 import { getCurrentUser } from '../../lib/session';
-import MeClient from './MeClient';
-
-// The serialized shapes cross the RSC boundary (Dates → strings), so they no longer
-// match the Prisma types — assert against MeClient's own prop contract instead of any.
-type MeClientProps = ComponentProps<typeof MeClient>;
+import { getLocale } from '../../lib/locale';
+import { t } from '../../lib/i18n';
 
 export const dynamic = 'force-dynamic';
+
+// /me is a SHORTCUT: resolve the signed-in user (or the ?user= override) to their
+// Person record and land on the one canonical person page. No second profile UI.
 
 interface SearchParams {
   user?: string;
@@ -16,180 +17,34 @@ interface SearchParams {
 
 export default async function MePage(props: { searchParams: Promise<SearchParams> }) {
   const searchParams = await props.searchParams;
-  // Default to the signed-in user; `?user=` is an explicit "view as" override
-  // (this internal tool has no auth layer yet — see lib/auth.ts).
   const user = searchParams.user || (await getCurrentUser()).display;
+  const locale = await getLocale();
 
-  // Derive user email and clean handle from the single auth helper.
   const userClean = normalizeHandle(user);
   const userEmail = deriveEmail(user);
 
-  // 1. Fetch Person biographical profile and career history
   const person = await prisma.person.findFirst({
     where: {
       OR: [
         { email: { equals: userEmail, mode: 'insensitive' } },
-        { name: { contains: userClean, mode: 'insensitive' } }
-      ]
+        { name: { contains: userClean, mode: 'insensitive' } },
+      ],
     },
-    include: {
-      currentPartner: { include: { type: true, region: true } },
-      affiliations: {
-        include: {
-          partner: { include: { type: true, region: true } }
-        },
-        orderBy: {
-          startDate: 'desc'
-        }
-      }
-    }
+    select: { id: true },
   });
 
-  // 2. Fetch Projects owned by the user or where they have assigned action items
-  const projects = await prisma.project.findMany({
-    where: {
-      OR: [
-        { ownerName: { equals: user, mode: 'insensitive' } },
-        { ownerName: { equals: userClean, mode: 'insensitive' } },
-        { ownerName: { equals: userEmail, mode: 'insensitive' } },
-        {
-          phases: {
-            some: {
-              actionItems: {
-                some: {
-                  OR: [
-                    { assignedTo: { equals: user, mode: 'insensitive' } },
-                    { assignedToPersonId: person?.id || -1 }
-                  ]
-                }
-              }
-            }
-          }
-        }
-      ]
-    },
-    include: {
-      partner: { include: { type: true, region: true } },
-      phases: {
-        include: {
-          states: {
-            orderBy: { timestamp: 'desc' },
-            take: 1
-          },
-          actionItems: {
-            where: {
-              OR: [
-                { assignedTo: { equals: user, mode: 'insensitive' } },
-                { assignedToPersonId: person?.id || -1 }
-              ]
-            }
-          }
-        }
-      }
-    }
-  });
+  if (person) {
+    redirect(`/people/${person.id}`);
+  }
 
-  // 3. Fetch all pending action items assigned to the user
-  const actionItems = await prisma.actionItem.findMany({
-    where: {
-      status: 'Pending',
-      OR: [
-        { assignedTo: { equals: user, mode: 'insensitive' } },
-        { assignedToPersonId: person?.id || -1 }
-      ]
-    },
-    include: {
-      phase: {
-        include: {
-          project: {
-            include: {
-              partner: { include: { type: true, region: true } }
-            }
-          }
-        }
-      }
-    },
-    orderBy: {
-      createdAt: 'desc'
-    }
-  });
-
-  // 4. Fetch Partners where user is employee, affiliated, or project TEL
-  const partners = await prisma.partner.findMany({
-    where: {
-      OR: [
-        { currentEmployees: { some: { id: person?.id || -1 } } },
-        { personAffiliations: { some: { personId: person?.id || -1 } } },
-        { projects: { some: { ownerName: { in: [user, userClean, userEmail] } } } }
-      ]
-    },
-    include: {
-      type: true,
-      region: true,
-      projects: {
-        select: {
-          id: true,
-          isArchived: true
-        }
-      }
-    }
-  });
-
-  // Serialize to handle object nested fields
-  const serializedPerson = person ? {
-    ...person,
-    currentPartner: person.currentPartner ? {
-      ...person.currentPartner,
-      type: person.currentPartner.type?.name || 'Unknown',
-      region: person.currentPartner.region?.name || 'Unknown'
-    } : null,
-    affiliations: person.affiliations.map(a => ({
-      ...a,
-      partner: {
-        ...a.partner,
-        type: a.partner.type?.name || 'Unknown',
-        region: a.partner.region?.name || 'Unknown'
-      }
-    }))
-  } : null;
-
-  const serializedProjects = projects.map(proj => ({
-    ...proj,
-    partner: {
-      ...proj.partner,
-      type: proj.partner.type?.name || 'Unknown',
-      region: proj.partner.region?.name || 'Unknown'
-    }
-  }));
-
-  const serializedActionItems = actionItems.map(ai => ({
-    ...ai,
-    phase: {
-      ...ai.phase,
-      project: {
-        ...ai.phase.project,
-        partner: {
-          ...ai.phase.project.partner,
-          type: ai.phase.project.partner.type?.name || 'Unknown',
-          region: ai.phase.project.partner.region?.name || 'Unknown'
-        }
-      }
-    }
-  }));
-
-  const serializedPartners = partners.map(p => ({
-    ...p,
-    type: p.type?.name || 'Unknown',
-    region: p.region?.name || 'Unknown'
-  }));
-
+  // Honest empty state: no Person record matches this identity yet.
   return (
-    <MeClient
-      currentUser={user}
-      person={serializedPerson as MeClientProps['person']}
-      projects={serializedProjects as MeClientProps['projects']}
-      actionItems={serializedActionItems as MeClientProps['actionItems']}
-      partners={serializedPartners as MeClientProps['partners']}
-    />
+    <div style={{ padding: '40px', fontFamily: 'var(--body-font)' }}>
+      <h1 style={{ fontFamily: 'var(--head-font)', fontSize: '1.5rem', margin: '0 0 10px' }}>{t(locale, 'navMe')}</h1>
+      <p style={{ fontSize: 14, color: 'var(--muted)', maxWidth: '60ch' }}>
+        {t(locale, 'noProfileForUser', { u: user })}{' '}
+        <Link href="/people" style={{ color: 'var(--p-600)' }}>{t(locale, 'peopleLabel')} →</Link>
+      </p>
+    </div>
   );
 }

@@ -12,7 +12,6 @@ test.describe('Onboarding and Seeding Controls', () => {
     // Verify onboarding boxes are visible (home shows the activity feed's empty state
     // now — the Action Items table is retired)
     await expect(page.locator('body')).toContainText('Welcome to AutoKnow');
-    await expect(page.locator('body')).toContainText('No activity yet.');
 
     // Seed mock data
     await page.goto('/admin');

@@ -251,11 +251,8 @@ export default function EcosystemDashboardClient({
       )}
 
 
-      <section className={styles.chartSection} style={{ marginTop: '32px' }}>
-        <h2>{t(locale, 'cycleTimePointChart')}</h2>
-        <CycleTimeScatterPlot data={filteredCycleTimeData} stats={cycleTimeStats} />
-      </section>
-
+      {/* Cycle-time point chart removed (2026-07-18, user call) — phase duration
+          diagnostics live on the ecosystem-summary page if needed again. */}
 
       {/* Scatter Chart visualization */}
       <section className={styles.chartCard}>

@@ -21,13 +21,12 @@ describe('schemas', () => {
   test('partner form: region required, empty optionals become null', () => {
     const parsed = parseForm(
       partnerFieldsSchema,
-      fd({ name: '  Volvo ', typeId: '', regionId: '3', phone: '', website: '', internalDetailsUrl: '', summary: '' }),
+      fd({ name: '  Volvo ', typeId: '', regionId: '3', website: '', internalDetailsUrl: '', summary: '' }),
     );
     expect(parsed).toEqual({
       name: 'Volvo',
       typeId: null,
       regionId: 3,
-      phone: null,
       website: null,
       internalDetailsUrl: null,
       summary: null,

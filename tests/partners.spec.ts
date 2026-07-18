@@ -54,7 +54,7 @@ test.describe('Ecosystem Partners Page', () => {
     await expect(page.locator('body')).not.toContainText('Continental AG');
 
     // Clear restores the list.
-    await page.getByRole('button', { name: 'Clear' }).click();
+    await page.getByRole('button', { name: 'Clear', exact: true }).click(); // the funnel's Clear, not the toolbar reset
     await page.keyboard.press('Escape');
     await expect(page.locator('body')).toContainText('Continental AG');
 
@@ -109,7 +109,7 @@ test.describe('Ecosystem Partners Page', () => {
     await expect(page.locator('h1')).toHaveText('Rivian');
     await expect(page.locator('body')).toContainText('Exploratory AAOS conversations.');
 
-    // EDIT — change the phone; the Key Details sidebar reflects it.
+    // EDIT — change the website; the rail's contact line reflects the hostname.
     const editDialog = page.locator('dialog[open]');
     await expect(async () => {
       if (!(await editDialog.isVisible())) {
@@ -119,10 +119,10 @@ test.describe('Ecosystem Partners Page', () => {
       }
       await expect(editDialog).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
-    await editDialog.locator('#pfPhone').fill('+1 555 0100');
+    await editDialog.locator('#pfWebsite').fill('https://rivian-updated.example');
     await editDialog.locator('button:has-text("Save Update")').click();
     await expect(page.locator('dialog[open]')).toHaveCount(0);
-    await expect(page.locator('body')).toContainText('+1 555 0100');
+    await expect(page.locator('body')).toContainText('rivian-updated.example');
 
     // DELETE — no programs/people on Rivian, so the name-confirm flow applies.
     const delDialog = page.locator('dialog[open]');

@@ -24,7 +24,6 @@ export interface PartnerRecord {
   name: string;
   typeId: number | null;
   regionId: number | null;
-  phone: string | null;
   website: string | null;
   internalDetailsUrl: string | null;
   summary: string | null;
@@ -65,10 +64,6 @@ function PartnerFormFields({ defaults, types, regions }: { defaults?: PartnerRec
           <option value="">—</option>
           {regions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
-      </div>
-      <div className={dash.textInputGroup}>
-        <label htmlFor="pfPhone" className={dash.formLabel}>{t(locale, 'telephone')}</label>
-        <input id="pfPhone" type="text" name="phone" defaultValue={defaults?.phone ?? ''} className={dash.textInput} />
       </div>
       <div className={dash.textInputGroup}>
         <label htmlFor="pfWebsite" className={dash.formLabel}>{t(locale, 'website')}</label>
