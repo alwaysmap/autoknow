@@ -312,6 +312,49 @@ declarative; the org-policy half is a checklist item, not an engineering problem
 
 ---
 
+## 7b. Single-domain access (alwaysmap.com now, google.com later)
+
+Requirement: only people on one configured domain may use the app. This is **two
+different gates for two different callers** — the Chat callback cannot use the same
+gate as the browser, because Google Chat calls the app *as the Chat platform* (a JWT),
+not as a signed-in domain user. IAP or a session would reject Google's own callback.
+
+**Plane 1 — humans (UI + mutations).** Domain-gated by identity. Two ways, matching the
+§4b decision:
+- **next-auth (current):** `AUTH_ALLOWED_DOMAIN` already restricts sign-in to the
+  Workspace `hd` claim (email-suffix fallback) in `src/auth.ts`. Set it to
+  `alwaysmap.com`; flip to `google.com` later. App-layer, already implemented.
+- **IAP (recommended):** enforce at the edge with an IAP access policy —
+  `google_iap_web_backend_service_iam_member` granting `roles/iap.httpsResourceAccessor`
+  to `domain:alwaysmap.com`. Requests off-domain never reach the app. Terraform-native;
+  changing domains is a one-line HCL edit. This gate applies **only** to the IAP-fronted
+  UI backend, not the public Chat/cron backend (§4b two-backend split).
+
+**Plane 2 — Chat ingestion.** `/api/chat/events` stays public + JWT-verified and is
+domain-restricted by three layers, not by the identity gate:
+1. **Publish the Chat app as Internal** to the one Workspace — only that domain's users
+   can add or @mention the bot. Primary control; the admin.google.com step.
+2. **JWT audience = the GCP project number** — proves authenticity, ties events to this
+   project.
+3. **Sender-domain check in code — a gap to close (see §9).** `handleChatEvent` reads
+   `event.message.sender.email` but does not yet verify its domain before ingesting.
+   Add: reject unless `sender.email` ends with `AUTH_ALLOWED_DOMAIN`. This is the
+   code-level guarantee that a cross-domain space can never inject content, independent
+   of org config drift.
+
+**Machine endpoints are never domain-gated:** `/api/chat/events` (Chat JWT) and
+`/api/cron/refresh` (bearer `CRON_SECRET`) authenticate as machines, not domain users —
+correct and expected. "Single-domain" is a statement about *humans*, enforced on the UI.
+
+**The google.com move:** flip `AUTH_ALLOWED_DOMAIN` / the IAP `domain:` policy to
+`google.com` and republish the Chat app in that Workspace. Caveat: `google.com` is
+enormous, so domain-internal = any Googler (sign-in and bot @mentions). If you later
+need tighter than the whole domain, IAP supports `group:` bindings for the UI and the
+Chat app's availability can be scoped to groups — but a *group-level sender check* in the
+Chat handler would need a Directory API lookup (a real project, not a config flip).
+
+---
+
 ## 8. CI/CD (GitHub Actions)
 
 **Auth: Workload Identity Federation, no JSON keys.** A `google_iam_workload_identity_pool`
@@ -363,6 +406,9 @@ Small, mostly mechanical — none block the design:
 7. **If IAP path (§4b):** read `X-Goog-Authenticated-User-Email` in `lib/session`
    instead of the next-auth session (a contained change; keep the stub-identity
    fallback for local dev and tests), and drop the next-auth Google provider config.
+8. **Chat sender-domain check** (§7b): in `handleChatEvent`, reject any event whose
+   `message.sender.email` is not on `AUTH_ALLOWED_DOMAIN` before ingesting. A few lines
+   plus a test; closes the one code-level gap in the single-domain requirement.
 
 ---
 
