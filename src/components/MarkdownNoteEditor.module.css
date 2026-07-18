@@ -5,6 +5,9 @@
 /* Width comes from the container; the canvas is deliberately roomy — markdown fields
    are for writing, not for one-liners. */
 .frame {
+  /* the positioning context for portaled overlays (link dialog) — see
+     MarkdownNoteEditorImpl's overlayContainer */
+  position: relative;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: #fff;

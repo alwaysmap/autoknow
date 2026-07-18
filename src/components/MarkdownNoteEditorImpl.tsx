@@ -25,13 +25,18 @@ import styles from './MarkdownNoteEditor.module.css';
 
 export default function MarkdownNoteEditorImpl({ name, placeholder, initialMarkdown, ariaLabel, onChange }: MarkdownNoteEditorProps) {
   const [markdown, setMarkdown] = useState(initialMarkdown ?? '');
+  // Overlays (the link dialog) must portal INSIDE this subtree: the editor often
+  // lives in a showModal() <dialog>, and anything portaled to document.body
+  // renders BEHIND the browser's top layer no matter its z-index.
+  const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const handleChange = (md: string) => { setMarkdown(md); onChange?.(md); };
   return (
-    <div className={styles.frame} data-testid="note-editor" aria-label={ariaLabel}>
+    <div className={styles.frame} data-testid="note-editor" aria-label={ariaLabel} ref={setFrame}>
       <MDXEditor
         markdown={markdown}
         onChange={handleChange}
         placeholder={placeholder}
+        overlayContainer={frame}
         contentEditableClassName={styles.content}
         plugins={[
           headingsPlugin(),
