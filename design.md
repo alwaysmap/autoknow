@@ -105,3 +105,20 @@ stopping on empty space? Rules:
   content obviously is, delete it.
 * **Prose is the exception**: summaries and notes get comfortable line-height and
   width; facts get density.
+
+## 8. Machine vs. human provenance
+
+Readers must never wonder whether a model or a person wrote what they're reading.
+One treatment, applied app-wide via the `AiBadge` component:
+
+* **LLM-written text carries the ✦ AI mark** adjacent to its first line: the AI
+  briefings (SummaryPanel provenance row) and every ingested-content digest or
+  update delta in feeds. The mark is a quiet ink chip (`--muted`, hairline pill)
+  — the ✦ sparkle is the identifier, deliberately hueless because every color in
+  the palette already carries a meaning (health, chain, feed kinds) and
+  provenance is a fact, not a verdict. Its hover title spells out the rule.
+* **Human-written text is never marked.** Its provenance is author attribution
+  ("by dylan", "by seed") — absence of the sparkle means a person typed it.
+* Machine-*derived* values that aren't prose (embeddings, inferred anchors,
+  derived health) don't get the mark; it flags authorship of words, not
+  computation.

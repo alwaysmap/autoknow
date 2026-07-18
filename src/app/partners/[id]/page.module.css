@@ -1,3 +1,7 @@
+/* The partner briefing page: a capped reading column beside a persistent sticky
+   rail of key metadata. Separation hierarchy (design.md §7): whitespace within a
+   block, ONE hairline between sibling blocks, a heading IS a separator. */
+
 .container {
   min-height: 100vh;
   background-color: transparent;
@@ -11,16 +15,8 @@
   padding: 14px 0 12px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-}
-
-.brand {
-  font-family: var(--head-font);
-  font-weight: 600;
-  font-size: 1.25rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  align-items: flex-start;
+  gap: 16px;
 }
 
 .header h1 {
@@ -30,7 +26,7 @@
   margin: 0;
 }
 
-/* name + its small Edit · Delete links, program-page grammar */
+/* name + its kebab admin menu, program-page grammar */
 .titleRow {
   display: flex;
   align-items: baseline;
@@ -46,37 +42,35 @@
   margin-top: 2px;
 }
 
+/* Reading column + rail. The column cap keeps line length sane (Refactoring UI:
+   you don't have to fill the whole screen). */
 .main {
-  max-width: 1200px;
+  max-width: 1150px;
   margin: 0 auto;
   padding: 22px 0 40px;
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(0, 1fr) 270px;
   align-items: start;
-  gap: 32px;
+  gap: 40px;
 }
 
 @media (max-width: 900px) {
   .main {
     grid-template-columns: 1fr;
   }
-  /* Single-column: identity/metadata reads FIRST, then the program content —
-     otherwise the relationship block lands below the whole activity feed. */
+  /* Single-column: identity/metadata reads FIRST, then the briefing — otherwise
+     the relationship block lands below the whole activity feed. */
   .sidebar {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
     order: -1;
     border-bottom: 1px solid var(--border);
     padding-bottom: 14px;
   }
 }
 
-.projectsSection h2 {
-  font-family: var(--head-font);
-  font-size: 1.35rem;
-  font-weight: 600;
-  margin: 0 0 12px;
-}
-
-/* Left column: sections separated by thin rules, program-page rhythm. */
+/* Briefing column: sections separated by thin rules, program-page rhythm. */
 .colMain {
   display: flex;
   flex-direction: column;
@@ -88,124 +82,34 @@
   padding-top: 18px;
 }
 
+.projectsSection h2 {
+  font-family: var(--head-font);
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
 .empty {
   font-size: 14px;
   color: var(--muted);
   font-style: italic;
 }
 
-.groups {
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-}
-
-.group {
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 24px;
-}
-
-.group:last-child {
-  border-bottom: none;
-}
-
-.groupHeading {
-  font-family: var(--head-font);
-  font-size: 1rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--p-600);
-  margin-bottom: 16px;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-}
-
-.projectCard {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 16px;
-}
-
-.projectCard h4 {
-  font-family: var(--head-font);
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 0 0 12px 0;
-}
-
-.meta {
-  font-size: 13px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.label {
-  color: var(--muted);
-}
-
-.needleRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.badge {
-  display: inline-block;
-  padding: 1px 5px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  border-radius: 2px;
-}
-
-.critical {
-  background-color: var(--t-100);
-  color: var(--t-700);
-}
-
-.high {
-  background-color: var(--s-100);
-  color: var(--s-700);
-}
-
-.medium {
-  background-color: var(--p-50);
-  color: var(--p-700);
-}
-
-.low {
-  background-color: var(--p-50);
-  color: var(--p-600);
-}
-
-.projectLink {
-  color: var(--fg);
-  text-decoration: none;
-}
-
-.projectLink:hover {
-  color: var(--p-600);
-  text-decoration: underline;
-}
-
+/* The rail: sticky so relationship, facts, and people stay in view. */
 .sidebar {
   display: flex;
   flex-direction: column;
   gap: 18px;
   min-width: 0;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
 }
 
-/* Separation hierarchy (design.md §7): ONE mechanism per boundary. Sibling blocks
-   get a single hairline BETWEEN them (never above the first — the page header's
-   rule already bounds the column). A heading IS a separator, so headed blocks get
-   heading-only, no extra rules attached to it. */
+/* Sibling blocks get a single hairline BETWEEN them (never above the first — the
+   page header's rule already bounds the column). A heading IS a separator, so
+   headed blocks get heading-only, no extra rules attached to it. */
 .sidebarCard {
   padding: 0 0 4px;
 }
@@ -224,6 +128,7 @@
   margin: 0 0 10px 0;
 }
 
+/* The human-written one-liner about the partner (edit dialog), NOT the AI briefing. */
 .summaryText {
   font-size: 13px;
   line-height: 1.55;
@@ -256,6 +161,8 @@
 .metaVal {
   font-size: 13px;
   font-weight: 500;
+  min-width: 0;
+  text-align: right;
 }
 
 .externalLink {
@@ -263,12 +170,11 @@
   text-decoration: none;
   font-weight: 600;
 }
-
 .externalLink:hover {
   text-decoration: underline;
 }
 
-.teamList {
+.peopleList {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -281,21 +187,13 @@
   gap: 7px;
   line-height: 1.5;
 }
-
 .teamItem strong {
   color: var(--fg);
 }
-
 .teamRole {
   font-size: 11px;
   color: var(--muted);
   font-style: italic;
-}
-
-.peopleList {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
 }
 
 .personItem {
@@ -305,20 +203,16 @@
   gap: 7px;
   line-height: 1.5;
 }
-
 .personLink {
   color: var(--fg);
   text-decoration: none;
   font-weight: 600;
 }
-
 .personLink:hover {
   color: var(--p-600);
   text-decoration: underline;
 }
-
 .personRole {
   font-size: 11px;
   color: var(--muted);
 }
-

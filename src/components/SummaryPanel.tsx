@@ -6,6 +6,7 @@ import type { SummaryView, SectionKey } from '../lib/summaries';
 import type { SummaryScope } from '../lib/summaryPrompts';
 import { t, type StringKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
+import AiBadge from './AiBadge';
 import styles from './SummaryPanel.module.css';
 
 // The leadership summary — the "read this first" slot for a scope (ecosystem /
@@ -98,6 +99,7 @@ export default function SummaryPanel({
     <div data-testid={`summary-${scope}`}>
       <div className={styles.header}>
         <span className={styles.provenance}>
+          <AiBadge />{' '}
           {t(locale, 'summaryProvenance', { d: generated, n: summary.sourceCount })}
           {(summary.stale || pending) && (
             <span className={styles.stale}> {t(locale, 'summaryUpdating')}</span>

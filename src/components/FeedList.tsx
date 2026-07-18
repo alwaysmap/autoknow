@@ -10,6 +10,7 @@ import { PhaseHillSvg } from './PhaseHillGauge';
 import { deleteFeedItem } from '../app/actions/status';
 import { t, type Locale, type StringKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
+import AiBadge from './AiBadge';
 import styles from './FeedList.module.css';
 
 // One presentational list for both search results and the activity feed. Renders a
@@ -106,7 +107,13 @@ export default function FeedList({
               )}
             </div>
             {it.subtitle && <div className={styles.meta}>{it.subtitle}</div>}
-            {it.detail && <div className={styles.detail}><Markdown>{it.detail}</Markdown></div>}
+            {it.detail && (
+              <div className={styles.detail}>
+                {/* context details are Gemini digests/deltas, never human prose (design.md §8) */}
+                {it.kind === 'context' && <div className={styles.aiMark}><AiBadge /></div>}
+                <Markdown>{it.detail}</Markdown>
+              </div>
+            )}
           </div>
         </article>
       ))}

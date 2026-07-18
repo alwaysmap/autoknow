@@ -1,0 +1,136 @@
+/* One-row-per-program condensed list. Rows are separated by whitespace only;
+   the disclosure chevron is the single affordance hint. */
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  padding: 5px 0;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  list-style: none;
+  cursor: pointer;
+  min-width: 0;
+}
+.line::-webkit-details-marker {
+  display: none;
+}
+
+.chevron {
+  display: inline-flex;
+  color: var(--muted);
+  flex-shrink: 0;
+  transition: transform 0.12s ease;
+}
+.row[open] .chevron {
+  transform: rotate(90deg);
+}
+
+.name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--fg);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.name:hover {
+  text-decoration: underline;
+}
+
+.via {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: pre; /* the localized "via " template carries its own spacing */
+}
+.viaLink {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+.viaLink:hover {
+  color: var(--fg);
+  text-decoration: underline;
+}
+
+.archived {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.gauge {
+  width: 74px;
+  flex-shrink: 0;
+}
+
+.updated {
+  font-size: 12px;
+  color: var(--muted);
+  width: 52px;
+  text-align: right;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.phases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0 4px 20px;
+}
+
+.phaseChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+  text-decoration: none;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+}
+.phaseChip:hover {
+  border-color: var(--muted);
+}
+
+.phaseDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.phaseRole {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.noPhases {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--muted);
+  padding: 4px 0 2px 20px;
+}
+
+.empty {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--muted);
+}

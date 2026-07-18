@@ -1109,6 +1109,15 @@ const STRINGS = {
     ja: 'このプログラムのニードル・進捗の変化、フェーズ更新、取り込まれたコンテキスト。',
     ko: '이 프로그램의 니들·진행률 변경, 단계 업데이트, 수집된 컨텍스트.',
   },
+  viaPartner: { en: 'via {p}', de: 'über {p}', ja: '{p} 経由', ko: '{p} 경유' },
+  // Machine-vs-human provenance (design.md §8): LLM-written text carries this mark.
+  aiLabel: { en: 'AI', de: 'KI', ja: 'AI', ko: 'AI' },
+  aiTitle: {
+    en: 'AI-generated — synthesized by Gemini from stored sources. Unmarked text was written by a person.',
+    de: 'KI-generiert — von Gemini aus gespeicherten Quellen erstellt. Unmarkierter Text stammt von Menschen.',
+    ja: 'AI生成 — Geminiが保存済みソースから合成。マークのないテキストは人が書いたものです。',
+    ko: 'AI 생성 — Gemini가 저장된 소스에서 합성. 표시가 없는 텍스트는 사람이 작성한 것입니다.',
+  },
 } satisfies Record<string, Entry>;
 
 export type StringKey = keyof typeof STRINGS;

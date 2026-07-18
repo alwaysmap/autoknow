@@ -8,7 +8,7 @@ import SummaryPanel from '../../../components/SummaryPanel';
 import ActivityFeed from '../../../components/ActivityFeed';
 import UnifiedSearch from '../../../components/UnifiedSearch';
 import QuickIngest from '../../../components/QuickIngest';
-import PartnerPrograms from '../../../components/PartnerPrograms';
+import PartnerProgramRows from '../../../components/PartnerProgramRows';
 import { getPartnerPrograms } from '../../../lib/partnerPrograms';
 import { getActivity } from '../../../lib/activity';
 import { getSummary } from '../../../lib/summaries';
@@ -19,6 +19,11 @@ import { t } from '../../../lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
+// The partner page is a briefing: a reading column (AI briefing first, programs as
+// condensed disclosure rows, activity last) beside a persistent sticky rail of key
+// metadata — relationship health, facts, people. Chosen over full-card and tabbed
+// variants (2026-07); the rail stays in view while the column scrolls.
+
 interface PageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ filter?: string }>;
@@ -27,6 +32,14 @@ interface PageProps {
 interface TeamMember {
   email: string;
   role?: string;
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
 }
 
 export default async function PartnerDetailPage(props: PageProps) {
@@ -40,7 +53,6 @@ export default async function PartnerDetailPage(props: PageProps) {
     return notFound();
   }
 
-  // Fetch the current partner
   const partner = await prisma.partner.findUnique({
     where: { id: partnerId },
     include: {
@@ -57,19 +69,17 @@ export default async function PartnerDetailPage(props: PageProps) {
     return notFound();
   }
 
-  // The two latest relationship states (current + previous for the ghost ring),
-  // plus what the edit/delete affordances need to be honest about.
-  const [partnerStates, types, regions, employeeCount] = await Promise.all([
-    prisma.partnerState.findMany({
+  // Latest relationship state, plus what the edit/delete affordances need to be
+  // honest about.
+  const [latestState, types, regions, employeeCount] = await Promise.all([
+    prisma.partnerState.findFirst({
       where: { partnerId: partner.id },
       orderBy: { timestamp: 'desc' },
-      take: 12,
     }),
     prisma.partnerType.findMany({ orderBy: { name: 'asc' } }),
     prisma.region.findMany({ orderBy: { name: 'asc' } }),
     prisma.person.count({ where: { currentPartnerId: partner.id } }),
   ]);
-  const latestState = partnerStates[0];
 
   // Programs this partner OWNS plus programs they're INVOLVED in via phase links.
   const allPrograms = await getPartnerPrograms(partner.id);
@@ -79,6 +89,8 @@ export default async function PartnerDetailPage(props: PageProps) {
   // Unified activity for this partner and its programs.
   const activity = await getActivity({ kind: 'partner', id: partner.id });
   const summary = await getSummary('partner', partner.id);
+
+  const googleTeam = (partner.googleTeam as TeamMember[] | null) || [];
 
   return (
     <div className={styles.container}>
@@ -108,16 +120,16 @@ export default async function PartnerDetailPage(props: PageProps) {
       </header>
 
       <main className={styles.main}>
-        {/* Programs are the main event; the summary and the feed read in their light. */}
+        {/* The briefing column: AI summary leads, programs condense to rows, activity closes. */}
         <div className={styles.colMain}>
-          <section className={styles.projectsSection}>
-            <h2>{t(locale, 'navPrograms')}</h2>
-            <PartnerPrograms programs={programs} locale={locale} />
-          </section>
-
           <section className={styles.projectsSection}>
             <SummaryPanel scope="partner" targetId={partner.id} path={`/partners/${partner.id}`}
               summary={summary} configured={geminiConfigured} />
+          </section>
+
+          <section className={styles.projectsSection}>
+            <h2>{t(locale, 'navPrograms')}</h2>
+            <PartnerProgramRows programs={programs} locale={locale} />
           </section>
 
           <section className={styles.projectsSection}>
@@ -137,13 +149,11 @@ export default async function PartnerDetailPage(props: PageProps) {
           </section>
         </div>
 
-        {/* Side column: one quiet metadata block (health → narrative → facts) and one
-            People block — few titles, one grammar (design.md). */}
+        {/* The persistent rail: health → narrative → facts, then people. Sticky so key
+            metadata stays in view while the briefing scrolls. */}
         <aside className={styles.sidebar}>
           <div className={styles.sidebarCard}>
             <div className={styles.metaList}>
-              {/* current relationship health + the one place to update it; the
-                  narrative history lives in the activity feed */}
               <div className={styles.metaItem}>
                 <span className={styles.metaLabel}>{t(locale, 'relationshipLabel')}</span>
                 <span className={styles.metaVal}>
@@ -172,7 +182,7 @@ export default async function PartnerDetailPage(props: PageProps) {
                   <span className={styles.metaLabel}>{t(locale, 'website')}</span>
                   <span className={styles.metaVal}>
                     <a href={partner.website} target="_blank" rel="noopener noreferrer" className={styles.externalLink}>
-                      {t(locale, 'visitWebsite')}
+                      {hostOf(partner.website)}
                     </a>
                   </span>
                 </div>
@@ -192,30 +202,26 @@ export default async function PartnerDetailPage(props: PageProps) {
 
           <div className={styles.sidebarCard}>
             <h3>{t(locale, 'peopleLabel')}</h3>
-            {(() => {
-              const googleTeam = (partner.googleTeam as TeamMember[] | null) || [];
-              if (googleTeam.length === 0 && partner.personAffiliations.length === 0) {
-                return <p className={styles.empty}>{t(locale, 'noAssociatedPeople')}</p>;
-              }
-              return (
-                <div className={styles.peopleList}>
-                  {googleTeam.map((member, i) => (
-                    <div key={`g-${i}`} className={styles.teamItem}>
-                      <strong>{member.email}</strong>
-                      {member.role && <span className={styles.teamRole}>{member.role}</span>}
-                    </div>
-                  ))}
-                  {partner.personAffiliations.map((aff) => (
-                    <div key={aff.id} className={styles.personItem}>
-                      <Link href={`/people/${aff.personId}`} className={styles.personLink}>
-                        {aff.person.name}
-                      </Link>
-                      {aff.role && <span className={styles.personRole}>{aff.role}</span>}
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
+            {googleTeam.length === 0 && partner.personAffiliations.length === 0 ? (
+              <p className={styles.empty}>{t(locale, 'noAssociatedPeople')}</p>
+            ) : (
+              <div className={styles.peopleList}>
+                {googleTeam.map((member, i) => (
+                  <div key={`g-${i}`} className={styles.teamItem}>
+                    <strong>{member.email}</strong>
+                    {member.role && <span className={styles.teamRole}>{member.role}</span>}
+                  </div>
+                ))}
+                {partner.personAffiliations.map((aff) => (
+                  <div key={aff.id} className={styles.personItem}>
+                    <Link href={`/people/${aff.personId}`} className={styles.personLink}>
+                      {aff.person.name}
+                    </Link>
+                    {aff.role && <span className={styles.personRole}>{aff.role}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </aside>
       </main>

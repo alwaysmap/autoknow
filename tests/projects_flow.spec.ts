@@ -93,9 +93,11 @@ test.describe('Projects and Partners Flow', () => {
     // Navigate to the Bosch partner page
     await page.goto(`/partners/${boschId}`);
 
-    // The Programs summary shows what Bosch owns, badged as Owner.
+    // The Programs list shows what Bosch owns — a row without "via" attribution.
     await expect(page.locator('h1')).toContainText('Bosch');
     await expect(page.locator('body')).toContainText('Programs');
-    await expect(page.locator('body')).toContainText('Owner');
+    const row = page.locator('details').filter({ hasText: 'Ford Explorer VHAL Integration (Bosch)' });
+    await expect(row).toBeVisible();
+    await expect(row).not.toContainText('via');
   });
 });
