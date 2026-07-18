@@ -78,7 +78,8 @@ test.describe('Activity feed', () => {
     // Drill-down: the Big Number opens Programs filtered to active.
     await stats.getByRole('link', { name: '1', exact: true }).click();
     await page.waitForURL('**/programs?filter=active');
-    await expect(page.locator('#activeOnly')).toBeChecked();
+    // The active-only deep-link filters the table itself (no standalone checkbox
+    // since the filter bar collapsed into the column headers).
     await expect(page.locator('body')).toContainText('R2 AAOS Bring-up');
     await page.goBack();
 

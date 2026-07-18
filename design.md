@@ -44,3 +44,32 @@ Every project detail page must include a direct way to see, edit, add, or delete
 * **Add Phase**: An explicit "Add Phase" button opening a `<dialog>` for inputting names and duration.
 * **Edit Phase**: Prefilled edit controls inside a dialog.
 * **Delete Phase**: Forms calling server actions to clean up associated log histories, dependencies, and tasks with confirmation.
+
+---
+
+## 6. Tables & Lists — the one grammar
+
+Applies to every tabular/list surface (Programs, Partners, Sources, Me, ecosystem
+tables) so nothing has to be relearned page to page.
+
+* **One type grammar**: 13–14px cell text in the foreground color; links are quiet
+  (foreground text, underline on hover — never bold green); no background-color
+  badges. Semantic color (health) is colored *text* only. Muted gray is reserved
+  for secondary facts (types, provenance, dates' fallbacks).
+* **Dates are ISO** (`yyyy-mm-dd`, tabular-nums, via the shared `DateCell`), which
+  sorts lexicographically = chronologically; hover reveals the ISO calendar week
+  ("W29"). Never locale-formatted dates in table cells — they misalign and
+  mis-sort.
+* **Header click sorts. Filtering is a secondary, per-column action**: a small
+  three-line funnel icon beside the label opens a checklist of that column's
+  distinct values. Selections within a column are OR-ed ("Concerned" *and* "On
+  Track"), columns are AND-ed together. An active funnel shows an accent color and
+  a count. No standalone filter bars — a single compact free-text search input is
+  the only filter allowed outside the table, and page-level deep links
+  (`?minRisk=…`, `?filter=active`) initialize column filters rather than adding
+  widgets.
+* **One measure per cell**: a value gets exactly one visual rendering (a face, a
+  number, a bar — never a face *plus* the number *plus* a word). The redundant
+  forms live in the tooltip/accessible name.
+* Implementation home: `src/components/DataTable.tsx` (sort, pagination, column
+  filters) + `DateCell`. New tables must use them rather than re-implementing.

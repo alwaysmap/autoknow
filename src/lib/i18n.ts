@@ -588,6 +588,8 @@ const STRINGS = {
     ko: '수집된 모든 소스와 추적 모드, 최신성 — 새로고침, 일시중지, 모드 변경이 가능합니다.',
   },
 
+  filterColumn: { en: 'Filter {c}', de: '{c} filtern', ja: '{c} を絞り込み', ko: '{c} 필터' },
+  clearFilter: { en: 'Clear', de: 'Zurücksetzen', ja: 'クリア', ko: '지우기' },
   moreActions: { en: 'More actions', de: 'Weitere Aktionen', ja: 'その他の操作', ko: '추가 작업' },
   leadPartnerLabel: { en: 'Lead partner (OEM)', de: 'Lead-Partner (OEM)', ja: 'リードパートナー（OEM）', ko: '리드 파트너 (OEM)' },
   // ---- partner CRUD ----

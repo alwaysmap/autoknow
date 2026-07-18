@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import styles from './page.module.css';
-import RelationshipScale from '../../../components/RelationshipScale';
+import RelationshipScale, { RelationshipFace } from '../../../components/RelationshipScale';
 import PartnerAdminControls from '../../../components/PartnerEditor';
 import SummaryPanel from '../../../components/SummaryPanel';
 import ActivityFeed from '../../../components/ActivityFeed';
@@ -70,7 +70,6 @@ export default async function PartnerDetailPage(props: PageProps) {
     prisma.person.count({ where: { currentPartnerId: partner.id } }),
   ]);
   const latestState = partnerStates[0];
-  const previousState = partnerStates[1];
 
   // Programs this partner OWNS plus programs they're INVOLVED in via phase links.
   const allPrograms = await getPartnerPrograms(partner.id);
@@ -110,8 +109,6 @@ export default async function PartnerDetailPage(props: PageProps) {
         <RelationshipScale
           partnerId={partner.id}
           score={latestState ? deriveScore(latestState) : null}
-          previousScore={previousState ? deriveScore(previousState) : null}
-          history={[...partnerStates].reverse().map((s) => deriveScore(s))}
           updatedAt={latestState?.timestamp?.toISOString() ?? null}
         />
       </header>
@@ -158,6 +155,14 @@ export default async function PartnerDetailPage(props: PageProps) {
           <div className={styles.sidebarCard}>
             <h3>{t(locale, 'keyDetails')}</h3>
             <div className={styles.metaList}>
+              {latestState && (
+                <div className={styles.metaItem}>
+                  <span className={styles.metaLabel}>{t(locale, 'relationshipLabel')}</span>
+                  <span className={styles.metaVal}>
+                    <RelationshipFace score={deriveScore(latestState)} size={24} />
+                  </span>
+                </div>
+              )}
               {partner.region && (
                 <div className={styles.metaItem}>
                   <span className={styles.metaLabel}>{t(locale, 'googleRegion')}</span>

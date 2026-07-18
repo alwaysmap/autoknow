@@ -158,9 +158,6 @@ export default function RelationshipScale({
           ? <RelationshipFace score={score} size={34} />
           : <span className={styles.descriptor}>{t(locale, 'relNotRated')}</span>}
       </div>
-      {history && history.length > 1
-        ? <RelationshipSparkline history={history} width={110} height={22} />
-        : <RelationshipScaleTrack score={score} previousScore={previousScore} />}
       {updatedAt && (
         <div className={styles.updatedAt}>
           {t(locale, 'updatedOn', { d: new Date(updatedAt).toLocaleDateString(locale, { month: 'short', day: 'numeric' }) })}
