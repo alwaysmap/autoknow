@@ -137,17 +137,10 @@ export default async function PartnerDetailPage(props: PageProps) {
           </section>
         </div>
 
-        {/* Side column: partner metadata only — reference material, not the event */}
+        {/* Side column: one quiet metadata block (health → narrative → facts) and one
+            People block — few titles, one grammar (design.md). */}
         <aside className={styles.sidebar}>
-          {partner.summary && (
-            <div className={styles.sidebarCard}>
-              <h3>{t(locale, 'relationshipSummary')}</h3>
-              <p className={styles.summaryText}>{partner.summary}</p>
-            </div>
-          )}
-
           <div className={styles.sidebarCard}>
-            <h3>{t(locale, 'keyDetails')}</h3>
             <div className={styles.metaList}>
               {/* current relationship health + the one place to update it; the
                   narrative history lives in the activity feed */}
@@ -161,6 +154,7 @@ export default async function PartnerDetailPage(props: PageProps) {
                   />
                 </span>
               </div>
+              {partner.summary && <p className={styles.summaryText}>{partner.summary}</p>}
               {partner.region && (
                 <div className={styles.metaItem}>
                   <span className={styles.metaLabel}>{t(locale, 'googleRegion')}</span>
@@ -197,41 +191,31 @@ export default async function PartnerDetailPage(props: PageProps) {
           </div>
 
           <div className={styles.sidebarCard}>
-            <h3>{t(locale, 'currentTeam')}</h3>
+            <h3>{t(locale, 'peopleLabel')}</h3>
             {(() => {
               const googleTeam = (partner.googleTeam as TeamMember[] | null) || [];
-              if (googleTeam.length === 0) {
-                return <p className={styles.empty}>{t(locale, 'noGoogleTeam')}</p>;
+              if (googleTeam.length === 0 && partner.personAffiliations.length === 0) {
+                return <p className={styles.empty}>{t(locale, 'noAssociatedPeople')}</p>;
               }
               return (
-                <div className={styles.teamList}>
+                <div className={styles.peopleList}>
                   {googleTeam.map((member, i) => (
-                    <div key={i} className={styles.teamItem}>
+                    <div key={`g-${i}`} className={styles.teamItem}>
                       <strong>{member.email}</strong>
                       {member.role && <span className={styles.teamRole}>{member.role}</span>}
+                    </div>
+                  ))}
+                  {partner.personAffiliations.map((aff) => (
+                    <div key={aff.id} className={styles.personItem}>
+                      <Link href={`/people/${aff.personId}`} className={styles.personLink}>
+                        {aff.person.name}
+                      </Link>
+                      {aff.role && <span className={styles.personRole}>{aff.role}</span>}
                     </div>
                   ))}
                 </div>
               );
             })()}
-          </div>
-
-          <div className={styles.sidebarCard}>
-            <h3>{t(locale, 'associatedPeople')}</h3>
-            {partner.personAffiliations.length === 0 ? (
-              <p className={styles.empty}>{t(locale, 'noAssociatedPeople')}</p>
-            ) : (
-              <div className={styles.peopleList}>
-                {partner.personAffiliations.map((aff) => (
-                  <div key={aff.id} className={styles.personItem}>
-                    <Link href={`/people/${aff.personId}`} className={styles.personLink}>
-                      {aff.person.name}
-                    </Link>
-                    {aff.role && <span className={styles.personRole}>{aff.role}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </aside>
       </main>

@@ -921,12 +921,14 @@ export async function seedMockData() {
   // Relationship health (1..7 scale) spread across the partner set so the
   // /partners Relationship column shows real relative variation. Two entries for
   // some partners so the "previous" ghost ring renders.
-  const relStates: Array<{ partnerId: number; score: number; prev?: number; note: string }> = [
-    { partnerId: honda.id, score: 4, prev: 3, note: 'Cadence is healthy; codec supply worry contained for now.' },
-    { partnerId: gm.id, score: 4, prev: 4, note: 'Ultifi leadership fully bought in; joint roadmap review done.' },
-    { partnerId: volvoCars.id, score: 2, prev: 3, note: 'Cert slip triggered exec escalation; trust needs rebuilding.' },
+  // Every relationship update carries a WRITTEN note — the product requires one, so
+  // the seed must model that (the feed is a relationship journal, not a scoreboard).
+  const relStates: Array<{ partnerId: number; score: number; prev?: number; prevNote?: string; note: string }> = [
+    { partnerId: honda.id, score: 4, prev: 3, prevNote: 'Codec sourcing worries surfaced in the quarterly review; watching weekly.', note: 'Cadence is healthy; codec supply worry contained for now.' },
+    { partnerId: gm.id, score: 4, prev: 4, prevNote: 'Joint roadmap review landed well; Ultifi leads engaged and responsive.', note: 'Ultifi leadership fully bought in; joint roadmap review done.' },
+    { partnerId: volvoCars.id, score: 2, prev: 3, prevNote: 'Cert timeline tightening; flagged to their PMO, watching closely.', note: 'Cert slip triggered exec escalation; trust needs rebuilding.' },
     { partnerId: hyundai.id, score: 5, note: 'Model partnership — co-marketing GAS launch.' },
-    { partnerId: stellantis.id, score: 2, prev: 2, note: 'Brand-matrix decisions keep stalling; sponsor is disengaged.' },
+    { partnerId: stellantis.id, score: 2, prev: 2, prevNote: 'Sponsor missed two syncs running; escalation drafted but not sent.', note: 'Brand-matrix decisions keep stalling; sponsor is disengaged.' },
     { partnerId: denso.id, score: 4, note: 'Reliable execution; limited strategic alignment discussions.' },
     { partnerId: continental.id, score: 3, note: 'Delivery fine, but Volvo slip strained the three-way relationship.' },
     { partnerId: lge.id, score: 4, note: 'Strong delivery track record across GM and Hyundai lines.' },
@@ -937,7 +939,7 @@ export async function seedMockData() {
       await prisma.partnerState.create({
         data: {
           partnerId: r.partnerId, relationshipScore: r.prev, theNeedle: relHealth(r.prev),
-          notes: 'Prior quarterly relationship review.', source: 'seed', timestamp: new Date('2026-04-15'),
+          notes: r.prevNote ?? 'Quarterly relationship review.', source: 'seed', timestamp: new Date('2026-04-15'),
         },
       });
     }
