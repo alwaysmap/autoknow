@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { timingSafeEqual } from 'node:crypto';
 
 // Shared helpers for route handlers. Previously every catch block returned
 // `error.message` to the client, which leaks DB/internal details; and each used
@@ -14,6 +15,16 @@ export function serverError(err: unknown, context: string) {
   return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
 }
 
+/** Constant-time secret comparison — `===` short-circuits on the first differing
+ *  byte. The length check leaks only the length, which an attacker cannot use. */
+export function secretsEqual(provided: string | null | undefined, expected: string): boolean {
+  if (!provided) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
 /**
  * Whether destructive admin/dev operations (seed, wipe) are permitted here.
  * If ADMIN_TOKEN is set, callers must present it via the `x-admin-token` header.
@@ -22,6 +33,6 @@ export function serverError(err: unknown, context: string) {
  */
 export function adminOperationsAllowed(req?: Request): boolean {
   const token = process.env.ADMIN_TOKEN;
-  if (token) return req?.headers.get('x-admin-token') === token;
+  if (token) return secretsEqual(req?.headers.get('x-admin-token'), token);
   return process.env.NODE_ENV !== 'production';
 }
