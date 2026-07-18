@@ -54,22 +54,6 @@
   gap: 40px;
 }
 
-@media (max-width: 900px) {
-  .main {
-    grid-template-columns: 1fr;
-  }
-  /* Single-column: identity/metadata reads FIRST, then the briefing — otherwise
-     the relationship block lands below the whole activity feed. */
-  .sidebar {
-    position: static;
-    max-height: none;
-    overflow-y: visible;
-    order: -1;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 14px;
-  }
-}
-
 /* Briefing column: sections separated by thin rules, program-page rhythm. */
 .colMain {
   display: flex;
@@ -215,4 +199,44 @@
 .personRole {
   font-size: 11px;
   color: var(--muted);
+}
+
+/* Narrow screens — LAST so these overrides win the source-order tie against the
+   base rules above (same specificity in CSS modules). */
+@media (max-width: 900px) {
+  .main {
+    grid-template-columns: 1fr;
+  }
+  /* Single-column: identity/metadata reads FIRST, then the briefing — otherwise
+     the relationship block lands below the whole activity feed. */
+  .sidebar {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+    order: -1;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 14px;
+    gap: 12px;
+  }
+  /* Full-width label:value rows read as a broken layout at page width (a
+     viewport-wide gap between label and value). Facts flow inline instead —
+     label beside value, pairs wrapping like the identity strip. */
+  .metaList {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px 24px;
+  }
+  .metaItem {
+    justify-content: flex-start;
+    align-items: center;
+    gap: 8px;
+  }
+  .metaVal {
+    text-align: left;
+  }
+  .summaryText {
+    flex-basis: 100%;
+    margin: 0;
+  }
 }
