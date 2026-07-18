@@ -153,17 +153,18 @@ function HistoryGlyph({ progress }: { progress: number }) {
 
 // Textless mini hill for standard cards: the trail of every historical position as
 // small dots, the current position as the one big ball.
-function MiniHill({ progress, pastPositions }: { progress: number; pastPositions: number[] }) {
+// A single phase's hill: the immediately-prior position as a light ghost marker, and
+// the current position as a bigger, darker dot. Two markers whenever a prior exists,
+// so movement reads at a glance (no scatter of every past point).
+function MiniHill({ progress, previousProgress }: { progress: number; previousProgress?: number | null }) {
   const c = hillCoordinates(progress);
+  const prev = previousProgress != null && previousProgress !== progress ? hillCoordinates(previousProgress) : null;
   return (
     <svg viewBox="0 0 200 90" className={styles.miniHill} aria-hidden>
       <path d={HILL_PATH} fill="none" stroke="var(--border)" strokeWidth={3} strokeLinecap="round" />
       <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border)" strokeDasharray="3 3" />
-      {pastPositions.map((p, i) => {
-        const d = hillCoordinates(p);
-        return <circle key={i} cx={d.x} cy={d.y} r={3.5} fill="var(--muted)" opacity={0.45} />;
-      })}
-      <circle cx={c.x} cy={c.y} r={7} fill="var(--muted)" stroke="#fff" strokeWidth={1.5} />
+      {prev && <circle cx={prev.x} cy={prev.y} r={5} fill="#fff" stroke="var(--muted)" strokeWidth={2} />}
+      <circle cx={c.x} cy={c.y} r={8} fill={INK} stroke="#fff" strokeWidth={1.6} />
     </svg>
   );
 }
@@ -817,7 +818,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               {open && (
                 <div className={styles.body}>
                   <div className={styles.hillCol}>
-                    <MiniHill progress={p.progress} pastPositions={p.history.slice(1).map((h) => h.progress)} />
+                    <MiniHill progress={p.progress} previousProgress={p.previousProgress} />
                   </div>
                   <div className={styles.detailCol}>
                     {/* THE update is the card's headline — what happened, who said so, when */}

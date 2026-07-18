@@ -20,6 +20,23 @@
   width: 132px;
 }
 
+/* Relationship history: the prior face (gray) → arrow → the new face (darker). */
+.relFaces {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.priorFace {
+  color: var(--muted);
+}
+.relArrow {
+  display: inline-flex;
+  color: var(--muted);
+}
+.currentFace {
+  color: var(--fg);
+}
+
 .body {
   flex: 1 1 auto;
   min-width: 0;

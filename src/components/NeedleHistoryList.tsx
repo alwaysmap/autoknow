@@ -33,11 +33,33 @@ export default function NeedleHistoryList({
       {changes.map((c, i) => {
         const health = parseHealth(c.health);
         const score = relationship ? deriveScore({ relationshipScore: c.score, theNeedle: c.health }) : null;
+        // The prior value, when this update changed it: shown as a gray face with an
+        // arrow to the new (darker, larger) face.
+        const priorScore =
+          relationship && (c.previousScore != null || c.previousHealth != null)
+            ? deriveScore({ relationshipScore: c.previousScore, theNeedle: c.previousHealth })
+            : null;
         return (
           <article key={`${c.timestamp}-${i}`} className={styles.card}>
             <div className={styles.gauge}>
               {relationship && score !== null ? (
-                <RelationshipFace score={score} size={30} />
+                <span className={styles.relFaces}>
+                  {priorScore !== null && priorScore !== score && (
+                    <>
+                      <span className={styles.priorFace}>
+                        <RelationshipFace score={priorScore} size={24} decorative />
+                      </span>
+                      <span className={styles.relArrow} aria-hidden>
+                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 8 h9 M9 5 l3 3 -3 3" />
+                        </svg>
+                      </span>
+                    </>
+                  )}
+                  <span className={styles.currentFace}>
+                    <RelationshipFace score={score} size={30} />
+                  </span>
+                </span>
               ) : (
                 <NeedleGaugeSvg
                   progress={c.progress}
