@@ -1,0 +1,26 @@
+# Keep the build context small and the image clean.
+.git
+.github
+node_modules
+.next
+.next-demo
+.next-test
+.next-verify
+out
+build
+coverage
+playwright-report
+test-results
+screenshots
+tests
+playwright.config.ts
+jest.config.ts
+.env
+.env.*
+!.env.sample
+*.md
+docs
+infra
+scripts
+*.tsbuildinfo
+.DS_Store

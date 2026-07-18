@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Self-contained server bundle for containerized deploys (Cloud Run): .next/standalone
+  // ships only the traced runtime deps + server.js, keeping the image small.
+  output: 'standalone',
+  // Trace up from this worktree (it's nested in a parent checkout); without it,
+  // standalone tracing can miss/mis-root modules.
+  outputFileTracingRoot: __dirname,
   // This project is a git worktree nested inside the main checkout, so two
   // package-lock.json files exist (here and in the parent). Without pinning the
   // root, Turbopack walks up, picks the PARENT as the workspace root, and resolves
