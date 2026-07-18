@@ -57,8 +57,17 @@ export async function getPartnerPrograms(partnerId: number): Promise<PartnerProg
 
   type Row = (typeof owned)[number];
   const toProgram = (p: Row, relationship: 'owner' | 'involved'): PartnerProgram => {
+    // Owned programs list every phase. For involved programs, show ALL of the
+    // program's in-flight phases (0 < progress < 100) — not just the one this
+    // partner sits on — plus any phase they're on regardless of progress, so their
+    // stake is always visible.
     const phases = p.phases
-      .filter((ph) => relationship === 'owner' || ph.partners.length > 0)
+      .filter((ph) => {
+        if (relationship === 'owner') return true;
+        const progress = ph.states[0]?.hillChartProgress ?? 0;
+        const inFlight = progress > 0 && progress < 100;
+        return inFlight || ph.partners.length > 0;
+      })
       .map((ph) => ({
         id: ph.id,
         name: ph.name,

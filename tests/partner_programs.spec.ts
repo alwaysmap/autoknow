@@ -4,9 +4,10 @@ import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
 // Behavioral coverage for the partner page's Programs list: partners either OWN a
 // program (Project.partnerId) or are INVOLVED via phase links (PhasePartner). The
-// briefing layout renders one disclosure row per program — involved rows say
-// "via <owner>" (the owner is a link), and expanding a row reveals the phase chips
-// this partner touches.
+// briefing layout renders one disclosure row per program (expanded by default) —
+// involved rows say "via <owner>" (the owner is a link). Owned rows list every
+// phase; involved rows show all of the program's IN-FLIGHT phases (the partner's
+// own phase additionally carries its role).
 
 test.describe('Partner programs summary', () => {
   test.describe.configure({ mode: 'serial' });
@@ -30,15 +31,15 @@ test.describe('Partner programs summary', () => {
     // Owned, not involved — no "via <owner>" attribution on the row.
     await expect(row.locator(`a[href="/partners/${seeded.oemId}"]`)).toHaveCount(0);
 
-    // Expanding the row reveals all four phases as chips linked to their history.
-    await row.locator('summary > span').first().click(); // the chevron, clear of the name link
+    // Cards are expanded by default — all four phases show as chips linked to their
+    // history without any interaction.
     const { bringUp, integration, certification, audio } = seeded.phases;
     for (const phaseId of [bringUp, integration, certification, audio]) {
       await expect(row.locator(`a[href="/history/phase/${phaseId}"]`)).toBeVisible();
     }
   });
 
-  test('a supplier sees programs it is involved in, scoped to its phases', async ({ page }) => {
+  test('a supplier sees involved programs with all in-flight phases; its own phase carries the role', async ({ page }) => {
     await page.goto(`/partners/${seeded.supplierId}`);
 
     await expect(page.locator('h1')).toContainText('Denso');
@@ -48,10 +49,13 @@ test.describe('Partner programs summary', () => {
     await expect(row).toContainText('via');
     await expect(row.locator('a', { hasText: 'Rivian' })).toBeVisible();
 
-    // Only the phase Denso touches is listed — with its role.
-    await row.locator('summary > span').first().click();
+    // All the program's IN-FLIGHT phases show (integration = Denso's, plus audio),
+    // not just the one Denso sits on. Denso's phase carries its role; the done
+    // (bringUp) and not-started (certification) phases are omitted.
     await expect(row.locator(`a[href="/history/phase/${seeded.phases.integration}"]`)).toBeVisible();
-    await expect(row).toContainText('Supplier');
-    await expect(row.locator(`a[href="/history/phase/${seeded.phases.audio}"]`)).toHaveCount(0);
+    await expect(row.locator(`a[href="/history/phase/${seeded.phases.audio}"]`)).toBeVisible();
+    await expect(row).toContainText('Supplier'); // role on the integration phase
+    await expect(row.locator(`a[href="/history/phase/${seeded.phases.bringUp}"]`)).toHaveCount(0);
+    await expect(row.locator(`a[href="/history/phase/${seeded.phases.certification}"]`)).toHaveCount(0);
   });
 });

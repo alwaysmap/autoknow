@@ -7,7 +7,10 @@
 }
 
 .row {
+  position: relative;
   padding: 5px 0;
+  /* room on the right for the absolutely-positioned gauge that spans the card */
+  padding-right: 104px;
 }
 
 .line {
@@ -72,8 +75,16 @@
   flex: 1;
 }
 
+/* Taller gauge that spans the whole card (title line + phase chips), vertically
+   centered on the right. Absolute so its height is the card's, not one text line's. */
 .gauge {
-  width: 74px;
+  position: absolute;
+  right: 8px;
+  top: 6px;
+  bottom: 6px;
+  width: 92px;
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
 }
 

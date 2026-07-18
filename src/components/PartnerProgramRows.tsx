@@ -19,7 +19,17 @@ export default function PartnerProgramRows({ programs, locale = 'en' }: { progra
   return (
     <div className={styles.rows}>
       {programs.map((prog) => (
-        <details key={`${prog.relationship}-${prog.id}`} className={styles.row}>
+        <details key={`${prog.relationship}-${prog.id}`} className={styles.row} open>
+          {/* The gauge is absolutely positioned so it spans the whole card — the
+              title line AND the phase chips — vertically centered beside both. */}
+          <span className={styles.gauge}>
+            <NeedleGaugeSvg
+              progress={prog.progress}
+              health={prog.health}
+              previousProgress={prog.previousProgress}
+              previousHealth={prog.previousHealth}
+            />
+          </span>
           <summary className={styles.line}>
             <span className={styles.chevron} aria-hidden>
               <svg viewBox="0 0 10 10" width="10" height="10">
@@ -41,14 +51,6 @@ export default function PartnerProgramRows({ programs, locale = 'en' }: { progra
             })()}
             {prog.isArchived && <span className={styles.archived}>{t(locale, 'archived')}</span>}
             <span className={styles.spacer} />
-            <span className={styles.gauge}>
-              <NeedleGaugeSvg
-                progress={prog.progress}
-                health={prog.health}
-                previousProgress={prog.previousProgress}
-                previousHealth={prog.previousHealth}
-              />
-            </span>
             {prog.updatedAt && (
               <span className={styles.updated}>
                 {localDate(prog.updatedAt, locale, { month: 'short', day: 'numeric' })}
