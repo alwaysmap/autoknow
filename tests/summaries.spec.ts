@@ -113,10 +113,22 @@ test.describe('Leadership summaries', () => {
     const row = await prisma.summaryPrompt.findUnique({ where: { scope: 'program' } });
     expect(row?.prompt).toContain('CUSTOM: summarize for the VP');
 
-    // Clearing reverts to the default (override row removed).
+    // Clearing reverts to the default (override row removed). Wait on the custom
+    // badge disappearing — the reliable "revert committed" signal.
     await page.getByTestId('prompt-program').locator('textarea').fill('');
     await page.getByTestId('prompt-program').getByRole('button', { name: 'Save prompt' }).click();
-    await expect(page.getByTestId('prompt-program')).toContainText('default');
+    await expect(page.getByTestId('prompt-program')).not.toContainText('custom (database override)');
     expect(await prisma.summaryPrompt.findUnique({ where: { scope: 'program' } })).toBeNull();
+
+    // The explicit "Restore default" button reverts an override and resets the
+    // textarea to the built-in default text.
+    const partner = page.getByTestId('prompt-partner');
+    await partner.locator('textarea').fill('CUSTOM partner prompt override.');
+    await partner.getByRole('button', { name: 'Save prompt' }).click();
+    await expect(page.getByTestId('prompt-partner')).toContainText('custom (database override)');
+    await page.getByTestId('prompt-partner').getByRole('button', { name: 'Restore default' }).click();
+    await expect(page.getByTestId('prompt-partner')).not.toContainText('custom (database override)');
+    await expect(page.getByTestId('prompt-partner').locator('textarea')).toContainText('Synthesize ONLY from the numbered evidence');
+    expect(await prisma.summaryPrompt.findUnique({ where: { scope: 'partner' } })).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { prisma } from '../../lib/db';
 import { createSummary } from '../../lib/summaries';
 import { isSummaryScope, DEFAULT_SUMMARY_PROMPTS } from '../../lib/summaryPrompts';
@@ -35,4 +36,14 @@ export async function saveSummaryPrompt(formData: FormData): Promise<void> {
     });
   }
   revalidatePath('/manage/prompts');
+}
+
+/** Drop a scope's override so it reverts to DEFAULT_SUMMARY_PROMPTS. */
+export async function restoreDefaultPrompt(formData: FormData): Promise<void> {
+  const scope = formData.get('scope') as string;
+  if (!isSummaryScope(scope)) throw new Error('Invalid scope');
+  await prisma.summaryPrompt.deleteMany({ where: { scope } });
+  // Redirect (not just revalidate) so the uncontrolled textarea remounts showing the
+  // default text — a plain re-render leaves the old value in the field.
+  redirect('/manage/prompts');
 }

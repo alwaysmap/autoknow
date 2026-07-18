@@ -3,7 +3,7 @@ import { prisma } from '../../../lib/db';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import { DEFAULT_SUMMARY_PROMPTS, SUMMARY_SCOPES } from '../../../lib/summaryPrompts';
-import { saveSummaryPrompt } from '../../actions/summaries';
+import { saveSummaryPrompt, restoreDefaultPrompt } from '../../actions/summaries';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +63,19 @@ export default async function SummaryPromptsPage() {
                 </button>
               </div>
             </form>
+            {/* Restore is a SEPARATE form (a second submit button inside the save form
+                hijacks the plain Save submit; nested forms are invalid). */}
+            {override && (
+              <form action={restoreDefaultPrompt} style={{ marginTop: 8 }}>
+                <input type="hidden" name="scope" value={scope} />
+                <button type="submit" style={{
+                  fontSize: 12, fontWeight: 600, padding: '6px 16px', borderRadius: 6, cursor: 'pointer',
+                  border: '1px solid var(--border, #ccc)', background: '#fff', color: 'var(--fg, #222)',
+                }}>
+                  {t(locale, 'restoreDefaultPrompt')}
+                </button>
+              </form>
+            )}
           </section>
         );
       })}

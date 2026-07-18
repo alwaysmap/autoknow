@@ -473,6 +473,7 @@ const STRINGS = {
   promptCustom: { en: 'custom (database override)', de: 'angepasst (Datenbank-Override)', ja: 'カスタム（DBオーバーライド）', ko: '사용자 지정 (DB 오버라이드)' },
   promptDefault: { en: 'default', de: 'Standard', ja: 'デフォルト', ko: '기본값' },
   savePrompt: { en: 'Save prompt', de: 'Prompt speichern', ja: 'プロンプトを保存', ko: '프롬프트 저장' },
+  restoreDefaultPrompt: { en: 'Restore default', de: 'Standard wiederherstellen', ja: 'デフォルトに戻す', ko: '기본값 복원' },
   navManage: { en: 'Manage', de: 'Verwalten', ja: '管理', ko: '관리' },
   manageIntro: {
     en: 'Authoring and administration — everything that shapes AutoKnow but is not day-to-day program reading.',
