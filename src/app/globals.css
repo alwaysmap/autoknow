@@ -67,6 +67,9 @@ body {
 
 a {
   color: inherit;
+  /* Links are regular-weight app-wide (design.md §6): color/underline carry the
+     affordance, weight stays reserved for hierarchy. */
+  font-weight: 400;
   text-decoration: underline;
   text-decoration-color: var(--border);
   text-underline-offset: 0.15em;

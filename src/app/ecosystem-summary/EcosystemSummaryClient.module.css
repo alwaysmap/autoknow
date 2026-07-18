@@ -338,7 +338,7 @@
 .briefingLink {
   color: var(--p-600);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .briefingLink:hover {
@@ -448,7 +448,7 @@
 .ownerLink {
   color: var(--fg);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .ownerLink:hover {

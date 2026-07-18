@@ -229,7 +229,7 @@
 .tableLink {
   color: var(--fg);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .tableLink:hover {

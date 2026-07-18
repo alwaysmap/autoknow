@@ -33,7 +33,7 @@
 }
 
 .name {
-  font-weight: 600;
+  font-weight: 400;
   font-size: 14px;
   color: var(--fg);
   text-decoration: none;
@@ -52,7 +52,7 @@
 }
 .viaLink {
   color: inherit;
-  font-weight: 600;
+  font-weight: 400;
   text-decoration: none;
 }
 .viaLink:hover {
@@ -98,7 +98,7 @@
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--fg);
   text-decoration: none;
   padding: 3px 9px;

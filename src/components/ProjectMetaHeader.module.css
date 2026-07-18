@@ -60,7 +60,7 @@
 
 .factLink {
   color: var(--fg);
-  font-weight: 600;
+  font-weight: 400;
   text-decoration: none;
 }
 .factLink:hover {

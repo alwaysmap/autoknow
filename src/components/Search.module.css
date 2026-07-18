@@ -93,7 +93,7 @@
 
 .mainText {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .subText {
@@ -111,7 +111,7 @@
 
 .allResultsLink {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--p-600);
   text-decoration: none;
 }

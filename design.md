@@ -53,8 +53,9 @@ Applies to every tabular/list surface (Programs, Partners, Sources, Me, ecosyste
 tables) so nothing has to be relearned page to page.
 
 * **One type grammar**: 13–14px cell text in the foreground color; links are quiet
-  (foreground text, underline on hover — never bold green); no background-color
-  badges. Semantic color (health) is colored *text* only. Muted gray is reserved
+  (foreground text, **weight 400 app-wide** — color/underline is the affordance,
+  weight stays reserved for hierarchy; underline on hover, never bold green); no
+  background-color badges. Semantic color (health) is colored *text* only. Muted gray is reserved
   for secondary facts (types, provenance, dates' fallbacks).
 * **Dates are ISO** (`yyyy-mm-dd`, tabular-nums, via the shared `DateCell`), which
   sorts lexicographically = chronologically; hover reveals the ISO calendar week

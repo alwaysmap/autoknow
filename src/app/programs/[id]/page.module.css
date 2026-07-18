@@ -71,7 +71,7 @@
 .metaLink {
   color: var(--p-600);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 400;
   transition: color 0.2s ease;
 }
 
@@ -237,7 +237,7 @@
   font-size: 12px;
   color: var(--p-600);
   text-decoration: underline;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .linkAnchor:hover {
@@ -827,7 +827,7 @@
 .handleLink {
   color: var(--p-600);
   text-decoration: none;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .handleLink:hover {

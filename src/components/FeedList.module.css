@@ -29,7 +29,7 @@
 
 .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 
-.title { font-weight: 600; color: var(--fg, #1a1a1a); text-decoration: none; }
+.title { font-weight: 400; color: var(--fg, #1a1a1a); text-decoration: none; }
 .title:hover { text-decoration: underline; }
 
 .aside { margin-left: auto; font-size: 12px; color: var(--muted, #777); white-space: nowrap; }
