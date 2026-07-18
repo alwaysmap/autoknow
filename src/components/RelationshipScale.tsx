@@ -73,7 +73,7 @@ export function RelationshipFace({ score, size = 22, decorative = false }: {
       viewBox="-10 -10 20 20"
       width={size}
       height={size}
-      {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': `${score}/7 — ${t(locale, REL_KEY[score])}` })}
+      {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': `${score}/5 — ${t(locale, REL_KEY[score])}` })}
     >
       <circle cx={0} cy={0} r={8.6} fill="none" stroke="currentColor" strokeWidth={1.5} />
       <circle cx={-3.1} cy={-2.6} r={1.15} fill="currentColor" />
@@ -112,16 +112,14 @@ export function RelationshipSparkline({ history, width = 64, height = 18 }: {
 
 // Compact readout for list rows: aligned track + numeral. Sorting the column and
 // scanning dot positions are the two ways to compare partners; both need no color.
-export function RelationshipCell({ score, history }: { score: RelScore | null; history?: number[] }) {
+export function RelationshipCell({ score }: { score: RelScore | null; history?: number[] }) {
   const locale = useLocale();
   if (score === null) {
     return <span className={styles.notRated}>{t(locale, 'relNotRated')}</span>;
   }
   return (
-    <span className={styles.cell} title={`${t(locale, REL_KEY[score])} · ${t(locale, 'relScaleHint')}`}>
-      <RelationshipFace score={score} size={20} />
-      <span className={styles.cellScore}>{score}<span className={styles.cellDen}>/5</span></span>
-      {history && <RelationshipSparkline history={history} />}
+    <span className={styles.cell}>
+      <RelationshipFace score={score} size={22} />
     </span>
   );
 }
@@ -156,9 +154,9 @@ export default function RelationshipScale({
   return (
     <div className={styles.wrapper} data-testid="relationship-scale">
       <div className={styles.readout}>
-        {score !== null && <RelationshipFace score={score} size={26} />}
-        <span className={styles.score}>{score ?? '–'}<span className={styles.den}>/5</span></span>
-        <span className={styles.descriptor}>{score === null ? t(locale, 'relNotRated') : t(locale, REL_KEY[score])}</span>
+        {score !== null
+          ? <RelationshipFace score={score} size={34} />
+          : <span className={styles.descriptor}>{t(locale, 'relNotRated')}</span>}
       </div>
       {history && history.length > 1
         ? <RelationshipSparkline history={history} width={110} height={22} />

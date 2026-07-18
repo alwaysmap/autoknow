@@ -83,10 +83,10 @@ test.describe('Progress & Health gauge updates', () => {
     await page.keyboard.type('Tesla relationship is strained due to supply chains.');
     await dialog.locator('button:has-text("Save Update")').click();
 
-    // Verify it closed and the header now reads the new position.
+    // Verify it closed and the header face carries the new position (the face is
+    // the single visible measure; score + descriptor live in its accessible name).
     await expect(page.locator('dialog[open]')).toHaveCount(0);
-    await expect(scale).toContainText('3/5');
-    await expect(scale).toContainText('Steady');
+    await expect(scale.getByRole('img', { name: /3\/5 — Steady/ }).first()).toBeVisible();
 
     // The state row carries the score AND the derived health (feed/filters coherence).
     const state = await prisma.partnerState.findFirst({ where: { partnerId }, orderBy: { timestamp: 'desc' } });

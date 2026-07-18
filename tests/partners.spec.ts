@@ -61,7 +61,7 @@ test.describe('Ecosystem Partners Page', () => {
     await page.goto('/partners');
     await expect(page.locator('th', { hasText: 'Relationship' })).toBeVisible();
     const row = page.locator('tr').filter({ hasText: 'Continental AG' });
-    await expect(row).toContainText('4/5');
+    await expect(row.getByRole('img', { name: /4\/5 — Strong/ })).toBeVisible();
   });
 
   test('partner CRUD: create, edit, then delete', async ({ page }) => {
