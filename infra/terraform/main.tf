@@ -24,7 +24,8 @@ locals {
     "iamcredentials.googleapis.com",
     "sts.googleapis.com",
     "chat.googleapis.com",
-    "drive.googleapis.com", # background Drive doc ingestion (lib/driveSync, keyless SA token)
+    "drive.googleapis.com",         # background Drive doc ingestion (lib/driveSync, keyless SA token)
+    "cloudidentity.googleapis.com",  # the Workspace contributors group (Chat visibility)
     "cloudresourcemanager.googleapis.com",
     "orgpolicy.googleapis.com",
     "serviceusage.googleapis.com", # quota/billing project for the orgpolicy provider alias
@@ -192,6 +193,41 @@ resource "google_secret_manager_secret_version" "generated" {
   secret_data = each.value
 }
 
+
+# ---- Chat contributors group ----
+# Google Chat's Configuration page has no "everyone in domain" toggle (that needs a
+# Marketplace listing); it only accepts specific people/groups. So we create a group and
+# enter it in the Visibility box — add contributors here to grant Chat access. Managed via
+# the Cloud Identity API through the user-project-quota provider alias (needs the
+# X-Goog-User-Project header, same as org policy).
+resource "google_cloud_identity_group" "contrib" {
+  provider     = google.orgpolicy
+  display_name = "AutoKnow Contributors"
+  description  = "Members may add / @mention the AutoKnow Chat app and contribute context (plan §7b)."
+  parent       = "customers/${var.workspace_customer_id}"
+
+  group_key {
+    id = "autoknow-contrib@${var.allowed_domain}"
+  }
+
+  # Marks it a normal Google Group (discussion forum), so it shows in Directory/Admin.
+  labels = {
+    "cloudidentity.googleapis.com/groups.discussion_forum" = ""
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_cloud_identity_group_membership" "contrib_owner" {
+  provider = google.orgpolicy
+  group    = google_cloud_identity_group.contrib.id
+
+  preferred_member_key {
+    id = var.chat_group_owner
+  }
+  roles { name = "MEMBER" }
+  roles { name = "MANAGER" }
+}
 
 # ---- Cloud Run service ----
 resource "google_cloud_run_v2_service" "app" {

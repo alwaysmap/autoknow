@@ -35,6 +35,11 @@ output "chat_service_account" {
   value       = google_service_account.run.email
 }
 
+output "chat_contributors_group" {
+  description = "Enter this group in the Chat app's Visibility box; add contributors to it to grant Chat access."
+  value       = google_cloud_identity_group.contrib.group_key[0].id
+}
+
 output "wif_provider" {
   description = "For google-github-actions/auth (workload_identity_provider)."
   value       = google_iam_workload_identity_pool_provider.github.name

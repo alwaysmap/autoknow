@@ -59,3 +59,15 @@ variable "github_repo" {
   description = "owner/name for Workload Identity Federation (keyless CI deploys)."
   default     = "alwaysmap/autoknow"
 }
+
+variable "workspace_customer_id" {
+  type        = string
+  description = "Google Workspace customer ID (gcloud organizations list → DIRECTORY_CUSTOMER_ID)."
+  default     = "C03ln3mj4"
+}
+
+variable "chat_group_owner" {
+  type        = string
+  description = "Initial member + manager of the AutoKnow contributors group."
+  default     = "dylan@alwaysmap.com"
+}
