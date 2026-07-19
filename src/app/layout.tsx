@@ -1,5 +1,4 @@
 import UserMenu from '../components/UserMenu';
-import ThemeToggle from '../components/ThemeToggle';
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Rubik } from "next/font/google";
 import Link from 'next/link';
@@ -90,7 +89,6 @@ export default async function RootLayout({
           <div className={styles.rightSection}>
             <SwCleanup />
             <Search />
-            <ThemeToggle />
             <Link href="/manage" className={styles.settingsCog} aria-label={t(locale, 'navManage')} title={t(locale, 'navManage')}>
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                 <circle cx="12" cy="12" r="3" />

@@ -84,3 +84,29 @@
 .signInBtn:hover {
   background: var(--surface);
 }
+
+/* Personal settings rows (theme, language) — quiet label/control pairs separated
+   from the identity block above and the sign-out action below. */
+.prefs {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.prefRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.prefLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
