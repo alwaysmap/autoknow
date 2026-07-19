@@ -118,6 +118,51 @@ export interface ChatEvent {
   space?: { name: string; displayName?: string };
 }
 
+// The add-on runtime (UA Google-gsuiteaddons) wraps the same information in a
+// per-interaction envelope under `chat` instead of a top-level `type`.
+interface AddonEnvelope {
+  chat?: {
+    user?: { displayName?: string; email?: string };
+    messagePayload?: { message?: ChatEvent['message']; space?: ChatEvent['space'] };
+    addedToSpacePayload?: { space?: ChatEvent['space'] };
+    removedFromSpacePayload?: { space?: ChatEvent['space'] };
+  };
+}
+
+/** Normalize either event framing to the legacy ChatEvent; flags add-on framing so
+ *  the route can wrap the reply in the add-on response format. */
+export function normalizeChatEvent(body: unknown): { event: ChatEvent; addon: boolean } | null {
+  const legacy = body as ChatEvent;
+  if (legacy && typeof legacy.type === 'string') return { event: legacy, addon: false };
+
+  const chat = (body as AddonEnvelope)?.chat;
+  if (!chat) return null;
+  if (chat.messagePayload?.message) {
+    const m = chat.messagePayload.message;
+    return {
+      addon: true,
+      event: {
+        type: 'MESSAGE',
+        message: { ...m, sender: { displayName: m.sender?.displayName ?? chat.user?.displayName, email: m.sender?.email ?? chat.user?.email } },
+        space: chat.messagePayload.space,
+      },
+    };
+  }
+  if (chat.addedToSpacePayload) return { addon: true, event: { type: 'ADDED_TO_SPACE', space: chat.addedToSpacePayload.space } };
+  if (chat.removedFromSpacePayload) return { addon: true, event: { type: 'REMOVED_FROM_SPACE', space: chat.removedFromSpacePayload.space } };
+  // Unknown add-on payload (slash command, card click, …): log the SHAPE only — keys
+  // carry no message content or PII, and are exactly what's needed to extend this.
+  console.log(`[chat] unmapped add-on payload keys=${JSON.stringify(Object.keys(chat))}`);
+  return { addon: true, event: { type: 'UNKNOWN' } };
+}
+
+/** Wrap a reply message in the add-on response format when the event came through
+ *  the add-on runtime; legacy events post the message JSON directly. */
+export function formatChatReply(reply: { text: string } | Record<string, never>, addon: boolean): object {
+  if (!addon || !('text' in reply)) return reply;
+  return { hostAppDataAction: { chatDataAction: { createMessageAction: { message: { text: reply.text } } } } };
+}
+
 /** Fetch every message in the thread via app auth (the app is a member now). */
 async function fetchThreadText(spaceName: string, threadName: string): Promise<string | null> {
   try {
