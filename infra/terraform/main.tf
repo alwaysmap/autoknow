@@ -120,6 +120,21 @@ resource "google_sql_user" "app" {
   password = random_password.db.result
 }
 
+# Migration role: the ONLY identity with DDL. Its credentials live only in Secret Manager
+# (CI SA access), used solely by `prisma migrate deploy`. Runtime uses `app` (DML-only
+# after scripts/db/harden-roles.sql). See docs/CHANGE_PLAYBOOK.md → Enforcement.
+resource "random_password" "migrator" {
+  length  = 32
+  special = false
+}
+
+resource "google_sql_user" "migrator" {
+  project  = google_project.autoknow.project_id
+  name     = "migrator"
+  instance = google_sql_database_instance.db.name
+  password = random_password.migrator.result
+}
+
 # ---- Service accounts ----
 resource "google_service_account" "run" {
   project      = google_project.autoknow.project_id
@@ -179,15 +194,17 @@ locals {
 
   db_connection = google_sql_database_instance.db.connection_name
   # Unix-socket DSN via the Cloud SQL Auth Proxy mounted at /cloudsql.
-  database_url = "postgresql://app:${random_password.db.result}@localhost/autoknow?host=/cloudsql/${local.db_connection}&schema=public"
+  database_url           = "postgresql://app:${random_password.db.result}@localhost/autoknow?host=/cloudsql/${local.db_connection}&schema=public"
+  migrator_database_url  = "postgresql://migrator:${random_password.migrator.result}@localhost/autoknow?host=/cloudsql/${local.db_connection}&schema=public"
 
   # Secret containers. `generated` ones get their version from TF; `external` ones are
   # populated out-of-band (gcloud, from the local .env) so no external secret is in TF.
   generated_secrets = {
-    "database-url" = local.database_url
-    "auth-secret"  = random_password.auth_secret.result
-    "cron-secret"  = random_password.cron_secret.result
-    "admin-token"  = random_password.admin_token.result
+    "database-url"          = local.database_url
+    "migrator-database-url" = local.migrator_database_url
+    "auth-secret"           = random_password.auth_secret.result
+    "cron-secret"           = random_password.cron_secret.result
+    "admin-token"           = random_password.admin_token.result
   }
   external_secrets = [
     "gemini-api-key",
@@ -501,10 +518,11 @@ resource "google_project_iam_member" "ci_roles" {
   member  = "serviceAccount:${google_service_account.ci.email}"
 }
 
-# The CI migrate job reads ONLY the database-url secret to build the connection string
-# for `prisma migrate deploy` (scoped, not project-wide secret access).
+# The CI migrate/harden jobs read ONLY the DB connection secrets (scoped, not project-wide):
+# migrator-database-url for migrations, database-url to verify the restricted app role.
 resource "google_secret_manager_secret_iam_member" "ci_db_url" {
-  secret_id = google_secret_manager_secret.s["database-url"].id
+  for_each  = toset(["database-url", "migrator-database-url"])
+  secret_id = google_secret_manager_secret.s[each.key].id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.ci.email}"
 }
