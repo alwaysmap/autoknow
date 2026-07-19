@@ -8,3 +8,7 @@ allowed_domain        = "alwaysmap.com"
 workspace_customer_id = "C03ln3mj4"
 chat_group_owner      = "dylan@alwaysmap.com"
 github_repo           = "alwaysmap/autoknow"
+
+# Custom domain. alwaysmap.com DNS stays in Squarespace's UI (dvhthomas@gmail.com);
+# the autoknow → ghs.googlehosted.com CNAME is a manual record there.
+custom_domain = "autoknow.alwaysmap.com"
