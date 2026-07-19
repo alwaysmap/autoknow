@@ -26,6 +26,7 @@ locals {
     "chat.googleapis.com",
     "drive.googleapis.com",         # background Drive doc ingestion (lib/driveSync, keyless SA token)
     "cloudidentity.googleapis.com",  # the Workspace contributors group (Chat visibility)
+    "storage.googleapis.com",        # remote Terraform state bucket
     "cloudresourcemanager.googleapis.com",
     "orgpolicy.googleapis.com",
     "serviceusage.googleapis.com", # quota/billing project for the orgpolicy provider alias
@@ -42,6 +43,27 @@ resource "google_project_service" "apis" {
 data "google_project" "autoknow" {
   project_id = google_project.autoknow.project_id
   depends_on = [google_project_service.apis]
+}
+
+# ---- Remote Terraform state ----
+# State lives in GCS (versioned) so it isn't trapped on one laptop and CI can read it.
+# The backend is configured per-instance at init time (see instances/<name>.backend.hcl).
+resource "google_storage_bucket" "tfstate" {
+  project                     = google_project.autoknow.project_id
+  name                        = "${var.project_id}-tfstate"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  force_destroy               = false
+  versioning {
+    enabled = true
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_storage_bucket_iam_member" "ci_state" {
+  bucket = google_storage_bucket.tfstate.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.ci.email}"
 }
 
 # ---- Artifact Registry ----
@@ -468,10 +490,11 @@ resource "google_service_account_iam_member" "ci_wif" {
 
 resource "google_project_iam_member" "ci_roles" {
   for_each = toset([
-    "roles/run.admin",
-    "roles/artifactregistry.writer",
-    "roles/iam.serviceAccountUser",
+    "roles/run.admin",              # deploy new revisions
+    "roles/artifactregistry.writer", # push images
+    "roles/iam.serviceAccountUser",  # deploy runs the service as the runtime SA
     "roles/cloudsql.client",
+    "roles/viewer", # read-only, lets `terraform plan` run in CI (apply stays human)
   ])
   project = google_project.autoknow.project_id
   role    = each.value

@@ -21,13 +21,11 @@ terraform {
     }
   }
 
-  # State: local for the bootstrap apply (a fresh project has no bucket yet). After the
-  # first apply creates the state bucket, migrate with:
-  #   terraform init -migrate-state -backend-config="bucket=<project>-tfstate"
-  # and uncomment the block below.
-  # backend "gcs" {
-  #   prefix = "autoknow"
-  # }
+  # Remote state in GCS. Config is partial — bucket + per-instance prefix come from
+  # instances/<name>.backend.hcl at init time:
+  #   terraform init -backend-config=instances/alwaysmap.backend.hcl
+  # (A fresh instance bootstraps on local state to create its bucket, then migrates here.)
+  backend "gcs" {}
 }
 
 provider "google" {

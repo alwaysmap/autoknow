@@ -1,0 +1,69 @@
+name: Deploy app
+
+# App CD: build the image and roll Cloud Run to it. Keyless auth via Workload Identity
+# Federation (no JSON keys). The image is config-free; per-instance config comes from each
+# instance's Terraform-managed secrets/env, so the SAME image is promoted to every
+# instance in the matrix. Terraform is NOT involved here (the service ignores image drift).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'prisma/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'Dockerfile'
+      - 'next.config.ts'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required for WIF
+
+jobs:
+  deploy:
+    name: ${{ matrix.instance.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # One entry per instance. Add a block here to deploy a new instance.
+        instance:
+          - name: alwaysmap
+            project: autoknow-prod-1895f1
+            region: us-central1
+            service: autoknow
+            image: us-central1-docker.pkg.dev/autoknow-prod-1895f1/autoknow/autoknow
+            workload_identity_provider: projects/1009926574065/locations/global/workloadIdentityPools/github/providers/github
+            service_account: autoknow-ci@autoknow-prod-1895f1.iam.gserviceaccount.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ matrix.instance.workload_identity_provider }}
+          service_account: ${{ matrix.instance.service_account }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ matrix.instance.region }}-docker.pkg.dev --quiet
+
+      - name: Build & push image
+        run: |
+          docker build --platform linux/amd64 \
+            -t "${{ matrix.instance.image }}:${{ github.sha }}" \
+            -t "${{ matrix.instance.image }}:latest" .
+          docker push "${{ matrix.instance.image }}:${{ github.sha }}"
+          docker push "${{ matrix.instance.image }}:latest"
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run services update ${{ matrix.instance.service }} \
+            --image "${{ matrix.instance.image }}:${{ github.sha }}" \
+            --project ${{ matrix.instance.project }} \
+            --region ${{ matrix.instance.region }} \
+            --quiet

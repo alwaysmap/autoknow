@@ -1,0 +1,55 @@
+name: Terraform
+
+# Infra CD. On a PR touching infra/terraform/**, run a read-only plan so reviewers see
+# the effect. `apply` is deliberately NOT push-automated: this stack manages org-level
+# resources (project/billing, org policy, Cloud Identity groups, IAM) whose privileges
+# should not sit behind a push-triggered identity. Apply is human-run — locally, or via
+# this workflow's manual dispatch once the CI SA is granted the elevated roles it needs.
+on:
+  pull_request:
+    paths: ['infra/terraform/**']
+  workflow_dispatch:
+    inputs:
+      instance:
+        description: 'Instance (matches instances/<name>.tfvars)'
+        default: alwaysmap
+      action:
+        description: 'plan or apply'
+        default: plan
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    env:
+      INSTANCE: ${{ github.event.inputs.instance || 'alwaysmap' }}
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          # These match the alwaysmap instance; parameterize per-instance when you add more.
+          workload_identity_provider: projects/1009926574065/locations/global/workloadIdentityPools/github/providers/github
+          service_account: autoknow-ci@autoknow-prod-1895f1.iam.gserviceaccount.com
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Init (remote state)
+        run: terraform init -input=false -backend-config=instances/${INSTANCE}.backend.hcl
+
+      # -refresh=false: the CI SA is read-only (roles/viewer); this shows the config↔state
+      # diff without needing write/refresh perms. It won't detect out-of-band drift.
+      - name: Plan
+        if: ${{ github.event_name == 'pull_request' || github.event.inputs.action == 'plan' }}
+        run: terraform plan -input=false -refresh=false -var-file=instances/${INSTANCE}.tfvars
+
+      - name: Apply (manual dispatch only)
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply' }}
+        run: terraform apply -input=false -auto-approve -var-file=instances/${INSTANCE}.tfvars
