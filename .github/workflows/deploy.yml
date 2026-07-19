@@ -72,13 +72,15 @@ jobs:
 
           PW=$(gcloud secrets versions access latest --secret=database-url --project "$PROJECT" | sed -E 's#.*://app:([^@]+)@.*#\1#')
           export DATABASE_URL="postgresql://app:${PW}@127.0.0.1:5432/autoknow?schema=public"
+          # psql rejects Prisma's ?schema= param, so use a plain libpq URL for the probes.
+          PSQL_URL="postgresql://app:${PW}@127.0.0.1:5432/autoknow"
 
           # Baseline: a DB provisioned before we adopted migrations has the schema but no
           # _prisma_migrations table. Mark 0_init applied so `deploy` doesn't try to re-create
           # existing tables. A genuinely EMPTY DB (fresh instance) skips this and `deploy`
           # runs 0_init to build the schema.
-          HISTORY=$(psql "$DATABASE_URL" -tAc "SELECT to_regclass('public._prisma_migrations')" || true)
-          TABLES=$(psql "$DATABASE_URL" -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name <> '_prisma_migrations'" || echo 0)
+          HISTORY=$(psql "$PSQL_URL" -tAc "SELECT to_regclass('public._prisma_migrations')" | tr -d '[:space:]')
+          TABLES=$(psql "$PSQL_URL" -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name <> '_prisma_migrations'" | tr -d '[:space:]')
           if [ -z "${HISTORY// /}" ] && [ "${TABLES:-0}" -gt 0 ]; then
             echo "::notice::Existing schema without migration history — baselining 0_init as applied"
             npx prisma migrate resolve --applied 0_init
