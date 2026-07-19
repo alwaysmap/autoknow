@@ -422,9 +422,13 @@ Small, mostly mechanical — none block the design:
   Monitoring alert on cron 5xx or `errors > 0` in the report.
 - **Backups:** enable Cloud SQL automated backups + PITR in Terraform
   (`settings.backup_configuration`).
-- **Custom domain + managed TLS:** optional `google_cloud_run_domain_mapping` (or a
-  load balancer) if you don't want the `run.app` URL; update OAuth redirect URIs and
-  the Chat App URL to match.
+- **Custom domain + managed TLS (implemented 2026-07-19):** `https://autoknow.alwaysmap.com`
+  via `google_cloud_run_domain_mapping` (var `custom_domain`; free managed cert, no
+  LB). Requires the applying identity to be a verified Search Console owner of the
+  parent domain. Two pieces deliberately live outside Terraform — the
+  `autoknow → ghs.googlehosted.com` CNAME in Squarespace's DNS UI and the OAuth
+  redirect URI — see OPERATIONS §8 for the full ops picture. `AUTH_URL` follows
+  `custom_domain` automatically; both origins keep serving.
 
 ---
 

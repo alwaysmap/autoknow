@@ -417,3 +417,56 @@ the **+ Add link** control on program/partner pages (scoped) and Manage → Sour
 | `DESTRUCTIVE_DB_ALLOWED` | wipe / mock-seed of a non-`*_test` DB | destructive ops refuse (fail closed) |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` / `GOOGLE_APPLICATION_CREDENTIALS` | Drive share-to-ingest + background Doc refresh | worker skips Docs; manual refresh only |
 | `GOOGLE_PROJECT_NUMBER` | Chat event JWT verification (§6) | /api/chat/events refuses (503) |
+
+---
+
+## 8. Custom domain (Cloud Run production)
+
+The production app serves on **https://autoknow.alwaysmap.com** (and continues to
+serve on the canonical run.app URL). Split of responsibilities, and where to go
+when something needs changing:
+
+**Terraform** (`infra/terraform/`, var `custom_domain` in
+`instances/<name>.tfvars`): the `google_cloud_run_domain_mapping` — free
+Google-managed TLS, no load balancer — and `AUTH_URL`, which follows
+`custom_domain` automatically. Changing or removing the domain is a tfvars edit
+→ infra PR → `terraform apply`, per the CHANGE_PLAYBOOK.
+
+**Deliberately NOT Terraform** (know where these live before touching anything):
+
+- **DNS.** The `alwaysmap.com` zone is not in GCP. It is managed in
+  **Squarespace's DNS UI** (account `dvhthomas@gmail.com` — the domain arrived in
+  the Google Domains → Squarespace migration; the `ns-cloud-b*.googledomains.com`
+  nameservers still serve it). It hosts the org's **Google Workspace MX records**
+  and the GitHub Pages site records — which is exactly why we chose not to migrate
+  the zone into Cloud DNS for the sake of one record. The one AutoKnow record:
+  `CNAME autoknow → ghs.googlehosted.com` (TTL 4h). Squarespace has **no DNS
+  API**, and every editing session demands a fresh authenticator-app 2FA code
+  (step-up re-prompts per protected action; there is no email fallback).
+- **OAuth redirect URIs.** The web client (`ak-webclient`, old project
+  `autoknow-alwaysmap`) must list a callback per serving origin; both
+  `https://autoknow-1009926574065.us-central1.run.app/api/auth/callback/google`
+  and `https://autoknow.alwaysmap.com/api/auth/callback/google` are registered.
+  Console-only (no API for consumer OAuth clients).
+
+**Domain ownership.** Creating a Cloud Run domain mapping requires the applying
+identity to be a **verified Search Console owner** of the parent domain.
+`dylan@alwaysmap.com` already is — via the Workspace-era
+`google-site-verification` TXT on the `alwaysmap.com` apex — so applies just
+work; confirm with `gcloud domains list-user-verified`. A different operator
+would need their own verification (Site Verification API DNS_TXT, or Search
+Console) before `terraform apply` can create a mapping.
+
+**TLS.** The managed certificate provisions itself once the mapping exists *and*
+the CNAME resolves (15–60 min typical) and renews automatically — but only while
+the CNAME stays in place. Status:
+
+```bash
+curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  "https://us-central1-run.googleapis.com/apis/domains.cloudrun.com/v1/namespaces/autoknow-prod-1895f1/domainmappings/autoknow.alwaysmap.com" \
+  | jq '.status.conditions'   # Ready=True when live; CertificatePending while issuing
+```
+
+**Gotcha:** `alwaysmaps.com` (with an s) is a stranger's domain — Tucows-registered,
+Route 53-hosted, nothing to do with us. Don't buy records, mappings, or
+verifications against it.
