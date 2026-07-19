@@ -184,14 +184,55 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, leadRo
       if (result.error) setServerError(result.error);
     });
 
-  // Edges from positions: bottom-center of upstream → top-center of downstream.
-  const edges = draft.flatMap((d) =>
-    d.dependsOn.filter((up) => layout.pos.has(up)).map((up) => {
-      const a = layout.pos.get(up)!, b = layout.pos.get(d.id)!;
-      const x1 = a.x + CARD_W / 2, y1 = a.y + CARD_H, x2 = b.x + CARD_W / 2, y2 = b.y;
-      return { key: `${up}-${d.id}`, d: `M ${x1} ${y1} C ${x1} ${y1 + GAP_Y * 0.6}, ${x2} ${y2 - GAP_Y * 0.6}, ${x2} ${y2}` };
-    }),
-  );
+  // Edges: tube-map grammar (the same 90°-jogs-no-beziers rule as PhaseTrack and
+  // PhaseGraph). Each edge gets its OWN port on the upstream card's bottom edge and
+  // the downstream card's top edge — ports sorted by the far endpoint's x so edges
+  // never cross — then routes vertical → mid-gap horizontal → vertical. Shared
+  // center points were the old branch/rejoin surprise: fan-outs peeled from one
+  // point and fan-ins fused into a single pinched arrow above the card.
+  const edges = (() => {
+    const pairs = draft.flatMap((d) =>
+      d.dependsOn.filter((up) => layout.pos.has(up)).map((up) => ({ up, down: d.id })),
+    );
+    const ports = new Map<string, number>();
+    const spreadAt = (id: number, list: { up: number; down: number }[], isOut: boolean) => {
+      list.sort((e1, e2) => layout.pos.get(isOut ? e1.down : e1.up)!.x - layout.pos.get(isOut ? e2.down : e2.up)!.x);
+      const n = list.length;
+      const spread = Math.min(34, n > 1 ? (CARD_W - 28) / (n - 1) : 0);
+      list.forEach((e, i) =>
+        ports.set(`${e.up}-${e.down}-${isOut ? 'o' : 'i'}`, layout.pos.get(id)!.x + CARD_W / 2 + (i - (n - 1) / 2) * spread),
+      );
+    };
+    const byUp = new Map<number, { up: number; down: number }[]>();
+    const byDown = new Map<number, { up: number; down: number }[]>();
+    pairs.forEach((e) => {
+      byUp.set(e.up, [...(byUp.get(e.up) ?? []), e]);
+      byDown.set(e.down, [...(byDown.get(e.down) ?? []), e]);
+    });
+    byUp.forEach((list, id) => spreadAt(id, list, true));
+    byDown.forEach((list, id) => spreadAt(id, list, false));
+
+    return pairs.map(({ up, down }) => {
+      const y1 = layout.pos.get(up)!.y + CARD_H, y2 = layout.pos.get(down)!.y;
+      const x1 = ports.get(`${up}-${down}-o`)!, x2 = ports.get(`${up}-${down}-i`)!;
+      let d: string;
+      if (Math.abs(x1 - x2) < 1) {
+        d = `M ${x1} ${y1} L ${x2} ${y2}`;
+      } else {
+        const mid = (y1 + y2) / 2, dir = x2 > x1 ? 1 : -1;
+        const r = Math.max(2, Math.min(8, Math.abs(x2 - x1) / 2, (y2 - y1) / 2 - 2));
+        d = [
+          `M ${x1} ${y1}`,
+          `L ${x1} ${mid - r}`,
+          `Q ${x1} ${mid} ${x1 + dir * r} ${mid}`,
+          `L ${x2 - dir * r} ${mid}`,
+          `Q ${x2} ${mid} ${x2} ${mid + r}`,
+          `L ${x2} ${y2}`,
+        ].join(' ');
+      }
+      return { key: `${up}-${down}`, d };
+    });
+  })();
 
   return (
     <div>
