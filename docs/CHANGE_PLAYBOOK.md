@@ -9,11 +9,13 @@ exactly.
 Rules only help if they can't be quietly ignored. The controls below make the dangerous
 operations fail regardless of who (human or agent) attempts them:
 
-1. **Least-privilege runtime role** (`scripts/db/harden-roles.sql`): the app's DB user has
-   row DML only — **no CREATE/ALTER/DROP/TRUNCATE**. `prisma db push` and any schema-
-   destroying SQL run with the app's `DATABASE_URL` fail with *permission denied*. Only the
-   `migrator` role (credentials in Secret Manager, reachable only by the CI SA) has DDL, and
-   it is used solely by `prisma migrate deploy`.
+1. **Least-privilege runtime role** (`scripts/db/harden-roles.sql`, verified live): the
+   runtime connects as **`app_runtime`** — a plain SQL role with **row DML only, no
+   CREATE/ALTER/DROP/TRUNCATE**. `prisma db push` and any schema-destroying SQL run with the
+   runtime `DATABASE_URL` fail with *permission denied*. Only the `app` owner role has DDL,
+   its credentials (`database-url`) are read only by the CI SA, and it is used solely by
+   `prisma migrate deploy`. (On Cloud SQL every API-created user is a `cloudsqlsuperuser`
+   member and can't be demoted, so the restricted role is created as a plain SQL role.)
 2. **Destructive-migration gate** (`scripts/ci/lint-migrations.sh`, `ci.yml`): a required PR
    check fails any new migration containing `DROP TABLE/COLUMN`, `TRUNCATE`, `SET DATA TYPE`,
    `SET NOT NULL`, etc. unless it carries an explicit reviewed `-- allow-destructive: <reason>`.
