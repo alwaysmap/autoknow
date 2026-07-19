@@ -25,8 +25,8 @@ locals {
     "sts.googleapis.com",
     "chat.googleapis.com",
     "drive.googleapis.com",         # background Drive doc ingestion (lib/driveSync, keyless SA token)
-    "cloudidentity.googleapis.com",  # the Workspace contributors group (Chat visibility)
-    "storage.googleapis.com",        # remote Terraform state bucket
+    "cloudidentity.googleapis.com", # the Workspace contributors group (Chat visibility)
+    "storage.googleapis.com",       # remote Terraform state bucket
     "cloudresourcemanager.googleapis.com",
     "orgpolicy.googleapis.com",
     "serviceusage.googleapis.com", # quota/billing project for the orgpolicy provider alias
@@ -187,6 +187,11 @@ locals {
   # visit the app here.
   service_url = "https://${var.service_name}-${google_project.autoknow.number}.${var.region}.run.app"
 
+  # Where users actually visit the app (and the Auth.js origin). The custom domain when
+  # mapped, else the run.app URL. Both origins keep serving; OAuth needs a registered
+  # redirect URI per origin.
+  app_url = var.custom_domain != "" ? "https://${var.custom_domain}" : local.service_url
+
   db_connection = google_sql_database_instance.db.connection_name
   # Unix-socket DSN via the Cloud SQL Auth Proxy mounted at /cloudsql.
   # database-url = the `app` owner/migration role (used by CI `migrate deploy`).
@@ -331,7 +336,7 @@ resource "google_cloud_run_v2_service" "app" {
       # break with error=Configuration.
       env {
         name  = "AUTH_URL"
-        value = local.service_url
+        value = local.app_url
       }
       # Keyless Google auth: names the runtime SA so lib/googleAuth can mint chat.bot /
       # drive tokens for it via IAM Credentials (no GOOGLE_SERVICE_ACCOUNT_JSON key).
@@ -348,14 +353,16 @@ resource "google_cloud_run_v2_service" "app" {
       # Secret env — one block per secret
       dynamic "env" {
         for_each = {
-          DATABASE_URL                 = "database-url"
-          AUTH_SECRET                  = "auth-secret"
-          CRON_SECRET                  = "cron-secret"
-          ADMIN_TOKEN                  = "admin-token"
-          GEMINI_API_KEY               = "gemini-api-key"
-          AUTH_GOOGLE_ID               = "auth-google-id"
-          AUTH_GOOGLE_SECRET           = "auth-google-secret"
-          GOOGLE_PROJECT_NUMBER        = "google-project-number"
+          # Runtime uses the DML-only app_runtime role (no DDL). Migrations use `app`
+          # (database-url) only in CI. See scripts/db/harden-roles.sql.
+          DATABASE_URL          = "runtime-database-url"
+          AUTH_SECRET           = "auth-secret"
+          CRON_SECRET           = "cron-secret"
+          ADMIN_TOKEN           = "admin-token"
+          GEMINI_API_KEY        = "gemini-api-key"
+          AUTH_GOOGLE_ID        = "auth-google-id"
+          AUTH_GOOGLE_SECRET    = "auth-google-secret"
+          GOOGLE_PROJECT_NUMBER = "google-project-number"
           # GOOGLE_SERVICE_ACCOUNT_JSON intentionally omitted: keyless (Workload Identity)
           # auth is used instead — see GOOGLE_SA_EMAIL + run_self_token above. The secret
           # container still exists for the key-file fallback path but isn't mounted here.
@@ -467,6 +474,28 @@ resource "google_cloud_scheduler_job" "refresh" {
   depends_on = [google_project_service.apis]
 }
 
+# ---- Custom domain ----
+# autoknow.alwaysmap.com. DNS for alwaysmap.com lives in Squarespace's UI (no API —
+# deliberate choice over migrating the org email domain's zone here), so the required
+# CNAME (autoknow → ghs.googlehosted.com, Cloud Run's shared front end for subdomain
+# mappings) is a manual record there, not Terraform. The mapping below gives free
+# managed TLS (vs ~$18/mo for a load balancer) and requires the applying identity to
+# be a verified Search Console owner of alwaysmap.com (dylan@ is, via the
+# Workspace-era google-site-verification TXT on the zone apex).
+resource "google_cloud_run_domain_mapping" "app" {
+  count    = var.custom_domain != "" ? 1 : 0
+  project  = google_project.autoknow.project_id
+  location = var.region
+  name     = var.custom_domain
+
+  metadata {
+    namespace = google_project.autoknow.project_id
+  }
+  spec {
+    route_name = google_cloud_run_v2_service.app.name
+  }
+}
+
 # ---- Workload Identity Federation (keyless GitHub Actions deploys) ----
 resource "google_iam_workload_identity_pool" "github" {
   project                   = google_project.autoknow.project_id
@@ -504,7 +533,7 @@ resource "google_service_account_iam_member" "ci_wif" {
 
 resource "google_project_iam_member" "ci_roles" {
   for_each = toset([
-    "roles/run.admin",              # deploy new revisions
+    "roles/run.admin",               # deploy new revisions
     "roles/artifactregistry.writer", # push images
     "roles/iam.serviceAccountUser",  # deploy runs the service as the runtime SA
     "roles/cloudsql.client",

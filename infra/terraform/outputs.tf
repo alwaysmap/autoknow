@@ -12,9 +12,19 @@ output "service_url_alias" {
   value       = google_cloud_run_v2_service.app.uri
 }
 
-output "oauth_redirect_uri" {
-  description = "Add this to the OAuth client's Authorized redirect URIs."
-  value       = "${local.service_url}/api/auth/callback/google"
+output "app_url" {
+  description = "Where users visit the app (custom domain when mapped, else the run.app URL) — == AUTH_URL."
+  value       = local.app_url
+}
+
+output "oauth_redirect_uris" {
+  description = "Add these to the OAuth client's Authorized redirect URIs (one per serving origin)."
+  value       = distinct(["${local.service_url}/api/auth/callback/google", "${local.app_url}/api/auth/callback/google"])
+}
+
+output "domain_mapping_dns" {
+  description = "DNS records the mapping requires (maintained manually in Squarespace's DNS UI)."
+  value       = try(google_cloud_run_domain_mapping.app[0].status[0].resource_records, [])
 }
 
 output "sql_connection_name" {

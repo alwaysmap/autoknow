@@ -26,8 +26,8 @@ variable "region" {
 }
 
 variable "service_name" {
-  type        = string
-  default     = "autoknow"
+  type    = string
+  default = "autoknow"
 }
 
 variable "image" {
@@ -40,6 +40,12 @@ variable "allowed_domain" {
   type        = string
   description = "Workspace domain allowed to sign in (AUTH_ALLOWED_DOMAIN)."
   default     = "alwaysmap.com"
+}
+
+variable "custom_domain" {
+  type        = string
+  description = "Public hostname to map to the service (e.g. autoknow.alwaysmap.com). Requires the applying identity to be a verified owner of the parent domain, and a CNAME to ghs.googlehosted.com at the DNS host. Empty = run.app URL only."
+  default     = ""
 }
 
 variable "db_tier" {
