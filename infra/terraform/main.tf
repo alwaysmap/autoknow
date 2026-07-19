@@ -30,6 +30,12 @@ locals {
     "cloudresourcemanager.googleapis.com",
     "orgpolicy.googleapis.com",
     "serviceusage.googleapis.com", # quota/billing project for the orgpolicy provider alias
+    # Modern Chat apps are add-on-framework apps; delivery requires the add-on
+    # registration chain (OAuth consent screen + Marketplace SDK app config with
+    # "Standalone Chat App" + private published listing — all console-only) and
+    # these two APIs behind it. See docs/OPERATIONS.md §6 and the Chat runbook.
+    "gsuiteaddons.googleapis.com",
+    "appsmarket-component.googleapis.com",
   ]
 }
 
