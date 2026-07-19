@@ -764,7 +764,7 @@
 }
 .popover {
   position: relative;
-  width: min(720px, 100%);
+  width: min(980px, 100%); /* two-pane dossier; updates are 4-5 sentence prose */
   background: var(--paper);
   border: 1px solid var(--border);
   /* the chain-accent edge echoes the constraint marker — "you are focused on one station" */
@@ -953,4 +953,61 @@
 .startedDate {
   color: var(--muted);
   font-size: 12px;
+}
+
+/* ---- Option-1 dossier: Progress (what happened) | About (what is) ---- */
+/* DOM order is Progress-first (reading/a11y flow and the narrow stack); on wide
+   screens CSS order places About on the left, Progress on the right. */
+.dossier {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-top: 10px;
+}
+
+.aboutPane {
+  order: -1;
+  flex: 0.9;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.progressPane {
+  flex: 1.25; /* updates are prose — the writing/reading pane gets the wider beam */
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  /* updates + full history scroll inside the pane; the popover itself stays put */
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.zoneTitle {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+@media (max-width: 860px) {
+  .dossier { flex-direction: column; }
+  .aboutPane { order: 2; width: 100%; }   /* narrow: updates stack ABOVE metadata */
+  .progressPane { width: 100%; max-height: none; }
+}
+
+/* One-line goal excerpt on the rail card — the phase's purpose at a glance. */
+.goalLine {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin: 1px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
 }

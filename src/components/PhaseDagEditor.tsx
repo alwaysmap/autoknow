@@ -39,6 +39,7 @@ interface PhaseDagEditorProps {
   initial: DagEditorNode[];
   onSave: (draft: DagEditorNode[]) => Promise<{ error?: string }>;
   templateFields?: boolean; // show leadRole/description/googleFocus in the panel
+  descriptionField?: boolean; // show ONLY the Goal & DoD markdown (program editors)
   leadRoles?: string[];
   defaultWeeks?: number;
 }
@@ -49,7 +50,7 @@ const GRID = 24;
 const CARD_W = GRID * 6, CARD_H = GRID * 1.5, GAP_X = GRID, GAP_Y = GRID * 2.5, PAD = GRID;
 const snapTo = (v: number) => Math.round(v / GRID) * GRID;
 
-export default function PhaseDagEditor({ initial, onSave, templateFields, leadRoles, defaultWeeks = 4 }: PhaseDagEditorProps) {
+export default function PhaseDagEditor({ initial, onSave, templateFields, descriptionField, leadRoles, defaultWeeks = 4 }: PhaseDagEditorProps) {
   const locale = useLocale();
   const [draft, setDraft] = useState<DagEditorNode[]>(initial);
   const [nextNewId, setNextNewId] = useState(-1);
@@ -341,6 +342,15 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, leadRo
               />
             </label>
 
+            {(templateFields || descriptionField) && (
+              /* rich markdown, keyed by node so switching selection reloads content */
+              <div className={styles.panelLabel}>{t(locale, 'descriptionLabel')}
+                <MarkdownNoteEditor key={`d${selected.id}`} name="description" ariaLabel={t(locale, 'descriptionLabel')}
+                  placeholder={t(locale, 'goalDodPlaceholder')}
+                  initialMarkdown={selected.description ?? ''}
+                  onChange={(md) => patch(selected.id, { description: md || null })} />
+              </div>
+            )}
             {templateFields && (
               <>
                 <label className={styles.panelLabel}>{t(locale, 'leadRoleLabel')}
@@ -354,12 +364,6 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, leadRo
                     {(leadRoles ?? []).map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </label>
-                {/* rich markdown, keyed by node so switching selection reloads content */}
-                <div className={styles.panelLabel}>{t(locale, 'descriptionLabel')}
-                  <MarkdownNoteEditor key={`d${selected.id}`} name="description" ariaLabel={t(locale, 'descriptionLabel')}
-                    initialMarkdown={selected.description ?? ''}
-                    onChange={(md) => patch(selected.id, { description: md || null })} />
-                </div>
                 <div className={styles.panelLabel}>{t(locale, 'googleFocusLabel')}
                   <MarkdownNoteEditor key={`g${selected.id}`} name="googleFocus" ariaLabel={t(locale, 'googleFocusLabel')}
                     initialMarkdown={selected.googleFocus ?? ''}
