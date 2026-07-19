@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { chatConfigured, verifyChatToken, handleChatEvent, type ChatEvent } from '../../../../lib/chatEvents';
+import { chatConfigured, verifyChatToken, handleChatEvent, normalizeChatEvent } from '../../../../lib/chatEvents';
+import { formatChatReply } from '../../../../lib/chatEvents';
 
 export const dynamic = 'force-dynamic';
 
-// Google Chat interaction events (plan §5.1 / slice 4). Auth is the JWT Chat sends
-// (issuer chat@system.gserviceaccount.com, audience = our project number) — verified
-// in lib/chatEvents. The JSON we return is posted as the app's in-thread reply.
+// Google Chat interaction events (plan §5.1 / slice 4). Two auth+framing shapes:
+// legacy HTTP Chat apps (chat@system JWT, top-level `type`) and add-on-framework
+// apps (Google ID token for the gsuiteaddons SA, `chat.*Payload` envelope) — both
+// verified/normalized in lib/chatEvents. The JSON we return is the app's reply.
 
 export async function POST(req: NextRequest) {
   if (!chatConfigured) {
@@ -26,13 +28,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const event = (await req.json().catch(() => null)) as ChatEvent | null;
-  if (!event) return NextResponse.json({ error: 'Bad request' }, { status: 400 });
+  const body = await req.json().catch(() => null);
+  const normalized = body ? normalizeChatEvent(body) : null;
+  if (!normalized) return NextResponse.json({ error: 'Bad request' }, { status: 400 });
+  const { event, addon } = normalized;
   // Log opaque thread ids, not sender emails or message/reply text — PII in logs
   // has retention implications, and the thread id is enough to correlate.
-  console.log(`[chat] type=${event.type} thread=${event.message?.thread?.name ?? '-'}`);
+  console.log(`[chat] type=${event.type} addon=${addon} thread=${event.message?.thread?.name ?? '-'}`);
 
   const reply = await handleChatEvent(event);
   console.log(`[chat] replied (${reply && 'text' in reply ? 'text' : 'empty'})`);
-  return NextResponse.json(reply);
+  return NextResponse.json(formatChatReply(reply, addon));
 }
