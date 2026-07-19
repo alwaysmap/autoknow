@@ -30,6 +30,11 @@ output "runtime_service_account" {
   value = google_service_account.run.email
 }
 
+output "chat_service_account" {
+  description = "Register this SA in the Google Chat API config; share Drive docs with it (keyless — it's the Cloud Run runtime SA)."
+  value       = google_service_account.run.email
+}
+
 output "wif_provider" {
   description = "For google-github-actions/auth (workload_identity_provider)."
   value       = google_iam_workload_identity_pool_provider.github.name

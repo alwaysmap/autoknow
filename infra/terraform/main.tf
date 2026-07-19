@@ -121,6 +121,16 @@ resource "google_service_account" "scheduler" {
   display_name = "AutoKnow Cloud Scheduler"
 }
 
+# ---- Keyless bot/Drive identity ----
+# The Chat app authenticates as the Cloud Run runtime SA and mints chat.bot / drive
+# tokens via the IAM Credentials API (no key material — see lib/googleAuth). That
+# self-mint requires the SA to be able to impersonate itself.
+resource "google_service_account_iam_member" "run_self_token" {
+  service_account_id = google_service_account.run.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.run.email}"
+}
+
 # ---- Secrets ----
 # Generated secrets: value lives in TF (standard for random_password).
 resource "random_password" "auth_secret" {
@@ -181,6 +191,7 @@ resource "google_secret_manager_secret_version" "generated" {
   secret_data = each.value
 }
 
+
 # ---- Cloud Run service ----
 resource "google_cloud_run_v2_service" "app" {
   project             = google_project.autoknow.project_id
@@ -217,6 +228,12 @@ resource "google_cloud_run_v2_service" "app" {
         name  = "AUTH_URL"
         value = local.service_url
       }
+      # Keyless Google auth: names the runtime SA so lib/googleAuth can mint chat.bot /
+      # drive tokens for it via IAM Credentials (no GOOGLE_SERVICE_ACCOUNT_JSON key).
+      env {
+        name  = "GOOGLE_SA_EMAIL"
+        value = google_service_account.run.email
+      }
       # Secret env — one block per secret
       dynamic "env" {
         for_each = {
@@ -228,7 +245,9 @@ resource "google_cloud_run_v2_service" "app" {
           AUTH_GOOGLE_ID               = "auth-google-id"
           AUTH_GOOGLE_SECRET           = "auth-google-secret"
           GOOGLE_PROJECT_NUMBER        = "google-project-number"
-          GOOGLE_SERVICE_ACCOUNT_JSON  = "google-service-account-json"
+          # GOOGLE_SERVICE_ACCOUNT_JSON intentionally omitted: keyless (Workload Identity)
+          # auth is used instead — see GOOGLE_SA_EMAIL + run_self_token above. The secret
+          # container still exists for the key-file fallback path but isn't mounted here.
         }
         content {
           name = env.key

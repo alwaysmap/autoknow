@@ -117,6 +117,14 @@ export async function handleChatEvent(event: ChatEvent): Promise<{ text: string 
   if (event.type !== 'MESSAGE' || !event.message) return {};
   if (!geminiConfigured) return { text: 'AI ingestion is off (no GEMINI_API_KEY on the server) — nothing was saved.' };
 
+  // Single-domain guarantee at the code level: never ingest content from a sender
+  // outside AUTH_ALLOWED_DOMAIN, independent of Workspace allowlist config (plan §7b).
+  const allowedDomain = process.env.AUTH_ALLOWED_DOMAIN;
+  const senderEmail = event.message.sender?.email ?? '';
+  if (allowedDomain && !senderEmail.toLowerCase().endsWith(`@${allowedDomain.toLowerCase()}`)) {
+    return { text: `AutoKnow only ingests messages from @${allowedDomain} accounts.` };
+  }
+
   const msg = event.message;
   const spaceName = event.space?.name ?? msg.thread?.name?.split('/threads/')[0] ?? '';
   const threadName = msg.thread?.name ?? msg.name;
