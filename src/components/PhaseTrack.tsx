@@ -359,10 +359,14 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   }, []);
 
   // Vertical bypass loop: out of the station, down an outer lane, back in. Tube-map
-  // grammar — 90° jogs with small radii, no curves.
-  const bypassPath = (e: Edge, y1: number, y2: number) => {
+  // grammar — 90° jogs with small radii, no curves. Direction-agnostic and the radius
+  // clamped positive: stationOrder guarantees downward edges, but a degenerate span
+  // must degrade to a tight loop, never a negative radius (which renders as a giant
+  // off-panel arc — the old branch-then-rejoin bug).
+  const bypassPath = (e: Edge, yA: number, yB: number) => {
+    const [y1, y2] = yA <= yB ? [yA, yB] : [yB, yA];
     const bx = laneX(e.lane);
-    const r = Math.min(7, (y2 - y1) / 2 - 2);
+    const r = Math.max(2, Math.min(7, (y2 - y1) / 2 - 2));
     return [
       `M ${mainX} ${y1}`,
       `L ${bx + r} ${y1}`,
