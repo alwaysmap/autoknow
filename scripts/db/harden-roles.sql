@@ -7,6 +7,9 @@
 -- it, `prisma db push`, DROP/ALTER/TRUNCATE, etc. all fail with "permission denied".
 -- `app` remains the owner and is used only by CI `prisma migrate deploy`.
 
+-- CREATE ROLE defaults to NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOLOGIN — exactly what we
+-- want. `app` (CREATEROLE, non-superuser) cannot set the SUPERUSER attribute at all, so we
+-- only set LOGIN + PASSWORD, which it is allowed to do on a role it created/admins.
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_runtime') THEN
@@ -14,8 +17,7 @@ BEGIN
   END IF;
 END$$;
 
-ALTER ROLE app_runtime WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
-  PASSWORD :'runtime_pw';
+ALTER ROLE app_runtime WITH LOGIN PASSWORD :'runtime_pw';
 
 -- Row DML only; explicitly no schema-create right.
 GRANT USAGE ON SCHEMA public TO app_runtime;
