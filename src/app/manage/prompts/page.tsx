@@ -51,13 +51,13 @@ export default async function SummaryPromptsPage() {
                 style={{
                   width: '100%', font: '12.5px/1.55 var(--font-geist-mono, monospace)',
                   padding: '10px 12px', border: '1px solid var(--border, #ddd)', borderRadius: 8,
-                  background: '#fff', color: 'var(--fg, #222)', resize: 'vertical',
+                  background: 'var(--paper)', color: 'var(--fg, #222)', resize: 'vertical',
                 }}
               />
               <div style={{ marginTop: 8 }}>
                 <button type="submit" style={{
                   fontSize: 12, fontWeight: 600, padding: '6px 16px', borderRadius: 6, cursor: 'pointer',
-                  border: '1px solid var(--fg, #222)', background: 'var(--fg, #222)', color: '#fff',
+                  border: '1px solid var(--fg, #222)', background: 'var(--fg, #222)', color: 'var(--paper)',
                 }}>
                   {t(locale, 'savePrompt')}
                 </button>
@@ -70,7 +70,7 @@ export default async function SummaryPromptsPage() {
                 <input type="hidden" name="scope" value={scope} />
                 <button type="submit" style={{
                   fontSize: 12, fontWeight: 600, padding: '6px 16px', borderRadius: 6, cursor: 'pointer',
-                  border: '1px solid var(--border, #ccc)', background: '#fff', color: 'var(--fg, #222)',
+                  border: '1px solid var(--border, #ccc)', background: 'var(--paper)', color: 'var(--fg, #222)',
                 }}>
                   {t(locale, 'restoreDefaultPrompt')}
                 </button>

@@ -33,7 +33,7 @@
 }
 
 .deleteButton:hover {
-  color: #c5221f;
+  color: var(--bad);
 }
 .dialog {
   border: 1px solid var(--border);
@@ -124,7 +124,7 @@
 }
 
 .dangerBtn:hover:not(:disabled) {
-  background-color: #a50e0d;
+  background-color: var(--crit);
 }
 
 .dangerBtn:disabled {

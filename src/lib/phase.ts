@@ -36,3 +36,16 @@ export function phaseColor(phaseId: number): string {
   const n = PHASE_PALETTE.length;
   return PHASE_PALETTE[((phaseId % n) + n) % n];
 }
+
+/** A phase is ACTIVE once work has begun — explicitly marked started (the Active
+ *  toggle, set when another team is doing the work and no update exists yet) or
+ *  implied by progress. Cycle-time elapsed clocks run while active. */
+export function isPhaseActive(progress: number, startedAt: string | null): boolean {
+  return (progress > 0 && progress < 100) || (progress < 100 && startedAt != null);
+}
+
+/** Progress value to DERIVE display status from: an explicitly-started phase at 0
+ *  reads as In Progress, not Not Started (the whole point of the Active toggle). */
+export function statusProgress(progress: number, startedAt: string | null): number {
+  return progress <= 0 && startedAt != null ? 1 : progress;
+}

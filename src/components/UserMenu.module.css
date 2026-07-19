@@ -9,7 +9,7 @@
   border-radius: 50%;
   border: none;
   background: var(--p-600);
-  color: var(--white, #fff);
+  color: var(--white, var(--paper));
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -30,7 +30,7 @@
   z-index: 40;
   min-width: 220px;
   padding: 16px;
-  background: var(--white, #fff);
+  background: var(--white, var(--paper));
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
@@ -45,7 +45,7 @@
   height: 44px;
   border-radius: 50%;
   background: var(--p-600);
-  color: var(--white, #fff);
+  color: var(--white, var(--paper));
   font-size: 16px;
   font-weight: 700;
   display: flex;
@@ -72,7 +72,7 @@
 .signOutBtn,
 .signInBtn {
   border: 1px solid var(--border);
-  background: var(--white, #fff);
+  background: var(--white, var(--paper));
   border-radius: 999px;
   padding: 5px 16px;
   font-size: 12.5px;
@@ -83,4 +83,30 @@
 .signOutBtn:hover,
 .signInBtn:hover {
   background: var(--surface);
+}
+
+/* Personal settings rows (theme, language) — quiet label/control pairs separated
+   from the identity block above and the sign-out action below. */
+.prefs {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.prefRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.prefLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }

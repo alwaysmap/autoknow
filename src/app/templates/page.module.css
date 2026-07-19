@@ -108,7 +108,7 @@
   border: 1px solid var(--fg);
   border-radius: 6px;
   background: var(--fg);
-  color: #fff;
+  color: var(--paper);
   cursor: pointer;
 }
 .primaryBtn:hover {
@@ -126,7 +126,7 @@
   cursor: pointer;
 }
 .miniBtn:hover {
-  background: #fff;
+  background: var(--paper);
   border-color: var(--muted);
   color: var(--fg);
 }
@@ -142,6 +142,6 @@
   cursor: pointer;
 }
 .dangerBtn:hover {
-  color: #c5221f;
-  border-color: #c5221f;
+  color: var(--bad);
+  border-color: var(--bad);
 }

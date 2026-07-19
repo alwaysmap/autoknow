@@ -36,7 +36,7 @@
   border: none;
   border-radius: 12px;
   padding: 20px 24px;
-  background-color: var(--white, #fff);
+  background-color: var(--white, var(--paper));
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   max-width: 380px;
   width: 90%;
@@ -462,7 +462,7 @@
 }
 .primaryQuietBtn:hover {
   background: var(--fg);
-  color: #fff;
+  color: var(--paper);
 }
 
 /* Icon-only "Details" affordance, riding in the header next to the fold caret —
@@ -509,7 +509,7 @@
 /* Lead partner (OEM / Supplier): solid ink, light text. */
 .pillLead {
   background: var(--fg);
-  color: #fff;
+  color: var(--paper);
 }
 .pillLead:hover {
   opacity: 0.85;
@@ -559,7 +559,7 @@
   padding: 3px 6px 3px 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: #fff;
+  background: var(--paper);
 }
 
 .partnerLink {
@@ -589,7 +589,7 @@
   line-height: 1;
 }
 .chipRemove:hover {
-  color: #c5221f;
+  color: var(--bad);
 }
 
 .addInlineForm {
@@ -612,7 +612,7 @@
 .quietSelect:focus,
 .roleInput:hover,
 .roleInput:focus {
-  background: #fff;
+  background: var(--paper);
   color: var(--fg);
 }
 .roleInput {
@@ -630,7 +630,7 @@
   cursor: pointer;
 }
 .miniBtn:hover {
-  background: #fff;
+  background: var(--paper);
   border-color: var(--muted);
   color: var(--fg);
 }
@@ -659,7 +659,7 @@
   padding: 3px 6px 3px 8px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: #fff;
+  background: var(--paper);
 }
 
 .depJump {
@@ -683,7 +683,7 @@
 
 .depError {
   font-size: 12px;
-  color: #c5221f;
+  color: var(--bad);
 }
 
 .removePhase {
@@ -701,7 +701,7 @@
   text-underline-offset: 2px;
 }
 .removeBtn:hover {
-  color: #c5221f;
+  color: var(--bad);
 }
 
 /* Legend: one quiet line naming the station/track vocabulary. */
@@ -749,7 +749,7 @@
 .scrim {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 110; /* above the pinned nav (100) — a modal owns the whole viewport */
   background: rgba(20, 20, 20, 0.4);
   display: flex;
   align-items: flex-start;
@@ -764,8 +764,8 @@
 }
 .popover {
   position: relative;
-  width: min(720px, 100%);
-  background: #fff;
+  width: min(1140px, 94vw); /* two-pane dossier; updates are 4-5 sentence prose */
+  background: var(--paper);
   border: 1px solid var(--border);
   /* the chain-accent edge echoes the constraint marker — "you are focused on one station" */
   border-left: 3px solid var(--chain);
@@ -886,7 +886,7 @@
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--paper);
   color: var(--fg);
   resize: vertical;
   width: 100%;
@@ -905,7 +905,7 @@
   border: 1px solid var(--fg);
   border-radius: 6px;
   background: var(--fg);
-  color: #fff;
+  color: var(--paper);
   cursor: pointer;
 }
 .primaryBtn:hover {
@@ -931,4 +931,120 @@
   .when {
     display: none;
   }
+}
+
+/* Work-started (Active) toggle in the details popover — a quiet claim line, not a
+   form field: cycle-time clocks start here when the hill hasn't moved yet. */
+.startedRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--fg);
+  margin: 2px 0 6px;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.startedRow input {
+  accent-color: var(--p-500);
+}
+
+.startedDate {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ---- Option-1 dossier: Progress (what happened) | About (what is) ---- */
+/* DOM order is Progress-first (reading/a11y flow and the narrow stack); on wide
+   screens CSS order places About on the left, Progress on the right. */
+.dossier {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-top: 10px;
+}
+
+.aboutPane {
+  order: -1;
+  flex: 0.9;
+  min-width: 0;
+  padding-right: 22px;
+  border-right: 1px solid var(--border); /* the ONE divider between what-is and what-happened */
+}
+
+.progressPane {
+  flex: 1.25; /* updates are prose — the writing/reading pane gets the wider beam */
+  min-width: 0;
+  /* updates + full history scroll inside the pane; the popover itself stays put */
+  max-height: 62vh;
+  overflow-y: auto;
+  padding-right: 4px; /* room for the scrollbar, not a box */
+}
+
+/* About-pane meta: ONE grammar for every row (design.md §7) — small-caps label
+   left, value right, on one line; whitespace between rows, a single hairline
+   between the prose block above and this grid. */
+.aboutMeta {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 10px;
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  column-gap: 12px;
+  row-gap: 7px;
+  align-items: baseline;
+}
+
+.aboutMeta > * {
+  display: contents; /* each row contributes its label + content to the grid */
+}
+
+.aboutMeta .depsLabel,
+.aboutMeta .metaLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0;
+}
+
+.aboutMeta .depsRow,
+.aboutMeta .detailsSection {
+  display: contents;
+}
+
+/* chips + inline add-forms flow together in the value cell */
+.aboutMeta .chipCell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+@media (max-width: 860px) {
+  .dossier { flex-direction: column; }
+  /* narrow: updates stack ABOVE metadata; the divider rotates to horizontal */
+  .aboutPane { order: 2; width: 100%; border-right: none; border-top: 1px solid var(--border); padding: 12px 0 0; }
+  .progressPane { width: 100%; max-height: none; }
+}
+
+/* One-line goal excerpt on the rail card — the phase's purpose at a glance. */
+.goalLine {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin: 1px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
+}
+
+/* Started row spans the grid — one icon+fact+action line (design.md §7). */
+.aboutMeta .startedRow {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
 }

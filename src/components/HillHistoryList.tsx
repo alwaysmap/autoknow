@@ -10,23 +10,28 @@ import { localDate } from '../lib/dates';
 // (no UPDATE button) on the left, with the status, date, person, and markdown note to
 // the right. Mirrors NeedleHistoryList; reuses its styles.
 
+// `compact` renders the same cards at popover scale — ONE component owns how a
+// phase's progress history looks, whether on the standalone history page or in
+// the phase card's Progress pane.
 export default function HillHistoryList({
   changes,
   color,
   emptyLabel,
   locale = 'en',
+  compact,
 }: {
   changes: HillChange[];
   color: string;
   emptyLabel?: string;
   locale?: Locale;
+  compact?: boolean;
 }) {
   if (changes.length === 0) {
     return <p className={styles.empty}>{emptyLabel ?? t(locale, 'noUpdatesRecorded')}</p>;
   }
 
   return (
-    <div className={styles.list}>
+    <div className={compact ? `${styles.list} ${styles.compact}` : styles.list}>
       {changes.map((c, i) => (
         <article key={`${c.timestamp}-${i}`} className={styles.card}>
           <div className={styles.gauge}>

@@ -32,6 +32,7 @@ export default async function ProgramPhasesPage(props: { params: Promise<{ id: s
     forecastedDuration: p.forecastedDuration,
     progress: p.states[0]?.hillChartProgress ?? 0,
     dependsOn: p.dependencies.map((d) => d.dependsOnPhaseId),
+    description: p.description ?? null,
   }));
 
   return <ProgramPhaseEditor projectId={projectId} projectName={project.name} phases={phases} />;

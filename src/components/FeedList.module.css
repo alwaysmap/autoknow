@@ -43,9 +43,9 @@
 .title { font-weight: 400; color: var(--fg, #1a1a1a); text-decoration: none; }
 .title:hover { text-decoration: underline; }
 
-.aside { margin-left: auto; font-size: 12px; color: var(--muted, #777); white-space: nowrap; }
+.aside { margin-left: auto; font-size: 12px; color: var(--muted, var(--muted)); white-space: nowrap; }
 
-.meta { font-size: 12px; color: var(--muted, #777); margin-top: 2px; }
+.meta { font-size: 12px; color: var(--muted, var(--muted)); margin-top: 2px; }
 
 .aiMark {
   margin: 1px 0 3px;
@@ -59,4 +59,4 @@
   margin-top: 6px;
 }
 
-.empty { font-size: 13px; font-style: italic; color: var(--muted, #777); padding: 8px 0; }
+.empty { font-size: 13px; font-style: italic; color: var(--muted, var(--muted)); padding: 8px 0; }

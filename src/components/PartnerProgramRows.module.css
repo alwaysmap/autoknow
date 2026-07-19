@@ -115,7 +115,7 @@
   padding: 3px 9px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: #fff;
+  background: var(--paper);
 }
 .phaseChip:hover {
   border-color: var(--muted);

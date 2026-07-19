@@ -10,7 +10,10 @@ import { deriveEndPhase } from '../lib/programDag';
 import { validateTemplateDag } from '../lib/templateDag';
 import { HILL_PATH, hillCoordinates } from '../lib/geometry';
 import { t, statusKey, Locale } from '../lib/i18n';
-import { updatePhaseHill } from '../app/actions/hill';
+import { isPhaseActive, statusProgress, phaseColor } from '../lib/phase';
+import HillHistoryList from './HillHistoryList';
+import type { HillChange } from '../lib/history';
+import { updatePhaseHill, setPhaseStarted } from '../app/actions/hill';
 import { addPhasePartner, removePhasePartner } from '../app/actions/phasePartners';
 import { addPhasePerson, removePhasePerson } from '../app/actions/phasePeople';
 import type { PhaseGraphRow } from './PhaseGraph';
@@ -68,7 +71,8 @@ export interface PhasePersonLink {
 }
 
 export interface PhaseTrackRow extends PhaseGraphRow {
-  startedAt: string | null; // first state with progress > 0
+  startedAt: string | null; // explicit Active toggle if set, else first state with progress > 0
+  startedExplicit: boolean; // the Active toggle itself (drives the checkbox state)
   completedAt: string | null; // first state with progress >= 100
   activities: PhaseActivity[]; // pending action items (no longer surfaced on the rail)
   history: PhaseHistoryEntry[]; // hill updates, newest first (latest == note above)
@@ -109,8 +113,8 @@ function pillClass(typeName: string | null, companyName: string | null, isPerson
 // Monochrome station symbol: filled = done, right-half = in progress, open = not
 // started. Heavier ink for critical-chain stations; a single amber ring marks the
 // constraint. Hover for the name+status; click jumps to the row.
-function Station({ x, y, progress, onChain, isConstraint, title, onClick }: {
-  x: number; y: number; progress: number; onChain: boolean; isConstraint: boolean;
+function Station({ x, y, progress, started, onChain, isConstraint, title, onClick }: {
+  x: number; y: number; progress: number; started?: boolean; onChain: boolean; isConstraint: boolean;
   title: string; onClick?: () => void;
 }) {
   const r = onChain ? 6 : 5;
@@ -120,10 +124,13 @@ function Station({ x, y, progress, onChain, isConstraint, title, onClick }: {
       {/* interchange-station treatment: the ring's interior is solid white so the
           track visibly terminates at the station instead of passing through */}
       {isConstraint && <circle cx={x} cy={y} r={r + 4} fill="#fff" stroke="var(--chain)" strokeWidth={2} />}
-      <circle cx={x} cy={y} r={r} fill={progress >= 100 ? stroke : '#fff'} stroke={stroke} strokeWidth={onChain ? 2 : 1.5} />
+      <circle cx={x} cy={y} r={r} fill={progress >= 100 ? stroke : 'var(--paper)'} stroke={stroke} strokeWidth={onChain ? 2 : 1.5} />
       {progress > 0 && progress < 100 && (
         <path d={`M ${x} ${y - (r - 0.75)} A ${r - 0.75} ${r - 0.75} 0 0 1 ${x} ${y + (r - 0.75)} Z`} fill={stroke} stroke="none" />
       )}
+      {/* started (Active toggle) with no progress yet: a center dot — work is
+          underway even though the hill hasn't moved */}
+      {progress <= 0 && started && <circle cx={x} cy={y} r={r - 3} fill={stroke} stroke="none" />}
       <title>{title}</title>
     </g>
   );
@@ -134,7 +141,7 @@ function Station({ x, y, progress, onChain, isConstraint, title, onClick }: {
 function StationGlyph({ progress }: { progress: number }) {
   return (
     <svg viewBox="0 0 14 14" width={14} height={14} className={styles.popStation} aria-hidden>
-      <circle cx={7} cy={7} r={5} fill={progress >= 100 ? INK : '#fff'} stroke={INK} strokeWidth={1.5} />
+      <circle cx={7} cy={7} r={5} fill={progress >= 100 ? INK : 'var(--paper)'} stroke={INK} strokeWidth={1.5} />
       {progress > 0 && progress < 100 && <path d="M 7 2.6 A 4.4 4.4 0 0 1 7 11.4 Z" fill={INK} />}
     </svg>
   );
@@ -205,7 +212,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     if (p.progress >= 100 && p.startedAt && p.completedAt) {
       return t(locale, 'plannedTook', { p: planned, e: fmtW((+new Date(p.completedAt) - +new Date(p.startedAt)) / DAY_MS) });
     }
-    if (p.progress > 0 && p.startedAt) {
+    if (isPhaseActive(p.progress, p.startedAt) && p.startedAt) {
       return t(locale, 'plannedElapsed', { p: planned, e: fmtW((now - +new Date(p.startedAt)) / DAY_MS) });
     }
     return t(locale, 'plannedOnly', { p: planned });
@@ -219,7 +226,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     let actualDays: number | null = null;
     if (p.progress >= 100 && p.startedAt && p.completedAt) {
       actualDays = (+new Date(p.completedAt) - +new Date(p.startedAt)) / DAY_MS;
-    } else if (p.progress > 0 && p.startedAt) {
+    } else if (isPhaseActive(p.progress, p.startedAt) && p.startedAt) {
       actualDays = (now - +new Date(p.startedAt)) / DAY_MS;
     }
     if (actualDays == null) return null;
@@ -329,7 +336,13 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     if (detailsId == null) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDetailsId(null); };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // A modal owns the viewport: the page behind must not scroll under the scrim.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [detailsId]);
 
   // Station y-centers are measured from the DOM so the track follows real row heights.
@@ -381,6 +394,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     if ((e.target as HTMLElement).closest('a, button, input, select, textarea, form')) return;
     toggle(p);
   };
+
+
+  // One-line goal excerpt for the rail card: the first meaningful line of the
+  // Goal & DoD markdown, tokens stripped — the phase's purpose at a glance.
+  const goalExcerpt = (md: string): string =>
+    md.split('\n').map((l) => l.replace(/^[#>*\-\s]+/, '').replace(/\*\*/g, '').trim()).find(Boolean) ?? '';
 
   const fmtDate = (iso: string) =>
     localDate(iso, locale, { month: 'short', day: 'numeric' });
@@ -448,7 +467,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
           <div className={styles.details} data-testid="phase-details">
             <div className={styles.detailsHead}>
               <StationGlyph progress={p.progress} />
-              <h3 className={styles.detailsTitle} title={status(p.progress)}>{p.name}</h3>
+              <h3 className={styles.detailsTitle} title={status(statusProgress(p.progress, p.startedAt))}>{p.name}</h3>
               <span className={styles.plan}>{planWords(p)}</span>
               {paceChip(p)}
             </div>
@@ -457,16 +476,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               <p className={styles.constraintWhy}>{constraintWhy(p).join(' · ')}</p>
             )}
 
-            {/* template-sourced content: what this phase is, and where Google leans in */}
-            {p.description && (
-              <div className={styles.templateDoc}><Markdown>{p.description}</Markdown></div>
-            )}
-            {p.googleFocus && (
-              <div className={styles.metaLine}>
-                <span className={styles.metaLabel}>{t(locale, 'googleFocusLabel')}</span>
-                <span className={styles.templateFocus}><Markdown>{p.googleFocus}</Markdown></span>
-              </div>
-            )}
+            {/* Option-1 dossier: two zones, hard-separated. LEFT = Progress (what
+                happened — the update form + full history, scrollable). RIGHT =
+                About (what the phase IS — goal & definition of done, flow,
+                involvement, timing). Updates lead; metadata follows. */}
+            <div className={styles.dossier}>
+              <div className={styles.progressPane}>
 
             {/* status update: drag the hill, say what changed — the note is REQUIRED,
                 a silent dot move is unreadable in history and invisible to the brief */}
@@ -536,118 +551,171 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               </div>
             </form>
 
-            {/* who's involved: partners and people, editable (roles kept here, where the
-                free-text function is actually edited — the rail shows type-coloured pills) */}
-            <div className={styles.detailsSection}>
-              <span className={styles.depsLabel}>{t(locale, 'partnersLabel')}</span>
-              {p.partners.map((pp) => (
-                <span key={pp.linkId} className={styles.partnerChip}>
-                  <Link href={`/partners/${pp.partnerId}`} className={styles.partnerLink}>{pp.name}</Link>
-                  {pp.role && <span className={styles.partnerRole}>{pp.role}</span>}
-                  <form action={removePhasePartner} className={styles.inlineForm}>
-                    <input type="hidden" name="id" value={pp.linkId} />
-                    <input type="hidden" name="projectId" value={projectId} />
-                    <button type="submit" className={styles.chipRemove}
-                      title={t(locale, 'removeName', { name: pp.name })}
-                      aria-label={t(locale, 'removeName', { name: pp.name })}>✕</button>
-                  </form>
-                </span>
-              ))}
-              {availablePartners.length > 0 ? (
-                <form action={addPhasePartner} className={styles.addInlineForm}>
-                  <input type="hidden" name="phaseId" value={p.id} />
-                  <input type="hidden" name="projectId" value={projectId} />
-                  <select name="partnerId" className={styles.quietSelect} defaultValue="" required
-                    aria-label={t(locale, 'partnerToInvolve')}>
-                    <option value="" disabled>{t(locale, 'addPartner')}</option>
-                    {availablePartners.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
-                  <input name="role" className={styles.roleInput} placeholder={t(locale, 'role')}
-                    aria-label={t(locale, 'roleOptional')} />
-                  <button type="submit" className={styles.miniBtn}>{t(locale, 'add')}</button>
-                </form>
-              ) : (
-                // never leave the section affordance-less: say WHY there's nothing to add
-                <span className={styles.depNone}>{t(locale, 'allPartnersInvolved')}</span>
-              )}
-            </div>
-
-            <div className={styles.detailsSection}>
-              <span className={styles.depsLabel}>{t(locale, 'peopleLabel')}</span>
-              {p.people.map((pp) => (
-                <span key={pp.linkId} className={styles.partnerChip}>
-                  <Link href={`/people/${pp.personId}`} className={styles.partnerLink}>{pp.name}</Link>
-                  {pp.role && <span className={styles.partnerRole}>{pp.role}</span>}
-                  <form action={removePhasePerson} className={styles.inlineForm}>
-                    <input type="hidden" name="id" value={pp.linkId} />
-                    <input type="hidden" name="projectId" value={projectId} />
-                    <button type="submit" className={styles.chipRemove}
-                      title={t(locale, 'removeName', { name: pp.name })}
-                      aria-label={t(locale, 'removeName', { name: pp.name })}>✕</button>
-                  </form>
-                </span>
-              ))}
-              {availablePeople.length > 0 ? (
-                <form action={async (fd) => { await addPhasePerson(fd); }} className={styles.addInlineForm}>
-                  <input type="hidden" name="phaseId" value={p.id} />
-                  <input type="hidden" name="projectId" value={projectId} />
-                  <select name="personId" className={styles.quietSelect} defaultValue="" required
-                    aria-label={t(locale, 'personToInvolve')}>
-                    <option value="" disabled>{t(locale, 'addPerson')}</option>
-                    {availablePeople.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
-                  <input name="role" className={styles.roleInput} placeholder={t(locale, 'role')}
-                    aria-label={t(locale, 'roleOptional')} />
-                  <button type="submit" className={styles.miniBtn}>{t(locale, 'add')}</button>
-                </form>
-              ) : (
-                // never leave the section affordance-less: say WHY there's nothing to add
-                <span className={styles.depNone}>{t(locale, 'allPeopleInvolved')}</span>
-              )}
-            </div>
-
-            {/* dependencies: read-only here — chips jump to the phase; the structure
-                itself is edited only in the DAG-validated program phase editor */}
-            <div className={styles.depsRow}>
-              <span className={styles.depsLabel}>{t(locale, 'after')}</span>
-              {upstream.map((par) => (
-                <span key={par.linkId} className={styles.depChip}>
-                  <button type="button" className={styles.depJump} onClick={() => jumpTo(par.id)}>
-                    {byId.get(par.id)?.name}
-                  </button>
-                </span>
-              ))}
-              {upstream.length === 0 && <span className={styles.depNone}>{t(locale, 'startingPhase')}</span>}
-            </div>
-            {downstream.length > 0 && (
-              <div className={styles.depsRow}>
-                <span className={styles.depsLabel}>{t(locale, 'enables')}</span>
-                {downstream.map((d) => (
-                  <span key={d.linkId} className={styles.depChip}>
-                    <button type="button" className={styles.depJump} onClick={() => jumpTo(d.id)}>
-                      {byId.get(d.id)?.name}
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-
             {/* full hill history: every update with its position and note */}
             <div className={styles.historyList}>
               <span className={styles.metaLabel}>{t(locale, 'history')}</span>
-              {p.history.map((h) => (
-                <div key={h.at} className={styles.historyItem}>
-                  <HistoryGlyph progress={h.progress} />
-                  <span className={styles.historyWhen}>{fmtDate(h.at)}</span>
-                  <span className={styles.historyNote}>
-                    {h.note ?? <span className={styles.metaMuted}>{status(h.progress)}</span>}
-                    {h.by && <span className={styles.historyBy}> · {h.by}</span>}
-                  </span>
-                </div>
-              ))}
+              {/* the SAME cards as /history/phase/:id — one component owns the look */}
+              <HillHistoryList
+                compact
+                locale={locale}
+                color={phaseColor(p.id)}
+                changes={p.history.map((h, i): HillChange => ({
+                  timestamp: h.at,
+                  progress: h.progress,
+                  previousProgress: p.history[i + 1]?.progress ?? null,
+                  notes: h.note,
+                  source: h.by,
+                }))}
+              />
               <Link href={`/history/phase/${p.id}`} className={styles.fullHistory}>
                 {t(locale, 'fullHistory')}
               </Link>
+            </div>
+
+              </div>
+
+              <div className={styles.aboutPane}>
+                {/* template-sourced content: what this phase is, and where Google leans in */}
+                {p.description && (
+                  <div className={styles.templateDoc}><Markdown>{p.description}</Markdown></div>
+                )}
+                {p.googleFocus && (
+                  <div className={styles.metaLine}>
+                    <span className={styles.metaLabel}>{t(locale, 'googleFocusLabel')}</span>
+                    <span className={styles.templateFocus}><Markdown>{p.googleFocus}</Markdown></span>
+                  </div>
+                )}
+                <div className={styles.aboutMeta}>
+                {/* dependencies: read-only here — chips jump to the phase; the structure
+                    itself is edited only in the DAG-validated program phase editor */}
+                <div className={styles.depsRow}>
+                  <span className={styles.depsLabel}>{t(locale, 'after')}</span>
+                  <span className={styles.chipCell}>
+                  {upstream.map((par) => (
+                    <span key={par.linkId} className={styles.depChip}>
+                      <button type="button" className={styles.depJump} onClick={() => jumpTo(par.id)}>
+                        {byId.get(par.id)?.name}
+                      </button>
+                    </span>
+                  ))}
+                  {upstream.length === 0 && <span className={styles.depNone}>{t(locale, 'startingPhase')}</span>}
+                  </span>
+                </div>
+                {downstream.length > 0 && (
+                  <div className={styles.depsRow}>
+                    <span className={styles.depsLabel}>{t(locale, 'enables')}</span>
+                    <span className={styles.chipCell}>
+                    {downstream.map((d) => (
+                      <span key={d.linkId} className={styles.depChip}>
+                        <button type="button" className={styles.depJump} onClick={() => jumpTo(d.id)}>
+                          {byId.get(d.id)?.name}
+                        </button>
+                      </span>
+                    ))}
+                    </span>
+                  </div>
+                )}
+                {/* who's involved: partners and people, editable (roles kept here, where the
+                    free-text function is actually edited — the rail shows type-coloured pills) */}
+                <div className={styles.detailsSection}>
+                  <span className={styles.depsLabel}>{t(locale, 'partnersLabel')}</span>
+                  <span className={styles.chipCell}>
+                  {p.partners.map((pp) => (
+                    <span key={pp.linkId} className={styles.partnerChip}>
+                      <Link href={`/partners/${pp.partnerId}`} className={styles.partnerLink}>{pp.name}</Link>
+                      {pp.role && <span className={styles.partnerRole}>{pp.role}</span>}
+                      <form action={removePhasePartner} className={styles.inlineForm}>
+                        <input type="hidden" name="id" value={pp.linkId} />
+                        <input type="hidden" name="projectId" value={projectId} />
+                        <button type="submit" className={styles.chipRemove}
+                          title={t(locale, 'removeName', { name: pp.name })}
+                          aria-label={t(locale, 'removeName', { name: pp.name })}>✕</button>
+                      </form>
+                    </span>
+                  ))}
+                  {availablePartners.length > 0 ? (
+                    <form action={addPhasePartner} className={styles.addInlineForm}>
+                      <input type="hidden" name="phaseId" value={p.id} />
+                      <input type="hidden" name="projectId" value={projectId} />
+                      <select name="partnerId" className={styles.quietSelect} defaultValue="" required
+                        aria-label={t(locale, 'partnerToInvolve')}>
+                        <option value="" disabled>{t(locale, 'addPartner')}</option>
+                        {availablePartners.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                      <input name="role" className={styles.roleInput} placeholder={t(locale, 'role')}
+                        aria-label={t(locale, 'roleOptional')} />
+                      <button type="submit" className={styles.miniBtn}>{t(locale, 'add')}</button>
+                    </form>
+                  ) : (
+                    // never leave the section affordance-less: say WHY there's nothing to add
+                    <span className={styles.depNone}>{t(locale, 'allPartnersInvolved')}</span>
+                  )}
+                  </span>
+                </div>
+
+                <div className={styles.detailsSection}>
+                  <span className={styles.depsLabel}>{t(locale, 'peopleLabel')}</span>
+                  <span className={styles.chipCell}>
+                  {p.people.map((pp) => (
+                    <span key={pp.linkId} className={styles.partnerChip}>
+                      <Link href={`/people/${pp.personId}`} className={styles.partnerLink}>{pp.name}</Link>
+                      {pp.role && <span className={styles.partnerRole}>{pp.role}</span>}
+                      <form action={removePhasePerson} className={styles.inlineForm}>
+                        <input type="hidden" name="id" value={pp.linkId} />
+                        <input type="hidden" name="projectId" value={projectId} />
+                        <button type="submit" className={styles.chipRemove}
+                          title={t(locale, 'removeName', { name: pp.name })}
+                          aria-label={t(locale, 'removeName', { name: pp.name })}>✕</button>
+                      </form>
+                    </span>
+                  ))}
+                  {availablePeople.length > 0 ? (
+                    <form action={async (fd) => { await addPhasePerson(fd); }} className={styles.addInlineForm}>
+                      <input type="hidden" name="phaseId" value={p.id} />
+                      <input type="hidden" name="projectId" value={projectId} />
+                      <select name="personId" className={styles.quietSelect} defaultValue="" required
+                        aria-label={t(locale, 'personToInvolve')}>
+                        <option value="" disabled>{t(locale, 'addPerson')}</option>
+                        {availablePeople.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                      <input name="role" className={styles.roleInput} placeholder={t(locale, 'role')}
+                        aria-label={t(locale, 'roleOptional')} />
+                      <button type="submit" className={styles.miniBtn}>{t(locale, 'add')}</button>
+                    </form>
+                  ) : (
+                    // never leave the section affordance-less: say WHY there's nothing to add
+                    <span className={styles.depNone}>{t(locale, 'allPeopleInvolved')}</span>
+                  )}
+                  </span>
+                </div>
+
+                {/* Work-started toggle (cycle time: wait vs active). Progress implies
+                    started, so the box is checked+locked once the hill has moved; before
+                    that it is the explicit claim that another team is already working. */}
+                {p.progress < 100 && (
+                  <label className={styles.startedRow}>
+                    <input
+                      type="checkbox"
+                      checked={p.startedExplicit || p.progress > 0}
+                      disabled={p.progress > 0 || submitting}
+                      onChange={async (e) => {
+                        const fd = new FormData();
+                        fd.set('phaseId', String(p.id));
+                        fd.set('projectId', String(projectId));
+                        fd.set('started', e.target.checked ? '1' : '0');
+                        setSubmitting(true);
+                        try { await setPhaseStarted(fd); } catch (err) { console.error(err); }
+                        finally { setSubmitting(false); }
+                      }}
+                    />
+                    <span>{t(locale, 'workStarted')}</span>
+                    {p.startedAt && (p.startedExplicit || p.progress > 0) && (
+                      <span className={styles.startedDate}>{t(locale, 'startedOn', { d: fmtDate(p.startedAt) })}</span>
+                    )}
+                  </label>
+                )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -759,8 +827,9 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
           {ordered.map((p) =>
             geom.ys[p.id] == null ? null : (
               <Station key={p.id} x={mainX} y={geom.ys[p.id]} progress={p.progress}
+                started={isPhaseActive(p.progress, p.startedAt)}
                 onChain={onChainSet.has(p.id)} isConstraint={chain.constraintId === p.id}
-                title={`${p.name} — ${status(p.progress)}`} onClick={() => jumpTo(p.id)} />
+                title={`${p.name} — ${status(statusProgress(p.progress, p.startedAt))}`} onClick={() => jumpTo(p.id)} />
             ),
           )}
         </svg>
@@ -792,10 +861,11 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                 {/* deep link, not navigation: the card + DETAILS are the phase's home */}
                 <a href={`#phase-${p.id}`} className={styles.name}
                   onClick={() => jumpTo(p.id)}
-                  title={status(p.progress)}
+                  title={status(statusProgress(p.progress, p.startedAt))}
                   style={!open && p.progress >= 100 ? { color: 'var(--muted)' } : undefined}>
                   {p.name}
                 </a>
+                {p.description && <span className={styles.goalLine} title={goalExcerpt(p.description)}>{goalExcerpt(p.description)}</span>}
                 <span className={styles.headRight}>
                   <span className={styles.plan}>{planWords(p)}</span>
                   {paceChip(p)}

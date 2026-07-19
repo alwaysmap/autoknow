@@ -20,7 +20,8 @@ async function createProject(formData: FormData) {
   const name = formData.get('name') as string;
   const partnerIdStr = formData.get('partnerId') as string;
   const templateIdStr = formData.get('template') as string;
-  const owner = formData.get('owner') as string;
+  const owner = ((formData.get('owner') as string) || '').trim();
+  if (!owner) throw new Error('An assigned Googler (owner) is required');
   // Every program MUST carry a target SOP (month/year; last day of month assumed).
   const sopDate = parseSopInput((formData.get('sopMonth') as string) || '');
   const hasGas = formData.get('hasGas') === 'on';
@@ -68,7 +69,7 @@ async function createProject(formData: FormData) {
 
   const project = await prisma.$transaction(async (tx) => {
     const created = await tx.project.create({
-      data: { name, partnerId, ownerName: owner || null, sopDate, hasGas, hasGbi, hasDigitalKey, hasAap }
+      data: { name, partnerId, ownerName: owner, sopDate, hasGas, hasGbi, hasDigitalKey, hasAap }
     });
 
     // Log program creation so it appears in the activity feed.

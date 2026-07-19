@@ -18,6 +18,7 @@ export interface DraftPhasePayload {
   name: string;
   forecastedDuration: number; // days
   dependsOn: number[]; // ids in the same payload (may be negative)
+  description?: string | null; // Goal & DoD markdown (program-editable)
 }
 
 export interface SaveResult {
@@ -80,11 +81,11 @@ export async function saveProgramPhases(formData: FormData): Promise<SaveResult>
         realId.set(d.id, d.id);
         await tx.phase.update({
           where: { id: d.id },
-          data: { name: d.name.trim(), forecastedDuration: Math.max(1, Math.round(d.forecastedDuration)) },
+          data: { name: d.name.trim(), forecastedDuration: Math.max(1, Math.round(d.forecastedDuration)), description: d.description ?? null },
         });
       } else {
         const created = await tx.phase.create({
-          data: { projectId, name: d.name.trim(), forecastedDuration: Math.max(1, Math.round(d.forecastedDuration)) },
+          data: { projectId, name: d.name.trim(), forecastedDuration: Math.max(1, Math.round(d.forecastedDuration)), description: d.description ?? null },
         });
         await tx.phaseState.create({
           data: { phaseId: created.id, status: 'Not Started', theNeedle: 'On Track', hillChartProgress: 0 },

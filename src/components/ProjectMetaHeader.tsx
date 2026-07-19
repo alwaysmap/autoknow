@@ -125,7 +125,11 @@ export default function ProjectMetaHeader({
             {ownerName}
           </span>
         ) : (
-          <span className={styles.factMuted}>{t(locale, 'undecided')}</span>
+          /* owner is REQUIRED — absence is a to-do, not a quiet fact */
+          <button type="button" className={styles.ownerMissing} title={t(locale, 'googlerOwner')}
+            onClick={() => dialogRef.current?.showModal()}>
+            {t(locale, 'assignOwner')}
+          </button>
         )}
         {products.length > 0 && (
           <span className={styles.fact}>
@@ -185,7 +189,7 @@ export default function ProjectMetaHeader({
           )}
           <div className={dash.textInputGroup}>
             <label htmlFor="editOwner" className={dash.formLabel}>{t(locale, 'googlerOwner')}</label>
-            <input id="editOwner" type="text" name="ownerName" defaultValue={ownerName || ''} placeholder="e.g. jsmith@google.com" className={dash.textInput} />
+            <input id="editOwner" type="text" name="ownerName" defaultValue={ownerName || ''} placeholder="e.g. jsmith@google.com" required className={dash.textInput} />
           </div>
           <div className={dash.textInputGroup}>
             <label htmlFor="editSop" className={dash.formLabel}>{t(locale, 'sopMonthLabel')}</label>

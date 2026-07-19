@@ -34,11 +34,19 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: '#f4f1ea',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f4f1ea' },
+    { media: '(prefers-color-scheme: dark)', color: '#181b21' },
+  ],
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover'
 };
+
+// Resolves the stored theme preference (light | dark | system) to a concrete
+// data-theme on <html> BEFORE first paint — no flash of the wrong theme. Kept
+// tiny and dependency-free; ThemeToggle takes over after hydration.
+const themeInit = `(function(){try{var p=localStorage.getItem('autoknow-theme');var d=p==='dark'||(p!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();`;
 
 export default async function RootLayout({
   children,
@@ -49,7 +57,10 @@ export default async function RootLayout({
   const session = authConfigured ? await auth() : null;
   const locale = await getLocale();
   return (
-    <html lang={locale} className={`${geistSans.variable} ${geistMono.variable} ${rubik.variable}`}>
+    <html lang={locale} className={`${geistSans.variable} ${geistMono.variable} ${rubik.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+      </head>
       <body>
         <LocaleProvider locale={locale}>
         <nav className={styles.navBar}>

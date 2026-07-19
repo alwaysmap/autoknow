@@ -81,3 +81,23 @@
   .card { flex-direction: column; align-items: stretch; gap: 10px; }
   .gauge { width: 160px; }
 }
+
+/* Compact variant — the same history cards at phase-popover scale. */
+.compact .card {
+  padding: 8px 10px;
+  gap: 10px;
+}
+
+.compact .gauge {
+  width: 64px;
+  flex: 0 0 64px;
+}
+
+.compact .head {
+  font-size: 11.5px;
+}
+
+.compact .note {
+  font-size: 12px;
+  line-height: 1.45;
+}

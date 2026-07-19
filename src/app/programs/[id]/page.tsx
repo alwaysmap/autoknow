@@ -145,7 +145,10 @@ export default async function ProjectDetailsPage(props: {
       forecastedDuration: phase.forecastedDuration,
       description: phase.description ?? null,
       googleFocus: phase.googleFocus ?? null,
-      startedAt: spanByPhase.get(phase.id)?.startedAt?.toISOString() ?? null,
+      // Explicit start (the Active toggle) wins over the derived first-progress
+      // timestamp — work often begins before the first update is filed.
+      startedAt: (phase.startedAt ?? spanByPhase.get(phase.id)?.startedAt)?.toISOString() ?? null,
+      startedExplicit: phase.startedAt != null,
       completedAt: spanByPhase.get(phase.id)?.finishedAt?.toISOString() ?? null,
       history: phase.states.slice(0, 6).map((s) => ({
         at: s.timestamp.toISOString(),

@@ -19,6 +19,7 @@ export interface ProgramEditorPhase {
   forecastedDuration: number; // days
   progress: number;
   dependsOn: number[];
+  description: string | null; // Goal & DoD markdown (template-seeded, program-editable)
 }
 
 interface ProgramPhaseEditorProps {
@@ -36,6 +37,7 @@ export default function ProgramPhaseEditor({ projectId, projectName, phases }: P
 
   const initial: DagEditorNode[] = phases.map((p) => ({
     id: p.id, name: p.name, weeks: toWeeks(p.forecastedDuration), progress: p.progress, dependsOn: p.dependsOn,
+    description: p.description,
   }));
 
   const onSave = async (draft: DagEditorNode[]) => {
@@ -43,6 +45,7 @@ export default function ProgramPhaseEditor({ projectId, projectName, phases }: P
     fd.set('projectId', String(projectId));
     fd.set('payload', JSON.stringify(draft.map((d) => ({
       id: d.id, name: d.name, forecastedDuration: toDays(d.weeks), dependsOn: d.dependsOn,
+      description: d.description ?? null,
     }))));
     const result = await saveProgramPhases(fd);
     if (!result.error) router.push(`/programs/${projectId}`);
@@ -55,7 +58,7 @@ export default function ProgramPhaseEditor({ projectId, projectName, phases }: P
       <div className={chrome.headRow}>
         <h1 className={chrome.title}>{t(locale, 'phasesHeading', { name: projectName })}</h1>
       </div>
-      <PhaseDagEditor initial={initial} onSave={onSave} />
+      <PhaseDagEditor initial={initial} onSave={onSave} descriptionField />
     </div>
   );
 }

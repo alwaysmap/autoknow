@@ -33,7 +33,7 @@
   z-index: 30;
   min-width: 150px;
   padding: 4px;
-  background: var(--white, #fff);
+  background: var(--white, var(--paper));
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);

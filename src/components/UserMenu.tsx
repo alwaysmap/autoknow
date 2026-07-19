@@ -3,6 +3,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
+import ThemeToggle from './ThemeToggle';
+import LocaleSwitcher from './LocaleSwitcher';
 import styles from './UserMenu.module.css';
 
 // Google-style session affordance: a circle with the user's initials, nothing else in
@@ -77,6 +79,18 @@ export default function UserMenu({
           <div className={styles.popAvatar}>{initialsOf(name, email)}</div>
           <div className={styles.name}>{name}</div>
           <div className={styles.email}>{email}</div>
+          {/* Personal settings — they follow the person, not the deployment, so they
+              live here rather than in the nav or Manage. */}
+          <div className={styles.prefs}>
+            <div className={styles.prefRow}>
+              <span className={styles.prefLabel}>{t(locale, 'themeLabel')}</span>
+              <ThemeToggle />
+            </div>
+            <div className={styles.prefRow}>
+              <span className={styles.prefLabel}>{t(locale, 'settingsLanguage')}</span>
+              <LocaleSwitcher locale={locale} />
+            </div>
+          </div>
           {authConfigured && signedIn && (
             <form action={signOutAction} className={styles.actionRow}>
               <button type="submit" className={styles.signOutBtn}>{t(locale, 'signOut')}</button>

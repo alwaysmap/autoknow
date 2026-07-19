@@ -221,21 +221,21 @@
 }
 
 .onboardingBtn {
-  background-color: #1a73e8;
+  background-color: var(--info);
   color: var(--white);
 }
 
 .onboardingBtn:hover {
-  background-color: #1557b0;
+  background-color: var(--info-ink);
 }
 
 .onboardingBtnSecondary {
-  background-color: #f1f3f4;
+  background-color: var(--surface);
   color: var(--fg);
-  border: 1px solid #dadce0;
+  border: 1px solid var(--border);
 }
 
 .onboardingBtnSecondary:hover {
-  background-color: #e8eaed;
+  background-color: var(--surface);
 }
 
