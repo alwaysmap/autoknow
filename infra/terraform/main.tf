@@ -24,6 +24,7 @@ locals {
     "iamcredentials.googleapis.com",
     "sts.googleapis.com",
     "chat.googleapis.com",
+    "drive.googleapis.com", # background Drive doc ingestion (lib/driveSync, keyless SA token)
     "cloudresourcemanager.googleapis.com",
     "orgpolicy.googleapis.com",
     "serviceusage.googleapis.com", # quota/billing project for the orgpolicy provider alias
