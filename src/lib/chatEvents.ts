@@ -14,17 +14,30 @@ import { getServiceAccountToken, driveConfigured, CHAT_BOT_SCOPE } from './googl
 const CHAT_ISSUER = 'chat@system.gserviceaccount.com';
 const JWK_URL = `https://www.googleapis.com/service_accounts/v1/jwk/${CHAT_ISSUER}`;
 
+// Chat apps on the add-on framework (every config the current console creates) are
+// invoked by the gsuiteaddons runtime, which signs with a standard Google ID token
+// (issuer accounts.google.com) minted for the project's Google-managed add-ons
+// service account — NOT the legacy chat@system JWT. Both token shapes are accepted
+// below; the add-on token is bound to this project via that SA's email, which
+// embeds our project number.
+const ADDON_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
+const OIDC_JWK_URL = 'https://www.googleapis.com/oauth2/v3/certs';
+const addonServiceAccount = () =>
+  `service-${process.env.GOOGLE_PROJECT_NUMBER}@gcp-sa-gsuiteaddons.iam.gserviceaccount.com`;
+
 export const chatConfigured = !!process.env.GOOGLE_PROJECT_NUMBER && driveConfigured;
 
 interface Jwk { kid: string; n: string; e: string; kty: string }
-let jwkCache: { keys: Jwk[]; fetchedAt: number } | null = null;
+const jwkCaches = new Map<string, { keys: Jwk[]; fetchedAt: number }>();
 
-async function googleChatKeys(): Promise<Jwk[]> {
-  if (jwkCache && Date.now() - jwkCache.fetchedAt < 3600_000) return jwkCache.keys;
-  const res = await fetch(JWK_URL);
+async function signingKeys(url: string): Promise<Jwk[]> {
+  const hit = jwkCaches.get(url);
+  if (hit && Date.now() - hit.fetchedAt < 3600_000) return hit.keys;
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`JWK fetch failed (${res.status})`);
-  jwkCache = { keys: ((await res.json()) as { keys: Jwk[] }).keys, fetchedAt: Date.now() };
-  return jwkCache.keys;
+  const keys = ((await res.json()) as { keys: Jwk[] }).keys;
+  jwkCaches.set(url, { keys, fetchedAt: Date.now() });
+  return keys;
 }
 
 /** Verify the bearer JWT Chat sends: signature, issuer, audience, expiry.
@@ -44,20 +57,38 @@ export async function verifyChatToken(bearer: string | null, expectedUrl?: strin
   try {
     const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString());
     const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
-    if (payload.iss !== CHAT_ISSUER) {
-      console.log(`[chat] reject: issuer=${JSON.stringify(payload.iss)} (want ${CHAT_ISSUER})`);
+
+    const isLegacy = payload.iss === CHAT_ISSUER;
+    const isAddon = ADDON_ISSUERS.includes(payload.iss);
+    if (!isLegacy && !isAddon) {
+      console.log(`[chat] reject: issuer=${JSON.stringify(payload.iss)} (want ${CHAT_ISSUER} or accounts.google.com)`);
       return false;
     }
-    const audOk =
-      String(payload.aud) === process.env.GOOGLE_PROJECT_NUMBER ||
-      (!!expectedUrl && String(payload.aud) === expectedUrl);
-    if (!audOk) {
-      console.log(`[chat] JWT rejected: aud=${JSON.stringify(payload.aud)} (expected ${process.env.GOOGLE_PROJECT_NUMBER} or ${expectedUrl})`);
-      return false;
+
+    if (isLegacy) {
+      const audOk =
+        String(payload.aud) === process.env.GOOGLE_PROJECT_NUMBER ||
+        (!!expectedUrl && String(payload.aud) === expectedUrl);
+      if (!audOk) {
+        console.log(`[chat] JWT rejected: aud=${JSON.stringify(payload.aud)} (expected ${process.env.GOOGLE_PROJECT_NUMBER} or ${expectedUrl})`);
+        return false;
+      }
+    } else {
+      // Add-on runtime ID token: the project binding is the Google-managed
+      // gsuiteaddons SA email (contains our project number) with a verified-email
+      // claim; the Google-signature check below makes the claim trustworthy. The
+      // audience varies by runtime version, so log it rather than gate on it.
+      if (payload.email !== addonServiceAccount() || payload.email_verified !== true) {
+        console.log(`[chat] reject: add-on token email=${JSON.stringify(payload.email)} (want ${addonServiceAccount()})`);
+        return false;
+      }
+      console.log(`[chat] add-on token accepted pending signature; aud=${JSON.stringify(payload.aud)}`);
     }
+
     if (typeof payload.exp !== 'number' || payload.exp * 1000 < Date.now()) return false;
 
-    const jwk = (await googleChatKeys()).find((k) => k.kid === header.kid);
+    const jwkUrl = isLegacy ? JWK_URL : OIDC_JWK_URL;
+    const jwk = (await signingKeys(jwkUrl)).find((k) => k.kid === header.kid);
     if (!jwk) {
       console.log(`[chat] reject: unknown signing key kid=${header.kid}`);
       return false;
