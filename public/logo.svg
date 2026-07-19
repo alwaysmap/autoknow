@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- AutoKnow mark: a hill chart (the app's signature progress visual) with the
+       work-item dot cresting the hill. Deep navy field, warm amber marker. -->
+  <rect width="512" height="512" rx="116" fill="#1F2A44"/>
+  <path d="M64 372 C 168 372, 178 200, 256 200 C 334 200, 344 372, 448 372"
+        fill="none" stroke="#E8ECF4" stroke-width="30" stroke-linecap="round"/>
+  <circle cx="256" cy="200" r="38" fill="#F4B740"/>
+</svg>
