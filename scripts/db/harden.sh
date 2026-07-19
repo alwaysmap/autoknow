@@ -45,19 +45,29 @@ if [ "$MODE" != "apply" ]; then
   exit 0
 fi
 
-echo "==================== APPLY harden-roles.sql (as app) ===================="
-psql "$APP_URL" -v ON_ERROR_STOP=1 -f scripts/db/harden-roles.sql
+RUNTIME_PW="$(gcloud secrets versions access latest --secret=runtime-database-url --project "$PROJECT" | sed -E 's#.*://[^:]+:([^@]+)@.*#\1#')"
+RUNTIME_URL="postgresql://app_runtime:${RUNTIME_PW}@127.0.0.1:${PORT}/autoknow"
 
-echo "==================== VERIFY (as app) ===================="
-echo "-- app must still READ:"
-psql "$APP_URL" -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM \"Partner\";"
-echo "-- app must still have INSERT/UPDATE/DELETE:"
-psql "$APP_URL" -v ON_ERROR_STOP=1 -tAc \
-  "SELECT has_table_privilege('app','\"Partner\"','SELECT'), has_table_privilege('app','\"Partner\"','INSERT'), has_table_privilege('app','\"Partner\"','UPDATE'), has_table_privilege('app','\"Partner\"','DELETE');"
-echo "-- app must NOT be able to DDL (this is the whole point):"
-if psql "$APP_URL" -q -c "CREATE TABLE _harden_probe2(x int);" >/dev/null 2>&1; then
-  psql "$APP_URL" -q -c "DROP TABLE _harden_probe2;" >/dev/null 2>&1 || true
-  echo "::error::app can STILL create tables — hardening INEFFECTIVE" >&2
+echo "==================== APPLY harden-roles.sql (as app) ===================="
+psql "$APP_URL" -v ON_ERROR_STOP=1 -v runtime_pw="$RUNTIME_PW" -f scripts/db/harden-roles.sql
+
+echo "==================== VERIFY (connected as app_runtime) ===================="
+echo "-- app_runtime must READ:"
+psql "$RUNTIME_URL" -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM \"Partner\";"
+echo "-- app_runtime must be able to INSERT/UPDATE/DELETE rows:"
+psql "$RUNTIME_URL" -v ON_ERROR_STOP=1 -tAc \
+  "SELECT has_table_privilege('app_runtime','\"Partner\"','SELECT'), has_table_privilege('app_runtime','\"Partner\"','INSERT'), has_table_privilege('app_runtime','\"Partner\"','UPDATE'), has_table_privilege('app_runtime','\"Partner\"','DELETE');"
+# Negative tests are wrapped in BEGIN…ROLLBACK so they cannot alter anything even if the
+# permission check unexpectedly passed. A denied statement (ON_ERROR_STOP) exits non-zero
+# = the control works; a zero exit = the statement was allowed = the control FAILED.
+echo "-- app_runtime must NOT be able to CREATE a table:"
+if psql "$RUNTIME_URL" -v ON_ERROR_STOP=1 -q -c "BEGIN; CREATE TABLE _harden_probe(x int); ROLLBACK;" >/dev/null 2>&1; then
+  echo "::error::app_runtime can CREATE tables — hardening INEFFECTIVE" >&2
   exit 1
 fi
-echo "OK: app can read/write rows but cannot alter schema. Hardening verified."
+echo "-- app_runtime must NOT be able to DROP a table:"
+if psql "$RUNTIME_URL" -v ON_ERROR_STOP=1 -q -c 'BEGIN; DROP TABLE "Partner"; ROLLBACK;' >/dev/null 2>&1; then
+  echo "::error::app_runtime can DROP tables — hardening INEFFECTIVE" >&2
+  exit 1
+fi
+echo "OK: app_runtime can read/write rows but cannot alter schema. Hardening verified."

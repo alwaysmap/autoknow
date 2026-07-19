@@ -1,33 +1,31 @@
--- Least-privilege runtime role — the enforcement that makes DB corruption from the app
--- path IMPOSSIBLE, not merely discouraged. Run ONCE per instance, deliberately, as a
--- privileged role (schema owner / a cloudsqlsuperuser member). Idempotent.
+-- Create/refresh the least-privilege RUNTIME role `app_runtime`, the control that makes
+-- schema corruption from the app path IMPOSSIBLE. Run as `app` (the schema owner /
+-- migration role, which has CREATEROLE). Idempotent. Requires psql var :runtime_pw.
 --
--- After this:
---   * the runtime `app` role can read/write ROWS (SELECT/INSERT/UPDATE/DELETE) but CANNOT
---     change SCHEMA — no CREATE/ALTER/DROP/TRUNCATE. So `prisma db push`, `DROP TABLE`,
---     `ALTER COLUMN`, `TRUNCATE`, etc. run with the app's credentials fail with
---     "permission denied". An agent holding DATABASE_URL simply cannot corrupt the schema.
---   * only the `migrator` role has DDL; its credentials live only in Secret Manager,
---     reachable only by the CI service account, and are used solely by `prisma migrate deploy`.
---
--- Prereq: a `migrator` SQL user exists (Terraform: google_sql_user.migrator).
+-- app_runtime is a plain SQL role — NOT a Cloud SQL API user, so it is not auto-added to
+-- cloudsqlsuperuser and holds no DDL. It gets row DML only. After the runtime switches to
+-- it, `prisma db push`, DROP/ALTER/TRUNCATE, etc. all fail with "permission denied".
+-- `app` remains the owner and is used only by CI `prisma migrate deploy`.
 
--- 1. migrator owns the schema and every existing object (so migrations can ALTER them).
-GRANT "migrator" TO CURRENT_USER;          -- temporary membership, to reassign ownership
-REASSIGN OWNED BY "app" TO "migrator";
-REVOKE "migrator" FROM CURRENT_USER;
-ALTER SCHEMA public OWNER TO "migrator";
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_runtime') THEN
+    CREATE ROLE app_runtime;
+  END IF;
+END$$;
 
--- 2. app: connect + row-level DML only, no schema rights.
-REVOKE ALL ON SCHEMA public FROM "app";
-GRANT USAGE ON SCHEMA public TO "app";
-REVOKE ALL ON ALL TABLES IN SCHEMA public FROM "app";
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "app";
-REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM "app";
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "app";
+ALTER ROLE app_runtime WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
+  PASSWORD :'runtime_pw';
 
--- 3. Tables/sequences future migrations create auto-grant DML to app (no manual step later).
-ALTER DEFAULT PRIVILEGES FOR ROLE "migrator" IN SCHEMA public
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "app";
-ALTER DEFAULT PRIVILEGES FOR ROLE "migrator" IN SCHEMA public
-  GRANT USAGE, SELECT ON SEQUENCES TO "app";
+-- Row DML only; explicitly no schema-create right.
+GRANT USAGE ON SCHEMA public TO app_runtime;
+REVOKE CREATE ON SCHEMA public FROM app_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_runtime;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_runtime;
+
+-- Tables/sequences that future migrations (run as `app`) create auto-grant DML to
+-- app_runtime, so no manual grant is needed after each migration.
+ALTER DEFAULT PRIVILEGES FOR ROLE app IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_runtime;
+ALTER DEFAULT PRIVILEGES FOR ROLE app IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO app_runtime;
