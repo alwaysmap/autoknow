@@ -24,7 +24,7 @@
   cursor: pointer;
 }
 .refreshBtn:hover:not(:disabled) {
-  background: #fff;
+  background: var(--paper);
   color: var(--fg);
   border-color: var(--muted);
 }
@@ -53,7 +53,7 @@
 }
 
 .riskSection {
-  border-left: 2px solid #c5221f;
+  border-left: 2px solid var(--bad);
   padding-left: 12px;
 }
 

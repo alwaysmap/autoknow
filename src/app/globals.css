@@ -35,14 +35,79 @@
   --surface: hsl(45, 9%, 92%);
   --border:  hsl(0, 0%, 84%);
   --fg:      hsl(0, 0%, 13%);
-  --muted:   hsl(0, 0%, 46%);
+  --muted:   hsl(0, 0%, 42%); /* 42% (was 46%): 4.9:1 on --bg — AA for body text */
 
   --white: hsl(45, 8%, 96%);
   --black: #111111;
+  /* Elevated surface — cards, dialogs, editors: true white in light, a step above
+     --bg in dark. Components must use this instead of literal white/#fff. */
+  --paper: #ffffff;
+
+  /* Health palette (ink + soft chip background per state) and the informational
+     blue, as tokens so the dark theme can restate them. Every ink is ≥4.5:1 (WCAG
+     AA body text) on both --paper and its own soft background in both themes. */
+  --ok: #137333;        --ok-soft: #e6f4ea;
+  --warn: #9a5400;      --warn-soft: #fef7e0;
+  --bad: #c5221f;       --bad-soft: #feebe7;
+  --crit: #a50e0d;      --crit-soft: #fce8e6;
+  --info: #1a73e8;      --info-ink: #1557b0;    --info-soft: #e8f0fe;
+  /* Soft translucent rings/borders derived from the health inks. */
+  --ok-ring: rgba(19, 115, 51, 0.25);
+  --bad-ring: rgba(197, 34, 31, 0.25);
 
   --head-font: var(--font-rubik), "Rubik", sans-serif;
   --body-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono-font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  color-scheme: light;
+}
+
+/* Dark theme. The concrete theme ("light" | "dark") is resolved by the inline
+   script in layout.tsx from the stored preference (light | dark | system) before
+   first paint, so there is no flash and CSS needs no media-query duplication.
+   Scale semantics stay: p-50 is still "faint tint", p-600 still "strong ink" —
+   the VALUES flip lightness so existing component CSS themes for free. */
+:root[data-theme="dark"] {
+  --chain: #9b82cf;
+  --chain-ink: #b8a3e0;
+  --chain-soft: #4a3a6e;
+
+  --p-50:  hsla(var(--hue), 20%, 14%, 1);
+  --p-100: hsla(var(--hue), 24%, 19%, 1);
+  --p-200: hsla(var(--hue), 26%, 26%, 1);
+  --p-400: hsla(var(--hue), 35%, 45%, 1);
+  --p-500: hsla(var(--hue), 40%, 52%, 1);
+  --p-600: hsla(var(--hue), 45%, 62%, 1);
+  --p-700: hsla(var(--hue), 50%, 74%, 1);
+  --p-900: hsla(var(--hue), 60%, 88%, 1);
+
+  --s-100: hsla(calc(var(--hue) + 60), 24%, 18%, 1);
+  --s-500: hsla(calc(var(--hue) + 60), 36%, 56%, 1);
+  --s-700: hsla(calc(var(--hue) + 60), 44%, 72%, 1);
+
+  --t-100: hsla(calc(var(--hue) - 60), 20%, 18%, 1);
+  --t-500: hsla(calc(var(--hue) - 60), 28%, 56%, 1);
+  --t-700: hsla(calc(var(--hue) - 60), 34%, 72%, 1);
+
+  --bg:      hsl(220, 15%, 11%);
+  --surface: hsl(220, 14%, 16%);
+  --border:  hsl(220, 10%, 30%);
+  --fg:      hsl(220, 15%, 88%);
+  --muted:   hsl(220, 8%, 67%);
+
+  --white: hsl(220, 15%, 11%); /* page background token — tracks --bg */
+  --black: hsl(220, 15%, 92%); /* "strong ink" token — flips with the theme */
+  --paper: hsl(220, 13%, 14%);
+
+  --ok: #7ed8a1;        --ok-soft: hsl(146, 30%, 16%);
+  --warn: #f0b458;      --warn-soft: hsl(40, 35%, 15%);
+  --bad: #ff8f89;       --bad-soft: hsl(4, 35%, 16%);
+  --crit: #ff9d94;      --crit-soft: hsl(4, 40%, 14%);
+  --info: #8ab4f8;      --info-ink: #a8c7fa;    --info-soft: hsl(217, 35%, 17%);
+  --ok-ring: rgba(126, 216, 161, 0.35);
+  --bad-ring: rgba(255, 143, 137, 0.35);
+
+  color-scheme: dark;
 }
 
 /* The nav wraps to a taller two-row layout on narrow screens — sticky rails offset

@@ -475,6 +475,10 @@ const STRINGS = {
   savePrompt: { en: 'Save prompt', de: 'Prompt speichern', ja: 'プロンプトを保存', ko: '프롬프트 저장' },
   restoreDefaultPrompt: { en: 'Restore default', de: 'Standard wiederherstellen', ja: 'デフォルトに戻す', ko: '기본값 복원' },
   navManage: { en: 'Manage', de: 'Verwalten', ja: '管理', ko: '관리' },
+  themeLabel: { en: 'Theme', de: 'Design', ja: 'テーマ', ko: '테마' },
+  themeLight: { en: 'Light', de: 'Hell', ja: 'ライト', ko: '라이트' },
+  themeDark: { en: 'Dark', de: 'Dunkel', ja: 'ダーク', ko: '다크' },
+  themeSystem: { en: 'System', de: 'System', ja: 'システム', ko: '시스템' },
   manageIntro: {
     en: 'Authoring and administration — everything that shapes AutoKnow but is not day-to-day program reading.',
     de: 'Autoren- und Verwaltungsbereiche — alles, was AutoKnow formt, aber nicht zur täglichen Programmlektüre gehört.',

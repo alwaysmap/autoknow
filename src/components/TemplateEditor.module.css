@@ -91,7 +91,7 @@
 .nameInput:hover,
 .nameInput:focus {
   border-color: var(--border);
-  background: #fff;
+  background: var(--paper);
 }
 
 .descInput {
@@ -108,15 +108,15 @@
 .descInput:hover,
 .descInput:focus {
   border-color: var(--border);
-  background: #fff;
+  background: var(--paper);
 }
 
 /* Validation banner: the one place allowed to shout. */
 .dagErrors {
   font-size: 13px;
   line-height: 1.7;
-  color: #c5221f;
-  border-left: 3px solid #c5221f;
+  color: var(--bad);
+  border-left: 3px solid var(--bad);
   padding: 4px 0 4px 12px;
   margin: 10px 0;
 }
@@ -199,7 +199,7 @@
   border: 1px solid var(--fg);
   border-radius: 6px;
   background: var(--fg);
-  color: #fff;
+  color: var(--paper);
   cursor: pointer;
 }
 .primaryBtn:hover {
@@ -221,7 +221,7 @@
   cursor: pointer;
 }
 .miniBtn:hover {
-  background: #fff;
+  background: var(--paper);
   border-color: var(--muted);
   color: var(--fg);
 }
@@ -237,8 +237,8 @@
   cursor: pointer;
 }
 .dangerBtn:hover {
-  color: #c5221f;
-  border-color: #c5221f;
+  color: var(--bad);
+  border-color: var(--bad);
 }
 
 /* Phase dialog. */
@@ -299,7 +299,7 @@
   padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--paper);
   color: var(--fg);
 }
 

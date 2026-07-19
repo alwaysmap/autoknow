@@ -54,12 +54,12 @@ export default async function MePage(props: { searchParams: Promise<SearchParams
         {/* stub-mode override only; ignored when real auth is configured */}
         <input type="hidden" name="user" value={user} />
         <select name="partnerId" required defaultValue=""
-          style={{ fontSize: 13, padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 6, background: '#fff' }}>
+          style={{ fontSize: 13, padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--paper)' }}>
           <option value="">{t(locale, 'selectPartner')}</option>
           {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <button type="submit" data-testid="create-my-profile"
-          style={{ fontSize: 13, fontWeight: 600, padding: '6px 14px', border: '1px solid var(--p-600)', borderRadius: 6, background: 'var(--p-600)', color: '#fff', cursor: 'pointer' }}>
+          style={{ fontSize: 13, fontWeight: 600, padding: '6px 14px', border: '1px solid var(--p-600)', borderRadius: 6, background: 'var(--p-600)', color: 'var(--paper)', cursor: 'pointer' }}>
           {t(locale, 'createMyProfile')}
         </button>
       </form>

@@ -27,7 +27,7 @@ export default async function LoginPage() {
           </button>
         </form>
       ) : (
-        <p style={{ color: '#b06000', fontSize: 13, maxWidth: 460 }}>
+        <p style={{ color: 'var(--warn)', fontSize: 13, maxWidth: 460 }}>
           {t(locale, 'authNotConfigured')} <code>AUTH_GOOGLE_ID</code>,{' '}
           <code>AUTH_GOOGLE_SECRET</code>, <code>AUTH_SECRET</code>, {t(locale, 'authAnd')}{' '}
           <code>AUTH_ALLOWED_DOMAIN</code> {t(locale, 'authEnableSignin')}

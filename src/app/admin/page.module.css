@@ -69,22 +69,22 @@
 }
 
 .primaryButton {
-  background-color: #1a73e8;
+  background-color: var(--info);
   color: var(--white);
 }
 
 .primaryButton:hover {
-  background-color: #1557b0;
+  background-color: var(--info-ink);
 }
 
 .secondaryButton {
-  background-color: #f1f3f4;
+  background-color: var(--surface);
   color: var(--fg);
-  border: 1px solid #dadce0;
+  border: 1px solid var(--border);
 }
 
 .secondaryButton:hover {
-  background-color: #e8eaed;
+  background-color: var(--surface);
 }
 
 .dangerButton {
@@ -93,7 +93,7 @@
 }
 
 .dangerButton:hover {
-  background-color: #c5221f;
+  background-color: var(--bad);
 }
 
 /* Webhook Simulation Help Section styling */
@@ -131,7 +131,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 10px 16px;
-  background-color: #f1f3f4;
+  background-color: var(--surface);
   border-bottom: 1px solid var(--border);
   font-family: var(--head-font);
   font-size: 12px;

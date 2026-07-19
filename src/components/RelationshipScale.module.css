@@ -190,7 +190,7 @@
 .pickBtnActive {
   background: var(--p-600);
   border-color: var(--p-600);
-  color: var(--white, #fff); /* faces draw in currentColor, so they invert too */
+  color: var(--white, var(--paper)); /* faces draw in currentColor, so they invert too */
 }
 
 .pickDescriptor {
@@ -201,7 +201,7 @@
 }
 
 .noteError {
-  color: #c5221f;
+  color: var(--bad);
   font-size: 12px;
 }
 

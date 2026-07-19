@@ -21,7 +21,7 @@
   height: 44px;
   border-radius: 50%;
   background: var(--p-600);
-  color: #fff;
+  color: var(--paper);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -192,7 +192,7 @@
   padding: 3px 9px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: #fff;
+  background: var(--paper);
 }
 .phaseChip:hover {
   border-color: var(--muted);

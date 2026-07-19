@@ -33,7 +33,7 @@ const KIND_COLOR: Record<FeedKind, string> = {
   partner: '#1a6b3c',
   program: '#1a4d8f',
   person: '#7a4ea0',
-  context: '#b06000',
+  context: 'var(--warn)',
   status: '#1a4d8f',
   phase: '#1a6b3c',
   relationship: '#7a4ea0',

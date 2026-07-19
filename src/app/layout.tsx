@@ -1,4 +1,5 @@
 import UserMenu from '../components/UserMenu';
+import ThemeToggle from '../components/ThemeToggle';
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Rubik } from "next/font/google";
 import Link from 'next/link';
@@ -34,11 +35,19 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: '#f4f1ea',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f4f1ea' },
+    { media: '(prefers-color-scheme: dark)', color: '#181b21' },
+  ],
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover'
 };
+
+// Resolves the stored theme preference (light | dark | system) to a concrete
+// data-theme on <html> BEFORE first paint — no flash of the wrong theme. Kept
+// tiny and dependency-free; ThemeToggle takes over after hydration.
+const themeInit = `(function(){try{var p=localStorage.getItem('autoknow-theme');var d=p==='dark'||(p!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();`;
 
 export default async function RootLayout({
   children,
@@ -49,7 +58,10 @@ export default async function RootLayout({
   const session = authConfigured ? await auth() : null;
   const locale = await getLocale();
   return (
-    <html lang={locale} className={`${geistSans.variable} ${geistMono.variable} ${rubik.variable}`}>
+    <html lang={locale} className={`${geistSans.variable} ${geistMono.variable} ${rubik.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+      </head>
       <body>
         <LocaleProvider locale={locale}>
         <nav className={styles.navBar}>
@@ -78,6 +90,7 @@ export default async function RootLayout({
           <div className={styles.rightSection}>
             <SwCleanup />
             <Search />
+            <ThemeToggle />
             <Link href="/manage" className={styles.settingsCog} aria-label={t(locale, 'navManage')} title={t(locale, 'navManage')}>
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                 <circle cx="12" cy="12" r="3" />

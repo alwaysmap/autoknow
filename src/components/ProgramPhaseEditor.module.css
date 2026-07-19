@@ -42,7 +42,7 @@
   align-items: center;
   justify-content: center;
   padding: 0 10px;
-  background: #fff;
+  background: var(--paper);
   border: 1px solid var(--border);
   border-radius: 7px;
   cursor: pointer;
@@ -101,7 +101,7 @@
   flex-direction: column;
   gap: 14px;
   padding: 16px 18px;
-  background: #fff;
+  background: var(--paper);
   border: 1px solid var(--border);
   border-left: 3px solid var(--chain);
   border-radius: 10px;
@@ -165,7 +165,7 @@
   padding: 3px 6px 3px 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: #fff;
+  background: var(--paper);
   color: var(--fg);
 }
 
@@ -179,5 +179,5 @@
   line-height: 1;
 }
 .chipRemove:hover {
-  color: #c5221f;
+  color: var(--bad);
 }

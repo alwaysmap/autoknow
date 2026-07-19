@@ -123,7 +123,7 @@ export default function EcosystemDashboardClient({
                     const { slackDays, onTrack } = sopOutlook(p.chainRemainingDays, p.sopDate, now);
                     return onTrack
                       ? <span style={{ color: 'var(--muted)', fontSize: 12.5 }}>{t(locale, 'slackWeeks', { n: Math.floor(slackDays / 7) })}</span>
-                      : <span className={styles.forecastText} style={{ color: '#b06000' }}>{t(locale, 'lateByWeeks', { n: Math.ceil(-slackDays / 7) })}</span>;
+                      : <span className={styles.forecastText} style={{ color: 'var(--warn)' }}>{t(locale, 'lateByWeeks', { n: Math.ceil(-slackDays / 7) })}</span>;
                   })()}
                 </td>
                 <td>

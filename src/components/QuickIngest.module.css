@@ -105,5 +105,5 @@
 }
 
 .error {
-  color: #c5221f;
+  color: var(--bad);
 }

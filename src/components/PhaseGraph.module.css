@@ -191,7 +191,7 @@
   padding: 3px 6px 3px 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: #fff;
+  background: var(--paper);
 }
 
 .partnerLink {
@@ -221,7 +221,7 @@
   line-height: 1;
 }
 .chipRemove:hover {
-  color: #c5221f;
+  color: var(--bad);
 }
 
 .addInlineForm {
@@ -246,7 +246,7 @@
 .quietSelect:focus,
 .roleInput:hover,
 .roleInput:focus {
-  background: #fff;
+  background: var(--paper);
   color: var(--fg);
 }
 .roleInput {
@@ -264,7 +264,7 @@
   cursor: pointer;
 }
 .miniBtn:hover {
-  background: #fff;
+  background: var(--paper);
   border-color: var(--muted);
   color: var(--fg);
 }
@@ -294,7 +294,7 @@
   padding: 3px 6px 3px 8px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: #fff;
+  background: var(--paper);
 }
 
 .depJump {
@@ -328,7 +328,7 @@
 
 .depError {
   font-size: 12px;
-  color: #c5221f;
+  color: var(--bad);
 }
 
 .removePhase {
@@ -346,7 +346,7 @@
   text-underline-offset: 2px;
 }
 .removeBtn:hover {
-  color: #c5221f;
+  color: var(--bad);
 }
 
 .addRow {
@@ -362,7 +362,7 @@
   padding: 5px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--paper);
   color: var(--fg);
   width: 200px;
   max-width: 100%;

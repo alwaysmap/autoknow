@@ -122,7 +122,7 @@ export default function UnifiedSearch({
                   fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 999, cursor: 'pointer',
                   border: '1px solid var(--border, #ddd)',
                   background: on ? 'var(--p-600, #1a6b3c)' : 'transparent',
-                  color: on ? '#fff' : 'var(--muted, #777)',
+                  color: on ? 'var(--paper)' : 'var(--muted, #777)',
                 }}
               >
                 {t(locale, TYPE_KEY[ft])}

@@ -148,10 +148,10 @@
   color: var(--p-700);
 }
 
-.segmentBtn[data-needle="Low"][data-active="true"] { background-color: #e6f4ea; color: #137333; }
-.segmentBtn[data-needle="Medium"][data-active="true"] { background-color: #fef7e0; color: #b06000; }
-.segmentBtn[data-needle="High"][data-active="true"] { background-color: #feebe7; color: #c5221f; }
-.segmentBtn[data-needle="Critical"][data-active="true"] { background-color: #fce8e6; color: #a50e0d; }
+.segmentBtn[data-needle="Low"][data-active="true"] { background-color: var(--ok-soft); color: var(--ok); }
+.segmentBtn[data-needle="Medium"][data-active="true"] { background-color: var(--warn-soft); color: var(--warn); }
+.segmentBtn[data-needle="High"][data-active="true"] { background-color: var(--bad-soft); color: var(--bad); }
+.segmentBtn[data-needle="Critical"][data-active="true"] { background-color: var(--crit-soft); color: var(--crit); }
 
 .textArea {
   padding: 10px;
@@ -254,8 +254,8 @@
   margin-top: 4px;
 }
 
-.labelLow { background-color: #e6f4ea; color: #137333; }
-.labelMedium { background-color: #fef7e0; color: #b06000; }
-.labelHigh { background-color: #feebe7; color: #c5221f; }
-.labelCritical { background-color: #fce8e6; color: #a50e0d; }
+.labelLow { background-color: var(--ok-soft); color: var(--ok); }
+.labelMedium { background-color: var(--warn-soft); color: var(--warn); }
+.labelHigh { background-color: var(--bad-soft); color: var(--bad); }
+.labelCritical { background-color: var(--crit-soft); color: var(--crit); }
 

@@ -120,7 +120,7 @@ function Station({ x, y, progress, onChain, isConstraint, title, onClick }: {
       {/* interchange-station treatment: the ring's interior is solid white so the
           track visibly terminates at the station instead of passing through */}
       {isConstraint && <circle cx={x} cy={y} r={r + 4} fill="#fff" stroke="var(--chain)" strokeWidth={2} />}
-      <circle cx={x} cy={y} r={r} fill={progress >= 100 ? stroke : '#fff'} stroke={stroke} strokeWidth={onChain ? 2 : 1.5} />
+      <circle cx={x} cy={y} r={r} fill={progress >= 100 ? stroke : 'var(--paper)'} stroke={stroke} strokeWidth={onChain ? 2 : 1.5} />
       {progress > 0 && progress < 100 && (
         <path d={`M ${x} ${y - (r - 0.75)} A ${r - 0.75} ${r - 0.75} 0 0 1 ${x} ${y + (r - 0.75)} Z`} fill={stroke} stroke="none" />
       )}
@@ -134,7 +134,7 @@ function Station({ x, y, progress, onChain, isConstraint, title, onClick }: {
 function StationGlyph({ progress }: { progress: number }) {
   return (
     <svg viewBox="0 0 14 14" width={14} height={14} className={styles.popStation} aria-hidden>
-      <circle cx={7} cy={7} r={5} fill={progress >= 100 ? INK : '#fff'} stroke={INK} strokeWidth={1.5} />
+      <circle cx={7} cy={7} r={5} fill={progress >= 100 ? INK : 'var(--paper)'} stroke={INK} strokeWidth={1.5} />
       {progress > 0 && progress < 100 && <path d="M 7 2.6 A 4.4 4.4 0 0 1 7 11.4 Z" fill={INK} />}
     </svg>
   );

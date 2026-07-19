@@ -230,7 +230,7 @@ export default function NeedleGauge({
             <div className={styles.healthPicker}>
               {HEALTHS.map((h) => (
                 <button key={h} type="button" onClick={() => setPickHealth(h)} aria-pressed={pickHealth === h} className={styles.healthChip}
-                  style={{ borderColor: healthColor(h), background: pickHealth === h ? healthColor(h) : 'transparent', color: pickHealth === h ? '#fff' : healthColor(h) }}>
+                  style={{ borderColor: healthColor(h), background: pickHealth === h ? healthColor(h) : 'transparent', color: pickHealth === h ? 'var(--paper)' : healthColor(h) }}>
                   {t(locale, healthKey(h))}
                 </button>
               ))}
@@ -241,7 +241,7 @@ export default function NeedleGauge({
             <span className={styles.formLabel}>{t(locale, 'updateWhatWhy')}</span>
             <MarkdownNoteEditor name="notes" ariaLabel={t(locale, 'updateWhatWhy')}
               placeholder={t(locale, 'needleNotePlaceholder')} />
-            {noteError && <div style={{ color: '#c5221f', fontSize: 12 }}>{t(locale, 'updateNeedsNote')}</div>}
+            {noteError && <div style={{ color: 'var(--bad)', fontSize: 12 }}>{t(locale, 'updateNeedsNote')}</div>}
           </div>
 
           <div className={styles.actionRow}>
