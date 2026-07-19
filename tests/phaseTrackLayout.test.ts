@@ -4,12 +4,40 @@ const row = (id: number, parents: number[] = [], progress = 0): LayoutRow => ({
   id, progress, parents: parents.map((p) => ({ id: p })),
 });
 
+// Every dependency must point DOWN the rail: a parent station always sits above its
+// children. (The old chain-first ordering exiled off-chain phases below the whole
+// chain, producing upward edges whose bypass geometry exploded into off-panel arcs.)
+const expectDownwardEdges = (rows: LayoutRow[], chain: number[]) => {
+  const ordered = stationOrder(rows, chain);
+  const idx = new Map(ordered.map((r, i) => [r.id, i]));
+  ordered.forEach((r) =>
+    r.parents.forEach((p) => {
+      if (idx.has(p.id)) expect(idx.get(p.id)!).toBeLessThan(idx.get(r.id)!);
+    }),
+  );
+  return ordered.map((r) => r.id);
+};
+
 describe('stationOrder', () => {
-  it('places the critical chain first, in chain order', () => {
+  it('keeps the chain in chain order and every edge pointing down', () => {
     const rows = [row(3, [2]), row(1), row(2, [1]), row(4, [1])];
-    const ordered = stationOrder(rows, [1, 2, 3]).map((r) => r.id);
-    expect(ordered.slice(0, 3)).toEqual([1, 2, 3]);
-    expect(ordered).toContain(4); // off-chain phase still present
+    const ordered = expectDownwardEdges(rows, [1, 2, 3]);
+    // chain relative order preserved
+    expect(ordered.indexOf(1)).toBeLessThan(ordered.indexOf(2));
+    expect(ordered.indexOf(2)).toBeLessThan(ordered.indexOf(3));
+    expect(ordered).toContain(4);
+  });
+
+  it('interleaves an off-chain feeder ABOVE the chain station it feeds (diamond)', () => {
+    // 1 → {2 (chain), 5 (off-chain)} → 3 → 4: 5 must sit above 3, not below the chain.
+    const rows = [row(1), row(2, [1]), row(5, [1]), row(3, [2, 5]), row(4, [3])];
+    const ordered = expectDownwardEdges(rows, [1, 2, 3, 4]);
+    expect(ordered.indexOf(5)).toBeLessThan(ordered.indexOf(3));
+  });
+
+  it('handles a wide fan that rejoins (3 parallel branches)', () => {
+    const rows = [row(1), row(2, [1]), row(3, [1]), row(4, [1]), row(5, [2, 3, 4]), row(6, [5])];
+    expectDownwardEdges(rows, [1, 3, 5, 6]);
   });
 
   it('orders off-chain phases by depth then id', () => {

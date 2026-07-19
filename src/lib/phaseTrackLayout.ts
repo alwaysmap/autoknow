@@ -10,15 +10,17 @@ export interface LayoutRow {
 }
 
 /**
- * Station sequence: the critical chain first, in chain order — the main line stays one
- * contiguous solid track. Remaining phases follow in topological order (longest-path
- * depth, then id) and connect via bypass loops from their real parents.
+ * Station sequence: a topological order, so every dependency points DOWN the rail —
+ * a parent station always sits above its children, and branch-out/branch-in read as
+ * local junctions instead of long backward loops. Among the nodes whose parents are
+ * all placed, the next critical-chain station wins (the chain stays in chain order
+ * and as contiguous as its off-chain feeders allow); ties go by longest-path depth,
+ * then id, for a stable layout.
  */
 export function stationOrder<T extends LayoutRow>(rows: T[], chainPath: number[]): T[] {
   const byId = new Map(rows.map((r) => [r.id, r]));
-  const chainSet = new Set(chainPath);
-  const chainRows = chainPath.map((id) => byId.get(id)).filter((r): r is T => !!r);
-  const rest = rows.filter((r) => !chainSet.has(r.id));
+  const chainRank = new Map(chainPath.map((id, i) => [id, i]));
+
   const depthMemo = new Map<number, number>();
   const depth = (id: number, seen: Set<number>): number => {
     if (depthMemo.has(id)) return depthMemo.get(id)!;
@@ -30,8 +32,45 @@ export function stationOrder<T extends LayoutRow>(rows: T[], chainPath: number[]
     return d;
   };
   rows.forEach((r) => depth(r.id, new Set()));
-  const restSorted = [...rest].sort((a, b) => (depthMemo.get(a.id)! - depthMemo.get(b.id)!) || a.id - b.id);
-  return [...chainRows, ...restSorted];
+
+  // Kahn's algorithm with a priority pick.
+  const indeg = new Map<number, number>();
+  const children = new Map<number, number[]>();
+  rows.forEach((r) => indeg.set(r.id, 0));
+  rows.forEach((r) =>
+    r.parents.forEach((p) => {
+      if (!byId.has(p.id)) return;
+      indeg.set(r.id, indeg.get(r.id)! + 1);
+      children.set(p.id, [...(children.get(p.id) ?? []), r.id]);
+    }),
+  );
+  const ready = rows.filter((r) => indeg.get(r.id) === 0).map((r) => r.id);
+  const better = (a: number, b: number): boolean => {
+    const ac = chainRank.has(a), bc = chainRank.has(b);
+    if (ac !== bc) return ac; // chain stations preempt
+    if (ac) return chainRank.get(a)! < chainRank.get(b)!;
+    return (depthMemo.get(a)! - depthMemo.get(b)!) < 0 || (depthMemo.get(a) === depthMemo.get(b) && a < b);
+  };
+  const out: T[] = [];
+  const placed = new Set<number>();
+  while (ready.length) {
+    let best = 0;
+    for (let i = 1; i < ready.length; i++) if (better(ready[i], ready[best])) best = i;
+    const id = ready.splice(best, 1)[0];
+    placed.add(id);
+    out.push(byId.get(id)!);
+    for (const c of children.get(id) ?? []) {
+      indeg.set(c, indeg.get(c)! - 1);
+      if (indeg.get(c) === 0) ready.push(c);
+    }
+  }
+  // Cycle leftovers (invalid graphs the validator flags separately): append stably so
+  // every station still renders.
+  rows
+    .filter((r) => !placed.has(r.id))
+    .sort((a, b) => (depthMemo.get(a.id)! - depthMemo.get(b.id)!) || a.id - b.id)
+    .forEach((r) => out.push(r));
+  return out;
 }
 
 export interface Edge {
