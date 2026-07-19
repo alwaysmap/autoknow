@@ -40,6 +40,11 @@ output "chat_contributors_group" {
   value       = google_cloud_identity_group.contrib.group_key[0].id
 }
 
+output "drive_share_address" {
+  description = "Friendly address to share Google Docs/folders with (a group containing the app SA)."
+  value       = google_cloud_identity_group.share.group_key[0].id
+}
+
 output "wif_provider" {
   description = "For google-github-actions/auth (workload_identity_provider)."
   value       = google_iam_workload_identity_pool_provider.github.name

@@ -54,9 +54,11 @@ const workloadIdentity = !key && !!process.env.K_SERVICE && !!process.env.GOOGLE
 
 export const driveConfigured = !!key || workloadIdentity;
 
-/** The address users share files/folders with. */
+/** The address users share files/folders with. Prefer the friendly group address
+ *  (GOOGLE_SHARE_ADDRESS, e.g. autoknow@domain — a group the runtime SA belongs to, so
+ *  sharing with it grants the SA access) over the raw *.iam.gserviceaccount.com email. */
 export function serviceAccountEmail(): string | null {
-  return key?.client_email ?? process.env.GOOGLE_SA_EMAIL ?? null;
+  return process.env.GOOGLE_SHARE_ADDRESS ?? key?.client_email ?? process.env.GOOGLE_SA_EMAIL ?? null;
 }
 
 const b64url = (input: string | Buffer): string => Buffer.from(input).toString('base64url');

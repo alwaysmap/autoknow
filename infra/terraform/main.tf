@@ -229,6 +229,38 @@ resource "google_cloud_identity_group_membership" "contrib_owner" {
   roles { name = "MANAGER" }
 }
 
+# ---- Friendly Drive/identity address ----
+# A service account can't have a vanity @domain email, so expose a clean address people
+# share Drive docs with via a group that CONTAINS the runtime SA. Sharing a doc with the
+# group grants its members — including the SA — access, so the app reads it with its own
+# keyless token, while users only ever see autoknow@<domain>.
+resource "google_cloud_identity_group" "share" {
+  provider     = google.orgpolicy
+  display_name = "AutoKnow"
+  description  = "Share Google Docs/folders with this address so AutoKnow can read them."
+  parent       = "customers/${var.workspace_customer_id}"
+
+  group_key {
+    id = "autoknow@${var.allowed_domain}"
+  }
+
+  labels = {
+    "cloudidentity.googleapis.com/groups.discussion_forum" = ""
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_cloud_identity_group_membership" "share_sa" {
+  provider = google.orgpolicy
+  group    = google_cloud_identity_group.share.id
+
+  preferred_member_key {
+    id = google_service_account.run.email
+  }
+  roles { name = "MEMBER" }
+}
+
 # ---- Cloud Run service ----
 resource "google_cloud_run_v2_service" "app" {
   project             = google_project.autoknow.project_id
@@ -270,6 +302,12 @@ resource "google_cloud_run_v2_service" "app" {
       env {
         name  = "GOOGLE_SA_EMAIL"
         value = google_service_account.run.email
+      }
+      # Friendly address the app tells users to share Drive docs with (a group the SA is
+      # a member of) instead of the raw *.iam.gserviceaccount.com email.
+      env {
+        name  = "GOOGLE_SHARE_ADDRESS"
+        value = google_cloud_identity_group.share.group_key[0].id
       }
       # Secret env — one block per secret
       dynamic "env" {
