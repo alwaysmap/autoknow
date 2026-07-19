@@ -301,14 +301,61 @@ backlog quickly.
 
 ---
 
-## 6. Google Chat app (code shipped; delivery gated by Workspace admin policy)
+## 6. Google Chat app (WORKING in production since 2026-07-19 — read §6.0 first)
 
 The mentionable identity for chat ingestion (`@AutoKnow` on a message → thread
 saved). A service-account email can't be mentioned in Chat; the Chat *app* is the
-share target. The receiving endpoint (`/api/chat/events`), JWT verification, and
-relay architecture are implemented and machine-verified; what remains
-environment-dependent is Google actually delivering events, which depends on the
-Workspace admin settings below.
+share target.
+
+### 6.0 The add-on era: what actually made delivery work (2026-07-19)
+
+Every Chat app config the current console creates is **locked into the Google
+Workspace add-on framework** ("Build this Chat app as a Workspace add-on" is
+checked and immutable; the quickstart's "clear it" instruction is stale, and
+disabling/re-enabling the Chat API does NOT reset the stored config). Two
+consequences, each fatal on its own and both diagnosed red→green in prod:
+
+1. **Delivery requires the add-on registration chain** — without it, every
+   mention dies inside Google before any HTTP call (client shows "not
+   responding"; error log shows code 13 + code 3 "can't handle the app's
+   response"; your endpoint sees nothing). All console-only, in this order:
+   - **OAuth consent screen** in the app's project (Google Auth Platform →
+     Internal, app name, support email);
+   - **Marketplace SDK** (`appsmarket-component.googleapis.com`) → App
+     Configuration: visibility **Private** (immutable once saved!), integration
+     "Google Workspace add-on" → **"Standalone Chat App (Configure Chat API)"**
+     (Deployment ID stays empty — the gsuiteaddons deployment API has no `chat`
+     section; standalone Chat apps live entirely in the Chat API config);
+   - **Store Listing → Publish** (private = domain-only, no Google review;
+     needs icons 32/48/96/128 + 220x140 banner + a screenshot + category +
+     ToS/privacy/support URLs);
+   - each user **installs** the app (the Install dialog only exists once the
+     listing is published; find the app in Chat → New chat → search).
+2. **The add-on runtime speaks a different protocol** (`User-Agent:
+   Google-gsuiteaddons`), handled in `lib/chatEvents.ts` + the events route:
+   - *Auth:* a standard Google **ID token** (issuer `accounts.google.com`) for
+     `service-<PROJECT_NUMBER>@gcp-sa-gsuiteaddons.iam.gserviceaccount.com` —
+     not the legacy `chat@system.gserviceaccount.com` JWT. Both are accepted;
+     the add-on token is project-bound via that SA email claim.
+   - *Events:* wrapped in `chat.messagePayload` / `chat.addedToSpacePayload`
+     envelopes (no top-level `type`) — normalized by `normalizeChatEvent`.
+   - *Replies:* must be wrapped as
+     `hostAppDataAction.chatDataAction.createMessageAction` — `formatChatReply`.
+
+**Self-test without a human** (the loop's reproducer): drive Chat web
+(chat.google.com) with an authenticated browser session, DM the app, then read
+`gcloud logging read '...httpRequest.requestUrl:"/api/chat/events"'` for the
+POST + `textPayload:"[chat]"` for the JWT/type/reply verdicts. Green =
+`200` + `jwt verified` + `type=MESSAGE addon=true` + `replied (text)` + an
+in-thread reply.
+
+**Duplicate apps:** every project that ever had a Chat config publishes its own
+"AutoKnow". Dead ones (old projects) are disabled at the source (App status
+DISABLED + Chat API off) but linger in clients — delete their DM threads
+manually. The real app has the navy hill-logo avatar.
+
+The sections below predate the add-on-era discovery; the admin-policy checks
+remain valid prerequisites but were NOT sufficient on their own.
 
 **Workspace admin prerequisites (checked first — these block delivery silently):**
 
