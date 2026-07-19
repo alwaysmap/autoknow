@@ -1,13 +1,8 @@
 name: Deploy app
 
-# App CD. Two ordered jobs per instance:
-#   1. migrate — apply forward-only DB migrations (prisma migrate deploy) BEFORE the new
-#      code serves. Migrations MUST be backward-compatible (expand/contract), because the
-#      OLD revision keeps serving until step 2 finishes. See docs/CHANGE_PLAYBOOK.md.
-#   2. deploy  — build the (config-free) image and roll Cloud Run to it. `needs: migrate`,
-#      so a failed migration blocks the rollout.
-# Keyless auth via Workload Identity Federation. The same image is promoted to every
-# instance in the matrix; per-instance config comes from each instance's Terraform.
+# App CD. Two ordered jobs per instance: migrate (forward-only DB migrations) then deploy
+# (build → push → Cloud Run, gated on migrate). Keyless via Workload Identity Federation.
+# All logic lives in scripts/ci/*.sh; this file only wires inputs. See docs/CHANGE_PLAYBOOK.md.
 on:
   push:
     branches: [main]
@@ -19,12 +14,13 @@ on:
       - 'package-lock.json'
       - 'Dockerfile'
       - 'next.config.ts'
+      - 'scripts/ci/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write # required for WIF
+  id-token: write
 
 jobs:
   migrate:
@@ -41,52 +37,22 @@ jobs:
             service_account: autoknow-ci@autoknow-prod-1895f1.iam.gserviceaccount.com
     steps:
       - uses: actions/checkout@v4
-
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ matrix.instance.workload_identity_provider }}
           service_account: ${{ matrix.instance.service_account }}
-
       - uses: google-github-actions/setup-gcloud@v2
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       - run: npm ci
-
-      - name: Apply migrations (forward-only; baseline an existing DB once)
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Migrate database
         env:
-          PROJECT: ${{ matrix.instance.project }}
-          CONN: ${{ matrix.instance.sql_connection }}
-        run: |
-          set -euo pipefail
-          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
-          curl -sL "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.15.2/cloud-sql-proxy.linux.amd64" -o csp
-          chmod +x csp
-          ./csp --port 5432 "$CONN" &
-          CSP_PID=$!
-          trap 'kill $CSP_PID 2>/dev/null || true' EXIT
-          for i in $(seq 30); do pg_isready -h 127.0.0.1 -p 5432 -q && break; sleep 1; done
-
-          PW=$(gcloud secrets versions access latest --secret=database-url --project "$PROJECT" | sed -E 's#.*://app:([^@]+)@.*#\1#')
-          export DATABASE_URL="postgresql://app:${PW}@127.0.0.1:5432/autoknow?schema=public"
-          # psql rejects Prisma's ?schema= param, so use a plain libpq URL for the probes.
-          PSQL_URL="postgresql://app:${PW}@127.0.0.1:5432/autoknow"
-
-          # Baseline: a DB provisioned before we adopted migrations has the schema but no
-          # _prisma_migrations table. Mark 0_init applied so `deploy` doesn't try to re-create
-          # existing tables. A genuinely EMPTY DB (fresh instance) skips this and `deploy`
-          # runs 0_init to build the schema.
-          HISTORY=$(psql "$PSQL_URL" -tAc "SELECT to_regclass('public._prisma_migrations')" | tr -d '[:space:]')
-          TABLES=$(psql "$PSQL_URL" -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name <> '_prisma_migrations'" | tr -d '[:space:]')
-          if [ -z "${HISTORY// /}" ] && [ "${TABLES:-0}" -gt 0 ]; then
-            echo "::notice::Existing schema without migration history — baselining 0_init as applied"
-            npx prisma migrate resolve --applied 0_init
-          fi
-
-          npx prisma migrate deploy
+          INSTANCE_PROJECT: ${{ matrix.instance.project }}
+          INSTANCE_SQL_CONNECTION: ${{ matrix.instance.sql_connection }}
+        run: scripts/ci/migrate.sh
 
   deploy:
     name: deploy ${{ matrix.instance.name }}
@@ -105,30 +71,16 @@ jobs:
             service_account: autoknow-ci@autoknow-prod-1895f1.iam.gserviceaccount.com
     steps:
       - uses: actions/checkout@v4
-
-      - id: auth
-        uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ matrix.instance.workload_identity_provider }}
           service_account: ${{ matrix.instance.service_account }}
-
       - uses: google-github-actions/setup-gcloud@v2
-
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker ${{ matrix.instance.region }}-docker.pkg.dev --quiet
-
-      - name: Build & push image
-        run: |
-          docker build --platform linux/amd64 \
-            -t "${{ matrix.instance.image }}:${{ github.sha }}" \
-            -t "${{ matrix.instance.image }}:latest" .
-          docker push "${{ matrix.instance.image }}:${{ github.sha }}"
-          docker push "${{ matrix.instance.image }}:latest"
-
-      - name: Deploy to Cloud Run
-        run: |
-          gcloud run services update ${{ matrix.instance.service }} \
-            --image "${{ matrix.instance.image }}:${{ github.sha }}" \
-            --project ${{ matrix.instance.project }} \
-            --region ${{ matrix.instance.region }} \
-            --quiet
+      - name: Build & deploy
+        env:
+          IMAGE: ${{ matrix.instance.image }}
+          GIT_SHA: ${{ github.sha }}
+          INSTANCE_PROJECT: ${{ matrix.instance.project }}
+          INSTANCE_REGION: ${{ matrix.instance.region }}
+          INSTANCE_SERVICE: ${{ matrix.instance.service }}
+        run: scripts/ci/build-and-deploy.sh

@@ -4,6 +4,28 @@
 ordering wrong can corrupt data. The rules below are not style preferences; follow them
 exactly.
 
+## Enforcement (these rules are software-enforced, not just documented)
+
+Rules only help if they can't be quietly ignored. The controls below make the dangerous
+operations fail regardless of who (human or agent) attempts them:
+
+1. **Least-privilege runtime role** (`scripts/db/harden-roles.sql`): the app's DB user has
+   row DML only — **no CREATE/ALTER/DROP/TRUNCATE**. `prisma db push` and any schema-
+   destroying SQL run with the app's `DATABASE_URL` fail with *permission denied*. Only the
+   `migrator` role (credentials in Secret Manager, reachable only by the CI SA) has DDL, and
+   it is used solely by `prisma migrate deploy`.
+2. **Destructive-migration gate** (`scripts/ci/lint-migrations.sh`, `ci.yml`): a required PR
+   check fails any new migration containing `DROP TABLE/COLUMN`, `TRUNCATE`, `SET DATA TYPE`,
+   `SET NOT NULL`, etc. unless it carries an explicit reviewed `-- allow-destructive: <reason>`.
+3. **Forward-only in CI**: the pipeline only ever runs `prisma migrate deploy`; nothing runs
+   `db push`/`reset`. A failed migration blocks the deploy (`needs: migrate`), so prod keeps
+   serving the old revision — never half-migrated.
+4. **Immutable history**: Prisma verifies each applied migration's checksum; editing an
+   already-applied migration makes `migrate deploy` fail.
+5. **Backups + PITR** on the Cloud SQL instance: last-resort recovery, always on.
+6. **Branch protection** (recommended): require the `migrations-lint` check + review and
+   disallow direct pushes to `main`, so nothing reaches prod unchecked.
+
 ## The two pipelines (what runs when)
 
 | Trigger | Workflow | What it does | Who can run it |

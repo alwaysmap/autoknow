@@ -1,0 +1,22 @@
+name: CI
+
+# Pull-request gates. Make these required status checks (branch protection) so nothing
+# corrupting can reach main. All logic is in scripts/; this only wires it.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  migrations-lint:
+    name: migrations-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need history to diff new migrations vs the base branch
+      - name: Block destructive migrations without opt-in
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+        run: scripts/ci/lint-migrations.sh
