@@ -749,7 +749,7 @@
 .scrim {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 110; /* above the pinned nav (100) — a modal owns the whole viewport */
   background: rgba(20, 20, 20, 0.4);
   display: flex;
   align-items: flex-start;
@@ -764,7 +764,7 @@
 }
 .popover {
   position: relative;
-  width: min(980px, 100%); /* two-pane dossier; updates are 4-5 sentence prose */
+  width: min(1140px, 94vw); /* two-pane dossier; updates are 4-5 sentence prose */
   background: var(--paper);
   border: 1px solid var(--border);
   /* the chain-accent edge echoes the constraint marker — "you are focused on one station" */
@@ -969,34 +969,65 @@
   order: -1;
   flex: 0.9;
   min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 14px;
+  padding-right: 22px;
+  border-right: 1px solid var(--border); /* the ONE divider between what-is and what-happened */
 }
 
 .progressPane {
   flex: 1.25; /* updates are prose — the writing/reading pane gets the wider beam */
   min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 14px;
   /* updates + full history scroll inside the pane; the popover itself stays put */
-  max-height: 60vh;
+  max-height: 62vh;
   overflow-y: auto;
+  padding-right: 4px; /* room for the scrollbar, not a box */
 }
 
-.zoneTitle {
+/* About-pane meta: ONE grammar for every row (design.md §7) — small-caps label
+   left, value right, on one line; whitespace between rows, a single hairline
+   between the prose block above and this grid. */
+.aboutMeta {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 10px;
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  column-gap: 12px;
+  row-gap: 7px;
+  align-items: baseline;
+}
+
+.aboutMeta > * {
+  display: contents; /* each row contributes its label + content to the grid */
+}
+
+.aboutMeta .depsLabel,
+.aboutMeta .metaLabel {
   font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
-  margin-bottom: 8px;
+  margin: 0;
+}
+
+.aboutMeta .depsRow,
+.aboutMeta .detailsSection {
+  display: contents;
+}
+
+/* chips + inline add-forms flow together in the value cell */
+.aboutMeta .chipCell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+  min-width: 0;
 }
 
 @media (max-width: 860px) {
   .dossier { flex-direction: column; }
-  .aboutPane { order: 2; width: 100%; }   /* narrow: updates stack ABOVE metadata */
+  /* narrow: updates stack ABOVE metadata; the divider rotates to horizontal */
+  .aboutPane { order: 2; width: 100%; border-right: none; border-top: 1px solid var(--border); padding: 12px 0 0; }
   .progressPane { width: 100%; max-height: none; }
 }
 
@@ -1010,4 +1041,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 60%;
+}
+
+/* Started row spans the grid — one icon+fact+action line (design.md §7). */
+.aboutMeta .startedRow {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
 }

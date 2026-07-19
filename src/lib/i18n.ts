@@ -316,6 +316,7 @@ const STRINGS = {
   sopDate: { en: 'SOP Date', de: 'SOP-Datum', ja: 'SOP日付', ko: 'SOP 날짜' },
   targetVolume: { en: '12M Target Volume', de: '12M-Zielvolumen', ja: '12ヶ月目標台数', ko: '12개월 목표 물량' },
   none: { en: 'None', de: 'Keine', ja: 'なし', ko: '없음' },
+  assignOwner: { en: 'Assign owner — required', de: 'Owner zuweisen — erforderlich', ja: 'オーナー割当が必要', ko: '담당자 지정 필요' },
   undecided: { en: 'Undecided', de: 'Offen', ja: '未定', ko: '미정' },
   notSet: { en: 'Not Set', de: 'Nicht gesetzt', ja: '未設定', ko: '설정 안 됨' },
   editMetadata: { en: 'Edit Project Metadata', de: 'Projekt-Metadaten bearbeiten', ja: 'プロジェクト情報を編集', ko: '프로젝트 메타데이터 편집' },

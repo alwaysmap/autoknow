@@ -129,3 +129,17 @@
   font-style: italic;
   color: var(--muted);
 }
+
+/* Owner is REQUIRED: its absence renders as an amber to-do that opens the edit
+   dialog — never a quiet gray fact. Amber = attention (health palette), border
+   carries the affordance without adding a filled badge. */
+.ownerMissing {
+  border: 1px solid var(--warn);
+  color: var(--warn);
+  background: transparent;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}

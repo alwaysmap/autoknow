@@ -53,8 +53,8 @@
 }
 
 .riskSection {
-  border-left: 2px solid var(--bad);
-  padding-left: 12px;
+  /* no red rail: the RISKS heading already names the block (design.md §7 — a rule
+     or a heading, never both), and red borders shout louder than the content */
 }
 
 .sectionTitle {

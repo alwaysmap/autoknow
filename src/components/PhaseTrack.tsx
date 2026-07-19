@@ -336,7 +336,13 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     if (detailsId == null) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDetailsId(null); };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // A modal owns the viewport: the page behind must not scroll under the scrim.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [detailsId]);
 
   // Station y-centers are measured from the DOM so the track follows real row heights.
@@ -476,7 +482,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                 involvement, timing). Updates lead; metadata follows. */}
             <div className={styles.dossier}>
               <div className={styles.progressPane}>
-                <div className={styles.zoneTitle}>{t(locale, 'progressZone')}</div>
 
             {/* status update: drag the hill, say what changed — the note is REQUIRED,
                 a silent dot move is unreadable in history and invisible to the brief */}
@@ -570,7 +575,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               </div>
 
               <div className={styles.aboutPane}>
-                <div className={styles.zoneTitle}>{t(locale, 'aboutZone')}</div>
                 {/* template-sourced content: what this phase is, and where Google leans in */}
                 {p.description && (
                   <div className={styles.templateDoc}><Markdown>{p.description}</Markdown></div>
@@ -581,10 +585,41 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     <span className={styles.templateFocus}><Markdown>{p.googleFocus}</Markdown></span>
                   </div>
                 )}
+                <div className={styles.aboutMeta}>
+                {/* dependencies: read-only here — chips jump to the phase; the structure
+                    itself is edited only in the DAG-validated program phase editor */}
+                <div className={styles.depsRow}>
+                  <span className={styles.depsLabel}>{t(locale, 'after')}</span>
+                  <span className={styles.chipCell}>
+                  {upstream.map((par) => (
+                    <span key={par.linkId} className={styles.depChip}>
+                      <button type="button" className={styles.depJump} onClick={() => jumpTo(par.id)}>
+                        {byId.get(par.id)?.name}
+                      </button>
+                    </span>
+                  ))}
+                  {upstream.length === 0 && <span className={styles.depNone}>{t(locale, 'startingPhase')}</span>}
+                  </span>
+                </div>
+                {downstream.length > 0 && (
+                  <div className={styles.depsRow}>
+                    <span className={styles.depsLabel}>{t(locale, 'enables')}</span>
+                    <span className={styles.chipCell}>
+                    {downstream.map((d) => (
+                      <span key={d.linkId} className={styles.depChip}>
+                        <button type="button" className={styles.depJump} onClick={() => jumpTo(d.id)}>
+                          {byId.get(d.id)?.name}
+                        </button>
+                      </span>
+                    ))}
+                    </span>
+                  </div>
+                )}
                 {/* who's involved: partners and people, editable (roles kept here, where the
                     free-text function is actually edited — the rail shows type-coloured pills) */}
                 <div className={styles.detailsSection}>
                   <span className={styles.depsLabel}>{t(locale, 'partnersLabel')}</span>
+                  <span className={styles.chipCell}>
                   {p.partners.map((pp) => (
                     <span key={pp.linkId} className={styles.partnerChip}>
                       <Link href={`/partners/${pp.partnerId}`} className={styles.partnerLink}>{pp.name}</Link>
@@ -615,10 +650,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     // never leave the section affordance-less: say WHY there's nothing to add
                     <span className={styles.depNone}>{t(locale, 'allPartnersInvolved')}</span>
                   )}
+                  </span>
                 </div>
 
                 <div className={styles.detailsSection}>
                   <span className={styles.depsLabel}>{t(locale, 'peopleLabel')}</span>
+                  <span className={styles.chipCell}>
                   {p.people.map((pp) => (
                     <span key={pp.linkId} className={styles.partnerChip}>
                       <Link href={`/people/${pp.personId}`} className={styles.partnerLink}>{pp.name}</Link>
@@ -649,33 +686,9 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     // never leave the section affordance-less: say WHY there's nothing to add
                     <span className={styles.depNone}>{t(locale, 'allPeopleInvolved')}</span>
                   )}
+                  </span>
                 </div>
 
-                {/* dependencies: read-only here — chips jump to the phase; the structure
-                    itself is edited only in the DAG-validated program phase editor */}
-                <div className={styles.depsRow}>
-                  <span className={styles.depsLabel}>{t(locale, 'after')}</span>
-                  {upstream.map((par) => (
-                    <span key={par.linkId} className={styles.depChip}>
-                      <button type="button" className={styles.depJump} onClick={() => jumpTo(par.id)}>
-                        {byId.get(par.id)?.name}
-                      </button>
-                    </span>
-                  ))}
-                  {upstream.length === 0 && <span className={styles.depNone}>{t(locale, 'startingPhase')}</span>}
-                </div>
-                {downstream.length > 0 && (
-                  <div className={styles.depsRow}>
-                    <span className={styles.depsLabel}>{t(locale, 'enables')}</span>
-                    {downstream.map((d) => (
-                      <span key={d.linkId} className={styles.depChip}>
-                        <button type="button" className={styles.depJump} onClick={() => jumpTo(d.id)}>
-                          {byId.get(d.id)?.name}
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
                 {/* Work-started toggle (cycle time: wait vs active). Progress implies
                     started, so the box is checked+locked once the hill has moved; before
                     that it is the explicit claim that another team is already working. */}
@@ -701,6 +714,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     )}
                   </label>
                 )}
+                </div>
               </div>
             </div>
           </div>
