@@ -1,3 +1,18 @@
+# Database & infrastructure changes — STOP and read the playbook
+
+Before any change touching `prisma/schema.prisma`, `infra/terraform/**`, secrets, or env
+vars, read **[docs/CHANGE_PLAYBOOK.md](docs/CHANGE_PLAYBOOK.md)** and follow it exactly.
+Non-negotiables (full rules + PR recipes in the playbook):
+- **Never `prisma db push`, `migrate reset`, or drop/edit an already-applied migration against a
+  shared/prod DB.** Production is forward-only `prisma migrate deploy`; `db push` can delete data.
+- **Additive schema changes** (new table, nullable/defaulted column, index) may ship with app
+  code in **one PR**. **Destructive ones** (drop/rename/retype a column) MUST be split
+  **expand → backfill → contract** across separate merges — one step per deploy.
+- **Adding** infra the app needs: infra PR + `terraform apply` (human) FIRST, then the app PR.
+  **Removing** infra: app PR first, then the infra PR. Gate new features on env presence so they
+  stay dark until their infra exists.
+- `terraform apply` is human-run; app deploys are automatic on merge to `main`.
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 

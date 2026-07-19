@@ -1,9 +1,13 @@
 name: Deploy app
 
-# App CD: build the image and roll Cloud Run to it. Keyless auth via Workload Identity
-# Federation (no JSON keys). The image is config-free; per-instance config comes from each
-# instance's Terraform-managed secrets/env, so the SAME image is promoted to every
-# instance in the matrix. Terraform is NOT involved here (the service ignores image drift).
+# App CD. Two ordered jobs per instance:
+#   1. migrate — apply forward-only DB migrations (prisma migrate deploy) BEFORE the new
+#      code serves. Migrations MUST be backward-compatible (expand/contract), because the
+#      OLD revision keeps serving until step 2 finishes. See docs/CHANGE_PLAYBOOK.md.
+#   2. deploy  — build the (config-free) image and roll Cloud Run to it. `needs: migrate`,
+#      so a failed migration blocks the rollout.
+# Keyless auth via Workload Identity Federation. The same image is promoted to every
+# instance in the matrix; per-instance config comes from each instance's Terraform.
 on:
   push:
     branches: [main]
@@ -23,13 +27,72 @@ permissions:
   id-token: write # required for WIF
 
 jobs:
-  deploy:
-    name: ${{ matrix.instance.name }}
+  migrate:
+    name: migrate ${{ matrix.instance.name }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # One entry per instance. Add a block here to deploy a new instance.
+        instance:
+          - name: alwaysmap
+            project: autoknow-prod-1895f1
+            sql_connection: autoknow-prod-1895f1:us-central1:autoknow-pg
+            workload_identity_provider: projects/1009926574065/locations/global/workloadIdentityPools/github/providers/github
+            service_account: autoknow-ci@autoknow-prod-1895f1.iam.gserviceaccount.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ matrix.instance.workload_identity_provider }}
+          service_account: ${{ matrix.instance.service_account }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply migrations (forward-only; baseline an existing DB once)
+        env:
+          PROJECT: ${{ matrix.instance.project }}
+          CONN: ${{ matrix.instance.sql_connection }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          curl -sL "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.15.2/cloud-sql-proxy.linux.amd64" -o csp
+          chmod +x csp
+          ./csp --port 5432 "$CONN" &
+          CSP_PID=$!
+          trap 'kill $CSP_PID 2>/dev/null || true' EXIT
+          for i in $(seq 30); do pg_isready -h 127.0.0.1 -p 5432 -q && break; sleep 1; done
+
+          PW=$(gcloud secrets versions access latest --secret=database-url --project "$PROJECT" | sed -E 's#.*://app:([^@]+)@.*#\1#')
+          export DATABASE_URL="postgresql://app:${PW}@127.0.0.1:5432/autoknow?schema=public"
+
+          # Baseline: a DB provisioned before we adopted migrations has the schema but no
+          # _prisma_migrations table. Mark 0_init applied so `deploy` doesn't try to re-create
+          # existing tables. A genuinely EMPTY DB (fresh instance) skips this and `deploy`
+          # runs 0_init to build the schema.
+          HISTORY=$(psql "$DATABASE_URL" -tAc "SELECT to_regclass('public._prisma_migrations')" || true)
+          TABLES=$(psql "$DATABASE_URL" -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name <> '_prisma_migrations'" || echo 0)
+          if [ -z "${HISTORY// /}" ] && [ "${TABLES:-0}" -gt 0 ]; then
+            echo "::notice::Existing schema without migration history — baselining 0_init as applied"
+            npx prisma migrate resolve --applied 0_init
+          fi
+
+          npx prisma migrate deploy
+
+  deploy:
+    name: deploy ${{ matrix.instance.name }}
+    needs: migrate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
         instance:
           - name: alwaysmap
             project: autoknow-prod-1895f1

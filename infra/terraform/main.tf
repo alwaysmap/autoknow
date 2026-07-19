@@ -500,3 +500,11 @@ resource "google_project_iam_member" "ci_roles" {
   role    = each.value
   member  = "serviceAccount:${google_service_account.ci.email}"
 }
+
+# The CI migrate job reads ONLY the database-url secret to build the connection string
+# for `prisma migrate deploy` (scoped, not project-wide secret access).
+resource "google_secret_manager_secret_iam_member" "ci_db_url" {
+  secret_id = google_secret_manager_secret.s["database-url"].id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.ci.email}"
+}
