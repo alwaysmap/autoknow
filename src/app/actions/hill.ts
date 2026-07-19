@@ -47,3 +47,24 @@ export async function updatePhaseHill(formData: FormData) {
   revalidatePath('/'); // the ecosystem feed lives on the home page
   revalidatePath('/ecosystem-summary');
 }
+
+// Explicit "work has begun" toggle (cycle time: wait vs active). Independent of hill
+// updates — work frequently starts at a partner long before the first update is
+// filed, and the Basecamp convention (first update IS the start) undercounts active
+// time. Setting keeps an existing timestamp (the earliest claim wins); clearing
+// removes only the explicit marker — a derived start from real progress still applies.
+export async function setPhaseStarted(formData: FormData) {
+  const phaseId = parseInt(formData.get('phaseId') as string, 10);
+  const projectId = parseInt(formData.get('projectId') as string, 10);
+  const started = formData.get('started') === '1';
+  if (isNaN(phaseId) || isNaN(projectId)) throw new Error('Invalid phase');
+
+  const phase = await prisma.phase.findUnique({ where: { id: phaseId }, select: { startedAt: true, projectId: true } });
+  if (!phase || phase.projectId !== projectId) throw new Error('Unknown phase');
+
+  await prisma.phase.update({
+    where: { id: phaseId },
+    data: { startedAt: started ? (phase.startedAt ?? new Date()) : null },
+  });
+  revalidatePath(`/programs/${projectId}`);
+}

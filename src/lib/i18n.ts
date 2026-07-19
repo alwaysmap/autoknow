@@ -476,6 +476,8 @@ const STRINGS = {
   restoreDefaultPrompt: { en: 'Restore default', de: 'Standard wiederherstellen', ja: 'デフォルトに戻す', ko: '기본값 복원' },
   navManage: { en: 'Manage', de: 'Verwalten', ja: '管理', ko: '관리' },
   themeLabel: { en: 'Theme', de: 'Design', ja: 'テーマ', ko: '테마' },
+  workStarted: { en: 'Work has started', de: 'Arbeit hat begonnen', ja: '作業開始済み', ko: '작업 시작됨' },
+  startedOn: { en: 'started {d}', de: 'begonnen {d}', ja: '{d} 開始', ko: '{d} 시작' },
   themeLight: { en: 'Light', de: 'Hell', ja: 'ライト', ko: '라이트' },
   themeDark: { en: 'Dark', de: 'Dunkel', ja: 'ダーク', ko: '다크' },
   themeSystem: { en: 'System', de: 'System', ja: 'システム', ko: '시스템' },

@@ -138,6 +138,11 @@ model Phase {
   leadPartner        Partner? @relation("PhaseLeadPartner", fields: [leadPartnerId], references: [id])
   isEndPhase         Boolean @default(false) // the program's single convergence point
 
+  // Explicit "work has begun" marker (cycle time: separates wait from active time).
+  // Set by the Active toggle; takes precedence over the derived first-progress-update
+  // timestamp, because work often starts (at a partner) well before the first update.
+  startedAt          DateTime?
+
   @@index([projectId])
 }
 
