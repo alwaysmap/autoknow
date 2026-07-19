@@ -34,6 +34,9 @@
   font-size: 13.5px;
   line-height: 1.55;
   color: var(--fg);
+  /* A writing surface is always left-aligned — the needle-update dialog otherwise
+     inherits text-align:center from the gauge's .summaryCard ancestor. */
+  text-align: left;
   /* Room to invite a real weekly write-up; grows with content, scrolls past a point
      so a long update never blows the dialog off-screen. */
   min-height: 200px;
