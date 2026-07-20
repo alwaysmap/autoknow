@@ -90,6 +90,11 @@
      they differ by HUE, not by opacity of one hue — spent loss and forecast loss
      were both red and read as the same band. hsla keeps them translucent enough
      that the ink on top stays legible. */
+  /* Forecast (outlined) schedule bars are hollow in Standard — the wash reads
+     through them. Instrument fills them with the near-white gauge face so they
+     pop opaque over the hatching (set in the instrument block). */
+  --forecast-fill: none;
+
   --band-lost: hsla(4, 80%, 52%, 0.30);          /* days already lost — red */
   --band-lost-forecast: hsla(33, 95%, 48%, 0.32); /* forecast to be lost — amber */
   --band-gained: hsla(146, 62%, 40%, 0.30);       /* days handed back — green */
@@ -241,6 +246,10 @@
   --band-lost-forecast: hsla(38, 90%, 46%, 0.32);
   --band-gained: hsla(80, 60%, 38%, 0.30);
   --band-buffer: hsla(150, 40%, 40%, 0.20);
+
+  /* Forecast bars pop opaque over the hatching, in the same near-white as the
+     gauge face — the one surface that stays light in both themes. */
+  --forecast-fill: var(--gauge-face);
 
   /* Pattern inks for the hatched/stippled buffer bands (Instrument only). Solid,
      readable hues: the TEXTURE tells the four meanings apart, the hue only

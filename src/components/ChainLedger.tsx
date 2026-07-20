@@ -86,12 +86,18 @@ function bandPattern(kind: BandKind, id: string) {
           <circle cx={2.5} cy={2.5} r={0.9} fill="var(--band-ink-gain)" opacity={0.8} />
         </pattern>
       );
-    case 'buffer': // sparse stipple — room still open
+    case 'buffer': { // dense OFFSET stipple (quincunx) — room still open
+      // Corners tile to a grid; the centre dot fills each gap, so the rows read
+      // as staggered rather than a plain square lattice.
+      const dot = (cx: number, cy: number) => (
+        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={0.85} fill="var(--band-ink-buffer)" opacity={0.65} />
+      );
       return (
-        <pattern key={id} {...p} width={9} height={9}>
-          <circle cx={4.5} cy={4.5} r={0.85} fill="var(--band-ink-buffer)" opacity={0.62} />
+        <pattern key={id} {...p} width={6} height={6}>
+          {dot(0, 0)}{dot(6, 0)}{dot(0, 6)}{dot(6, 6)}{dot(3, 3)}
         </pattern>
       );
+    }
   }
 }
 
@@ -295,7 +301,7 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
                 <>
                   <rect x={x(r.startMs)} y={y - 4.5} width={Math.max(2, x(now) - x(r.startMs))} height={9} rx={2} fill="var(--fg)" />
                   <rect x={x(now)} y={y - 4.5} width={Math.max(2, x(r.endMs) - x(now))} height={9} rx={2}
-                    fill="none" stroke="var(--fg)" strokeWidth={1.25} />
+                    fill="var(--forecast-fill)" stroke="var(--fg)" strokeWidth={1.25} />
                 </>
               )}
               {r.kind === 'notStarted' && (

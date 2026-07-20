@@ -18,6 +18,20 @@
   width: 100%;
 }
 
+/* Instrument: the whole row baseline-aligns so the trailing graticule sits on
+   the heading's text baseline. `align-self: baseline` on the graticule ALONE is
+   not enough — with the row centred it is the only baseline item, so it has no
+   sibling baseline to share and floats ~15px high (measured). Baselining the row
+   gives it the h2's baseline; the action items (#, ⓘ, menus) are pinned back to
+   centre so only the graticule moves. Standard keeps align-items: center. */
+:global(:root[data-style='instrument']) .row {
+  align-items: baseline;
+}
+
+:global(:root[data-style='instrument']) .row > :not(.heading) {
+  align-self: center;
+}
+
 /* `.row .heading` (0,1,1) is deliberate: it has to outrank page-level
    descendant rules (`.historySection h2`) that set heading margins.
    scroll-margin sits here, not on the row, because the h2 carries the id and

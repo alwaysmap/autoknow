@@ -123,24 +123,41 @@ test.describe('Appearance: style and theme are independent', () => {
   // it sits identically whether the row is a page title (align-items:baseline) or
   // a section h2 (align-items:center). It had been merely centred, landing at a
   // different offset in rows of different height.
-  test('heading graticules are baseline-aligned in every style-instrument heading', async ({ page }) => {
+  test('heading graticules sit ON the text baseline in every style-instrument heading', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('autoknow-style', 'instrument'));
     await page.goto(`/programs/${seeded.projectId}`);
 
-    const alignments = await page.evaluate(() => {
+    // The real invariant is the GAP, not the align-self value: `align-self:
+    // baseline` on the graticule silently floated it ~15px high when its row was
+    // align-items:center (no sibling baseline to share). So measure the pixels.
+    const gaps = await page.evaluate(() => {
       const rows = [
         document.querySelector('[class*="titleRow"]'),
         ...document.querySelectorAll('[class*="AnchorHeading"][class*="row"]'),
       ].filter(Boolean) as HTMLElement[];
       return rows.map((row) => {
-        const after = getComputedStyle(row, '::after');
-        return after.backgroundImage === 'none' ? null : after.alignSelf;
-      }).filter(Boolean);
+        const heading = row.querySelector('h1, h2');
+        if (!heading || getComputedStyle(row, '::after').backgroundImage === 'none') return null;
+        // true alphabetic baseline via a zero-height inline-block marker
+        const marker = document.createElement('span');
+        marker.style.cssText = 'display:inline-block;width:1px;height:0;vertical-align:baseline;';
+        heading.appendChild(marker);
+        const baselineY = marker.getBoundingClientRect().top;
+        marker.remove();
+        // a stand-in with the graticule's exact geometry to read its bottom
+        const a = getComputedStyle(row, '::after');
+        const probe = document.createElement('span');
+        probe.style.cssText = `flex:1 1 1.5rem;min-width:1.5rem;height:${a.height};margin-left:${a.marginLeft};align-self:${a.alignSelf};`;
+        row.appendChild(probe);
+        const bottom = probe.getBoundingClientRect().bottom;
+        probe.remove();
+        return bottom - baselineY;
+      }).filter((g): g is number => g !== null);
     });
 
-    expect(alignments.length).toBeGreaterThan(1); // a title AND some h2s
-    // Every graticule opts into baseline, regardless of its row's align-items.
-    expect(alignments.every((a) => a === 'baseline')).toBe(true);
+    expect(gaps.length).toBeGreaterThan(1); // a title AND some h2s
+    // Every graticule's bottom lands on the heading baseline (sub-pixel tolerance).
+    for (const gap of gaps) expect(Math.abs(gap)).toBeLessThan(1);
   });
 
   // The schedule buffer bands are solid hue washes in Standard and hatch/stipple
