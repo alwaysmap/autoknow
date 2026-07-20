@@ -545,7 +545,14 @@ commit-SHA image tag). Two caveats operators trip on:
   actually serving (below).
 
 **Verify what production is actually serving** (don't trust a green run — trust
-the service):
+the service). Quickest: the health endpoint reports the running commit —
+
+```bash
+curl -s https://autoknow.alwaysmap.com/api/health   # → {"ok":true,"sha":"<commit>","db":"ok"}
+# the sha should match `git log origin/main -1`
+```
+
+or ask Cloud Run directly:
 
 ```bash
 gcloud run services describe autoknow --region us-central1 \
@@ -587,3 +594,100 @@ the old revision; fix forward (playbook §"If a migration fails in CI").
 `deploy` red after a green `migrate` → the new image never took traffic; rerun via
 `workflow_dispatch` once the cause (quota, registry, the old parallel-deploy race)
 is addressed.
+
+---
+
+## 10. Monitoring & logs — where to look, what to run
+
+Everything an operator needs to answer "is it up, what's it running, what went
+wrong" — as URLs to open and commands to paste. Project `autoknow-prod-1895f1`,
+service `autoknow`, region `us-central1`.
+
+### The health endpoint
+
+`GET /api/health` — public (no sign-in), safe (no secrets), never cached:
+
+```bash
+curl -s https://autoknow.alwaysmap.com/api/health
+# {"ok":true,"sha":"e9024c6…","db":"ok"}
+```
+
+- `sha` — the exact commit the running image was built from. **This is the
+  fastest deploy check:** compare it to `git log origin/main -1` and you know
+  whether the latest merge is actually serving (the 2026-07-20 out-of-order
+  deploy would have been caught in one curl).
+- `db` / HTTP 503 — Postgres unreachable from the app.
+- It only *responds*, it doesn't *record* — history comes from an uptime check
+  (below) or the request logs.
+
+### Where to look (URLs)
+
+| What | URL |
+|---|---|
+| Deploy pipeline runs | https://github.com/alwaysmap/autoknow/actions/workflows/deploy.yml |
+| All CI runs (lint, terraform plan) | https://github.com/alwaysmap/autoknow/actions |
+| Cloud Run service — logs tab (live, filterable) | https://console.cloud.google.com/run/detail/us-central1/autoknow/logs?project=autoknow-prod-1895f1 |
+| Cloud Run — metrics (requests, latency, 5xx, instances) | https://console.cloud.google.com/run/detail/us-central1/autoknow/metrics?project=autoknow-prod-1895f1 |
+| Cloud Run — revisions (what's deployed, traffic split) | https://console.cloud.google.com/run/detail/us-central1/autoknow/revisions?project=autoknow-prod-1895f1 |
+| Logs Explorer (ad-hoc queries over everything) | https://console.cloud.google.com/logs/query?project=autoknow-prod-1895f1 |
+| Error Reporting (deduped stack traces, auto-collected) | https://console.cloud.google.com/errors?project=autoknow-prod-1895f1 |
+| Cloud Scheduler (cron tick history + last status) | https://console.cloud.google.com/cloudscheduler?project=autoknow-prod-1895f1 |
+
+### How log severity works here (no code changes needed)
+
+Cloud Run captures the container's output automatically: **stdout → severity
+`DEFAULT`** (`console.log`), **stderr → severity `ERROR`** (`console.error` and
+`console.warn` — Node sends both to stderr). Request/response lines (status,
+latency, URL) are logged separately by Cloud Run itself as `httpRequest` entries.
+So "warn and fatal without debug noise" is a *filter you apply when reading*,
+not a logging config: query `severity>=WARNING` and you get app errors/warnings
+plus 4xx/5xx requests, nothing else. (If per-level filtering ever matters more,
+the upgrade is structured logging — print one JSON object per line with a
+`severity` field and Cloud Logging adopts it — but it isn't needed for this.)
+
+### Commands (CLI)
+
+```bash
+# Tail the service live (Ctrl-C to stop; needs the beta component once: gcloud components install beta)
+gcloud beta run services logs tail autoknow --project autoknow-prod-1895f1
+
+# Recent warnings + errors only — app stderr and failed requests, no info noise
+gcloud logging read \
+  'resource.type="cloud_run_revision" AND resource.labels.service_name="autoknow" AND severity>=WARNING' \
+  --project autoknow-prod-1895f1 --freshness=2h \
+  --format='table(timestamp,severity,httpRequest.status,textPayload)'
+
+# Only 5xx responses (who got errors, on which URLs)
+gcloud logging read \
+  'resource.type="cloud_run_revision" AND resource.labels.service_name="autoknow" AND httpRequest.status>=500' \
+  --project autoknow-prod-1895f1 --freshness=24h \
+  --format='table(timestamp,httpRequest.status,httpRequest.requestMethod,httpRequest.requestUrl)'
+
+# Did the hourly refresh worker run, and what did it report?
+gcloud logging read \
+  'resource.type="cloud_run_revision" AND resource.labels.service_name="autoknow" AND httpRequest.requestUrl:"/api/cron/refresh"' \
+  --project autoknow-prod-1895f1 --freshness=6h \
+  --format='table(timestamp,httpRequest.status)'
+
+# What is prod running right now? (also: curl /api/health and read .sha)
+gcloud run services describe autoknow --region us-central1 \
+  --project autoknow-prod-1895f1 \
+  --format='value(status.latestCreatedRevisionName, spec.template.spec.containers[0].image)'
+
+# Deploy pipeline from the terminal
+gh run list --repo alwaysmap/autoknow --workflow=deploy.yml --limit 5
+gh run watch --repo alwaysmap/autoknow          # attach to the running one
+gh run view <run-id> --repo alwaysmap/autoknow --log-failed
+```
+
+Chat delivery debugging (a different log stream — Google's own delivery errors,
+not the app's): see §6's troubleshooting block.
+
+### Worth adding when you want paging, not just looking
+
+A **Cloud Monitoring uptime check** against `/api/health` with an alerting
+policy (email/SMS on failure) turns the endpoint into 24/7 monitoring, and an
+**alert on log severity ≥ ERROR** catches app-level breakage between uptime
+probes. Both are Terraform-able (`google_monitoring_uptime_check_config`,
+`google_monitoring_alert_policy`) — infra PR + human `terraform apply` per the
+playbook.

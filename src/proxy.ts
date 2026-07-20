@@ -89,7 +89,10 @@ export default authConfigured
         // without the secret), so the session gate must let it through.
         pathname.startsWith('/api/cron') ||
         // Chat events arrive from Google's servers with their own JWT auth.
-        pathname.startsWith('/api/chat');
+        pathname.startsWith('/api/chat') ||
+        // Liveness probe for uptime checks and deploy smoke tests — no session,
+        // no secrets in the response (see the route).
+        pathname === '/api/health';
 
       if (!req.auth && !isPublic) {
         return NextResponse.redirect(new URL('/login', req.nextUrl.origin));

@@ -382,7 +382,9 @@ Chat handler would need a Directory API lookup (a real project, not a config fli
 > at the top and `.github/workflows/` (`deploy.yml`, `ci.yml`, `terraform.yml`,
 > `harden-db.yml`). Notable simplifications: migrate runs as its own job gating
 > deploy (not a step between push and rollout), there is no automated smoke-test
-> step yet, and one prod instance (no `dev` environment).
+> step yet (`GET /api/health` — public, reports the running commit sha and DB
+> reachability — is the natural probe when one is added), and one prod instance
+> (no `dev` environment). Monitoring/log commands: OPERATIONS §10.
 
 **Auth: Workload Identity Federation, no JSON keys.** A `google_iam_workload_identity_pool`
 + provider trusts GitHub's OIDC issuer, scoped to your repo; the CI deployer SA is
