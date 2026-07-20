@@ -15,7 +15,9 @@ const STORAGE_KEY = 'autoknow-theme';
 
 function resolve(pref: Pref): 'light' | 'dark' {
   if (pref !== 'system') return pref;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  // Optional-chained so a runtime without matchMedia falls back to light rather
+  // than throwing during render.
+  return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light';
 }
 
 function apply(pref: Pref) {
@@ -46,7 +48,8 @@ export default function ThemeToggle() {
   // Follow OS changes live while in system mode.
   useEffect(() => {
     if (pref !== 'system') return;
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!mq) return;
     const onChange = () => apply('system');
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);

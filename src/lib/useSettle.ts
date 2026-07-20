@@ -25,8 +25,11 @@ const DURATION = 420;
 /** Ease-out cubic: quick off the stop, settling into the reading. */
 const ease = (t: number) => 1 - (1 - t) ** 3;
 
+// Optional-chained: an environment without matchMedia (jsdom, some edge runtimes)
+// must degrade to "animate normally", never crash the component that renders this.
 const prefersReduced = () =>
-  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  typeof window !== 'undefined' &&
+  (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false);
 
 /**
  * Animates towards `target`, resuming from wherever it currently is — so a fast
