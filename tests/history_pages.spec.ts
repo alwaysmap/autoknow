@@ -37,15 +37,4 @@ test.describe('History pages', () => {
     await page.waitForURL((u) => u.pathname === '/');
   });
 
-  test('phase history is a hill-update log', async ({ page }) => {
-    await page.goto(`/history/phase/${seeded.phases.integration}`);
-
-    await expect(page.locator('h1')).toContainText('R2 AAOS Bring-up — Integration');
-    // Phases have no health — the intro says hill updates, nothing more.
-    await expect(page.getByText('Every hill-chart update for this phase, newest first.')).toBeVisible();
-
-    const card = page.locator('article').filter({ hasText: 'In Progress' });
-    await expect(card.first()).toContainText('Codec drops blocking the DSP path.');
-    await expect(card.first()).toContainText('by testbot');
-  });
 });

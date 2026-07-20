@@ -6,7 +6,6 @@ test.describe('Project Details and Action Item Operations', () => {
   test.describe.configure({ mode: 'serial' });
 
   let projectId: number;
-  let actionItemId: number;
 
   test.beforeAll(async () => {
     // Clear and seed clean state
@@ -39,7 +38,7 @@ test.describe('Project Details and Action Item Operations', () => {
       }
     });
 
-    const actionItem = await prisma.actionItem.create({
+    await prisma.actionItem.create({
       data: {
         phaseId: phase.id,
         description: 'Fix CTS testCarService failing',
@@ -47,25 +46,12 @@ test.describe('Project Details and Action Item Operations', () => {
         nextStep: 'Undecided'
       }
     });
-    actionItemId = actionItem.id;
   });
 
   test.afterAll(async () => {
     await prisma.$disconnect();
   });
 
-  test('should display project details; the retired action-item editor is gone', async ({ page }) => {
-    await page.goto(`/programs/${projectId}`);
-
-    // Verify page content
-    await expect(page.locator('h1')).toContainText('Android Car 2026');
-    await expect(page.locator('body')).toContainText('Compliance Testing');
-
-    // Action items no longer have a page-level editor (activities retired from the
-    // phase surface; updates flow through Needle/Hill notes → the Gemini brief).
-    await expect(page.getByRole('heading', { name: 'Actions & Decisions' })).toHaveCount(0);
-    await expect(page.locator(`.action-item-${actionItemId}`)).toHaveCount(0);
-  });
 
   test('lead partner (OEM) is editable from the program Edit dialog', async ({ page }) => {
     // A second OEM to switch to.

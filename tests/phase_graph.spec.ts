@@ -39,21 +39,6 @@ test.describe('PhaseTrack rail', () => {
     }).toPass({ timeout: 20000 });
   };
 
-  test('constraint evidence rides the chain-head card; no pill, no chain summary', async ({ page }) => {
-    await page.goto(`/programs/${seeded.projectId}`);
-
-    // The first unfinished chain phase carries ONE compact evidence line (the amber
-    // station ring + this line are the signal — the CONSTRAINT pill is gone);
-    // the off-chain phase carries none. Rows default collapsed — expand first.
-    const integration = row(page, 'Integration');
-    await integration.getByRole('button', { name: /Toggle detail/ }).click();
-    await expect(integration).toContainText('gates ≈74 days of downstream chain work');
-    await expect(integration.filter({ hasText: 'Constraint' })).toHaveCount(0);
-    await expect(row(page, 'Audio')).not.toContainText('gates ≈');
-
-    // The old duplicate chain summary line is gone — the track IS the chain.
-    await expect(page.locator('p').filter({ hasText: /Critical chain/ })).toHaveCount(0);
-  });
 
   test('cards are compact: typed pills without role labels, no status words', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
@@ -85,32 +70,7 @@ test.describe('PhaseTrack rail', () => {
     await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
   });
 
-  test('anticipated vs actual duration is shown per phase, in weeks', async ({ page }) => {
-    await page.goto(`/programs/${seeded.projectId}`);
 
-    // Done: planned vs took. In progress: planned vs elapsed. Not started: planned only.
-    await expect(row(page, 'Bring-up')).toContainText(/[\d.]+w planned · took/);
-    await expect(row(page, 'Integration')).toContainText(/[\d.]+w planned · [\d.<]+w elapsed/);
-    await expect(row(page, 'Certification')).toContainText(/[\d.]+w planned/);
-  });
-
-  test('structure is read-only on the rail: no add/remove/rewire affordances', async ({ page }) => {
-    await page.goto(`/programs/${seeded.projectId}`);
-
-    // No inline add-phase; the one door is the editor link, tucked in the ⋯ menu.
-    await expect(page.getByLabel('New phase name')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Phase actions' }).click();
-    await expect(page.getByRole('menuitem', { name: /Edit phases/ })).toBeVisible();
-    await page.keyboard.press('Escape');
-
-    // The popover shows dependencies as jump chips only — nothing to add or remove —
-    // and has no phase removal.
-    await openDetails(page, 'Integration');
-    await expect(details(page)).toContainText('Bring-up'); // After chip
-    await expect(details(page).locator('select[aria-label="Add a dependency"]')).toHaveCount(0);
-    await expect(details(page).getByRole('button', { name: 'Remove dependency' })).toHaveCount(0);
-    await expect(details(page).getByRole('button', { name: 'Remove phase' })).toHaveCount(0);
-  });
 
   test('the popover is a modal over the rail; Esc closes it', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);

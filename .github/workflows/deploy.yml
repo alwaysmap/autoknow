@@ -22,6 +22,16 @@ permissions:
   contents: read
   id-token: write
 
+# Serialize deploys. Without this, merges in quick succession race their
+# `gcloud run services update` calls: runs can finish out of order, leaving prod
+# serving an OLDER commit than the newest successful run, and losing runs fail
+# with an ABORTED version-conflict (observed 2026-07-20, five queued merges).
+# One group = one run at a time; with cancel-in-progress off, GitHub keeps only
+# the NEWEST queued run per group, so the latest commit always deploys last.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
 jobs:
   migrate:
     name: migrate ${{ matrix.instance.name }}
@@ -52,7 +62,7 @@ jobs:
         env:
           INSTANCE_PROJECT: ${{ matrix.instance.project }}
           INSTANCE_SQL_CONNECTION: ${{ matrix.instance.sql_connection }}
-        run: scripts/ci/migrate.sh
+        run: npm run ci:migrate
 
   deploy:
     name: deploy ${{ matrix.instance.name }}
@@ -83,4 +93,4 @@ jobs:
           INSTANCE_PROJECT: ${{ matrix.instance.project }}
           INSTANCE_REGION: ${{ matrix.instance.region }}
           INSTANCE_SERVICE: ${{ matrix.instance.service }}
-        run: scripts/ci/build-and-deploy.sh
+        run: npm run ci:deploy

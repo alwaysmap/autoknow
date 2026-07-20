@@ -48,17 +48,29 @@ export default defineConfig({
     },
   },
   projects: [
+    // Chromium runs the full behavioral suite — the user base is Chrome-dominant
+    // (internal Googler tool), so this is the truth-bearing run.
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testIgnore: '**/phase_screenshots.spec.ts',
     },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
+    // WebKit is the divergent-engine canary, and ONLY where engines actually
+    // diverge: <dialog closedby> fallback, <input type="month">, range inputs,
+    // and SVG click/drag in the DAG editor. Running the engine-agnostic DOM
+    // assertions (tables, filters, i18n, seeding) 3× tripled a serial suite for
+    // no signal — Firefox was dropped for the same reason.
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
+      testMatch: /(projects_flow|project_details|phase_graph|needle)\.spec\.ts/,
+    },
+    // Screenshot artifacts for visual review (not assertions) — opt-in via
+    // `npm run test:e2e:screens`, never part of the default run.
+    {
+      name: 'screens',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: '**/phase_screenshots.spec.ts',
     },
   ],
 });

@@ -1,6 +1,9 @@
 # Program Phase Templates — Design Plan
 
-Status: **Plan only** (no code written yet). Approved decisions captured below.
+Status: **Implemented** — DB-resident templates with seeded built-ins
+(`lib/programTemplates`, `lib/builtinTemplates`), the `/templates` editor
+(TemplateEditor + PhaseDagEditor), and template-driven program creation. This
+doc remains the design rationale; approved decisions captured below.
 
 ## Goal
 

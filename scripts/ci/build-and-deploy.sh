@@ -12,7 +12,7 @@ SERVICE="${INSTANCE_SERVICE:?set INSTANCE_SERVICE}"
 
 gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
 
-docker build --platform linux/amd64 -t "${IMAGE}:${SHA}" -t "${IMAGE}:latest" .
+docker build --platform linux/amd64 --build-arg GIT_SHA="${SHA}" -t "${IMAGE}:${SHA}" -t "${IMAGE}:latest" .
 docker push "${IMAGE}:${SHA}"
 docker push "${IMAGE}:latest"
 

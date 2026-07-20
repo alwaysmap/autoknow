@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useLocale } from './LocaleProvider';
 import { t } from '../lib/i18n';
 import styles from './ThemeToggle.module.css';
@@ -22,15 +22,27 @@ function apply(pref: Pref) {
   document.documentElement.dataset.theme = resolve(pref);
 }
 
+// localStorage as an external store: the server (and hydration) sees "system",
+// browsers re-render with the stored preference right after — the html attribute
+// itself was already set pre-paint by layout.tsx's inline script, so nothing
+// flashes. The custom event lets same-page writers (choose below) notify React.
+const PREF_EVENT = 'autoknow-theme-pref';
+function subscribePref(onChange: () => void) {
+  window.addEventListener('storage', onChange);
+  window.addEventListener(PREF_EVENT, onChange);
+  return () => {
+    window.removeEventListener('storage', onChange);
+    window.removeEventListener(PREF_EVENT, onChange);
+  };
+}
+function readPref(): Pref {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+}
+
 export default function ThemeToggle() {
   const locale = useLocale();
-  const [pref, setPref] = useState<Pref>('system');
-  // The server renders a neutral control; read the real preference after mount
-  // (the html attribute itself was already set pre-paint, so nothing flashes).
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as Pref | null;
-    if (stored === 'light' || stored === 'dark' || stored === 'system') setPref(stored);
-  }, []);
+  const pref = useSyncExternalStore(subscribePref, readPref, () => 'system' as Pref);
   // Follow OS changes live while in system mode.
   useEffect(() => {
     if (pref !== 'system') return;
@@ -41,9 +53,9 @@ export default function ThemeToggle() {
   }, [pref]);
 
   const choose = (next: Pref) => {
-    setPref(next);
     localStorage.setItem(STORAGE_KEY, next);
     apply(next);
+    window.dispatchEvent(new Event(PREF_EVENT));
   };
 
   const options: Array<{ value: Pref; label: string; icon: React.ReactNode }> = [

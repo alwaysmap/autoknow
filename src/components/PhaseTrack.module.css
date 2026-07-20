@@ -394,12 +394,6 @@
   font-size: 12.5px;
   line-height: 1.5;
 }
-.historyGlyph {
-  width: 34px;
-  height: 15px;
-  align-self: center;
-  overflow: visible;
-}
 .historyWhen {
   color: var(--muted);
   font-size: 12px;

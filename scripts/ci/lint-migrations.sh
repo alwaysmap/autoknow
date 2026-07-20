@@ -45,7 +45,7 @@ for f in "${files[@]}"; do
 done
 
 if [ "$fail" -ne 0 ]; then
-  echo "migrations-lint: FAILED. See docs/CHANGE_PLAYBOOK.md recipe D (expand→backfill→contract)." >&2
+  echo "migrations-lint: FAILED. Destructive changes split expand→backfill→contract (docs/CHANGE_PLAYBOOK.md; db-change skill)." >&2
   exit 1
 fi
 echo "migrations-lint: passed."

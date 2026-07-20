@@ -21,6 +21,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
+# Which commit this image runs — surfaced by /api/health for deploy verification.
+ARG GIT_SHA=dev
+ENV GIT_SHA=$GIT_SHA
 
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 --ingroup nodejs nextjs

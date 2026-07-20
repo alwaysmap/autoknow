@@ -4,13 +4,15 @@ Everything an operator needs to run AutoKnow with all integrations. Each section
 says what breaks (honestly) when it's skipped — the app degrades feature-by-feature
 rather than failing to start.
 
-Two kinds of sections:
+Sections at a glance:
 
-- **Active today** — used by the running app: database, Gemini, Google sign-in,
-  refresh worker, Drive share-to-ingest (service account).
-- **Needs a public endpoint** — the Chat app (§6): the code ships, but Google Chat
-  delivers events over public HTTPS, so a laptop deployment needs a tunnel or a
-  real host before @mention ingestion works.
+- **§1–§5, active everywhere** — database, Gemini, Google sign-in, refresh
+  worker, Drive share-to-ingest (service account).
+- **§6, the Chat app** — working in production since 2026-07-19 (read §6.0
+  first). Google Chat delivers events over public HTTPS, so a laptop deployment
+  additionally needs a tunnel or relay before @mention ingestion works.
+- **§8–§9, production (Cloud Run)** — custom domain, and the deploy / redeploy /
+  rollback runbook.
 
 ---
 
@@ -24,7 +26,7 @@ Two kinds of sections:
 npm install
 cp .env.sample .env  # DATABASE_URL is the only required var (below); the rest gate features
 npm run db:up        # start Postgres (docker compose service "db")
-npm run db:push      # apply prisma/schema.prisma
+npm run db:push      # apply prisma/schema.prisma (LOCAL dev DB only — prod is migrate-only, see CHANGE_PLAYBOOK)
 npm run dev          # dev server on :3000   (production: npm run build && npm run start)
 ```
 
@@ -373,7 +375,7 @@ remain valid prerequisites but were NOT sufficient on their own.
    config that has been through heavy churn can end up in a corrupted server-side
    state that survives even disabling/re-enabling the API; a fresh project is a
    fresh app identity. If you do this, `GOOGLE_PROJECT_NUMBER` must be THAT
-   project's number, while the service account/relay stay wherever they are.
+   project's number, while the service account stays wherever it is.
 2. Set the project NUMBER in `.env` (the audience of the JWTs Chat sends):
 
 ```
@@ -384,15 +386,12 @@ GOOGLE_PROJECT_NUMBER=""   # gcloud projects describe <project-id> --format="val
    - App name `AutoKnow`, avatar URL, description.
    - **Interactive features** → App URL: `https://YOUR_PUBLIC_HOST/api/chat/events`.
      Google Chat calls this over public HTTPS — `localhost` will not work, and in
-     practice Chat's delivery is only dependable to standard-port, reputable hosts.
-     The proven laptop architecture (infra/chat-relay): a ~25-line Cloud Run relay
-     (public :443, `--no-invoker-iam-check` — avoids the allUsers-vs-org-policy
-     fight) forwards POSTs to a Tailscale Funnel (`tailscale funnel --bg
-     --https=10000 http://localhost:3100`), which reaches the app. The app's JWT
-     verification remains the sole security boundary; the relay forwards the
-     original host so URL-audience checks still match. Deploy:
-     `gcloud run deploy autoknow-relay --source infra/chat-relay
-     --allow-unauthenticated --region us-central1`.
+     practice Chat's delivery is only dependable to standard-port, reputable
+     hosts. In production this is simply the Cloud Run/custom-domain URL.
+     (The laptop-era relay — a Cloud Run proxy + Tailscale Funnel in
+     `infra/chat-relay`, plus an `x-autoknow-original-host` shim in the events
+     route — was removed 2026-07 once the app itself ran on Cloud Run; resurrect
+     it from git history if a laptop deployment ever needs Chat again.)
      Cache warning: Chat aggressively caches app metadata/config — after config
      changes, wait (up to an hour) before judging a test; rapid edit/reinstall
      cycles keep hitting stale state and can themselves produce
@@ -422,7 +421,7 @@ Scopes for the Chat paths, for reference:
   HTTP call* — the endpoint, tunnel, and config values are innocent; suspect the
   Workspace admin prerequisites above (or their propagation window).
 - Ground truth for "did Google ever call us": Cloud Run request logs —
-  `gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="autoknow-relay" AND httpRequest.requestMethod="POST"' --project=<relay-project> --freshness=4h`
+  `gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="autoknow" AND httpRequest.requestUrl:"/api/chat/events" AND httpRequest.requestMethod="POST"' --project=autoknow-prod-1895f1 --freshness=4h`
   (every POST with status + user agent; your own curl probes are identifiable).
 - The app-side route logs every arrival and the precise JWT verdict (no bearer /
   bad issuer / audience mismatch with both values / unknown key).
@@ -517,3 +516,175 @@ curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" \
 **Gotcha:** `alwaysmaps.com` (with an s) is a stranger's domain — Tucows-registered,
 Route 53-hosted, nothing to do with us. Don't buy records, mappings, or
 verifications against it.
+
+---
+
+## 9. Production deploys — redeploy, verify, roll back (Cloud Run)
+
+How code reaches production, and what to do when it doesn't. Full pipeline rules:
+[CHANGE_PLAYBOOK.md](CHANGE_PLAYBOOK.md); architecture: [DEPLOYMENT_GCP.md](DEPLOYMENT_GCP.md).
+
+**What deploys, when.** Merging to `main` triggers `.github/workflows/deploy.yml`:
+job `migrate` (forward-only `prisma migrate deploy`) then job `deploy`
+(build → push to Artifact Registry → `gcloud run services update` with the
+commit-SHA image tag). Two caveats operators trip on:
+
+- **Path filter:** only changes under `src/`, `prisma/`, `public/`, the build
+  files, `scripts/ci/`, or the workflow itself trigger a deploy. A docs-only or
+  tests-only merge deploys nothing — that is by design, not a failure.
+- **Serialization:** deploy runs share a workflow concurrency group (`deploy`),
+  so exactly one runs at a time and the newest queued merge supersedes older
+  queued ones. Before this existed (2026-07-20), five near-simultaneous merges
+  raced their Cloud Run updates: runs finished out of order, one failed with
+  `ABORTED: Conflict for resource 'autoknow': version ...`, and prod ended up
+  serving the OLDEST commit while every newer run reported success. If you ever
+  see that ABORTED conflict again, suspect parallel deploys and check what's
+  actually serving (below).
+
+**Verify what production is actually serving** (don't trust a green run — trust
+the service). Quickest: the health endpoint reports the running commit —
+
+```bash
+curl -s https://autoknow.alwaysmap.com/api/health   # → {"ok":true,"sha":"<commit>","db":"ok"}
+# the sha should match `git log origin/main -1`
+```
+
+or ask Cloud Run directly:
+
+```bash
+gcloud run services describe autoknow --region us-central1 \
+  --project autoknow-prod-1895f1 \
+  --format='value(status.latestCreatedRevisionName, spec.template.spec.containers[0].image)'
+# the image tag is the git SHA — compare against `git log origin/main -1`
+```
+
+**Redeploy current `main`** (stale prod, superseded run, or a docs-merge day when
+you want a rebuild anyway) — the workflow has `workflow_dispatch`:
+
+```bash
+gh workflow run deploy.yml --repo alwaysmap/autoknow --ref main
+gh run watch --repo alwaysmap/autoknow   # or: gh run list --workflow=deploy.yml
+```
+
+Migrations are idempotent (`migrate deploy` re-applies nothing), so a redeploy is
+always safe.
+
+**Roll back.** Two options, in order of preference:
+
+1. **Fix-forward or revert the commit** and let the pipeline deploy it — keeps
+   `main` and prod in agreement.
+2. **Emergency traffic shift** to the previous revision while the fix lands:
+
+```bash
+gcloud run revisions list --service autoknow --region us-central1 --project autoknow-prod-1895f1
+gcloud run services update-traffic autoknow --region us-central1 \
+  --project autoknow-prod-1895f1 --to-revisions <previous-revision>=100
+```
+
+Traffic shifting does NOT undo migrations — that's why the playbook requires every
+migration to be safe for the previous revision too (expand → backfill → contract).
+After the fix deploys, return traffic to latest:
+`gcloud run services update-traffic autoknow --region us-central1 --project autoknow-prod-1895f1 --to-latest`.
+
+**Deploy failed?** `migrate` red → the rollout never started; prod still serves
+the old revision; fix forward (playbook §"If a migration fails in CI").
+`deploy` red after a green `migrate` → the new image never took traffic; rerun via
+`workflow_dispatch` once the cause (quota, registry, the old parallel-deploy race)
+is addressed.
+
+---
+
+## 10. Monitoring & logs — where to look, what to run
+
+Everything an operator needs to answer "is it up, what's it running, what went
+wrong" — as URLs to open and commands to paste. Project `autoknow-prod-1895f1`,
+service `autoknow`, region `us-central1`.
+
+### The health endpoint
+
+`GET /api/health` — public (no sign-in), safe (no secrets), never cached:
+
+```bash
+curl -s https://autoknow.alwaysmap.com/api/health
+# {"ok":true,"sha":"e9024c6…","db":"ok"}
+```
+
+- `sha` — the exact commit the running image was built from. **This is the
+  fastest deploy check:** compare it to `git log origin/main -1` and you know
+  whether the latest merge is actually serving (the 2026-07-20 out-of-order
+  deploy would have been caught in one curl).
+- `db` / HTTP 503 — Postgres unreachable from the app.
+- It only *responds*, it doesn't *record* — history comes from an uptime check
+  (below) or the request logs.
+
+### Where to look (URLs)
+
+| What | URL |
+|---|---|
+| Deploy pipeline runs | https://github.com/alwaysmap/autoknow/actions/workflows/deploy.yml |
+| All CI runs (lint, terraform plan) | https://github.com/alwaysmap/autoknow/actions |
+| Cloud Run service — logs tab (live, filterable) | https://console.cloud.google.com/run/detail/us-central1/autoknow/logs?project=autoknow-prod-1895f1 |
+| Cloud Run — metrics (requests, latency, 5xx, instances) | https://console.cloud.google.com/run/detail/us-central1/autoknow/metrics?project=autoknow-prod-1895f1 |
+| Cloud Run — revisions (what's deployed, traffic split) | https://console.cloud.google.com/run/detail/us-central1/autoknow/revisions?project=autoknow-prod-1895f1 |
+| Logs Explorer (ad-hoc queries over everything) | https://console.cloud.google.com/logs/query?project=autoknow-prod-1895f1 |
+| Error Reporting (deduped stack traces, auto-collected) | https://console.cloud.google.com/errors?project=autoknow-prod-1895f1 |
+| Cloud Scheduler (cron tick history + last status) | https://console.cloud.google.com/cloudscheduler?project=autoknow-prod-1895f1 |
+
+### How log severity works here (no code changes needed)
+
+Cloud Run captures the container's output automatically: **stdout → severity
+`DEFAULT`** (`console.log`), **stderr → severity `ERROR`** (`console.error` and
+`console.warn` — Node sends both to stderr). Request/response lines (status,
+latency, URL) are logged separately by Cloud Run itself as `httpRequest` entries.
+So "warn and fatal without debug noise" is a *filter you apply when reading*,
+not a logging config: query `severity>=WARNING` and you get app errors/warnings
+plus 4xx/5xx requests, nothing else. (If per-level filtering ever matters more,
+the upgrade is structured logging — print one JSON object per line with a
+`severity` field and Cloud Logging adopts it — but it isn't needed for this.)
+
+### Commands (CLI)
+
+```bash
+# Tail the service live (Ctrl-C to stop; needs the beta component once: gcloud components install beta)
+gcloud beta run services logs tail autoknow --project autoknow-prod-1895f1
+
+# Recent warnings + errors only — app stderr and failed requests, no info noise
+gcloud logging read \
+  'resource.type="cloud_run_revision" AND resource.labels.service_name="autoknow" AND severity>=WARNING' \
+  --project autoknow-prod-1895f1 --freshness=2h \
+  --format='table(timestamp,severity,httpRequest.status,textPayload)'
+
+# Only 5xx responses (who got errors, on which URLs)
+gcloud logging read \
+  'resource.type="cloud_run_revision" AND resource.labels.service_name="autoknow" AND httpRequest.status>=500' \
+  --project autoknow-prod-1895f1 --freshness=24h \
+  --format='table(timestamp,httpRequest.status,httpRequest.requestMethod,httpRequest.requestUrl)'
+
+# Did the hourly refresh worker run, and what did it report?
+gcloud logging read \
+  'resource.type="cloud_run_revision" AND resource.labels.service_name="autoknow" AND httpRequest.requestUrl:"/api/cron/refresh"' \
+  --project autoknow-prod-1895f1 --freshness=6h \
+  --format='table(timestamp,httpRequest.status)'
+
+# What is prod running right now? (also: curl /api/health and read .sha)
+gcloud run services describe autoknow --region us-central1 \
+  --project autoknow-prod-1895f1 \
+  --format='value(status.latestCreatedRevisionName, spec.template.spec.containers[0].image)'
+
+# Deploy pipeline from the terminal
+gh run list --repo alwaysmap/autoknow --workflow=deploy.yml --limit 5
+gh run watch --repo alwaysmap/autoknow          # attach to the running one
+gh run view <run-id> --repo alwaysmap/autoknow --log-failed
+```
+
+Chat delivery debugging (a different log stream — Google's own delivery errors,
+not the app's): see §6's troubleshooting block.
+
+### Worth adding when you want paging, not just looking
+
+A **Cloud Monitoring uptime check** against `/api/health` with an alerting
+policy (email/SMS on failure) turns the endpoint into 24/7 monitoring, and an
+**alert on log severity ≥ ERROR** catches app-level breakage between uptime
+probes. Both are Terraform-able (`google_monitoring_uptime_check_config`,
+`google_monitoring_alert_policy`) — infra PR + human `terraform apply` per the
+playbook.

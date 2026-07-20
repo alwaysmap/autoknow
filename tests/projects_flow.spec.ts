@@ -76,7 +76,9 @@ test.describe('Projects and Partners Flow', () => {
       .filter({ has: page.locator('a:text-is("Architecture lock")') })
       .getByRole('button', { name: 'Details' }).click();
     const details = page.getByTestId('phase-details');
-    await expect(details).toContainText('Platform architecture frozen');
+    // Template content copied onto the live phase (Goal/Done-when format since the
+    // phase-dossier overhaul, PR #15).
+    await expect(details).toContainText('Freeze the platform architecture');
     await expect(details).toContainText('VINTF-compliant posture');
 
     // leadRole "OEM" resolved unambiguously to the program's OEM partner.

@@ -3,6 +3,12 @@ name: Harden DB role
 # Manual, verified application of the least-privilege runtime role (scripts/db/harden.sh).
 # Run MODE=diagnose first to see the DB's actual role model, then MODE=apply to restrict
 # `app` to DML-only and confirm it. Never runs on push.
+#
+# WHEN THIS IS NEEDED (rarely — applied + verified live 2026-07): only for (a) a NEW
+# instance, or (b) re-verify/re-apply after a restore or suspected role drift.
+# ALTER DEFAULT PRIVILEGES in harden-roles.sql auto-grants DML on tables future
+# migrations create, so routine schema changes never require a re-run. Dormant ≠ dead:
+# this is the repair path for the playbook's enforcement rule #1 — keep it.
 on:
   workflow_dispatch:
     inputs:
@@ -33,4 +39,4 @@ jobs:
           INSTANCE_PROJECT: autoknow-prod-1895f1
           INSTANCE_SQL_CONNECTION: autoknow-prod-1895f1:us-central1:autoknow-pg
           MODE: ${{ github.event.inputs.mode }}
-        run: scripts/db/harden.sh
+        run: npm run ci:harden-db

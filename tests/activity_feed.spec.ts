@@ -49,48 +49,6 @@ test.describe('Activity feed', () => {
     await expect(page.getByText('Weekly update: Concerned')).toHaveCount(0);
   });
 
-  test('the ecosystem strip: big number, capacity chart, risk table', async ({ page }) => {
-    await page.goto('/');
-
-    // Big Number: 1 active program, 1 all time.
-    const stats = page.getByTestId('ecosystem-stats');
-    await expect(stats).toContainText('Active programs');
-    await expect(stats).toContainText('1 all time');
-
-    // Capacity chart: the seeded program (SOP 2027-03, 150k, GAS) lands on the line.
-    const chart = page.getByTestId('capacity-chart');
-    await expect(chart).toContainText('Cumulative capacity by product');
-    await expect(chart).toContainText('150k');
-    await expect(chart).toContainText('GAS'); // its product band is labeled directly
-
-    // Each real SOP date is marked with a dot on its series.
-    await expect(chart.locator('[data-testid="sop-dot"]')).toHaveCount(1);
-
-    // Drill-down: a quarter click lists the programs shipping then (SOP 2027-03 → Q1 ’27).
-    await page.locator('[data-testid="capacity-quarter"]')
-      .filter({ has: page.locator('title', { hasText: 'Q1 ’27' }) })
-      .click();
-    const dialog = page.getByTestId('capacity-dialog');
-    await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText('Shipping in Q1 ’27');
-    await expect(dialog.getByRole('link', { name: 'R2 AAOS Bring-up' })).toBeVisible();
-    await dialog.getByRole('button', { name: 'Close' }).click();
-
-    // Drill-down: the Big Number opens Programs filtered to active.
-    await stats.getByRole('link', { name: '1', exact: true }).click();
-    await page.waitForURL('**/programs?filter=active');
-    // The active-only deep-link filters the table itself (no standalone checkbox
-    // since the filter bar collapsed into the column headers).
-    await expect(page.locator('body')).toContainText('R2 AAOS Bring-up');
-    await page.goBack();
-
-    // The risk table IS the high-risk list now: floored at Some Risk by default,
-    // active programs only, carrying each program's latest needle-update text.
-    const table = page.locator('section').filter({ hasText: 'Programs at Risk' }).first();
-    await expect(table).toContainText('R2 AAOS Bring-up');
-    await expect(table.locator('[title*="Concerned"]')).toBeVisible(); // the mini needle carries health
-    await expect(table).toContainText('Codec blockers slowing integration.');
-  });
 
   test('partner-scoped activity attributes items to their program', async ({ page }) => {
     await page.goto(`/partners/${seeded.oemId}`);

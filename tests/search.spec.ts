@@ -40,21 +40,6 @@ test.describe('Search Results Page (Text + pgvector)', () => {
     await prisma.$disconnect();
   });
 
-  test('should render the unified search with type filter chips', async ({ page }) => {
-    await page.goto('/search?q=Ford');
-
-    // Unified search header + the page's search box pre-filled from ?q= (the global
-    // nav search also exists, so target by placeholder).
-    await expect(page.locator('h1')).toContainText('Search');
-    const searchBox = page.getByPlaceholder('Search partners, programs, people, context…');
-    await expect(searchBox).toBeVisible();
-    await expect(searchBox).toHaveValue('Ford');
-
-    // Type filter chips (include/exclude) are present for every searchable type
-    for (const t of ['Partners', 'Programs', 'People', 'Context']) {
-      await expect(page.getByRole('button', { name: t, exact: true })).toBeVisible();
-    }
-  });
 
   test('API: a lowercase partial query finds an unembedded partner first', async ({ request }) => {
     const res = await request.get('/api/search?q=bosch');

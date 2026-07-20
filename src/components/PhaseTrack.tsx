@@ -149,16 +149,6 @@ function StationGlyph({ progress }: { progress: number }) {
   );
 }
 
-// Thumbnail hill for history entries: where the ball sat at that update.
-function HistoryGlyph({ progress }: { progress: number }) {
-  const c = hillCoordinates(progress);
-  return (
-    <svg viewBox="0 0 200 90" className={styles.historyGlyph} aria-hidden>
-      <path d={HILL_PATH} fill="none" stroke="var(--border)" strokeWidth={7} strokeLinecap="round" />
-      <circle cx={c.x} cy={c.y} r={13} fill="var(--muted)" />
-    </svg>
-  );
-}
 
 // Textless mini hill for standard cards: the trail of every historical position as
 // small dots, the current position as the one big ball.

@@ -1,5 +1,9 @@
 # AutoKnow — Component & Page Specification
 
+Status: **Largely implemented** (SummaryPanel and the component inventory ship
+in the app); kept as the reference for what each component is *for* and the
+decision-first method behind it.
+
 **Method:** decision-first. Each component and page declares *the single decision it drives*, *for whom*, *in what context*. The **data it requires is reverse-engineered from that decision** and tagged by tier. The union of those data requirements (§5) is the backlog for the ingestion / SoR / AI engine.
 
 > Actionable first, attractive second. A component earns its place only if it changes an action in the context where that action is taken. Data is the byproduct, never the point.
