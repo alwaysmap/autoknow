@@ -60,6 +60,16 @@
   --ok-ring: rgba(19, 115, 51, 0.25);
   --bad-ring: rgba(197, 34, 31, 0.25);
 
+  /* Schedule buffer bands (Critical Chain, docs/CRITICAL_CHAIN_VIEW_PLAN.md §4a).
+     Four MEANINGS that must be told apart at a glance behind bars and text, so
+     they differ by HUE, not by opacity of one hue — spent loss and forecast loss
+     were both red and read as the same band. hsla keeps them translucent enough
+     that the ink on top stays legible. */
+  --band-lost: hsla(4, 80%, 52%, 0.30);          /* days already lost — red */
+  --band-lost-forecast: hsla(33, 95%, 48%, 0.32); /* forecast to be lost — amber */
+  --band-gained: hsla(146, 62%, 40%, 0.30);       /* days handed back — green */
+  --band-buffer: hsla(178, 55%, 40%, 0.22);       /* room still in hand — teal */
+
   --head-font: var(--font-rubik), "Rubik", sans-serif;
   --body-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono-font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
@@ -111,6 +121,13 @@
   --info: #8ab4f8;      --info-ink: #a8c7fa;    --info-soft: hsl(217, 35%, 17%);
   --ok-ring: rgba(126, 216, 161, 0.35);
   --bad-ring: rgba(255, 143, 137, 0.35);
+
+  /* Bands on the dark paper: lighter and a touch stronger, since a translucent
+     wash over a dark background loses far more contrast than over white. */
+  --band-lost: hsla(4, 85%, 62%, 0.34);
+  --band-lost-forecast: hsla(36, 95%, 58%, 0.34);
+  --band-gained: hsla(146, 60%, 55%, 0.32);
+  --band-buffer: hsla(178, 55%, 55%, 0.24);
 
   color-scheme: dark;
 }

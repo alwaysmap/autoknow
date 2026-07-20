@@ -49,6 +49,13 @@ const BRACKET_LABEL_DY = 18, MONTH_LETTER_DY = 34, QUARTER_DY = 50;
 // Label-column sizing: the gutter fits the LONGEST phase name instead of a fixed
 // width, so short names don't donate a third of the chart to whitespace.
 const RING_PAD = 24, TEXT_PAD = 10, CHAR_W = 5.9, WIDE_CHAR_W = 11;
+// One hue per meaning (tokens in globals.css, both themes).
+const BAND_FILL = {
+  loss: 'var(--band-lost)',
+  forecastLoss: 'var(--band-lost-forecast)',
+  gain: 'var(--band-gained)',
+  buffer: 'var(--band-buffer)',
+} as const;
 const textWidth = (s: string) =>
   [...s].reduce((w, ch) => w + (ch.charCodeAt(0) > 0x2e80 ? WIDE_CHAR_W : CHAR_W), 0);
 
@@ -109,9 +116,11 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
   const quarters = months.filter((m) => m.isQuarter && m.onAxis);
   const showMonthLetters = pxPerDay * 30 >= 12;
 
-  // Buffer-movement background bands (§4a): red = days lost, paler red = forecast
-  // loss not yet spent, green = days gained + the buffer still in hand.
-  const bands: { x1: number; x2: number; kind: 'loss' | 'forecastLoss' | 'gain' }[] = [];
+  // Buffer-movement background bands (§4a). Four meanings, four HUES — spent loss
+  // (red) and forecast loss (amber) were previously one hue at two opacities and
+  // could not be told apart; "days gained" (green) and "room still in hand"
+  // (teal) likewise shared a colour.
+  const bands: { x1: number; x2: number; kind: 'loss' | 'forecastLoss' | 'gain' | 'buffer' }[] = [];
   rows.forEach((r, i) => {
     if (r.gapBeforeDays >= 1 && i > 0) bands.push({ x1: rows[i - 1].endMs, x2: r.startMs, kind: 'loss' });
     if (r.kind === 'done' && r.varianceDays >= 1) bands.push({ x1: r.plannedEndMs, x2: r.endMs, kind: 'loss' });
@@ -121,7 +130,7 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
   });
   const lastEnd = rows[rows.length - 1].endMs;
   if (sopMs != null) bands.push(sopMs >= lastEnd
-    ? { x1: lastEnd, x2: sopMs, kind: 'gain' }
+    ? { x1: lastEnd, x2: sopMs, kind: 'buffer' }
     : { x1: sopMs, x2: lastEnd, kind: 'loss' });
 
   const barLabel = (r: ScheduleRow): { text: string; bad: boolean } | null => {
@@ -147,7 +156,7 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
       <svg viewBox={`0 0 ${W} ${H}`} className={styles.scheduleSvg} role="img" aria-label={t(locale, 'clSchedule')}>
         {bands.map((b, i) => (
           <rect key={`band${i}`} x={x(b.x1)} y={TOP - 8} width={Math.max(1.5, x(b.x2) - x(b.x1))} height={rows.length * ROW_H + 16}
-            fill={b.kind === 'gain' ? 'var(--ok-soft)' : 'var(--bad-soft)'} opacity={b.kind === 'forecastLoss' ? 0.55 : 1} />
+            fill={BAND_FILL[b.kind]} />
         ))}
         {/* graticule: week ticks (finest), month ticks, quarter lines + labels */}
         {weeks.map((ms) => (
@@ -542,16 +551,27 @@ export default function ChainLedger({
         </div>
         <div className={styles.legendRow}>
           <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <rect x={1} y={1} width={10} height={12} fill="var(--bad-soft)" />
-            <rect x={11} y={1} width={10} height={12} fill="var(--bad-soft)" opacity={0.55} />
+            <rect x={1} y={1} width={20} height={12} fill={BAND_FILL.loss} />
           </svg>
           {t(locale, 'clKeyRed')}
         </div>
         <div className={styles.legendRow}>
           <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <rect x={1} y={1} width={20} height={12} fill="var(--ok-soft)" />
+            <rect x={1} y={1} width={20} height={12} fill={BAND_FILL.forecastLoss} />
+          </svg>
+          {t(locale, 'clKeyAmber')}
+        </div>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
+            <rect x={1} y={1} width={20} height={12} fill={BAND_FILL.gain} />
           </svg>
           {t(locale, 'clKeyGreen')}
+        </div>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
+            <rect x={1} y={1} width={20} height={12} fill={BAND_FILL.buffer} />
+          </svg>
+          {t(locale, 'clKeyTeal')}
         </div>
       </dialog>
 
