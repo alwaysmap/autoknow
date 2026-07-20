@@ -56,6 +56,15 @@
   --bad: #c5221f;       --bad-soft: #feebe7;
   --crit: #a50e0d;      --crit-soft: #fce8e6;
   --info: #1a73e8;      --info-ink: #1557b0;    --info-soft: #e8f0fe;
+  /* Entity-kind inks (feed/search result types). These are IDENTITY colours, not
+     health — they say what a row is, never how it is doing. Tokenised because the
+     hexes they replace were chosen against a light page and rendered at 1.7:1 on
+     the dark themes. All four are >= 5.6:1 on every ground the app has. */
+  --kind-partner: #1a6b3c;
+  --kind-program: #1a4d8f;
+  --kind-person:  #7a4ea0;
+  --kind-context: #8a5300;
+
   /* Links are BLUE, not the brand green: green is the app's "good/early/saved"
      signal, and using it for navigation made every link read as a status.
      Semantic greens (pace chips, saved ticks) keep --p-600. */
@@ -132,6 +141,12 @@
   --crit: #ff9d94;      --crit-soft: hsl(4, 36%, 23%);
   --info: #8ab4f8;      --info-ink: #a8c7fa;    --info-soft: hsl(217, 28%, 27%);
   --link: #8ab4f8;      --link-hover: #b3cefb;
+
+  /* Kind inks lifted for a dark ground (>= 6.5:1 on both dark themes). */
+  --kind-partner: #7fc79b;
+  --kind-program: #93b8e8;
+  --kind-person:  #c1a3dd;
+  --kind-context: #e0a95c;
   --ok-ring: rgba(126, 216, 161, 0.35);
   --bad-ring: rgba(255, 143, 137, 0.35);
 

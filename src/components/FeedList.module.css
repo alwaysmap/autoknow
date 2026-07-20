@@ -11,12 +11,9 @@
 .kind {
   flex-shrink: 0;
   width: 4.875rem;
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding-top: 0.1875rem;
+  padding-top: 0.125rem;
 }
+
 
 /* Compact needle gauge slot for needle-change items (a "list card" in the feed). */
 .gauge {

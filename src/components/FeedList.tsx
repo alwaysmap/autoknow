@@ -1,16 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import type { FeedItem, FeedKind } from '../lib/feed';
+import type { FeedItem } from '../lib/feed';
 import Markdown from './Markdown';
 import { NeedleGaugeSvg } from './NeedleGaugeSvg';
 import { RelationshipFace, RelationshipNoValue } from './RelationshipScale';
 import { parseScore } from '../lib/relationship';
 import { PhaseHillSvg } from './PhaseHillGauge';
 import { deleteFeedItem } from '../app/actions/status';
-import { t, type Locale, type StringKey } from '../lib/i18n';
+import { t, type Locale } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import AiBadge from './AiBadge';
+import KindBox from './KindBox';
 import styles from './FeedList.module.css';
 import { localDate } from '../lib/dates';
 
@@ -19,26 +20,6 @@ import { localDate } from '../lib/dates';
 // a timestamp. Purely presentational; a client component so it can read the locale
 // from context wherever it's mounted (activity pages, UnifiedSearch).
 
-const KIND_KEY: Record<FeedKind, StringKey> = {
-  partner: 'partnerLabel',
-  program: 'programLabel',
-  person: 'personLabel',
-  context: 'contextLabel',
-  status: 'statusLabel',
-  phase: 'phaseLabel',
-  relationship: 'partnerLabel',
-  'program-created': 'feedCatCreated',
-};
-const KIND_COLOR: Record<FeedKind, string> = {
-  partner: '#1a6b3c',
-  program: '#1a4d8f',
-  person: '#7a4ea0',
-  context: 'var(--warn)',
-  status: '#1a4d8f',
-  phase: '#1a6b3c',
-  relationship: '#7a4ea0',
-  'program-created': '#0a7d33',
-};
 
 function aside(it: FeedItem, locale: Locale): string {
   // Search results are already ordered by relevance — never surface the numeric score.
@@ -112,7 +93,7 @@ export default function FeedList({
               <PhaseHillSvg progress={it.hill.progress} previousProgress={it.hill.previousProgress} color={it.hill.color} label={it.title} />
             </div>
           ) : (
-            <div className={styles.kind} style={{ color: KIND_COLOR[it.kind] }}>{t(locale, KIND_KEY[it.kind])}</div>
+            <div className={styles.kind}><KindBox kind={it.kind} locale={locale} /></div>
           )}
           <div className={styles.body}>
             <div className={styles.head}>

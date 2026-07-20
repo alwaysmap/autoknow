@@ -138,6 +138,13 @@ tables) so nothing has to be relearned page to page.
   the only filter allowed outside the table, and page-level deep links
   (`?minRisk=…`, `?filter=active`) initialize column filters rather than adding
   widgets.
+* **Result types are BOXED readouts, not coloured words** (`KindBox`, shared by
+  the suggestion dropdown and the full result list so they cannot drift). The
+  inks are `--kind-*` tokens: the hexes they replace were picked against a light
+  page and rendered at 1.7:1 on both dark themes, which made "Program"
+  effectively invisible. The box is a hairline in the label's own ink — a rule,
+  not a filled badge — so the type no longer depends on colour alone to separate
+  itself from the title beside it. Kind colour is IDENTITY, never health.
 * **One measure per cell**: a value gets exactly one visual rendering (a face, a
   number, a bar — never a face *plus* the number *plus* a word). The redundant
   forms live in the tooltip/accessible name.

@@ -7,6 +7,7 @@ import type { FeedType, FeedKind, FeedScope, FeedItem } from '../lib/feed';
 import { t, type StringKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import InstrumentGauge from './InstrumentGauge';
+import KindBox from './KindBox';
 import styles from './UnifiedSearch.module.css';
 
 // One search component for every surface, backed by the standalone /api/search endpoint.
@@ -215,8 +216,9 @@ export default function UnifiedSearch({
                     const meta = `${t(locale, KIND_LABEL[it.kind])}${it.subtitle ? ` · ${it.subtitle}` : ''}`;
                     const body = (
                       <>
+                        <KindBox kind={it.kind} locale={locale} />
                         <span className={styles.suggestTitle}>{it.title}</span>
-                        <span className={styles.suggestMeta}>{meta}</span>
+                        {it.subtitle && <span className={styles.suggestMeta}>{it.subtitle}</span>}
                       </>
                     );
                     // The gap between title and meta is flex spacing, which is NOT a
