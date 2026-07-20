@@ -3,8 +3,8 @@
 > **Historical snapshot** — this walkthrough describes the app as of an early
 > milestone and is not updated as features change. Routes, coverage numbers, and
 > feature details may have drifted (e.g. `/projects/*` routes later moved to
-> `/programs/*`). For current truth: [README.md](README.md) and
-> [docs/OPERATIONS.md](docs/OPERATIONS.md).
+> `/programs/*`). For current truth: [README.md](../README.md) and
+> [OPERATIONS.md](OPERATIONS.md).
 
 We have implemented the full operational flow of AutoKnow, providing partner tracking, project dashboards, biographical timelines, gut-feel status sliders, constraints diagnostics, and developer seeding tools.
 

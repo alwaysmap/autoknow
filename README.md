@@ -6,7 +6,7 @@ A relationship and project tracking system for Android Automotive Partner Engine
 > [docs/OPERATIONS.md](docs/OPERATIONS.md) (running & configuring a deployment; §9 = deploy/rollback runbook) ·
 > [docs/DEPLOYMENT_GCP.md](docs/DEPLOYMENT_GCP.md) (GCP architecture & CI/CD) ·
 > [docs/CHANGE_PLAYBOOK.md](docs/CHANGE_PLAYBOOK.md) (**mandatory** before schema/infra changes) ·
-> [design.md](design.md) (UI rules) · [AGENTS.md](AGENTS.md) (ground rules for AI agents)
+> [docs/design.md](docs/design.md) (UI rules) · [AGENTS.md](AGENTS.md) (ground rules for AI agents)
 
 ## Development Workflow
 
@@ -110,4 +110,8 @@ wins. Note the workflow's path filter: docs-only changes do not trigger a deploy
 
 - Architecture and CI/CD design: [docs/DEPLOYMENT_GCP.md](docs/DEPLOYMENT_GCP.md)
 - Operating it — env, integrations, **redeploy & rollback runbook**: [docs/OPERATIONS.md](docs/OPERATIONS.md) (§9)
+- **Monitoring & logs** — health endpoint, log tailing, dashboards: [docs/OPERATIONS.md](docs/OPERATIONS.md) (§10)
 - Rules for schema/infra changes: [docs/CHANGE_PLAYBOOK.md](docs/CHANGE_PLAYBOOK.md)
+
+Health probe: `GET /api/health` (public) returns `{ ok, sha, db }` — `sha` is the
+commit the running build was made from.
