@@ -2,6 +2,24 @@
 /* Compact search row — the categorical filters live in the column headers. */
 .searchRow {
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.clearAll {
+  background: none;
+  border: none;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.clearAll:hover {
+  color: var(--fg);
+  background: var(--surface);
 }
 .searchInput {
   width: 280px;

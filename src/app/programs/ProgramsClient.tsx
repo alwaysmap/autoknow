@@ -153,6 +153,15 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
           onChange={(e) => setSearchQuery(e.target.value)}
           className={local.searchInput}
         />
+        {Object.values(filters).some((v) => v && v.length > 0) && (
+          <button
+            type="button"
+            className={local.clearAll}
+            onClick={() => setFilters({})}
+          >
+            ✕ {t(locale, 'clearAllFilters')}
+          </button>
+        )}
       </div>
 
       {/* Scorecards hidden for now (2026-07-18): count/risk added little over the

@@ -164,6 +164,13 @@
   cursor: default;
 }
 
+/* Flipped variant: anchored to the funnel's right edge so rightmost columns'
+   popups stay inside the overflow-x wrapper instead of being cropped. */
+.filterPopRight {
+  left: auto;
+  right: 0;
+}
+
 .filterOption {
   display: flex;
   align-items: center;
