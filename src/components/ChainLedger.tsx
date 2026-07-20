@@ -54,18 +54,38 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
   const x = (ms: number) => labelW + ((ms - tMin) / (tMax - tMin)) * (W - labelW - PAD_R);
   const rowY = (i: number) => TOP + i * ROW_H + ROW_H / 2;
 
-  // Quarter gridlines across the visible range.
-  const quarters: { ms: number; label: string }[] = [];
-  const first = new Date(tMin);
-  let qy = first.getUTCFullYear();
-  let qm = Math.floor(first.getUTCMonth() / 3) * 3;
-  for (let guard = 0; guard < 40; guard++) {
-    const ms = Date.UTC(qy, qm, 1);
-    if (ms > tMax) break;
-    if (ms >= tMin) quarters.push({ ms, label: `Q${qm / 3 + 1} ’${String(qy).slice(2)}` });
-    qm += 3;
-    if (qm >= 12) { qm = 0; qy += 1; }
+  // Graticule, three levels of granularity but ONE level of labelling: week and
+  // month ticks sit on the axis (unlabelled — they give the eye a scale), while
+  // quarters keep the full-height line and the only text.
+  const axisY = TOP + rows.length * ROW_H + 8;
+  const pxPerDay = (W - labelW - PAD_R) / ((tMax - tMin) / DAY_MS);
+  const showWeeks = pxPerDay * 7 >= 4; // below this they'd read as a smear
+  const showMonths = pxPerDay * 30 >= 8;
+
+  const weeks: number[] = [];
+  if (showWeeks) {
+    const d = new Date(tMin);
+    const dow = d.getUTCDay() || 7; // Sunday → 7, so weeks start Monday (ISO)
+    let ms = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) + ((8 - dow) % 7) * DAY_MS;
+    for (let guard = 0; guard < 400 && ms <= tMax; guard++, ms += 7 * DAY_MS) weeks.push(ms);
   }
+
+  const months: { ms: number; isQuarter: boolean; label: string }[] = [];
+  {
+    const first = new Date(tMin);
+    let my = first.getUTCFullYear();
+    let mm = first.getUTCMonth();
+    for (let guard = 0; guard < 160; guard++) {
+      const ms = Date.UTC(my, mm, 1);
+      if (ms > tMax) break;
+      if (ms >= tMin) {
+        months.push({ ms, isQuarter: mm % 3 === 0, label: `Q${Math.floor(mm / 3) + 1} ’${String(my).slice(2)}` });
+      }
+      mm += 1;
+      if (mm > 11) { mm = 0; my += 1; }
+    }
+  }
+  const quarters = months.filter((m) => m.isQuarter);
 
   // Buffer-movement background bands (§4a): red = days lost, paler red = forecast
   // loss not yet spent, green = days gained + the buffer still in hand.
@@ -100,9 +120,19 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
           <rect key={`band${i}`} x={x(b.x1)} y={TOP - 8} width={Math.max(1.5, x(b.x2) - x(b.x1))} height={rows.length * ROW_H + 16}
             fill={b.kind === 'gain' ? 'var(--ok-soft)' : 'var(--bad-soft)'} opacity={b.kind === 'forecastLoss' ? 0.55 : 1} />
         ))}
+        {/* graticule: week ticks (finest), month ticks, quarter lines + labels */}
+        {weeks.map((ms) => (
+          <line key={`w${ms}`} x1={x(ms)} y1={axisY - 3} x2={x(ms)} y2={axisY}
+            stroke="var(--border)" strokeWidth={1} opacity={0.55} />
+        ))}
+        {showMonths && months.filter((m) => !m.isQuarter).map((m) => (
+          <line key={`m${m.ms}`} x1={x(m.ms)} y1={axisY - 7} x2={x(m.ms)} y2={axisY}
+            stroke="var(--border)" strokeWidth={1} />
+        ))}
+        <line x1={labelW} y1={axisY} x2={W - PAD_R} y2={axisY} stroke="var(--border)" strokeWidth={1} />
         {quarters.map((q) => (
           <g key={q.ms}>
-            <line x1={x(q.ms)} y1={TOP - 8} x2={x(q.ms)} y2={TOP + rows.length * ROW_H + 8} stroke="var(--border)" strokeWidth={1} />
+            <line x1={x(q.ms)} y1={TOP - 8} x2={x(q.ms)} y2={axisY} stroke="var(--border)" strokeWidth={1} />
             <text x={x(q.ms)} y={H - 22} textAnchor="middle" fontSize={10} fill="var(--muted)">{q.label}</text>
           </g>
         ))}
