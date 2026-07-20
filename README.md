@@ -81,6 +81,7 @@ local use):
 | `db:migrate` | Create/apply a migration locally (`prisma migrate dev`; playbook §D) |
 | `db:seed` | Prisma seed (mock data; wipe-guarded — see OPERATIONS §1) |
 | `db:studio` | Prisma Studio on :5555 |
+| `db:test:clean` | Drop stray per-worktree `autoknow…_test` DBs (skips in-use; never the dev/demo DBs) |
 | `ci:lint-migrations` | PR gate: block destructive migrations (used by `ci.yml`) |
 | `ci:migrate` | Forward-only `prisma migrate deploy` to Cloud SQL (used by `deploy.yml`) |
 | `ci:deploy` | Build → push image → roll Cloud Run (used by `deploy.yml`) |

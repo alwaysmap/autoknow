@@ -30,7 +30,11 @@ warnings is the bar — the suite was once left red on main and it hid real bugs
   carry a token derived from the checkout (`tests/helpers/worktree`), so
   concurrent worktrees get separate DBs/ports and can't clobber each other
   (AGENTS lesson 9). Override with `WORKTREE_ID` / `TEST_SERVER_PORT` /
-  `TEST_DATABASE_URL` (e.g. to pin a name in CI).
+  `TEST_DATABASE_URL` (e.g. to pin a name in CI). Test DBs are created lazily by
+  `tests/global-setup` and **never auto-dropped**, so each worktree leaves one
+  `autoknow_<token>_test` behind — run **`npm run db:test:clean`** to drop every
+  idle `autoknow…_test` DB (it skips any with open connections, and never touches
+  the real `autoknow` DB or the demo/scratch DBs, which lack the `_test` suffix).
 - **Playwright**: boots its own dev server on the per-worktree port (~3130) with a
   separate `.next-test` build dir and stubbed auth; `workers=1` is load-bearing
   (specs serially wipe this worktree's `*_test` DB). Never run two suites at once
