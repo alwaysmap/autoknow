@@ -87,9 +87,9 @@ Reverse order — stop using it before it disappears.
 Migrations are created locally, reviewed as SQL, committed, and applied by CI. To create one:
 ```bash
 # Against a LOCAL throwaway DB only (never prod):
-npx prisma migrate dev --name add_widget_status --create-only   # writes prisma/migrations/<ts>_add_widget_status/
+npm run db:migrate -- --name add_widget_status --create-only   # writes prisma/migrations/<ts>_add_widget_status/
 #   → open the generated migration.sql, read every statement, confirm it is non-destructive
-npx prisma migrate dev                                          # apply locally to test
+npm run db:migrate                                             # apply locally to test
 ```
 Commit the whole `prisma/migrations/<ts>_*/` folder. CI runs `prisma migrate deploy` (forward-only)
 before each rollout.

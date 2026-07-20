@@ -10,7 +10,27 @@ A relationship and project tracking system for Android Automotive Partner Engine
 
 ## Development Workflow
 
-All key actions are accessible via `npm run` scripts.
+**`npm run` is the single entry point for every dev, test, database, and CI task**
+— humans, agents, and the GitHub workflows all go through these (the `ci:*`
+scripts wrap `scripts/ci/*.sh` and need CI-provided GCP env, so they're not for
+local use):
+
+| Script | What it does |
+|---|---|
+| `dev` / `build` / `start` | Next.js dev server / production build / serve the build |
+| `lint` / `typecheck` | ESLint / `tsc --noEmit` |
+| `test` (`:watch`, `:coverage`) | Jest unit + DB tests against the `*_test` database |
+| `test:e2e` (`:ui`) | Playwright suite (own server on :3130, own `*_test` DB) |
+| `evidence` | The full local gate: typecheck → lint → coverage → e2e → build |
+| `db:up` / `db:down` | Start / stop the local Postgres container |
+| `db:push` | Sync schema to the **local** dev DB (never prod — see playbook) |
+| `db:migrate` | Create/apply a migration locally (`prisma migrate dev`; playbook §D) |
+| `db:seed` | Prisma seed (mock data; wipe-guarded — see OPERATIONS §1) |
+| `db:studio` | Prisma Studio on :5555 |
+| `ci:lint-migrations` | PR gate: block destructive migrations (used by `ci.yml`) |
+| `ci:migrate` | Forward-only `prisma migrate deploy` to Cloud SQL (used by `deploy.yml`) |
+| `ci:deploy` | Build → push image → roll Cloud Run (used by `deploy.yml`) |
+| `ci:harden-db` | Diagnose/apply the least-privilege DB role (used by `harden-db.yml`) |
 
 ### 1. Prerequisites
 - Node.js (v18+)

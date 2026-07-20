@@ -33,4 +33,4 @@ jobs:
           INSTANCE_PROJECT: autoknow-prod-1895f1
           INSTANCE_SQL_CONNECTION: autoknow-prod-1895f1:us-central1:autoknow-pg
           MODE: ${{ github.event.inputs.mode }}
-        run: scripts/db/harden.sh
+        run: npm run ci:harden-db

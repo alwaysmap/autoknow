@@ -7,19 +7,23 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:serial": "playwright test --workers=1",
     "test:e2e:ui": "playwright test --ui",
+    "evidence": "npm run typecheck && npm run lint && npm run test:coverage && npm run test:e2e && npm run build",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",
     "db:push": "prisma db push",
-    "db:studio": "prisma studio",
+    "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
-    "sampledata": "node scripts/seed_via_api.js",
-    "evidence": "npm run test:coverage && npm run test:e2e:serial && npm run lint && npm run build"
+    "db:studio": "prisma studio",
+    "ci:lint-migrations": "scripts/ci/lint-migrations.sh",
+    "ci:migrate": "scripts/ci/migrate.sh",
+    "ci:deploy": "scripts/ci/build-and-deploy.sh",
+    "ci:harden-db": "scripts/db/harden.sh"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

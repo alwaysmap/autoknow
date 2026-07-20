@@ -62,7 +62,7 @@ jobs:
         env:
           INSTANCE_PROJECT: ${{ matrix.instance.project }}
           INSTANCE_SQL_CONNECTION: ${{ matrix.instance.sql_connection }}
-        run: scripts/ci/migrate.sh
+        run: npm run ci:migrate
 
   deploy:
     name: deploy ${{ matrix.instance.name }}
@@ -93,4 +93,4 @@ jobs:
           INSTANCE_PROJECT: ${{ matrix.instance.project }}
           INSTANCE_REGION: ${{ matrix.instance.region }}
           INSTANCE_SERVICE: ${{ matrix.instance.service }}
-        run: scripts/ci/build-and-deploy.sh
+        run: npm run ci:deploy

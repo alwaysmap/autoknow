@@ -19,4 +19,4 @@ jobs:
       - name: Block destructive migrations without opt-in
         env:
           BASE_REF: origin/${{ github.base_ref }}
-        run: scripts/ci/lint-migrations.sh
+        run: npm run ci:lint-migrations
