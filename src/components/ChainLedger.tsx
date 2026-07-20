@@ -6,6 +6,7 @@ import { t, Locale } from '../lib/i18n';
 import { tNodes, joinNodes } from './tNodes';
 import { localDate } from '../lib/dates';
 import { DAY_MS } from '../lib/sop';
+import { isForecastOver } from '../lib/chainLedger';
 import type { ChainLedgerResult, ResourceRef, ScheduleRow, Situation, WaterfallRow } from '../lib/chainLedger';
 import styles from './ChainLedger.module.css';
 
@@ -114,7 +115,7 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
     if (r.gapBeforeDays >= 1 && i > 0) bands.push({ x1: rows[i - 1].endMs, x2: r.startMs, kind: 'loss' });
     if (r.kind === 'done' && r.varianceDays >= 1) bands.push({ x1: r.plannedEndMs, x2: r.endMs, kind: 'loss' });
     if (r.kind === 'done' && r.varianceDays <= -1) bands.push({ x1: r.endMs, x2: r.plannedEndMs, kind: 'gain' });
-    if (r.kind === 'active' && r.varianceDays >= 1) bands.push({ x1: r.plannedEndMs, x2: r.endMs, kind: 'forecastLoss' });
+    if (isForecastOver(r)) bands.push({ x1: r.plannedEndMs, x2: r.endMs, kind: 'forecastLoss' });
     if (r.kind === 'active' && r.varianceDays <= -1) bands.push({ x1: r.endMs, x2: r.plannedEndMs, kind: 'gain' });
   });
   const lastEnd = rows[rows.length - 1].endMs;
@@ -123,12 +124,19 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
     : { x1: sopMs, x2: lastEnd, kind: 'loss' });
 
   const barLabel = (r: ScheduleRow): { text: string; bad: boolean } | null => {
-    if (r.kind === 'done' && r.varianceDays <= -1) return { text: t(locale, 'clDaysEarly', { d: -r.varianceDays }), bad: false };
-    if (r.kind === 'done' && r.varianceDays >= 1) return { text: t(locale, 'clDaysOverPlan', { d: r.varianceDays }), bad: true };
+    if (r.kind === 'done' && r.varianceDays <= -1) {
+      const d = -r.varianceDays;
+      return { text: t(locale, d === 1 ? 'clOneDayEarly' : 'clDaysEarly', { d }), bad: false };
+    }
+    if (r.kind === 'done' && r.varianceDays >= 1) {
+      const d = r.varianceDays;
+      return { text: t(locale, d === 1 ? 'clOneDayOverPlan' : 'clDaysOverPlan', { d }), bad: true };
+    }
     if (r.kind === 'active') {
-      return r.varianceDays >= 1
-        ? { text: t(locale, 'clWorkLeftOver', { d: r.remainingDays, o: r.varianceDays }), bad: true }
-        : { text: t(locale, 'clWorkLeftOnPace', { d: r.remainingDays }), bad: false };
+      const one = r.remainingDays === 1;
+      return isForecastOver(r)
+        ? { text: t(locale, one ? 'clWorkLeftOverOne' : 'clWorkLeftOver', { d: r.remainingDays, o: r.varianceDays }), bad: true }
+        : { text: t(locale, one ? 'clWorkLeftOnPaceOne' : 'clWorkLeftOnPace', { d: r.remainingDays }), bad: false };
     }
     return null;
   };

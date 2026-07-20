@@ -1,6 +1,8 @@
 import {
   computeChainLedger,
   buildBusiestResources,
+  isForecastOver,
+  FORECAST_NOISE_DAYS,
   type LedgerPhaseInput,
   type ChainLedgerInput,
 } from '../src/lib/chainLedger';
@@ -129,6 +131,45 @@ describe('schedule rows, cascade, and buffer', () => {
     expect(r.usedDays).toBeNull();
     expect(r.register).toBe('none');
     expect(r.situations.find((s) => s.type === 'sopOvershoot')).toBeUndefined();
+  });
+});
+
+describe('forecast-noise threshold', () => {
+  // A phase whose projection is exactly 1 day past plan: elapsed 21 + remaining
+  // 20 (40 × 50%) = 41 against 40 planned. Below the noise floor, so it must
+  // produce NOTHING anywhere — the chart renders from the same predicate, and
+  // when the two disagreed a +1-day phase drew a red band and an "over plan"
+  // label with no waterfall row behind it.
+  const oneDayOver = computeChainLedger({
+    phases: [phase(1, 40, 50, [], iso(0))],
+    sopDate: iso(200),
+    now: day(21),
+  });
+
+  it('ignores a one-day forecast overrun in the waterfall and situations', () => {
+    expect(oneDayOver.schedule[0].varianceDays).toBe(1);
+    expect(oneDayOver.waterfall.find((w) => w.kind === 'forecast')).toBeUndefined();
+    expect(oneDayOver.situations.find((s) => s.type === 'forecastOverrun')).toBeUndefined();
+  });
+
+  it('exposes the same predicate the chart renders from', () => {
+    expect(FORECAST_NOISE_DAYS).toBe(2);
+    expect(isForecastOver(oneDayOver.schedule[0])).toBe(false);
+    expect(isForecastOver({ kind: 'active', varianceDays: 2 })).toBe(true);
+    // realized (done) variances are measured, not projected — they count from 1
+    expect(isForecastOver({ kind: 'done', varianceDays: 9 })).toBe(false);
+  });
+
+  it('reports a two-day forecast overrun through both surfaces', () => {
+    // elapsed 22 + remaining 20 = 42 vs 40 planned
+    const r = computeChainLedger({
+      phases: [phase(1, 40, 50, [], iso(0))],
+      sopDate: iso(200),
+      now: day(22),
+    });
+    expect(r.schedule[0].varianceDays).toBe(2);
+    expect(r.waterfall.find((w) => w.kind === 'forecast')?.days).toBe(2);
+    expect(r.situations.find((s) => s.type === 'forecastOverrun')).toMatchObject({ days: 2 });
   });
 });
 

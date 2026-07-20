@@ -114,6 +114,20 @@ export interface ChainLedgerResult {
 const round = Math.round;
 const days = (ms: number) => ms / DAY_MS;
 
+/**
+ * A FORECAST variance smaller than this is rounding noise, not signal — the
+ * remaining half of it is a hill-position guess, so ±1 day means nothing.
+ * Realized (done) variances are measured from real dates and count from 1 day.
+ * Exported because the chart renders from the same rule: when this and the
+ * waterfall disagreed, a +1-day phase drew a red band and an "over plan" label
+ * while producing no waterfall row and no overrun situation.
+ */
+export const FORECAST_NOISE_DAYS = 2;
+
+/** Is this row's forecast meaningfully past its plan? */
+export const isForecastOver = (r: Pick<ScheduleRow, 'kind' | 'varianceDays'>): boolean =>
+  r.kind === 'active' && r.varianceDays >= FORECAST_NOISE_DAYS;
+
 /** The planned chain: same solver, progress zeroed — identification, not tracking. */
 function plannedChainOf(phases: LedgerPhaseInput[]): { path: number[]; totalDays: number } {
   const solved = computeCriticalChain(
@@ -236,10 +250,10 @@ export function computeChainLedger(input: ChainLedgerInput): ChainLedgerResult {
     }
     if (r.kind === 'done' && r.varianceDays >= 1) waterfall.push({ kind: 'overrun', days: r.varianceDays, gain: false, phaseId: r.id });
     if (r.kind === 'done' && r.varianceDays <= -1) waterfall.push({ kind: 'underrun', days: -r.varianceDays, gain: true, phaseId: r.id });
-    // Forecast variance is a projection — ±1 day is rounding noise, not signal
-    // (no-fabricated-precision rule); realized variances keep the 1-day threshold.
-    if (r.kind === 'active' && r.varianceDays >= 2) waterfall.push({ kind: 'forecast', days: r.varianceDays, gain: false, phaseId: r.id });
-    if (r.kind === 'active' && r.varianceDays <= -2) waterfall.push({ kind: 'forecast', days: -r.varianceDays, gain: true, phaseId: r.id });
+    if (isForecastOver(r)) waterfall.push({ kind: 'forecast', days: r.varianceDays, gain: false, phaseId: r.id });
+    if (r.kind === 'active' && r.varianceDays <= -FORECAST_NOISE_DAYS) {
+      waterfall.push({ kind: 'forecast', days: -r.varianceDays, gain: true, phaseId: r.id });
+    }
   }
   if (usedDays != null) {
     const attributed = waterfall.reduce((sum, w) => sum + (w.gain ? -w.days : w.days), 0);
@@ -271,7 +285,7 @@ export function computeChainLedger(input: ChainLedgerInput): ChainLedgerResult {
     if (r.kind === 'done' && r.varianceDays <= -1) {
       situations.push({ type: 'underrun', phaseId: r.id, days: -r.varianceDays, plannedDays: p.forecastedDuration });
     }
-    if (r.kind === 'active' && r.varianceDays >= 2) {
+    if (isForecastOver(r)) {
       situations.push({
         type: 'forecastOverrun', phaseId: r.id, days: r.varianceDays, remainingDays: r.remainingDays,
         elapsedDays: round(days(now - r.startMs)), plannedDays: p.forecastedDuration,

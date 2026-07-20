@@ -446,7 +446,13 @@ directly; no chart needed.)*
   done/not ink (the existing rule); time lives in this section's time-scaled bars.
 - **No fabricated precision.** Remaining work is `D × (1 − p/100)` — a hill-chart
   guess times a forecast. Everything renders in days/weeks rounded, and the
-  headline says ≈. A single-point projection dressed as certainty is worse than
+  headline says ≈. Concretely: a *forecast* variance under
+  `FORECAST_NOISE_DAYS` (2) is noise and is reported nowhere — one exported
+  predicate (`isForecastOver`) governs the chart band, the bar label, the
+  waterfall row, and the situation packet, because when the chart and the
+  ledger each carried their own threshold a +1-day phase drew a red band and
+  an "over plan" label with no waterfall row behind it. Realized (done)
+  variances come from real dates and count from 1 day. A single-point projection dressed as certainty is worse than
   useless; v1's forecasts state their simple basis (the hover shows the
   arithmetic), direct "days left" answers override the formula when present
   (open question 10), and the upgrade path to a *grounded* forecast with a

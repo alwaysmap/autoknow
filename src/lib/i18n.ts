@@ -1332,7 +1332,9 @@ const STRINGS = {
     ko: '초록 배경은 얻은 일수와 SOP 전 남은 버퍼.',
   },
   clDaysEarly: { en: '{d} days early', de: '{d} Tage früher', ja: '{d}日早く完了', ko: '{d}일 일찍 완료' },
+  clOneDayEarly: { en: '1 day early', de: '1 Tag früher', ja: '1日早く完了', ko: '1일 일찍 완료' },
   clDaysOverPlan: { en: '{d} days over plan', de: '{d} Tage über Plan', ja: '計画超過{d}日', ko: '계획 초과 {d}일' },
+  clOneDayOverPlan: { en: '1 day over plan', de: '1 Tag über Plan', ja: '計画超過1日', ko: '계획 초과 1일' },
   clSatIdle: { en: 'sat idle {d} days', de: '{d} Tage Leerlauf', ja: '{d}日間待機', ko: '{d}일간 대기' },
   clWorkLeftOnPace: {
     en: '≈{d} days of work left · on pace with its plan',
@@ -1340,11 +1342,23 @@ const STRINGS = {
     ja: '残り約{d}日 · 計画どおり',
     ko: '남은 작업 약 {d}일 · 계획대로 진행 중',
   },
+  clWorkLeftOnPaceOne: {
+    en: '≈1 day of work left · on pace with its plan',
+    de: '≈1 Tag Arbeit übrig · im Plan',
+    ja: '残り約1日 · 計画どおり',
+    ko: '남은 작업 약 1일 · 계획대로 진행 중',
+  },
   clWorkLeftOver: {
     en: '≈{d} days of work left · forecast ~{o} days over plan',
     de: '≈{d} Tage Arbeit übrig · Prognose ~{o} Tage über Plan',
     ja: '残り約{d}日 · 予測で計画超過約{o}日',
     ko: '남은 작업 약 {d}일 · 예측상 계획 초과 약 {o}일',
+  },
+  clWorkLeftOverOne: {
+    en: '≈1 day of work left · forecast ~{o} days over plan',
+    de: '≈1 Tag Arbeit übrig · Prognose ~{o} Tage über Plan',
+    ja: '残り約1日 · 予測で計画超過約{o}日',
+    ko: '남은 작업 약 1일 · 예측상 계획 초과 약 {o}일',
   },
   clDaysOfRoom: { en: '{d} days of room', de: '{d} Tage Spielraum', ja: '余裕{d}日', ko: '여유 {d}일' },
   clSopLabel: { en: 'SOP · end of {month}', de: 'SOP · Ende {month}', ja: 'SOP · {month}末', ko: 'SOP · {month} 말' },
