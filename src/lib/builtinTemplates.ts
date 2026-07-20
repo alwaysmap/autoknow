@@ -7,13 +7,18 @@
 // program-level description as a post-SOP lifecycle note, keeping the single-sink rule
 // clean. GAS and Digital Key migrate the old hardcoded stubs (lib/templates.ts keeps
 // feeding the sample-data seeder unchanged).
+//
+// Every phase description is a **Goal** (why the phase exists, one sentence) plus a
+// **Done when** checklist of binary, provable criteria — things a reviewer can verify
+// pass/fail, never "mostly working" prose. Activities, co-lead colour and schedule
+// folklore belong in googleFocus or the program description, not in the DoD.
 
 export interface BuiltinPhaseTemplate {
   key: string; // stable key for dependsOn references (e.g. "P2")
   name: string;
-  description: string; // markdown — exit outcome + typical activities
+  description: string; // markdown — **Goal:** + **Done when:** provable checklist
   googleFocus: string; // markdown — what Googlers/TSC focus on
-  leadRole: string; // primary accountable lead (co-leads noted in description)
+  leadRole: string; // primary accountable lead
   durationWeeks: number;
   isEndPhase?: boolean;
   dependsOn: string[]; // keys
@@ -39,9 +44,12 @@ const AAOS: BuiltinTemplate = {
       leadRole: 'OEM',
       durationWeeks: 8,
       dependsOn: [],
-      description: `**Exit outcome:** Platform architecture frozen — SoC, hypervisor topology, partition map, OTA strategy, and AAOS/GAS scope agreed; responsibility matrix signed.
-**Co-leads:** OEM (with Tier 1 + silicon vendor).
-**Typical activities:** early architecture review; VINTF posture; hypervisor topology; OTA design; Android-version/BSP schedule risk assessment.`,
+      description: `**Goal:** Freeze the platform architecture every party builds against.
+
+**Done when:**
+- SoC, hypervisor topology, partition map, OTA strategy and AAOS/GAS scope are recorded in the locked architecture document
+- the responsibility matrix is signed by OEM, Tier 1 and silicon vendor
+- no open architecture decision remains on the program risk register`,
       googleFocus: `Run the early architecture review; push VINTF-compliant posture, sane hypervisor topology and OTA design; flag the Android-version/BSP schedule risk before it's baked in.`,
     },
     {
@@ -50,9 +58,12 @@ const AAOS: BuiltinTemplate = {
       leadRole: 'OEM',
       durationWeeks: 6,
       dependsOn: ['P0'],
-      description: `**Exit outcome:** SoC selected; physical dev kits and/or virtual SoC available to every party; toolchains and source access stood up.
-**Co-leads:** OEM selects, silicon vendor supplies.
-**Typical activities:** SoC down-select; dev-kit / vSoC provisioning; toolchain + source access.`,
+      description: `**Goal:** Every party can build for and boot the selected silicon.
+
+**Done when:**
+- the SoC down-select decision is signed off
+- each party holds a working dev kit or virtual-SoC instance
+- a clean checkout builds and boots on it following the documented toolchain setup`,
       googleFocus: `Advise on AAOS support maturity of candidate SoCs; point teams to Cuttlefish/Trout and the Snapdragon vSoC cloud path so integration starts before hardware lands.`,
     },
     {
@@ -61,9 +72,12 @@ const AAOS: BuiltinTemplate = {
       leadRole: 'Silicon vendor',
       durationWeeks: 18,
       dependsOn: ['P1'],
-      description: `**Exit outcome:** Board powers on; bootloader and kernel boot to console; RAM, storage (UFS/eMMC) and core peripherals enumerate.
-**Co-leads:** Silicon vendor (reference BSP) → Tier 1 (board port).
-**Typical activities:** reference BSP delivery; board port; bootloader/kernel bring-up; peripheral enumeration. #1 schedule slip.`,
+      description: `**Goal:** The target board runs the target-version kernel reliably enough to carry all downstream bring-up.
+
+**Done when:**
+- bootloader and kernel boot to console on the target board
+- RAM, UFS/eMMC storage and all core peripherals enumerate in the boot log
+- 20 consecutive cold boots succeed on at least two boards`,
       googleFocus: `Mostly observing; track BSP delivery against the target Android version because this is the #1 schedule slip. Own the escalation path into Core Engineering for genuinely upstream defects.`,
     },
     {
@@ -72,9 +86,12 @@ const AAOS: BuiltinTemplate = {
       leadRole: 'Tier 1',
       durationWeeks: 6,
       dependsOn: ['P2'],
-      description: `**Exit outcome:** Screens light up; SurfaceFlinger composites; AAOS home screen renders at target resolution/refresh; multi-display works.
-**Co-leads:** Tier 1 (Display HAL) + silicon vendor (GPU driver).
-**Typical activities:** Display HAL bring-up; GPU driver integration; HWC/compositor validation.`,
+      description: `**Goal:** AAOS renders on every vehicle display at production quality.
+
+**Done when:**
+- the AAOS home screen renders at target resolution and refresh rate on every display
+- SurfaceFlinger/HWC composition passes the display validation suite
+- all in-scope displays run simultaneously without artifacts`,
       googleFocus: `Triage compositor/HWC defects that only appear when AAOS runs atop the vendor BSP; route true AOSP bugs to Google eng.`,
     },
     {
@@ -83,9 +100,12 @@ const AAOS: BuiltinTemplate = {
       leadRole: 'Tier 1',
       durationWeeks: 8,
       dependsOn: ['P2'],
-      description: `**Exit outcome:** Audio routes to all zones; mics capture; AAOS audio focus and zones behave; chimes/alerts meet latency.
-**Co-leads:** Tier 1 (Audio HAL, amp).
-**Typical activities:** Audio HAL + amp integration; zone routing; audio-focus policy; alert latency.`,
+      description: `**Goal:** Automotive audio routing behaves to spec in every zone.
+
+**Done when:**
+- audio plays and mic capture works in every configured zone
+- every case in the audio-focus test list passes (e.g. driver alert ducks media)
+- chime/alert latency measures inside the agreed budget`,
       googleFocus: `Validate the Android audio policy and zone config against real automotive routing (driver alerts over media, etc.).`,
     },
     {
@@ -94,9 +114,11 @@ const AAOS: BuiltinTemplate = {
       leadRole: 'Tier 1',
       durationWeeks: 12,
       dependsOn: ['P2'],
-      description: `**Exit outcome:** Wi-Fi, Bluetooth, cellular modem and GNSS all connect and pass; Android Auto phone projection pairs and casts.
-**Co-leads:** Tier 1 + modem vendor.
-**Typical activities:** Wi-Fi/BT/modem/GNSS bring-up; Android Auto projection conformance.`,
+      description: `**Goal:** Every radio connects and phone projection works.
+
+**Done when:**
+- Wi-Fi, Bluetooth, cellular modem and GNSS each pass their bring-up test suite
+- Android Auto projection pairs and casts on every phone in the reference matrix`,
       googleFocus: `Confirm Android Auto projection conformance; triage BT/Wi-Fi stack issues against AOSP behaviour.`,
     },
     {
@@ -105,9 +127,12 @@ const AAOS: BuiltinTemplate = {
       leadRole: 'OEM',
       durationWeeks: 24,
       dependsOn: ['P2'],
-      description: `**Exit outcome:** Speed, gear, HVAC, doors, seats, lighting, energy and ADAS state flow into Android as VehiclePropValues; system (Google-defined) and vendor (OEM-defined) properties verified against the signal catalog.
-**Co-leads:** OEM + Tier 1 (CAN/Ethernet → VHAL).
-**Typical activities:** CAN/Ethernet → VHAL mapping; signal-catalog alignment; system vs vendor property verification. Heaviest TSC engagement.`,
+      description: `**Goal:** Vehicle state flows into Android exactly as the signal catalog defines.
+
+**Done when:**
+- every catalogued signal (speed, gear, HVAC, doors, seats, lighting, energy, ADAS state) arrives as a VehiclePropValue
+- system (Google-defined) and vendor (OEM-defined) properties pass verification against the signal catalog
+- zero in-scope signals remain unmapped`,
       googleFocus: `Drive VHAL and signal-catalog alignment; adopt the standard AAOS SDV catalog and reuse vendor-property definitions to kill custom-property churn. COVESA VHAL workshop is the venue.`,
     },
     {
@@ -116,9 +141,12 @@ const AAOS: BuiltinTemplate = {
       leadRole: 'Tier 1',
       durationWeeks: 10,
       dependsOn: ['P2'],
-      description: `**Exit outcome:** Rearview/surround-view camera renders within the regulatory boot-to-image latency budget; the EVS (Exterior View System) path is validated.
-**Co-leads:** Tier 1 + silicon vendor.
-**Typical activities:** Camera HAL + EVS bring-up; backup-camera boot-to-image timing.`,
+      description: `**Goal:** Regulatory camera views render inside the latency budget.
+
+**Done when:**
+- rearview and surround-view render through the EVS path
+- cold-boot-to-rearview-image time measures inside the FMVSS-111 budget, recorded and repeatable
+- the EVS validation suite passes`,
       googleFocus: `Triage EVS/Camera-HAL issues; check backup-camera timing against the FMVSS-111 boot-to-image requirement.`,
     },
     {
@@ -127,9 +155,11 @@ const AAOS: BuiltinTemplate = {
       leadRole: 'Hypervisor vendor',
       durationWeeks: 18,
       dependsOn: ['P2'],
-      description: `**Exit outcome:** AAOS (IVI VM) and the cluster/safety VM coexist on one SoC; freedom-from-interference proven — an IVI crash cannot disturb the cluster.
-**Co-leads:** Hypervisor vendor + Tier 1.
-**Typical activities:** guest-VM bring-up; boot orchestration; resource partitioning; FFI proof.`,
+      description: `**Goal:** IVI and safety VMs provably coexist on one SoC.
+
+**Done when:**
+- AAOS (IVI VM) and the cluster/safety VM boot and run together on the target SoC
+- the freedom-from-interference test passes: a forced IVI crash leaves the cluster VM running within its deadlines`,
       googleFocus: `Ensure AAOS behaves correctly as a guest; work boot-orchestration and resource-partition issues with the hypervisor vendor.`,
     },
     {
@@ -138,9 +168,12 @@ const AAOS: BuiltinTemplate = {
       leadRole: 'OEM',
       durationWeeks: 12,
       dependsOn: ['P5'],
-      description: `**Exit outcome:** (GAS path) Play Store, Google Maps and Assistant/Gemini run on device; Distraction-Optimized apps are correctly gated by driving state.
-**Co-leads:** OEM + Google.
-**Typical activities:** GAS enablement; Parked/Idling/Driving gating; app review + driver-distraction approvals.`,
+      description: `**Goal:** Google services run on device with driving-state gating enforced.
+
+**Done when:**
+- Play Store, Google Maps and Assistant/Gemini install, launch and sign in on device
+- Distraction-Optimized gating verified in Parked, Idling and Driving states
+- app review and driver-distraction approvals are granted and recorded`,
       googleFocus: `Shepherd GAS enablement; validate driving-state gating; coordinate app review and driver-distraction approvals; route Maps integration to the Geo/Maps team.`,
     },
     {
@@ -149,9 +182,12 @@ const AAOS: BuiltinTemplate = {
       leadRole: 'Tier 1',
       durationWeeks: 6,
       dependsOn: ['P3', 'P4', 'P9'],
-      description: `**Exit outcome:** HD video while parked, Dolby Atmos, and immersive 3D nav render to spec; video correctly blocked in motion.
-**Co-leads:** Tier 1 + OEM.
-**Typical activities:** media/DRM validation; driving-state gating of video and text entry.`,
+      description: `**Goal:** Premium media works parked and is blocked in motion.
+
+**Done when:**
+- HD video plays while parked and Dolby Atmos output is verified
+- immersive 3D navigation renders to spec
+- video and text entry are blocked in motion in the gating test`,
       googleFocus: `Validate media/DRM and confirm driving-state gating of video and text entry.`,
     },
     {
@@ -160,9 +196,12 @@ const AAOS: BuiltinTemplate = {
       leadRole: 'OEM',
       durationWeeks: 12,
       dependsOn: ['P2'],
-      description: `**Exit outcome:** End-to-end OTA delivers; A/B seamless update applies and rolls back cleanly; granular SDV per-module update works where in scope.
-**Co-leads:** OEM + Tier 1.
-**Typical activities:** OTA pipeline; A/B seamless update; rollback; per-module SDV update.`,
+      description: `**Goal:** The vehicle can be updated and recovered over the air.
+
+**Done when:**
+- an end-to-end OTA delivers and applies through the A/B slots
+- a forced-failure update rolls back cleanly to the previous slot
+- per-module SDV update verified where in scope`,
       googleFocus: `Coordinate framework patch backports; validate the A/B and rollback paths against AOSP expectations.`,
     },
     {
@@ -171,9 +210,12 @@ const AAOS: BuiltinTemplate = {
       leadRole: 'OEM',
       durationWeeks: 18,
       dependsOn: ['P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P10', 'P11'],
-      description: `**Exit outcome:** CDD automotive addendum met; VTS, CTS and CTS-on-GSI pass; GTS passes on the GAS path.
-**Co-leads:** OEM/Tier 1 run the suites; Google owns them.
-**Typical activities:** run xTS (CDD/VTS/CTS/CTS-on-GSI/GTS); failure triage; waiver handling. Shift testing left into CI. The dominant loop.`,
+      description: `**Goal:** The build passes Android compatibility.
+
+**Done when:**
+- VTS, CTS and CTS-on-GSI pass; GTS passes on the GAS path
+- the CDD automotive addendum checklist is met
+- every remaining failure carries an approved waiver`,
       googleFocus: `Core TSC triage work: classify each failure as an AOSP defect, a BSP bug, or a test-infra problem; route real AOSP issues to Google eng; unblock waivers where defensible.`,
     },
     {
@@ -182,9 +224,11 @@ const AAOS: BuiltinTemplate = {
       leadRole: '3PL',
       durationWeeks: 6,
       dependsOn: ['P12'],
-      description: `**Exit outcome:** GBI certified through the 3PL; Play, Maps and Assistant/Gemini licensed and signed off.
-**Co-leads:** 3PL + Google licensing.
-**Typical activities:** 3PL campaign (~4-week clean run); licensing sign-off; late-finding burndown.`,
+      description: `**Goal:** GBI is certified and licensed to ship.
+
+**Done when:**
+- the 3PL certification campaign completes a clean run
+- Play, Maps and Assistant/Gemini licensing sign-offs are recorded`,
       googleFocus: `Shepherd the 3PL engagement; reserve the lab slot before P12 is clean; dry-run GTS internally; keep the ~4-week clean-run campaign on track.`,
     },
     {
@@ -194,9 +238,12 @@ const AAOS: BuiltinTemplate = {
       durationWeeks: 6,
       isEndPhase: true,
       dependsOn: ['P13'],
-      description: `**Exit outcome:** Launch-readiness review passed; open-bug burndown complete; sign-off granted for Start of Production. This is the program's single convergence point / final deliverable.
-**Co-leads:** OEM, with Google sign-off.
-**Typical activities:** launch-readiness review; open-defect burndown; go/no-go decision.`,
+      description: `**Goal:** The program is signed off to start production — the single convergence point and final deliverable.
+
+**Done when:**
+- the launch-readiness review passes
+- the open-defect burndown reaches the agreed launch bar
+- the go/no-go decision is recorded as GO with Google sign-off`,
       googleFocus: `Run the final readiness review; own the open-defect list and the go/no-go technical recommendation.`,
     },
   ],
@@ -214,7 +261,11 @@ const GAS: BuiltinTemplate = {
       leadRole: 'OEM',
       durationWeeks: 3,
       dependsOn: [],
-      description: '**Exit outcome:** GMS core packages integrate and boot on the target build.\n**Typical activities:** GMS package integration; boot validation.',
+      description: `**Goal:** GMS core runs on the target build.
+
+**Done when:**
+- GMS core packages integrate into the build
+- the build boots with GMS enabled and passes the GMS smoke suite`,
       googleFocus: 'Support GMS package integration; triage boot-time integration failures.',
     },
     {
@@ -223,7 +274,11 @@ const GAS: BuiltinTemplate = {
       leadRole: 'Google',
       durationWeeks: 2,
       dependsOn: [],
-      description: '**Exit outcome:** Play Store configured for the device fingerprint; app availability verified.\n**Typical activities:** device fingerprint registration; store configuration.',
+      description: `**Goal:** Play serves apps to this device.
+
+**Done when:**
+- the device fingerprint is registered with Play
+- Play Store lists and installs the reference app set on device`,
       googleFocus: 'Drive device fingerprint registration and store configuration.',
     },
     {
@@ -233,7 +288,11 @@ const GAS: BuiltinTemplate = {
       durationWeeks: 6,
       isEndPhase: true,
       dependsOn: ['G0', 'G1'],
-      description: '**Exit outcome:** GAS compliance suites pass; licensing sign-off granted.\n**Typical activities:** GTS runs; failure triage; licensing sign-off.',
+      description: `**Goal:** The device is certified to ship GAS.
+
+**Done when:**
+- GTS passes with zero unwaived failures
+- GAS licensing sign-off is recorded`,
       googleFocus: 'Own the compliance suites; route real AOSP issues to Google eng; manage sign-off.',
     },
   ],
@@ -249,7 +308,11 @@ const DIGITAL_KEY: BuiltinTemplate = {
       leadRole: 'Tier 1',
       durationWeeks: 2,
       dependsOn: [],
-      description: '**Exit outcome:** NFC controller enumerates and reads; driver stable under the target kernel.\n**Typical activities:** NFC driver port; antenna tuning validation.',
+      description: `**Goal:** NFC hardware works under the target kernel.
+
+**Done when:**
+- the NFC controller enumerates and tag reads pass
+- the driver completes the stability soak on the target kernel without faults`,
       googleFocus: 'Triage NFC stack issues against AOSP behaviour.',
     },
     {
@@ -258,7 +321,11 @@ const DIGITAL_KEY: BuiltinTemplate = {
       leadRole: 'Tier 1',
       durationWeeks: 4,
       dependsOn: [],
-      description: '**Exit outcome:** Secure Element provisioned; applet lifecycle management works end to end.\n**Typical activities:** SE provisioning; applet lifecycle validation.',
+      description: `**Goal:** The Secure Element is ready to hold key applets.
+
+**Done when:**
+- the SE is provisioned on the target hardware
+- applet install, update and delete each verify end to end`,
       googleFocus: 'Advise on SE provisioning flows and applet lifecycle expectations.',
     },
     {
@@ -268,7 +335,11 @@ const DIGITAL_KEY: BuiltinTemplate = {
       durationWeeks: 6,
       isEndPhase: true,
       dependsOn: ['D0', 'D1'],
-      description: '**Exit outcome:** CCC digital-key certification passes; interoperability verified with target phones.\n**Typical activities:** CCC conformance runs; cross-device interop matrix.',
+      description: `**Goal:** Digital key interop is certified.
+
+**Done when:**
+- CCC digital-key conformance passes
+- interoperability verifies against every phone in the target matrix`,
       googleFocus: 'Coordinate CCC conformance; validate Android-side key provisioning and sharing flows.',
     },
   ],

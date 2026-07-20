@@ -373,7 +373,8 @@
   color: var(--muted);
 }
 
-/* Hill history: earlier updates with their text — position glyph, date, note. */
+/* Hill history: earlier updates with their text — position glyph, date, note.
+   Sibling rhythm comes from the storyView gap; the HISTORY heading separates. */
 .historyList {
   display: flex;
   flex-direction: column;
@@ -596,6 +597,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  /* never ride under the pane divider: wrap instead of overflowing the cell */
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .quietSelect,
@@ -635,13 +639,6 @@
   color: var(--fg);
 }
 
-.depsRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
 .depsLabel {
   font-size: 10.5px;
   font-weight: 700;
@@ -649,30 +646,6 @@
   letter-spacing: 0.05em;
   color: var(--muted);
   min-width: 48px;
-}
-
-.depChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  padding: 3px 6px 3px 8px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--paper);
-}
-
-.depJump {
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  font-weight: 600;
-  color: var(--fg);
-  cursor: pointer;
-}
-.depJump:hover {
-  text-decoration: underline;
 }
 
 .depNone {
@@ -798,7 +771,8 @@
   flex-shrink: 0;
 }
 .details {
-  max-width: 720px;
+  /* the dossier owns the full popover beam — a narrower cap here starves the
+     two panes and leaves a dead right third (the old single-column width) */
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -827,6 +801,92 @@
   gap: 8px;
 }
 
+/* Immediate neighbourhood at the top of the About pane, as two quiet rows of
+   clickable labels: ← what feeds this phase, → what it enables. Clicking a label
+   swaps that phase into the same popover. Links stay weight 400 (design.md §6) —
+   underline on hover is the affordance. */
+.flowLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 14px;
+}
+.flowRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.flowArrow {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.flowSet {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+/* Neighbour phases as pills — same chip grammar as partner/people chips; the
+   whole pill is the click target that swaps that phase into this window. */
+.flowLink {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--fg);
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--paper);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.flowLink:hover {
+  border-color: var(--muted);
+  background: var(--surface);
+}
+
+/* Absent Goal & DoD: not silence — a doorway to where the field is edited. */
+.noGoal {
+  margin: 0;
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--muted);
+}
+.noGoal a {
+  color: inherit;
+  font-style: normal;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.noGoal a:hover {
+  color: var(--fg);
+}
+
+/* Ghost "+": the involvement add affordance at rest — the small form appears
+   only on demand, so the pane carries no persistent controls. */
+.addReveal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.addReveal:hover {
+  color: var(--fg);
+  border-color: var(--muted);
+}
+
 /* Template-sourced markdown on the details surface. */
 .templateDoc {
   font-size: 13.5px;
@@ -836,6 +896,14 @@
 }
 .templateDoc p {
   margin: 0 0 6px;
+}
+/* The Done-when checklist: tight, scannable pass/fail items. */
+.templateDoc ul {
+  margin: 0 0 6px;
+  padding-left: 18px;
+}
+.templateDoc li {
+  margin: 0 0 3px;
 }
 .templateFocus {
   display: inline;
@@ -871,14 +939,11 @@
   width: 100%;
   /* matches the needle/hill dialog scale — SVG text grows with the chart, so a
      wide chart makes the axis labels shout */
-  max-width: 300px;
+  max-width: 340px;
   height: auto;
   overflow: visible;
-}
-.fieldLabel {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
+  /* centered in the progress pane — the chart is the pane's focal figure */
+  margin-inline: auto;
 }
 .noteArea {
   font: inherit;
@@ -933,26 +998,91 @@
   }
 }
 
-/* Work-started (Active) toggle in the details popover — a quiet claim line, not a
-   form field: cycle-time clocks start here when the hill hasn't moved yet. */
+/* Work-started date in the progress pane — one label:value line (design.md §7):
+   the cycle-time clock, blank until someone records when work actually began. */
 .startedRow {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 12.5px;
   color: var(--fg);
-  margin: 2px 0 6px;
-  cursor: pointer;
+  margin: 2px 0 0;
   width: fit-content;
 }
 
-.startedRow input {
-  accent-color: var(--p-500);
+.startedInput {
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.startedInput:hover,
+.startedInput:focus {
+  background: var(--paper);
+  border-color: var(--muted);
 }
 
-.startedDate {
-  color: var(--muted);
+/* Date fact left, Update affordance right — one fact + action line (design.md §7). */
+.startedActionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* View-mode story: latest update as the headline, older ones compact below. */
+.storyView {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 4px;
+}
+.latestUpdate {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.latestMeta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.latestStatus {
+  font-size: 13px;
+  font-weight: 700;
+}
+.latestWhen {
   font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.latestNote {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--fg);
+}
+.latestNote p {
+  margin: 0 0 8px;
+}
+.latestNote p:last-child {
+  margin-bottom: 0;
+}
+
+/* Transient confirmation that the instant-save landed — brand green text (semantic
+   color is colored text only, design.md §6), fading in quietly. */
+.savedTick {
+  font-size: 12px;
+  color: var(--p-600);
+  white-space: nowrap;
+  animation: savedTickIn 0.15s ease-out;
+}
+@keyframes savedTickIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ---- Option-1 dossier: Progress (what happened) | About (what is) ---- */
@@ -960,8 +1090,8 @@
    screens CSS order places About on the left, Progress on the right. */
 .dossier {
   display: flex;
-  gap: 16px;
-  align-items: flex-start;
+  gap: 24px; /* symmetric with the aboutPane's padding — the divider sits centered */
+  align-items: stretch; /* the divider spans the whole dossier, not just the shorter pane */
   margin-top: 10px;
 }
 
@@ -969,7 +1099,7 @@
   order: -1;
   flex: 0.9;
   min-width: 0;
-  padding-right: 22px;
+  padding-right: 24px;
   border-right: 1px solid var(--border); /* the ONE divider between what-is and what-happened */
 }
 
@@ -989,6 +1119,7 @@
   border-top: 1px solid var(--border);
   margin-top: 12px;
   padding-top: 10px;
+  align-content: start; /* rows hug the top when the stretched pane is taller than its content */
   display: grid;
   grid-template-columns: 84px 1fr;
   column-gap: 12px;
@@ -998,6 +1129,14 @@
 
 .aboutMeta > * {
   display: contents; /* each row contributes its label + content to the grid */
+}
+
+/* No prose above the grid → no separator either: a rule above the first block
+   double-applies the boundary (design.md §7). */
+.aboutMeta:first-child {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .aboutMeta .depsLabel,
@@ -1010,7 +1149,6 @@
   margin: 0;
 }
 
-.aboutMeta .depsRow,
 .aboutMeta .detailsSection {
   display: contents;
 }
@@ -1043,8 +1181,3 @@
   max-width: 60%;
 }
 
-/* Started row spans the grid — one icon+fact+action line (design.md §7). */
-.aboutMeta .startedRow {
-  grid-column: 1 / -1;
-  margin: 2px 0 0;
-}

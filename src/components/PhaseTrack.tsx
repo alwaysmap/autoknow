@@ -72,7 +72,7 @@ export interface PhasePersonLink {
 
 export interface PhaseTrackRow extends PhaseGraphRow {
   startedAt: string | null; // explicit Active toggle if set, else first state with progress > 0
-  startedExplicit: boolean; // the Active toggle itself (drives the checkbox state)
+  startedExplicit: boolean; // an explicit start claim exists (vs derived from first progress)
   completedAt: string | null; // first state with progress >= 100
   activities: PhaseActivity[]; // pending action items (no longer surfaced on the rail)
   history: PhaseHistoryEntry[]; // hill updates, newest first (latest == note above)
@@ -97,7 +97,8 @@ interface PhaseTrackProps {
   otherActive: OtherActivePhase[]; // the owner's active phases in OTHER programs
 }
 
-const RAIL_PAD = 10, LANE_W = 20, INK = 'hsl(0, 0%, 25%)';
+// Ink rides the theme token — a hardcoded dark gray vanishes on the dark paper.
+const RAIL_PAD = 10, LANE_W = 20, INK = 'var(--fg)';
 const DAY_MS = 86_400_000;
 
 // Involvement pills replace the old "· Role" text. A company's kind drives its colour,
@@ -123,7 +124,7 @@ function Station({ x, y, progress, started, onChain, isConstraint, title, onClic
     <g onClick={onClick} className={styles.station}>
       {/* interchange-station treatment: the ring's interior is solid white so the
           track visibly terminates at the station instead of passing through */}
-      {isConstraint && <circle cx={x} cy={y} r={r + 4} fill="#fff" stroke="var(--chain)" strokeWidth={2} />}
+      {isConstraint && <circle cx={x} cy={y} r={r + 4} fill="var(--paper)" stroke="var(--chain)" strokeWidth={2} />}
       <circle cx={x} cy={y} r={r} fill={progress >= 100 ? stroke : 'var(--paper)'} stroke={stroke} strokeWidth={onChain ? 2 : 1.5} />
       {progress > 0 && progress < 100 && (
         <path d={`M ${x} ${y - (r - 0.75)} A ${r - 0.75} ${r - 0.75} 0 0 1 ${x} ${y + (r - 0.75)} Z`} fill={stroke} stroke="none" />
@@ -170,8 +171,8 @@ function MiniHill({ progress, previousProgress }: { progress: number; previousPr
     <svg viewBox="0 0 200 90" className={styles.miniHill} aria-hidden>
       <path d={HILL_PATH} fill="none" stroke="var(--border)" strokeWidth={3} strokeLinecap="round" />
       <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border)" strokeDasharray="3 3" />
-      {prev && <circle cx={prev.x} cy={prev.y} r={5} fill="#fff" stroke="var(--muted)" strokeWidth={2} />}
-      <circle cx={c.x} cy={c.y} r={8} fill={INK} stroke="#fff" strokeWidth={1.6} />
+      {prev && <circle cx={prev.x} cy={prev.y} r={5} fill="var(--paper)" stroke="var(--muted)" strokeWidth={2} />}
+      <circle cx={c.x} cy={c.y} r={8} fill={INK} stroke="var(--paper)" strokeWidth={1.6} />
     </svg>
   );
 }
@@ -432,8 +433,26 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [noteError, setNoteError] = useState(false);
+  // Involvement add-forms are on-demand: chips at rest, a ghost "+" reveals the
+  // small form for exactly one of partner/person at a time.
+  const [addOpen, setAddOpen] = useState<'partner' | 'person' | null>(null);
+  // The work-started date commits the moment it's picked — unlike the rest of the
+  // pane, which commits on Save Update. That asymmetry must be visible: a quiet
+  // transient "✓ Saved" confirms the write; a persistent error says it failed.
+  const [startedSave, setStartedSave] = useState<'saved' | 'error' | null>(null);
+  const startedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (startedTimer.current) clearTimeout(startedTimer.current); }, []);
+  // The progress pane rests in VIEW mode: read-only hill + the update story.
+  // The Update affordance flips to EDIT (draggable ball, required note, Save);
+  // Save/Cancel drop back to view.
+  const [editing, setEditing] = useState(false);
   const updateSvgRef = useRef<SVGSVGElement>(null);
-  const openDetails = (p: PhaseTrackRow) => { setDrag(p.progress); setNoteError(false); setDetailsId(p.id); };
+  const openDetails = (p: PhaseTrackRow) => {
+    setDrag(p.progress); setNoteError(false); setAddOpen(null); setEditing(false);
+    if (startedTimer.current) clearTimeout(startedTimer.current);
+    setStartedSave(null);
+    setDetailsId(p.id);
+  };
   const fromX = (clientX: number) => {
     if (!updateSvgRef.current) return;
     const r = updateSvgRef.current.getBoundingClientRect();
@@ -464,7 +483,9 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
           <button type="button" className={styles.popClose} onClick={() => setDetailsId(null)}
             aria-label={t(locale, 'closeEdit')}>✕</button>
 
-          <div className={styles.details} data-testid="phase-details">
+          {/* keyed by phase: swapping a neighbour into this window must remount the
+              form (a half-typed note belongs to the phase it was typed for) */}
+          <div className={styles.details} data-testid="phase-details" key={p.id}>
             <div className={styles.detailsHead}>
               <StationGlyph progress={p.progress} />
               <h3 className={styles.detailsTitle} title={status(statusProgress(p.progress, p.startedAt))}>{p.name}</h3>
@@ -483,14 +504,17 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
             <div className={styles.dossier}>
               <div className={styles.progressPane}>
 
-            {/* status update: drag the hill, say what changed — the note is REQUIRED,
-                a silent dot move is unreadable in history and invisible to the brief */}
+            {/* Two modes. VIEW (rest): read-only hill, the work-started fact, and
+                the story — latest update big, older ones compact. EDIT (behind the
+                Update affordance): the ball unlocks, the REQUIRED note appears —
+                a silent dot move is unreadable in history and invisible to the
+                brief — and Save lands the update back at the top of the story. */}
             <form
               action={async (fd) => {
                 if (!((fd.get('notes') as string) || '').trim()) { setNoteError(true); return; }
                 setNoteError(false);
                 setSubmitting(true);
-                try { await updatePhaseHill(fd); setDetailsId(null); }
+                try { await updatePhaseHill(fd); setEditing(false); }
                 catch (err) { console.error(err); }
                 finally { setSubmitting(false); }
               }}
@@ -499,85 +523,218 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               <input type="hidden" name="phaseId" value={p.id} />
               <input type="hidden" name="projectId" value={projectId} />
 
+              {/* work-started leads the pane: the cycle-time clock (wait vs active),
+                  claimed as a DATE — blank until someone records when work actually
+                  began. Saves immediately on pick; nameless so it never rides the
+                  update-form submission. The Update affordance rides the same row:
+                  one fact + one action line (design.md §7). */}
+              <div className={styles.startedActionRow}>
+              <label className={styles.startedRow}>
+                <span>{t(locale, 'workStartedOn')}</span>
+                <input
+                  type="date"
+                  className={styles.startedInput}
+                  defaultValue={p.startedAt ? p.startedAt.slice(0, 10) : ''}
+                  disabled={submitting}
+                  onChange={async (e) => {
+                    const fd = new FormData();
+                    fd.set('phaseId', String(p.id));
+                    fd.set('projectId', String(projectId));
+                    fd.set('startedOn', e.target.value);
+                    setSubmitting(true);
+                    if (startedTimer.current) clearTimeout(startedTimer.current);
+                    setStartedSave(null);
+                    try {
+                      await setPhaseStarted(fd);
+                      setStartedSave('saved');
+                      startedTimer.current = setTimeout(() => setStartedSave(null), 2500);
+                    } catch (err) {
+                      console.error(err);
+                      setStartedSave('error');
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                />
+                {startedSave === 'saved' && (
+                  <span className={styles.savedTick} role="status">✓ {t(locale, 'saved')}</span>
+                )}
+                {startedSave === 'error' && (
+                  <span className={styles.depError} role="alert">{t(locale, 'saveFailed')}</span>
+                )}
+              </label>
+              {!editing && (
+                <button type="button" className={styles.primaryQuietBtn}
+                  onClick={() => { setDrag(p.progress); setNoteError(false); setEditing(true); }}>
+                  {t(locale, 'update')}
+                </button>
+              )}
+              </div>
+
               <div className={styles.immersiveHill} style={{ userSelect: 'none' }}>
-                <span className={styles.dragHint}>{t(locale, 'dragHint')}</span>
+                {editing && <span className={styles.dragHint}>{t(locale, 'dragHint')}</span>}
                 <svg
                   ref={updateSvgRef}
                   viewBox="0 0 200 104"
                   className={styles.updateSvg}
-                  style={{ cursor: 'ew-resize', touchAction: 'none' }}
-                  onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); setDragging(true); fromX(e.clientX); }}
-                  onPointerMove={(e) => { if (dragging) fromX(e.clientX); }}
-                  onPointerUp={(e) => { if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); setDragging(false); }}
+                  style={{ cursor: editing ? 'ew-resize' : 'default', touchAction: 'none' }}
+                  onPointerDown={editing ? (e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); setDragging(true); fromX(e.clientX); } : undefined}
+                  onPointerMove={editing ? (e) => { if (dragging) fromX(e.clientX); } : undefined}
+                  onPointerUp={editing ? (e) => { if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); setDragging(false); } : undefined}
                 >
                   <path d={HILL_PATH} fill="none" stroke="var(--border)" strokeWidth={2.5} strokeLinecap="round" />
                   <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border)" strokeDasharray="3 3" />
+                  {/* movement in brand ink: the immediate PRIOR position is a ghost
+                      ring (same grammar as the rail's mini hill), older positions a
+                      faint trail, and the live ball full brand — all theme tokens,
+                      so both light and dark paper keep the contrast */}
                   {p.history.slice(1).map((h, i) => {
                     const d = hillCoordinates(h.progress);
-                    return <circle key={i} cx={d.x} cy={d.y} r={2.5} fill="var(--muted)" opacity={0.45} />;
+                    return i === 0 ? (
+                      <circle key={i} cx={d.x} cy={d.y} r={4} fill="var(--paper)"
+                        stroke="var(--p-400)" strokeWidth={1.8} />
+                    ) : (
+                      <circle key={i} cx={d.x} cy={d.y} r={2.5} fill="var(--p-400)" opacity={0.35} />
+                    );
                   })}
-                  <circle cx={dot.x} cy={dot.y} r={6} fill={INK} stroke="#fff" strokeWidth={1.6}
+                  <circle cx={dot.x} cy={dot.y} r={6} fill="var(--p-500)" stroke="var(--paper)" strokeWidth={1.6}
                     style={{ transition: dragging ? 'none' : 'cx 0.15s, cy 0.15s' }} />
                   <text x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted)">{t(locale, 'figuringItOut')}</text>
                   <text x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted)">{t(locale, 'makingItHappen')}</text>
                 </svg>
-                {/* off-screen range input keeps E2E drivable without visual noise (design.md §3) */}
-                <input
-                  id={`phaseHillProgress-${p.id}`}
-                  aria-label={t(locale, 'dialogTitle')}
-                  type="range"
-                  min="0"
-                  max="100"
-                  name="hillChartProgress"
-                  value={drag}
-                  onChange={(e) => setDrag(parseInt(e.target.value))}
-                  style={{ position: 'absolute', left: '-9999px', width: 10, height: 10, opacity: 0.01 }}
-                />
+                {/* off-screen range input keeps E2E drivable without visual noise
+                    (design.md §3) — present only while editing, like the ball */}
+                {editing && (
+                  <input
+                    id={`phaseHillProgress-${p.id}`}
+                    aria-label={t(locale, 'dialogTitle')}
+                    type="range"
+                    min="0"
+                    max="100"
+                    name="hillChartProgress"
+                    value={drag}
+                    onChange={(e) => setDrag(parseInt(e.target.value))}
+                    style={{ position: 'absolute', left: '-9999px', width: 10, height: 10, opacity: 0.01 }}
+                  />
+                )}
               </div>
 
-              <span className={styles.fieldLabel}>{t(locale, 'noteFieldLabel')}</span>
-              {/* WYSIWYG markdown (MDXEditor): rich editing, markdown persisted */}
-              <MarkdownNoteEditor name="notes" placeholder={t(locale, 'notePlaceholder')}
-                ariaLabel={t(locale, 'noteFieldLabel')} />
-              {noteError && <div className={styles.depError}>{t(locale, 'noteRequired')}</div>}
+              {editing && (
+                <>
+                  {/* WYSIWYG markdown (MDXEditor): rich editing, markdown persisted.
+                      No visible label — the placeholder carries the prompt; the
+                      aria-label keeps the field named for assistive tech. */}
+                  <MarkdownNoteEditor name="notes" placeholder={t(locale, 'notePlaceholder')}
+                    ariaLabel={t(locale, 'noteFieldLabel')} />
+                  {noteError && <div className={styles.depError}>{t(locale, 'noteRequired')}</div>}
 
-              <div className={styles.immersiveActions}>
-                <button type="button" className={styles.miniBtn} disabled={submitting} onClick={() => setDetailsId(null)}>
-                  {t(locale, 'cancel')}
-                </button>
-                <button type="submit" className={styles.primaryBtn} disabled={submitting}>
-                  {submitting ? t(locale, 'saving') : t(locale, 'save')}
-                </button>
-              </div>
+                  <div className={styles.immersiveActions}>
+                    <button type="button" className={styles.miniBtn} disabled={submitting}
+                      onClick={() => { setEditing(false); setNoteError(false); setDrag(p.progress); }}>
+                      {t(locale, 'cancel')}
+                    </button>
+                    <button type="submit" className={styles.primaryBtn} disabled={submitting}>
+                      {submitting ? t(locale, 'saving') : t(locale, 'save')}
+                    </button>
+                  </div>
+                </>
+              )}
             </form>
 
-            {/* full hill history: every update with its position and note */}
-            <div className={styles.historyList}>
-              <span className={styles.metaLabel}>{t(locale, 'history')}</span>
-              {/* the SAME cards as /history/phase/:id — one component owns the look */}
-              <HillHistoryList
-                compact
-                locale={locale}
-                color={phaseColor(p.id)}
-                changes={p.history.map((h, i): HillChange => ({
-                  timestamp: h.at,
-                  progress: h.progress,
-                  previousProgress: p.history[i + 1]?.progress ?? null,
-                  notes: h.note,
-                  source: h.by,
-                }))}
-              />
-              <Link href={`/history/phase/${p.id}`} className={styles.fullHistory}>
-                {t(locale, 'fullHistory')}
-              </Link>
-            </div>
+            {/* the story, view mode only: the LATEST update is the headline — big
+                note, status + date · author above it — older updates follow as the
+                same compact cards as /history/phase/:id */}
+            {!editing && (
+              <div className={styles.storyView}>
+                {p.history.length > 0 ? (
+                  <div className={styles.latestUpdate}>
+                    <div className={styles.latestMeta}>
+                      <span className={styles.latestStatus} style={{ color: phaseColor(p.id) }}>
+                        {status(p.history[0].progress)}
+                      </span>
+                      <span className={styles.latestWhen}>
+                        {fmtDate(p.history[0].at)}
+                        {p.history[0].by ? ` · ${p.history[0].by}` : ''}
+                      </span>
+                    </div>
+                    {p.history[0].note
+                      ? <div className={styles.latestNote}><Markdown>{p.history[0].note}</Markdown></div>
+                      : <div className={styles.noteEmpty}>{t(locale, 'noNote')}</div>}
+                  </div>
+                ) : (
+                  <div className={styles.noteEmpty}>{t(locale, 'noNote')}</div>
+                )}
+                {p.history.length > 1 && (
+                  <div className={styles.historyList}>
+                    <span className={styles.metaLabel}>{t(locale, 'history')}</span>
+                    <HillHistoryList
+                      compact
+                      locale={locale}
+                      color={phaseColor(p.id)}
+                      changes={p.history.slice(1).map((h, i): HillChange => ({
+                        timestamp: h.at,
+                        progress: h.progress,
+                        previousProgress: p.history[i + 2]?.progress ?? null,
+                        notes: h.note,
+                        source: h.by,
+                      }))}
+                    />
+                  </div>
+                )}
+                <Link href={`/history/phase/${p.id}`} className={styles.fullHistory}>
+                  {t(locale, 'fullHistory')}
+                </Link>
+              </div>
+            )}
 
               </div>
 
               <div className={styles.aboutPane}>
-                {/* template-sourced content: what this phase is, and where Google leans in */}
-                {p.description && (
+                {/* immediate neighbourhood as quiet clickable labels: ← feeds this
+                    phase, → departs it. Clicking swaps THAT phase into this same
+                    window (openDetails, not jumpTo — the popover is reused). The
+                    structure itself is edited only in the program phase editor. */}
+                {(upstream.length > 0 || downstream.length > 0) && (
+                  <div className={styles.flowLinks}>
+                    {upstream.length > 0 && (
+                      <div className={styles.flowRow} aria-label={t(locale, 'after')}>
+                        <span className={styles.flowArrow} aria-hidden>←</span>
+                        <span className={styles.flowSet}>
+                          {upstream.map((par) => (
+                            <button key={par.linkId} type="button" className={styles.flowLink}
+                              title={`${t(locale, 'after')} · ${byId.get(par.id)?.name}`}
+                              onClick={() => { const target = byId.get(par.id); if (target) openDetails(target); }}>
+                              {byId.get(par.id)?.name}
+                            </button>
+                          ))}
+                        </span>
+                      </div>
+                    )}
+                    {downstream.length > 0 && (
+                      <div className={styles.flowRow} aria-label={t(locale, 'enables')}>
+                        <span className={styles.flowArrow} aria-hidden>→</span>
+                        <span className={styles.flowSet}>
+                          {downstream.map((d) => (
+                            <button key={d.linkId} type="button" className={styles.flowLink}
+                              title={`${t(locale, 'enables')} · ${byId.get(d.id)?.name}`}
+                              onClick={() => { const target = byId.get(d.id); if (target) openDetails(target); }}>
+                              {byId.get(d.id)?.name}
+                            </button>
+                          ))}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* template-sourced content: what this phase is, and where Google leans in.
+                    Absent content still gets a doorway — the field lives in Edit phases. */}
+                {p.description ? (
                   <div className={styles.templateDoc}><Markdown>{p.description}</Markdown></div>
+                ) : (
+                  <p className={styles.noGoal}>
+                    {t(locale, 'noGoalYet')}{' '}
+                    <Link href={`/programs/${projectId}/phases`}>{t(locale, 'editPhases')}</Link>
+                  </p>
                 )}
                 {p.googleFocus && (
                   <div className={styles.metaLine}>
@@ -586,37 +743,10 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                   </div>
                 )}
                 <div className={styles.aboutMeta}>
-                {/* dependencies: read-only here — chips jump to the phase; the structure
-                    itself is edited only in the DAG-validated program phase editor */}
-                <div className={styles.depsRow}>
-                  <span className={styles.depsLabel}>{t(locale, 'after')}</span>
-                  <span className={styles.chipCell}>
-                  {upstream.map((par) => (
-                    <span key={par.linkId} className={styles.depChip}>
-                      <button type="button" className={styles.depJump} onClick={() => jumpTo(par.id)}>
-                        {byId.get(par.id)?.name}
-                      </button>
-                    </span>
-                  ))}
-                  {upstream.length === 0 && <span className={styles.depNone}>{t(locale, 'startingPhase')}</span>}
-                  </span>
-                </div>
-                {downstream.length > 0 && (
-                  <div className={styles.depsRow}>
-                    <span className={styles.depsLabel}>{t(locale, 'enables')}</span>
-                    <span className={styles.chipCell}>
-                    {downstream.map((d) => (
-                      <span key={d.linkId} className={styles.depChip}>
-                        <button type="button" className={styles.depJump} onClick={() => jumpTo(d.id)}>
-                          {byId.get(d.id)?.name}
-                        </button>
-                      </span>
-                    ))}
-                    </span>
-                  </div>
-                )}
-                {/* who's involved: partners and people, editable (roles kept here, where the
-                    free-text function is actually edited — the rail shows type-coloured pills) */}
+                {/* who's involved: partners and people. Chips at rest; the ghost "+"
+                    reveals the small add-form on demand (roles kept here, where the
+                    free-text function is actually edited — the rail shows type-coloured
+                    pills) */}
                 <div className={styles.detailsSection}>
                   <span className={styles.depsLabel}>{t(locale, 'partnersLabel')}</span>
                   <span className={styles.chipCell}>
@@ -633,11 +763,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                       </form>
                     </span>
                   ))}
-                  {availablePartners.length > 0 ? (
-                    <form action={addPhasePartner} className={styles.addInlineForm}>
+                  {addOpen === 'partner' ? (
+                    <form action={async (fd) => { await addPhasePartner(fd); setAddOpen(null); }}
+                      className={styles.addInlineForm}>
                       <input type="hidden" name="phaseId" value={p.id} />
                       <input type="hidden" name="projectId" value={projectId} />
-                      <select name="partnerId" className={styles.quietSelect} defaultValue="" required
+                      <select name="partnerId" className={styles.quietSelect} defaultValue="" required autoFocus
                         aria-label={t(locale, 'partnerToInvolve')}>
                         <option value="" disabled>{t(locale, 'addPartner')}</option>
                         {availablePartners.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -645,11 +776,16 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                       <input name="role" className={styles.roleInput} placeholder={t(locale, 'role')}
                         aria-label={t(locale, 'roleOptional')} />
                       <button type="submit" className={styles.miniBtn}>{t(locale, 'add')}</button>
+                      <button type="button" className={styles.chipRemove} onClick={() => setAddOpen(null)}
+                        aria-label={t(locale, 'cancel')} title={t(locale, 'cancel')}>✕</button>
                     </form>
-                  ) : (
+                  ) : availablePartners.length > 0 ? (
+                    <button type="button" className={styles.addReveal} onClick={() => setAddOpen('partner')}
+                      title={t(locale, 'partnerToInvolve')} aria-label={t(locale, 'partnerToInvolve')}>+</button>
+                  ) : p.partners.length === 0 ? (
                     // never leave the section affordance-less: say WHY there's nothing to add
                     <span className={styles.depNone}>{t(locale, 'allPartnersInvolved')}</span>
-                  )}
+                  ) : null}
                   </span>
                 </div>
 
@@ -669,11 +805,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                       </form>
                     </span>
                   ))}
-                  {availablePeople.length > 0 ? (
-                    <form action={async (fd) => { await addPhasePerson(fd); }} className={styles.addInlineForm}>
+                  {addOpen === 'person' ? (
+                    <form action={async (fd) => { await addPhasePerson(fd); setAddOpen(null); }}
+                      className={styles.addInlineForm}>
                       <input type="hidden" name="phaseId" value={p.id} />
                       <input type="hidden" name="projectId" value={projectId} />
-                      <select name="personId" className={styles.quietSelect} defaultValue="" required
+                      <select name="personId" className={styles.quietSelect} defaultValue="" required autoFocus
                         aria-label={t(locale, 'personToInvolve')}>
                         <option value="" disabled>{t(locale, 'addPerson')}</option>
                         {availablePeople.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -681,39 +818,19 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                       <input name="role" className={styles.roleInput} placeholder={t(locale, 'role')}
                         aria-label={t(locale, 'roleOptional')} />
                       <button type="submit" className={styles.miniBtn}>{t(locale, 'add')}</button>
+                      <button type="button" className={styles.chipRemove} onClick={() => setAddOpen(null)}
+                        aria-label={t(locale, 'cancel')} title={t(locale, 'cancel')}>✕</button>
                     </form>
-                  ) : (
+                  ) : availablePeople.length > 0 ? (
+                    <button type="button" className={styles.addReveal} onClick={() => setAddOpen('person')}
+                      title={t(locale, 'personToInvolve')} aria-label={t(locale, 'personToInvolve')}>+</button>
+                  ) : p.people.length === 0 ? (
                     // never leave the section affordance-less: say WHY there's nothing to add
                     <span className={styles.depNone}>{t(locale, 'allPeopleInvolved')}</span>
-                  )}
+                  ) : null}
                   </span>
                 </div>
 
-                {/* Work-started toggle (cycle time: wait vs active). Progress implies
-                    started, so the box is checked+locked once the hill has moved; before
-                    that it is the explicit claim that another team is already working. */}
-                {p.progress < 100 && (
-                  <label className={styles.startedRow}>
-                    <input
-                      type="checkbox"
-                      checked={p.startedExplicit || p.progress > 0}
-                      disabled={p.progress > 0 || submitting}
-                      onChange={async (e) => {
-                        const fd = new FormData();
-                        fd.set('phaseId', String(p.id));
-                        fd.set('projectId', String(projectId));
-                        fd.set('started', e.target.checked ? '1' : '0');
-                        setSubmitting(true);
-                        try { await setPhaseStarted(fd); } catch (err) { console.error(err); }
-                        finally { setSubmitting(false); }
-                      }}
-                    />
-                    <span>{t(locale, 'workStarted')}</span>
-                    {p.startedAt && (p.startedExplicit || p.progress > 0) && (
-                      <span className={styles.startedDate}>{t(locale, 'startedOn', { d: fmtDate(p.startedAt) })}</span>
-                    )}
-                  </label>
-                )}
                 </div>
               </div>
             </div>
@@ -944,19 +1061,19 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
         </div>
         <div className={styles.legendRow}>
           <svg viewBox="0 0 14 14" className={styles.legendGlyph}>
-            <circle cx={7} cy={7} r={5} fill="#fff" stroke={INK} strokeWidth={1.5} />
+            <circle cx={7} cy={7} r={5} fill="var(--paper)" stroke={INK} strokeWidth={1.5} />
             <path d="M 7 2.6 A 4.4 4.4 0 0 1 7 11.4 Z" fill={INK} />
           </svg>
           {status(50)}
         </div>
         <div className={styles.legendRow}>
-          <svg viewBox="0 0 14 14" className={styles.legendGlyph}><circle cx={7} cy={7} r={5} fill="#fff" stroke={INK} strokeWidth={1.5} /></svg>
+          <svg viewBox="0 0 14 14" className={styles.legendGlyph}><circle cx={7} cy={7} r={5} fill="var(--paper)" stroke={INK} strokeWidth={1.5} /></svg>
           {status(0)}
         </div>
         <div className={styles.legendRow}>
           <svg viewBox="0 0 18 18" className={styles.legendGlyph}>
             <circle cx={9} cy={9} r={7.5} fill="none" stroke="var(--chain)" strokeWidth={1.8} />
-            <circle cx={9} cy={9} r={4} fill="#fff" stroke={INK} strokeWidth={1.5} />
+            <circle cx={9} cy={9} r={4} fill="var(--paper)" stroke={INK} strokeWidth={1.5} />
             <path d="M 9 5.4 A 3.6 3.6 0 0 1 9 12.6 Z" fill={INK} />
           </svg>
           {t(locale, 'legendConstraint')}

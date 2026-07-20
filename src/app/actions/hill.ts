@@ -56,15 +56,24 @@ export async function updatePhaseHill(formData: FormData) {
 export async function setPhaseStarted(formData: FormData) {
   const phaseId = parseInt(formData.get('phaseId') as string, 10);
   const projectId = parseInt(formData.get('projectId') as string, 10);
-  const started = formData.get('started') === '1';
   if (isNaN(phaseId) || isNaN(projectId)) throw new Error('Invalid phase');
 
   const phase = await prisma.phase.findUnique({ where: { id: phaseId }, select: { startedAt: true, projectId: true } });
   if (!phase || phase.projectId !== projectId) throw new Error('Unknown phase');
 
-  await prisma.phase.update({
-    where: { id: phaseId },
-    data: { startedAt: started ? (phase.startedAt ?? new Date()) : null },
-  });
+  // Preferred shape: an explicit start DATE from the dossier's date picker
+  // (yyyy-mm-dd; empty string clears the claim). Legacy shape: the boolean
+  // `started` flag from the old checkbox — kept so nothing else breaks.
+  let startedAt: Date | null;
+  const startedOn = formData.get('startedOn');
+  if (startedOn != null) {
+    const s = String(startedOn);
+    if (s && !/^\d{4}-\d{2}-\d{2}$/.test(s)) throw new Error('Invalid start date');
+    startedAt = s ? new Date(`${s}T00:00:00`) : null;
+  } else {
+    startedAt = formData.get('started') === '1' ? (phase.startedAt ?? new Date()) : null;
+  }
+
+  await prisma.phase.update({ where: { id: phaseId }, data: { startedAt } });
   revalidatePath(`/programs/${projectId}`);
 }

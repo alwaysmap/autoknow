@@ -129,10 +129,16 @@ test.describe('Project Details and Action Item Operations', () => {
       await expect(details).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
     await expect(details.getByRole('heading', { name: 'Compliance Testing' })).toBeVisible();
+    // View mode at rest — the Update affordance reveals the ball + note editor.
+    await details.getByRole('button', { name: 'Update', exact: true }).click();
     await details.locator('input[id^="phaseHillProgress-"]').fill('100');
     await details.locator('[data-testid="note-editor"] [contenteditable="true"]').click();
     await page.keyboard.type('All CTS modules passing; phase complete.');
     await details.getByRole('button', { name: 'Save Update' }).click();
+
+    // Save flips back to the story view (popover stays open); close it to read the rail.
+    await expect(details).toContainText('All CTS modules passing; phase complete.');
+    await page.keyboard.press('Escape');
 
     // Progress 100 derives Done — the row collapses into the quiet completed state.
     // Details stays reachable even collapsed (rows default to hide-all now).
