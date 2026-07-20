@@ -52,6 +52,32 @@ For other detail pages (like Partner details):
 
 ---
 
+## 4b. Status updates: the gauge states a fact, the popup holds the record
+Program health (the Needle) follows one pattern, and new status surfaces should
+copy it (2026-07-20, user call):
+* The resting row is **graphic · date · DETAIL** — no note text beside the
+  gauge. Every update REQUIRES a written note (dialog gate + `zText` at the
+  mutation boundary), but that prose feeds the AI briefing and the log, not the
+  card.
+* **DETAIL** opens a popup covering most of the viewport listing every update
+  with its graphic, health label, author, timestamp, and full note. Body scroll
+  locks while it is open; the log scrolls inside it.
+* **UPDATE inside that popup reveals the form in place** (save/cancel), never a
+  second `<dialog>` — stacked modals layer their scrims and trap focus in the
+  wrong layer. The health picker sits inside the gauge's own container, since
+  picking a value repaints the gauge directly above it.
+* The open popup is a URL: `/programs/:id#status-history` opens it, and opening
+  it writes that hash. There is no separate history *page* for needles.
+
+Two `<dialog>` traps this pattern hit, worth knowing before writing another:
+`display: flex` on the dialog overrides the UA's `display: none` for the CLOSED
+state, leaving an invisible full-size overlay that swallows clicks — scope it to
+`[open]`. And a click on the dialog's own padding reports the dialog as the
+event target, so `target === dialog` treats it as a backdrop click and can
+discard an in-progress form; compare against the element's box instead.
+
+---
+
 ## 5. Phase Management Lifecycle
 Every project detail page must include a direct way to see, edit, add, or delete phases inside the sidebar:
 * **Add Phase**: An explicit "Add Phase" button opening a `<dialog>` for inputting names and duration.
@@ -66,10 +92,15 @@ Applies to every tabular/list surface (Programs, Partners, Sources, Me, ecosyste
 tables) so nothing has to be relearned page to page.
 
 * **One type grammar**: 0.8125–0.875rem (13–14px) cell text in the foreground color; links are quiet
-  (foreground text, **weight 400 app-wide** — color/underline is the affordance,
-  weight stays reserved for hierarchy; underline on hover, never bold green); no
-  background-color badges. Semantic color (health) is colored *text* only. Muted gray is reserved
+  (**weight 400 app-wide** — color/underline is the affordance, weight stays
+  reserved for hierarchy; underline on hover); no background-color badges.
+  Semantic color (health) is colored *text* only. Muted gray is reserved
   for secondary facts (types, provenance, dates' fallbacks).
+* **Links are BLUE — `var(--link)` / `var(--link-hover)`, never the brand
+  green** (2026-07-20, user call). Green is this app's "good / early / saved"
+  signal, so painting navigation green made every link read as a status. The
+  green ramp (`--p-600`) stays for semantic positives — pace chips, saved
+  ticks — and for solid button fills.
 * **Dates are ISO** (`yyyy-mm-dd`, tabular-nums, via the shared `DateCell`), which
   sorts lexicographically = chronologically; hover reveals the ISO calendar week
   ("W29"). Never locale-formatted dates in table cells — they misalign and

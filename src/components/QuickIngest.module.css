@@ -6,13 +6,15 @@
   gap: 10px;
 }
 
+/* A button styled as a link (it reveals the paste-a-link form), so it takes the
+   link colour rather than the brand green. */
 .opener {
   background: none;
   border: none;
   padding: 0;
   font-size: 12px;
   font-weight: 700;
-  color: var(--p-600);
+  color: var(--link);
   cursor: pointer;
 }
 .opener:hover {

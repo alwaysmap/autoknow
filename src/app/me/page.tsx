@@ -48,7 +48,7 @@ export default async function MePage(props: { searchParams: Promise<SearchParams
       <h1 style={{ fontFamily: 'var(--head-font)', fontSize: '1.5rem', margin: '0 0 10px' }}>{t(locale, 'navMe')}</h1>
       <p style={{ fontSize: 14, color: 'var(--muted)', maxWidth: '60ch', margin: '0 0 14px' }}>
         {t(locale, 'noProfileForUser', { u: user })}{' '}
-        <Link href="/people" style={{ color: 'var(--p-600)' }}>{t(locale, 'peopleLabel')} →</Link>
+        <Link href="/people" style={{ color: 'var(--link)' }}>{t(locale, 'peopleLabel')} →</Link>
       </p>
       <form action={createMyProfile} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         {/* stub-mode override only; ignored when real auth is configured */}

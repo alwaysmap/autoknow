@@ -718,23 +718,11 @@ const STRINGS = {
   unassigned: { en: 'Unassigned', de: 'Nicht zugewiesen', ja: '未割り当て', ko: '미지정' },
   finishedLabel: { en: 'Finished', de: 'Fertig', ja: '完了', ko: '완료' },
   archived: { en: 'Archived', de: 'Archiviert', ja: 'アーカイブ済み', ko: '보관됨' },
-  historyNeedleIntro: {
-    en: 'Every needle status update, newest first.',
-    de: 'Jedes Needle-Statusupdate, neueste zuerst.',
-    ja: 'ニードルのステータス更新履歴（新しい順）。',
-    ko: '니들 상태 업데이트 전체 (최신순).',
-  },
   historyHillIntro: {
     en: 'Every hill-chart update for this phase, newest first.',
     de: 'Jedes Hill-Chart-Update dieser Phase, neueste zuerst.',
     ja: 'このフェーズのヒルチャート更新履歴（新しい順）。',
     ko: '이 단계의 힐 차트 업데이트 전체 (최신순).',
-  },
-  historyRelIntro: {
-    en: 'Every relationship update, newest first.',
-    de: 'Jedes Beziehungs-Update, neueste zuerst.',
-    ja: '関係の更新履歴（新しい順）。',
-    ko: '관계 업데이트 전체 (최신순).',
   },
   statusUpdates: { en: 'Status updates', de: 'Statusupdates', ja: 'ステータス更新', ko: '상태 업데이트' },
   backLabel: { en: '← Back', de: '← Zurück', ja: '← 戻る', ko: '← 뒤로' },
@@ -1218,22 +1206,15 @@ const STRINGS = {
     ko: 'AI 생성 — Gemini가 저장된 소스에서 합성. 표시가 없는 텍스트는 사람이 작성한 것입니다.',
   },
   // ---- needle history popup ----
-  needleHistoryTitle: {
-    en: 'Status updates',
-    de: 'Statusupdates',
-    ja: 'ステータス更新',
-    ko: '상태 업데이트',
-  },
-  addUpdate: { en: 'Add update', de: 'Update hinzufügen', ja: '更新を追加', ko: '업데이트 추가' },
-  byAuthor: { en: 'by {name}', de: 'von {name}', ja: '{name} による', ko: '{name} 작성' },
+  close: { en: 'Close', de: 'Schließen', ja: '閉じる', ko: '닫기' },
   detail: { en: 'Detail', de: 'Details', ja: '詳細', ko: '상세' },
+  byAuthor: { en: 'by {name}', de: 'von {name}', ja: '{name} による', ko: '{name} 작성' },
   needleDetailTitle: {
     en: 'Progress & health — full history',
     de: 'Fortschritt & Status — vollständiger Verlauf',
     ja: '進捗と健全性 — 全履歴',
     ko: '진행 및 상태 — 전체 기록',
   },
-  close: { en: 'Close', de: 'Schließen', ja: '閉じる', ko: '닫기' },
 
   // ---- section deep links (AnchorHeading) ----
   anchorLink: {

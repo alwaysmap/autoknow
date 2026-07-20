@@ -59,7 +59,7 @@
   text-decoration: none;
 }
 .identCompany:hover {
-  color: var(--p-600);
+  color: var(--link);
   text-decoration: underline;
 }
 .identRole {
@@ -141,7 +141,7 @@
   text-decoration: none;
 }
 .rowCompany:hover {
-  color: var(--p-600);
+  color: var(--link);
   text-decoration: underline;
 }
 .rowRole {

@@ -88,7 +88,7 @@
 .citation {
   font-size: 10px;
   vertical-align: super;
-  color: var(--p-600, #1a6b3c);
+  color: var(--link);
   text-decoration: none;
   padding: 0 1.5px;
 }
