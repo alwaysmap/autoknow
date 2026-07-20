@@ -1,0 +1,24 @@
+/* Matches `UnifiedSearch`'s base `.input` exactly — same size, same near-pill
+   radius, same focus ring. If one of the two changes, change both; they are the
+   same control wearing different plumbing. */
+
+.field {
+  width: 17.5rem;
+  max-width: 100%;
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: var(--white);
+  color: var(--fg);
+}
+
+.field::placeholder {
+  color: var(--muted);
+}
+
+.field:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 1px;
+}

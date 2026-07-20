@@ -6,6 +6,8 @@ import type { TableSort } from '../../lib/tableUrlState';
 import Link from 'next/link';
 import DateCell from '../../components/DateCell';
 import DataTable from '../../components/DataTable';
+import SearchField from '../../components/SearchField';
+import ClassBox from '../../components/ClassBox';
 import styles from '../ecosystem-summary/EcosystemSummaryClient.module.css';
 import local from './page.module.css';
 import { formatNeedleValue } from '../../lib/needle';
@@ -163,13 +165,11 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
       {/* One compact search input; every categorical filter lives in its column
           header (funnel = secondary action; clicking the label sorts). */}
       <div className={local.searchRow}>
-        <input
+        <SearchField
           id="searchField"
-          type="search"
           placeholder={t(locale, 'searchByNamePartner')}
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className={local.searchInput}
+          onChange={setSearchQuery}
         />
         {Object.values(filters).some((v) => v && v.length > 0) && (
           <button
@@ -251,7 +251,13 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
                     {p.partner.name}
                   </Link>
                 </td>
-                <td>{p.partner.region || t(locale, 'otherLabel')}</td>
+                {/* Region is a CLASS the program shares with others, so it takes
+                    the box treatment — same as the Partners table (design.md §6). */}
+                <td>
+                  <ClassBox className={local.classInk}>
+                    {p.partner.region || t(locale, 'otherLabel')}
+                  </ClassBox>
+                </td>
                 <td>
                   {(() => {
                     if (matched) {

@@ -8,6 +8,7 @@ import { refreshSourceAction, toggleSourcePause, toggleSourceMode } from '../../
 import { inferSource } from '../../../lib/sources';
 import { t, type StringKey } from '../../../lib/i18n';
 import { useLocale } from '../../../components/LocaleProvider';
+import SearchField from '../../../components/SearchField';
 
 // Manage → Sources at operator scale (thousands of rows eventually): sortable
 // columns via DataTable, client-side filters for kind / tracking state / who added
@@ -116,12 +117,10 @@ export default function SourcesClient({ sources }: { sources: SourceRow[] }) {
     <>
       {/* filters: free text + the three facets that matter at scale */}
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', margin: '0 0 0.875rem' }}>
-        <input
-          type="search"
+        <SearchField
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={setText}
           placeholder={t(locale, 'searchSourcesPlaceholder')}
-          style={{ ...select, flex: '1 1 260px', minWidth: '12.5rem', padding: '0.375rem 0.625rem' }}
         />
         <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} style={select} aria-label={t(locale, 'colKind')}>
           <option value="all">{t(locale, 'filterAllKinds')}</option>

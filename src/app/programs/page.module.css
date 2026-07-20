@@ -21,13 +21,8 @@
   color: var(--fg);
   background: var(--surface);
 }
-.searchInput {
-  width: 17.5rem;
-  max-width: 100%;
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
-  padding: 0.4375rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 0.375rem;
-  background: var(--white, var(--paper));
+
+/* Grouping columns carry no identity colour — the BOX is the signal. */
+.classInk {
+  color: var(--muted);
 }

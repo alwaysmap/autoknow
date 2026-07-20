@@ -317,7 +317,12 @@ combination must work:
   (the `<dialog>` top-layer/focus behaviour is correct now and not worth risking
   for a flourish).
 * **Every search bar gets the rounding and the dial**, not just the hero, and the
-  dial lights as soon as suggestions appear — not only on hover.
+  dial lights as soon as suggestions appear — not only on hover. Live-filter
+  boxes that are not a full `UnifiedSearch` (the Programs table, Sources) use
+  `SearchField`, which matches `UnifiedSearch`'s input exactly. Both are
+  COMPONENTS, not shared classes, because CSS modules cannot share a class across
+  files and this control had drifted into three separate definitions. A filter
+  box gets no dial: the gauge is an affordance and belongs on a button.
 * **The gauge face is near-WHITE in both themes** (`--gauge-face`). It is the one
   surface that does not follow the page into the dark: a real instrument has a
   light face whatever the light in the cabin, and it is what makes the coloured
