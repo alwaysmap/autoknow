@@ -84,7 +84,32 @@
   margin: 0.25rem 0 0;
 }
 
-/* Next steps sit under the chart they follow from. */
+/* The two readings of the chart, side by side on a wide screen: what to do
+   next (left) and where the buffer went (right). minmax(0, …) lets the
+   waterfall's own grid shrink inside its column instead of forcing the row
+   wider than the page. Collapses to one column at the canonical breakpoint. */
+.lowerGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem 2.5rem;
+  align-items: start;
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 960px) {
+  .lowerGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+}
+
+/* Both columns start at the same height — their own top margins would stagger
+   them against each other. */
+.lowerGrid > .steps,
+.lowerGrid > .block {
+  margin-top: 0;
+}
+
 .steps {
   margin-top: 0.75rem;
 }

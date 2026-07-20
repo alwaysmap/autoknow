@@ -497,6 +497,10 @@ export default function ChainLedger({
 
       <ScheduleChart ledger={ledger} sopMs={sopMs} now={now} locale={locale} />
 
+      {/* Below the chart, the two readings of it sit SIDE BY SIDE on a wide
+          screen — what to do next (left) and where the buffer went (right) —
+          and stack on narrow. Both follow from the same picture above. */}
+      <div className={styles.lowerGrid}>
       {/* Next steps read AFTER the picture they follow from (2026-07-20 user call). */}
       {sopMs != null && ledger.bufferDays != null && (
         <div className={styles.steps}>
@@ -512,6 +516,48 @@ export default function ChainLedger({
           )}
         </div>
       )}
+
+      {wfRows.length > 0 && (
+        <div className={styles.block}>
+          <h3 className={styles.subtitle}>{t(locale, 'clWhereBufferWent')}</h3>
+          <div className={styles.wf}>
+            {wfRows.map((w, i) => (
+              <React.Fragment key={i}>
+                <span className={w.kind === 'unattributed' ? styles.muted : undefined}>
+                  {w.kind === 'gap' ? tNodes(locale, 'clIdleBefore', { phase: phaseBtn(w.toId!) })
+                    : w.kind === 'unattributed' ? t(locale, 'clUnattributed')
+                    : (
+                      // a BUTTON, not an anchor: it jumps to the rail row (an action),
+                      // and anchors here would collide with the rail's phase links
+                      // in strict-mode selectors.
+                      <button type="button" className={styles.phaseLink} onClick={() => jumpToPhase(w.phaseId!)}>
+                        {nameOf(w.phaseId!)}
+                      </button>
+                    )}
+                </span>
+                <span>
+                  <span className={`${styles.bar} ${w.gain ? styles.barGain : styles.barLoss} ${w.kind === 'unattributed' ? styles.barFaint : ''}`}
+                    style={{ width: `${Math.min(12, Math.max(0.5, w.days * 0.55))}rem` }} />
+                </span>
+                <span className={`${styles.num} ${w.gain ? styles.gainText : styles.lossText}`}>
+                  {w.days === 1
+                    ? t(locale, w.gain ? 'clGaveBackOneDay' : 'clCostOneDay')
+                    : t(locale, w.gain ? 'clGaveBackDays' : 'clCostDays', { d: w.days })}
+                </span>
+                <span className={styles.evidence}>{joinNodes(evidence(w), ' · ')}</span>
+              </React.Fragment>
+            ))}
+          </div>
+          {ledger.usedDays != null && ledger.startBufferDays != null && (
+            <p className={styles.net}>
+              {ledger.usedDays >= 0
+                ? t(locale, 'clNetUsed', { used: ledger.usedDays, b0: ledger.startBufferDays })
+                : t(locale, 'clNetGained', { g: -ledger.usedDays, b0: ledger.startBufferDays })}
+            </p>
+          )}
+        </div>
+      )}
+      </div>
 
       {ledger.rebaselineSuggested && (
         <p className={styles.rebaseline}>
@@ -575,46 +621,6 @@ export default function ChainLedger({
         </div>
       </dialog>
 
-      {wfRows.length > 0 && (
-        <div className={styles.block}>
-          <h3 className={styles.subtitle}>{t(locale, 'clWhereBufferWent')}</h3>
-          <div className={styles.wf}>
-            {wfRows.map((w, i) => (
-              <React.Fragment key={i}>
-                <span className={w.kind === 'unattributed' ? styles.muted : undefined}>
-                  {w.kind === 'gap' ? tNodes(locale, 'clIdleBefore', { phase: phaseBtn(w.toId!) })
-                    : w.kind === 'unattributed' ? t(locale, 'clUnattributed')
-                    : (
-                      // a BUTTON, not an anchor: it jumps to the rail row (an action),
-                      // and anchors here would collide with the rail's phase links
-                      // in strict-mode selectors.
-                      <button type="button" className={styles.phaseLink} onClick={() => jumpToPhase(w.phaseId!)}>
-                        {nameOf(w.phaseId!)}
-                      </button>
-                    )}
-                </span>
-                <span>
-                  <span className={`${styles.bar} ${w.gain ? styles.barGain : styles.barLoss} ${w.kind === 'unattributed' ? styles.barFaint : ''}`}
-                    style={{ width: `${Math.min(12, Math.max(0.5, w.days * 0.55))}rem` }} />
-                </span>
-                <span className={`${styles.num} ${w.gain ? styles.gainText : styles.lossText}`}>
-                  {w.days === 1
-                    ? t(locale, w.gain ? 'clGaveBackOneDay' : 'clCostOneDay')
-                    : t(locale, w.gain ? 'clGaveBackDays' : 'clCostDays', { d: w.days })}
-                </span>
-                <span className={styles.evidence}>{joinNodes(evidence(w), ' · ')}</span>
-              </React.Fragment>
-            ))}
-          </div>
-          {ledger.usedDays != null && ledger.startBufferDays != null && (
-            <p className={styles.net}>
-              {ledger.usedDays >= 0
-                ? t(locale, 'clNetUsed', { used: ledger.usedDays, b0: ledger.startBufferDays })
-                : t(locale, 'clNetGained', { g: -ledger.usedDays, b0: ledger.startBufferDays })}
-            </p>
-          )}
-        </div>
-      )}
 
     </section>
   );
