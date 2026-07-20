@@ -65,3 +65,6 @@ infra/terraform/*.tfstate.*
 infra/terraform/terraform.tfvars
 infra/terraform/crash.log
 infra/terraform/tfplan
+
+# Local Claude Code dev-server launch config (session scratch)
+.claude/launch.json
