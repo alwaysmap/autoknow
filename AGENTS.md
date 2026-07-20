@@ -19,10 +19,12 @@ the distilled rules and points at the exact doc sections that matter:
 | `infra-terraform` | touching `infra/terraform/**`, secrets, env vars, domains |
 | `gcp-debug` | checking/debugging the live deployment: deploys, logs, cron, Chat |
 | `qa` | running quality gates; before declaring any change done |
+| `compound` | end of a session / after an incident or real decision — record it as compounding knowledge (ADRs in `docs/adr/`, lessons here) |
 
 Deep docs live in `docs/` (OPERATIONS, CHANGE_PLAYBOOK, DEPLOYMENT_GCP,
 design.md, plan docs). Read the specific section a skill points you at, not the
-whole file.
+whole file. Decision records live in [docs/adr/](docs/adr/README.md) — check
+there before relitigating a settled question.
 
 # Close the loop in a real browser — freely
 
