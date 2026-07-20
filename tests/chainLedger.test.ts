@@ -175,7 +175,8 @@ describe('situation detection', () => {
     });
     const sunk = r.situations.find((s) => s.type === 'sunkOverrun')!;
     expect(sunk).toMatchObject({ phaseId: 1, days: 9 });
-    expect(sunk.type === 'sunkOverrun' && sunk.contendedNames).toEqual(['Bosch']);
+    // contended resources carry identity, not just names — every mention links
+    expect(sunk.type === 'sunkOverrun' && sunk.contended).toEqual([{ kind: 'partner', id: 9, name: 'Bosch' }]);
   });
 
   it('detects oversubscription and partitions the other programs by buffer', () => {

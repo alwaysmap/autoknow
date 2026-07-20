@@ -75,12 +75,19 @@ export interface WaterfallRow {
   toId?: number;
 }
 
+/** A person/partner reference with enough identity to render as a link. */
+export interface ResourceRef {
+  kind: 'partner' | 'person';
+  id: number;
+  name: string;
+}
+
 export type Situation =
-  | { type: 'sunkOverrun'; phaseId: number; days: number; plannedDays: number; startedAt: string | null; completedAt: string | null; contendedNames: string[] }
+  | { type: 'sunkOverrun'; phaseId: number; days: number; plannedDays: number; startedAt: string | null; completedAt: string | null; contended: ResourceRef[] }
   | { type: 'underrun'; phaseId: number; days: number; plannedDays: number }
   | { type: 'idleHandoff'; fromId: number; toId: number; days: number }
   | { type: 'forecastOverrun'; phaseId: number; days: number; remainingDays: number; elapsedDays: number; plannedDays: number }
-  | { type: 'upcomingHandoff'; fromId: number; toId: number; resourceNames: string[]; contended: { name: string; n: number }[] }
+  | { type: 'upcomingHandoff'; fromId: number; toId: number; resourceNames: string[]; contended: (ResourceRef & { n: number })[] }
   | { type: 'oversubscribed'; kind: 'partner' | 'person'; resourceId: number; name: string; phaseId: number; moves: ResourceProgramRef[]; tight: ResourceProgramRef[] }
   | { type: 'sopOvershoot'; days: number; proposedSopMonth: string; unitsDelayed: number | null }
   | { type: 'allClear' };
@@ -256,7 +263,9 @@ export function computeChainLedger(input: ChainLedgerInput): ChainLedgerResult {
       situations.push({
         type: 'sunkOverrun', phaseId: r.id, days: r.varianceDays, plannedDays: p.forecastedDuration,
         startedAt: p.startedAt, completedAt: p.completedAt,
-        contendedNames: resourcesOn(r.id).filter((x) => x.otherPrograms.length > 0).map((x) => x.name),
+        contended: resourcesOn(r.id)
+          .filter((x) => x.otherPrograms.length > 0)
+          .map((x) => ({ kind: x.kind, id: x.id, name: x.name })),
       });
     }
     if (r.kind === 'done' && r.varianceDays <= -1) {
@@ -275,7 +284,7 @@ export function computeChainLedger(input: ChainLedgerInput): ChainLedgerResult {
         resourceNames: nextResources.map((x) => x.name),
         contended: nextResources
           .filter((x) => x.otherPrograms.length > 0)
-          .map((x) => ({ name: x.name, n: x.otherPrograms.length })),
+          .map((x) => ({ kind: x.kind, id: x.id, name: x.name, n: x.otherPrograms.length })),
       });
     }
   }

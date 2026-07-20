@@ -1570,8 +1570,13 @@ const STRINGS = {
 
 export type StringKey = keyof typeof STRINGS;
 
+/** The raw template with its {var} slots intact — for node interpolation (tNodes). */
+export function tRaw(locale: Locale, key: StringKey): string {
+  return STRINGS[key][locale] ?? STRINGS[key].en;
+}
+
 export function t(locale: Locale, key: StringKey, vars?: Record<string, string | number>): string {
-  let s: string = STRINGS[key][locale] ?? STRINGS[key].en;
+  let s = tRaw(locale, key);
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
   return s;
 }

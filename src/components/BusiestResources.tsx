@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { t, Locale } from '../lib/i18n';
+import { tNodes, joinNodes } from './tNodes';
 import type { BusiestRow, BusiestProgramRef } from '../lib/chainLedger';
 import styles from './BusiestResources.module.css';
 
@@ -29,23 +30,26 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
     .slice(0, MAX_ROWS);
   if (visible.length === 0) return null;
 
-  const considerLine = (r: BusiestRow): string | null => {
+  // Every entity mention links (design.md §2) — tNodes puts the links inside the
+  // localized sentences.
+  const progLink = (p: BusiestProgramRef) => <Link href={`/programs/${p.programId}`}>{p.programName}</Link>;
+  const considerLine = (r: BusiestRow): React.ReactNode | null => {
+    const rowLink = <Link href={href(r)}>{r.name}</Link>;
     if (r.kind === 'person' && r.movable.length > 0) {
-      const programs = r.movable
-        .map((p) => t(locale, 'clProgWithBuffer', { name: p.programName, d: p.bufferDays ?? 0 }))
-        .join(', ');
-      const base = t(locale, 'clConsiderPerson', { name: r.name, programs });
+      const programs = joinNodes(r.movable.map((p) =>
+        tNodes(locale, 'clProgWithBuffer', { name: progLink(p), d: p.bufferDays ?? 0 })));
+      const base = tNodes(locale, 'clConsiderPerson', { name: rowLink, programs });
       return r.constraintIn.length > 1
-        ? `${base} ${t(locale, 'clConsiderTiebreak', { program: r.constraintIn[0].programName })}`
+        ? <>{base} {tNodes(locale, 'clConsiderTiebreak', { program: progLink(r.constraintIn[0]) })}</>
         : base;
     }
     // The staffing ask only means something when one company is split across
     // SEVERAL programs — a single-program partner has nothing to rebalance.
     if (r.kind === 'partner' && r.gatesSingleSop && r.constraintIn.length + r.alsoActiveIn.length >= 2) {
-      return t(locale, 'clConsiderPartner', {
+      return tNodes(locale, 'clConsiderPartner', {
         n: r.constraintIn.length + r.alsoActiveIn.length,
-        name: r.name,
-        program: r.constraintIn[0].programName,
+        name: rowLink,
+        program: progLink(r.constraintIn[0]),
       });
     }
     return null;

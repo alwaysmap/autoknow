@@ -3,9 +3,10 @@
 import React, { useRef } from 'react';
 import Link from 'next/link';
 import { t, Locale } from '../lib/i18n';
+import { tNodes, joinNodes } from './tNodes';
 import { localDate } from '../lib/dates';
 import { DAY_MS } from '../lib/sop';
-import type { ChainLedgerResult, ScheduleRow, Situation, WaterfallRow } from '../lib/chainLedger';
+import type { ChainLedgerResult, ResourceRef, ScheduleRow, Situation, WaterfallRow } from '../lib/chainLedger';
 import styles from './ChainLedger.module.css';
 
 // The Critical Chain section (docs/CRITICAL_CHAIN_VIEW_PLAN.md §4): headline fact +
@@ -172,8 +173,21 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
   const nameOf = (id: number) => ledger.schedule.find((r) => r.id === id)?.name ?? `#${id}`;
   const remTotal = ledger.schedule.reduce((s, r) => s + r.remainingDays, 0);
 
+  // Every entity MENTION is a link (design.md §2): phases jump to their rail row
+  // (a button — anchors would collide with the rail's links), programs/partners/
+  // people navigate to their pages.
+  const phaseBtn = (id: number) => (
+    <button type="button" className={styles.phaseLink} onClick={() => jumpToPhase(id)}>{nameOf(id)}</button>
+  );
+  const progLink = (id: number, name: string) => (
+    <Link href={`/programs/${id}`} className={styles.entityLink}>{name}</Link>
+  );
+  const resLink = (r: ResourceRef) => (
+    <Link href={r.kind === 'partner' ? `/partners/${r.id}` : `/people/${r.id}`} className={styles.entityLink}>{r.name}</Link>
+  );
+
   // ---- headline: the fact, then its history ----
-  const headlineParts: string[] = [];
+  const headlineParts: React.ReactNode[] = [];
   if (sopMs != null && ledger.bufferDays != null) {
     const month = monthLong(sopDate!, locale);
     headlineParts.push(
@@ -192,9 +206,11 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
         .sort((a, b) => b.days - a.days)
         .slice(0, 2)
         .map((w) => w.kind === 'gap'
-          ? t(locale, 'clFragGap', { d: w.days, phase: nameOf(w.toId!) })
-          : t(locale, 'clFragOverrun', { d: w.days, phase: nameOf(w.phaseId!) }));
-      if (ledger.usedDays > 0 && losses.length > 0) headlineParts.push(t(locale, 'clUsedMostlyBy', { items: losses.join(', ') }));
+          ? tNodes(locale, 'clFragGap', { d: w.days, phase: phaseBtn(w.toId!) })
+          : tNodes(locale, 'clFragOverrun', { d: w.days, phase: phaseBtn(w.phaseId!) }));
+      if (ledger.usedDays > 0 && losses.length > 0) {
+        headlineParts.push(tNodes(locale, 'clUsedMostlyBy', { items: joinNodes(losses) }));
+      }
     }
     if (ledger.fourWeekDeltaDays != null && ledger.fourWeekDeltaDays !== 0) {
       const b4 = ledger.bufferDays - ledger.fourWeekDeltaDays;
@@ -215,11 +231,15 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
   if (ledger.register !== 'none') {
     const firstMove = oversub.find((o) => o.moves.length > 0);
     if (firstMove) {
-      reactions.push(t(locale, 'clLeverMove', {
-        name: firstMove.name, program: firstMove.moves[0].programName, d: firstMove.moves[0].bufferDays ?? 0,
+      reactions.push(tNodes(locale, 'clLeverMove', {
+        name: resLink({ kind: firstMove.kind, id: firstMove.resourceId, name: firstMove.name }),
+        program: progLink(firstMove.moves[0].programId, firstMove.moves[0].programName),
+        d: firstMove.moves[0].bufferDays ?? 0,
       }));
     }
-    if (upNext) reactions.push(t(locale, 'clLeverHandoff', { from: nameOf(upNext.fromId), to: nameOf(upNext.toId) }));
+    if (upNext) {
+      reactions.push(tNodes(locale, 'clLeverHandoff', { from: phaseBtn(upNext.fromId), to: phaseBtn(upNext.toId) }));
+    }
     if (overshoot) {
       reactions.push(
         <button key="declare" type="button" className={styles.declareBtn}
@@ -241,8 +261,8 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
     if (b.kind === 'unattributed') return -1;
     return Number(a.gain) - Number(b.gain) || b.days - a.days;
   });
-  const evidence = (w: WaterfallRow): string[] => {
-    const out: string[] = [];
+  const evidence = (w: WaterfallRow): React.ReactNode[] => {
+    const out: React.ReactNode[] = [];
     if ((w.kind === 'overrun' || w.kind === 'underrun') && w.phaseId != null) {
       const r = ledger.schedule.find((x) => x.id === w.phaseId)!;
       const planned = Math.round((r.plannedEndMs - r.startMs) / DAY_MS);
@@ -252,8 +272,8 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
       }));
       if (w.kind === 'overrun') {
         const sunk = ledger.situations.find((s) => s.type === 'sunkOverrun' && s.phaseId === w.phaseId);
-        if (sunk && sunk.type === 'sunkOverrun' && sunk.contendedNames.length > 0) {
-          out.push(t(locale, 'clEvidenceContended', { names: sunk.contendedNames.join(', ') }));
+        if (sunk && sunk.type === 'sunkOverrun' && sunk.contended.length > 0) {
+          out.push(tNodes(locale, 'clEvidenceContended', { names: joinNodes(sunk.contended.map(resLink)) }));
         }
         out.push(t(locale, 'clEvidenceSunk'));
       }
@@ -262,8 +282,11 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
       const from = ledger.schedule.find((x) => x.id === w.fromId)!;
       const to = ledger.schedule.find((x) => x.id === w.toId)!;
       out.push(to.kind === 'notStarted'
-        ? t(locale, 'clEvidenceGapOngoing', { from: from.name, d1: dayShort(from.endMs, locale) })
-        : t(locale, 'clEvidenceGap', { from: from.name, to: to.name, d1: dayShort(from.endMs, locale), d2: dayShort(to.startMs, locale) }));
+        ? tNodes(locale, 'clEvidenceGapOngoing', { from: phaseBtn(from.id), d1: dayShort(from.endMs, locale) })
+        : tNodes(locale, 'clEvidenceGap', {
+            from: phaseBtn(from.id), to: phaseBtn(to.id),
+            d1: dayShort(from.endMs, locale), d2: dayShort(to.startMs, locale),
+          }));
       out.push(t(locale, 'clEvidenceGapAvoid'));
     }
     if (w.kind === 'forecast' && w.phaseId != null) {
@@ -276,8 +299,6 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
     if (w.kind === 'unattributed') out.push(t(locale, 'clEvidenceUnattributed'));
     return out;
   };
-
-  const resourceHref = (kind: 'partner' | 'person', id: number) => (kind === 'partner' ? `/partners/${id}` : `/people/${id}`);
 
   return (
     <section className={styles.wrapper} data-testid="chain-ledger">
@@ -300,7 +321,7 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
       ) : (
         <p className={styles.headline}
           title={t(locale, 'clGuidelineTitle', { b: ledger.bufferDays, rem: remTotal, g: ledger.guidelineDays })}>
-          {headlineParts.join(' ')}
+          {joinNodes(headlineParts, ' ')}
         </p>
       )}
 
@@ -383,7 +404,7 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
             {wfRows.map((w, i) => (
               <React.Fragment key={i}>
                 <span className={w.kind === 'unattributed' ? styles.muted : undefined}>
-                  {w.kind === 'gap' ? t(locale, 'clIdleBefore', { phase: nameOf(w.toId!) })
+                  {w.kind === 'gap' ? tNodes(locale, 'clIdleBefore', { phase: phaseBtn(w.toId!) })
                     : w.kind === 'unattributed' ? t(locale, 'clUnattributed')
                     : (
                       // a BUTTON, not an anchor: it jumps to the rail row (an action),
@@ -403,7 +424,7 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
                     ? t(locale, w.gain ? 'clGaveBackOneDay' : 'clCostOneDay')
                     : t(locale, w.gain ? 'clGaveBackDays' : 'clCostDays', { d: w.days })}
                 </span>
-                <span className={styles.evidence}>{evidence(w).join(' · ')}</span>
+                <span className={styles.evidence}>{joinNodes(evidence(w), ' · ')}</span>
               </React.Fragment>
             ))}
           </div>
@@ -423,56 +444,46 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
           <ul className={styles.resList}>
             {oversub.map((o) => (
               <li key={`${o.kind}${o.resourceId}`} className={styles.resline}>
-                <ResLine locale={locale} sit={o} nameOf={nameOf} href={resourceHref(o.kind, o.resourceId)} />
+                {tNodes(locale, 'clOversubLine', {
+                  phase: phaseBtn(o.phaseId),
+                  name: resLink({ kind: o.kind, id: o.resourceId, name: o.name }),
+                  n: o.moves.length + o.tight.length,
+                })}
+                {o.moves.length > 0 && (
+                  <>
+                    {' '}
+                    {tNodes(locale, 'clOversubMoves', {
+                      phase: phaseBtn(o.phaseId),
+                      programs: joinNodes(o.moves.map((m) =>
+                        tNodes(locale, 'clProgWithBuffer', {
+                          name: progLink(m.programId, m.programName), d: m.bufferDays ?? 0,
+                        }))),
+                    })}
+                  </>
+                )}
+                {o.tight.length > 0 && (
+                  <>
+                    {' '}
+                    {tNodes(locale, 'clOversubTight', {
+                      programs: joinNodes(o.tight.map((m) => progLink(m.programId, m.programName))),
+                    })}
+                  </>
+                )}
               </li>
             ))}
             {upNext && upNext.contended.length > 0 && (
               <li className={styles.resline}>
-                {t(locale, 'clUpNextLine', {
-                  phase: nameOf(upNext.toId),
-                  names: upNext.contended.map((c) => c.name).join(', '),
+                {tNodes(locale, 'clUpNextLine', {
+                  phase: phaseBtn(upNext.toId),
+                  names: joinNodes(upNext.contended.map((c) => resLink(c))),
                   n: Math.max(...upNext.contended.map((c) => c.n)),
                 })}{' '}
-                {t(locale, 'clUpNextConfirm', { current: nameOf(upNext.fromId) })}
+                {tNodes(locale, 'clUpNextConfirm', { current: phaseBtn(upNext.fromId) })}
               </li>
             )}
           </ul>
         </div>
       )}
     </section>
-  );
-}
-
-// One oversubscription line: sentence templates with linked entities substituted.
-function ResLine({ locale, sit, nameOf, href }: {
-  locale: Locale;
-  sit: Extract<Situation, { type: 'oversubscribed' }>;
-  nameOf: (id: number) => string;
-  href: string;
-}) {
-  const n = sit.moves.length + sit.tight.length;
-  const line = t(locale, 'clOversubLine', { phase: nameOf(sit.phaseId), name: sit.name, n });
-  const [before, after] = line.split(sit.name);
-  return (
-    <>
-      {before}
-      <Link href={href} className={styles.entityLink}>{sit.name}</Link>
-      {after}
-      {sit.moves.length > 0 && (
-        <>
-          {' '}
-          {t(locale, 'clOversubMoves', {
-            phase: nameOf(sit.phaseId),
-            programs: sit.moves.map((m) => t(locale, 'clProgWithBuffer', { name: m.programName, d: m.bufferDays ?? 0 })).join(', '),
-          })}
-        </>
-      )}
-      {sit.tight.length > 0 && (
-        <>
-          {' '}
-          {t(locale, 'clOversubTight', { programs: sit.tight.map((m) => m.programName).join(', ') })}
-        </>
-      )}
-    </>
   );
 }
