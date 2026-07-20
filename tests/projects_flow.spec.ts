@@ -53,7 +53,8 @@ test.describe('Projects and Partners Flow', () => {
     await page.fill('input[name="name"]', 'Ford F-150 AAOS Bring-up');
     await page.selectOption('select[name="partnerId"]', fordId.toString());
     await page.selectOption('select[name="template"]', { label: 'AAOS Bring-up (chipset → GBI)' });
-    await page.fill('input[name="owner"]', '@dylan');
+    // Owner is picked from existing people (no freeform text) — value is the email.
+    await page.selectOption('select[name="owner"]', 'dylan@google.com');
     // SOP target is REQUIRED at creation (month/year; month-end assumed).
     await page.fill('input[name="sopMonth"]', '2027-06');
     await page.check('input[name="hasGas"]');

@@ -3,6 +3,7 @@ import { prisma } from '../../../lib/db';
 import { listTemplates, getTemplateWithPhases } from '../../../lib/programTemplates';
 import { validateTemplateDag } from '../../../lib/templateDag';
 import { parseSopInput } from '../../../lib/sop';
+import { requireOwnerEmail } from '../../../lib/owner';
 import { getCurrentUser } from '../../../lib/session';
 import { indexEntity } from '../../../lib/search';
 import { hillStatus } from '../../../lib/phase';
@@ -20,8 +21,10 @@ async function createProject(formData: FormData) {
   const name = formData.get('name') as string;
   const partnerIdStr = formData.get('partnerId') as string;
   const templateIdStr = formData.get('template') as string;
-  const owner = ((formData.get('owner') as string) || '').trim();
-  if (!owner) throw new Error('An assigned Googler (owner) is required');
+  const ownerInput = ((formData.get('owner') as string) || '').trim();
+  if (!ownerInput) throw new Error('An assigned Googler (owner) is required');
+  // The owner must be an existing Person (picked, not typed) — canonical email.
+  const owner = await requireOwnerEmail(ownerInput);
   // Every program MUST carry a target SOP (month/year; last day of month assumed).
   const sopDate = parseSopInput((formData.get('sopMonth') as string) || '');
   const hasGas = formData.get('hasGas') === 'on';
@@ -146,6 +149,11 @@ export default async function NewProjectPage() {
     orderBy: { name: 'asc' },
     include: { type: true }
   });
+  // Owner is picked from existing people, never typed freeform.
+  const people = await prisma.person.findMany({
+    select: { id: true, name: true, email: true },
+    orderBy: { name: 'asc' }
+  });
   const templates = await listTemplates(); // seeds built-ins on first touch
 
   return (
@@ -190,14 +198,15 @@ export default async function NewProjectPage() {
           </div>
 
           <div className={styles.field}>
-            <label htmlFor="owner">{t(locale, 'ownerHandle')}</label>
-            <input
-              type="text"
-              id="owner"
-              name="owner"
-              required
-              placeholder={t(locale, 'ownerHandlePlaceholder')}
-            />
+            <label htmlFor="owner">{t(locale, 'googlerOwner')}</label>
+            <select id="owner" name="owner" required defaultValue="">
+              <option value="" disabled>{t(locale, 'selectAPerson')}</option>
+              {people.map(p => (
+                <option key={p.id} value={p.email}>
+                  {p.name} ({p.email})
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* the SOP target is REQUIRED — it is the on-track yardstick and places the

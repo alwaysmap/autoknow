@@ -21,6 +21,11 @@ test.describe('Project Details and Action Item Operations', () => {
     });
     projectId = project.id;
 
+    // The Edit dialog's owner is a required pick from existing people.
+    await prisma.person.create({
+      data: { name: 'Priya PM', email: 'priya@google.com', currentPartnerId: partner.id }
+    });
+
     const phase = await prisma.phase.create({
       data: { name: 'Compliance Testing', projectId: project.id }
     });
@@ -82,6 +87,8 @@ test.describe('Project Details and Action Item Operations', () => {
     }).toPass({ timeout: 20000 });
 
     await dialog.locator('#editLeadPartner').selectOption({ label: 'BMW Group (OEM)' });
+    // Owner is a required pick from existing people (no freeform entry).
+    await dialog.locator('#editOwner').selectOption('priya@google.com');
     await dialog.locator('#editSop').fill('2027-06');
     await dialog.getByRole('button', { name: /Save/ }).click();
     await expect(page.locator('dialog[open]')).toHaveCount(0);

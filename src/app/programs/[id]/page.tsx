@@ -104,7 +104,7 @@ export default async function ProjectDetailsPage(props: {
 
   // All partners + people (for the involvement pickers) + the graph's row shape.
   const allPartners = await prisma.partner.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } });
-  const allPeople = await prisma.person.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } });
+  const allPeople = await prisma.person.findMany({ select: { id: true, name: true, email: true }, orderBy: { name: 'asc' } });
 
   // Resource contention (CCPM's resource dimension, approximated with the signals we
   // have): for every partner/person involved in THIS program's phases, count the
@@ -264,6 +264,7 @@ export default async function ProjectDetailsPage(props: {
           hasAap={project.hasAap}
           currentPartnerId={project.partnerId}
           partnerOptions={[...oems, ...suppliers].map((pa) => ({ id: pa.id, name: pa.name, isOem: oems.some((o) => o.id === pa.id) }))}
+          peopleOptions={allPeople}
           oemPartner={oemPartner ? { id: oemPartner.id, name: oemPartner.name } : null}
           suppliersList={supplierList.map((sp) => ({ id: sp.id, name: sp.name }))}
         />
