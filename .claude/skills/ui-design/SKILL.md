@@ -26,6 +26,12 @@ and the ✦ AI-provenance mark (§8).
   oversized-checkbox bug existed twice, differently, in two files (PR #12).
 - **Every user-facing string goes through `t()`** (`src/lib/i18n.ts`, EN/DE/JA/KO).
   Adding UI text = adding a key with all four locales. Remove keys you orphan.
+- **rem-first sizing (design.md §9).** All sizes in `rem`; `px` only for 1px
+  hairlines/SVG strokes, SVG geometry, and media queries. Layouts must comply at
+  360 / 768 / 1024 / 1440px viewports; the only breakpoints are `max-width: 960px`
+  (collapse 2-col) and `max-width: 560px` (phone). Wide content scrolls in its
+  own container — the page never scrolls horizontally. Convert stray px/breakpoints
+  opportunistically in files you touch.
 
 ## Workflow
 

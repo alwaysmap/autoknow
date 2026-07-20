@@ -9,7 +9,7 @@ To maximize readability and ensure a clean, distraction-free environment:
 * **No Excess Borders**: Do not use heavy borders, drop shadows, or background wrappers around page sections, cards, or lists. All standard cards/panels must be transparent and borderless.
 * **Separated Filter Bars**: The only exception to the border rule is the **Filter Bar** concept. Controls, status gauges, search inputs, and sliders must be grouped inside a dedicated card styled with a cream background (`var(--surface)`), thin solid border, and rounded corners to separate them visually from database reports.
 * **Minimalist Tables**:
-  * Tables must have generous breathing room (`padding: 14px 18px !important` on cells).
+  * Tables must have generous breathing room (`padding: 0.875rem 1.125rem !important` on cells — 14/18px equivalent; rem-first per §9).
   * Use only thin horizontal rules (`border-bottom: 1px solid var(--border)`).
   * Never use vertical lines or solid background highlights behind headers.
 
@@ -33,7 +33,7 @@ Every entity displayed in a dashboard view or detail card must serve as an activ
 
 ## 4. Reusable 2-Column Sidebar Layouts
 For detail pages (like Project details or Partner details):
-* **Sidebar (Left Column)**: 320px wide. Contains compact overall status widgets (Needle and Hill Chart progress visualizers), primary metadata grid properties (TEL, SOP targets, volumes), and action managers.
+* **Sidebar (Left Column)**: 20rem (320px) wide. Contains compact overall status widgets (Needle and Hill Chart progress visualizers), primary metadata grid properties (TEL, SOP targets, volumes), and action managers.
 * **Content Area (Right Column)**: Occupies the remaining horizontal space. Displays long lists, action items grids, visual timeline flows, and update logs.
 * **Space Efficiency**: This prevents massive empty areas and keeps critical timeline indicators visible on standard screens.
 
@@ -52,7 +52,7 @@ Every project detail page must include a direct way to see, edit, add, or delete
 Applies to every tabular/list surface (Programs, Partners, Sources, Me, ecosystem
 tables) so nothing has to be relearned page to page.
 
-* **One type grammar**: 13–14px cell text in the foreground color; links are quiet
+* **One type grammar**: 0.8125–0.875rem (13–14px) cell text in the foreground color; links are quiet
   (foreground text, **weight 400 app-wide** — color/underline is the affordance,
   weight stays reserved for hierarchy; underline on hover, never bold green); no
   background-color badges. Semantic color (health) is colored *text* only. Muted gray is reserved
@@ -87,8 +87,9 @@ stopping on empty space? Rules:
 * **Icon + fact + action cluster horizontally**: a status glyph, its date, and its
   action button form one row (e.g. face · "Updated Jun 30" · Update), never a
   three-line stack.
-* **Vertical rhythm scale**: ~14px between sibling blocks, ~7px between rows
-  inside a block. Page headers are one line of title + one hairline, ≤ ~26px tall.
+* **Vertical rhythm scale**: ≈0.875rem (14px) between sibling blocks, ≈0.4375rem
+  (7px) between rows inside a block. Page headers are one line of title + one
+  hairline, ≤ ≈1.625rem (26px) tall.
 * **Separation hierarchy — one mechanism per boundary, never stacked**:
   1. *Rows within a block*: whitespace only (~7px). No rules.
   2. *Sibling blocks in a column*: ONE hairline **between** them
@@ -123,3 +124,42 @@ One treatment, applied app-wide via the `AiBadge` component:
 * Machine-*derived* values that aren't prose (embeddings, inferred anchors,
   derived health) don't get the mark; it flags authorship of words, not
   computation.
+
+## 9. Sizing & responsive widths — rem-first
+
+**Use `rem` for every size** — font-size, padding, margin, gap, width,
+max-width, border-radius. The root stays at the browser default (16px), so the
+entire UI scales coherently with browser zoom and user font-size preferences.
+Sanctioned `px` exceptions (the *specific reasons not to*):
+
+1. **1px hairlines** and SVG stroke widths — a hairline must stay a hairline.
+2. **SVG internal geometry** (viewBox coordinate space).
+3. **Media-query breakpoints** (see below — px is the convention and avoids
+   em-in-query quirks).
+
+Anything else in `px` needs a comment saying why. Apply rem-first to all new
+and edited CSS; convert values opportunistically in files you touch — no
+mass-conversion PRs.
+
+**Compliance widths.** Every layout must render correctly — no horizontal page
+scroll, no clipped controls, no overlapping text — at these viewport widths:
+
+| Width | Stands for |
+|---|---|
+| **360px** | small phone (worst case that must remain readable + operable) |
+| **768px** | tablet / split-screen laptop |
+| **1024px** | narrow laptop |
+| **1440px** | desktop — the primary design target |
+
+Wide content (tables, rails, diagrams) scrolls inside its own
+`overflow-x: auto` container; the page body never scrolls horizontally.
+
+**Canonical breakpoints — exactly two; don't invent new ones:**
+
+* `@media (max-width: 960px)` — collapse 2-column layouts (sidebar grids,
+  detail panes) to a single column.
+* `@media (max-width: 560px)` — phone adjustments (tighter paddings, stacked
+  toolbars).
+
+Existing stray breakpoints (900/860/700/520) migrate to these when their file
+is next touched.
