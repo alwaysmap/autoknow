@@ -18,9 +18,10 @@ export default async function Home() {
   const locale = await getLocale();
   const summary = await getSummary('ecosystem', 0);
 
-  // 2. Load the shared dashboard data (projects, forecasts, cycle times, briefings)
-  //    plus the partner relationship scores the mix tile reads.
-  const [{ serializedProjects }, relationshipScores] = await Promise.all([
+  // 2. Load the shared dashboard data (projects, forecasts, cycle times, briefings,
+  //    the ecosystem chain busiest-resources roll-up) plus the partner relationship
+  //    scores the mix tile reads.
+  const [{ serializedProjects, busiest }, relationshipScores] = await Promise.all([
     getEcosystemDashboardData(),
     getPartnerRelationshipScores(),
   ]);
@@ -94,6 +95,7 @@ export default async function Home() {
         ) : (
           <EcosystemDashboardClient now={now}
             initialProjects={serializedProjects}
+            busiest={busiest}
           />
         )}
       </main>

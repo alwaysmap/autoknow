@@ -16,6 +16,9 @@ import { getActivity } from '../../../lib/activity';
 import { getSummary } from '../../../lib/summaries';
 import { geminiConfigured } from '../../../lib/gemini';
 import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
+import ChainLedger from '../../../components/ChainLedger';
+import { computeChainLedger, type LedgerResourceInput, type StateTuple } from '../../../lib/chainLedger';
+import { getProgramLedgers } from '../../../lib/chainLedgerData';
 
 export const dynamic = 'force-dynamic';
 
@@ -119,11 +122,11 @@ export default async function ProjectDetailsPage(props: {
   };
   const partnerElsewhere = involvedPartnerIds.length === 0 ? [] : await prisma.phasePartner.findMany({
     where: { partnerId: { in: involvedPartnerIds }, phase: { projectId: { not: projectId }, project: { isArchived: false } } },
-    include: { phase: { include: { states: { orderBy: { timestamp: 'desc' }, take: 1 } } } },
+    include: { phase: { include: { states: { orderBy: { timestamp: 'desc' }, take: 1 }, project: { select: { id: true, name: true } } } } },
   });
   const personElsewhere = involvedPersonIds.length === 0 ? [] : await prisma.phasePerson.findMany({
     where: { personId: { in: involvedPersonIds }, phase: { projectId: { not: projectId }, project: { isArchived: false } } },
-    include: { phase: { include: { states: { orderBy: { timestamp: 'desc' }, take: 1 } } } },
+    include: { phase: { include: { states: { orderBy: { timestamp: 'desc' }, take: 1 }, project: { select: { id: true, name: true } } } } },
   });
   const partnerLoad = new Map<number, number>();
   for (const pp of partnerElsewhere) {
@@ -184,6 +187,72 @@ export default async function ProjectDetailsPage(props: {
         otherActive: personLoad.get(pp.personId) ?? 0,
       })),
     };
+  });
+
+  // ---- Critical Chain ledger (docs/CRITICAL_CHAIN_VIEW_PLAN.md) ----
+  // Narrow state tuples for the buffer-trend replay (never full PhaseState rows).
+  // Async Server Component: Date.now() runs once per request on the server, so the
+  // react-hooks purity rule (which assumes client re-render) is a false positive —
+  // same sanctioned pattern as src/app/page.tsx.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
+  const stateTuples = await prisma.$queryRaw<{ phaseId: number; timestamp: Date; hillChartProgress: number | null }[]>`
+    SELECT s."phaseId", s."timestamp", s."hillChartProgress"
+    FROM "PhaseState" s JOIN "Phase" p ON p.id = s."phaseId"
+    WHERE p."projectId" = ${projectId}
+    ORDER BY s."timestamp" ASC`;
+  const ledgerStates: StateTuple[] = stateTuples
+    .filter((s) => s.hillChartProgress != null)
+    .map((s) => ({ phaseId: s.phaseId, at: s.timestamp.toISOString(), progress: s.hillChartProgress! }));
+
+  // Cross-program buffers for the oversubscription packets: the ledger of every
+  // OTHER program where this program's contended partners/people are active.
+  const otherProgramIds = [
+    ...new Set([
+      ...partnerElsewhere.filter((pp) => isActive(pp.phase.states)).map((pp) => pp.phase.project.id),
+      ...personElsewhere.filter((pp) => isActive(pp.phase.states)).map((pp) => pp.phase.project.id),
+    ]),
+  ];
+  const otherLedgers = await getProgramLedgers(now, otherProgramIds);
+  const otherBuffer = new Map(otherLedgers.map((b) => [b.programId, b.ledger.bufferDays]));
+
+  const ledgerResources: LedgerResourceInput[] = [];
+  for (const phase of project.phases) {
+    for (const pp of phase.partners) {
+      const others = partnerElsewhere.filter((x) => x.partnerId === pp.partnerId && isActive(x.phase.states));
+      if (others.length === 0) continue;
+      const programs = [...new Map(others.map((x) => [x.phase.project.id, x.phase.project])).values()];
+      ledgerResources.push({
+        kind: 'partner', id: pp.partnerId, name: pp.partner.name, phaseId: phase.id,
+        otherPrograms: programs.map((pr) => ({ programId: pr.id, programName: pr.name, bufferDays: otherBuffer.get(pr.id) ?? null })),
+      });
+    }
+    for (const pp of phase.people) {
+      const others = personElsewhere.filter((x) => x.personId === pp.personId && isActive(x.phase.states));
+      if (others.length === 0) continue;
+      const programs = [...new Map(others.map((x) => [x.phase.project.id, x.phase.project])).values()];
+      ledgerResources.push({
+        kind: 'person', id: pp.personId, name: pp.person.name, phaseId: phase.id,
+        otherPrograms: programs.map((pr) => ({ programId: pr.id, programName: pr.name, bufferDays: otherBuffer.get(pr.id) ?? null })),
+      });
+    }
+  }
+
+  const ledger = computeChainLedger({
+    phases: project.phases.map((phase) => ({
+      id: phase.id,
+      name: phase.name,
+      forecastedDuration: phase.forecastedDuration,
+      progress: phase.states[0]?.hillChartProgress ?? 0,
+      parentIds: phase.dependencies.map((d) => d.dependsOnPhaseId),
+      startedAt: (phase.startedAt ?? spanByPhase.get(phase.id)?.startedAt)?.toISOString() ?? null,
+      completedAt: spanByPhase.get(phase.id)?.finishedAt?.toISOString() ?? null,
+    })),
+    sopDate: project.sopDate ? project.sopDate.toISOString() : null,
+    now,
+    volumeFirstYear: project.volumeFirstYear,
+    states: ledgerStates,
+    resources: ledgerResources,
   });
 
   // CCPM resource dimension for the track prototype: the owner's ACTIVE phases in
@@ -272,7 +341,7 @@ export default async function ProjectDetailsPage(props: {
 
       <main className={styles.main}>
         <div className={styles.dashboardGrid}>
-          <div className={styles.leftColumn}>
+          <div className={styles.leftColumn} id="program-status">
             <ProjectStatusDashboard
               projectId={project.id}
               currentNeedle={project.theNeedle}
@@ -289,6 +358,14 @@ export default async function ProjectDetailsPage(props: {
             <section className={styles.historySection}>
               <SummaryPanel scope="program" targetId={projectId} path={`/programs/${projectId}`}
                 summary={summary} configured={geminiConfigured} />
+            </section>
+
+            {/* Critical Chain ledger: buffer vs SOP, where it went, who is
+                oversubscribed — "how are we doing" before the rail's structure. */}
+            <section className={styles.historySection}>
+              <ChainLedger projectId={projectId} locale={locale} now={now} ledger={ledger}
+                sopDate={project.sopDate ? project.sopDate.toISOString() : null}
+                volumeFirstYear={project.volumeFirstYear} />
             </section>
 
             {/* Phases as a vertical rail (spec §2.13): node per phase, latest hill +

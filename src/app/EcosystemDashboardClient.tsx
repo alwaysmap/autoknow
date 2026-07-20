@@ -12,6 +12,8 @@ import { deriveProgramStatus, visibleInLists } from '../lib/lifecycle';
 import { healthKey, healthOrder } from '../lib/health';
 import { t } from '../lib/i18n';
 import { useLocale } from '../components/LocaleProvider';
+import BusiestResources from '../components/BusiestResources';
+import type { BusiestRow } from '../lib/chainLedger';
 
 interface Project {
   id: number;
@@ -51,11 +53,13 @@ interface Project {
 interface EcosystemDashboardClientProps {
   now: number;
   initialProjects: Project[];
+  busiest?: BusiestRow[];
 }
 
 export default function EcosystemDashboardClient({
   now,
   initialProjects,
+  busiest = [],
 }: EcosystemDashboardClientProps) {
   const locale = useLocale();
 
@@ -82,6 +86,9 @@ export default function EcosystemDashboardClient({
       {/* SOP timeline chart removed entirely (2026-07-18, user call): redundant
           with the capacity chart's quarter drill-down + the sortable Target SOP
           column below. */}
+
+      {/* Cross-portfolio constraint resources — who several SOPs are waiting on */}
+      <BusiestResources locale={locale} rows={busiest} />
 
       {/* Main Database Table */}
       <section className={styles.tableSection}>

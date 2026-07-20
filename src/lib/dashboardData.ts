@@ -3,6 +3,8 @@ import { runMonteCarlo } from './forecast';
 import { percentile } from './stats';
 import { computeCriticalChain } from './criticalChain';
 import { deriveScore } from './relationship';
+import { buildBusiestResources, type BusiestRow } from './chainLedger';
+import { getProgramLedgers } from './chainLedgerData';
 import type { CycleTimeData, CycleTimeStats } from '../components/CycleTimeScatterPlot';
 
 // Shared loader for the ecosystem dashboards. The home page (`/`) and the
@@ -48,6 +50,8 @@ export interface EcosystemDashboardData {
   people: DashboardPerson[];
   cycleTimeData: CycleTimeData[];
   cycleTimeStats: Record<string, CycleTimeStats>;
+  /** Cross-portfolio constraint resources (docs/CRITICAL_CHAIN_VIEW_PLAN.md §4c). */
+  busiest: BusiestRow[];
 }
 
 /**
@@ -194,5 +198,21 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
   const activeWipDurations = cycleTimeData.filter((ct) => !ct.isFinished).map((ct) => ct.cycleTimeDays);
   const p85LeadTime = activeWipDurations.length > 0 ? Math.round(percentile(activeWipDurations, 0.85)) : 14;
 
-  return { serializedProjects, p85LeadTime, people, cycleTimeData, cycleTimeStats };
+  // Busiest people and partners: full chain ledgers per live program (buffer +
+  // four-week trend from the state-history replay), aggregated per resource.
+  const bundles = await getProgramLedgers(Date.now());
+  const busiest = buildBusiestResources(
+    bundles.map((b) => ({
+      programId: b.programId,
+      programName: b.programName,
+      bufferDays: b.ledger.bufferDays,
+      fourWeekDeltaDays: b.ledger.fourWeekDeltaDays,
+      volumeFirstYear: b.volumeFirstYear,
+      products: b.products,
+      sopDate: b.sopDate,
+      resources: b.chainResources,
+    })),
+  );
+
+  return { serializedProjects, p85LeadTime, people, cycleTimeData, cycleTimeStats, busiest };
 }
