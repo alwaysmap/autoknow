@@ -13,6 +13,7 @@ import pills from './PhaseTrack.module.css';
 import styles from './ProjectMetaHeader.module.css';
 import KebabMenu from './KebabMenu';
 import { localDate } from '../lib/dates';
+import { resolvePerson } from '../lib/people';
 
 // Project metadata lives in the page HEADER — one strip, no sidebar card, no
 // duplication. Quiet facts on the left (OEM · suppliers · owner, all links per
@@ -28,6 +29,12 @@ interface PartnerOption {
   id: number;
   name: string;
   isOem: boolean;
+}
+
+interface PersonOption {
+  id: number;
+  name: string;
+  email: string;
 }
 
 interface ProjectMetaHeaderProps {
@@ -49,12 +56,14 @@ interface ProjectMetaHeaderProps {
   suppliersList?: PartnerRef[];
   currentPartnerId?: number;
   partnerOptions?: PartnerOption[];
+  /** Existing people — the owner is picked from these, never typed freeform. */
+  peopleOptions?: PersonOption[];
 }
 
 export default function ProjectMetaHeader({
   projectId, projectName, archivedTag, actions, currentNeedle, currentHillChartProgress,
   ownerName, sopDateString, volumeFirstYear, hasGas, hasGbi, hasDigitalKey, hasAap, oemPartner, suppliersList,
-  currentPartnerId, partnerOptions,
+  currentPartnerId, partnerOptions, peopleOptions,
 }: ProjectMetaHeaderProps) {
   const locale = useLocale();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -189,7 +198,15 @@ export default function ProjectMetaHeader({
           )}
           <div className={dash.textInputGroup}>
             <label htmlFor="editOwner" className={dash.formLabel}>{t(locale, 'googlerOwner')}</label>
-            <input id="editOwner" type="text" name="ownerName" defaultValue={ownerName || ''} placeholder="e.g. jsmith@google.com" required className={dash.textInput} />
+            {/* Picked from existing people only — a legacy freeform owner that no
+                longer resolves to a Person shows as unassigned and must be re-picked. */}
+            <select id="editOwner" name="ownerName" required className={dash.textInput}
+              defaultValue={resolvePerson(peopleOptions ?? [], ownerName)?.email ?? ''}>
+              <option value="" disabled>{t(locale, 'selectAPerson')}</option>
+              {(peopleOptions ?? []).map((p) => (
+                <option key={p.id} value={p.email}>{p.name} ({p.email})</option>
+              ))}
+            </select>
           </div>
           <div className={dash.textInputGroup}>
             <label htmlFor="editSop" className={dash.formLabel}>{t(locale, 'sopMonthLabel')}</label>

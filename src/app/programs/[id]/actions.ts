@@ -7,15 +7,18 @@ import { prisma } from '../../../lib/db';
 import { parseHealth } from '../../../lib/health';
 import { parseSopInput } from '../../../lib/sop';
 import { getCurrentUser } from '../../../lib/session';
+import { requireOwnerEmail } from '../../../lib/owner';
 
 export async function updateProjectMetrics(formData: FormData) {
   const projectIdStr = formData.get('projectId') as string;
   const theNeedleVal = formData.get('theNeedle') as string;
   const hillChartProgressStr = formData.get('hillChartProgress') as string;
-  const ownerName = ((formData.get('ownerName') as string) || '').trim();
+  const ownerInput = ((formData.get('ownerName') as string) || '').trim();
   // Every program MUST have an assigned Googler — the resource half of CCPM and
   // the "who do I ask" answer. Enforced here, not just by the form's required flag.
-  if (!ownerName) throw new Error('An assigned Googler (owner) is required');
+  if (!ownerInput) throw new Error('An assigned Googler (owner) is required');
+  // …and the owner must be an existing Person, stored by canonical email.
+  const ownerName = await requireOwnerEmail(ownerInput);
   const sopDateStr = formData.get('sopDate') as string;
   const volumeFirstYearStr = formData.get('volumeFirstYear') as string;
   const notes = formData.get('notes') as string || null;
