@@ -340,8 +340,11 @@ export default async function ProjectDetailsPage(props: {
       </header>
 
       <main className={styles.main}>
-        <div className={styles.dashboardGrid}>
-          <div className={styles.leftColumn} id="program-status">
+        {/* One full-width column (user call 2026-07-20): the needle sits as a top
+            band instead of owning a sidebar, so every section below gets the
+            whole viewport width. */}
+        <div className={styles.contentCol}>
+          <div id="program-status">
             <ProjectStatusDashboard
               projectId={project.id}
               currentNeedle={project.theNeedle}
@@ -350,11 +353,9 @@ export default async function ProjectDetailsPage(props: {
               previousHealth={project.states[1]?.theNeedle ?? null}
               updatedAt={project.states[0]?.timestamp?.toISOString() ?? null}
             />
-
           </div>
 
-          <div className={styles.rightColumn}>
-            {/* The leadership summary: words beside the gauges' numbers, above the fold. */}
+          {/* The leadership summary: words beside the gauges' numbers, above the fold. */}
             <section className={styles.historySection}>
               <SummaryPanel scope="program" targetId={projectId} path={`/programs/${projectId}`}
                 summary={summary} configured={geminiConfigured} />
@@ -401,7 +402,6 @@ export default async function ProjectDetailsPage(props: {
               </div>
               <ActivityFeed items={activity} deletable revalidate={`/programs/${projectId}`} />
             </section>
-          </div>
         </div>
       </main>
     </div>
