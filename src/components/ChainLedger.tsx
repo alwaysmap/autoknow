@@ -40,9 +40,10 @@ const monthLong = (iso: string, locale: Locale) => localDate(iso, locale, { mont
 const dayShort = (ms: number, locale: Locale) => localDate(new Date(ms), locale, { month: 'short', day: 'numeric' });
 
 // ---- Schedule SVG geometry ----
-// BOT leaves two bands under the last row: the buffer bracket + its label, then
-// the quarter axis (they shared a baseline and collided at BOT = 44).
-const W = 860, PAD_R = 12, ROW_H = 36, TOP = 26, BOT = 60;
+// BOT stacks the bands under the last row, each clear of the one above: the
+// buffer bracket + its label, the single-letter month row, then the quarter row.
+const W = 860, PAD_R = 12, ROW_H = 36, TOP = 26, BOT = 76;
+const BRACKET_LABEL_DY = 18, MONTH_LETTER_DY = 34, QUARTER_DY = 50;
 // Label-column sizing: the gutter fits the LONGEST phase name instead of a fixed
 // width, so short names don't donate a third of the chart to whitespace.
 const RING_PAD = 24, TEXT_PAD = 10, CHAR_W = 5.9, WIDE_CHAR_W = 11;
@@ -80,22 +81,31 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
     for (let guard = 0; guard < 400 && ms <= tMax; guard++, ms += 7 * DAY_MS) weeks.push(ms);
   }
 
-  const months: { ms: number; isQuarter: boolean; label: string }[] = [];
+  // Single-letter month labels come from the locale (Intl 'narrow': J F M … in
+  // en/de, 1 2 3 … in ja/ko). UTC-pinned so SSR and hydration agree.
+  const monthNarrow = new Intl.DateTimeFormat(locale, { month: 'narrow', timeZone: 'UTC' });
+  const months: { ms: number; next: number; isQuarter: boolean; label: string; letter: string; onAxis: boolean }[] = [];
   {
     const first = new Date(tMin);
     let my = first.getUTCFullYear();
-    let mm = first.getUTCMonth();
-    for (let guard = 0; guard < 160; guard++) {
+    let mm = first.getUTCMonth(); // starts on the month CONTAINING tMin, so the
+    for (let guard = 0; guard < 160; guard++) { // partial first month still gets a letter
       const ms = Date.UTC(my, mm, 1);
       if (ms > tMax) break;
-      if (ms >= tMin) {
-        months.push({ ms, isQuarter: mm % 3 === 0, label: `Q${Math.floor(mm / 3) + 1} ’${String(my).slice(2)}` });
-      }
+      months.push({
+        ms,
+        next: Date.UTC(mm === 11 ? my + 1 : my, (mm + 1) % 12, 1),
+        isQuarter: mm % 3 === 0,
+        label: `Q${Math.floor(mm / 3) + 1} ’${String(my).slice(2)}`,
+        letter: monthNarrow.format(new Date(ms)),
+        onAxis: ms >= tMin, // a tick before tMin would render left of the axis
+      });
       mm += 1;
       if (mm > 11) { mm = 0; my += 1; }
     }
   }
-  const quarters = months.filter((m) => m.isQuarter);
+  const quarters = months.filter((m) => m.isQuarter && m.onAxis);
+  const showMonthLetters = pxPerDay * 30 >= 12;
 
   // Buffer-movement background bands (§4a): red = days lost, paler red = forecast
   // loss not yet spent, green = days gained + the buffer still in hand.
@@ -135,15 +145,29 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
           <line key={`w${ms}`} x1={x(ms)} y1={axisY - 3} x2={x(ms)} y2={axisY}
             stroke="var(--border)" strokeWidth={1} opacity={0.55} />
         ))}
-        {showMonths && months.filter((m) => !m.isQuarter).map((m) => (
+        {showMonths && months.filter((m) => m.onAxis && !m.isQuarter).map((m) => (
           <line key={`m${m.ms}`} x1={x(m.ms)} y1={axisY - 7} x2={x(m.ms)} y2={axisY}
             stroke="var(--border)" strokeWidth={1} />
         ))}
         <line x1={labelW} y1={axisY} x2={W - PAD_R} y2={axisY} stroke="var(--border)" strokeWidth={1} />
+        {/* one locale-narrow letter per month, centred in the month's visible span */}
+        {showMonthLetters && months.map((m) => {
+          const from = Math.max(m.ms, tMin);
+          const to = Math.min(m.next, tMax);
+          // ja/ko narrow months are "4月"/"10月", not one glyph — measure the real
+          // label so a tight span drops it instead of overlapping its neighbour.
+          if (x(to) - x(from) < Math.max(9, textWidth(m.letter) * (9 / 11) + 3)) return null;
+          return (
+            <text key={`ml${m.ms}`} x={(x(from) + x(to)) / 2} y={axisY + MONTH_LETTER_DY}
+              textAnchor="middle" fontSize={9} fill="var(--muted)">
+              {m.letter}
+            </text>
+          );
+        })}
         {quarters.map((q) => (
           <g key={q.ms}>
             <line x1={x(q.ms)} y1={TOP - 8} x2={x(q.ms)} y2={axisY} stroke="var(--border)" strokeWidth={1} />
-            <text x={x(q.ms)} y={H - 22} textAnchor="middle" fontSize={10} fill="var(--muted)">{q.label}</text>
+            <text x={x(q.ms)} y={axisY + QUARTER_DY} textAnchor="middle" fontSize={10} fill="var(--muted)">{q.label}</text>
           </g>
         ))}
 
@@ -214,7 +238,7 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
           <g>
             <path d={`M ${x(lastEnd)} ${TOP + rows.length * ROW_H + 4} L ${x(lastEnd)} ${TOP + rows.length * ROW_H + 8} L ${x(sopMs)} ${TOP + rows.length * ROW_H + 8} L ${x(sopMs)} ${TOP + rows.length * ROW_H + 4}`}
               fill="none" stroke="var(--ok)" strokeWidth={1.5} />
-            <text x={(x(lastEnd) + x(sopMs)) / 2} y={TOP + rows.length * ROW_H + 20} textAnchor="middle" fontSize={10} fill="var(--ok)">
+            <text x={(x(lastEnd) + x(sopMs)) / 2} y={axisY + BRACKET_LABEL_DY} textAnchor="middle" fontSize={10} fill="var(--ok)">
               {t(locale, 'clDaysOfRoom', { d: ledger.bufferDays })}
             </text>
           </g>
@@ -448,8 +472,11 @@ export default function ChainLedger({
         </p>
       )}
 
+      <ScheduleChart ledger={ledger} sopMs={sopMs} now={now} locale={locale} />
+
+      {/* Next steps read AFTER the picture they follow from (2026-07-20 user call). */}
       {sopMs != null && ledger.bufferDays != null && (
-        <>
+        <div className={styles.steps}>
           <p className={styles.judgment}>
             <strong className={ledger.register === 'act' ? styles.act : undefined}>
               {t(locale, ledger.register === 'act' ? 'clJudgeAct' : ledger.register === 'plan' ? 'clJudgePlan' : 'clJudgeNone')}
@@ -460,7 +487,7 @@ export default function ChainLedger({
               {nextSteps.map((step, i) => <li key={i} className={styles.step}>{step}</li>)}
             </ul>
           )}
-        </>
+        </div>
       )}
 
       {ledger.rebaselineSuggested && (
@@ -469,8 +496,6 @@ export default function ChainLedger({
           <Link href={`/programs/${projectId}/phases`}>{t(locale, 'editPhases')}</Link>
         </p>
       )}
-
-      <ScheduleChart ledger={ledger} sopMs={sopMs} now={now} locale={locale} />
 
       {/* the schedule key, consulted on demand */}
       <dialog ref={legendRef} className={styles.legendDialog}

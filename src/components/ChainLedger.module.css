@@ -84,6 +84,11 @@
   margin: 0.25rem 0 0;
 }
 
+/* Next steps sit under the chart they follow from. */
+.steps {
+  margin-top: 0.75rem;
+}
+
 .judgment {
   font-size: 0.875rem;
   color: var(--muted);
