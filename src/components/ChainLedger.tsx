@@ -513,11 +513,13 @@ export default function ChainLedger({
       {/* Next steps read AFTER the picture they follow from (2026-07-20 user call). */}
       {sopMs != null && ledger.bufferDays != null && (
         <div className={styles.steps}>
-          <p className={styles.judgment}>
-            <strong className={ledger.register === 'act' ? styles.act : undefined}>
-              {t(locale, ledger.register === 'act' ? 'clJudgeAct' : ledger.register === 'plan' ? 'clJudgePlan' : 'clJudgeNone')}
-            </strong>
-          </p>
+          {/* Same element and class as "Where the buffer went" beside it. It was
+              a <p><strong>, which put the two column headings on different tags,
+              sizes, weights AND margins — 4px of vertical disagreement between
+              two things the grid presents as a matched pair. */}
+          <h3 className={`${styles.subtitle} ${ledger.register === 'act' ? styles.act : ''}`}>
+            {t(locale, ledger.register === 'act' ? 'clJudgeAct' : ledger.register === 'plan' ? 'clJudgePlan' : 'clJudgeNone')}
+          </h3>
           {nextSteps.length > 0 && (
             <ul className={styles.stepList}>
               {nextSteps.map((step, i) => <li key={i} className={styles.step}>{step}</li>)}

@@ -89,6 +89,36 @@ test.describe('Appearance: style and theme are independent', () => {
     await expect(flourishes.first()).toBeVisible();
   });
 
+  // A grid that presents two blocks as a matched pair has to build them as one:
+  // these headings were a <p><strong> and an <h3>, differing in tag, size, weight
+  // AND margin, which put 4px of vertical disagreement between them. Layout is
+  // not assertable in a unit test, so it is pinned here.
+  test('matched column headings share a baseline', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
+
+    const grid = page.locator('[class*="lowerGrid"]');
+    await expect(grid).toBeVisible();
+
+    const metrics = await grid.evaluate((el) => {
+      const [left, right] = [...el.children] as HTMLElement[];
+      const textTop = (col: Element) => {
+        const heading = col.firstElementChild!;
+        const range = document.createRange();
+        range.selectNodeContents(heading);
+        return range.getBoundingClientRect().top;
+      };
+      const box = (col: Element) => {
+        const cs = getComputedStyle(col.firstElementChild!);
+        return `${col.firstElementChild!.tagName}/${cs.fontSize}/${cs.lineHeight}/${cs.fontWeight}/${cs.marginTop}`;
+      };
+      return { delta: Math.abs(textTop(left) - textTop(right)), leftBox: box(left), rightBox: box(right) };
+    });
+
+    expect(metrics.delta).toBeLessThan(0.5);
+    // Same metrics, not merely the same rendered position by luck.
+    expect(metrics.leftBox).toBe(metrics.rightBox);
+  });
+
   test('the style picker persists the choice', async ({ page }) => {
     await page.goto('/');
     await page.getByTestId('user-menu').click();
