@@ -7,8 +7,11 @@
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | configuring or operating a deployment: env vars, integrations (Gemini, OAuth, Drive, Chat), refresh worker, custom domain, and **§9 production deploys / redeploy / rollback** |
 | [docs/DEPLOYMENT_GCP.md](docs/DEPLOYMENT_GCP.md) | understanding the GCP architecture (Cloud Run + Cloud SQL + Scheduler, keyless CI) and why it is shaped this way |
 | [docs/design.md](docs/design.md) | building or changing any UI (see Design Guidelines below) |
-| [docs/walkthrough.md](docs/walkthrough.md) | historical feature tour — a dated snapshot, not current truth |
 | [docs/COMPONENT_PLAN.md](docs/COMPONENT_PLAN.md), [docs/INGEST_FRESHNESS_PLAN.md](docs/INGEST_FRESHNESS_PLAN.md), [docs/PHASE_TEMPLATES_PLAN.md](docs/PHASE_TEMPLATES_PLAN.md) | deep design docs for those subsystems |
+
+Every dev/test/database/CI task is an `npm run` script — the catalog lives in
+[README.md](README.md). Use those instead of invoking `next`/`jest`/`prisma`/
+`playwright` or `scripts/**` directly; the GitHub workflows go through them too.
 
 # Database & infrastructure changes — STOP and read the playbook
 
