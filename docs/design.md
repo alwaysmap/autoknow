@@ -258,8 +258,16 @@ combination must work:
   quarter-tick baseline graticule, both scaled so the wide summary hill and the
   small per-phase gauges stay the same drawing.
 * **Icons stay scarce.** The app mark is untouched, and Instrument adds no icon
-  set — its identity is carried by rules, numerals, and one motion (the hero
-  search sweep), not by decoration.
+  set — its identity is carried by rules, numerals, and one graphic: the app's
+  OWN gauge, at glyph size, at the trailing edge of the hero search field.
+* **Motion uses the real instrument, never a stand-in.** The first attempt was a
+  CSS gradient bar that swept on focus; it read as a progress bar in costume,
+  because that is what it was. `InstrumentGauge` renders the real `Gauge`
+  primitive — real track, real graticules, real needle — and CSS rotates the
+  needle about the arc's own centre, so its travel is the gauge's actual travel.
+  The dial is monochrome apart from the redline at the top of the track, which is
+  where a real dial puts it. `Gauge` gained only `needleColor` and `trackStroke`
+  (ink, defaulted) and a `data-needle` styling handle; its geometry is untouched.
 
 ---
 

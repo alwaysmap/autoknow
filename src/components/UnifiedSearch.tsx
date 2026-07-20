@@ -6,6 +6,7 @@ import FeedList from './FeedList';
 import type { FeedType, FeedKind, FeedScope, FeedItem } from '../lib/feed';
 import { t, type StringKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
+import InstrumentGauge from './InstrumentGauge';
 import styles from './UnifiedSearch.module.css';
 
 // One search component for every surface, backed by the standalone /api/search endpoint.
@@ -183,6 +184,9 @@ export default function UnifiedSearch({
               aria-label={inputPlaceholder}
               className={styles.input}
             />
+            {/* The Instrument style's one graphic. Rendered in both styles and
+                revealed by CSS, like every other style-conditional flourish. */}
+            {hero && <span data-inst-only className={styles.gaugeSlot}><InstrumentGauge /></span>}
           </span>
           <button type="submit" disabled={loading} className={styles.button}>
             {loading ? t(locale, 'searchingBtn') : t(locale, 'searchBtn')}

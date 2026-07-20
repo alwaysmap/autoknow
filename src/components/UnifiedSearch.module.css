@@ -32,6 +32,12 @@
 }
 
 .button {
+  /* inline-flex so a leading glyph sits ON the label's line; a default
+     inline-block button lets a display:block SVG break to its own line. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
   font: inherit;
   font-size: 0.875rem;
   padding: 0.625rem 1.125rem;
@@ -77,31 +83,28 @@
   opacity: 0.9;
 }
 
-/* Instrument: focusing the hero field sweeps a needle track left to right,
-   green through to the redline at the far end — the gesture a cluster makes when
-   the key turns. Standard style renders no ::after at all. */
-:global(:root[data-style='instrument']) .hero .inputWrap::after {
-  content: '';
+/* Instrument: the submit button carries the app's own gauge, and its needle
+   swings across the dial while the search is live. It replaced a CSS gradient
+   that swept on focus — that read as a progress bar in costume, because it was
+   one. `data-inst-only` (globals.css) keeps it out of the Standard style. */
+/* A real gauge is a wide, shallow arc (164:60), so it sits at the TRAILING edge
+   where it cannot collide with left-aligned placeholder or entered text. */
+.gaugeSlot {
   position: absolute;
-  left: 1.5rem;
-  right: 1.5rem;
-  bottom: -0.25rem;
-  height: 0.125rem;
-  border-radius: 0.0625rem;
-  background: linear-gradient(to right, var(--p-500) 72%, var(--redline) 100%);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.42s cubic-bezier(0.16, 0.84, 0.44, 1);
+  right: 1.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  line-height: 0;
+  pointer-events: none;
 }
 
-:global(:root[data-style='instrument']) .hero .inputWrap:focus-within::after {
-  transform: scaleX(1);
+/* The field makes room for the dial only in the style that shows one. */
+:global(:root[data-style='instrument']) .hero .input {
+  padding-right: 5rem;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  :global(:root[data-style='instrument']) .hero .inputWrap::after {
-    transition: none;
-  }
+:global(:root[data-style='instrument']) .hero .form:focus-within .gaugeSlot [data-needle] {
+  transform: rotate(52deg);
 }
 
 /* Positioning context for the autosuggest panel. */

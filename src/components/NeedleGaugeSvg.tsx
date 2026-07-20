@@ -72,8 +72,14 @@ const needlePath = (deg: number) => {
   return `M ${ptStr(pL)} Q ${ptStr(sideL)} ${top[0]} L ${top.slice(1).join(' L ')} Q ${ptStr(sideR)} ${ptStr(pR)} Q ${ptStr(tip)} ${ptStr(pL)} Z`;
 };
 
-export function Gauge({ progress, color, prevProgress, prevColor }: {
+export function Gauge({ progress, color, prevProgress, prevColor, needleColor, trackStroke }: {
   progress: number; color: string; prevProgress?: number | null; prevColor?: string | null;
+  /** Ink the needle separately from the track fill (the Instrument motif runs a
+   *  white-to-red arc under a monochrome needle). Defaults to `color`. */
+  needleColor?: string;
+  /** Ink the track's outline — the Instrument motif runs the redline along it,
+   *  which is where a real dial puts it. Defaults to the border token. */
+  trackStroke?: string;
 }) {
   const p = clamp01(progress);
   const deg = degAt(p);
@@ -83,7 +89,7 @@ export function Gauge({ progress, color, prevProgress, prevColor }: {
   return (
     <g>
       {/* track container, the surface colour with a thin outline */}
-      <path d={ribbon(0, 1, BANDH)} fill="var(--paper)" stroke="var(--border, #d6d6d6)" strokeWidth={1.4} {...cap} />
+      <path d={ribbon(0, 1, BANDH)} fill="var(--paper)" stroke={trackStroke ?? 'var(--border, #d6d6d6)'} strokeWidth={1.4} {...cap} />
       {/* graticules held entirely inside the band */}
       {TICKS.map((t, i) => {
         const o = polar(degAt(t), R + BANDH - 1.4);
@@ -103,8 +109,11 @@ export function Gauge({ progress, color, prevProgress, prevColor }: {
           </>
         );
       })()}
-      {/* floating needle, ringed in the surface colour so it pops off the track */}
-      <path d={needlePath(deg)} fill={color} stroke="var(--paper)" strokeWidth={1.8} strokeLinejoin="round" />
+      {/* floating needle, ringed in the surface colour so it pops off the track.
+          `data-needle` is a styling handle ONLY — it lets the Instrument motif
+          rotate the needle in CSS. The path, its geometry and the angle it is
+          drawn at are untouched. */}
+      <path data-needle d={needlePath(deg)} fill={needleColor ?? color} stroke="var(--paper)" strokeWidth={1.8} strokeLinejoin="round" />
     </g>
   );
 }

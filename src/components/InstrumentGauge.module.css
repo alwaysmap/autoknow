@@ -1,0 +1,30 @@
+/* Glyph-sized dial for the Instrument style's hero search. Sized by height so it
+   matches the button's cap height rather than its box. */
+
+.gauge {
+  display: block;
+  height: 1.25rem;
+  width: auto;
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+/* The needle swings when the search field is live. It rotates about the ARC's own
+   centre — the same CX/CY the path generator uses — so this is the real needle
+   moving through its real travel, not a shape being animated to suggest one.
+   `transform-box: view-box` makes transform-origin relative to the viewBox origin
+   (38 3), so the arc centre (120 138) is (82 135) here — expressed as PERCENTAGES
+   of the 164x60 view-box (50% 225%) so the origin carries no px and stays correct
+   if the viewBox is ever re-cropped. */
+.gauge [data-needle] {
+  transform-box: view-box;
+  transform-origin: 50% 225%;
+  transform: rotate(0deg);
+  transition: transform 0.55s cubic-bezier(0.16, 0.84, 0.44, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gauge [data-needle] {
+    transition: none;
+  }
+}
