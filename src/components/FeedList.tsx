@@ -127,7 +127,7 @@ export default function FeedList({
                   <input type="hidden" name="id" value={it.id} />
                   {revalidate && <input type="hidden" name="revalidate" value={revalidate} />}
                   <button type="submit" title={t(locale, 'removeThisUpdate')} aria-label={t(locale, 'removeLabel')}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted, #aaa)', fontSize: 13, lineHeight: 1, padding: '0 2px' }}>
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted, #aaa)', fontSize: '0.8125rem', lineHeight: 1, padding: '0 0.125rem' }}>
                     ✕
                   </button>
                 </form>

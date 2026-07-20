@@ -1,7 +1,7 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0.75rem;
 }
 
 /* Gauge left, words right — and every word in that right column starts on the
@@ -9,25 +9,25 @@
    don't drag the gauge to the middle of the card. */
 .card {
   display: flex;
-  gap: 18px;
+  gap: 1.125rem;
   align-items: flex-start;
-  padding: 14px 18px;
+  padding: 0.875rem 1.125rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0.625rem;
   background: var(--surface);
 }
 
 /* Compact needle on the left — a fixed, wide/short slot. */
 .gauge {
-  flex: 0 0 132px;
-  width: 132px;
+  flex: 0 0 8.25rem;
+  width: 8.25rem;
 }
 
 /* Relationship history: the prior face (gray) → arrow → the new face (darker). */
 .relFaces {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 0.3125rem;
 }
 .priorFace {
   color: var(--muted);
@@ -49,8 +49,8 @@
 .head {
   display: flex;
   align-items: baseline;
-  gap: 12px;
-  margin-bottom: 4px;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
 }
 
 .health {
@@ -59,57 +59,57 @@
 }
 
 .date {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
 /* Provenance: who filed the update. Human-written, so no ✦ mark (design.md §8). */
 .author {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
 .note {
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.5;
   color: var(--fg);
 }
 
 .noteEmpty {
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-style: italic;
   color: var(--muted);
 }
 
 .empty {
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-style: italic;
   color: var(--muted);
 }
 
 @media (max-width: 520px) {
-  .card { flex-direction: column; align-items: stretch; gap: 10px; }
-  .gauge { width: 160px; }
+  .card { flex-direction: column; align-items: stretch; gap: 0.625rem; }
+  .gauge { width: 10rem; }
 }
 
 /* Compact variant — the same history cards at phase-popover scale. */
 .compact .card {
-  padding: 8px 10px;
-  gap: 10px;
+  padding: 0.5rem 0.625rem;
+  gap: 0.625rem;
 }
 
 .compact .gauge {
-  width: 64px;
-  flex: 0 0 64px;
+  width: 4rem;
+  flex: 0 0 4rem;
 }
 
 .compact .head {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .compact .note {
-  font-size: 12px;
-  line-height: 18px;
+  font-size: 0.75rem;
+  line-height: 1.125rem;
 }

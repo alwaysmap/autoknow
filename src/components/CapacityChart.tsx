@@ -242,7 +242,7 @@ function ProductAreaChart({
       {hover && (
         <div
           className={styles.hoverCard}
-          style={flip ? { right: `${100 - hoverLeftPct}%`, marginRight: 10 } : { left: `${hoverLeftPct}%`, marginLeft: 10 }}
+          style={flip ? { right: `${100 - hoverLeftPct}%`, marginRight: '0.625rem' } : { left: `${hoverLeftPct}%`, marginLeft: '0.625rem' }}
         >
           <div className={styles.hoverQuarter}>{hover.label}</div>
           {[...activeBands].reverse().map((k) => (

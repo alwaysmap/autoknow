@@ -30,19 +30,19 @@ export default async function HistoryPage(props: { params: Promise<{ type: strin
   if (!history) return notFound();
 
   return (
-    <div style={{ padding: '32px 40px', maxWidth: 840 }}>
-      <header style={{ marginBottom: 16 }}>
-        <div style={{ marginBottom: 8 }}>
+    <div style={{ padding: '2rem 2.5rem', maxWidth: '52.5rem' }}>
+      <header style={{ marginBottom: '1rem' }}>
+        <div style={{ marginBottom: '0.5rem' }}>
           {/* honest back: browser history, not a hardcoded destination */}
           <BackLink fallbackHref={fallbackHref(ht, nid)} />
         </div>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{history.title}</h1>
-        <p style={{ color: 'var(--muted, #666)', fontSize: 14, marginTop: 4 }}>
+        <p style={{ color: 'var(--muted, #666)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
           {t(locale, 'historyHillIntro')}
         </p>
       </header>
 
-      <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 12 }}>{t(locale, 'statusUpdates')}</h2>
+      <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.75rem' }}>{t(locale, 'statusUpdates')}</h2>
       <HillHistoryList changes={hill?.changes ?? []} color={phaseColor(nid)} emptyLabel={t(locale, 'noChangesRecorded')} locale={locale} />
     </div>
   );

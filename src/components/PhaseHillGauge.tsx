@@ -217,7 +217,7 @@ export default function PhaseHillGauge({
               name="hillChartProgress"
               value={drag}
               onChange={(e) => setDrag(parseInt(e.target.value))}
-              style={{ position: 'absolute', left: '-9999px', width: 10, height: 10, opacity: 0.01 }}
+              style={{ position: 'absolute', left: '-624.9375rem', width: 10, height: 10, opacity: 0.01 }}
             />
           </div>
 
@@ -225,7 +225,7 @@ export default function PhaseHillGauge({
             <span className={styles.formLabel}>{strings.noteFieldLabel}</span>
             <MarkdownNoteEditor name="notes" ariaLabel={strings.noteFieldLabel}
               placeholder={strings.notePlaceholder} />
-            {noteError && <div style={{ color: 'var(--bad)', fontSize: 12 }}>{t(locale, 'noteRequired')}</div>}
+            {noteError && <div style={{ color: 'var(--bad)', fontSize: '0.75rem' }}>{t(locale, 'noteRequired')}</div>}
           </div>
 
           <div className={styles.actionRow}>

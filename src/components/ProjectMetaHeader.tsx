@@ -214,16 +214,16 @@ export default function ProjectMetaHeader({
           </div>
           <div className={dash.textInputGroup}>
             <span className={dash.formLabel}>{t(locale, 'productsLabel')}</span>
-            <label style={{ display: 'block', fontSize: 13 }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem' }}>
               <input type="checkbox" name="hasGas" defaultChecked={hasGas} /> {t(locale, 'productGas')}
             </label>
-            <label style={{ display: 'block', fontSize: 13 }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem' }}>
               <input type="checkbox" name="hasGbi" defaultChecked={hasGbi} /> {t(locale, 'productGbi')}
             </label>
-            <label style={{ display: 'block', fontSize: 13 }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem' }}>
               <input type="checkbox" name="hasDigitalKey" defaultChecked={hasDigitalKey} /> {t(locale, 'productDigitalKey')}
             </label>
-            <label style={{ display: 'block', fontSize: 13 }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem' }}>
               <input type="checkbox" name="hasAap" defaultChecked={hasAap} /> {t(locale, 'productAap')}
             </label>
           </div>

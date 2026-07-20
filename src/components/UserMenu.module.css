@@ -4,13 +4,13 @@
 }
 
 .avatar {
-  width: 30px;
-  height: 30px;
+  width: 1.875rem;
+  height: 1.875rem;
   border-radius: 50%;
   border: none;
   background: var(--p-600);
   color: var(--white, var(--paper));
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   display: inline-flex;
@@ -20,53 +20,53 @@
 }
 .avatar:hover,
 .avatar[aria-expanded='true'] {
-  box-shadow: 0 0 0 3px var(--surface);
+  box-shadow: 0 0 0 0.1875rem var(--surface);
 }
 
 .pop {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 0.5rem);
   right: 0;
   z-index: 40;
-  min-width: 220px;
-  padding: 16px;
+  min-width: 13.75rem;
+  padding: 1rem;
   background: var(--white, var(--paper));
   border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+  border-radius: 0.75rem;
+  box-shadow: 0 0.5rem 1.75rem rgba(0, 0, 0, 0.12);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 0.125rem;
 }
 
 .popAvatar {
-  width: 44px;
-  height: 44px;
+  width: 2.75rem;
+  height: 2.75rem;
   border-radius: 50%;
   background: var(--p-600);
   color: var(--white, var(--paper));
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 6px;
+  margin-bottom: 0.375rem;
 }
 
 .name {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--fg);
 }
 
 .email {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
 .actionRow {
-  margin-top: 10px;
+  margin-top: 0.625rem;
 }
 
 .signOutBtn,
@@ -74,8 +74,8 @@
   border: 1px solid var(--border);
   background: var(--white, var(--paper));
   border-radius: 999px;
-  padding: 5px 16px;
-  font-size: 12px;
+  padding: 0.3125rem 1rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--fg);
   cursor: pointer;
@@ -88,23 +88,23 @@
 /* Personal settings rows (theme, language) — quiet label/control pairs separated
    from the identity block above and the sign-out action below. */
 .prefs {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.625rem;
 }
 
 .prefRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 1rem;
 }
 
 .prefLabel {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;

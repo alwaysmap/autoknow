@@ -174,7 +174,7 @@ export default function NeedleGauge({
           max="100"
           value={dragProgress}
           onChange={(e) => setDragProgress(parseInt(e.target.value))}
-          style={{ position: 'absolute', left: '-9999px', width: 10, height: 10, opacity: 0.01 }}
+          style={{ position: 'absolute', left: '-624.9375rem', width: 10, height: 10, opacity: 0.01 }}
         />
 
         {/* Health rides INSIDE the gauge's container: picking a colour repaints
@@ -193,7 +193,7 @@ export default function NeedleGauge({
         <span className={styles.formLabel}>{t(locale, 'updateWhatWhy')}</span>
         <MarkdownNoteEditor name="notes" ariaLabel={t(locale, 'updateWhatWhy')}
           placeholder={t(locale, 'needleNotePlaceholder')} />
-        {noteError && <div style={{ color: 'var(--bad)', fontSize: 12 }}>{t(locale, 'updateNeedsNote')}</div>}
+        {noteError && <div style={{ color: 'var(--bad)', fontSize: '0.75rem' }}>{t(locale, 'updateNeedsNote')}</div>}
       </div>
     </>
   );

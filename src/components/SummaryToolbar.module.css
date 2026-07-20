@@ -3,16 +3,16 @@
 .bar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.75rem;
   flex-wrap: wrap;
-  margin-bottom: 6px;
+  margin-bottom: 0.375rem;
 }
 
 .provenance {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 0.375rem;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
@@ -29,8 +29,8 @@
   margin-left: auto;
   background: none;
   border: none;
-  border-radius: 6px;
-  padding: 4px 6px;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.375rem;
   color: var(--muted);
   cursor: pointer;
   flex-shrink: 0;

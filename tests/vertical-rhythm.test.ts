@@ -97,6 +97,33 @@ describe('vertical rhythm', () => {
     expect(offenders).toEqual([]);
   });
 
+  test('lengths are rem, so the whole UI scales with the root', () => {
+    // design.md §9. The sanctioned px exceptions are the ones that must stay ONE
+    // device pixel however the page is scaled — hairlines, strokes, and the
+    // graticule's tick — plus blur radii and media-query breakpoints (conditions,
+    // not declarations, so the declaration-level scan below never sees them).
+    // border-RADIUS is a length and must scale; only border/outline WIDTHS are the
+    // sanctioned hairline exception.
+    const EXEMPT = /^(border(?!-radius)[a-z-]*|outline[a-z-]*|stroke[a-z-]*|background-size|backdrop-filter|text-decoration-thickness|--graticule)$/;
+    const offenders: string[] = [];
+    for (const file of CSS) {
+      const text = readFileSync(file, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/@media[^{]*/g, ''); // breakpoints are px by convention (§9)
+      for (const m of text.matchAll(/([a-z-]+)\s*:((?:[^;{}]|\([^)]*\))*)/g)) {
+        const [, prop, value] = m;
+        if (EXEMPT.test(prop)) continue;
+        // `999px` is the "fully round" sentinel: it clamps to half the box at any
+        // scale, so it is a shape, not a measurement.
+        if (prop === 'border-radius' && /^\s*999px\s*$/.test(value)) continue;
+        if (/\d*\.?\d+px/.test(value)) {
+          offenders.push(`${file}  ${prop}:${value.trim().slice(0, 40)}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   test('the body line box is a whole number of pixels', () => {
     const globals = readFileSync('src/app/globals.css', 'utf8');
     // Anchored: `:root[data-style="instrument"] body { … }` also ends in "body {"

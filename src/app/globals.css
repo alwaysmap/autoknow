@@ -3,7 +3,7 @@
 
   /* Height of the pinned nav bar — sticky page rails offset by this so they sit
      below it, never under it. Bumped where the nav wraps to two rows (≤960px). */
-  --nav-h: 56px;
+  --nav-h: 3.5rem;
 
   /* Width cap for the compact status visualizations (sidebar needle gauge and
      the per-phase hill gauges on cards). The Phases-section summary hill is
@@ -210,7 +210,7 @@
 
   /* Graticule rules: a hairline made of ticks. Consumed as a background-image,
      so any border it replaces must also set border-color: transparent. */
-  --graticule: repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px 9px);
+  --graticule: repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px 0.5625rem);
 }
 
 :root[data-style="instrument"][data-theme="dark"] {
@@ -261,7 +261,7 @@
    by --nav-h track that so they still clear it. */
 @media (max-width: 960px) {
   :root {
-    --nav-h: 96px;
+    --nav-h: 6rem;
   }
 }
 
@@ -288,6 +288,18 @@ body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+/* Form controls do NOT inherit type by default: the UA gives them 13.3333px Arial,
+   which ignores the root and so ignores user font scaling entirely. Family and size
+   only — `font: inherit` would also reset weight and style, which several controls
+   set deliberately. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
 }
 
 * {
@@ -321,7 +333,7 @@ table {
 
 /* Generous cell breathing room */
 th, td {
-  padding: 14px 18px !important;
+  padding: 0.875rem 1.125rem !important;
   vertical-align: middle;
 }
 
@@ -358,14 +370,14 @@ tr:last-child {
 [class*="filterSection"], [class*="filterBar"] {
   background-color: var(--surface) !important;
   border: 1px solid var(--border) !important;
-  border-radius: 8px !important;
-  padding: 16px 24px !important;
-  margin-bottom: 32px !important;
+  border-radius: 0.5rem !important;
+  padding: 1rem 1.5rem !important;
+  margin-bottom: 2rem !important;
   display: flex !important;
   flex-wrap: wrap !important;
-  gap: 24px !important;
+  gap: 1.5rem !important;
   align-items: center !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+  box-shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.02) !important;
 }
 
 /* Remove all other card boundaries, borders, outlines, backgrounds, and shadows */
@@ -373,27 +385,27 @@ tr:last-child {
   border: none !important;
   box-shadow: none !important;
   background: transparent !important;
-  padding: 12px 0 !important;
+  padding: 0.75rem 0 !important;
 }
 
 /* Clean scorecards metrics presentation */
 [class*="scorecards"] {
   display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
-  gap: 24px !important;
-  margin-bottom: 32px !important;
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr)) !important;
+  gap: 1.5rem !important;
+  margin-bottom: 2rem !important;
 }
 
 [class*="scorecards"] [class*="card"] {
   border-bottom: 1.5px solid var(--border) !important;
   border-radius: 0 !important;
-  padding: 16px 0 !important;
+  padding: 1rem 0 !important;
 }
 
 /* Tufte minimal ink pagination footer */
 [class*="pagination"] {
   background-color: transparent !important;
   border-top: 1.5px solid var(--border) !important;
-  padding: 16px 0 !important;
+  padding: 1rem 0 !important;
 }
 

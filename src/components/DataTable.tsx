@@ -277,7 +277,7 @@ export default function DataTable<T>({
         <tbody>
           {paginatedData.length === 0 ? (
             <tr>
-              <td colSpan={headers.length} className={styles.info} style={{ padding: '16px', textAlign: 'center', fontStyle: 'italic' }}>
+              <td colSpan={headers.length} className={styles.info} style={{ padding: '1rem', textAlign: 'center', fontStyle: 'italic' }}>
                 {emptyMessage}
               </td>
             </tr>

@@ -205,7 +205,7 @@ export default async function PartnerDetailPage(props: PageProps) {
             <AnchorHeading id="activity" linkLabel={t(locale, 'anchorLink')}>
               {t(locale, 'navActivity')}
             </AnchorHeading>
-            <div style={{ margin: '4px 0 14px' }}>
+            <div style={{ margin: '0.25rem 0 0.875rem' }}>
               <UnifiedSearch
                 scope={{ kind: 'partner', id: partner.id }}
                 placeholder={t(locale, 'searchThisPartner')}
@@ -213,7 +213,7 @@ export default async function PartnerDetailPage(props: PageProps) {
               />
             </div>
             {/* scoped paste-a-link: this page IS the anchor (plan §5.2) */}
-            <div style={{ margin: '0 0 12px' }}>
+            <div style={{ margin: '0 0 0.75rem' }}>
               <QuickIngest anchorKind="partner" anchorId={partner.id} path={`/partners/${partner.id}`} />
             </div>
             <ActivityFeed items={activity} deletable revalidate={`/partners/${partner.id}`} />

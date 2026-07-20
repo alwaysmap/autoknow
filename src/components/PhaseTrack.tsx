@@ -589,7 +589,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     name="hillChartProgress"
                     value={drag}
                     onChange={(e) => setDrag(parseInt(e.target.value))}
-                    style={{ position: 'absolute', left: '-9999px', width: 10, height: 10, opacity: 0.01 }}
+                    style={{ position: 'absolute', left: '-624.9375rem', width: 10, height: 10, opacity: 0.01 }}
                   />
                 )}
               </div>

@@ -315,7 +315,7 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
                     className={styles.badgeFilterBtn}
                     title={t(locale, 'filterColumn', { c: t(locale, 'statusLabel') })}
                   >
-                    <span className={styles.typeText ?? ''} style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>
+                    <span className={styles.typeText ?? ''} style={{ color: 'var(--muted)', fontSize: '0.75rem', fontWeight: 600 }}>
                       {t(locale, statusKeyOf(statusOf(p)))}
                     </span>
                   </button>

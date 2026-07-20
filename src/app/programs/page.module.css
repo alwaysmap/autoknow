@@ -4,15 +4,15 @@
   margin: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 0.875rem;
 }
 
 .clearAll {
   background: none;
   border: none;
-  padding: 2px 6px;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
   cursor: pointer;
@@ -22,12 +22,12 @@
   background: var(--surface);
 }
 .searchInput {
-  width: 280px;
+  width: 17.5rem;
   max-width: 100%;
-  font-size: 13px;
-  line-height: 20px;
-  padding: 7px 12px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  padding: 0.4375rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0.375rem;
   background: var(--white, var(--paper));
 }

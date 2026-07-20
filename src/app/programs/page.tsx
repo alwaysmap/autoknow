@@ -122,14 +122,14 @@ export default async function ProgramsPage(props: {
   const partnerTypes = await prisma.partnerType.findMany({ select: { name: true } });
 
   return (
-    <div style={{ padding: '0 40px', minHeight: '100vh', backgroundColor: 'var(--white)' }}>
-      <header style={{ borderBottom: '1px solid var(--border)', padding: '14px 0 10px' }}>
-        <h1 style={{ fontFamily: 'var(--head-font)', fontSize: '1.5rem', fontWeight: 600, margin: 0, color: 'var(--fg)' }}>
+    <div style={{ padding: '0 2.5rem', minHeight: '100vh', backgroundColor: 'var(--white)' }}>
+      <header style={{ borderBottom: '1px solid var(--border)', padding: '0.875rem 0 0.625rem' }}>
+        <h1 style={{ fontFamily: 'var(--head-font)', fontSize: '1.5rem', fontWeight: 600, margin: '0', color: 'var(--fg)' }}>
           {t(locale, 'navPrograms')}
         </h1>
       </header>
 
-      <main style={{ padding: '32px 0' }}>
+      <main style={{ padding: '2rem 0' }}>
         <ProgramsClient
           // Remount when the URL's params change: the client seeds its filter/sort
           // state from initial* once, so same-route navigation (e.g. clicking the

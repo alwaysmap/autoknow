@@ -42,7 +42,7 @@ export default function PhaseHillChart({ phases, wide = false }: { phases: Phase
   const halfW = (name: string) => (Math.min(name.length, maxChars) * fs * 0.55) / 2 + 2;
 
   if (phases.length === 0) {
-    return <p style={{ fontSize: 12, fontStyle: 'italic', color: 'var(--muted, #888)' }}>{t(locale, 'noPhasesYet')}</p>;
+    return <p style={{ fontSize: '0.75rem', fontStyle: 'italic', color: 'var(--muted, #888)' }}>{t(locale, 'noPhasesYet')}</p>;
   }
   const jump = (id: number) => {
     window.dispatchEvent(new CustomEvent(JUMP_PHASE_EVENT, { detail: id }));

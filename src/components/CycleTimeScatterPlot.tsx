@@ -52,7 +52,7 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
 
   if (data.length === 0) {
     return <div className={styles.container} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'var(--muted)', fontSize: '13px' }}>{t(locale, 'notEnoughCycleTime')}</p>
+      <p style={{ color: 'var(--muted)', fontSize: '0.8125rem' }}>{t(locale, 'notEnoughCycleTime')}</p>
     </div>;
   }
 

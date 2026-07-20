@@ -308,9 +308,22 @@ Sanctioned `px` exceptions (the *specific reasons not to*):
 3. **Media-query breakpoints** (see below — px is the convention and avoids
    em-in-query quirks).
 
-Anything else in `px` needs a comment saying why. Apply rem-first to all new
-and edited CSS; convert values opportunistically in files you touch — no
-mass-conversion PRs.
+Anything else in `px` needs a comment saying why. **`tests/vertical-rhythm.test.ts`
+enforces this** — it fails on any px length outside the sanctioned list, so the
+rule is checked rather than remembered.
+
+Two traps the conversion hit, worth knowing before the next one:
+* **Media-query conditions are not declarations.** A declaration-level regex will
+  happily rewrite `@media (max-width: 960px)` to `60rem` and silently move where
+  every layout collapses. Breakpoints stay px; a mechanical unit refactor must
+  never change responsive behaviour.
+* **React treats `lineHeight` as unitless.** Inline `lineHeight: 1.55` is a RATIO,
+  so converting the bare number yields a 1.55px line box. `borderRadius: 999px`
+  is likewise a "fully round" sentinel, not a measurement.
+
+Form controls are the silent exception: the UA gives `button`/`input`/`select`/
+`textarea` 13.3333px Arial and they do NOT inherit page type, so they ignore root
+scaling entirely until reset (globals.css does this).
 
 **Compliance widths.** Every layout must render correctly — no horizontal page
 scroll, no clipped controls, no overlapping text — at these viewport widths:

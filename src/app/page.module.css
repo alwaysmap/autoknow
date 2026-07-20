@@ -22,7 +22,7 @@
   font-family: var(--head-font);
   font-size: 2rem;
   font-weight: 600;
-  line-height: 38px;
+  line-height: 2.375rem;
   margin: 0 0 0.5rem;
 }
 
@@ -36,7 +36,7 @@
 
 .browse {
   font-size: 0.8125rem;
-  line-height: 20px;
+  line-height: 1.25rem;
   color: var(--muted);
   margin: 1rem 0 0;
 }

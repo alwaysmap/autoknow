@@ -414,7 +414,7 @@ export default async function ProjectDetailsPage(props: {
               <AnchorHeading id="activity" linkLabel={t(locale, 'anchorLink')}>
                 {t(locale, 'navActivity')}
               </AnchorHeading>
-              <div style={{ margin: '4px 0 14px' }}>
+              <div style={{ margin: '0.25rem 0 0.875rem' }}>
                 <UnifiedSearch
                   scope={{ kind: 'project', id: projectId }}
                   placeholder={t(locale, 'searchThisProgram')}
@@ -422,7 +422,7 @@ export default async function ProjectDetailsPage(props: {
                 />
               </div>
               {/* scoped paste-a-link: this page IS the anchor (plan §5.2) */}
-              <div style={{ margin: '0 0 12px' }}>
+              <div style={{ margin: '0 0 0.75rem' }}>
                 <QuickIngest anchorKind="program" anchorId={projectId} path={`/programs/${projectId}`} />
               </div>
               <ActivityFeed items={activity} deletable revalidate={`/programs/${projectId}`} />

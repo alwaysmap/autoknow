@@ -5,7 +5,7 @@
 /* The ROW is the block-level unit and owns the spacing below the heading.
    Any margin left on the h2 itself lands INSIDE the flex line, so centring
    measures the heading's margin box and drops the ⓘ/# below the text — which
-   is exactly what page rules like `.historySection h2 { margin: 0 0 8px }`
+   is exactly what page rules like `.historySection h2 { margin: 0 0 0.5rem }`
    were doing. */
 .row {
   display: flex;
@@ -24,7 +24,7 @@
   /* An integer box at the heading sizes this app uses (18px and 22px): the 1.2
      ratio it replaces computed 21.6px and 26.4px, which put every rule BELOW a
      heading on a fractional pixel. */
-  line-height: 28px;
+  line-height: 1.75rem;
 }
 
 .anchor {

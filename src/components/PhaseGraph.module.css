@@ -8,9 +8,9 @@
 
 /* Critical-chain summary line above the rail. */
 .chainSummary {
-  margin: 0 0 12px;
-  font-size: 12px;
-  line-height: 20px;
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
   color: var(--muted);
 }
 
@@ -18,9 +18,9 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-size: 10px;
+  font-size: 0.625rem;
   color: var(--chain);
-  margin-right: 8px;
+  margin-right: 0.5rem;
 }
 
 .chainArrow {
@@ -59,8 +59,8 @@
 }
 
 .row {
-  padding: 10px 0 14px;
-  border-radius: 8px;
+  padding: 0.625rem 0 0.875rem;
+  border-radius: 0.5rem;
 }
 
 /* Jump-and-flash target highlight. */
@@ -75,8 +75,8 @@
 .head {
   display: flex;
   align-items: baseline;
-  gap: 12px;
-  min-height: 24px;
+  gap: 0.75rem;
+  min-height: 1.5rem;
   flex-wrap: wrap;
   cursor: pointer;
 }
@@ -92,25 +92,25 @@
 }
 
 .status {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
 
 .constraintTag {
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--chain);
   border: 1px solid var(--chain);
   border-radius: 999px;
-  padding: 1px 8px;
+  padding: 0.0625rem 0.5rem;
 }
 
 .when {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
@@ -119,10 +119,10 @@
   background: none;
   border: 1px solid var(--border);
   border-radius: 50%;
-  width: 22px;
-  height: 22px;
+  width: 1.375rem;
+  height: 1.375rem;
   line-height: 1;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--muted);
   cursor: pointer;
   flex-shrink: 0;
@@ -133,26 +133,26 @@
 
 .body {
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
-  gap: 8px 24px;
+  grid-template-columns: 11.875rem minmax(0, 1fr);
+  gap: 0.5rem 1.5rem;
   align-items: start;
-  padding: 6px 0 0;
+  padding: 0.375rem 0 0;
 }
 
 .hillCol {
-  max-width: 190px;
+  max-width: 11.875rem;
 }
 
 .detailCol {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.625rem;
   min-width: 0;
 }
 
 .note {
-  font-size: 14px;
-  line-height: 22px;
+  font-size: 0.875rem;
+  line-height: 1.375rem;
   color: var(--fg);
 }
 
@@ -166,14 +166,14 @@
 }
 
 .noteEmpty {
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-style: italic;
   color: var(--muted);
 }
 
 .partnersInline {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
@@ -181,15 +181,15 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .partnerChip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  padding: 3px 6px 3px 10px;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  padding: 0.1875rem 0.375rem 0.1875rem 0.625rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--paper);
@@ -217,8 +217,8 @@
   border: none;
   cursor: pointer;
   color: var(--muted);
-  font-size: 11px;
-  padding: 0 2px;
+  font-size: 0.6875rem;
+  padding: 0 0.125rem;
   line-height: 1;
 }
 .chipRemove:hover {
@@ -228,21 +228,21 @@
 .addInlineForm {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
 }
 
 /* Shared quiet control: muted until engaged so rows read as content first. Used by the
    add-partner select, the dependency selects, and add-phase's "after…" select. */
 .quietSelect,
 .roleInput {
-  font-size: 11px;
-  line-height: 16px;
-  padding: 3px 6px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  padding: 0.1875rem 0.375rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0.375rem;
   background: transparent;
   color: var(--muted);
-  max-width: 160px;
+  max-width: 10rem;
 }
 .quietSelect:hover,
 .quietSelect:focus,
@@ -252,16 +252,16 @@
   color: var(--fg);
 }
 .roleInput {
-  width: 64px;
+  width: 4rem;
 }
 
 .miniBtn {
-  font-size: 11px;
-  line-height: 16px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   font-weight: 600;
-  padding: 3px 10px;
+  padding: 0.1875rem 0.625rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0.375rem;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -277,24 +277,24 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .depsLabel {
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
-  min-width: 48px;
+  min-width: 3rem;
 }
 
 .depChip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  padding: 3px 6px 3px 8px;
+  gap: 0.3125rem;
+  font-size: 0.75rem;
+  padding: 0.1875rem 0.375rem 0.1875rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--paper);
@@ -303,7 +303,7 @@
 .depJump {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
   background: none;
   border: none;
   padding: 0;
@@ -317,20 +317,20 @@
 }
 
 .depDot {
-  width: 8px;
-  height: 8px;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 .depNone {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-style: italic;
   color: var(--muted);
 }
 
 .depError {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--bad);
 }
 
@@ -342,11 +342,11 @@
   background: none;
   border: none;
   padding: 0;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
   cursor: pointer;
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 0.125rem;
 }
 .removeBtn:hover {
   color: var(--bad);
@@ -355,20 +355,20 @@
 .addRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 0 4px;
+  gap: 0.5rem;
+  padding: 0.75rem 0 0.25rem;
   flex-wrap: wrap;
 }
 
 .addInput {
-  font-size: 13px;
-  line-height: 20px;
-  padding: 5px 10px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  padding: 0.3125rem 0.625rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0.375rem;
   background: var(--paper);
   color: var(--fg);
-  width: 200px;
+  width: 12.5rem;
   max-width: 100%;
 }
 
@@ -376,9 +376,9 @@
 @media (max-width: 560px) {
   .body {
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: 0.625rem;
   }
   .hillCol {
-    max-width: 220px;
+    max-width: 13.75rem;
   }
 }
