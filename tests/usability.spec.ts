@@ -50,6 +50,33 @@ test.describe('usability invariants', () => {
     expect(heroRadius, 'hero search is rounded').toBeGreaterThanOrEqual(16);
   });
 
+  test('the CTA dial sweeps on HOVER and when autosuggest appears, then returns', async ({ page }) => {
+    // The dial is the Instrument style's one motion, and it is an affordance on
+    // the button — driven by hover (2026-07-20 user call), and lit as soon as
+    // suggestions appear even without a hover. The needle is the REAL gauge path,
+    // so a sweep is a change in that path's `d`, not a CSS transform.
+    await page.addInitScript(() => localStorage.setItem('autoknow-style', 'instrument'));
+    await page.goto('/');
+
+    const needle = page.locator('[class*="InstrumentGauge"] [data-needle]');
+    await expect(needle).toBeAttached();
+    const rest = await needle.getAttribute('d');
+    expect(rest).toBeTruthy();
+
+    // Hover the CTA → the needle leaves its rest position.
+    await page.getByRole('button', { name: /^Search$/ }).hover();
+    await expect.poll(() => needle.getAttribute('d')).not.toBe(rest);
+
+    // Move away → it settles back to exactly rest.
+    await page.mouse.move(2, 2);
+    await expect.poll(() => needle.getAttribute('d'), { timeout: 2500 }).toBe(rest);
+
+    // Autosuggest appearing drives it too, with no hover.
+    await page.getByRole('searchbox').fill('bosch');
+    await expect(page.getByTestId('search-suggest')).toBeVisible();
+    await expect.poll(() => needle.getAttribute('d')).not.toBe(rest);
+  });
+
   test('form controls inherit page type, so root scaling reaches them', async ({ page }) => {
     // The UA gives button/input/select/textarea 13.3333px Arial that ignores the
     // root, so a control that does not inherit silently opts out of user font
