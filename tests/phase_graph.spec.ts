@@ -128,6 +128,9 @@ test.describe('PhaseTrack rail', () => {
     await page.goto(`/programs/${seeded.projectId}`);
     await openDetails(page, 'Audio');
 
+    // The pane rests in view mode — the Update affordance reveals ball + editor.
+    await details(page).getByRole('button', { name: 'Update', exact: true }).click();
+
     // Move the dot but say nothing → blocked with the inline error, still open.
     await details(page).locator('input[id^="phaseHillProgress-"]').fill('55');
     await details(page).getByRole('button', { name: 'Save Update' }).click();
@@ -139,6 +142,11 @@ test.describe('PhaseTrack rail', () => {
     await page.keyboard.type('Codec samples landed; over the hill.');
     await details(page).getByRole('button', { name: 'Save Update' }).click();
 
+    // Save drops back to the view-mode story: the fresh update leads, big.
+    await expect(details(page)).toContainText('Codec samples landed; over the hill.');
+    await page.keyboard.press('Escape');
+    await expect(details(page)).toHaveCount(0);
+
     // Back on the track: the card (expanded — rows default collapsed) shows the
     // new note but NOT the history list.
     const audio = row(page, 'Audio');
@@ -149,7 +157,10 @@ test.describe('PhaseTrack rail', () => {
     // The history (with the prior update) lives on the popover.
     await openDetails(page, 'Audio');
     await expect(details(page).getByText('History', { exact: true })).toBeVisible();
-    await expect(details(page).locator('[class*="historyItem"]')).toHaveCount(2);
+    // The LATEST update is the big headline; only the older one renders as a
+    // compact history card.
+    await expect(details(page).locator('[class*="latestUpdate"]')).toContainText('Codec samples landed');
+    await expect(details(page).locator('[class*="historyList"] article')).toHaveCount(1);
   });
 
   test('partner involvement is editable on the popover', async ({ page }) => {
@@ -160,7 +171,8 @@ test.describe('PhaseTrack rail', () => {
     const densoChip = details(page).locator('[class*="partnerChip"]').filter({ hasText: 'Denso' });
     await expect(densoChip).toContainText('Supplier');
 
-    // Add another partner with a role.
+    // Add another partner with a role — the ghost "+" reveals the small form.
+    await details(page).getByRole('button', { name: 'Partner to involve' }).click();
     await details(page).locator('select[aria-label="Partner to involve"]').selectOption({ label: 'Rivian' });
     await details(page).locator('input[aria-label="Role (optional)"]').first().fill('OEM');
     await details(page).getByRole('button', { name: 'Add', exact: true }).first().click();
@@ -185,7 +197,8 @@ test.describe('PhaseTrack rail', () => {
     await kenji.locator('button[aria-label^="Remove"]').click();
     await expect(details(page).locator('[class*="partnerChip"]').filter({ hasText: 'Kenji Sato' })).toHaveCount(0);
 
-    // Add them back with a new role via the People picker.
+    // Add them back with a new role via the People picker (behind the ghost "+").
+    await details(page).getByRole('button', { name: 'Person to involve' }).click();
     await details(page).locator('select[aria-label="Person to involve"]').selectOption({ label: 'Kenji Sato' });
     await details(page).locator('select[aria-label="Person to involve"]')
       .locator('xpath=following-sibling::input[1]').fill('Audio lead');

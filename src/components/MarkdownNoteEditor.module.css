@@ -19,15 +19,30 @@
   border-radius: 6px;
   background: var(--paper);
   width: 100%;
-  min-height: 238px; /* toolbar + canvas — matches the loaded editor, no layout shift */
+  min-height: 150px; /* toolbar + canvas — matches the loaded editor, no layout shift */
 }
 
-.toolbar {
+/* .frame .toolbar: outranks MDXEditor's own toolbar background (same-specificity
+   class from the package CSS, which is light in both themes). */
+.frame .toolbar {
   border-bottom: 1px solid var(--border);
   border-radius: 6px 6px 0 0;
   background: var(--surface);
   padding: 1px 4px;
   min-height: 28px;
+}
+
+/* MDXEditor pins a near-black `color` on each icon's <svg> — invisible on the
+   dark theme. Let the icon inherit the button's ink instead; hover restores
+   full ink. */
+.frame .toolbar button {
+  color: var(--muted);
+}
+.frame .toolbar button:hover {
+  color: var(--fg);
+}
+.frame .toolbar button svg {
+  color: inherit;
 }
 
 .content {
@@ -37,9 +52,10 @@
   /* A writing surface is always left-aligned — the needle-update dialog otherwise
      inherits text-align:center from the gauge's .summaryCard ancestor. */
   text-align: left;
-  /* Room to invite a real weekly write-up; grows with content, scrolls past a point
-     so a long update never blows the dialog off-screen. */
-  min-height: 200px;
+  /* Room to invite a real write-up without hollowing out the dialog: ~5 lines
+     at rest; grows with content, scrolls past a point so a long update never
+     blows the dialog off-screen. */
+  min-height: 120px;
   max-height: 46vh;
   overflow-y: auto;
   padding: 8px 10px;

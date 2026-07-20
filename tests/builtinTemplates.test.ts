@@ -56,6 +56,19 @@ describe('BUILTIN_TEMPLATES', () => {
       }
     });
 
+    it('every description is a Goal plus a provable Done-when checklist', () => {
+      // The DoD contract: one goal line, then binary pass/fail criteria as list
+      // items — never activity prose or "mostly working" language.
+      for (const t of BUILTIN_TEMPLATES) {
+        for (const p of t.phases) {
+          expect(p.description).toMatch(/\*\*Goal:\*\*/);
+          expect(p.description).toMatch(/\*\*Done when:\*\*/);
+          const checklist = p.description.split('**Done when:**')[1];
+          expect(checklist.trim().split('\n').filter((l) => l.startsWith('- ')).length).toBeGreaterThanOrEqual(2);
+        }
+      }
+    });
+
     it('encodes the plan durations and leads (spot checks)', () => {
       const p2 = aaos.phases.find((p) => p.key === 'P2')!;
       expect(p2.name).toBe('BSP & power-on');
