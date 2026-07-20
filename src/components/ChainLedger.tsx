@@ -271,20 +271,28 @@ export default function ChainLedger({
   // also the oversubscribed one, its staffing clause rides on this bullet rather
   // than repeating the same person-and-phase as a second bullet.
   const upNextCoveredHere = upNext != null && oversub.some((o) => o.phaseId === upNext.toId);
+  // Only a phase that is actually past its plan can be called overrunning.
+  const overrunning = new Set(
+    ledger.situations
+      .filter((s) => s.type === 'sunkOverrun' || s.type === 'forecastOverrun')
+      .map((s) => (s as Extract<Situation, { type: 'forecastOverrun' }>).phaseId),
+  );
   for (const o of oversub) {
     const carriesUpNext = upNext != null && upNextCoveredHere && o.phaseId === upNext.toId;
+    const n = o.moves.length + o.tight.length;
+    const openerKey = overrunning.has(o.phaseId)
+      ? (n === 1 ? 'clOversubOverrunOne' : 'clOversubOverrun')
+      : (n === 1 ? 'clOversubNeutralOne' : 'clOversubNeutral');
+    const nameLink = resLink({ kind: o.kind, id: o.resourceId, name: o.name });
     nextSteps.push(
       <>
-        {tNodes(locale, 'clOversubLine', {
-          phase: phaseBtn(o.phaseId),
-          name: resLink({ kind: o.kind, id: o.resourceId, name: o.name }),
-          n: o.moves.length + o.tight.length,
-        })}
+        {tNodes(locale, openerKey, { phase: phaseBtn(o.phaseId), name: nameLink, n })}
         {o.moves.length > 0 && (
           <>
             {' '}
             {tNodes(locale, 'clOversubMoves', {
               phase: phaseBtn(o.phaseId),
+              name: resLink({ kind: o.kind, id: o.resourceId, name: o.name }),
               programs: joinNodes(o.moves.map((m) =>
                 tNodes(locale, 'clProgWithBuffer', { name: progLink(m.programId, m.programName), d: m.bufferDays ?? 0 }))),
             })}

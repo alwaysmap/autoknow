@@ -1430,17 +1430,38 @@ const STRINGS = {
     ja: '{owner}は本プログラムのオーナーであり、他にも進行中フェーズを1件担当しています: {items}。本チェーンを律速している証拠はありませんが、追加の時間を依頼する前に把握しておく価値があります。',
     ko: '{owner}은(는) 이 프로그램의 오너이며 다른 곳에서도 진행 중인 단계 1개를 맡고 있습니다: {items}. 이 체인을 좌우한다는 증거는 없지만, 시간을 더 요청하기 전에 알아둘 만합니다.',
   },
-  clOversubLine: {
-    en: '{phase} is with {name} — also active in {n} other programs.',
-    de: '{phase} liegt bei {name} — außerdem in {n} weiteren Programmen aktiv.',
-    ja: '{phase}の担当は{name} — 他に{n}件のプログラムでも活動中。',
-    ko: '{phase} 담당은 {name} — 다른 프로그램 {n}개에서도 활동 중.',
+  // Two openers: the phase is visibly overrunning, or it simply has a contended
+  // resource on it. Claiming "while X is overrunning" on a phase that is on plan
+  // (or hasn't started) would be false — see the language rules' judgment test.
+  clOversubOverrun: {
+    en: '{name} is active in {n} other programs while {phase} is overrunning.',
+    de: '{name} ist in {n} weiteren Programmen aktiv, während {phase} über Plan läuft.',
+    ja: '{phase}が計画を超過している間、{name}は他に{n}件のプログラムでも稼働しています。',
+    ko: '{phase}이(가) 계획을 초과하는 동안 {name}은(는) 다른 프로그램 {n}개에서도 일하고 있습니다.',
+  },
+  clOversubOverrunOne: {
+    en: '{name} is active in 1 other program while {phase} is overrunning.',
+    de: '{name} ist in 1 weiteren Programm aktiv, während {phase} über Plan läuft.',
+    ja: '{phase}が計画を超過している間、{name}は他に1件のプログラムでも稼働しています。',
+    ko: '{phase}이(가) 계획을 초과하는 동안 {name}은(는) 다른 프로그램 1개에서도 일하고 있습니다.',
+  },
+  clOversubNeutral: {
+    en: '{name} is on {phase} and is also active in {n} other programs.',
+    de: '{name} arbeitet an {phase} und ist außerdem in {n} weiteren Programmen aktiv.',
+    ja: '{name}は{phase}を担当し、他に{n}件のプログラムでも稼働しています。',
+    ko: '{name}은(는) {phase}을(를) 맡고 있으며 다른 프로그램 {n}개에서도 일하고 있습니다.',
+  },
+  clOversubNeutralOne: {
+    en: '{name} is on {phase} and is also active in 1 other program.',
+    de: '{name} arbeitet an {phase} und ist außerdem in 1 weiteren Programm aktiv.',
+    ja: '{name}は{phase}を担当し、他に1件のプログラムでも稼働しています。',
+    ko: '{name}은(는) {phase}을(를) 맡고 있으며 다른 프로그램 1개에서도 일하고 있습니다.',
   },
   clOversubMoves: {
-    en: 'If {phase} needs more of their time: {programs} can afford to give some back.',
-    de: 'Falls {phase} mehr Zeit braucht: {programs} können etwas abgeben.',
-    ja: '{phase}に時間が必要なら、{programs}から融通できます。',
-    ko: '{phase}에 시간이 더 필요하면 {programs}에서 돌려받을 수 있습니다.',
+    en: 'If {phase} needs more time from {name}: {programs} can afford to give some back.',
+    de: 'Falls {phase} mehr Zeit von {name} braucht: {programs} können etwas abgeben.',
+    ja: '{phase}に{name}の時間がもっと必要なら、{programs}から融通できます。',
+    ko: '{phase}에 {name}의 시간이 더 필요하면 {programs}에서 돌려받을 수 있습니다.',
   },
   clOversubTight: {
     en: '{programs} has no buffer to give.',

@@ -190,10 +190,16 @@
 }
 
 /* The one next-steps list: schedule and resource-contention recommendations
-   together (the separate Resource Constraints block was merged in). */
+   together (the separate Resource Constraints block was merged in). The list
+   indents FROM the paragraph above it — with list-style outside and no margin,
+   the markers hung out into the section's left edge and read as un-indented. */
 .stepList {
-  margin: 0.25rem 0 0;
-  padding-left: 1.25rem;
+  margin: 0.375rem 0 0 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.stepList li::marker {
+  color: var(--muted);
 }
 
 .step {
