@@ -18,10 +18,7 @@ export async function POST(req: NextRequest) {
   }
 
   const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '') || null;
-  // Behind the Cloud Run relay the original public host rides in a header, so the
-  // URL-audience check still matches what's configured in the Chat console.
-  const publicHost = req.headers.get('x-autoknow-original-host') ?? req.headers.get('host');
-  const expectedUrl = `https://${publicHost}/api/chat/events`;
+  const expectedUrl = `https://${req.headers.get('host')}/api/chat/events`;
   const verified = await verifyChatToken(bearer, expectedUrl);
   console.log(`[chat] event received — jwt ${verified ? 'verified' : 'REJECTED'}`);
   if (!verified) {

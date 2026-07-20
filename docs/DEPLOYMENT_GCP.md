@@ -307,11 +307,11 @@ of (a) needing a reputable standard-port HTTPS endpoint, solved on the laptop by
 Cloud Run relay + Tailscale funnel, and (b) a Workspace admin policy. Cloud Run fixes
 (a) outright and simplifies the whole thing:
 
-- **Drop the relay.** The app now has a stable public `https://autoknow-*.run.app/api/chat/events`
-  (or a custom domain). Point the Chat app's **App URL** straight at it. Delete
-  `infra/chat-relay` from the deployment; the `x-autoknow-original-host` shim in
-  `/api/chat/events` becomes unnecessary (the `host` header is already the real host) —
-  leave the code (it's harmless) or simplify it.
+- **Drop the relay — done (2026-07).** The app has a stable public
+  `https://autoknow-*.run.app/api/chat/events` (or the custom domain), and the
+  Chat app's **App URL** points straight at it. `infra/chat-relay` and the
+  `x-autoknow-original-host` shim in `/api/chat/events` have been removed (the
+  `host` header is the real host now); the relay lives on only in git history.
 - **The endpoint stays public + JWT-verified.** Chat authenticates with its own JWT
   (issuer `chat@system.gserviceaccount.com`, audience = `GOOGLE_PROJECT_NUMBER`),
   which the app verifies — not Cloud Run IAM. This is why the service is public-ingress

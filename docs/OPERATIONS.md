@@ -375,7 +375,7 @@ remain valid prerequisites but were NOT sufficient on their own.
    config that has been through heavy churn can end up in a corrupted server-side
    state that survives even disabling/re-enabling the API; a fresh project is a
    fresh app identity. If you do this, `GOOGLE_PROJECT_NUMBER` must be THAT
-   project's number, while the service account/relay stay wherever they are.
+   project's number, while the service account stays wherever it is.
 2. Set the project NUMBER in `.env` (the audience of the JWTs Chat sends):
 
 ```
@@ -386,15 +386,12 @@ GOOGLE_PROJECT_NUMBER=""   # gcloud projects describe <project-id> --format="val
    - App name `AutoKnow`, avatar URL, description.
    - **Interactive features** → App URL: `https://YOUR_PUBLIC_HOST/api/chat/events`.
      Google Chat calls this over public HTTPS — `localhost` will not work, and in
-     practice Chat's delivery is only dependable to standard-port, reputable hosts.
-     The proven laptop architecture (infra/chat-relay): a ~25-line Cloud Run relay
-     (public :443, `--no-invoker-iam-check` — avoids the allUsers-vs-org-policy
-     fight) forwards POSTs to a Tailscale Funnel (`tailscale funnel --bg
-     --https=10000 http://localhost:3100`), which reaches the app. The app's JWT
-     verification remains the sole security boundary; the relay forwards the
-     original host so URL-audience checks still match. Deploy:
-     `gcloud run deploy autoknow-relay --source infra/chat-relay
-     --allow-unauthenticated --region us-central1`.
+     practice Chat's delivery is only dependable to standard-port, reputable
+     hosts. In production this is simply the Cloud Run/custom-domain URL.
+     (The laptop-era relay — a Cloud Run proxy + Tailscale Funnel in
+     `infra/chat-relay`, plus an `x-autoknow-original-host` shim in the events
+     route — was removed 2026-07 once the app itself ran on Cloud Run; resurrect
+     it from git history if a laptop deployment ever needs Chat again.)
      Cache warning: Chat aggressively caches app metadata/config — after config
      changes, wait (up to an hour) before judging a test; rapid edit/reinstall
      cycles keep hitting stale state and can themselves produce
@@ -424,7 +421,7 @@ Scopes for the Chat paths, for reference:
   HTTP call* — the endpoint, tunnel, and config values are innocent; suspect the
   Workspace admin prerequisites above (or their propagation window).
 - Ground truth for "did Google ever call us": Cloud Run request logs —
-  `gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="autoknow-relay" AND httpRequest.requestMethod="POST"' --project=<relay-project> --freshness=4h`
+  `gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="autoknow" AND httpRequest.requestUrl:"/api/chat/events" AND httpRequest.requestMethod="POST"' --project=autoknow-prod-1895f1 --freshness=4h`
   (every POST with status + user agent; your own curl probes are identifiable).
 - The app-side route logs every arrival and the precise JWT verdict (no bearer /
   bad issuer / audience mismatch with both values / unknown key).
