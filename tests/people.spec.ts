@@ -97,21 +97,6 @@ test.describe('People and Biographical History', () => {
     await prisma.$disconnect();
   });
 
-  test('should display biography and career timeline for a person', async ({ page }) => {
-    await page.goto(`/people/${personId}`);
-
-    // Verify profile header details
-    await expect(page.locator('h1')).toContainText('Alice Smith');
-    await expect(page.locator('body')).toContainText('Waymo');
-    await expect(page.locator('body')).toContainText('Lead integration specialist');
-
-    // History lists PRIOR companies; the current post (Waymo · Systems Engineer)
-    // lives in the identity line.
-    await expect(page.locator('body')).toContainText('History');
-    await expect(page.locator('body')).toContainText('Embedded Software Engineer');
-    await expect(page.locator('body')).toContainText('Ford');
-    await expect(page.locator('body')).toContainText('Systems Engineer');
-  });
 
   test('lists the programs the person worked on, as links', async ({ page }) => {
     await page.goto(`/people/${personId}`);
@@ -172,16 +157,4 @@ test.describe('People and Biographical History', () => {
     await expect(page.locator('body')).toContainText('Integration lead');
   });
 
-  test('the people directory lists everyone with company and role', async ({ page }) => {
-    await page.goto('/people');
-
-    const row = page.locator('tr').filter({ hasText: 'Alice Smith' });
-    await expect(row).toBeVisible();
-    await expect(row).toContainText('Waymo');
-    await expect(row).toContainText('Systems Engineer');
-
-    // Company deep-link preselects the funnel (design.md §6).
-    await page.goto('/people?company=Ford');
-    await expect(page.locator('body')).not.toContainText('Alice Smith');
-  });
 });

@@ -24,6 +24,13 @@ warnings is the bar — the suite was once left red on main and it hid real bugs
 - **Playwright**: boots its own dev server on :3130 with a separate
   `.next-test` build dir and stubbed auth; `workers=1` is load-bearing (specs
   serially wipe the shared `*_test` DB). Never run two suites at once.
+- **Browser matrix is deliberate — don't widen it casually**: chromium runs the
+  full suite; webkit runs only the engine-sensitive specs (dialogs,
+  month/range inputs, SVG drag: `projects_flow`, `project_details`,
+  `phase_graph`, `needle`). Firefox was dropped and the screenshot generator is
+  opt-in (`npm run test:e2e:screens`) — e2e minutes are the most expensive
+  test minutes; a new spec joins the webkit list only if it exercises
+  engine-divergent behavior.
 - **e2e flake rule**: the first interaction after a page load is a
   hydration-guarded retry (`expect(async () => {...}).toPass()` — see
   `tests/project_details.spec.ts`). An unguarded first click is the #1 flake.

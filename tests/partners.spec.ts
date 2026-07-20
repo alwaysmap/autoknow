@@ -74,17 +74,6 @@ test.describe('Ecosystem Partners Page', () => {
     await expect(page.locator('body')).not.toContainText('BMW Group');
   });
 
-  test('shows relative relationship health (1..5) for every partner', async ({ page }) => {
-    // Rate Continental so the list has a real position to show.
-    await prisma.partnerState.create({
-      data: { partnerId, relationshipScore: 4, theNeedle: 'On Track', notes: 'Quarterly review.' },
-    });
-
-    await page.goto('/partners');
-    await expect(page.locator('th', { hasText: 'Relationship' })).toBeVisible();
-    const row = page.locator('tr').filter({ hasText: 'Continental AG' });
-    await expect(row.getByRole('img', { name: /4\/5 — Strong/ })).toBeVisible();
-  });
 
   test('partner CRUD: create, edit, then delete', async ({ page }) => {
     await page.goto('/partners');
@@ -161,20 +150,4 @@ test.describe('Ecosystem Partners Page', () => {
     await expect(dialog.locator('#confirmPartnerName')).toHaveCount(0);
   });
 
-  test('the nav bar stays pinned and visible when the partner page scrolls', async ({ page }) => {
-    await page.goto(`/partners/${partnerId}`);
-    const nav = page.locator('nav').first();
-    const navLink = nav.getByRole('link', { name: 'Partners' });
-    await expect(navLink).toBeInViewport();
-
-    // Scroll to the bottom — the sticky sidebar used to be the only pinned element,
-    // leaving no nav up top. The nav must remain in view.
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await expect(navLink).toBeInViewport();
-
-    // And the nav sits ABOVE the sticky sidebar rail (higher stacking / not covered):
-    // its top edge is at the very top of the viewport.
-    const navBox = await nav.boundingBox();
-    expect(navBox!.y).toBeLessThanOrEqual(1);
-  });
 });

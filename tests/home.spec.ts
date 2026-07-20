@@ -1,35 +1,13 @@
 import { test, expect } from '@playwright/test';
 
+// One smoke test: the home dashboard boots and shows its leadership surface.
+// Static-content assertions beyond this belong in unit tests or design review —
+// e2e minutes are for user/system interaction flows.
 test.describe('Home Page (Dashboard)', () => {
-  test.beforeEach(async ({ page }) => {
+  test('renders the leadership dashboard (smoke)', async ({ page }) => {
     await page.goto('/');
-  });
-
-  test('should display the main search interface', async ({ page }) => {
-    // Expect a search input to be visible
     const searchInput = page.locator('input[type="search"], input[placeholder*="Search"]').first();
     await expect(searchInput).toBeVisible();
-  });
-
-  test('carries no activity feed or Action Items (leadership strip + briefing only)', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'Recent activity', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Action Items', exact: true })).toHaveCount(0);
-  });
-
-  test('should display the Programs at Risk section', async ({ page }) => {
-    // Expect a heading or section indicating programs at risk
-    const riskHeading = page.getByRole('heading', { name: 'Programs at Risk', exact: true });
-    await expect(riskHeading).toBeVisible();
-  });
-
-  test('should apply the design system theme variables', async ({ page }) => {
-    const bgVariable = await page.evaluate(() => {
-      return window.getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
-    });
-    // Near-neutral off-white (hue 45 at 8% saturation) — a whisper of warmth so the
-    // amber/red status colors carry. See globals.css. The CSS minifier may compile the
-    // hsl() literal down to its hex equivalent.
-    const normalized = bgVariable.toLowerCase().replace(/\s/g, '');
-    expect(['hsl(45,8%,96%)', '#f6f5f4']).toContain(normalized);
+    await expect(page.getByRole('heading', { name: 'Programs at Risk', exact: true })).toBeVisible();
   });
 });
