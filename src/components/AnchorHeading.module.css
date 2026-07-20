@@ -2,18 +2,26 @@
    globals.css applies `* { padding: 0; margin: 0 }`, so spacing here is
    explicit rather than inherited from UA heading defaults. */
 
+/* The ROW is the block-level unit and owns the spacing below the heading.
+   Any margin left on the h2 itself lands INSIDE the flex line, so centring
+   measures the heading's margin box and drops the ⓘ/# below the text — which
+   is exactly what page rules like `.historySection h2 { margin: 0 0 8px }`
+   were doing. */
 .row {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  margin-bottom: 0.5rem;
 }
 
-/* scroll-margin belongs on the element the browser actually scrolls to — the
-   h2 carries the id, so putting it on the wrapper left deep links parked
-   underneath the sticky nav. */
-.heading {
+/* `.row .heading` (0,1,1) is deliberate: it has to outrank page-level
+   descendant rules (`.historySection h2`) that set heading margins.
+   scroll-margin sits here, not on the row, because the h2 carries the id and
+   is what the browser scrolls to. */
+.row .heading {
   margin: 0;
   scroll-margin-top: calc(var(--nav-h) + 0.75rem);
+  line-height: 1.2;
 }
 
 .anchor {
