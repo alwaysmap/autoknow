@@ -206,7 +206,7 @@ export default function ProjectMetaHeader({
             <label style={{ display: 'block', fontSize: 13 }}>
               <input type="checkbox" name="hasDigitalKey" defaultChecked={hasDigitalKey} /> {t(locale, 'productDigitalKey')}
             </label>
-            <label>
+            <label style={{ display: 'block', fontSize: 13 }}>
               <input type="checkbox" name="hasAap" defaultChecked={hasAap} /> {t(locale, 'productAap')}
             </label>
           </div>
