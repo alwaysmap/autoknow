@@ -56,6 +56,12 @@
   --bad: #c5221f;       --bad-soft: #feebe7;
   --crit: #a50e0d;      --crit-soft: #fce8e6;
   --info: #1a73e8;      --info-ink: #1557b0;    --info-soft: #e8f0fe;
+  /* The dial face behind a gauge's sweep. Deliberately near-WHITE in BOTH themes
+     (2026-07-20, user call): a real instrument has a light face whatever the light
+     in the cabin, and it is what makes the coloured sweep read. This is the one
+     surface that does not follow the page into the dark. */
+  --gauge-face: #ffffff;
+
   /* Entity-kind inks (feed/search result types). These are IDENTITY colours, not
      health — they say what a row is, never how it is doing. Tokenised because the
      hexes they replace were chosen against a light page and rendered at 1.7:1 on
@@ -141,6 +147,10 @@
   --crit: #ff9d94;      --crit-soft: hsl(4, 36%, 23%);
   --info: #8ab4f8;      --info-ink: #a8c7fa;    --info-soft: hsl(217, 28%, 27%);
   --link: #8ab4f8;      --link-hover: #b3cefb;
+
+  /* Stays light on the dark theme — see the token's note. Warmed a shade off pure
+     white so it sits in the palette rather than glaring out of it. */
+  --gauge-face: #f2efe9;
 
   /* Kind inks lifted for a dark ground (>= 6.5:1 on both dark themes). */
   --kind-partner: #7fc79b;

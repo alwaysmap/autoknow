@@ -2,7 +2,7 @@
 
 import type { FeedKind } from '../lib/feed';
 import { t, type Locale, type StringKey } from '../lib/i18n';
-import styles from './KindBox.module.css';
+import ClassBox from './ClassBox';
 
 // What a result IS, as a boxed readout. One implementation for both search
 // surfaces — the suggestion dropdown and the full result list — so the two can't
@@ -37,9 +37,11 @@ export const KIND_COLOR: Record<FeedKind, string> = {
 };
 
 export default function KindBox({ kind, locale }: { kind: FeedKind; locale: Locale }) {
+  // A result's kind is a CLASS ("this row is a Program"), so it takes the box
+  // treatment; the identity ink is the only thing KindBox adds over ClassBox.
   return (
-    <span className={styles.box} style={{ color: KIND_COLOR[kind] }}>
-      {t(locale, KIND_KEY[kind])}
+    <span style={{ color: KIND_COLOR[kind] }}>
+      <ClassBox>{t(locale, KIND_KEY[kind])}</ClassBox>
     </span>
   );
 }

@@ -83,7 +83,7 @@ export function Gauge({ progress, color, prevProgress, prevColor }: {
   return (
     <g>
       {/* track container, the surface colour with a thin outline */}
-      <path data-track d={ribbon(0, 1, BANDH)} fill="var(--paper)" stroke="var(--border, #d6d6d6)" strokeWidth={1.4} {...cap} />
+      <path data-track d={ribbon(0, 1, BANDH)} fill="var(--gauge-face)" stroke="var(--border, #d6d6d6)" strokeWidth={1.4} {...cap} />
       {/* graticules held entirely inside the band */}
       {TICKS.map((t, i) => {
         const o = polar(degAt(t), R + BANDH - 1.4);

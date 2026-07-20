@@ -5,6 +5,7 @@ import { useTableUrlSync } from '../../lib/useTableUrlSync';
 import type { TableSort } from '../../lib/tableUrlState';
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
+import ClassBox from '../../components/ClassBox';
 import { NewPartnerButton } from '../../components/PartnerEditor';
 import KebabMenu from '../../components/KebabMenu';
 import { RelationshipCell } from '../../components/RelationshipScale';
@@ -200,7 +201,7 @@ export default function PartnersClient({ partners, currentUser, people, relation
                       className={styles.typeFilterBtn}
                       title={t(locale, 'filterByType', { t: p.type })}
                     >
-                      <span className={styles.typeText}>{p.type}</span>
+                      <ClassBox className={styles.classInk}>{p.type}</ClassBox>
                     </button>
                   ) : (
                     <span className={styles.typeText}>—</span>
@@ -213,7 +214,7 @@ export default function PartnersClient({ partners, currentUser, people, relation
                       className={styles.typeFilterBtn}
                       title={t(locale, 'filterColumn', { c: t(locale, 'regionLabel') })}
                     >
-                      <span className={styles.typeText}>{p.region}</span>
+                      <ClassBox className={styles.classInk}>{p.region}</ClassBox>
                     </button>
                   ) : (
                     <span className={styles.typeText}>—</span>

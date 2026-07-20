@@ -235,3 +235,23 @@
     gap: 0.75rem;
   }
 }
+
+/* Instrument: the page title's rule is a graticule that runs from after the
+   title and its affordances to the end of the line — the same shape AnchorHeading
+   gives every <h2>, so page titles and section titles decorate identically. The
+   border keeps its place in the box model and only its ink moves, so switching
+   styles never shifts layout. */
+:global(:root[data-style='instrument']) .header {
+  border-bottom-color: transparent;
+}
+
+:global(:root[data-style='instrument']) .header::after {
+  content: '';
+  flex: 1 1 1.5rem;
+  min-width: 1.5rem;
+  align-self: center;
+  height: 0.375rem;
+  margin-left: 0.75rem;
+  background-image: var(--graticule);
+  background-repeat: repeat-x;
+}

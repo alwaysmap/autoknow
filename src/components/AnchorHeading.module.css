@@ -12,6 +12,10 @@
   align-items: center;
   gap: 0.25rem;
   margin-bottom: 0.5rem;
+  /* Full width even when the row is itself a flex ITEM: shrink-wrapped, the
+     trailing graticule had only the leftover 40px to fill, so one heading's rule
+     was a stub while its neighbours ran the width of the page. */
+  width: 100%;
 }
 
 /* `.row .heading` (0,1,1) is deliberate: it has to outrank page-level

@@ -138,6 +138,13 @@ tables) so nothing has to be relearned page to page.
   the only filter allowed outside the table, and page-level deep links
   (`?minRisk=…`, `?filter=active`) initialize column filters rather than adding
   widgets.
+* **BOX vs PILL is a rule, not a per-table choice** (2026-07-20, user call):
+  a **box** (squared corners, `ClassBox`) marks a CLASS the thing shares with
+  others — Partner Type, Region, a result's kind. A **pill** (fully rounded)
+  marks a PROPER NOUN, one specific named entity — "Bosch", a person. The SHAPE
+  carries the distinction, so it survives greyscale and colour blindness. Names
+  in table cells stay quiet links: the rule says which decoration to use *when
+  you decorate*, not that every name must be decorated.
 * **Result types are BOXED readouts, not coloured words** (`KindBox`, shared by
   the suggestion dropdown and the full result list so they cannot drift). The
   inks are `--kind-*` tokens: the hexes they replace were picked against a light
@@ -285,10 +292,20 @@ combination must work:
   handles — CSS beats presentation attributes, so a variant re-inks the dial
   without widening the primitive's API. Its geometry is untouched.
 * **The graticule has to appear where headings do, or the style does not read.**
-  It rules trailing every `AnchorHeading` (so every `<h2>` in the app) and
-  underlines every `DataTable` header, not just the nav. In both cases the border
-  keeps its place in the box model and only its ink moves to the tick pattern, so
-  switching styles never shifts layout.
+  Every heading follows one order: **text → affordances (ⓘ, menus) → graticule to
+  the end of the line.** It rules trailing every `AnchorHeading` (so every `<h2>`),
+  every page title row, and underlines every `DataTable` header — not just the
+  nav. In both cases the border keeps its place in the box model and only its ink
+  moves, so switching styles never shifts layout. Two traps: the heading row needs
+  `width: 100%` or a shrink-wrapped row gives a 40px stub of a rule, and the
+  `::after` belongs on the TITLE ROW, never on a `flex-direction: column` header —
+  there it becomes a row of its own and drops a tick fragment mid-header.
+* **Every search bar gets the rounding and the dial**, not just the hero, and the
+  dial lights as soon as suggestions appear — not only on hover.
+* **The gauge face is near-WHITE in both themes** (`--gauge-face`). It is the one
+  surface that does not follow the page into the dark: a real instrument has a
+  light face whatever the light in the cabin, and it is what makes the coloured
+  sweep read.
 
 ---
 

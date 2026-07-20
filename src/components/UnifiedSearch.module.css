@@ -19,8 +19,8 @@
   min-width: 0;
   font: inherit;
   font-size: 0.875rem;
-  padding: 0.625rem 0.75rem;
-  border-radius: 0.5rem;
+  padding: 0.625rem 1rem;
+  border-radius: 1.25rem;
   border: 1px solid var(--border);
   background: var(--white);
   color: var(--fg);
@@ -41,7 +41,7 @@
   font: inherit;
   font-size: 0.875rem;
   padding: 0.625rem 1.125rem;
-  border-radius: 0.5rem;
+  border-radius: 1.25rem;
   cursor: pointer;
   border: 1px solid var(--border);
   background: var(--white);

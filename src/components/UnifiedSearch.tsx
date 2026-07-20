@@ -200,7 +200,9 @@ export default function UnifiedSearch({
           >
             {/* The Instrument style's one graphic. Rendered in both styles and
                 revealed by CSS, like every other style-conditional flourish. */}
-            {hero && <span data-inst-only className={styles.gaugeSlot}><InstrumentGauge active={ctaLive} /></span>}
+            <span data-inst-only className={styles.gaugeSlot}>
+              <InstrumentGauge active={ctaLive || showSuggest} />
+            </span>
             {loading ? t(locale, 'searchingBtn') : t(locale, 'searchBtn')}
           </button>
         </form>
