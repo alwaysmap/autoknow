@@ -237,10 +237,10 @@
 }
 
 .briefingLink {
-  color: var(--p-600);
+  color: var(--link);
   text-decoration: underline;
 }
 
 .briefingLink:hover {
-  color: var(--p-700);
+  color: var(--link-hover);
 }

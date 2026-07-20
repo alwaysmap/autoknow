@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { NeedleGaugeSvg } from './NeedleGauge';
+import { NeedleGaugeSvg } from './NeedleGaugeSvg';
 import { phaseColor } from '../lib/phase';
 import { t, statusKey, type Locale } from '../lib/i18n';
 import type { PartnerProgram } from '../lib/partnerPrograms';

@@ -4,10 +4,13 @@
   gap: 12px;
 }
 
+/* Gauge left, words right — and every word in that right column starts on the
+   SAME left edge (label, author, date, note), top-aligned so multi-line notes
+   don't drag the gauge to the middle of the card. */
 .card {
   display: flex;
   gap: 18px;
-  align-items: center;
+  align-items: flex-start;
   padding: 14px 18px;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -40,6 +43,7 @@
 .body {
   flex: 1 1 auto;
   min-width: 0;
+  text-align: left;
 }
 
 .head {
@@ -55,6 +59,12 @@
 }
 
 .date {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Provenance: who filed the update. Human-written, so no ✦ mark (design.md §8). */
+.author {
   font-size: 12px;
   color: var(--muted);
 }

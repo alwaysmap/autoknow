@@ -43,7 +43,6 @@ export default function ProjectStatusDashboard({
             targetId={projectId}
             scope="project"
             history={history}
-            historyHref={`/history/project/${projectId}`}
           />
         </div>
 

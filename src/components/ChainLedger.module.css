@@ -219,12 +219,12 @@
 
 .step a,
 .step button {
-  color: var(--p-600);
+  color: var(--link);
 }
 
 .entityLink,
 .phaseLink {
-  color: var(--p-600);
+  color: var(--link);
   cursor: pointer;
   font-weight: 400;
 }

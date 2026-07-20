@@ -155,7 +155,7 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
       subtitle: meta(s.project.name, s.source, true),
       detail: created ? null : clampDetail(s.notes),
       // Metric changes link to the value-over-time chart; creation links to the program.
-      href: created ? `/programs/${s.project.id}` : `/history/project/${s.project.id}`,
+      href: created ? `/programs/${s.project.id}` : `/programs/${s.project.id}#status-history`,
       external: false,
       timestamp: s.timestamp.toISOString(),
       needle: created ? null : {
@@ -230,7 +230,7 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
         title: 'Relationship update',
         subtitle: meta(scope.kind === 'ecosystem' ? s.partner.name : null, s.source, true),
         detail: clampDetail(s.notes),
-        href: `/history/partner/${s.partner.id}`,
+        href: `/partners/${s.partner.id}`,
         external: false,
         timestamp: s.timestamp.toISOString(),
         relationship: {

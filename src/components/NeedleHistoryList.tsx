@@ -1,4 +1,4 @@
-import { NeedleGaugeSvg } from './NeedleGauge';
+import { NeedleGaugeSvg } from './NeedleGaugeSvg';
 import { RelationshipFace, RelationshipNoValue } from './RelationshipScale';
 import Markdown from './Markdown';
 import { parseHealth, healthColor, HEALTH_KEY } from '../lib/health';
@@ -80,6 +80,9 @@ export default function NeedleHistoryList({
                 ) : (
                   <span className={styles.health} style={{ color: healthColor(health) }}>{t(locale, HEALTH_KEY[health])}</span>
                 )}
+                {/* who filed it, then when — provenance before timestamp so the
+                    eye picks up the author while scanning the log */}
+                {c.source && <span className={styles.author}>{t(locale, 'byAuthor', { name: c.source })}</span>}
                 <time className={styles.date} dateTime={c.timestamp}>
                   {localDate(c.timestamp, locale, { month: 'short', day: 'numeric', year: 'numeric' })}
                 </time>

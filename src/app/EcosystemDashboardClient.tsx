@@ -6,7 +6,7 @@ import DataTable from '../components/DataTable';
 
 import styles from './ecosystem-summary/EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../lib/needle';
-import { NeedleGaugeSvg } from '../components/NeedleGauge';
+import { NeedleGaugeSvg } from '../components/NeedleGaugeSvg';
 import { sopOutlook } from '../lib/sop';
 import { deriveProgramStatus, visibleInLists } from '../lib/lifecycle';
 import { healthKey, healthOrder } from '../lib/health';

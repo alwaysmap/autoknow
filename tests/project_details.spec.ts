@@ -89,11 +89,20 @@ test.describe('Project Details and Action Item Operations', () => {
   test('should allow updating program progress + health via the gauge dialog', async ({ page }) => {
     await page.goto(`/programs/${projectId}`);
 
-    // The Progress & Health card in the status dashboard
-    const card = page.locator('[class*="summaryCard"]').filter({ hasText: 'Progress & Health' }).filter({ has: page.getByRole('button', { name: 'Update', exact: true }) });
-    await card.getByRole('button', { name: 'Update', exact: true }).click();
+    // The Progress & Health card: the row offers DETAIL, and the update form
+    // opens inside that popup (see NeedleGauge / needle.spec.ts).
+    const card = page.locator('[class*="summaryCard"]')
+      .filter({ has: page.getByRole('button', { name: 'Detail', exact: true }) });
+    const dialog = page.getByTestId('needle-detail');
+    await expect(async () => {
+      if (!(await dialog.isVisible())) {
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await card.getByRole('button', { name: 'Detail', exact: true }).click({ timeout: 2000 });
+      }
+      await expect(dialog).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+    await dialog.getByRole('button', { name: 'Update', exact: true }).click();
 
-    const dialog = page.locator('dialog[open]');
     await dialog.locator('input[type="range"]').fill('85');
     await dialog.locator('button:has-text("Concerned")').click();
     await dialog.locator('[data-testid="note-editor"] [contenteditable="true"]').click();
@@ -101,7 +110,7 @@ test.describe('Project Details and Action Item Operations', () => {
     await dialog.locator('button:has-text("Save Update")').click();
 
     // Verify the gauge card and activity reflect the update
-    await expect(page.locator('dialog[open]')).toHaveCount(0);
+    await expect(dialog.locator('form')).toHaveCount(0);
     await expect(card).toContainText('Concerned', { timeout: 10000 });
     await expect(page.locator('body')).toContainText('Critical timeline blockers piling up');
   });

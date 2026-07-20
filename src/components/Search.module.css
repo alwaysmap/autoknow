@@ -112,7 +112,7 @@
 .allResultsLink {
   font-size: 12px;
   font-weight: 400;
-  color: var(--p-600);
+  color: var(--link);
   text-decoration: none;
 }
 

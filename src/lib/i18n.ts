@@ -1225,6 +1225,14 @@ const STRINGS = {
     ko: '상태 업데이트',
   },
   addUpdate: { en: 'Add update', de: 'Update hinzufügen', ja: '更新を追加', ko: '업데이트 추가' },
+  byAuthor: { en: 'by {name}', de: 'von {name}', ja: '{name} による', ko: '{name} 작성' },
+  detail: { en: 'Detail', de: 'Details', ja: '詳細', ko: '상세' },
+  needleDetailTitle: {
+    en: 'Progress & health — full history',
+    de: 'Fortschritt & Status — vollständiger Verlauf',
+    ja: '進捗と健全性 — 全履歴',
+    ko: '진행 및 상태 — 전체 기록',
+  },
   close: { en: 'Close', de: 'Schließen', ja: '閉じる', ko: '닫기' },
 
   // ---- section deep links (AnchorHeading) ----

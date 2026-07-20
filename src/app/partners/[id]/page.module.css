@@ -157,12 +157,12 @@
   text-decoration: none;
 }
 .factLink:hover {
-  color: var(--p-600);
+  color: var(--link);
   text-decoration: underline;
 }
 
 .externalLink {
-  color: var(--p-600);
+  color: var(--link);
   text-decoration: none;
   font-weight: 400;
 }
@@ -205,7 +205,7 @@
   font-weight: 400;
 }
 .personLink:hover {
-  color: var(--p-600);
+  color: var(--link);
   text-decoration: underline;
 }
 .personRole {

@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getStatusHistory, getNeedleHistory, getHillHistory, type HistoryType } from '../../../../lib/history';
-import NeedleHistoryList from '../../../../components/NeedleHistoryList';
+import { getStatusHistory, getHillHistory, type HistoryType } from '../../../../lib/history';
 import HillHistoryList from '../../../../components/HillHistoryList';
 import BackLink from '../../../../components/BackLink';
 import { phaseColor } from '../../../../lib/phase';
@@ -9,16 +8,13 @@ import { t } from '../../../../lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
-// A status-update LOG, nothing more: every needle update (programs/partners) or
-// hill update (phases), newest first, as list cards. No chart — the gauges on the
-// entity's own page carry the visual; this page is for reading the words.
+// The hill-update LOG for a PHASE, newest first, as list cards. Programs and
+// partners no longer have a page here (2026-07-20): their needle history is the
+// detail popup on the entity's own page, reachable at
+// /programs/:id#status-history — one place to read the words and add an update.
 
-const VALID: HistoryType[] = ['project', 'phase', 'partner'];
-const fallbackHref = (type: HistoryType, id: number): string => {
-  if (type === 'project') return `/programs/${id}`;
-  if (type === 'partner') return `/partners/${id}`;
-  return '/'; // phases have no standalone page
-};
+const VALID: HistoryType[] = ['phase'];
+const fallbackHref = (_type: HistoryType, _id: number): string => '/'; // phases have no standalone page
 
 export default async function HistoryPage(props: { params: Promise<{ type: string; id: string }> }) {
   const { type, id } = await props.params;
@@ -30,11 +26,7 @@ export default async function HistoryPage(props: { params: Promise<{ type: strin
 
   // Phases are tracked with the hill chart; programs with the needle; partners with
   // the 1..7 relationship scale (same state rows, different rendering).
-  const [history, needle, hill] = await Promise.all([
-    getStatusHistory(ht, nid),
-    ht === 'phase' ? Promise.resolve(null) : getNeedleHistory(ht, nid),
-    ht === 'phase' ? getHillHistory(nid) : Promise.resolve(null),
-  ]);
+  const [history, hill] = await Promise.all([getStatusHistory(ht, nid), getHillHistory(nid)]);
   if (!history) return notFound();
 
   return (
@@ -46,16 +38,12 @@ export default async function HistoryPage(props: { params: Promise<{ type: strin
         </div>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{history.title}</h1>
         <p style={{ color: 'var(--muted, #666)', fontSize: 14, marginTop: 4 }}>
-          {ht === 'phase' ? t(locale, 'historyHillIntro') : ht === 'partner' ? t(locale, 'historyRelIntro') : t(locale, 'historyNeedleIntro')}
+          {t(locale, 'historyHillIntro')}
         </p>
       </header>
 
       <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 12 }}>{t(locale, 'statusUpdates')}</h2>
-      {ht === 'phase' ? (
-        <HillHistoryList changes={hill?.changes ?? []} color={phaseColor(nid)} emptyLabel={t(locale, 'noChangesRecorded')} locale={locale} />
-      ) : (
-        <NeedleHistoryList changes={needle?.changes ?? []} relationship={ht === 'partner'} emptyLabel={t(locale, 'noChangesRecorded')} locale={locale} />
-      )}
+      <HillHistoryList changes={hill?.changes ?? []} color={phaseColor(nid)} emptyLabel={t(locale, 'noChangesRecorded')} locale={locale} />
     </div>
   );
 }

@@ -121,14 +121,14 @@
 }
 
 .telLink {
-  color: var(--p-600);
+  color: var(--link);
   text-decoration: none;
   font-weight: 400;
 }
 
 .telLink:hover {
   text-decoration: underline;
-  color: var(--p-700);
+  color: var(--link-hover);
 }
 
 .activeProgramsLink, .lifetimeProgramsLink {
@@ -138,7 +138,7 @@
 }
 
 .activeProgramsLink:hover, .lifetimeProgramsLink:hover {
-  color: var(--p-600);
+  color: var(--link);
   text-decoration: underline;
 }
 

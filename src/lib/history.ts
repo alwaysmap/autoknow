@@ -41,9 +41,11 @@ export interface NeedleChange {
   score?: number | null;
   previousScore?: number | null;
   notes: string | null;
+  /** Who filed it — the handle the action stamped (lib/session). */
+  source: string | null;
 }
 
-type RawState = { theNeedle: string | null; hillChartProgress: number | null; relationshipScore?: number | null; notes: string | null; timestamp: Date };
+type RawState = { theNeedle: string | null; hillChartProgress: number | null; relationshipScore?: number | null; notes: string | null; source?: string | null; timestamp: Date };
 
 // Turn ascending states into changes ordered most-recent-first, each carrying the prior
 // state so the mini gauge can draw the "previous" marker.
@@ -58,6 +60,7 @@ const toChanges = (asc: RawState[]): NeedleChange[] =>
       score: s.relationshipScore ?? null,
       previousScore: i > 0 ? asc[i - 1].relationshipScore ?? null : null,
       notes: s.notes,
+      source: s.source ?? null,
     }))
     .reverse();
 
@@ -65,7 +68,7 @@ export async function getNeedleHistory(
   type: HistoryType,
   id: number,
 ): Promise<{ title: string; changes: NeedleChange[] } | null> {
-  const select = { theNeedle: true, hillChartProgress: true, notes: true, timestamp: true } as const;
+  const select = { theNeedle: true, hillChartProgress: true, notes: true, source: true, timestamp: true } as const;
   if (type === 'project') {
     const p = await prisma.project.findUnique({ where: { id }, select: { name: true, states: { orderBy: { timestamp: 'asc' }, select } } });
     return p ? { title: p.name, changes: toChanges(p.states) } : null;

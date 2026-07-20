@@ -141,7 +141,7 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
       ev.push(
         'needle',
         `${i === 0 ? 'CURRENT ' : ''}"${project.name}" program update ${fmtDate(s.timestamp)}: health ${parseHealth(s.theNeedle)}${s.notes ? ` — ${s.notes}` : ''}${s.source ? ` (by ${s.source})` : ''}`,
-        { label: `Weekly update · ${fmtDate(s.timestamp)}`, href: `/history/project/${projectId}`, external: false },
+        { label: `Weekly update · ${fmtDate(s.timestamp)}`, href: `/programs/${projectId}#status-history`, external: false },
       );
     });
 
@@ -197,7 +197,7 @@ async function gatherPartnerEvidence(partnerId: number, windowStart: Date, ev: E
       ev.push(
         'relationship',
         `${i === 0 ? 'CURRENT ' : ''}relationship update ${fmtDate(s.timestamp)}: score ${deriveScore(s)}/5 (1=critical, 5=exemplary)${s.notes ? ` — ${s.notes}` : ''}${s.source ? ` (by ${s.source})` : ''}`,
-        { label: `Relationship · ${fmtDate(s.timestamp)}`, href: `/history/partner/${partnerId}`, external: false },
+        { label: `Relationship · ${fmtDate(s.timestamp)}`, href: `/partners/${partnerId}`, external: false },
       );
     });
 
@@ -287,7 +287,7 @@ async function gatherEcosystemEvidence(windowStart: Date, ev: EvidenceList) {
     ev.push(
       'needle',
       `"${s.project.name}" update ${fmtDate(s.timestamp)}: health ${parseHealth(s.theNeedle)} — ${s.notes}`,
-      { label: `Weekly update · ${s.project.name}`, href: `/history/project/${s.project.id}`, external: false },
+      { label: `Weekly update · ${s.project.name}`, href: `/programs/${s.project.id}#status-history`, external: false },
     );
   }
   for (const c of recentContext) {

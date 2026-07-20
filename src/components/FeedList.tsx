@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { FeedItem, FeedKind } from '../lib/feed';
 import Markdown from './Markdown';
-import { NeedleGaugeSvg } from './NeedleGauge';
+import { NeedleGaugeSvg } from './NeedleGaugeSvg';
 import { RelationshipFace, RelationshipNoValue } from './RelationshipScale';
 import { parseScore } from '../lib/relationship';
 import { PhaseHillSvg } from './PhaseHillGauge';
