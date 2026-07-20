@@ -71,6 +71,7 @@ local use):
 | Script | What it does |
 |---|---|
 | `dev` / `build` / `start` | Next.js dev server / production build / serve the build |
+| `demo` | One command: per-worktree seeded demo DB + `next dev` with stub auth + mock data (`--reseed` to refresh) |
 | `lint` / `typecheck` | ESLint / `tsc --noEmit` |
 | `test` (`:watch`, `:coverage`) | Jest unit + DB tests against the `*_test` database |
 | `test:e2e` (`:ui`) | Playwright: full suite on Chromium + engine-sensitive specs on WebKit (own server on a per-worktree port, own per-worktree `*_test` DB) |

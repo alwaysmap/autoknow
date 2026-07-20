@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "demo": "ts-node scripts/dev/demo.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

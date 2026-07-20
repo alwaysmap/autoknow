@@ -4,8 +4,16 @@ Every dev, test, database, and CI task is an `npm run` script — the catalog
 (with a system-architecture diagram) is in [README.md](README.md). Use the
 scripts; do not invoke `next`/`jest`/`playwright`/`prisma` or `scripts/**`
 directly. The GitHub workflows go through the same scripts (`ci:*`). Quick core:
-`dev` · `lint` · `typecheck` · `test` · `test:e2e` · `evidence` (the full gate)
-· `db:up` / `db:migrate` / `db:push` (local only) / `db:studio`.
+`dev` · `demo` (one-command seeded demo server, below) · `lint` · `typecheck` ·
+`test` · `test:e2e` · `evidence` (the full gate) · `db:up` / `db:migrate` /
+`db:push` (local only) / `db:studio` · `db:test:clean` (drop stray test DBs).
+
+**Want the app running with realistic data?** `npm run demo` — one command:
+a per-worktree `autoknow_<token>_demo` database, schema synced, `next dev` with a
+stub signed-in identity, and mock data seeded through the app's own API routes.
+Idempotent (`--reseed` to refresh). This is the scripted replacement for the old
+manual "scratch DB + seed via /admin" recipe. (Agents that can't hold a foreground
+server use the `preview_start` path in the `ui-design` skill instead.)
 
 # Task skills — load context per task, not per session
 

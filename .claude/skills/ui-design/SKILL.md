@@ -41,12 +41,23 @@ and the ✦ AI-provenance mark (§8).
    first real page load. (Deployed-app checks need the `alwaysmap.com`
    sign-in — identity rules in AGENTS.md.)
 
-   **Worktree preview recipe** (verified 2026-07-20): run the dev server with
+   **Seeded demo in one command: `npm run demo`** — a per-worktree
+   `autoknow_<token>_demo` DB, schema synced, `next dev` with a stub signed-in
+   identity, mock data seeded via the app's own API routes, on a per-worktree
+   port ~3600 (`--reseed` to refresh). That is the whole recipe below, scripted;
+   reach for it first. `scripts/dev/demo.ts` is the source of truth for the env.
+
+   **Worktree preview recipe** — what `npm run demo` automates, and the path an
+   AGENT uses when it can't hold a foreground server (drive via `preview_start`
+   + `.claude/launch.json`): run the dev server with
    `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` set EMPTY (unconfigured auth = stub
    signed-in identity, no Google login) and `DATABASE_URL` pointed at a
    **scratch DB you create** — `CREATE DATABASE x` + `prisma migrate deploy`,
-   seed via SQL/admin. NEVER this worktree's own `*_test` DB (e2e wipes it
-   mid-demo — AGENTS lesson 9; the e2e DB/port are now per-worktree, see
+   then seed by POSTing `{"mode":"mock"}` to `/api/admin/seed` on the running
+   server (CLI `db:seed` can't: the seed runs through the API routes +
+   `server-only`), with `DESTRUCTIVE_DB_ALLOWED=<scratch-db>` set so the wipe
+   guard passes. NEVER this worktree's own `*_test` DB (e2e wipes it mid-demo —
+   AGENTS lesson 9; the e2e DB/port are now per-worktree, see
    `tests/helpers/worktree`). Ports: :3000 dev default, :3100 long-lived demo,
    e2e is a per-worktree port ~3130 — pick something else for the preview.
    `NEXT_DIST_DIR` resolves RELATIVE to the project root even
