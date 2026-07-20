@@ -314,10 +314,10 @@ colors). Each rung's reactions are computed, ordered by least disruption:
 
 1. **No action needed** — "Nothing needs to change today." Levers listed as
    available, not urged.
-2. **Have a plan ready** — "Worth deciding now what gives if this continues:"
-   followed by the computed options (which of Alice's programs have slack, the
-   next handoff to agree, and — if the needle still shows On Track — "consider
-   declaring *Some Risk* so leadership sees this coming").
+2. **Have a plan ready** — "Next Step:" followed by the computed options
+   (which of Alice's programs have slack, the next handoff to agree, and — if
+   the needle still shows On Track — "consider declaring *Some Risk* so
+   leadership sees this coming").
 3. **Intervene now** — "Time to act. In order of least disruption:" move
    named time from the named programs that can afford it; agree the named
    handoff; and if those don't close the gap, **"declare the program

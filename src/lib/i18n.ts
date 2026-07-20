@@ -1270,10 +1270,10 @@ const STRINGS = {
     ko: '오늘은 아무것도 바꿀 필요가 없습니다.',
   },
   clJudgePlan: {
-    en: 'Worth deciding now what gives if this continues:',
-    de: 'Jetzt festlegen, was nachgibt, falls das anhält:',
-    ja: 'この傾向が続いた場合に備え、今のうちに決めておくべきこと:',
-    ko: '이 추세가 계속될 경우를 대비해 지금 정해 둘 것:',
+    en: 'Next Step:',
+    de: 'Nächster Schritt:',
+    ja: '次のステップ:',
+    ko: '다음 단계:',
   },
   clJudgeAct: {
     en: 'Time to act. In order of least disruption:',
