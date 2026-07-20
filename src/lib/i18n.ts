@@ -1217,6 +1217,16 @@ const STRINGS = {
     ja: 'AI生成 — Geminiが保存済みソースから合成。マークのないテキストは人が書いたものです。',
     ko: 'AI 생성 — Gemini가 저장된 소스에서 합성. 표시가 없는 텍스트는 사람이 작성한 것입니다.',
   },
+  // ---- needle history popup ----
+  needleHistoryTitle: {
+    en: 'Status updates',
+    de: 'Statusupdates',
+    ja: 'ステータス更新',
+    ko: '상태 업데이트',
+  },
+  addUpdate: { en: 'Add update', de: 'Update hinzufügen', ja: '更新を追加', ko: '업데이트 추가' },
+  close: { en: 'Close', de: 'Schließen', ja: '閉じる', ko: '닫기' },
+
   // ---- section deep links (AnchorHeading) ----
   anchorLink: {
     en: 'Link to this section',

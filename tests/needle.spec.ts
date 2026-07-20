@@ -114,4 +114,49 @@ test.describe('Progress & Health gauge updates', () => {
     await expect(card).toContainText('Concerned');
     await expect(page.locator('body')).toContainText('Codec blockers piling up');
   });
+
+  test('needle History popup lists every update in full, and adds one', async ({ page }) => {
+    await page.goto(`/programs/${projectId}`);
+    const card = page.locator('[class*="summaryCard"]').filter({ hasText: 'Progress & Health' });
+
+    // The written note never sits beside the gauge — it is read here.
+    const historyDialog = page.locator('dialog[open]');
+    await expect(async () => {
+      if (!(await historyDialog.isVisible())) {
+        await card.getByRole('button', { name: 'History', exact: true }).click({ timeout: 2000 });
+      }
+      await expect(historyDialog).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+
+    // Full text of the prior update, not a truncation.
+    await expect(historyDialog).toContainText('Codec blockers piling up');
+
+    // Add update swaps this modal for the update one — never two open at once.
+    await historyDialog.getByRole('button', { name: 'Add update', exact: true }).click();
+    await expect(page.locator('dialog[open]')).toHaveCount(1);
+    const update = page.locator('dialog[open]');
+    await expect(update).toContainText('Weekly program update');
+
+    // The note stays required on this path too.
+    await update.locator('button:has-text("Save Update")').click();
+    await expect(update).toContainText('An update needs a note');
+
+    await update.locator('[data-testid="note-editor"] [contenteditable="true"]').click();
+    await page.keyboard.type('Codec supplier committed to a fix window.');
+    await update.locator('button:has-text("Save Update")').click();
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+
+    // Both updates are now in the log, newest first.
+    await expect(async () => {
+      if (!(await historyDialog.isVisible())) {
+        await card.getByRole('button', { name: 'History', exact: true }).click({ timeout: 2000 });
+      }
+      await expect(historyDialog).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+    await expect(historyDialog).toContainText('Codec supplier committed to a fix window.');
+    await expect(historyDialog).toContainText('Codec blockers piling up');
+
+    const states = await prisma.projectState.findMany({ where: { projectId }, orderBy: { timestamp: 'desc' } });
+    expect(states[0]?.notes).toContain('Codec supplier committed');
+  });
 });

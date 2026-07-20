@@ -4,6 +4,7 @@ import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import styles from './ProjectStatusDashboard.module.css';
 import NeedleGauge from './NeedleGauge';
+import type { NeedleChange } from '../lib/history';
 
 interface ProjectStatusDashboardProps {
   projectId: number;
@@ -12,6 +13,8 @@ interface ProjectStatusDashboardProps {
   previousProgress?: number | null;
   previousHealth?: string | null;
   updatedAt?: string | null;
+  /** Every recorded needle update, newest first — the History popup's content. */
+  history?: NeedleChange[];
 }
 
 export default function ProjectStatusDashboard({
@@ -21,6 +24,7 @@ export default function ProjectStatusDashboard({
   previousProgress,
   previousHealth,
   updatedAt,
+  history,
 }: ProjectStatusDashboardProps) {
   const locale = useLocale();
 
@@ -38,6 +42,8 @@ export default function ProjectStatusDashboard({
             updatedAt={updatedAt}
             targetId={projectId}
             scope="project"
+            history={history}
+            historyHref={`/history/project/${projectId}`}
           />
         </div>
 

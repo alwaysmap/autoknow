@@ -1,13 +1,16 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
+import Link from 'next/link';
 import styles from './NeedleGauge.module.css';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
+import NeedleHistoryList from './NeedleHistoryList';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import { updateNeedleStatus } from '../app/actions/needle';
 import { HEALTHS, healthColor, healthKey, parseHealth, type Health } from '../lib/health';
 import { localDate } from '../lib/dates';
+import type { NeedleChange } from '../lib/history';
 
 // Program status drawn as a Basecamp-style gauge: a WHITE track (a thick band with a
 // thin outline) whose health color fills up to the current progress, with graticules
@@ -30,6 +33,10 @@ const polar = (deg: number, r: number) => {
   return { x: CX + r * Math.cos(a), y: CY - r * Math.sin(a) };
 };
 const ptStr = (o: { x: number; y: number }) => `${o.x.toFixed(1)},${o.y.toFixed(1)}`;
+// Trig differs in the last ULP between the server runtime and the browser engine,
+// so raw coordinates hydrate as a mismatch (…906 vs …908) and React re-renders
+// every gauge. Paths already round via ptStr; bare attributes must too.
+const r2 = (v: number) => Math.round(v * 100) / 100;
 const TICKS = Array.from({ length: 9 }, (_, i) => i / 8); // ticks every 12.5%
 
 // A closed band (ribbon) between R±bandH over a progress range — the track and the fill.
@@ -82,7 +89,7 @@ function Gauge({ progress, color, prevProgress, prevColor }: {
       {TICKS.map((t, i) => {
         const o = polar(degAt(t), R + BANDH - 1.4);
         const inn = polar(degAt(t), R + BANDH - 1.4 - BANDH * 0.72);
-        return <line key={i} x1={o.x} y1={o.y} x2={inn.x} y2={inn.y} stroke="var(--muted, #9a948a)" strokeWidth={1.1} opacity={0.5} />;
+        return <line key={i} x1={r2(o.x)} y1={r2(o.y)} x2={r2(inn.x)} y2={r2(inn.y)} stroke="var(--muted, #9a948a)" strokeWidth={1.1} opacity={0.5} />;
       })}
       {/* health color fill, inset so a white margin shows to the border */}
       {p > 0.01 && <path d={ribbon(0, p, fillH)} fill={color} {...cap} />}
@@ -92,8 +99,8 @@ function Gauge({ progress, color, prevProgress, prevColor }: {
         const inn = polar(degAt(prevProgress), R - BANDH - 2);
         return (
           <>
-            <line x1={o.x} y1={o.y} x2={inn.x} y2={inn.y} stroke="#fff" strokeWidth={5.4} strokeLinecap="round" />
-            <line x1={o.x} y1={o.y} x2={inn.x} y2={inn.y} stroke={prevColor || color} strokeWidth={3} strokeLinecap="round" />
+            <line x1={r2(o.x)} y1={r2(o.y)} x2={r2(inn.x)} y2={r2(inn.y)} stroke="#fff" strokeWidth={5.4} strokeLinecap="round" />
+            <line x1={r2(o.x)} y1={r2(o.y)} x2={r2(inn.x)} y2={r2(inn.y)} stroke={prevColor || color} strokeWidth={3} strokeLinecap="round" />
           </>
         );
       })()}
@@ -136,12 +143,18 @@ interface NeedleGaugeProps {
   targetId: number;
   scope?: 'project' | 'partner';
   editable?: boolean;
+  /** Every recorded update, newest first — the History popup's content. */
+  history?: NeedleChange[];
+  /** Where the full-page log lives (/history/project/:id). */
+  historyHref?: string;
 }
 
 export default function NeedleGauge({
   progress, health, previousProgress, previousHealth, updatedAt, targetId, scope = 'project', editable = true,
+  history, historyHref,
 }: NeedleGaugeProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const historyRef = useRef<HTMLDialogElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const currentHealth = parseHealth(health);
 
@@ -155,6 +168,9 @@ export default function NeedleGauge({
   const open = () => { setDragProgress(progress); setPickHealth(currentHealth); dialogRef.current?.showModal(); };
   const close = () => dialogRef.current?.close();
   const onBackdrop = (e: React.MouseEvent<HTMLDialogElement>) => { if (e.target === dialogRef.current) dialogRef.current?.close(); };
+  // Adding from the history popup swaps one modal for the other — two open
+  // <dialog>s would stack their scrims and trap focus in the wrong one.
+  const openUpdateFromHistory = () => { historyRef.current?.close(); open(); };
 
   const setFromPointer = (clientX: number, clientY: number) => {
     if (!svgRef.current) return;
@@ -180,8 +196,39 @@ export default function NeedleGauge({
       <div className={styles.statusRow}>
         <span className={styles.statusValue} style={{ color: healthColor(currentHealth) }}>{t(locale, healthKey(currentHealth))}</span>
         {updatedAt && <span className={styles.updatedAt}>{t(locale, 'updatedOn', { d: localDate(updatedAt, locale, { month: 'short', day: 'numeric' }) })}</span>}
+        {history && (
+          <button type="button" onClick={() => historyRef.current?.showModal()} className={styles.historyBtn}>
+            {t(locale, 'history')}
+          </button>
+        )}
         {editable && <button type="button" onClick={open} className={styles.updateBtn}>{t(locale, 'update')}</button>}
       </div>
+
+      {/* The written note never shows beside the gauge — it feeds the AI briefing
+          and lives here, in full, alongside every past update. */}
+      {history && (
+        <dialog ref={historyRef} className={styles.historyDialog}
+          onClick={(e) => { if (e.target === historyRef.current) historyRef.current?.close(); }}>
+          <div className={styles.dialogHeader}><h3>{t(locale, 'needleHistoryTitle')}</h3></div>
+          <div className={styles.historyScroll}>
+            <NeedleHistoryList changes={history} relationship={scope === 'partner'} locale={locale}
+              emptyLabel={t(locale, 'noUpdatesRecorded')} />
+          </div>
+          <div className={styles.actionRow}>
+            {historyHref && (
+              <Link href={historyHref} className={styles.fullHistoryLink}>{t(locale, 'fullHistory')}</Link>
+            )}
+            <button type="button" onClick={() => historyRef.current?.close()} className={styles.cancelBtn}>
+              {t(locale, 'close')}
+            </button>
+            {editable && (
+              <button type="button" onClick={openUpdateFromHistory} className={styles.submitBtn}>
+                {t(locale, 'addUpdate')}
+              </button>
+            )}
+          </div>
+        </dialog>
+      )}
 
       <dialog ref={dialogRef} className={styles.dialog} onClick={onBackdrop}>
         <div className={styles.dialogHeader}><h3>{t(locale, 'weeklyUpdate')}</h3></div>

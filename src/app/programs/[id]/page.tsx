@@ -13,6 +13,7 @@ import ActivityFeed from '../../../components/ActivityFeed';
 import UnifiedSearch from '../../../components/UnifiedSearch';
 import QuickIngest from '../../../components/QuickIngest';
 import { getActivity } from '../../../lib/activity';
+import { getNeedleHistory } from '../../../lib/history';
 import { getSummary } from '../../../lib/summaries';
 import { geminiConfigured } from '../../../lib/gemini';
 import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
@@ -94,6 +95,11 @@ export default async function ProjectDetailsPage(props: {
 
   // Unified activity for this program: status/needle/hill/phase changes + context.
   const activity = await getActivity({ kind: 'project', id: projectId });
+
+  // Every needle update with its written note — the History popup beside the
+  // gauge. The note never renders next to the needle itself (it feeds the AI
+  // briefing); this log is where the words are read.
+  const needleHistory = await getNeedleHistory('project', projectId);
 
   // The leadership summary — the page's "read this first" slot (cached; the panel
   // refreshes it in the background when newer content exists).
@@ -359,6 +365,7 @@ export default async function ProjectDetailsPage(props: {
               previousProgress={project.states[1]?.hillChartProgress ?? null}
               previousHealth={project.states[1]?.theNeedle ?? null}
               updatedAt={project.states[0]?.timestamp?.toISOString() ?? null}
+              history={needleHistory?.changes ?? []}
             />
           </div>
           <section>
