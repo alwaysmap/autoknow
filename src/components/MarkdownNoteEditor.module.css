@@ -71,3 +71,100 @@
   margin: 0 0 0.375rem;
   padding-left: 1.25rem;
 }
+
+/* ---- The link popover (MDXEditor's linkDialogPlugin) ----
+   Two defects, both fixed here rather than trusting the package:
+   1. THEME. Its Radix palette does not reliably follow the `dark-theme` class on
+      our portal, so it rendered a white box on the dark editor. We re-paint every
+      surface with OUR tokens (not MDXEditor's vars), correct in both themes.
+   2. WIDTH → POSITION. This version's link form is a MULTI-field form (URL +
+      title) whose text inputs size to ~21rem each, making the whole popover wider
+      than a narrow update dialog and pushing it off the left edge. We pin the
+      popover to a fixed width and make the form, fields and inputs fill it
+      (box-sizing: border-box, width: 100%, min-width: 0), so it stays compact and
+      Radix's collision-shift keeps it on screen.
+   Classes are hashed by the package; matched by stable substring. Scoped under
+   .frame — the popover is portaled into it (overlayContainer). */
+.frame :global([class*="_linkDialogPopoverContent_"]),
+.frame :global([class*="_dialogContent_"]) {
+  box-sizing: border-box;
+  width: min(19rem, 82vw);
+  max-width: min(19rem, 82vw);
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background-color: var(--paper);
+  border: 1px solid var(--border);
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.18);
+  color: var(--fg);
+}
+
+/* The form and its fields fill the popover instead of dictating its width. */
+.frame :global([class*="_linkDialogEditForm_"]),
+.frame :global([class*="_multiFieldForm_"]),
+.frame :global([class*="_formField_"]),
+.frame :global([class*="_linkDialogInputContainer_"]),
+.frame :global([class*="_linkDialogInputWrapper_"]) {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Every text field in the popover — URL, title — takes our standard input look
+   and shrinks to the popover width. */
+.frame :global([class*="_textInput_"]),
+.frame :global([class*="_linkDialogInput_"]),
+.frame :global([class*="_dialogInput_"]) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  background-color: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  color: var(--fg);
+}
+
+.frame :global([class*="_textInput_"])::placeholder,
+.frame :global([class*="_linkDialogInput_"])::placeholder,
+.frame :global([class*="_dialogInput_"])::placeholder {
+  color: var(--muted);
+}
+
+/* Field labels sit above their inputs on-theme. */
+.frame :global([class*="_formField_"]) label {
+  color: var(--muted);
+}
+
+/* Save / edit / copy / delete controls. */
+.frame :global([class*="_primaryButton_"]) {
+  background-color: var(--p-600);
+  border: 1px solid var(--p-600);
+  border-radius: 0.375rem;
+  color: var(--white);
+}
+
+.frame :global([class*="_secondaryButton_"]) {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  color: var(--fg);
+}
+
+.frame :global([class*="_actionButton_"]) {
+  color: var(--muted);
+}
+
+.frame :global([class*="_actionButton_"]):hover {
+  color: var(--fg);
+}
+
+/* The preview row shown for an existing link — keep its URL from overflowing. */
+.frame :global([class*="_linkDialogPreviewAnchor_"]) {
+  color: var(--link);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
