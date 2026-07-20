@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import ThemeToggle from './ThemeToggle';
+import StyleToggle from './StyleToggle';
 import LocaleSwitcher from './LocaleSwitcher';
 import styles from './UserMenu.module.css';
 
@@ -82,6 +83,10 @@ export default function UserMenu({
           {/* Personal settings — they follow the person, not the deployment, so they
               live here rather than in the nav or Manage. */}
           <div className={styles.prefs}>
+            <div className={styles.prefRow}>
+              <span className={styles.prefLabel}>{t(locale, 'styleLabel')}</span>
+              <StyleToggle />
+            </div>
             <div className={styles.prefRow}>
               <span className={styles.prefLabel}>{t(locale, 'themeLabel')}</span>
               <ThemeToggle />

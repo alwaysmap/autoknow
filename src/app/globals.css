@@ -145,6 +145,85 @@
   color-scheme: dark;
 }
 
+/* ============================================================================
+   STYLE: INSTRUMENT (2026-07-20, user call)
+   ============================================================================
+   A SECOND style family, chosen independently of light/dark — `<html>` carries
+   both `data-style` and `data-theme`, and each of the two styles has the full
+   light / dark / system set. "standard" is the default and is defined by the
+   blocks ABOVE, which this file must never change: switching styles has to be
+   a true A/B, so anyone can go back.
+
+   Instrument borrows the vocabulary of the cluster behind the wheel: a warmer
+   instrument-panel ground, a pear-green "in range" accent (--hue 142 → 76, the
+   one place the locked brand hue moves), a redline reserved for the moment a
+   control is live, tick-mark graticules instead of plain rules, and tabular
+   numerals throughout. The needle gauge's shape and mechanics are deliberately
+   untouched — it only picks up the new tokens.
+
+   Specificity note: these blocks are 0-2-0 and 0-3-0 and sit AFTER the dark
+   block, so [data-style][data-theme] correctly outranks [data-theme] alone. */
+
+:root[data-style="instrument"] {
+  --hue: 76; /* pear, not the standard style's 142 */
+
+  /* Pear sits lighter than the brand green at the same HSL lightness, so the one
+     ramp step used as a NON-TEXT indicator (accent-color, focus rings) has to be
+     darkened by hand to clear 3:1 on this ground — 36% gives 3.25:1, where the
+     inherited 40% gave 2.67:1. Every other step stays on --hue. */
+  --p-500: hsla(var(--hue), 60%, 36%, 1);
+
+  --bg:      hsl(38, 22%, 96%);
+  --surface: hsl(38, 16%, 91%);
+  --border:  hsl(36, 14%, 78%);
+  --fg:      hsl(30, 12%, 12%);
+  --muted:   hsl(32, 9%, 42%);
+
+  --white: hsl(38, 22%, 96%);
+  --black: hsl(30, 12%, 10%);
+  --paper: hsl(42, 40%, 99%);
+
+  /* The one colour Instrument adds: the far end of the dial. Used only where a
+     control is actively live (the hero search sweep), never as a status — the
+     health palette above still owns "bad". */
+  --redline: #c2410c;
+
+  /* Graticule rules: a hairline made of ticks. Consumed as a background-image,
+     so any border it replaces must also set border-color: transparent. */
+  --graticule: repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px 9px);
+}
+
+:root[data-style="instrument"][data-theme="dark"] {
+  --bg:      hsl(32, 10%, 13%);
+  --surface: hsl(32, 9%, 21%);
+  --border:  hsl(32, 9%, 33%);
+  --fg:      hsl(38, 18%, 92%);
+  --muted:   hsl(34, 10%, 70%);
+
+  --white: hsl(32, 10%, 13%);
+  --black: hsl(38, 18%, 94%);
+  --paper: hsl(32, 10%, 17%);
+
+  --redline: #f0913f;
+}
+
+/* Digits line up in columns — the most characteristic thing a cluster does, and
+   one declaration. Prose is unaffected; only figures change shape. */
+:root[data-style="instrument"] body {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Graphic flourishes that only exist in this style are rendered by every style
+   (so nothing depends on a JS theme read) and revealed by CSS here. `inline` is
+   the initial display for SVG children, so this restores them intact. */
+[data-inst-only] {
+  display: none;
+}
+
+:root[data-style="instrument"] [data-inst-only] {
+  display: inline;
+}
+
 /* The nav wraps to a taller two-row layout on narrow screens — sticky rails offset
    by --nav-h track that so they still clear it. */
 @media (max-width: 960px) {

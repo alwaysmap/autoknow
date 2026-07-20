@@ -169,17 +169,21 @@ export default function UnifiedSearch({
     <div className={hero ? styles.hero : undefined}>
       <div className={styles.box} ref={boxRef}>
         <form className={styles.form} onSubmit={(e) => { e.preventDefault(); submit(query); }}>
-          <input
-            type="search"
-            autoFocus={autoFocus}
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); if (hero) setSuggestOpen(true); }}
-            onFocus={() => { if (hero) setSuggestOpen(true); }}
-            onKeyDown={(e) => { if (e.key === 'Escape') setSuggestOpen(false); }}
-            placeholder={inputPlaceholder}
-            aria-label={inputPlaceholder}
-            className={styles.input}
-          />
+          {/* The wrapper exists purely to anchor the Instrument style's focus sweep
+              (a ::after on this element); it is layout-neutral in both styles. */}
+          <span className={styles.inputWrap}>
+            <input
+              type="search"
+              autoFocus={autoFocus}
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); if (hero) setSuggestOpen(true); }}
+              onFocus={() => { if (hero) setSuggestOpen(true); }}
+              onKeyDown={(e) => { if (e.key === 'Escape') setSuggestOpen(false); }}
+              placeholder={inputPlaceholder}
+              aria-label={inputPlaceholder}
+              className={styles.input}
+            />
+          </span>
           <button type="submit" disabled={loading} className={styles.button}>
             {loading ? t(locale, 'searchingBtn') : t(locale, 'searchBtn')}
           </button>

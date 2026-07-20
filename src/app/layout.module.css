@@ -13,6 +13,17 @@
   z-index: 100;
 }
 
+/* Instrument: the nav's hairline becomes a graticule — the app's single most
+   repeated rule, so changing it alone reads across every page. The border stays
+   in the box model (nothing shifts) and only its ink moves to the tick pattern. */
+:global(:root[data-style='instrument']) .navBar {
+  border-bottom-color: transparent;
+  background-image: var(--graticule);
+  background-repeat: no-repeat;
+  background-position: bottom left;
+  background-size: 100% 1px;
+}
+
 .leftSection {
   display: flex;
   align-items: center;

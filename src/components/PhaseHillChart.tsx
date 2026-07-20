@@ -78,6 +78,26 @@ export default function PhaseHillChart({ phases, wide = false }: { phases: Phase
   }
   return (
     <svg viewBox={`0 0 ${W} 104`} style={{ width: '100%', height: 'auto', overflow: 'visible' }} role="img" aria-label={t(locale, 'hillAria')}>
+      {/* Instrument style only (revealed by CSS; see globals.css and PhaseHillSvg,
+          which carries the same pair). Groove under the curve, quarter-tick
+          graticule along the baseline — the same scale the dots are read against.
+          Scaled by sx so the wide summary hill and the small per-phase gauges
+          stay the same drawing. */}
+      <path
+        data-inst-only
+        d={hillPath(sx)}
+        fill="none"
+        stroke="var(--fg)"
+        strokeOpacity={0.07}
+        strokeWidth={9}
+        strokeLinecap="round"
+      />
+      <g data-inst-only stroke="var(--border)" strokeWidth={1} strokeLinecap="round">
+        <line x1={10 * sx} y1={84} x2={190 * sx} y2={84} strokeOpacity={0.55} />
+        {[10, 55, 100, 145, 190].map((x) => (
+          <line key={x} x1={x * sx} y1={84} x2={x * sx} y2={x === 100 ? 78 : 80.5} />
+        ))}
+      </g>
       <path d={hillPath(sx)} fill="none" stroke="var(--border, #d9d5c8)" strokeWidth={2.5} strokeLinecap="round" />
       <line x1={100 * sx} y1={10} x2={100 * sx} y2={80} stroke="var(--border, #e3e0d6)" strokeDasharray="3 3" />
       {phases.map((ph) => {

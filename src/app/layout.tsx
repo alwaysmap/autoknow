@@ -42,10 +42,12 @@ export const viewport = {
   viewportFit: 'cover'
 };
 
-// Resolves the stored theme preference (light | dark | system) to a concrete
-// data-theme on <html> BEFORE first paint — no flash of the wrong theme. Kept
-// tiny and dependency-free; ThemeToggle takes over after hydration.
-const themeInit = `(function(){try{var p=localStorage.getItem('autoknow-theme');var d=p==='dark'||(p!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();`;
+// Resolves BOTH stored appearance preferences to concrete attributes on <html>
+// BEFORE first paint — no flash of the wrong theme or the wrong style. The two
+// are independent: data-theme is light|dark (resolved from light|dark|system),
+// data-style is standard|instrument. Kept tiny and dependency-free; ThemeToggle
+// and StyleToggle take over after hydration.
+const themeInit = `(function(){try{var p=localStorage.getItem('autoknow-theme');var d=p==='dark'||(p!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';var s=localStorage.getItem('autoknow-style');document.documentElement.dataset.style=s==='instrument'?'instrument':'standard';}catch(e){}})();`;
 
 export default async function RootLayout({
   children,

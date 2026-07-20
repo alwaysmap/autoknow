@@ -226,6 +226,43 @@ compares ink and paper luminance because that is the property that was broken.
 
 ---
 
+## 8c. Two appearance axes: STYLE and THEME
+
+(2026-07-20, user call.) `<html>` carries two independent attributes, and every
+combination must work:
+
+| Attribute | Values | Stored in |
+|---|---|---|
+| `data-style` | `standard` · `instrument` | `autoknow-style` |
+| `data-theme` | `light` · `dark` (resolved from `light`/`dark`/`system`) | `autoknow-theme` |
+
+* **`standard` is the app as it was, and must stay that way.** Adopting a second
+  style is only safe if going back is free, so the base token blocks are frozen:
+  Instrument adds `:root[data-style="instrument"]` on top, never edits what's
+  underneath. Both pickers live in the user menu and share one control shape.
+* **Both are resolved by the inline script in `layout.tsx` before first paint.**
+  Neither may move into React — that reintroduces the flash the script exists to
+  prevent, and `tests/appearance.spec.ts` asserts the attribute before hydration.
+* **Instrument's vocabulary** is the cluster behind the wheel: pear accent
+  (`--hue` 142 → 76 — the only sanctioned move of the locked brand hue), a
+  `--redline` used solely to show a control is live, `--graticule` tick-mark
+  rules replacing plain hairlines, and tabular numerals throughout.
+* **Style-conditional graphics render in BOTH styles and are revealed by CSS**
+  (`[data-inst-only]`, hidden by default). Nothing may read the style in JS to
+  decide what to draw: hill charts appear dozens to a page, and a per-instance
+  subscription to buy a decoration is a bad trade. `useResolvedTheme()` stays
+  reserved for third-party widgets CSS genuinely cannot reach.
+* **The needle gauge is off limits.** Its shape and mechanics are identical in
+  both styles; it picks up the new tokens and nothing else. The hill charts are
+  where the graphic experiment lives — a groove under the curve and a
+  quarter-tick baseline graticule, both scaled so the wide summary hill and the
+  small per-phase gauges stay the same drawing.
+* **Icons stay scarce.** The app mark is untouched, and Instrument adds no icon
+  set — its identity is carried by rules, numerals, and one motion (the hero
+  search sweep), not by decoration.
+
+---
+
 ## 9. Sizing & responsive widths — rem-first
 
 **Use `rem` for every size** — font-size, padding, margin, gap, width,
