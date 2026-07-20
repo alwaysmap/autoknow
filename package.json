@@ -22,6 +22,7 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "ci:lint-migrations": "scripts/ci/lint-migrations.sh",
+    "ci:lint-ordering": "scripts/ci/lint-change-ordering.sh",
     "ci:migrate": "scripts/ci/migrate.sh",
     "ci:deploy": "scripts/ci/build-and-deploy.sh",
     "ci:harden-db": "scripts/db/harden.sh"

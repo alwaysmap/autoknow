@@ -5,9 +5,10 @@ description: Any work touching prisma/schema.prisma, migrations, seeding, or dat
 
 # Database changes
 
-**Read [docs/CHANGE_PLAYBOOK.md](../../../docs/CHANGE_PLAYBOOK.md) in full
-before touching the schema** (~150 lines; the PR recipes are exact and
-software-enforced — guessing gets blocked by CI or the DB role).
+This skill IS the schema-change recipe (the playbook,
+[docs/CHANGE_PLAYBOOK.md](../../../docs/CHANGE_PLAYBOOK.md), is the compact
+human-readable summary + enforcement inventory). The rules are software-
+enforced — guessing gets blocked by CI or the DB role.
 
 ## Local flow (npm scripts only)
 
@@ -30,16 +31,31 @@ host — `npm run db:up` / `db:down` manage the one sanctioned container
 ## Non-negotiables (enforced, not advisory)
 
 - **Additive** (new table, nullable/defaulted column, index): ships WITH app
-  code in one PR. **Destructive** (drop/rename/retype, NOT NULL w/o default):
-  expand → backfill → contract across separate merges; CI fails destructive SQL
-  lacking a reviewed `-- allow-destructive: <reason>` tag.
-- Prod is forward-only `prisma migrate deploy`, run by `deploy.yml` BEFORE the
-  new revision serves — the old revision keeps serving during rollout, so every
-  migration must also be safe for the code currently in prod.
-- Never edit an applied migration (checksums make deploy fail). Fix forward.
+  code in one PR — the old revision tolerates an extra column during rollout.
+  For an index on a LARGE table, hand-write `CREATE INDEX CONCURRENTLY` and
+  mark the migration non-transactional.
+- **Destructive/incompatible** (drop/rename/retype, NOT NULL w/o default):
+  MUST split across three merges, each deployed healthy before the next —
+  1. **Expand**: add the new shape alongside the old; app writes BOTH,
+     reads old.
+  2. **Backfill**: copy old → new; app reads new, still writes both. Backfill
+     scripts are separate from `migrate deploy`, idempotent, batched,
+     resumable, guarded by `DESTRUCTIVE_DB_ALLOWED` semantics.
+  3. **Contract**: nothing reads/writes old → a new migration drops it (this
+     one carries the reviewed `-- allow-destructive: <reason>` tag CI demands).
+  Why: the old revision keeps serving during every rollout window — a one-step
+  rename breaks it live and can lose data.
+- Prod is forward-only `prisma migrate deploy` (deploy.yml, before the new
+  revision serves). Never edit an applied migration — checksums fail deploy;
+  fix FORWARD with a new migration.
+- **If a migration fails in CI**: rollout is blocked (`needs: migrate`), prod
+  still serves the old revision. Write a corrective migration; never hand-edit
+  the failed one, never `migrate reset`. If `_prisma_migrations` and the schema
+  disagree, STOP and get a human — don't run `migrate resolve` blindly.
 - Guards you will hit by design: the `app_runtime` role has no DDL (schema SQL
   dies with *permission denied*); wipes refuse any non-`*_test` DB unless
-  `DESTRUCTIVE_DB_ALLOWED` names it exactly.
+  `DESTRUCTIVE_DB_ALLOWED` names it exactly; CI lints new migrations for
+  destructive SQL.
 
 ## Test databases
 

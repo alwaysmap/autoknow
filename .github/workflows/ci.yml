@@ -25,6 +25,10 @@ jobs:
         env:
           BASE_REF: origin/${{ github.base_ref }}
         run: npm run ci:lint-migrations
+      - name: Block mixed infra+app PRs (deploy-ordering rule)
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+        run: npm run ci:lint-ordering
 
   quality:
     name: quality (typecheck · lint · jest · e2e · build)

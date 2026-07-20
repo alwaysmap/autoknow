@@ -58,9 +58,9 @@ consumer-flavored UI. So, in every case:
 - **Infra ordering:** add = infra PR + human `terraform apply` FIRST, app PR
   second (config-gated). Remove = app PR first. `terraform apply` is human-run;
   app deploys are automatic on merge to `main`.
-- Full rules + recipes: [docs/CHANGE_PLAYBOOK.md](docs/CHANGE_PLAYBOOK.md)
-  (mandatory read before any schema/infra/secret change — the `db-change` and
-  `infra-terraform` skills say when).
+- These rules are CI/DB-enforced; the enforcement inventory + quick-reference
+  card is [docs/CHANGE_PLAYBOOK.md](docs/CHANGE_PLAYBOOK.md), and the
+  step-by-step recipes live in the `db-change` and `infra-terraform` skills.
 
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know

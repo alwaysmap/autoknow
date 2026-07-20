@@ -15,6 +15,10 @@ need, not the whole doc).
   the resource exists → THEN the app PR (config-gated). One combined PR is
   unsafe: merge auto-deploys the app before anyone has applied.
 - **Removing**: app PR (stop referencing) → then infra PR + apply.
+- **CI enforces the split**: a PR touching both `infra/terraform/**` and app
+  code fails the `change-ordering` gate. Genuinely-safe exceptions (a comment
+  fix riding along) opt in with `allow-mixed-infra: <reason>` in a commit
+  message — visible in review, like `-- allow-destructive`.
 - `terraform apply` is ALWAYS human-run. PRs touching `infra/terraform/**` get
   an automatic read-only `terraform plan` (terraform.yml). Never run apply
   yourself; say what needs applying and stop.
