@@ -512,7 +512,10 @@ both deferred:
 A third additive candidate — `PhaseState.remainingDays` for direct
 remaining-duration reporting — rides open question 10.
 
-### (c) Constraint resources — "Who is oversubscribed"
+### (c) Constraint resources — "Resource Constraints"
+
+(UI section title renamed from "Who is oversubscribed" to **Resource
+Constraints**, 2026-07-20 user call; rendered as a bulleted list.)
 
 Committed scope (decision 2026-07-20, see §8): the resource dimension is the
 leadership priority — in Goldratt's terms, identifying and exploiting the

@@ -363,22 +363,24 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
 
       {(oversub.length > 0 || (upNext && upNext.contended.length > 0)) && (
         <div className={styles.block}>
-          <h3 className={styles.subtitle}>{t(locale, 'clWhoOversubscribed')}</h3>
-          {oversub.map((o) => (
-            <p key={`${o.kind}${o.resourceId}`} className={styles.resline}>
-              <ResLine locale={locale} sit={o} nameOf={nameOf} href={resourceHref(o.kind, o.resourceId)} />
-            </p>
-          ))}
-          {upNext && upNext.contended.length > 0 && (
-            <p className={styles.resline}>
-              {t(locale, 'clUpNextLine', {
-                phase: nameOf(upNext.toId),
-                names: upNext.contended.map((c) => c.name).join(', '),
-                n: Math.max(...upNext.contended.map((c) => c.n)),
-              })}{' '}
-              {t(locale, 'clUpNextConfirm', { current: nameOf(upNext.fromId) })}
-            </p>
-          )}
+          <h3 className={styles.subtitle}>{t(locale, 'clResourceConstraints')}</h3>
+          <ul className={styles.resList}>
+            {oversub.map((o) => (
+              <li key={`${o.kind}${o.resourceId}`} className={styles.resline}>
+                <ResLine locale={locale} sit={o} nameOf={nameOf} href={resourceHref(o.kind, o.resourceId)} />
+              </li>
+            ))}
+            {upNext && upNext.contended.length > 0 && (
+              <li className={styles.resline}>
+                {t(locale, 'clUpNextLine', {
+                  phase: nameOf(upNext.toId),
+                  names: upNext.contended.map((c) => c.name).join(', '),
+                  n: Math.max(...upNext.contended.map((c) => c.n)),
+                })}{' '}
+                {t(locale, 'clUpNextConfirm', { current: nameOf(upNext.fromId) })}
+              </li>
+            )}
+          </ul>
         </div>
       )}
     </section>

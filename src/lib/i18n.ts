@@ -1448,7 +1448,7 @@ const STRINGS = {
     ko: '시작 시 {b0}일 대비 {g}일 증가',
   },
   // Who is oversubscribed
-  clWhoOversubscribed: { en: 'Who is oversubscribed', de: 'Wer überbucht ist', ja: '手一杯なのは誰か', ko: '누가 과부하인가' },
+  clResourceConstraints: { en: 'Resource Constraints', de: 'Ressourcen-Engpässe', ja: 'リソース制約', ko: '리소스 제약' },
   clOversubLine: {
     en: '{phase} is with {name} — also active in {n} other programs.',
     de: '{phase} liegt bei {name} — außerdem in {n} weiteren Programmen aktiv.',
