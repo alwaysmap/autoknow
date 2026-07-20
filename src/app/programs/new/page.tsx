@@ -218,7 +218,7 @@ export default async function NewProjectPage() {
             <label style={{ display: 'block', fontWeight: 400 }}>
               <input type="checkbox" name="hasDigitalKey" /> {t(locale, 'productDigitalKey')}
             </label>
-            <label className={styles.checkboxLabel}>
+            <label style={{ display: 'block', fontWeight: 400 }}>
               <input type="checkbox" name="hasAap" /> {t(locale, 'productAap')}
             </label>
           </div>
