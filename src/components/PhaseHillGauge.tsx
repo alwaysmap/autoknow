@@ -142,10 +142,14 @@ export default function PhaseHillGauge({
         />
       </div>
 
-      {showStatus && <div className={styles.statusValue} style={{ color: hillStatusColor(progress) }}>{statusText(progress)}</div>}
-      {updatedAt && <div className={styles.updatedAt}>{t(locale, 'updatedOn', { d: localDate(updatedAt, locale, { month: 'short', day: 'numeric' }) })}</div>}
-
-      {editable && <button type="button" onClick={open} className={styles.updateBtn}>{strings.update}</button>}
+      {/* fact · date · action on one line (design.md §7), never a three-line stack */}
+      {(showStatus || updatedAt || editable) && (
+        <div className={styles.statusRow}>
+          {showStatus && <span className={styles.statusValue} style={{ color: hillStatusColor(progress) }}>{statusText(progress)}</span>}
+          {updatedAt && <span className={styles.updatedAt}>{t(locale, 'updatedOn', { d: localDate(updatedAt, locale, { month: 'short', day: 'numeric' }) })}</span>}
+          {editable && <button type="button" onClick={open} className={styles.updateBtn}>{strings.update}</button>}
+        </div>
+      )}
 
       <dialog ref={dialogRef} className={styles.dialog} onClick={onBackdrop}>
         <div className={styles.dialogHeader}><h3>{strings.dialogTitle}</h3></div>
@@ -171,7 +175,7 @@ export default function PhaseHillGauge({
               ref={svgRef}
               viewBox={VIEWBOX}
               className={styles.gaugeSvg}
-              style={{ cursor: 'ew-resize', touchAction: 'none', maxWidth: 320 }}
+              style={{ cursor: 'ew-resize', touchAction: 'none', maxWidth: '20rem' }}
               onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); setDragging(true); fromX(e.clientX); }}
               onPointerMove={(e) => { if (dragging) fromX(e.clientX); }}
               onPointerUp={(e) => { if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); setDragging(false); }}

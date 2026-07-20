@@ -1,18 +1,20 @@
-/* Tufte-flat: no shaded wrapper, no card chrome — the small-caps labels and the
-   column gap do the separation (design.md §1). */
+/* Tufte-flat: no shaded wrapper, no card chrome — the single small-caps label and
+   whitespace do the separation (design.md §1, §7). Besides the status dashboard,
+   this module is the shared home of the editor-dialog styles (PersonEditor,
+   PartnerEditor, ProjectMetaHeader, PeopleClient). */
 .summaryDashboard {
   padding: 0;
 }
 
 .summaryTopRow {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 18px;
+  grid-template-columns: 1fr;
+  gap: 1.125rem;
   margin-bottom: 0;
 }
 
 .summaryCard {
-  padding: 4px 0 8px;
+  padding: 0.25rem 0 0.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -21,156 +23,20 @@
 }
 
 .summaryCardLabel {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--muted);
-  margin-bottom: 12px;
+  margin-bottom: 0.75rem;
   letter-spacing: 0.08em;
 }
 
-/* Gauge styling */
-.gaugeContainer {
-  width: 100%;
-  height: 100px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.gaugeSvg {
-  width: 180px;
-  height: 95px;
-}
-
-/* Hill chart styling */
-.hillChartContainer {
-  width: 100%;
-  height: 100px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.hillChartSvg {
-  width: 180px;
-  height: 95px;
-}
-
-.hillCurve {
-  stroke: var(--border);
-  stroke-width: 2.5;
-  fill: none;
-}
-
-.hillDot {
-  fill: var(--p-600);
-  stroke: var(--white);
-  stroke-width: 2.5;
-  filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2));
-}
-
-.statusValue {
-  font-size: 18px;
-  font-weight: 700;
-  margin-bottom: 14px;
-}
-
-.updateButton {
-  background-color: var(--white);
-  border: 1px solid var(--border);
-  color: var(--fg);
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  width: 80%;
-  text-align: center;
-}
-
-.updateButton:hover {
-  background-color: var(--surface);
-  border-color: var(--p-600);
-  color: var(--p-600);
-}
-
-.problemCount {
-  font-size: 36px;
-  font-weight: 700;
-  color: var(--t-700);
-  margin: 10px 0;
-}
-
-.problemSubtext {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-/* Metadata Card */
-.metadataCard {
-  background-color: transparent;
-  border-radius: 10px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: stretch;
-}
-
-.metaGrid {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.metaItem {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.metaLabel {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-
-.metaVal {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--fg);
-}
-
-.metaLink {
-  color: var(--p-600);
-  text-decoration: none;
-  font-weight: 400;
-  transition: color 0.2s ease;
-}
-
-.metaLink:hover {
-  color: var(--p-700);
-  text-decoration: underline;
-}
-
-.empty {
-  font-style: italic;
-  color: var(--muted);
-}
-
-/* Native Dialog overlays */
+/* Native Dialog overlays (shared by the entity editors) */
 .dialog {
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 24px;
-  width: 480px;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  width: 30rem;
   max-width: 90%;
   background-color: var(--white);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
@@ -183,11 +49,11 @@
 }
 
 .dialogHeader {
-  margin-bottom: 20px;
+  margin-bottom: 1.25rem;
 }
 
 .dialogHeader h3 {
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 700;
   margin: 0;
 }
@@ -195,134 +61,45 @@
 .dialogForm {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-}
-
-.formGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  gap: 1.125rem;
 }
 
 .formLabel {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
 }
 
-/* Segment buttons selector for Needle */
-.segmentContainer {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-}
-
-.segmentBtn {
-  padding: 12px 8px;
-  border: 2px solid var(--border);
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-  cursor: pointer;
-  background-color: var(--white);
-  transition: all 0.2s ease;
-}
-
-.segmentBtn[data-needle="Low"] {
-  border-color: var(--ok-ring);
-  color: var(--ok);
-}
-.segmentBtn[data-needle="Low"]:hover,
-.segmentBtn[data-needle="Low"][data-active="true"] {
-  background-color: var(--ok-soft);
-  border-color: var(--ok);
-}
-
-.segmentBtn[data-needle="Medium"] {
-  border-color: rgba(176, 96, 0, 0.2);
-  color: var(--warn);
-}
-.segmentBtn[data-needle="Medium"]:hover,
-.segmentBtn[data-needle="Medium"][data-active="true"] {
-  background-color: var(--warn-soft);
-  border-color: var(--warn);
-}
-
-.segmentBtn[data-needle="High"] {
-  border-color: var(--bad-ring);
-  color: var(--bad);
-}
-.segmentBtn[data-needle="High"]:hover,
-.segmentBtn[data-needle="High"][data-active="true"] {
-  background-color: var(--crit-soft);
-  border-color: var(--bad);
-}
-
-.segmentBtn[data-needle="Critical"] {
-  border-color: var(--bad-ring);
-  color: var(--bad);
-}
-.segmentBtn[data-needle="Critical"]:hover,
-.segmentBtn[data-needle="Critical"][data-active="true"] {
-  background-color: var(--bad-soft);
-  border-color: var(--bad);
-  animation: pulse 2s infinite;
-}
-
-/* Quick select buttons for progress */
-.quickSelectGrid {
-  display: flex;
-  gap: 8px;
-}
-
-.quickSelectBtn {
-  flex: 1;
-  padding: 8px;
-  border: 1px solid var(--border);
-  background-color: var(--white);
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.quickSelectBtn:hover {
-  background-color: var(--surface);
-  border-color: var(--p-600);
-}
-
 .textInput, .textArea {
-  padding: 10px;
+  padding: 0.625rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0.375rem;
   font-family: var(--body-font);
-  font-size: 13px;
+  font-size: 0.8125rem;
   box-sizing: border-box;
 }
 
 .textArea {
-  min-height: 80px;
+  min-height: 5rem;
   resize: vertical;
 }
 
 .actionRow {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  margin-top: 10px;
+  gap: 0.75rem;
+  margin-top: 0.625rem;
 }
 
 .submitBtn {
   background-color: var(--p-600);
   color: var(--white);
   border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.375rem;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 0.8125rem;
   cursor: pointer;
   transition: background-color 0.2s ease;
 }
@@ -335,10 +112,10 @@
   background-color: var(--white);
   border: 1px solid var(--border);
   color: var(--fg);
-  padding: 10px 20px;
-  border-radius: 6px;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.375rem;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 0.8125rem;
   cursor: pointer;
   transition: background-color 0.2s ease;
 }
@@ -350,82 +127,5 @@
 .textInputGroup {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-/* Visualizer section style inside the dashboard */
-.visualizerSection {
-  border-top: 1px solid var(--border);
-  padding-top: 24px;
-  margin-top: 16px;
-}
-
-.visualizerHeading {
-  font-family: var(--head-font);
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 16px;
-  letter-spacing: 0.05em;
-}
-
-.flowChain {
-  display: flex;
-  align-items: center;
-  overflow-x: auto;
-  padding-bottom: 12px;
-}
-
-.flowStepWrapper {
-  display: flex;
-  align-items: center;
-}
-
-.flowStep {
-  padding: 12px 16px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  min-width: 140px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-}
-
-.flowNotStarted {
-  background-color: var(--surface);
-  color: var(--muted);
-  border: 1px solid var(--border);
-}
-.flowFinished {
-  background-color: var(--ok-soft);
-  color: var(--ok);
-  border: 1px solid var(--ok-ring);
-}
-.flowActive {
-  background-color: var(--info-soft);
-  color: var(--p-600);
-  border: 1px solid rgba(66, 133, 244, 0.2);
-}
-.flowBlocked {
-  background-color: var(--bad-soft);
-  color: var(--bad);
-  border: 1px solid var(--bad-ring);
-}
-.flowSkipped {
-  background-color: var(--surface);
-  color: var(--muted);
-}
-
-.flowStepName {
-  font-weight: 700;
-  font-size: 12px;
-  margin-bottom: 4px;
-}
-
-.flowStepMeta {
-  font-size: 11px;
-}
-
-.flowConnector {
-  margin: 0 12px;
-  color: var(--muted);
+  gap: 0.25rem;
 }

@@ -7,28 +7,44 @@
 
 .gaugeContainer {
   width: 100%;
-  max-width: 230px;
+  max-width: var(--status-viz-w);
   position: relative;
   overflow: visible;
-  margin-bottom: 4px;
+  margin-bottom: 0.25rem;
+}
+
+/* One horizontal cluster: status · updated date · action (design.md §7). */
+.statusRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  column-gap: 0.625rem;
+  row-gap: 0.25rem;
+}
+
+.statusValue {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--fg);
+  text-transform: capitalize;
 }
 
 .updatedAt {
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--muted, #888);
-  margin-bottom: 6px;
 }
 
 .healthPicker {
   display: flex;
-  gap: 6px;
+  gap: 0.375rem;
   flex-wrap: wrap;
 }
 
 .healthChip {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
-  padding: 5px 12px;
+  padding: 0.3125rem 0.75rem;
   border-radius: 999px;
   border: 1px solid;
   cursor: pointer;
@@ -41,22 +57,14 @@
   overflow: visible;
 }
 
-.statusValue {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--fg);
-  margin-bottom: 8px;
-  text-transform: capitalize;
-}
-
 .updateBtn {
   background-color: var(--white);
   border: 1px solid var(--border);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -72,11 +80,11 @@
 /* Modal Dialog */
 .dialog {
   border: none;
-  border-radius: 12px;
-  padding: 24px;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
   background-color: var(--white);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-  max-width: 420px;
+  max-width: 26.25rem;
   width: 90%;
   position: fixed;
   top: 50%;
@@ -95,93 +103,43 @@
   font-family: var(--head-font);
   font-size: 1.15rem;
   font-weight: 700;
-  margin: 0 0 16px 0;
+  margin: 0 0 1rem 0;
   color: var(--fg);
 }
 
 .dialogForm {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 1rem;
 }
 
 .formGroup {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.375rem;
 }
 
 .formLabel {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
 }
 
-.segmentContainer {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-  background-color: var(--surface);
-}
-
-.segmentBtn {
-  background: none;
-  border: none;
-  padding: 8px 0;
-  font-family: var(--body-font);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.segmentBtn:not(:last-child) {
-  border-right: 1px solid var(--border);
-}
-
-.segmentBtn[data-active="true"] {
-  background-color: var(--p-100);
-  color: var(--p-700);
-}
-
-.segmentBtn[data-needle="Low"][data-active="true"] { background-color: var(--ok-soft); color: var(--ok); }
-.segmentBtn[data-needle="Medium"][data-active="true"] { background-color: var(--warn-soft); color: var(--warn); }
-.segmentBtn[data-needle="High"][data-active="true"] { background-color: var(--bad-soft); color: var(--bad); }
-.segmentBtn[data-needle="Critical"][data-active="true"] { background-color: var(--crit-soft); color: var(--crit); }
-
-.textArea {
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-family: var(--body-font);
-  font-size: 13px;
-  min-height: 80px;
-  resize: vertical;
-  outline: none;
-}
-
-.textArea:focus {
-  border-color: var(--p-400);
-}
-
 .actionRow {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  margin-top: 8px;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
 }
 
 .cancelBtn {
   background: none;
   border: 1px solid var(--border);
   color: var(--muted);
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 13px;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -190,9 +148,9 @@
   background-color: var(--p-600);
   border: none;
   color: var(--white);
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 13px;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -201,61 +159,21 @@
   background-color: var(--p-700);
 }
 
-.sliderContainer {
-  margin: 12px 0 6px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.slider {
-  width: 100%;
-  accent-color: var(--p-600);
-  cursor: pointer;
-  height: 6px;
-  border-radius: 4px;
-}
-
-.sliderLabels {
-  display: flex;
-  justify-content: space-between;
-  padding: 0 4px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--muted);
-}
-
 .previewContainer {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin: 8px 0;
-  padding: 12px;
+  margin: 0.5rem 0;
+  padding: 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 0.5rem;
   background-color: var(--surface);
 }
 
 .previewLabel {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: 0.25rem;
 }
-
-.currentLabel {
-  font-size: 14px;
-  font-weight: 800;
-  padding: 4px 10px;
-  border-radius: 20px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-top: 4px;
-}
-
-.labelLow { background-color: var(--ok-soft); color: var(--ok); }
-.labelMedium { background-color: var(--warn-soft); color: var(--warn); }
-.labelHigh { background-color: var(--bad-soft); color: var(--bad); }
-.labelCritical { background-color: var(--crit-soft); color: var(--crit); }
-
