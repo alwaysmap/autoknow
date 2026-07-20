@@ -82,4 +82,50 @@ describe('POST /api/projects/[id]/phases/[phaseId]/state', () => {
     const res = await post(seeded.projectId, seeded.phases.integration, { hillChartProgress: 140 });
     expect(res.status).toBe(400);
   });
+
+  // The seed-time backdate (docs/CRITICAL_CHAIN_VIEW_PLAN.md §6): dated demo
+  // histories ride this override, permitted exactly where a wipe would be.
+  it('honors the timestamp override on a seed/test database', async () => {
+    const backdated = new Date('2026-01-05T00:00:00.000Z');
+    const res = await post(seeded.projectId, seeded.phases.integration, {
+      hillChartProgress: 60,
+      notes: 'backdated history row',
+      timestamp: backdated.toISOString(),
+    });
+    expect(res.status).toBe(201);
+
+    const row = await prisma.phaseState.findFirstOrThrow({
+      where: { phaseId: seeded.phases.integration, notes: 'backdated history row' },
+    });
+    expect(row.timestamp.toISOString()).toBe(backdated.toISOString());
+  });
+
+  it('fails closed: refuses the timestamp override when the target DB is not seed/test-eligible', async () => {
+    // The guard resolves DATABASE_URL at call time; the request never reaches the
+    // write (which would go to the already-connected test client anyway).
+    const savedUrl = process.env.DATABASE_URL;
+    const savedAllowed = process.env.DESTRUCTIVE_DB_ALLOWED;
+    process.env.DATABASE_URL = 'postgresql://u:p@h:5432/autoknow_prod';
+    delete process.env.DESTRUCTIVE_DB_ALLOWED;
+    try {
+      const res = await post(seeded.projectId, seeded.phases.integration, {
+        hillChartProgress: 61,
+        timestamp: new Date('2026-01-06T00:00:00.000Z').toISOString(),
+      });
+      expect(res.status).toBe(403);
+    } finally {
+      process.env.DATABASE_URL = savedUrl;
+      if (savedAllowed === undefined) delete process.env.DESTRUCTIVE_DB_ALLOWED;
+      else process.env.DESTRUCTIVE_DB_ALLOWED = savedAllowed;
+    }
+  });
+
+  it('a timestamp-free post is unaffected by the guard (stamped at write time)', async () => {
+    const before = Date.now();
+    const res = await post(seeded.projectId, seeded.phases.integration, { hillChartProgress: 62 });
+    expect(res.status).toBe(201);
+    const latest = await latestState(seeded.phases.integration);
+    expect(latest.hillChartProgress).toBe(62);
+    expect(latest.timestamp.getTime()).toBeGreaterThanOrEqual(before - 1000);
+  });
 });

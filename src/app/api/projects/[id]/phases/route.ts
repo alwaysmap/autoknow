@@ -3,6 +3,7 @@ import { prisma } from '../../../../../lib/db';
 import { jsonError, serverError } from '../../../../../lib/api';
 import { requireRouteAuth } from '../../../../../lib/routeAuth';
 import { parseBody, phaseCreateApiSchema } from '../../../../../lib/schemas';
+import { destructiveDbAllowed } from '../../../../../lib/dbSafety';
 
 export async function POST(
   req: Request,
@@ -19,7 +20,15 @@ export async function POST(
 
     const parsed = parseBody(phaseCreateApiSchema, await req.json().catch(() => null));
     if (!parsed.ok) return jsonError(parsed.error, 400);
-    const { name, forecastedDuration } = parsed.data;
+    const { name, forecastedDuration, stateTimestamp } = parsed.data;
+
+    // Seed-only backdate for the auto-created initial state: without it, a seeded
+    // phase's dated history would sit BEHIND a "Not Started" row stamped at seed
+    // time, and latest-timestamp-wins would erase the whole story
+    // (docs/CRITICAL_CHAIN_VIEW_PLAN.md §6). Fail closed, refuse over ignore.
+    if (stateTimestamp !== undefined && !destructiveDbAllowed()) {
+      return jsonError('stateTimestamp override is only permitted on seed/test databases', 403);
+    }
 
     const project = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true } });
     if (!project) return jsonError('Project not found', 404);
@@ -38,9 +47,12 @@ export async function POST(
         data: {
           phaseId: created.id,
           status: 'Not Started',
-          theNeedle: 'Low',
+          // Canonical health label — 'Low' was a legacy risk value the in-app
+          // addPhase action (actions/programPhases) had already moved off.
+          theNeedle: 'On Track',
           hillChartProgress: 0,
           notes: 'Initial state',
+          ...(stateTimestamp !== undefined ? { timestamp: stateTimestamp } : {}),
         },
       });
       return created;
