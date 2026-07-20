@@ -12,6 +12,12 @@
   border-radius: 6px;
   background: var(--paper);
   width: 100%;
+  /* A writing surface is always left-aligned, and the reset belongs HERE, not on
+     the canvas alone: MDXEditor's placeholder is an absolutely-positioned block
+     with auto offsets, so its static position is set by the text-align of THIS
+     line box. Centered (inherited from the needle dialog's .summaryCard), the
+     placeholder rendered half off the right edge of the field. */
+  text-align: left;
 }
 
 .loading {
@@ -49,9 +55,6 @@
   font-size: 13.5px;
   line-height: 1.55;
   color: var(--fg);
-  /* A writing surface is always left-aligned — the needle-update dialog otherwise
-     inherits text-align:center from the gauge's .summaryCard ancestor. */
-  text-align: left;
   /* Room to invite a real write-up without hollowing out the dialog: ~5 lines
      at rest; grows with content, scrolls past a point so a long update never
      blows the dialog off-screen. */

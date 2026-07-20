@@ -98,7 +98,7 @@ export default function PhaseHillChart({ phases, wide = false }: { phases: Phase
           >
             {/* oversized invisible hit area — the visible dot alone is well under a finger */}
             <circle cx={x} cy={y} r={wide ? 8 : 10} fill="transparent" />
-            <circle cx={x} cy={y} r={5.5} fill={phaseColor(ph.id)} stroke="#fff" strokeWidth={1.6} />
+            <circle cx={x} cy={y} r={5.5} fill={phaseColor(ph.id)} stroke="var(--paper)" strokeWidth={1.6} />
             <text
               x={pos.x}
               y={pos.y}

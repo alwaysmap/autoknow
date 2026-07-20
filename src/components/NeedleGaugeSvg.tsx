@@ -13,7 +13,9 @@ import { parseHealth, healthColor } from '../lib/health';
 // thin outline) whose health color fills up to the current progress, with graticules
 // held inside the band. A floating NEEDLE marks the position — a flat top curved
 // concentric with the gauge, reaching equally inside and outside the arc, with a thin
-// white boundary. The previous state is a colored marker, also white-bordered. The
+// surface-coloured boundary (var(--paper), so it tracks the theme rather than
+// forcing white onto a dark page). The previous state is a colored marker, bordered
+// the same way. The
 // 0..1 scale is internal only — no numbers are shown.
 
 export const CX = 120, CY = 138, R = 116, A0 = 127, A1 = 53;
@@ -80,29 +82,29 @@ export function Gauge({ progress, color, prevProgress, prevColor }: {
 
   return (
     <g>
-      {/* white track container with a thin outline */}
-      <path d={ribbon(0, 1, BANDH)} fill="#ffffff" stroke="var(--border, #d6d6d6)" strokeWidth={1.4} {...cap} />
+      {/* track container, the surface colour with a thin outline */}
+      <path d={ribbon(0, 1, BANDH)} fill="var(--paper)" stroke="var(--border, #d6d6d6)" strokeWidth={1.4} {...cap} />
       {/* graticules held entirely inside the band */}
       {TICKS.map((t, i) => {
         const o = polar(degAt(t), R + BANDH - 1.4);
         const inn = polar(degAt(t), R + BANDH - 1.4 - BANDH * 0.72);
         return <line key={i} x1={r2(o.x)} y1={r2(o.y)} x2={r2(inn.x)} y2={r2(inn.y)} stroke="var(--muted, #9a948a)" strokeWidth={1.1} opacity={0.5} />;
       })}
-      {/* health color fill, inset so a white margin shows to the border */}
+      {/* health color fill, inset so a surface-coloured margin shows to the border */}
       {p > 0.01 && <path d={ribbon(0, p, fillH)} fill={color} {...cap} />}
-      {/* previous-status marker, wrapped in a thin white boundary */}
+      {/* previous-status marker, wrapped in a thin surface-coloured boundary */}
       {prevProgress != null && (() => {
         const o = polar(degAt(prevProgress), R + BANDH + 2);
         const inn = polar(degAt(prevProgress), R - BANDH - 2);
         return (
           <>
-            <line x1={r2(o.x)} y1={r2(o.y)} x2={r2(inn.x)} y2={r2(inn.y)} stroke="#fff" strokeWidth={5.4} strokeLinecap="round" />
+            <line x1={r2(o.x)} y1={r2(o.y)} x2={r2(inn.x)} y2={r2(inn.y)} stroke="var(--paper)" strokeWidth={5.4} strokeLinecap="round" />
             <line x1={r2(o.x)} y1={r2(o.y)} x2={r2(inn.x)} y2={r2(inn.y)} stroke={prevColor || color} strokeWidth={3} strokeLinecap="round" />
           </>
         );
       })()}
-      {/* floating needle with a thin white boundary so it pops off the track */}
-      <path d={needlePath(deg)} fill={color} stroke="#fff" strokeWidth={1.8} strokeLinejoin="round" />
+      {/* floating needle, ringed in the surface colour so it pops off the track */}
+      <path d={needlePath(deg)} fill={color} stroke="var(--paper)" strokeWidth={1.8} strokeLinejoin="round" />
     </g>
   );
 }

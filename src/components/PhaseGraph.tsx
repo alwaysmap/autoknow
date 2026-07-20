@@ -249,7 +249,7 @@ export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGrap
                     strokeWidth={isConstraint ? 2 : 1.25}
                   />
                 )}
-                <circle cx={laneX(p.id)} cy={geom.ys[p.id]} r={NODE_R} fill={phaseColor(p.id)} stroke="#fff" strokeWidth={1.6}>
+                <circle cx={laneX(p.id)} cy={geom.ys[p.id]} r={NODE_R} fill={phaseColor(p.id)} stroke="var(--paper)" strokeWidth={1.6}>
                   <title>{`${p.name} — ${hillStatus(p.progress)}${isConstraint ? ' · constraint' : ''}`}</title>
                 </circle>
               </g>

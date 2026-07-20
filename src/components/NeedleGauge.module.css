@@ -190,10 +190,13 @@
   gap: 1rem;
 }
 
+/* Left, like every other label in this dialog — the gauge card above centers its
+   own contents and that centering must not leak into the form below it. */
 .formGroup {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
+  text-align: left;
 }
 
 .formLabel {

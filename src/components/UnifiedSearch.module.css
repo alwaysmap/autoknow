@@ -65,6 +65,83 @@
   opacity: 0.9;
 }
 
+/* Positioning context for the autosuggest panel. */
+.box {
+  position: relative;
+}
+
+/* Overlays the page rather than pushing it down — the latest-updates strip below
+   must not jump as you type. */
+.dropdown {
+  position: absolute;
+  top: calc(100% + 0.375rem);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  max-height: 26rem;
+  overflow-y: auto;
+}
+
+.suggestList {
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+}
+
+.suggestItem {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+  padding: 0.4375rem 0.625rem;
+  border-radius: 0.5rem;
+  color: var(--fg);
+}
+
+.suggestItem:hover {
+  background: var(--surface);
+}
+
+.suggestTitle {
+  font-size: 0.875rem;
+}
+
+.suggestMeta {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.suggestAll {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.5rem 0.875rem;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: none;
+  color: var(--link);
+  cursor: pointer;
+}
+
+.suggestAll:hover {
+  background: var(--surface);
+}
+
+.suggestEmpty {
+  margin: 0;
+  padding: 0.75rem 0.875rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
 .chips {
   display: flex;
   gap: 0.375rem;

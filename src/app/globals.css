@@ -38,9 +38,9 @@
      colors (amber "Some Risk", red "Concerned") read clearly against it */
   --bg:      hsl(45, 8%, 96%);
   --surface: hsl(45, 9%, 92%);
-  --border:  hsl(0, 0%, 84%);
-  --fg:      hsl(0, 0%, 13%);
-  --muted:   hsl(0, 0%, 42%); /* 42% (was 46%): 4.9:1 on --bg — AA for body text */
+  --border:  hsl(35, 8%, 84%);
+  --fg:      hsl(30, 10%, 14%); /* warm bark rather than neutral black */
+  --muted:   hsl(30, 6%, 41%); /* AA on --bg for body text; warmed with the rest */
 
   --white: hsl(45, 8%, 96%);
   --black: #111111;
@@ -89,40 +89,48 @@
 :root[data-theme="dark"] {
   --chain: #9b82cf;
   --chain-ink: #b8a3e0;
-  --chain-soft: #4a3a6e;
+  --chain-soft: #5b4885;
 
-  --p-50:  hsla(var(--hue), 20%, 14%, 1);
-  --p-100: hsla(var(--hue), 24%, 19%, 1);
-  --p-200: hsla(var(--hue), 26%, 26%, 1);
+  --p-50:  hsla(var(--hue), 18%, 21%, 1);
+  --p-100: hsla(var(--hue), 22%, 26%, 1);
+  --p-200: hsla(var(--hue), 26%, 32%, 1);
   --p-400: hsla(var(--hue), 35%, 45%, 1);
   --p-500: hsla(var(--hue), 40%, 52%, 1);
   --p-600: hsla(var(--hue), 45%, 62%, 1);
   --p-700: hsla(var(--hue), 50%, 74%, 1);
   --p-900: hsla(var(--hue), 60%, 88%, 1);
 
-  --s-100: hsla(calc(var(--hue) + 60), 24%, 18%, 1);
+  --s-100: hsla(calc(var(--hue) + 60), 22%, 25%, 1);
   --s-500: hsla(calc(var(--hue) + 60), 36%, 56%, 1);
   --s-700: hsla(calc(var(--hue) + 60), 44%, 72%, 1);
 
-  --t-100: hsla(calc(var(--hue) - 60), 20%, 18%, 1);
+  --t-100: hsla(calc(var(--hue) - 60), 20%, 25%, 1);
   --t-500: hsla(calc(var(--hue) - 60), 28%, 56%, 1);
   --t-700: hsla(calc(var(--hue) - 60), 34%, 72%, 1);
 
-  --bg:      hsl(220, 15%, 11%);
-  --surface: hsl(220, 14%, 16%);
-  --border:  hsl(220, 10%, 30%);
-  --fg:      hsl(220, 15%, 88%);
-  --muted:   hsl(220, 8%, 67%);
+  /* Warm, not black (2026-07-20, user call — "make it less intensely dark",
+     adjusted toward dvhthomas/pearish-theme). Two moves: hue 220 → ~30, so the
+     field is roast brown rather than blue-black, and every step lifted ~5 points
+     of lightness so the page reads as dim paper instead of a void. The stacking
+     order is unchanged and load-bearing: bg < paper < surface, each a visible
+     step above the last. */
+  --bg:      hsl(30, 8%, 16%);
+  --surface: hsl(32, 8%, 23%);
+  --border:  hsl(32, 8%, 35%);
+  --fg:      hsl(35, 16%, 92%);
+  --muted:   hsl(33, 9%, 71%);
 
-  --white: hsl(220, 15%, 11%); /* page background token — tracks --bg */
-  --black: hsl(220, 15%, 92%); /* "strong ink" token — flips with the theme */
-  --paper: hsl(220, 13%, 14%);
+  --white: hsl(30, 8%, 16%); /* page background token — tracks --bg */
+  --black: hsl(35, 16%, 94%); /* "strong ink" token — flips with the theme */
+  --paper: hsl(30, 8%, 20%);
 
-  --ok: #7ed8a1;        --ok-soft: hsl(146, 30%, 16%);
-  --warn: #f0b458;      --warn-soft: hsl(40, 35%, 15%);
-  --bad: #ff8f89;       --bad-soft: hsl(4, 35%, 16%);
-  --crit: #ff9d94;      --crit-soft: hsl(4, 40%, 14%);
-  --info: #8ab4f8;      --info-ink: #a8c7fa;    --info-soft: hsl(217, 35%, 17%);
+  /* Each soft chip re-lifted with the field: at the old lightnesses they now sat
+     BELOW --paper and read as holes punched in the card rather than tinted chips. */
+  --ok: #7ed8a1;        --ok-soft: hsl(146, 26%, 25%);
+  --warn: #f2b552;      --warn-soft: hsl(38, 32%, 24%);
+  --bad: #f98d86;       --bad-soft: hsl(4, 32%, 25%);
+  --crit: #ff9d94;      --crit-soft: hsl(4, 36%, 23%);
+  --info: #8ab4f8;      --info-ink: #a8c7fa;    --info-soft: hsl(217, 28%, 27%);
   --link: #8ab4f8;      --link-hover: #b3cefb;
   --ok-ring: rgba(126, 216, 161, 0.35);
   --bad-ring: rgba(255, 143, 137, 0.35);

@@ -39,6 +39,12 @@ get you to the thing you came for:
   autofocused, and the only place `hero`-sized styling is sanctioned
   (`UnifiedSearch` takes a `hero` prop). It deep-links: `/?q=…` runs the query on
   load, and `/search?q=…` redirects here so older shared links keep working.
+* **It suggests while you type, and hands off to the full list.** Hero mode adds a
+  debounced autosuggest panel (top 8, overlaying rather than pushing the page
+  down) with a "see all results" row that runs the real search into the same
+  `UnifiedSearch` + `FeedList` below. One component, two depths — never a second
+  search implementation. Type-filter chips wait for results: filled chips under an
+  empty box are loud and filter nothing.
 * **Under it, the five most recent updates as teasers** — ingested documents and
   human-written notes alike, from the same `getActivity` feed the rest of the app
   uses. Title, provenance, two clamped lines of the actual words. Teasers are
@@ -187,6 +193,38 @@ One treatment, applied app-wide via the `AiBadge` component:
 * Machine-*derived* values that aren't prose (embeddings, inferred anchors,
   derived health) don't get the mark; it flags authorship of words, not
   computation.
+
+## 8b. Color: warm neutrals, and NO literal colors in components
+
+The palette lives entirely in `globals.css` as tokens, restated under
+`:root[data-theme="dark"]`. Two standing rules:
+
+* **The neutral field is warm in both themes** (2026-07-20, user call, adjusted
+  toward [pearish-theme](https://github.com/dvhthomas/pearish-theme)): warm stone
+  in light, roast brown in dark — never a blue-grey, and never near-black. Dark
+  sits at ~16% lightness, not 11%; a dark theme should read as dim paper, not as
+  a void. The stacking order `--bg` < `--paper` < `--surface` is load-bearing, and
+  every "soft" chip background must stay ABOVE `--paper` or it reads as a hole
+  punched in the card rather than a tint. The brand `--hue: 142` stays locked, and
+  links stay blue (§6) — pearish's mint/pear accents are inspiration for the
+  NEUTRALS, not a license to recolor semantics.
+* **Components never hard-code a color, including inside SVG.** `fill="#fff"` is
+  the recurring offender: it means "the surface behind me", which is
+  `var(--paper)` — as literal white it survives the theme switch and glares. This
+  existed in six components at once (gauges, hill charts, capacity bands, phase
+  graph); fix the whole family when you find one.
+* **Third-party widgets carry their own palettes and ignore our tokens.**
+  MDXEditor is the live example: it needs its `dark-theme` class, which CSS alone
+  cannot add, so `MarkdownNoteEditorImpl` reads the resolved theme via
+  `useResolvedTheme()` (a `useSyncExternalStore` over `<html data-theme>`, neutral
+  server snapshot). That hook is ONLY for handing the theme to something CSS can't
+  reach — anything stylable uses tokens.
+
+Verify both themes by eye. Text-content assertions all passed while the note
+editor rendered black ink on black paper for weeks; `tests/needle.spec.ts` now
+compares ink and paper luminance because that is the property that was broken.
+
+---
 
 ## 9. Sizing & responsive widths — rem-first
 

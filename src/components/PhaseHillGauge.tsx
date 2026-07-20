@@ -60,8 +60,8 @@ export function PhaseHillSvg({
     <svg viewBox={VIEWBOX} className={className} style={{ display: 'block', width: '100%', height: 'auto', overflow: 'visible' }} role="img" aria-label="Phase progress on the hill">
       <path d={HILL_PATH} fill="none" stroke="var(--border, #d9d5c8)" strokeWidth={2.5} strokeLinecap="round" />
       <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border, #e3e0d6)" strokeDasharray="3 3" />
-      {prev && <circle cx={prev.x} cy={prev.y} r={4.5} fill="#fff" stroke={color} strokeWidth={2} />}
-      <circle cx={cur.x} cy={cur.y} r={6} fill={color} stroke="#fff" strokeWidth={1.6}>
+      {prev && <circle cx={prev.x} cy={prev.y} r={4.5} fill="var(--paper)" stroke={color} strokeWidth={2} />}
+      <circle cx={cur.x} cy={cur.y} r={6} fill={color} stroke="var(--paper)" strokeWidth={1.6}>
         {label && <title>{label}</title>}
       </circle>
       {labels && (
@@ -182,7 +182,7 @@ export default function PhaseHillGauge({
             >
               <path d={HILL_PATH} fill="none" stroke="var(--border, #d9d5c8)" strokeWidth={2.5} strokeLinecap="round" />
               <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border, #e3e0d6)" strokeDasharray="3 3" />
-              <circle cx={dot.x} cy={dot.y} r={6} fill={color} stroke="#fff" strokeWidth={1.6} style={{ transition: dragging ? 'none' : 'cx 0.15s, cy 0.15s' }} />
+              <circle cx={dot.x} cy={dot.y} r={6} fill={color} stroke="var(--paper)" strokeWidth={1.6} style={{ transition: dragging ? 'none' : 'cx 0.15s, cy 0.15s' }} />
               <text x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.left}</text>
               <text x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.right}</text>
             </svg>
