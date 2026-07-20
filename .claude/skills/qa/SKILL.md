@@ -11,6 +11,11 @@ description: Quality gates for AutoKnow changes — linting, type checks, unit/D
 npm run evidence   # typecheck → lint → coverage → e2e → build; ALL must pass
 ```
 
+CI runs the same gate on every PR (`ci.yml` `quality` job: typecheck, lint,
+jest, e2e, prod build against a pgvector service container) — but run
+`evidence` locally first; a red PR check is a slower feedback loop, not a
+substitute for one.
+
 Individually: `npm run lint` · `npm run typecheck` · `npm run test`
 (`:watch`, `:coverage`) · `npm run test:e2e` (`:ui`). Zero lint errors AND
 warnings is the bar — the suite was once left red on main and it hid real bugs.

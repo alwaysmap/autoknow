@@ -32,6 +32,7 @@ operations fail regardless of who (human or agent) attempts them:
 
 | Trigger | Workflow | What it does | Who can run it |
 |---|---|---|---|
+| Every PR | `.github/workflows/ci.yml` | **migrations-lint** (block destructive SQL) + **quality** (typecheck, lint, jest, e2e, prod build) | automatic |
 | Push to `main` touching app paths | `.github/workflows/deploy.yml` | **migrate** (forward-only `prisma migrate deploy`) → **deploy** (build → push → Cloud Run) | automatic |
 | PR touching `infra/terraform/**` | `.github/workflows/terraform.yml` | read-only `terraform plan` | automatic |
 | Manual | `terraform.yml` dispatch / local | `terraform apply` | **human only** |

@@ -1,7 +1,12 @@
 name: CI
 
 # Pull-request gates. Make these required status checks (branch protection) so nothing
-# corrupting can reach main. All logic is in scripts/; this only wires it.
+# corrupting can reach main. Two jobs:
+#   migrations-lint — blocks destructive migrations without a reviewed opt-in tag.
+#   quality         — typecheck, lint, jest (unit+DB), the trimmed Playwright suite
+#                     (chromium flows + webkit engine-sensitive specs), and a prod
+#                     build. Added after PR #15 merged green while breaking e2e:
+#                     merges auto-deploy, so drift main-ward must be caught pre-merge.
 on:
   pull_request:
 
@@ -20,3 +25,52 @@ jobs:
         env:
           BASE_REF: origin/${{ github.base_ref }}
         run: npm run ci:lint-migrations
+
+  quality:
+    name: quality (typecheck · lint · jest · e2e · build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: autoknow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      # Tests derive and self-provision the disposable autoknow_test DB from this
+      # (tests/helpers/testDatabaseUrl + tests/global-setup) — the suite can never
+      # touch a non-_test database by construction.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/autoknow
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run test:e2e
+      # The deploy pipeline builds in Docker AFTER merge — catch build breaks here,
+      # before they can turn into a red post-merge deploy. Same dummy-DB pattern as
+      # the Dockerfile: nothing dynamic touches the DB at build time.
+      - name: Production build compiles
+        env:
+          DATABASE_URL: postgresql://build:build@localhost:5432/build
+        run: npm run build
