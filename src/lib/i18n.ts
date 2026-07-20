@@ -1355,11 +1355,42 @@ const STRINGS = {
   },
   // Schedule chart
   clSchedule: { en: 'Schedule', de: 'Zeitplan', ja: 'スケジュール', ko: '일정' },
-  clScheduleLegend: {
-    en: 'Solid bars are dates that happened; outlined bars are the forecast; the tick on each bar is where the plan said it would end; the ring marks the phase gating the SOP. Shaded backgrounds show where the buffer moved: red = days lost (paler red = forecast loss, not yet spent), green = days gained and the buffer still in hand before the SOP.',
-    de: 'Volle Balken sind eingetretene Daten; umrandete Balken die Prognose; der Strich markiert das geplante Ende; der Ring die Phase, die den SOP bestimmt. Farbige Hintergründe zeigen Pufferbewegungen: Rot = verlorene Tage (blasser = prognostiziert, noch nicht verbraucht), Grün = gewonnene Tage und der verbleibende Puffer vor dem SOP.',
-    ja: '塗りつぶしバーは実績、枠線バーは予測、目盛りは計画上の終了点、リングはSOPを左右するフェーズ。背景の色はバッファの動き: 赤=失った日数（薄い赤=未確定の予測損失）、緑=得た日数とSOP前に残るバッファ。',
-    ko: '채워진 막대는 실제, 윤곽선 막대는 예측, 눈금은 계획된 종료 지점, 링은 SOP를 좌우하는 단계입니다. 배경색은 버퍼의 이동: 빨강=잃은 일수(연한 빨강=아직 쓰지 않은 예측 손실), 초록=얻은 일수와 SOP 전 남은 버퍼.',
+  clKeyTitle: { en: 'How to read the schedule', de: 'So liest du den Zeitplan', ja: 'スケジュールの読み方', ko: '일정 읽는 법' },
+  clKeySolid: {
+    en: 'Solid bars are dates that happened.',
+    de: 'Volle Balken sind eingetretene Daten.',
+    ja: '塗りつぶしバーは実績です。',
+    ko: '채워진 막대는 실제 날짜입니다.',
+  },
+  clKeyOutline: {
+    en: 'Outlined bars are the forecast.',
+    de: 'Umrandete Balken sind die Prognose.',
+    ja: '枠線バーは予測です。',
+    ko: '윤곽선 막대는 예측입니다.',
+  },
+  clKeyTick: {
+    en: 'The tick on a bar is where the plan said it would end.',
+    de: 'Der Strich markiert das geplante Ende.',
+    ja: '目盛りは計画上の終了点です。',
+    ko: '눈금은 계획된 종료 지점입니다.',
+  },
+  clKeyRing: {
+    en: 'The ring marks the phase gating the SOP.',
+    de: 'Der Ring markiert die Phase, die den SOP bestimmt.',
+    ja: 'リングはSOPを左右するフェーズを示します。',
+    ko: '링은 SOP를 좌우하는 단계를 표시합니다.',
+  },
+  clKeyRed: {
+    en: 'Red background: days lost. Paler red: forecast loss, not yet spent.',
+    de: 'Roter Hintergrund: verlorene Tage. Blasses Rot: prognostizierter, noch nicht verbrauchter Verlust.',
+    ja: '赤い背景は失った日数。薄い赤は未確定の予測損失。',
+    ko: '빨간 배경은 잃은 일수. 연한 빨강은 아직 쓰지 않은 예측 손실.',
+  },
+  clKeyGreen: {
+    en: 'Green background: days gained, and the buffer still in hand before the SOP.',
+    de: 'Grüner Hintergrund: gewonnene Tage und der verbleibende Puffer vor dem SOP.',
+    ja: '緑の背景は得た日数とSOP前に残るバッファ。',
+    ko: '초록 배경은 얻은 일수와 SOP 전 남은 버퍼.',
   },
   clDaysEarly: { en: '{d} days early', de: '{d} Tage früher', ja: '{d}日早く完了', ko: '{d}일 일찍 완료' },
   clDaysOverPlan: { en: '{d} days over plan', de: '{d} Tage über Plan', ja: '計画超過{d}日', ko: '계획 초과 {d}일' },

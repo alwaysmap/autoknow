@@ -5,8 +5,72 @@
   margin: 0 0 1rem;
 }
 
-.title {
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
   margin: 0 0 0.4375rem;
+}
+
+.title {
+  margin: 0;
+}
+
+.infoBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.1875rem 0.3125rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.infoBtn:hover {
+  color: var(--fg);
+  background: var(--surface);
+}
+
+.legendDialog {
+  border: none;
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  background-color: var(--white, var(--paper));
+  box-shadow: 0 0.625rem 2.5rem rgba(0, 0, 0, 0.15);
+  max-width: 26rem;
+  width: 90%;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--fg);
+}
+
+.legendDialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.legendTitle {
+  font-family: var(--head-font);
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+}
+
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 0.8125rem;
+  padding: 0.25rem 0;
+}
+
+.legendGlyphWide {
+  width: 1.375rem;
+  height: 0.875rem;
+  flex-shrink: 0;
 }
 
 .subtitle {
@@ -76,13 +140,6 @@
 
 .rowLabel:hover {
   text-decoration: underline;
-}
-
-.legend {
-  color: var(--muted);
-  font-size: 0.78125rem;
-  line-height: 1.5;
-  margin: 0.25rem 0 0;
 }
 
 .block + .block,

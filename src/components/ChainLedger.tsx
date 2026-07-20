@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 import Link from 'next/link';
 import { t, Locale } from '../lib/i18n';
 import { localDate } from '../lib/dates';
@@ -167,6 +167,7 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
 }
 
 export default function ChainLedger({ projectId, locale, now, ledger, sopDate, volumeFirstYear }: ChainLedgerProps) {
+  const legendRef = useRef<HTMLDialogElement>(null);
   const sopMs = sopDate ? +new Date(sopDate) : null;
   const nameOf = (id: number) => ledger.schedule.find((r) => r.id === id)?.name ?? `#${id}`;
   const remTotal = ledger.schedule.reduce((s, r) => s + r.remainingDays, 0);
@@ -280,7 +281,19 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
 
   return (
     <section className={styles.wrapper} data-testid="chain-ledger">
-      <h2 className={styles.title}>{t(locale, 'criticalChain')}</h2>
+      <div className={styles.titleRow}>
+        <h2 className={styles.title}>{t(locale, 'criticalChain')}</h2>
+        {/* the key lives behind the ⓘ, not on the page (design.md §7) — same
+            pattern as the Phases decoder */}
+        <button type="button" className={styles.infoBtn} title={t(locale, 'clKeyTitle')}
+          aria-label={t(locale, 'clKeyTitle')} onClick={() => legendRef.current?.showModal()}>
+          <svg viewBox="0 0 16 16" width={15} height={15} aria-hidden>
+            <circle cx={8} cy={8} r={6.6} fill="none" stroke="currentColor" strokeWidth={1.4} />
+            <circle cx={8} cy={5} r={1} fill="currentColor" />
+            <line x1={8} y1={7.4} x2={8} y2={11.2} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
 
       {sopMs == null || ledger.bufferDays == null ? (
         <p className={styles.headline}>{t(locale, 'clNoSop')}</p>
@@ -318,7 +331,50 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
       )}
 
       <ScheduleChart ledger={ledger} sopMs={sopMs} now={now} locale={locale} />
-      {ledger.schedule.length > 0 && <p className={styles.legend}>{t(locale, 'clScheduleLegend')}</p>}
+
+      {/* the schedule key, consulted on demand */}
+      <dialog ref={legendRef} className={styles.legendDialog}
+        onClick={(e) => { if (e.target === legendRef.current) legendRef.current?.close(); }}>
+        <h3 className={styles.legendTitle}>{t(locale, 'clKeyTitle')}</h3>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
+            <rect x={1} y={4.5} width={20} height={5} rx={2} fill="var(--fg)" />
+          </svg>
+          {t(locale, 'clKeySolid')}
+        </div>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
+            <rect x={1.5} y={5} width={19} height={4} rx={2} fill="none" stroke="var(--fg)" strokeWidth={1.25} />
+          </svg>
+          {t(locale, 'clKeyOutline')}
+        </div>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
+            <rect x={1} y={4.5} width={13} height={5} rx={2} fill="var(--fg)" />
+            <line x1={17} y1={1.5} x2={17} y2={12.5} stroke="var(--muted)" strokeWidth={1.5} />
+          </svg>
+          {t(locale, 'clKeyTick')}
+        </div>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
+            <circle cx={11} cy={7} r={5.5} fill="none" stroke="var(--chain)" strokeWidth={1.8} />
+          </svg>
+          {t(locale, 'clKeyRing')}
+        </div>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
+            <rect x={1} y={1} width={10} height={12} fill="var(--bad-soft)" />
+            <rect x={11} y={1} width={10} height={12} fill="var(--bad-soft)" opacity={0.55} />
+          </svg>
+          {t(locale, 'clKeyRed')}
+        </div>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
+            <rect x={1} y={1} width={20} height={12} fill="var(--ok-soft)" />
+          </svg>
+          {t(locale, 'clKeyGreen')}
+        </div>
+      </dialog>
 
       {wfRows.length > 0 && (
         <div className={styles.block}>
