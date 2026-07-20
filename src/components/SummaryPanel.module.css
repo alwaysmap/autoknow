@@ -41,15 +41,26 @@
   max-width: 860px;
 }
 
-/* Risks / Actions on the first row, Progress / Themes beneath. */
+/* The briefing FLOWS across columns instead of parking each section in its own
+   grid cell — one cell per section meant a five-bullet RISKS list sat beside a
+   one-bullet ACTIONS list and the row grew to the tallest, leaving most of the
+   width empty. Multicol balances by bullet, and the column COUNT is implied by
+   a readable measure, so it adapts without breakpoints. */
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 6px 32px;
+  columns: 20rem;
+  column-gap: 2rem;
 }
 
+/* A section may span a column boundary — that spanning IS the balancing. Its
+   heading may not be left behind at the foot of a column, and no single bullet
+   may be split in two. */
 .section {
   min-width: 0;
+  break-inside: auto;
+}
+
+.section:first-child .sectionTitle {
+  margin-top: 0;
 }
 
 .riskSection {
@@ -58,26 +69,31 @@
 }
 
 .sectionTitle {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
-  margin: 10px 0 4px;
+  margin: 0.625rem 0 0.25rem;
+  break-after: avoid;
 }
 
+/* NOT a flex column: a flex container will not fragment across multicol
+   columns, so flex spacing here would pin each list to one column and undo the
+   balancing. Plain list flow + per-item margin instead. globals.css resets
+   padding/margin and needs the list-style stated explicitly. */
 .bullets {
   margin: 0;
-  padding-left: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  padding-left: 1rem;
+  list-style: disc outside;
 }
 
 .bullet {
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   line-height: 1.5;
   color: var(--fg);
+  margin-bottom: 0.25rem;
+  break-inside: avoid;
 }
 
 .citations {
