@@ -143,6 +143,37 @@ test.describe('Appearance: style and theme are independent', () => {
     expect(alignments.every((a) => a === 'baseline')).toBe(true);
   });
 
+  // The schedule buffer bands are solid hue washes in Standard and hatch/stipple
+  // TEXTURES in Instrument, so the four meanings separate by pattern, not by
+  // similar shades. Both variants are always in the DOM; CSS shows one per style.
+  test('buffer bands are washes in Standard, textures in Instrument', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
+
+    const chart = page.locator('[class*="scheduleSvg"]').first();
+    await expect(chart).toBeVisible();
+
+    const read = () => chart.evaluate((svg) => {
+      const shown = (sel: string) => {
+        const g = svg.querySelector(sel);
+        if (!g || getComputedStyle(g).display === 'none') return null;
+        return (g.querySelector('rect') as SVGRectElement | null)?.getAttribute('fill') ?? null;
+      };
+      return { std: shown('[data-std-only]'), inst: shown('[data-inst-only]') };
+    });
+
+    // Standard: the solid-wash group shows a translucent hue token; no pattern.
+    await page.evaluate(() => { document.documentElement.dataset.style = 'standard'; });
+    const standard = await read();
+    expect(standard.std).toMatch(/var\(--band-/);
+    expect(standard.inst).toBeNull();
+
+    // Instrument: the pattern group shows, filled by a pattern reference.
+    await page.evaluate(() => { document.documentElement.dataset.style = 'instrument'; });
+    const instrument = await read();
+    expect(instrument.inst).toMatch(/^url\(#sched-/);
+    expect(instrument.std).toBeNull();
+  });
+
   test('the style picker persists the choice', async ({ page }) => {
     await page.goto('/');
     await page.getByTestId('user-menu').click();

@@ -323,6 +323,16 @@ combination must work:
   COMPONENTS, not shared classes, because CSS modules cannot share a class across
   files and this control had drifted into three separate definitions. A filter
   box gets no dial: the gauge is an affordance and belongs on a button.
+* **The buffer bands are TEXTURES in Instrument, not similar washes.** Standard
+  keeps its four translucent hue washes; Instrument paints each meaning as a
+  hatch/stipple (dense crosshatch = spent, single hatch = forecast, dense dots =
+  handed back, sparse dots = room), so the four separate by pattern first and hue
+  only second — which keeps the legend's colour words ("Red: days already lost")
+  honest. Both variants are always in the DOM (`data-std-only` / `data-inst-only`,
+  the symmetric pair); CSS shows one per style, so nothing reads the style in JS.
+  Patterns are `userSpaceOnUse` so a run of bands is one continuous field, and
+  each SVG (chart, and every legend swatch) carries its own pattern ids — no
+  cross-SVG paint references, which are the fragile part.
 * **The gauge face is near-WHITE in both themes** (`--gauge-face`). It is the one
   surface that does not follow the page into the dark: a real instrument has a
   light face whatever the light in the cabin, and it is what makes the coloured

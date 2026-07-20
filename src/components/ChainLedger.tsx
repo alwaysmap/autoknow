@@ -56,6 +56,57 @@ const BAND_FILL = {
   gain: 'var(--band-gained)',
   buffer: 'var(--band-buffer)',
 } as const;
+type BandKind = keyof typeof BAND_FILL;
+
+// Instrument paints the buffer bands as hatch/stipple TEXTURES rather than four
+// similar red/green washes, so the meanings separate by pattern first and hue
+// only second (which keeps the legend's colour words honest). `userSpaceOnUse`
+// ties every band to one texture grid, so a run of bands reads as one continuous
+// field. `id`s are caller-scoped: the chart and each legend swatch keep their
+// patterns in their own SVG, so there are no fragile cross-SVG paint references.
+function bandPattern(kind: BandKind, id: string) {
+  const p = { id, patternUnits: 'userSpaceOnUse' as const };
+  switch (kind) {
+    case 'loss': // dense crosshatch — buffer spent for good, "crossed out"
+      return (
+        <pattern key={id} {...p} width={6} height={6}>
+          <path d="M0 6 6 0 M-1 1 1 -1 M5 7 7 5" stroke="var(--band-ink-loss)" strokeWidth={0.9} opacity={0.7} />
+          <path d="M0 0 6 6 M-1 5 1 7 M5 -1 7 1" stroke="var(--band-ink-loss)" strokeWidth={0.9} opacity={0.7} />
+        </pattern>
+      );
+    case 'forecastLoss': // single diagonal hatch — projected, provisional
+      return (
+        <pattern key={id} {...p} width={6} height={6}>
+          <path d="M0 6 6 0 M-1 1 1 -1 M5 7 7 5" stroke="var(--band-ink-forecast)" strokeWidth={0.9} opacity={0.78} />
+        </pattern>
+      );
+    case 'gain': // dense stipple — days handed back
+      return (
+        <pattern key={id} {...p} width={5} height={5}>
+          <circle cx={2.5} cy={2.5} r={0.9} fill="var(--band-ink-gain)" opacity={0.8} />
+        </pattern>
+      );
+    case 'buffer': // sparse stipple — room still open
+      return (
+        <pattern key={id} {...p} width={9} height={9}>
+          <circle cx={4.5} cy={4.5} r={0.85} fill="var(--band-ink-buffer)" opacity={0.62} />
+        </pattern>
+      );
+  }
+}
+
+// A legend swatch: the solid wash in Standard, the texture in Instrument, each in
+// its own SVG with a locally-scoped pattern id so nothing references across SVGs.
+function BandSwatch({ kind }: { kind: BandKind }) {
+  const id = `lg-${kind}`;
+  return (
+    <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
+      <defs>{bandPattern(kind, id)}</defs>
+      <rect data-std-only x={1} y={1} width={20} height={12} fill={BAND_FILL[kind]} />
+      <rect data-inst-only x={1} y={1} width={20} height={12} fill={`url(#${id})`} />
+    </svg>
+  );
+}
 const textWidth = (s: string) =>
   [...s].reduce((w, ch) => w + (ch.charCodeAt(0) > 0x2e80 ? WIDE_CHAR_W : CHAR_W), 0);
 
@@ -161,11 +212,25 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
             always at their true width, so nothing in the chain — a missing
             observer, a paused frame loop, a failed effect — can leave the bands
             invisible. Worst case the reading simply appears without its sweep. */}
+        <defs>
+          {(['loss', 'forecastLoss', 'gain', 'buffer'] as const).map((k) => bandPattern(k, `sched-${k}`))}
+        </defs>
         <g className={styles.bands}>
-          {bands.map((b, i) => (
-            <rect key={`band${i}`} x={x(b.x1)} y={TOP - 8} width={Math.max(1.5, x(b.x2) - x(b.x1))}
-              height={rows.length * ROW_H + 16} fill={BAND_FILL[b.kind]} />
-          ))}
+          {/* Standard: translucent hue washes. Instrument: hatch/stipple, so the
+              four meanings separate by texture rather than by similar shades of
+              red and green. Both are drawn; CSS shows one per style. */}
+          <g data-std-only>
+            {bands.map((b, i) => (
+              <rect key={`band${i}`} x={x(b.x1)} y={TOP - 8} width={Math.max(1.5, x(b.x2) - x(b.x1))}
+                height={rows.length * ROW_H + 16} fill={BAND_FILL[b.kind]} />
+            ))}
+          </g>
+          <g data-inst-only>
+            {bands.map((b, i) => (
+              <rect key={`band${i}`} x={x(b.x1)} y={TOP - 8} width={Math.max(1.5, x(b.x2) - x(b.x1))}
+                height={rows.length * ROW_H + 16} fill={`url(#sched-${b.kind})`} />
+            ))}
+          </g>
         </g>
         {/* graticule: week ticks (finest), month ticks, quarter lines + labels */}
         {weeks.map((ms) => (
@@ -607,27 +672,19 @@ export default function ChainLedger({
           {t(locale, 'clKeyRing')}
         </div>
         <div className={styles.legendRow}>
-          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <rect x={1} y={1} width={20} height={12} fill={BAND_FILL.loss} />
-          </svg>
+          <BandSwatch kind="loss" />
           {t(locale, 'clKeyRed')}
         </div>
         <div className={styles.legendRow}>
-          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <rect x={1} y={1} width={20} height={12} fill={BAND_FILL.forecastLoss} />
-          </svg>
+          <BandSwatch kind="forecastLoss" />
           {t(locale, 'clKeyAmber')}
         </div>
         <div className={styles.legendRow}>
-          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <rect x={1} y={1} width={20} height={12} fill={BAND_FILL.gain} />
-          </svg>
+          <BandSwatch kind="gain" />
           {t(locale, 'clKeyGreen')}
         </div>
         <div className={styles.legendRow}>
-          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <rect x={1} y={1} width={20} height={12} fill={BAND_FILL.buffer} />
-          </svg>
+          <BandSwatch kind="buffer" />
           {t(locale, 'clKeyTeal')}
         </div>
       </dialog>
