@@ -50,6 +50,25 @@ test.describe('usability invariants', () => {
     expect(heroRadius, 'hero search is rounded').toBeGreaterThanOrEqual(16);
   });
 
+  test('the CTA dial is HIDDEN in Standard despite carrying its own display class', async ({ page }) => {
+    // Regression: `[data-inst-only] { display: none }` (0-1-0) tied the dial's own
+    // `.gaugeSlot { display: inline-flex }` (0-1-0), and the module CSS loading
+    // after globals won the tie — leaking the dial into Standard. The default
+    // style IS standard, so this is what most users saw. Caught only because a
+    // real browser was on the default style, not the instrument one under test.
+    await page.goto('/');
+
+    const displayFor = (style: string) =>
+      page.evaluate((s) => {
+        document.documentElement.dataset.style = s;
+        const slot = document.querySelector('[data-inst-only][class*="gaugeSlot"]');
+        return slot ? getComputedStyle(slot).display : 'missing';
+      }, style);
+
+    expect(await displayFor('standard'), 'dial hidden in Standard').toBe('none');
+    expect(await displayFor('instrument'), 'dial shown in Instrument').not.toBe('none');
+  });
+
   test('the CTA dial sweeps on HOVER and when autosuggest appears, then returns', async ({ page }) => {
     // The dial is the Instrument style's one motion, and it is an affordance on
     // the button — driven by hover (2026-07-20 user call), and lit as soon as

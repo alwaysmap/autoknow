@@ -306,8 +306,14 @@
 
 /* Graphic flourishes that only exist in this style are rendered by every style
    (so nothing depends on a JS theme read) and revealed by CSS here. `inline` is
-   the initial display for SVG children, so this restores them intact. */
-[data-inst-only] {
+   the initial display for SVG children, so this restores them intact.
+
+   `:root [data-inst-only]` (0-2-0), NOT bare `[data-inst-only]` (0-1-0): the CTA
+   dial's own `.gaugeSlot { display: inline-flex }` is also 0-1-0 and, loading
+   after globals, was WINNING the tie and leaking the dial into Standard. The
+   `:root` qualifier lifts the hide above any single element class; the reveal
+   below is 0-3-0 and still wins in Instrument. */
+:root [data-inst-only] {
   display: none;
 }
 
@@ -317,7 +323,8 @@
 
 /* The inverse: shown by default, hidden in Instrument. Used where a graphic has a
    different form per style and both are rendered (the schedule buffer bands:
-   solid wash vs hatch/stipple). */
+   solid wash vs hatch/stipple). The std-only elements carry no competing display
+   class, so a bare default (visible) is enough — only the hide needs stating. */
 :root[data-style="instrument"] [data-std-only] {
   display: none;
 }
