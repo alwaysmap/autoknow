@@ -40,6 +40,17 @@ and the ✦ AI-provenance mark (§8).
    form, read computed styles. Several past bugs passed tests and died on
    first real page load. (Deployed-app checks need the `alwaysmap.com`
    sign-in — identity rules in AGENTS.md.)
+
+   **Worktree preview recipe** (verified 2026-07-20): run the dev server with
+   `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` set EMPTY (unconfigured auth = stub
+   signed-in identity, no Google login) and `DATABASE_URL` pointed at a
+   **scratch DB you create** — `CREATE DATABASE x` + `prisma migrate deploy`,
+   seed via SQL/admin. NEVER `autoknow_test` (e2e wipes it mid-demo — AGENTS
+   lesson 9). Ports: :3000 dev default, :3100 long-lived demo, :3130 e2e —
+   pick another. `NEXT_DIST_DIR` resolves RELATIVE to the project root even
+   when absolute — use a short name like `.next-preview` and delete it after;
+   `git checkout tsconfig.json` afterward (Next appends dist types to it).
+   Fresh worktrees need `npm ci` + `npx prisma generate` first.
 2. Verify visually in BOTH themes (`data-theme` light/dark) — tokens live in
    `globals.css`; components must not hard-code colors.
 3. `npm run lint && npm run typecheck`.

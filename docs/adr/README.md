@@ -17,3 +17,6 @@ and invariants kept, narrative deleted).
 | ADR | Title | Status | Tags |
 |---|---|---|---|
 | [0001](0001-serialize-deploys-newest-wins.md) | Serialize deploys; newest queued merge wins | accepted | deploy, ci |
+| [0002](0002-e2e-flows-only-deliberate-matrix.md) | E2E tests user/system flows only, on a deliberate browser matrix | accepted | testing, e2e |
+| [0003](0003-decision-records-over-detail-documents.md) | Decision records over detail documents; skills over bulk context | accepted | docs, knowledge, agents |
+| [0004](0004-premerge-quality-gate.md) | Every PR runs the full quality gate, because merges auto-deploy | accepted | ci, testing, deploy |
