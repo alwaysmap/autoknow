@@ -1,7 +1,9 @@
 # Ingested Content Freshness — Design Plan (v2)
 
-Status: **Plan only** (no code written yet). v2 = v1 after an adversarial review;
-§11 lists what the review found and what got simplified away.
+Status: **Implemented** — the refresh worker runs hourly in production
+(`/api/cron/refresh` → `lib/driveSync`, `lib/refresh`, `lib/summaries`; ops:
+OPERATIONS §4). This doc remains the design rationale. v2 = v1 after an
+adversarial review; §11 lists what the review found and what got simplified away.
 
 ## Goal
 

@@ -8,6 +8,59 @@ A relationship and project tracking system for Android Automotive Partner Engine
 > [docs/CHANGE_PLAYBOOK.md](docs/CHANGE_PLAYBOOK.md) (**mandatory** before schema/infra changes) ·
 > [docs/design.md](docs/design.md) (UI rules) · [AGENTS.md](AGENTS.md) (ground rules for AI agents)
 
+## System Architecture
+
+One Next.js app on Cloud Run, one Postgres, three ways work arrives. (Full
+design rationale: [docs/DEPLOYMENT_GCP.md](docs/DEPLOYMENT_GCP.md).)
+
+**Flow 1 — a person loads a page**
+
+```
+ Browser ───GET /programs/42───▶ Cloud Run: autoknow (Next.js standalone)
+    │                              │ 1. session gate (next-auth ⇄ Google OAuth;
+    │                              │    domain-restricted by AUTH_ALLOWED_DOMAIN)
+    │                              │ 2. server components query via Prisma (pg)
+    │                              ▼
+    │                            Cloud SQL Postgres 16 + pgvector
+    │                              (unix socket /cloudsql/…, no public IP)
+    ◀───rendered HTML/RSC──────────┘
+    A visible summary that is missing/stale regenerates once on mount:
+    SummaryPanel ──▶ Gemini API ──▶ new Summary row (append-only) ──▶ re-render
+```
+
+**Flow 2 — the hourly refresh worker**
+
+```
+ Cloud Scheduler ──GET /api/cron/refresh (Authorization: Bearer CRON_SECRET)──▶ Cloud Run
+                                                                                  │
+   pg advisory lock (single-flight: overlapping ticks no-op) ─────────────────────┤
+   1. runDriveSync()     Drive API (service account) — ingest/refresh shared Docs │
+   2. runRefreshCycle()  re-fetch watched web/tracker sources (content-hash gated)│
+   3. runSummaryCycle()  regenerate MISSING → STALE summaries via Gemini (cap 10) │
+                                                                                  ▼
+   all writes → Cloud SQL · JSON report → Cloud Logging (see OPERATIONS §10)
+```
+
+**Flow 3 — Google Chat ingestion**
+
+```
+ Googler picks @AutoKnow in a Chat space
+    │
+    ▼
+ Google Chat (Workspace add-on runtime)
+    │  POST /api/chat/events — Google-signed ID token
+    ▼
+ Cloud Run: verify token (audience = GCP project number)
+    │  save thread as ContextUrl revision (re-mentions = new revisions)
+    │  Gemini digest + embedding ──▶ Cloud SQL (feeds search + summaries)
+    ▼
+ reply posted back in-thread (add-on createMessageAction envelope)
+```
+
+Deploys are a fourth flow, but a boring one by design: merge to `main` →
+GitHub Actions (`migrate` → `deploy`, serialized) → new Cloud Run revision.
+See §7 below and [docs/OPERATIONS.md](docs/OPERATIONS.md) §9–§10.
+
 ## Development Workflow
 
 **`npm run` is the single entry point for every dev, test, database, and CI task**

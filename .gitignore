@@ -55,9 +55,6 @@ node_modules/
 /playwright/.cache/
 /playwright/.auth/
 
-# Scratch scripts
-*.py
-
 # Review artifacts from agent-driven visual verification
 /screenshots/
 

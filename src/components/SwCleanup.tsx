@@ -6,8 +6,9 @@ import { useEffect } from 'react';
 // strategy served stale CSS/JS after every deploy/edit. This renders nothing and
 // evicts the retired worker from browsers that still carry it: unregister every
 // registration and delete every cache. public/sw.js is a matching kill-switch for
-// browsers that update the worker before running page JS. Delete this component
-// (and sw.js) once the fleet has been clean for a while.
+// browsers that update the worker before running page JS. Deliberately retained
+// cruft: delete this component, sw.js, and the sw.js exclusion in src/proxy.ts
+// after ~2026-09 (kill-switch shipped 2026-07; a month of visits cleans the fleet).
 export default function SwCleanup() {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
