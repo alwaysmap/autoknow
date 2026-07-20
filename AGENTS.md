@@ -1,3 +1,15 @@
+# Documentation map — read the right doc BEFORE acting
+
+| Doc | Read it when… |
+|---|---|
+| [README.md](README.md) | developing locally: setup, npm scripts, running tests |
+| [docs/CHANGE_PLAYBOOK.md](docs/CHANGE_PLAYBOOK.md) | **mandatory** before ANY schema/infra/secret/env change — see next section |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | configuring or operating a deployment: env vars, integrations (Gemini, OAuth, Drive, Chat), refresh worker, custom domain, and **§9 production deploys / redeploy / rollback** |
+| [docs/DEPLOYMENT_GCP.md](docs/DEPLOYMENT_GCP.md) | understanding the GCP architecture (Cloud Run + Cloud SQL + Scheduler, keyless CI) and why it is shaped this way |
+| [design.md](design.md) | building or changing any UI (see Design Guidelines below) |
+| [walkthrough.md](walkthrough.md) | historical feature tour — a dated snapshot, not current truth |
+| [docs/COMPONENT_PLAN.md](docs/COMPONENT_PLAN.md), [docs/INGEST_FRESHNESS_PLAN.md](docs/INGEST_FRESHNESS_PLAN.md), [docs/PHASE_TEMPLATES_PLAN.md](docs/PHASE_TEMPLATES_PLAN.md) | deep design docs for those subsystems |
+
 # Database & infrastructure changes — STOP and read the playbook
 
 Before any change touching `prisma/schema.prisma`, `infra/terraform/**`, secrets, or env
@@ -21,7 +33,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Visual & UX Design Guidelines
 
-All visual designs, layouts, and UX interaction patterns must adhere strictly to the rules documented in [design.md](file:///Users/dylan/projects/goog/autoknow/design.md). Key patterns:
+All visual designs, layouts, and UX interaction patterns must adhere strictly to the rules documented in [design.md](design.md). Key patterns:
 * **Everything is a URL**: Avoid plain-text entity displays. Hyperlink all partners, suppliers, phase markers, and LDAP names.
 * **Tufte Visual Cleanliness**: Maintain high data-ink ratios; no redundant borders or blocky layouts.
 * **Percentage-Free Gauges**: Never display numeric progress percentages or risk strings inside interactive dial gauges or hill charts.

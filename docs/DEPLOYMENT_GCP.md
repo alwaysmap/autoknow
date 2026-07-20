@@ -1,5 +1,26 @@
 # Deploying AutoKnow to GCP (Cloud Run + Terraform + GitHub CI/CD)
 
+> **STATUS: implemented and in production** at https://autoknow.alwaysmap.com
+> (project `autoknow-prod-1895f1`, service `autoknow`, region `us-central1`).
+> This document is the design plan the implementation followed — read it for the
+> architecture and the *why*. The as-built deltas from the plan:
+>
+> - **Identity:** next-auth was kept (not the IAP path of §4b) — one
+>   console-created OAuth client; see OPERATIONS §3.1/§8.
+> - **CI/CD:** `.github/workflows/deploy.yml` = `migrate` job (forward-only
+>   `prisma migrate deploy`) → `deploy` job (build → Artifact Registry →
+>   `gcloud run services update`), keyless via WIF. Deploy runs are serialized
+>   with a workflow **concurrency group** (newest queued merge wins) after a
+>   2026-07-20 incident where parallel merges deployed out of order.
+>   `terraform apply` remains human-run. Rules: [CHANGE_PLAYBOOK.md](CHANGE_PLAYBOOK.md).
+> - **Migrations:** `prisma migrate` adopted (§6's "switch off `db push`" — done),
+>   with the destructive-migration lint gate and the `app_runtime` least-privilege
+>   DB role (playbook "Enforcement").
+> - **Custom domain:** implemented via `google_cloud_run_domain_mapping` (§10).
+> - **Terraform:** lives in `infra/terraform/` with per-instance tfvars.
+>
+> Day-2 operations (verify what's serving, redeploy, roll back): OPERATIONS §9.
+
 A plan for hosting AutoKnow on Google Cloud, declared end-to-end in Terraform, with
 a GitHub Actions pipeline. Written to answer three things up front:
 
@@ -357,6 +378,12 @@ Chat handler would need a Directory API lookup (a real project, not a config fli
 
 ## 8. CI/CD (GitHub Actions)
 
+> **As built:** the live pipeline is simpler than this plan — see the STATUS block
+> at the top and `.github/workflows/` (`deploy.yml`, `ci.yml`, `terraform.yml`,
+> `harden-db.yml`). Notable simplifications: migrate runs as its own job gating
+> deploy (not a step between push and rollout), there is no automated smoke-test
+> step yet, and one prod instance (no `dev` environment).
+
 **Auth: Workload Identity Federation, no JSON keys.** A `google_iam_workload_identity_pool`
 + provider trusts GitHub's OIDC issuer, scoped to your repo; the CI deployer SA is
 bound to it. Actions gets short-lived GCP creds with `google-github-actions/auth` — no
@@ -432,19 +459,17 @@ Small, mostly mechanical — none block the design:
 
 ---
 
-## 11. What I'd do next (suggested order)
+## 11. Execution order (historical — all done; see the STATUS block up top)
 
 1. Land the app changes in §9 (Dockerfile, migrations, advisory lock, pool handler).
 2. Scaffold `infra/terraform/` (§4) with GCS remote state; `apply` the base (APIs,
    registry, Cloud SQL, secrets, a placeholder Cloud Run service).
-3. Wire GitHub Actions with WIF; get build → push → deploy green to `dev`.
+3. Wire GitHub Actions with WIF; get build → push → deploy green.
 4. Add Cloud Scheduler; confirm the AI-update pipeline runs and the advisory lock
    single-flights it.
-5. Point Google Chat at the Cloud Run URL; complete the Workspace admin allowlist.
-6. Promote to `prod`.
-
-I can scaffold the Terraform files and the GitHub workflow whenever you want — this doc
-is the plan they'd implement.
+5. Point Google Chat at the Cloud Run URL; complete the Workspace admin allowlist
+   (the add-on-era saga this took in practice: OPERATIONS §6.0).
+6. Serve on the custom domain (OPERATIONS §8).
 
 ---
 

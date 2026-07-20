@@ -2,8 +2,11 @@
 
 A relationship and project tracking system for Android Automotive Partner Engineering.
 
-> Operational setup (Gemini key, GCP project, OAuth sign-in, service account,
-> Chat app, refresh worker): see [docs/OPERATIONS.md](docs/OPERATIONS.md).
+> **Doc map** — this file covers local development. Everything else:
+> [docs/OPERATIONS.md](docs/OPERATIONS.md) (running & configuring a deployment; §9 = deploy/rollback runbook) ·
+> [docs/DEPLOYMENT_GCP.md](docs/DEPLOYMENT_GCP.md) (GCP architecture & CI/CD) ·
+> [docs/CHANGE_PLAYBOOK.md](docs/CHANGE_PLAYBOOK.md) (**mandatory** before schema/infra changes) ·
+> [design.md](design.md) (UI rules) · [AGENTS.md](AGENTS.md) (ground rules for AI agents)
 
 ## Development Workflow
 
@@ -78,9 +81,14 @@ This automatically parses the target program and records the status through the 
 ```bash
 npm run db:up      # Starts the postgres container in the background
 npm run db:down    # Stops and removes the database container
-npm run db:push    # Pushes schema changes to the database
+npm run db:push    # Pushes schema changes to the database (LOCAL dev DB only)
 npm run db:studio  # Opens Prisma Studio on port 5555 to view/edit database contents
 ```
+
+`db:push` is for the local throwaway database only. Production is forward-only
+`prisma migrate deploy`, run by CI — schema changes ship as committed migrations.
+Read [docs/CHANGE_PLAYBOOK.md](docs/CHANGE_PLAYBOOK.md) before touching
+`prisma/schema.prisma`.
 
 ### 6. Production Build
 The dev server is not suitable for long-running use (it accumulates memory); serve
@@ -91,3 +99,15 @@ npm run build
 npm run start            # http://localhost:3000
 # or: npm run start -- -p 3100
 ```
+
+### 7. Production Deployment (GCP)
+
+Production runs on Cloud Run at https://autoknow.alwaysmap.com and deploys
+**automatically on merge to `main`**: `.github/workflows/deploy.yml` runs
+forward-only `prisma migrate deploy`, then builds and rolls the Cloud Run service.
+Deploys are serialized (a workflow concurrency group), so the newest merge always
+wins. Note the workflow's path filter: docs-only changes do not trigger a deploy.
+
+- Architecture and CI/CD design: [docs/DEPLOYMENT_GCP.md](docs/DEPLOYMENT_GCP.md)
+- Operating it — env, integrations, **redeploy & rollback runbook**: [docs/OPERATIONS.md](docs/OPERATIONS.md) (§9)
+- Rules for schema/infra changes: [docs/CHANGE_PLAYBOOK.md](docs/CHANGE_PLAYBOOK.md)

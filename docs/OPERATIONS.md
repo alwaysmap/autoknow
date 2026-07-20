@@ -4,13 +4,15 @@ Everything an operator needs to run AutoKnow with all integrations. Each section
 says what breaks (honestly) when it's skipped — the app degrades feature-by-feature
 rather than failing to start.
 
-Two kinds of sections:
+Sections at a glance:
 
-- **Active today** — used by the running app: database, Gemini, Google sign-in,
-  refresh worker, Drive share-to-ingest (service account).
-- **Needs a public endpoint** — the Chat app (§6): the code ships, but Google Chat
-  delivers events over public HTTPS, so a laptop deployment needs a tunnel or a
-  real host before @mention ingestion works.
+- **§1–§5, active everywhere** — database, Gemini, Google sign-in, refresh
+  worker, Drive share-to-ingest (service account).
+- **§6, the Chat app** — working in production since 2026-07-19 (read §6.0
+  first). Google Chat delivers events over public HTTPS, so a laptop deployment
+  additionally needs a tunnel or relay before @mention ingestion works.
+- **§8–§9, production (Cloud Run)** — custom domain, and the deploy / redeploy /
+  rollback runbook.
 
 ---
 
@@ -24,7 +26,7 @@ Two kinds of sections:
 npm install
 cp .env.sample .env  # DATABASE_URL is the only required var (below); the rest gate features
 npm run db:up        # start Postgres (docker compose service "db")
-npm run db:push      # apply prisma/schema.prisma
+npm run db:push      # apply prisma/schema.prisma (LOCAL dev DB only — prod is migrate-only, see CHANGE_PLAYBOOK)
 npm run dev          # dev server on :3000   (production: npm run build && npm run start)
 ```
 
@@ -517,3 +519,71 @@ curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" \
 **Gotcha:** `alwaysmaps.com` (with an s) is a stranger's domain — Tucows-registered,
 Route 53-hosted, nothing to do with us. Don't buy records, mappings, or
 verifications against it.
+
+---
+
+## 9. Production deploys — redeploy, verify, roll back (Cloud Run)
+
+How code reaches production, and what to do when it doesn't. Full pipeline rules:
+[CHANGE_PLAYBOOK.md](CHANGE_PLAYBOOK.md); architecture: [DEPLOYMENT_GCP.md](DEPLOYMENT_GCP.md).
+
+**What deploys, when.** Merging to `main` triggers `.github/workflows/deploy.yml`:
+job `migrate` (forward-only `prisma migrate deploy`) then job `deploy`
+(build → push to Artifact Registry → `gcloud run services update` with the
+commit-SHA image tag). Two caveats operators trip on:
+
+- **Path filter:** only changes under `src/`, `prisma/`, `public/`, the build
+  files, `scripts/ci/`, or the workflow itself trigger a deploy. A docs-only or
+  tests-only merge deploys nothing — that is by design, not a failure.
+- **Serialization:** deploy runs share a workflow concurrency group (`deploy`),
+  so exactly one runs at a time and the newest queued merge supersedes older
+  queued ones. Before this existed (2026-07-20), five near-simultaneous merges
+  raced their Cloud Run updates: runs finished out of order, one failed with
+  `ABORTED: Conflict for resource 'autoknow': version ...`, and prod ended up
+  serving the OLDEST commit while every newer run reported success. If you ever
+  see that ABORTED conflict again, suspect parallel deploys and check what's
+  actually serving (below).
+
+**Verify what production is actually serving** (don't trust a green run — trust
+the service):
+
+```bash
+gcloud run services describe autoknow --region us-central1 \
+  --project autoknow-prod-1895f1 \
+  --format='value(status.latestCreatedRevisionName, spec.template.spec.containers[0].image)'
+# the image tag is the git SHA — compare against `git log origin/main -1`
+```
+
+**Redeploy current `main`** (stale prod, superseded run, or a docs-merge day when
+you want a rebuild anyway) — the workflow has `workflow_dispatch`:
+
+```bash
+gh workflow run deploy.yml --repo alwaysmap/autoknow --ref main
+gh run watch --repo alwaysmap/autoknow   # or: gh run list --workflow=deploy.yml
+```
+
+Migrations are idempotent (`migrate deploy` re-applies nothing), so a redeploy is
+always safe.
+
+**Roll back.** Two options, in order of preference:
+
+1. **Fix-forward or revert the commit** and let the pipeline deploy it — keeps
+   `main` and prod in agreement.
+2. **Emergency traffic shift** to the previous revision while the fix lands:
+
+```bash
+gcloud run revisions list --service autoknow --region us-central1 --project autoknow-prod-1895f1
+gcloud run services update-traffic autoknow --region us-central1 \
+  --project autoknow-prod-1895f1 --to-revisions <previous-revision>=100
+```
+
+Traffic shifting does NOT undo migrations — that's why the playbook requires every
+migration to be safe for the previous revision too (expand → backfill → contract).
+After the fix deploys, return traffic to latest:
+`gcloud run services update-traffic autoknow --region us-central1 --project autoknow-prod-1895f1 --to-latest`.
+
+**Deploy failed?** `migrate` red → the rollout never started; prod still serves
+the old revision; fix forward (playbook §"If a migration fails in CI").
+`deploy` red after a green `migrate` → the new image never took traffic; rerun via
+`workflow_dispatch` once the cause (quota, registry, the old parallel-deploy race)
+is addressed.

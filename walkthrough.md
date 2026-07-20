@@ -1,5 +1,11 @@
 # Walkthrough: Ecosystem Summary, Onboarding Controls, and status History Logs
 
+> **Historical snapshot** — this walkthrough describes the app as of an early
+> milestone and is not updated as features change. Routes, coverage numbers, and
+> feature details may have drifted (e.g. `/projects/*` routes later moved to
+> `/programs/*`). For current truth: [README.md](README.md) and
+> [docs/OPERATIONS.md](docs/OPERATIONS.md).
+
 We have implemented the full operational flow of AutoKnow, providing partner tracking, project dashboards, biographical timelines, gut-feel status sliders, constraints diagnostics, and developer seeding tools.
 
 ## Operational URL Routes
@@ -7,7 +13,7 @@ We have implemented the full operational flow of AutoKnow, providing partner tra
 *   **Ecosystem**: [http://localhost:3000/ecosystem-summary](http://localhost:3000/ecosystem-summary)
 *   **Me Landing Page**: [http://localhost:3000/me?user=@dylan](http://localhost:3000/me?user=@dylan)
 *   **Partners Page**: [http://localhost:3000/partners](http://localhost:3000/partners)
-*   **Create Project**: [http://localhost:3000/projects/new](http://localhost:3000/projects/new)
+*   **Create Project**: [http://localhost:3000/programs/new](http://localhost:3000/programs/new)
 *   **Dev Console**: [http://localhost:3000/admin](http://localhost:3000/admin)
 *   **Search Page**: [http://localhost:3000/search?q=Ford](http://localhost:3000/search?q=Ford)
 
