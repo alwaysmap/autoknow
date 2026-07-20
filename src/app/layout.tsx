@@ -2,7 +2,6 @@ import UserMenu from '../components/UserMenu';
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Rubik } from "next/font/google";
 import Link from 'next/link';
-import Search from '../components/Search';
 import SwCleanup from '../components/SwCleanup';
 import { LocaleProvider } from '../components/LocaleProvider';
 import { getCurrentUser } from '../lib/session';
@@ -69,7 +68,7 @@ export default async function RootLayout({
               AutoKnow
             </Link>
             <div className={styles.navLinks}>
-              <Link href="/" className={styles.navLink}>
+              <Link href="/ecosystem" className={styles.navLink}>
                 {t(locale, 'navEcosystem')}
               </Link>
               <Link href="/programs" className={styles.navLink}>
@@ -88,7 +87,6 @@ export default async function RootLayout({
           </div>
           <div className={styles.rightSection}>
             <SwCleanup />
-            <Search />
             <Link href="/manage" className={styles.settingsCog} aria-label={t(locale, 'navManage')} title={t(locale, 'navManage')}>
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                 <circle cx="12" cy="12" r="3" />

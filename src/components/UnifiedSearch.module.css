@@ -1,0 +1,111 @@
+/* The search surface. Two sizes: the default inline one (partner/program pages)
+   and `hero` — the landing page, where search IS the page's purpose and the input
+   is the largest thing on it. */
+
+.form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background: var(--white);
+  color: var(--fg);
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 1px;
+}
+
+.button {
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 0.625rem 1.125rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--white);
+  color: var(--fg);
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+/* Hero: the one place in the app where a control is deliberately oversized. */
+.hero .input {
+  font-size: 1.125rem;
+  padding: 0.875rem 1.125rem;
+  border-radius: 0.75rem;
+}
+
+.hero .button {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 0.875rem 1.5rem;
+  border-radius: 0.75rem;
+  background: var(--p-600);
+  border-color: var(--p-600);
+  color: var(--white);
+}
+
+.hero .button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.chips {
+  display: flex;
+  gap: 0.375rem;
+  margin-top: 0.625rem;
+  flex-wrap: wrap;
+}
+
+.chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--p-600);
+  border-color: var(--p-600);
+  color: var(--paper);
+}
+
+.results {
+  margin-top: 0.875rem;
+}
+
+.count {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 560px) {
+  .hero .input {
+    font-size: 1rem;
+    padding: 0.75rem 0.875rem;
+  }
+
+  .hero .button {
+    padding: 0.75rem 1rem;
+  }
+}

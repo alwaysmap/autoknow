@@ -1,252 +1,74 @@
+/* Landing page. The search box is the largest thing here on purpose; everything
+   else is quiet enough that the eye lands on it first. */
+
+/* `width: 100%` is load-bearing: globals.css makes <body> a flex COLUMN, and an
+   auto cross-axis margin on a flex item overrides stretch and shrink-wraps it to
+   its content — the measure would then be set by whichever locale's lede is
+   longest. Filling first, then capping, keeps it identical in all four. */
 .container {
-  min-height: 100vh;
-  background-color: transparent;
-  color: var(--fg);
-  padding: 0 40px;
-  font-family: var(--body-font);
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: 64px;
-  border-bottom: 1px solid var(--border);
-  font-size: 14px;
-}
-
-.brand {
-  font-family: var(--head-font);
-  font-weight: 600;
-  font-size: 1.625rem;
-  letter-spacing: -0.01em;
-  color: var(--fg);
-}
-
-.user {
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-
-.main {
-  max-width: 1100px;
+  width: 100%;
+  max-width: 62rem;
   margin: 0 auto;
-  padding: 24px 0 40px;
+  padding: 2rem 2.5rem 3rem;
 }
 
-.searchSection {
-  margin-bottom: 56px;
-  max-width: 700px;
+/* Vertical room above the hero so the input sits near the optical centre of a
+   laptop viewport rather than jammed under the nav. */
+.hero {
+  padding: 3.5rem 0 2.5rem;
 }
 
-.searchBar {
-  width: 100%;
-  padding: 12px 16px;
-  font-size: 18px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background-color: var(--white);
-  color: var(--fg);
-  outline: none;
-  font-family: inherit;
-  transition: border-color 0.15s ease;
-}
-
-.searchBar:focus {
-  border-color: var(--p-500);
-  background-color: var(--white);
-}
-
-.searchSubtext {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.dashboardSection {
-  margin-bottom: 30px;
-}
-
-/* The leadership tiles above the capacity chart. Auto-fit keeps them one row on a
-   laptop and lets them reflow to two (then one) on narrow viewports without a
-   breakpoint — the chart tile just needs room to stay legible. */
-.statStrip {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: 1.75rem 3rem;
-  align-items: start;
-  margin-bottom: 30px;
-}
-
-.sectionHeader {
-  display: flex;
-  align-items: baseline;
-  margin-bottom: 16px;
-}
-
-.sectionHeader h2 {
+.headline {
   font-family: var(--head-font);
-  font-size: 1.125rem;
+  font-size: 2rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--p-600);
-  margin: 0;
+  line-height: 1.2;
+  margin: 0 0 0.5rem;
 }
 
-.countBadge {
-  margin-left: 12px;
-  font-size: 12px;
+.lede {
+  font-size: 0.9375rem;
+  line-height: 1.6;
   color: var(--muted);
+  max-width: 44rem;
+  margin: 0 0 1.5rem;
 }
 
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  font-size: 14px;
-}
-
-.table th {
-  font-family: var(--head-font);
-  font-weight: 600;
-  color: var(--muted);
-  border-bottom: 2px solid var(--fg);
-  padding: 8px 12px 8px 0;
+.browse {
   font-size: 0.8125rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  color: var(--muted);
+  margin: 1rem 0 0;
 }
 
-.table td {
-  padding: 12px 12px 12px 0;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
+.browse a {
+  color: var(--link);
 }
 
-.table tr:hover td {
-  background-color: var(--surface);
-}
-
-.badge {
-  display: inline-block;
-  padding: 2px 6px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  border-radius: 3px;
-  letter-spacing: 0.5px;
-}
-
-.critical {
-  background-color: var(--t-100);
-  color: var(--t-700);
-  border: 1px solid var(--t-500);
-}
-
-.high {
-  background-color: var(--s-100);
-  color: var(--s-700);
-  border: 1px solid var(--s-500);
-}
-
-.medium {
-  background-color: var(--p-50);
-  color: var(--p-700);
-  border: 1px solid var(--p-400);
-}
-
-.low {
-  background-color: var(--p-50);
-  color: var(--p-600);
-}
-
-.alertText {
-  color: var(--t-700);
-  font-weight: 600;
-}
-
-.tableLink {
-  color: var(--fg);
-  text-decoration: none;
-  font-weight: 400;
-}
-
-.tableLink:hover {
+.browse a:hover {
   text-decoration: underline;
 }
 
-.emptyText {
-  font-size: 14px;
-  color: var(--muted);
-  font-style: italic;
-  padding: 16px 0;
+/* The heading is the separator (design.md §7) — no rule, no card. */
+.latest {
+  margin-top: 1.5rem;
 }
 
-.emptyActionItemsBox {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 24px;
-  text-align: center;
+@media (max-width: 960px) {
+  .container {
+    padding: 1.5rem 1.5rem 2.5rem;
+  }
+
+  .hero {
+    padding: 2rem 0 1.75rem;
+  }
 }
 
-.onboardingBox {
-  background-color: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 32px;
-  max-width: 720px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
+@media (max-width: 560px) {
+  .container {
+    padding: 1rem 1rem 2rem;
+  }
 
-.onboardingBox h3 {
-  font-family: var(--head-font);
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin: 0 0 12px 0;
-  color: var(--fg);
+  .headline {
+    font-size: 1.5rem;
+  }
 }
-
-.onboardingBox p {
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.6;
-  margin: 0 0 24px 0;
-}
-
-.onboardingOptions {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.onboardingBtn, .onboardingBtnSecondary {
-  font-family: var(--head-font);
-  font-weight: 600;
-  font-size: 13px;
-  padding: 10px 18px;
-  border-radius: 4px;
-  text-decoration: none;
-  transition: background-color 0.2s ease;
-}
-
-.onboardingBtn {
-  background-color: var(--info);
-  color: var(--white);
-}
-
-.onboardingBtn:hover {
-  background-color: var(--info-ink);
-}
-
-.onboardingBtnSecondary {
-  background-color: var(--surface);
-  color: var(--fg);
-  border: 1px solid var(--border);
-}
-
-.onboardingBtnSecondary:hover {
-  background-color: var(--surface);
-}
-

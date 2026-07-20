@@ -21,7 +21,7 @@ test.describe('Leadership summaries', () => {
   });
 
   test('all three scopes degrade honestly without a Gemini key', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/ecosystem');
     await expect(page.getByTestId('summary-ecosystem')).toContainText('AI summaries are off');
     await expect(page.getByTestId('summary-ecosystem')).toContainText('GEMINI_API_KEY');
 

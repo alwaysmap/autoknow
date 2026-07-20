@@ -5,6 +5,7 @@ import FeedList from './FeedList';
 import type { FeedType, FeedScope, FeedItem } from '../lib/feed';
 import { t, type StringKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
+import styles from './UnifiedSearch.module.css';
 
 // One search component for every surface, backed by the standalone /api/search endpoint.
 // `scope` keeps results inside the current partner/program (omit for ecosystem-wide).
@@ -25,6 +26,7 @@ export default function UnifiedSearch({
   autoFocus = false,
   initialQuery = '',
   showTypeChips = true,
+  hero = false,
 }: {
   scope?: FeedScope;
   availableTypes?: FeedType[];
@@ -33,6 +35,8 @@ export default function UnifiedSearch({
   initialQuery?: string;
   /** Hide the type-filter chips (e.g. when a feed's own filter row sits right below). */
   showTypeChips?: boolean;
+  /** Oversize the input — the landing page, where search is the page's purpose. */
+  hero?: boolean;
 }) {
   const locale = useLocale();
   const inputPlaceholder = placeholder ?? t(locale, 'searchPlaceholderShort');
@@ -92,8 +96,8 @@ export default function UnifiedSearch({
   };
 
   return (
-    <div>
-      <form onSubmit={(e) => { e.preventDefault(); run(query); }} style={{ display: 'flex', gap: 8 }}>
+    <div className={hero ? styles.hero : undefined}>
+      <form className={styles.form} onSubmit={(e) => { e.preventDefault(); run(query); }}>
         <input
           type="search"
           autoFocus={autoFocus}
@@ -101,15 +105,18 @@ export default function UnifiedSearch({
           onChange={(e) => setQuery(e.target.value)}
           placeholder={inputPlaceholder}
           aria-label={inputPlaceholder}
-          style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border, #ddd)' }}
+          className={styles.input}
         />
-        <button type="submit" disabled={loading} style={{ padding: '10px 18px', borderRadius: 8, cursor: 'pointer', border: '1px solid var(--border, #ddd)' }}>
+        <button type="submit" disabled={loading} className={styles.button}>
           {loading ? t(locale, 'searchingBtn') : t(locale, 'searchBtn')}
         </button>
       </form>
 
-      {showTypeChips && availableTypes.length > 1 && (
-        <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+      {/* On the landing page the chips wait for results: four filled chips under an
+          empty search box are the loudest thing on an otherwise quiet page, and
+          they filter nothing until there's something to filter. */}
+      {showTypeChips && availableTypes.length > 1 && (!hero || hits !== null) && (
+        <div className={styles.chips}>
           {availableTypes.map((ft) => {
             const on = active.has(ft);
             return (
@@ -118,12 +125,7 @@ export default function UnifiedSearch({
                 type="button"
                 onClick={() => toggle(ft)}
                 aria-pressed={on}
-                style={{
-                  fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 999, cursor: 'pointer',
-                  border: '1px solid var(--border, #ddd)',
-                  background: on ? 'var(--p-600, #1a6b3c)' : 'transparent',
-                  color: on ? 'var(--paper)' : 'var(--muted, #777)',
-                }}
+                className={styles.chip}
               >
                 {t(locale, TYPE_KEY[ft])}
               </button>
@@ -133,9 +135,9 @@ export default function UnifiedSearch({
       )}
 
       {hits !== null && (
-        <div style={{ marginTop: 14 }}>
+        <div className={styles.results}>
           {!loading && (
-            <div style={{ fontSize: 12, color: 'var(--muted, #777)', marginBottom: 8 }}>
+            <div className={styles.count}>
               {scope && scope.kind !== 'ecosystem'
                 ? hits.length === 1
                   ? t(locale, 'searchResultsScopeOne')

@@ -1,20 +1,20 @@
 'use client';
 
-import DateCell from '../components/DateCell';
+import DateCell from '../../components/DateCell';
 import Link from 'next/link';
-import DataTable from '../components/DataTable';
+import DataTable from '../../components/DataTable';
 
-import styles from './ecosystem-summary/EcosystemSummaryClient.module.css';
-import { formatNeedleValue } from '../lib/needle';
-import { NeedleGaugeSvg } from '../components/NeedleGaugeSvg';
-import { sopOutlook } from '../lib/sop';
-import { deriveProgramStatus, visibleInLists } from '../lib/lifecycle';
-import { healthKey, healthOrder } from '../lib/health';
-import { t } from '../lib/i18n';
-import { useLocale } from '../components/LocaleProvider';
-import BusiestResources from '../components/BusiestResources';
-import type { BusiestRow } from '../lib/chainLedger';
-import AnchorHeading from '../components/AnchorHeading';
+import styles from '../ecosystem-summary/EcosystemSummaryClient.module.css';
+import { formatNeedleValue } from '../../lib/needle';
+import { NeedleGaugeSvg } from '../../components/NeedleGaugeSvg';
+import { sopOutlook } from '../../lib/sop';
+import { deriveProgramStatus, visibleInLists } from '../../lib/lifecycle';
+import { healthKey, healthOrder } from '../../lib/health';
+import { t } from '../../lib/i18n';
+import { useLocale } from '../../components/LocaleProvider';
+import BusiestResources from '../../components/BusiestResources';
+import type { BusiestRow } from '../../lib/chainLedger';
+import AnchorHeading from '../../components/AnchorHeading';
 
 interface Project {
   id: number;

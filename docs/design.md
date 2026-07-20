@@ -31,6 +31,25 @@ Every entity displayed in a dashboard view or detail card must serve as an activ
 
 ---
 
+## 2b. `/` is a landing page; the dashboard lives at `/ecosystem`
+(2026-07-20, user call.) The root route is **not** a dashboard. Its one job is to
+get you to the thing you came for:
+
+* **A big search box is the primary affordance** — the largest control in the app,
+  autofocused, and the only place `hero`-sized styling is sanctioned
+  (`UnifiedSearch` takes a `hero` prop). It deep-links: `/?q=…` runs the query on
+  load, and `/search?q=…` redirects here so older shared links keep working.
+* **Under it, the five most recent updates as teasers** — ingested documents and
+  human-written notes alike, from the same `getActivity` feed the rest of the app
+  uses. Title, provenance, two clamped lines of the actual words. Teasers are
+  `LatestTeasers`, deliberately NOT `FeedList`: the feed renders gauges, hill
+  charts, and delete controls, which is the full record, not an invitation.
+* **The ecosystem dashboard is `/ecosystem`** and the nav points there.
+* **No search box in the nav, on any page.** One search surface, and it is the
+  page you land on. (This retired the global `/` focus shortcut with it.)
+
+---
+
 ## 3. Non-Gameable Visual-Only Status Gauges
 * **No Percentages or Category Labels in Editors**: The overall health gauge (The Needle) and progress chart (Hill Chart) must **never** display numeric percentages (no `%` symbols or strings like `31% Done`) or text labels (like `Critical Risk`) inside the update dialog views.
 * **Visual-Only Affordances**: The only visual affordance to update these values is direct graphical dragging on the SVG visual chord curve itself (dragging the needle pointer or the progress dot).

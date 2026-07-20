@@ -29,21 +29,24 @@ async function seedMockData() {
   'use server';
   await libSeedMockData();
   revalidatePath('/');
-  redirect('/');
+  revalidatePath('/ecosystem');
+  redirect('/ecosystem');
 }
 
 async function seedCoreData() {
   'use server';
   await libSeedCoreData();
   revalidatePath('/');
-  redirect('/');
+  revalidatePath('/ecosystem');
+  redirect('/ecosystem');
 }
 
 async function wipeAllData() {
   'use server';
   await libWipeAllData();
   revalidatePath('/');
-  redirect('/');
+  revalidatePath('/ecosystem');
+  redirect('/ecosystem');
 }
 
 export default async function AdminPage() {

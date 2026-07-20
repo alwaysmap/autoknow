@@ -66,12 +66,31 @@ test.describe('Search Results Page (Text + pgvector)', () => {
     }
   });
 
-  test('UI: searching bosch shows the partner as a result link', async ({ page }) => {
-    await page.goto('/search?q=bosch');
+  test('UI: the landing page searches from ?q= and links the partner it finds', async ({ page }) => {
+    await page.goto('/?q=bosch');
 
     const hit = page.getByRole('link', { name: 'Bosch', exact: true });
     await expect(hit).toBeVisible();
     await expect(hit).toHaveAttribute('href', `/partners/${boschId}`);
+  });
+
+  test('UI: typing into the landing search finds the partner', async ({ page }) => {
+    await page.goto('/');
+
+    // Hydration-guarded first interaction (AGENTS lesson 8): an unguarded fill on a
+    // freshly loaded page is this suite's #1 flake source.
+    await expect(async () => {
+      await page.getByRole('searchbox').fill('bosch');
+      await page.getByRole('button', { name: /^Search$/ }).click();
+      await expect(page.getByRole('link', { name: 'Bosch', exact: true })).toBeVisible({ timeout: 2000 });
+    }).toPass();
+  });
+
+  test('UI: shared /search?q= links still land on the search experience', async ({ page }) => {
+    await page.goto('/search?q=bosch');
+
+    await expect(page).toHaveURL(/\/\?q=bosch$/);
+    await expect(page.getByRole('link', { name: 'Bosch', exact: true })).toBeVisible();
   });
 
   test('API: ranking survives a full reindex (semantic blend does not bury exact matches)', async ({ request }) => {

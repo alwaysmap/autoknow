@@ -2,16 +2,33 @@ import { test, expect } from '@playwright/test';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
-// One smoke test: the home dashboard boots and shows its leadership surface.
-// Static-content assertions beyond this belong in unit tests or design review —
-// e2e minutes are for user/system interaction flows.
-test.describe('Home Page (Dashboard)', () => {
+// Two smoke tests, one per surface, after the 2026-07-20 split: `/` is the landing
+// page (search is the point), `/ecosystem` is the leadership dashboard that used to
+// live at `/`. The dashboard's tile deep-links (relationship-mix, SOP-at-risk) moved
+// with it and are exercised against /ecosystem below.
+
+test.describe('Landing page (/)', () => {
+  test('leads with search and shows the latest updates', async ({ page }) => {
+    await page.goto('/');
+
+    await expect(page.getByRole('searchbox')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Latest updates', exact: true })).toBeVisible();
+
+    // The dashboard moved out; it must not still be rendering here.
+    await expect(page.getByRole('heading', { name: 'Programs at Risk', exact: true })).toHaveCount(0);
+  });
+
+  test('the nav no longer carries a search box', async ({ page }) => {
+    await page.goto('/programs');
+    await expect(page.locator('nav').getByRole('searchbox')).toHaveCount(0);
+  });
+});
+
+test.describe('Ecosystem dashboard (/ecosystem)', () => {
   test.describe.configure({ mode: 'serial' });
 
   test('renders the leadership dashboard (smoke)', async ({ page }) => {
-    await page.goto('/');
-    const searchInput = page.locator('input[type="search"], input[placeholder*="Search"]').first();
-    await expect(searchInput).toBeVisible();
+    await page.goto('/ecosystem');
     await expect(page.getByRole('heading', { name: 'Programs at Risk', exact: true })).toBeVisible();
   });
 
@@ -35,7 +52,7 @@ test.describe('Home Page (Dashboard)', () => {
       data: { partnerId: strained.id, relationshipScore: 2, notes: 'Two escalations still open.' },
     });
 
-    await page.goto('/');
+    await page.goto('/ecosystem');
     const segment = page.getByTestId('relationship-mix').getByRole('link', { name: /^Strong —/ });
 
     // First interaction after a page load is hydration-guarded (AGENTS lesson 8).
@@ -50,7 +67,7 @@ test.describe('Home Page (Dashboard)', () => {
     await expect(page.getByRole('link', { name: 'Unrated Partner Co' })).toHaveCount(0);
 
     // The "unrated" count is its own door — to the partners still awaiting a first read.
-    await page.goto('/');
+    await page.goto('/ecosystem');
     await page.getByTestId('relationship-mix').getByRole('link', { name: /unrated/ }).click();
     await expect(page).toHaveURL(/\/partners\?relationship=unrated\b/);
     await expect(page.getByRole('link', { name: 'Unrated Partner Co' })).toBeVisible();
@@ -85,7 +102,7 @@ test.describe('Home Page (Dashboard)', () => {
     // Active + SOP far in the future → buffer intact.
     await mkProgram('On-Track Bring-up', 'OnTrack Partner Co', new Date(Date.now() + 800 * DAY));
 
-    await page.goto('/');
+    await page.goto('/ecosystem');
     const tile = page.getByTestId('sop-risk-stat').getByRole('link');
 
     await expect(async () => {

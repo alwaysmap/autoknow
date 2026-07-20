@@ -1,0 +1,60 @@
+/* Teaser rows: no cards, no rules between siblings — whitespace separates them
+   (design.md §7). Title carries the link colour; everything else is muted. */
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  padding: 0.5rem 0;
+}
+
+.item + .item {
+  border-top: 1px solid var(--border);
+}
+
+/* Title and its provenance share ONE line and wrap together on narrow screens. */
+.line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.625rem;
+}
+
+.title {
+  font-size: 0.9375rem;
+  font-weight: 400;
+  color: var(--link);
+}
+
+.title:hover {
+  text-decoration: underline;
+}
+
+.meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Two lines of the actual words, then an ellipsis — the teaser. */
+.snippet {
+  margin: 0.1875rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 60rem;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.empty {
+  font-size: 0.8125rem;
+  font-style: italic;
+  color: var(--muted);
+  margin: 0;
+}

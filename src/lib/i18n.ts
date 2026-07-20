@@ -713,6 +713,39 @@ const STRINGS = {
   forecastLabel: { en: 'Forecast', de: 'Prognose', ja: '予測', ko: '예측' },
   needleLabel: { en: 'Needle', de: 'Nadel', ja: 'ニードル', ko: '니들' },
   searchHeading: { en: 'Search', de: 'Suche', ja: '検索', ko: '검색' },
+
+  // ---- landing page (/) ----
+  landingHeadline: {
+    en: 'What do you need to know?',
+    de: 'Was möchten Sie wissen?',
+    ja: '何を知りたいですか？',
+    ko: '무엇을 알고 싶으신가요?',
+  },
+  landingLede: {
+    en: 'Search every partner, program, and person — and every document, note, and update gathered about them.',
+    de: 'Durchsuchen Sie alle Partner, Programme und Personen – und jedes Dokument, jede Notiz und jede Aktualisierung dazu.',
+    ja: 'すべてのパートナー・プログラム・担当者、そしてそれらについて集められた資料・メモ・更新を検索します。',
+    ko: '모든 파트너, 프로그램, 사람 — 그리고 그에 대해 수집된 모든 문서, 메모, 업데이트를 검색합니다.',
+  },
+  landingLatest: {
+    en: 'Latest updates',
+    de: 'Neueste Aktualisierungen',
+    ja: '最新の更新',
+    ko: '최신 업데이트',
+  },
+  landingLatestEmpty: {
+    en: 'Nothing has been gathered or written yet.',
+    de: 'Bisher wurde nichts erfasst oder geschrieben.',
+    ja: 'まだ何も収集・記録されていません。',
+    ko: '아직 수집되거나 작성된 내용이 없습니다.',
+  },
+  landingBrowse: {
+    en: 'Or go straight to {ecosystem}, {programs}, {partners}, or {people}.',
+    de: 'Oder direkt zu {ecosystem}, {programs}, {partners} oder {people}.',
+    ja: 'または{ecosystem}・{programs}・{partners}・{people}へ直接移動します。',
+    ko: '또는 {ecosystem}, {programs}, {partners}, {people}(으)로 바로 이동하세요.',
+  },
+
   tbd: { en: 'TBD', de: 'Offen', ja: '未定', ko: '미정' },
   notAvailable: { en: 'N/A', de: 'k. A.', ja: '該当なし', ko: '해당 없음' },
   unassigned: { en: 'Unassigned', de: 'Nicht zugewiesen', ja: '未割り当て', ko: '미지정' },

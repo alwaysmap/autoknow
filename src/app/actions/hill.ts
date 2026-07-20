@@ -44,7 +44,8 @@ export async function updatePhaseHill(formData: FormData) {
 
   const projectId = parseInt(projectIdStr, 10);
   if (!isNaN(projectId)) revalidatePath(`/programs/${projectId}`);
-  revalidatePath('/'); // the ecosystem feed lives on the home page
+  revalidatePath('/ecosystem'); // the dashboard
+  revalidatePath('/'); // the landing page's latest-updates teasers
   revalidatePath('/ecosystem-summary');
 }
 

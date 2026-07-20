@@ -162,8 +162,8 @@ test.describe('Admin and Maintenance Operations', () => {
     await page.fill('input[id="confirmProjectName"]', 'Waymo Autonomous Trucking');
     await page.click('button:has-text("Permanently Delete Project")');
 
-    // Verify redirected to dashboard and project is gone
-    await page.waitForURL('/');
+    // Verify redirected to the dashboard and the project is gone
+    await page.waitForURL('/ecosystem');
     await expect(page.locator('body')).not.toContainText('Waymo Autonomous Trucking');
   });
 });
