@@ -22,6 +22,17 @@
   user-select: none;
 }
 
+/* Instrument: the header's underline becomes a graticule. The border keeps its
+   place in the box model (nothing shifts) and only its ink changes, the same
+   trick the nav uses. */
+:global(:root[data-style='instrument']) .th {
+  border-bottom-color: transparent;
+  background-image: var(--graticule);
+  background-repeat: repeat-x;
+  background-position: bottom left;
+  background-size: 100% 0.125rem;
+}
+
 .sortable {
   cursor: pointer;
 }

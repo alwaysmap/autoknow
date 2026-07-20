@@ -67,6 +67,9 @@ export default function UnifiedSearch({
   // The landing page answers while you type; every other surface waits for submit.
   // Its own request and abort controller, so a slow suggest can never clobber the
   // full result set the user actually asked for.
+  // Drives the Instrument dial on the CTA. Hover is the trigger the user asked
+  // for; focus-visible is included so keyboard users get the same affordance.
+  const [ctaLive, setCtaLive] = useState(false);
   const [suggest, setSuggest] = useState<FeedItem[] | null>(null);
   const [suggestOpen, setSuggestOpen] = useState(false);
   const suggestAbort = useRef<AbortController | null>(null);
@@ -184,11 +187,19 @@ export default function UnifiedSearch({
               aria-label={inputPlaceholder}
               className={styles.input}
             />
+          </span>
+          <button
+            type="submit"
+            disabled={loading}
+            className={styles.button}
+            onMouseEnter={() => setCtaLive(true)}
+            onMouseLeave={() => setCtaLive(false)}
+            onFocus={() => setCtaLive(true)}
+            onBlur={() => setCtaLive(false)}
+          >
             {/* The Instrument style's one graphic. Rendered in both styles and
                 revealed by CSS, like every other style-conditional flourish. */}
-            {hero && <span data-inst-only className={styles.gaugeSlot}><InstrumentGauge /></span>}
-          </span>
-          <button type="submit" disabled={loading} className={styles.button}>
+            {hero && <span data-inst-only className={styles.gaugeSlot}><InstrumentGauge active={ctaLive} /></span>}
             {loading ? t(locale, 'searchingBtn') : t(locale, 'searchBtn')}
           </button>
         </form>

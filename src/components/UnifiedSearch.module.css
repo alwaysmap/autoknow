@@ -87,25 +87,14 @@
    swings across the dial while the search is live. It replaced a CSS gradient
    that swept on focus — that read as a progress bar in costume, because it was
    one. `data-inst-only` (globals.css) keeps it out of the Standard style. */
-/* A real gauge is a wide, shallow arc (164:60), so it sits at the TRAILING edge
-   where it cannot collide with left-aligned placeholder or entered text. */
+/* Sits on the CTA's own line, before the label. */
 .gaugeSlot {
-  position: absolute;
-  right: 1.25rem;
-  top: 50%;
-  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.5rem;
   line-height: 0;
-  pointer-events: none;
 }
 
-/* The field makes room for the dial only in the style that shows one. */
-:global(:root[data-style='instrument']) .hero .input {
-  padding-right: 5rem;
-}
-
-:global(:root[data-style='instrument']) .hero .form:focus-within .gaugeSlot [data-needle] {
-  transform: rotate(52deg);
-}
 
 /* Positioning context for the autosuggest panel. */
 .box {

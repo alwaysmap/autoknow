@@ -1,26 +1,52 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { Gauge, VB_X, VB_Y, VB_W, VB_H } from './NeedleGaugeSvg';
 import styles from './InstrumentGauge.module.css';
 
-// The Instrument style's motif: the app's OWN gauge, at glyph size, rather than a
-// shape drawn to look like one. The previous version was a CSS gradient bar that
-// swept on focus — it read as a progress bar wearing a costume, because it was.
-// This is the real `Gauge` primitive with the real track, graticules and needle.
+// The Instrument style's one graphic: the app's OWN gauge, at glyph size, on the
+// primary CTA button. Never on a text input — an instrument is an affordance, and
+// affordances belong on the thing you press.
 //
-// Colour is the only thing that changes: the dial is monochrome except for the
-// redline at the top of the track's travel, and the needle is plain ink so it
-// reads at 20px. Nothing about the gauge's shape or
-// mechanics is altered — the needle swings because CSS rotates it about the arc's
-// own centre, using the same CX/CY the path generator uses.
+// The needle is drawn by the SAME `needlePath` the draggable control uses, at a
+// progress this component animates. It is NOT a CSS rotation of a static path:
+// rotating about an assumed origin does not pivot where the real needle pivots,
+// and it showed. Driving `progress` makes the geometry the real control's by
+// construction — the needle sweeps the arc exactly as it does under a drag.
 
-// No fill ribbon: this dial reports nothing, it just IS the instrument. The
-// redline therefore has to live on the track outline — which is where a real
-// dial puts it anyway — rather than on a fill that would span 6% of the arc and
-// show none of the gradient.
 const REST = 0;
+const SWEPT = 0.78; // short of full travel — a dial that pins reads as broken
+const DURATION = 420;
 
-export default function InstrumentGauge({ title }: { title?: string }) {
+/** Ease-out cubic: quick off the stop, settling into the reading. */
+const ease = (t: number) => 1 - (1 - t) ** 3;
+
+export default function InstrumentGauge({ active }: { active: boolean }) {
+  const [progress, setProgress] = useState(REST);
+  const frame = useRef<number | null>(null);
+  // Where the needle actually is. Written only inside the animation frame — never
+  // during render — so a fast hover-out-hover-in reverses from the current
+  // position instead of snapping back to the stop first.
+  const position = useRef(REST);
+
+  useEffect(() => {
+    const to = active ? SWEPT : REST;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const origin = position.current;
+    const start = performance.now();
+    // Everything happens inside the frame, including the reduced-motion jump:
+    // setState in an effect BODY cascades renders, setState in a callback does not.
+    const step = (now: number) => {
+      const t = reduce ? 1 : Math.min(1, (now - start) / DURATION);
+      const value = origin + (to - origin) * ease(t);
+      position.current = value;
+      setProgress(value);
+      if (t < 1) frame.current = requestAnimationFrame(step);
+    };
+    frame.current = requestAnimationFrame(step);
+    return () => { if (frame.current) cancelAnimationFrame(frame.current); };
+  }, [active]);
+
   return (
     <svg
       className={styles.gauge}
@@ -28,23 +54,11 @@ export default function InstrumentGauge({ title }: { title?: string }) {
       aria-hidden="true"
       focusable="false"
     >
-      {title && <title>{title}</title>}
-      <defs>
-        {/* Left-to-right across the gauge's bounding box, so the arc picks the
-            gradient up along its sweep rather than radially. */}
-        <linearGradient id="instrument-dial" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="var(--muted)" stopOpacity="0.55" />
-          <stop offset="70%" stopColor="var(--muted)" stopOpacity="0.85" />
-          <stop offset="88%" stopColor="var(--redline)" stopOpacity="0.85" />
-          <stop offset="100%" stopColor="var(--redline)" />
-        </linearGradient>
-      </defs>
-      <Gauge
-        progress={REST}
-        color="transparent"
-        trackStroke="url(#instrument-dial)"
-        needleColor="var(--fg)"
-      />
+      {/* `transparent` suppresses the primitive's fill ribbon — a filled arc
+          trailing the needle is a readout, and this dial reports nothing. The
+          track and needle are inked from the button's own foreground in CSS, so
+          the whole thing is monochrome and stays quiet at 18px. */}
+      <Gauge progress={progress} color="transparent" />
     </svg>
   );
 }

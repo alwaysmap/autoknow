@@ -260,14 +260,28 @@ combination must work:
 * **Icons stay scarce.** The app mark is untouched, and Instrument adds no icon
   set — its identity is carried by rules, numerals, and one graphic: the app's
   OWN gauge, at glyph size, at the trailing edge of the hero search field.
-* **Motion uses the real instrument, never a stand-in.** The first attempt was a
-  CSS gradient bar that swept on focus; it read as a progress bar in costume,
-  because that is what it was. `InstrumentGauge` renders the real `Gauge`
-  primitive — real track, real graticules, real needle — and CSS rotates the
-  needle about the arc's own centre, so its travel is the gauge's actual travel.
-  The dial is monochrome apart from the redline at the top of the track, which is
-  where a real dial puts it. `Gauge` gained only `needleColor` and `trackStroke`
-  (ink, defaulted) and a `data-needle` styling handle; its geometry is untouched.
+* **The dial lives on the primary CTA, and only there.** Never on a text input:
+  an instrument is an affordance, and affordances belong on the thing you press.
+  **Hover** drives it (plus `:focus-visible`, so keyboard users get the same
+  affordance) — never click.
+* **Motion uses the real instrument, never a stand-in, and never a CSS rotation.**
+  Two attempts failed first. A CSS gradient bar that swept on focus read as a
+  progress bar in costume, because that is what it was. Rotating the real needle
+  path about an assumed origin then pivoted visibly wrong. `InstrumentGauge`
+  animates the gauge's `progress` and lets the primitive redraw `needlePath` —
+  the same thing that happens under a drag — so the travel is correct by
+  construction rather than by a transform-origin someone got right once.
+* **The dial is monochrome and empty.** No redline (busy at 18px) and no fill
+  ribbon (a filled arc trailing the needle is a readout, and this dial reports
+  nothing). Track, graticules and needle are all inked from the button's
+  `currentColor`. `Gauge` gained only `data-needle` / `data-track` styling
+  handles — CSS beats presentation attributes, so a variant re-inks the dial
+  without widening the primitive's API. Its geometry is untouched.
+* **The graticule has to appear where headings do, or the style does not read.**
+  It rules trailing every `AnchorHeading` (so every `<h2>` in the app) and
+  underlines every `DataTable` header, not just the nav. In both cases the border
+  keeps its place in the box model and only its ink moves to the tick pattern, so
+  switching styles never shifts layout.
 
 ---
 
