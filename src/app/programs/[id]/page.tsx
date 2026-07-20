@@ -279,17 +279,6 @@ export default async function ProjectDetailsPage(props: {
               previousProgress={project.states[1]?.hillChartProgress ?? null}
               previousHealth={project.states[1]?.theNeedle ?? null}
               updatedAt={project.states[0]?.timestamp?.toISOString() ?? null}
-              // Only the fields the client component reads — the raw Prisma include
-              // tree (people, partners, notes markdown…) would be serialized into
-              // the RSC payload wholesale.
-              phases={project.phases.map((p) => ({
-                id: p.id,
-                name: p.name,
-                states: p.states.slice(0, 1).map((s) => ({
-                  status: s.status,
-                  hillChartProgress: s.hillChartProgress,
-                })),
-              }))}
             />
 
           </div>

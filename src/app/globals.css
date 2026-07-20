@@ -5,6 +5,11 @@
      below it, never under it. Bumped where the nav wraps to two rows (≤960px). */
   --nav-h: 56px;
 
+  /* Width cap for the compact status visualizations (sidebar needle gauge and
+     the per-phase hill gauges on cards). The Phases-section summary hill is
+     deliberately uncapped — it spans the full content column. */
+  --status-viz-w: 16.25rem;
+
   /* Structural emphasis — critical chain, constraint evidence, END phase, editor
      selection. Deliberately NOT amber: amber/red/green are the health palette, and
      "constraint" is a structural fact, not a risk verdict. */

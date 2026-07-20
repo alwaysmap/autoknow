@@ -1,6 +1,6 @@
 'use client';
 
-import { HILL_PATH, hillCoordinates } from '../lib/geometry';
+import { hillCoordinates } from '../lib/geometry';
 import { phaseColor } from '../lib/phase';
 import { t, statusKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
@@ -20,40 +20,90 @@ export interface PhaseDot {
 /** Fired by dot clicks; PhaseTrack listens and jump-and-flashes the phase row. */
 export const JUMP_PHASE_EVENT = 'autoknow:jump-phase';
 
-const shorten = (name: string) => (name.length > 14 ? `${name.slice(0, 13)}…` : name);
+// Control points of the hill bézier in the base 200-unit-wide space (lib/geometry's
+// HILL_PATH). The wide variant stretches x only — an affine map, so the curve stays
+// a valid bézier and hillCoordinates just needs its x scaled.
+const HILL_CP = [[10, 80], [50, 80], [70, 10], [100, 10], [130, 10], [150, 80], [190, 80]] as const;
+const hillPath = (sx: number) => {
+  const p = HILL_CP.map(([x, y]) => `${(x * sx).toFixed(1)} ${y}`);
+  return `M ${p[0]} C ${p[1]}, ${p[2]}, ${p[3]} C ${p[4]}, ${p[5]}, ${p[6]}`;
+};
 
-export default function PhaseHillChart({ phases }: { phases: PhaseDot[] }) {
+export default function PhaseHillChart({ phases, wide = false }: { phases: PhaseDot[]; wide?: boolean }) {
   const locale = useLocale();
+  // `wide` stretches the hill 2.1x on x for full-content-width placement: the chart
+  // stays a short band instead of a huge dome, and labels get real room.
+  const sx = wide ? 2.1 : 1;
+  const W = 200 * sx;
+  const fs = wide ? 7 : 8; // dot-label font size (viewBox units)
+  const maxChars = wide ? 32 : 14;
+  const shorten = (name: string) => (name.length > maxChars ? `${name.slice(0, maxChars - 1)}…` : name);
+  // Approximate rendered half-width of a label, for clamping and collision checks.
+  const halfW = (name: string) => (Math.min(name.length, maxChars) * fs * 0.55) / 2 + 2;
+
   if (phases.length === 0) {
     return <p style={{ fontSize: 12, fontStyle: 'italic', color: 'var(--muted, #888)' }}>{t(locale, 'noPhasesYet')}</p>;
   }
   const jump = (id: number) => {
     window.dispatchEvent(new CustomEvent(JUMP_PHASE_EVENT, { detail: id }));
   };
+  // Label placement: above its dot by default, below when clipped near the crest —
+  // then a greedy left-to-right pass flips any label that would overprint an
+  // already-placed one (overlapping in x AND close in y, regardless of side —
+  // opposite sides of neighboring dots can land at the same height on the slope).
+  // A centered label on a dot near either end of the curve slides inward instead of
+  // being cropped by the viewBox (the dot stays honest on the curve). Below-side
+  // labels must stay clear of the axis captions at y=99; if both sides are taken
+  // (dots at nearly the same position) the label stacks upward instead.
+  const sorted = phases
+    .map((ph) => {
+      const c = hillCoordinates(ph.progress);
+      return { ph, x: c.x * sx, y: c.y };
+    })
+    .sort((a, b) => a.x - b.x);
+  const placed: { x: number; y: number; hw: number }[] = [];
+  const labelPos = new Map<number, { x: number; y: number }>();
+  for (const s of sorted) {
+    const hw = halfW(s.ph.name);
+    const lx = Math.max(hw + 2, Math.min(W - hw - 2, s.x));
+    const labelY = (b: boolean) => (b ? s.y + 14 : s.y - 9);
+    const collides = (ly: number) => placed.some((p) => Math.abs(lx - p.x) < hw + p.hw + 3 && Math.abs(ly - p.y) < 11);
+    let below = s.y < 22;
+    const canBelow = labelY(true) < 90;
+    if (collides(labelY(below)) && !collides(labelY(!below)) && (below || canBelow)) below = !below;
+    let ly = labelY(below);
+    while (collides(ly)) ly -= 11;
+    placed.push({ x: lx, y: ly, hw });
+    labelPos.set(s.ph.id, { x: lx, y: ly });
+  }
   return (
-    <svg viewBox="0 0 200 104" style={{ width: '100%', maxWidth: 300, height: 'auto' }} role="img" aria-label={t(locale, 'hillAria')}>
-      <path d={HILL_PATH} fill="none" stroke="var(--border, #d9d5c8)" strokeWidth={2.5} strokeLinecap="round" />
-      <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border, #e3e0d6)" strokeDasharray="3 3" />
+    <svg viewBox={`0 0 ${W} 104`} style={{ width: '100%', height: 'auto', overflow: 'visible' }} role="img" aria-label={t(locale, 'hillAria')}>
+      <path d={hillPath(sx)} fill="none" stroke="var(--border, #d9d5c8)" strokeWidth={2.5} strokeLinecap="round" />
+      <line x1={100 * sx} y1={10} x2={100 * sx} y2={80} stroke="var(--border, #e3e0d6)" strokeDasharray="3 3" />
       {phases.map((ph) => {
-        const { x, y } = hillCoordinates(ph.progress);
-        // Label rides above its dot (below when clipped near the crest); every dot is
-        // a deeplink that slides the phase card into view and flashes it.
-        const labelBelow = y < 22;
+        const c = hillCoordinates(ph.progress);
+        const x = c.x * sx, y = c.y;
+        // Every dot is a deeplink that slides the phase card into view and flashes it.
+        const pos = labelPos.get(ph.id) ?? { x, y: y - 9 };
         return (
           <g
             key={ph.id}
             onClick={() => jump(ph.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jump(ph.id); } }}
+            tabIndex={0}
             style={{ cursor: 'pointer' }}
             role="link"
             aria-label={ph.name}
             data-testid={`hill-dot-${ph.id}`}
           >
+            {/* oversized invisible hit area — the visible dot alone is well under a finger */}
+            <circle cx={x} cy={y} r={wide ? 8 : 10} fill="transparent" />
             <circle cx={x} cy={y} r={5.5} fill={phaseColor(ph.id)} stroke="#fff" strokeWidth={1.6} />
             <text
-              x={x}
-              y={labelBelow ? y + 14 : y - 9}
+              x={pos.x}
+              y={pos.y}
               textAnchor="middle"
-              fontSize={7}
+              fontSize={fs}
               fontWeight={600}
               fill="var(--fg, #444)"
               stroke="var(--white, #fff)"
@@ -66,8 +116,8 @@ export default function PhaseHillChart({ phases }: { phases: PhaseDot[] }) {
           </g>
         );
       })}
-      <text x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{t(locale, 'figuringItOut')}</text>
-      <text x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{t(locale, 'makingItHappen')}</text>
+      <text x={50 * sx} y={99} textAnchor="middle" fontSize={wide ? 7 : 8} fill="var(--muted, #888)">{t(locale, 'figuringItOut')}</text>
+      <text x={150 * sx} y={99} textAnchor="middle" fontSize={wide ? 7 : 8} fill="var(--muted, #888)">{t(locale, 'makingItHappen')}</text>
     </svg>
   );
 }

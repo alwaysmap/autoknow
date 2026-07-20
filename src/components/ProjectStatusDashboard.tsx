@@ -4,13 +4,6 @@ import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import styles from './ProjectStatusDashboard.module.css';
 import NeedleGauge from './NeedleGauge';
-import PhaseHillChart, { type PhaseDot } from './PhaseHillChart';
-
-interface PhaseInput {
-  id: number;
-  name: string;
-  states: { status: string; hillChartProgress: number | null }[];
-}
 
 interface ProjectStatusDashboardProps {
   projectId: number;
@@ -19,7 +12,6 @@ interface ProjectStatusDashboardProps {
   previousProgress?: number | null;
   previousHealth?: string | null;
   updatedAt?: string | null;
-  phases: PhaseInput[];
 }
 
 export default function ProjectStatusDashboard({
@@ -29,16 +21,8 @@ export default function ProjectStatusDashboard({
   previousProgress,
   previousHealth,
   updatedAt,
-  phases,
 }: ProjectStatusDashboardProps) {
   const locale = useLocale();
-
-  const phaseDots: PhaseDot[] = phases.map((p) => ({
-    id: p.id,
-    name: p.name,
-    progress: p.states[0]?.hillChartProgress ?? 0,
-    status: p.states[0]?.status ?? 'Not Started',
-  }));
 
   return (
     <section className={styles.summaryDashboard}>
@@ -57,12 +41,8 @@ export default function ProjectStatusDashboard({
           />
         </div>
 
-        {/* Phase progress: a dot per phase on the hill */}
-        <div className={styles.summaryCard}>
-          <div className={styles.summaryCardLabel}>{t(locale, 'phasesCard')}</div>
-          <PhaseHillChart phases={phaseDots} />
-        </div>
-
+        {/* The phase hill summary lives in the Phases section at full content
+            width (PhaseTrack) — the sidebar carries only the program needle. */}
       </div>
     </section>
   );

@@ -176,10 +176,12 @@ export default function NeedleGauge({
         </svg>
       </div>
 
-      <div className={styles.statusValue} style={{ color: healthColor(currentHealth) }}>{t(locale, healthKey(currentHealth))}</div>
-      {updatedAt && <div className={styles.updatedAt}>{t(locale, 'updatedOn', { d: localDate(updatedAt, locale, { month: 'short', day: 'numeric' }) })}</div>}
-
-      {editable && <button type="button" onClick={open} className={styles.updateBtn}>{t(locale, 'update')}</button>}
+      {/* fact · date · action on one line (design.md §7), never a three-line stack */}
+      <div className={styles.statusRow}>
+        <span className={styles.statusValue} style={{ color: healthColor(currentHealth) }}>{t(locale, healthKey(currentHealth))}</span>
+        {updatedAt && <span className={styles.updatedAt}>{t(locale, 'updatedOn', { d: localDate(updatedAt, locale, { month: 'short', day: 'numeric' }) })}</span>}
+        {editable && <button type="button" onClick={open} className={styles.updateBtn}>{t(locale, 'update')}</button>}
+      </div>
 
       <dialog ref={dialogRef} className={styles.dialog} onClick={onBackdrop}>
         <div className={styles.dialogHeader}><h3>{t(locale, 'weeklyUpdate')}</h3></div>
@@ -206,7 +208,7 @@ export default function NeedleGauge({
               ref={svgRef}
               className={styles.gaugeSvg}
               viewBox={viewBox}
-              style={{ cursor: 'pointer', touchAction: 'none', maxWidth: 300 }}
+              style={{ cursor: 'pointer', touchAction: 'none', maxWidth: '18.75rem' }}
               onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); setDragging(true); setFromPointer(e.clientX, e.clientY); }}
               onPointerMove={(e) => { if (dragging) setFromPointer(e.clientX, e.clientY); }}
               onPointerUp={(e) => { if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); setDragging(false); }}

@@ -6,6 +6,7 @@ import Markdown from './Markdown';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
 import { computeCriticalChain } from '../lib/criticalChain';
 import { stationOrder, classifyEdges, type Edge } from '../lib/phaseTrackLayout';
+import PhaseHillChart from './PhaseHillChart';
 import { deriveEndPhase } from '../lib/programDag';
 import { validateTemplateDag } from '../lib/templateDag';
 import { HILL_PATH, hillCoordinates } from '../lib/geometry';
@@ -880,6 +881,15 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
           )}
         </div>
       </div>
+
+      {/* Summary hill first: every phase as a dot on one wide hill — the at-a-glance
+          progress read before the rail's structural detail. Dots deeplink to rows via
+          JUMP_PHASE_EVENT, which this component already listens for. */}
+      {phases.length > 0 && (
+        <div className={styles.hillSummary}>
+          <PhaseHillChart wide phases={phases.map((p) => ({ id: p.id, name: p.name, progress: p.progress }))} />
+        </div>
+      )}
 
       {/* No chain summary up top — the chain is already the rail's heavy track, and the
           constraint card carries the evidence line. A second rendering said it twice. */}

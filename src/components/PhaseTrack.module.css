@@ -6,6 +6,12 @@
   width: 100%;
 }
 
+/* Summary hill: full content width, first thing under the Phases title. */
+.hillSummary {
+  width: 100%;
+  margin: 0.25rem 0 1rem;
+}
+
 /* CCPM resource line: the owner's concurrent load across other programs. */
 .notices {
   list-style: none;
