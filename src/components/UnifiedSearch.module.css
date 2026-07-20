@@ -44,18 +44,22 @@
   opacity: 0.7;
 }
 
-/* Hero: the one place in the app where a control is deliberately oversized. */
+/* Hero: the one place in the app where a control is deliberately oversized.
+   Radius is just under half the ~3.7rem height, so the ends read as round while
+   keeping a hair of flatness — a true pill next to the app's 0.5rem inputs would
+   look like a different product. The extra side padding keeps the text off the
+   curve. */
 .hero .input {
   font-size: 1.125rem;
-  padding: 0.875rem 1.125rem;
-  border-radius: 0.75rem;
+  padding: 0.875rem 1.5rem;
+  border-radius: 1.75rem;
 }
 
 .hero .button {
   font-size: 0.9375rem;
   font-weight: 600;
-  padding: 0.875rem 1.5rem;
-  border-radius: 0.75rem;
+  padding: 0.875rem 1.75rem;
+  border-radius: 1.75rem;
   background: var(--p-600);
   border-color: var(--p-600);
   color: var(--white);
