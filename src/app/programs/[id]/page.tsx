@@ -16,6 +16,7 @@ import { getActivity } from '../../../lib/activity';
 import { getSummary } from '../../../lib/summaries';
 import { geminiConfigured } from '../../../lib/gemini';
 import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
+import { resolvePerson } from '../../../lib/people';
 import ChainLedger from '../../../components/ChainLedger';
 import { computeChainLedger, type LedgerResourceInput, type StateTuple } from '../../../lib/chainLedger';
 import { getProgramLedgers } from '../../../lib/chainLedgerData';
@@ -255,10 +256,11 @@ export default async function ProjectDetailsPage(props: {
     resources: ledgerResources,
   });
 
-  // CCPM resource dimension for the track prototype: the owner's ACTIVE phases in
-  // other (non-archived) programs — the cross-program contention on the one Googler.
+  // CCPM resource dimension: the owner's ACTIVE phases in other (non-archived)
+  // programs — the cross-program contention on the one Googler. Surfaced in the
+  // Critical Chain next-steps list (it used to sit on the phase rail).
   let otherActive: { projectId: number; projectName: string; phaseName: string }[] = [];
-  if (showTrack && project.ownerName) {
+  if (project.ownerName) {
     const others = await prisma.project.findMany({
       where: { ownerName: project.ownerName, isArchived: false, id: { not: projectId } },
       include: { phases: { include: { states: { orderBy: { timestamp: 'desc' }, take: 1 } } } },
@@ -272,6 +274,10 @@ export default async function ProjectDetailsPage(props: {
         .map((ph) => ({ projectId: o.id, projectName: o.name, phaseName: ph.name })),
     );
   }
+  // The owner is stored as a handle/email; resolve it to the Person so the
+  // mention links like every other person on the page (design.md §2).
+  const ownerPerson = resolvePerson(allPeople, project.ownerName);
+
   // Identify the OEM for the project (heuristic name match; see lib/associations).
   const matchedOem = findPartnerInText(oems, project.name);
   const oemPartner = matchedOem || (project.partner.type?.name === 'OEM' ? project.partner : null);
@@ -375,7 +381,9 @@ export default async function ProjectDetailsPage(props: {
             <section id="critical-chain" className={`${styles.historySection} ${styles.anchor}`}>
               <ChainLedger projectId={projectId} locale={locale} now={now} ledger={ledger}
                 sopDate={project.sopDate ? project.sopDate.toISOString() : null}
-                volumeFirstYear={project.volumeFirstYear} />
+                volumeFirstYear={project.volumeFirstYear}
+                owner={project.ownerName} ownerPersonId={ownerPerson?.id ?? null}
+                ownerOtherActive={otherActive} />
             </section>
 
             {/* Phases as a vertical rail (spec §2.13): node per phase, latest hill +
@@ -385,7 +393,7 @@ export default async function ProjectDetailsPage(props: {
                 // PhaseTrack owns its title row — the ⋯ menu (expand/hide/edit) rides
                 // beside it and needs the component's collapse state.
                 <PhaseTrack projectId={projectId} phases={graphRows} allPartners={allPartners}
-                  allPeople={allPeople} locale={locale} owner={project.ownerName} otherActive={otherActive} />
+                  allPeople={allPeople} locale={locale} />
               ) : (
                 <>
                   <h2>{t(locale, 'phasesCard')}</h2>

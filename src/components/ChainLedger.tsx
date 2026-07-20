@@ -15,6 +15,13 @@ import styles from './ChainLedger.module.css';
 // sentence via lib/i18n; every number arrives precomputed in the ledger — this
 // component ONLY renders structured facts (the deterministic layer is the product).
 
+/** An active phase the program's owner is running in ANOTHER program. */
+export interface OwnerOtherActive {
+  projectId: number;
+  projectName: string;
+  phaseName: string;
+}
+
 interface ChainLedgerProps {
   projectId: number;
   locale: Locale;
@@ -22,6 +29,9 @@ interface ChainLedgerProps {
   ledger: ChainLedgerResult;
   sopDate: string | null;
   volumeFirstYear: number;
+  owner: string | null; // the program's Googler owner
+  ownerPersonId: number | null; // resolved so the mention can link
+  ownerOtherActive: OwnerOtherActive[];
 }
 
 const jumpToPhase = (id: number) => window.dispatchEvent(new CustomEvent('autoknow:jump-phase', { detail: id }));
@@ -214,7 +224,9 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
   );
 }
 
-export default function ChainLedger({ projectId, locale, now, ledger, sopDate, volumeFirstYear }: ChainLedgerProps) {
+export default function ChainLedger({
+  projectId, locale, now, ledger, sopDate, volumeFirstYear, owner, ownerPersonId, ownerOtherActive,
+}: ChainLedgerProps) {
   const legendRef = useRef<HTMLDialogElement>(null);
   const sopMs = sopDate ? +new Date(sopDate) : null;
   const nameOf = (id: number) => ledger.schedule.find((r) => r.id === id)?.name ?? `#${id}`;
@@ -244,37 +256,118 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
       : t(locale, 'clOvershootHeadline', { d: -ledger.bufferDays, date, month });
   }
 
-  // ---- judgment sentence: register opener + computed reactions ----
+  // ---- next steps: ONE list (2026-07-20 user call). The resource-contention
+  // sentences ARE the recommendations — they used to be summarized tersely here
+  // and again, more fully, in a separate Resource Constraints block. The fuller
+  // form won; the owner's cross-program load moved in from the phase rail so
+  // every schedule/contention recommendation reads in one place. ----
   const oversub = ledger.situations.filter((s): s is Extract<Situation, { type: 'oversubscribed' }> => s.type === 'oversubscribed');
   const upNext = ledger.situations.find((s): s is Extract<Situation, { type: 'upcomingHandoff' }> => s.type === 'upcomingHandoff');
   const overshoot = ledger.situations.find((s): s is Extract<Situation, { type: 'sopOvershoot' }> => s.type === 'sopOvershoot');
 
-  const reactions: React.ReactNode[] = [];
-  if (ledger.register !== 'none') {
-    const firstMove = oversub.find((o) => o.moves.length > 0);
-    if (firstMove) {
-      reactions.push(tNodes(locale, 'clLeverMove', {
-        name: resLink({ kind: firstMove.kind, id: firstMove.resourceId, name: firstMove.name }),
-        program: progLink(firstMove.moves[0].programId, firstMove.moves[0].programName),
-        d: firstMove.moves[0].bufferDays ?? 0,
-      }));
+  const nextSteps: React.ReactNode[] = [];
+
+  // who the chain is waiting on, and whose slack can move. When the NEXT phase is
+  // also the oversubscribed one, its staffing clause rides on this bullet rather
+  // than repeating the same person-and-phase as a second bullet.
+  const upNextCoveredHere = upNext != null && oversub.some((o) => o.phaseId === upNext.toId);
+  for (const o of oversub) {
+    const carriesUpNext = upNext != null && upNextCoveredHere && o.phaseId === upNext.toId;
+    nextSteps.push(
+      <>
+        {tNodes(locale, 'clOversubLine', {
+          phase: phaseBtn(o.phaseId),
+          name: resLink({ kind: o.kind, id: o.resourceId, name: o.name }),
+          n: o.moves.length + o.tight.length,
+        })}
+        {o.moves.length > 0 && (
+          <>
+            {' '}
+            {tNodes(locale, 'clOversubMoves', {
+              phase: phaseBtn(o.phaseId),
+              programs: joinNodes(o.moves.map((m) =>
+                tNodes(locale, 'clProgWithBuffer', { name: progLink(m.programId, m.programName), d: m.bufferDays ?? 0 }))),
+            })}
+          </>
+        )}
+        {o.tight.length > 0 && (
+          <>
+            {' '}
+            {tNodes(locale, 'clOversubTight', {
+              programs: joinNodes(o.tight.map((m) => progLink(m.programId, m.programName))),
+            })}
+          </>
+        )}
+        {carriesUpNext && (
+          <>
+            {' '}
+            {tNodes(locale, 'clUpNextConfirm', { current: phaseBtn(upNext!.fromId) })}
+          </>
+        )}
+      </>,
+    );
+  }
+
+  // the next phase's staffing — the handoff worth agreeing before it starts
+  if (upNext && !upNextCoveredHere && upNext.contended.length > 0) {
+    nextSteps.push(
+      <>
+        {tNodes(locale, 'clUpNextLine', {
+          phase: phaseBtn(upNext.toId),
+          names: joinNodes(upNext.contended.map((c) => resLink(c))),
+          n: Math.max(...upNext.contended.map((c) => c.n)),
+        })}{' '}
+        {tNodes(locale, 'clUpNextConfirm', { current: phaseBtn(upNext.fromId) })}
+      </>,
+    );
+  } else if (upNext && !upNextCoveredHere && ledger.register !== 'none') {
+    nextSteps.push(tNodes(locale, 'clLeverHandoff', { from: phaseBtn(upNext.fromId), to: phaseBtn(upNext.toId) }));
+  }
+
+  // the program owner's load elsewhere — a flag, not a proven constraint
+  if (owner && ownerOtherActive.length > 0) {
+    const byProgram = new Map<number, { name: string; phases: string[] }>();
+    for (const o of ownerOtherActive) {
+      const g = byProgram.get(o.projectId) ?? { name: o.projectName, phases: [] };
+      g.phases.push(o.phaseName);
+      byProgram.set(o.projectId, g);
     }
-    if (upNext) {
-      reactions.push(tNodes(locale, 'clLeverHandoff', { from: phaseBtn(upNext.fromId), to: phaseBtn(upNext.toId) }));
-    }
-    if (overshoot) {
-      reactions.push(
-        <button key="declare" type="button" className={styles.declareBtn}
+    const items = joinNodes(
+      [...byProgram.entries()].map(([pid, g]) => (
+        <>
+          {progLink(pid, g.name)}
+          {` (${g.phases.join(', ')})`}
+        </>
+      )),
+      '; ',
+    );
+    nextSteps.push(tNodes(locale, ownerOtherActive.length === 1 ? 'clOwnerLoadOne' : 'clOwnerLoad', {
+      owner: ownerPersonId != null
+        ? <Link href={`/people/${ownerPersonId}`} className={styles.entityLink}>{owner}</Link>
+        : owner,
+      n: ownerOtherActive.length,
+      items,
+    }));
+  }
+
+  // the escalation, when the SOP is already overshot
+  if (overshoot) {
+    nextSteps.push(
+      <>
+        <button type="button" className={styles.declareBtn}
           onClick={() => document.getElementById('program-status')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
           {t(locale, 'clLeverDeclare', { month: monthLong(`${overshoot.proposedSopMonth}-01`, locale) })}
-        </button>,
-      );
-      if (overshoot.unitsDelayed != null) {
-        reactions.push(t(locale, 'clUnitsDelayed', {
-          units: overshoot.unitsDelayed.toLocaleString(locale), volume: volumeFirstYear.toLocaleString(locale),
-        }));
-      }
-    }
+        </button>
+        {overshoot.unitsDelayed != null && (
+          <>
+            {' — '}
+            {t(locale, 'clUnitsDelayed', {
+              units: overshoot.unitsDelayed.toLocaleString(locale), volume: volumeFirstYear.toLocaleString(locale),
+            })}
+          </>
+        )}
+      </>,
+    );
   }
 
   // ---- waterfall rows, losses first by size, unattributed last ----
@@ -348,22 +441,18 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
       )}
 
       {sopMs != null && ledger.bufferDays != null && (
-        <p className={styles.judgment}>
-          <strong className={ledger.register === 'act' ? styles.act : undefined}>
-            {t(locale, ledger.register === 'act' ? 'clJudgeAct' : ledger.register === 'plan' ? 'clJudgePlan' : 'clJudgeNone')}
-          </strong>
-          {reactions.length > 0 && (
-            <span className={styles.reactions}>
-              {' '}
-              {reactions.map((r, i) => (
-                <span key={i}>
-                  {i > 0 && ' · '}
-                  {r}
-                </span>
-              ))}
-            </span>
+        <>
+          <p className={styles.judgment}>
+            <strong className={ledger.register === 'act' ? styles.act : undefined}>
+              {t(locale, ledger.register === 'act' ? 'clJudgeAct' : ledger.register === 'plan' ? 'clJudgePlan' : 'clJudgeNone')}
+            </strong>
+          </p>
+          {nextSteps.length > 0 && (
+            <ul className={styles.stepList}>
+              {nextSteps.map((step, i) => <li key={i} className={styles.step}>{step}</li>)}
+            </ul>
           )}
-        </p>
+        </>
       )}
 
       {ledger.rebaselineSuggested && (
@@ -460,52 +549,6 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
         </div>
       )}
 
-      {(oversub.length > 0 || (upNext && upNext.contended.length > 0)) && (
-        <div className={styles.block}>
-          <h3 className={styles.subtitle}>{t(locale, 'clResourceConstraints')}</h3>
-          <ul className={styles.resList}>
-            {oversub.map((o) => (
-              <li key={`${o.kind}${o.resourceId}`} className={styles.resline}>
-                {tNodes(locale, 'clOversubLine', {
-                  phase: phaseBtn(o.phaseId),
-                  name: resLink({ kind: o.kind, id: o.resourceId, name: o.name }),
-                  n: o.moves.length + o.tight.length,
-                })}
-                {o.moves.length > 0 && (
-                  <>
-                    {' '}
-                    {tNodes(locale, 'clOversubMoves', {
-                      phase: phaseBtn(o.phaseId),
-                      programs: joinNodes(o.moves.map((m) =>
-                        tNodes(locale, 'clProgWithBuffer', {
-                          name: progLink(m.programId, m.programName), d: m.bufferDays ?? 0,
-                        }))),
-                    })}
-                  </>
-                )}
-                {o.tight.length > 0 && (
-                  <>
-                    {' '}
-                    {tNodes(locale, 'clOversubTight', {
-                      programs: joinNodes(o.tight.map((m) => progLink(m.programId, m.programName))),
-                    })}
-                  </>
-                )}
-              </li>
-            ))}
-            {upNext && upNext.contended.length > 0 && (
-              <li className={styles.resline}>
-                {tNodes(locale, 'clUpNextLine', {
-                  phase: phaseBtn(upNext.toId),
-                  names: joinNodes(upNext.contended.map((c) => resLink(c))),
-                  n: Math.max(...upNext.contended.map((c) => c.n)),
-                })}{' '}
-                {tNodes(locale, 'clUpNextConfirm', { current: phaseBtn(upNext.fromId) })}
-              </li>
-            )}
-          </ul>
-        </div>
-      )}
     </section>
   );
 }

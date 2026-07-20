@@ -189,15 +189,23 @@
   font-size: 0.8125rem;
 }
 
-.resList {
+/* The one next-steps list: schedule and resource-contention recommendations
+   together (the separate Resource Constraints block was merged in). */
+.stepList {
   margin: 0.25rem 0 0;
   padding-left: 1.25rem;
 }
 
-.resline {
+.step {
   font-size: 0.875rem;
   line-height: 1.55;
   margin: 0.25rem 0;
+  color: var(--muted);
+}
+
+.step a,
+.step button {
+  color: var(--p-600);
 }
 
 .entityLink,

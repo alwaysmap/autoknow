@@ -82,20 +82,12 @@ export interface PhaseTrackRow extends PhaseGraphRow {
   googleFocus: string | null; // markdown — what Googlers/TSC focus on
 }
 
-export interface OtherActivePhase {
-  projectId: number;
-  projectName: string;
-  phaseName: string;
-}
-
 interface PhaseTrackProps {
   projectId: number;
   phases: PhaseTrackRow[];
   allPartners: { id: number; name: string }[];
   allPeople: { id: number; name: string }[];
   locale: Locale;
-  owner: string | null; // the program's Googler owner
-  otherActive: OtherActivePhase[]; // the owner's active phases in OTHER programs
 }
 
 // Ink rides the theme token — a hardcoded dark gray vanishes on the dark paper.
@@ -168,7 +160,7 @@ function MiniHill({ progress, previousProgress }: { progress: number; previousPr
   );
 }
 
-export default function PhaseTrack({ projectId, phases, allPartners, allPeople, locale, owner, otherActive }: PhaseTrackProps) {
+export default function PhaseTrack({ projectId, phases, allPartners, allPeople, locale }: PhaseTrackProps) {
   const byId = new Map(phases.map((p) => [p.id, p]));
 
   const chain = computeCriticalChain(
@@ -241,7 +233,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   const constraintWhy = (p: PhaseTrackRow): string[] => {
     const parts = [t(locale, 'constraintGates', { n: chain.remainingDays })];
     const contended: string[] = [];
-    if (owner && otherActive.length > 0) contended.push(`${owner} +${otherActive.length}`);
     for (const pp of p.partners) {
       if ((pp.otherActive ?? 0) > 0) contended.push(`${pp.name} +${pp.otherActive}`);
     }
@@ -409,14 +400,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     );
     return v.ok ? [] : v.errors.map((e) => e.message);
   }, [phases]);
-
-  // The owner's cross-program load, grouped by program (the resource constraint).
-  const byProgram = new Map<number, { name: string; phaseNames: string[] }>();
-  otherActive.forEach((o) => {
-    const g = byProgram.get(o.projectId) ?? { name: o.projectName, phaseNames: [] };
-    g.phaseNames.push(o.phaseName);
-    byProgram.set(o.projectId, g);
-  });
 
   // ---- Focused DETAILS popover: floats over a scrim, the rail dimmed behind ----
   const details = detailsId != null ? byId.get(detailsId) : null;
@@ -884,9 +867,11 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
       {/* No chain summary up top — the chain is already the rail's heavy track, and the
           constraint card carries the evidence line. A second rendering said it twice. */}
 
-      {/* Problems & notices — ONE list: structural DAG issues, then the CCPM
-          resource constraint (the same Googler on active phases elsewhere). */}
-      {(structureIssues.length > 0 || (owner && byProgram.size > 0)) && (
+      {/* Problems & notices: structural DAG issues only. The owner's
+          cross-program load moved to the Critical Chain next-steps list
+          (2026-07-20) so every resource-contention recommendation reads in one
+          place instead of two. */}
+      {structureIssues.length > 0 && (
         <ul className={styles.notices}>
           {structureIssues.map((msg, i) => (
             <li key={`st${i}`} className={styles.resourceLine}>
@@ -894,22 +879,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               {msg}
             </li>
           ))}
-          {owner && byProgram.size > 0 && (
-            <li className={styles.resourceLine}>
-              <span className={styles.resourceLabel}>{t(locale, 'resource')}</span>
-              <span className={styles.resourceOwner}>{owner}</span>
-              {' — '}
-              {t(locale, otherActive.length === 1 ? 'alsoActiveOne' : 'alsoActive', { n: otherActive.length })}
-              {': '}
-              {[...byProgram.entries()].map(([pid, g], i) => (
-                <span key={pid}>
-                  {i > 0 && '; '}
-                  <Link href={`/programs/${pid}`} className={styles.resourceProgram}>{g.name}</Link>
-                  {' ('}{g.phaseNames.join(', ')}{')'}
-                </span>
-              ))}
-            </li>
-          )}
         </ul>
       )}
 

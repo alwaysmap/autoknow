@@ -516,10 +516,25 @@ both deferred:
 A third additive candidate — `PhaseState.remainingDays` for direct
 remaining-duration reporting — rides open question 10.
 
-### (c) Constraint resources — "Resource Constraints"
+### (c) Constraint resources — merged into the next-steps list
 
-(UI section title renamed from "Who is oversubscribed" to **Resource
-Constraints**, 2026-07-20 user call; rendered as a bulleted list.)
+Shipped first as its own block ("Who is oversubscribed" → "Resource
+Constraints"), then **merged into the headline's next-steps list**
+(2026-07-20 user call) once the duplication was visible on a real program:
+the terse reactions under "Next Step:" were lossy summaries of the same
+facts the block stated in full ("move Bosch's time here from Qualcomm (3
+days of buffer)" vs. "Integration is with Bosch — also active in 2 other
+programs. If Integration needs more of their time: Qualcomm (3 days of
+buffer) can afford to give some back. Ford Evos has no buffer to give").
+The fuller sentences won.
+
+The single list now carries, in order: oversubscribed people/partners with
+their movable slack, the next phase's staffing confirmation (folded into the
+oversubscription bullet when it names the same phase), the program owner's
+cross-program load, and — at the `act` register — the Concerned declaration
+with its unit impact. The owner line moved here from the phase rail's
+notices for the same reason: one place for every schedule/contention
+recommendation. The rail keeps only structural DAG problems.
 
 Committed scope (decision 2026-07-20, see §8): the resource dimension is the
 leadership priority — in Goldratt's terms, identifying and exploiting the
