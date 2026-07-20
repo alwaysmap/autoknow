@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import styles from './DataTable.module.css';
@@ -74,6 +74,20 @@ export default function DataTable<T>({
   };
   const [openFilterKey, setOpenFilterKey] = useState<string | null>(null);
   const filterPopRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  // Right-align the popup when a left-aligned one would poke past the wrapper's
+  // right edge — the wrapper's overflow-x would crop it (rightmost columns).
+  const [popFlipped, setPopFlipped] = useState(false);
+  useLayoutEffect(() => {
+    if (!openFilterKey) return;
+    const pop = filterPopRef.current;
+    const anchor = pop?.parentElement; // .filterWrap
+    const wrap = wrapperRef.current;
+    if (!pop || !anchor || !wrap) return;
+    // Width is alignment-independent, so this measurement is idempotent even when
+    // the popup is currently rendered flipped from a previous open.
+    setPopFlipped(anchor.getBoundingClientRect().left + pop.offsetWidth > wrap.getBoundingClientRect().right);
+  }, [openFilterKey]);
   useEffect(() => {
     if (!openFilterKey) return;
     const onDown = (e: PointerEvent) => {
@@ -176,7 +190,7 @@ export default function DataTable<T>({
   const endIndex = Math.min(activePage * pageSize, sortedData.length);
 
   return (
-    <div className={styles.tableWrapper}>
+    <div className={styles.tableWrapper} ref={wrapperRef}>
       <table className={styles.table}>
         <thead>
           <tr>
@@ -220,7 +234,11 @@ export default function DataTable<T>({
                           {(filters[h.key]?.length ?? 0) > 0 && <span className={styles.filterCount}>{filters[h.key].length}</span>}
                         </button>
                         {openFilterKey === h.key && (
-                          <div className={styles.filterPop} ref={filterPopRef} onClick={(e) => e.stopPropagation()}>
+                          <div
+                            className={`${styles.filterPop} ${popFlipped ? styles.filterPopRight : ''}`}
+                            ref={filterPopRef}
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             {optionsFor(h).map((v) => {
                               const checked = filters[h.key]?.includes(v) ?? false;
                               return (
