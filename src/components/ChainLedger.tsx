@@ -30,7 +30,14 @@ const monthLong = (iso: string, locale: Locale) => localDate(iso, locale, { mont
 const dayShort = (ms: number, locale: Locale) => localDate(new Date(ms), locale, { month: 'short', day: 'numeric' });
 
 // ---- Schedule SVG geometry ----
-const W = 860, LABEL_W = 180, PAD_R = 16, ROW_H = 36, TOP = 26, BOT = 44;
+// BOT leaves two bands under the last row: the buffer bracket + its label, then
+// the quarter axis (they shared a baseline and collided at BOT = 44).
+const W = 860, PAD_R = 12, ROW_H = 36, TOP = 26, BOT = 60;
+// Label-column sizing: the gutter fits the LONGEST phase name instead of a fixed
+// width, so short names don't donate a third of the chart to whitespace.
+const RING_PAD = 24, TEXT_PAD = 10, CHAR_W = 5.9, WIDE_CHAR_W = 11;
+const textWidth = (s: string) =>
+  [...s].reduce((w, ch) => w + (ch.charCodeAt(0) > 0x2e80 ? WIDE_CHAR_W : CHAR_W), 0);
 
 function ScheduleChart({ ledger, sopMs, now, locale }: {
   ledger: ChainLedgerResult; sopMs: number | null; now: number; locale: Locale;
@@ -38,9 +45,13 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
   const rows = ledger.schedule;
   if (rows.length === 0) return null;
   const H = TOP + rows.length * ROW_H + BOT;
+  // constraint rows also carry the ring, so they need the wider pad
+  const labelW = Math.min(220, Math.max(56, Math.ceil(Math.max(
+    ...rows.map((r) => textWidth(r.name) + (ledger.liveConstraintId === r.id ? RING_PAD : TEXT_PAD)),
+  ))));
   const tMin = Math.min(...rows.map((r) => r.startMs));
-  const tMax = Math.max(sopMs ?? 0, ...rows.map((r) => r.endMs), now) + 14 * DAY_MS;
-  const x = (ms: number) => LABEL_W + ((ms - tMin) / (tMax - tMin)) * (W - LABEL_W - PAD_R);
+  const tMax = Math.max(sopMs ?? 0, ...rows.map((r) => r.endMs), now) + 7 * DAY_MS;
+  const x = (ms: number) => labelW + ((ms - tMin) / (tMax - tMin)) * (W - labelW - PAD_R);
   const rowY = (i: number) => TOP + i * ROW_H + ROW_H / 2;
 
   // Quarter gridlines across the visible range.
@@ -116,8 +127,8 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
           const isConstraint = ledger.liveConstraintId === r.id;
           return (
             <g key={r.id}>
-              {isConstraint && <circle cx={LABEL_W - 12} cy={y} r={6} fill="none" stroke="var(--chain)" strokeWidth={2} />}
-              <text x={isConstraint ? LABEL_W - 24 : LABEL_W - 10} y={y + 3.5} textAnchor="end" fontSize={11} fill="var(--fg)"
+              {isConstraint && <circle cx={labelW - 12} cy={y} r={6} fill="none" stroke="var(--chain)" strokeWidth={2} />}
+              <text x={isConstraint ? labelW - RING_PAD : labelW - TEXT_PAD} y={y + 3.5} textAnchor="end" fontSize={11} fill="var(--fg)"
                 className={styles.rowLabel} onClick={() => jumpToPhase(r.id)}>
                 {r.name}
               </text>
@@ -143,12 +154,18 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
                   {t(locale, 'clSatIdle', { d: r.gapBeforeDays })}
                 </text>
               )}
-              {label && (
-                <text x={Math.min(x(Math.max(r.endMs, r.plannedEndMs)) + 8, W - 4)} y={y + 3.5} fontSize={10}
-                  fill={label.bad ? 'var(--bad)' : 'var(--muted)'}>
-                  {label.text}
-                </text>
-              )}
+              {label && (() => {
+                // Beside the bar when it fits; otherwise under it (starting at the
+                // bar's own left edge, always clear) — never clipped off-canvas.
+                const right = x(Math.max(r.endMs, r.plannedEndMs)) + 8;
+                const fits = right + textWidth(label.text) * (10 / 11) <= W - 4;
+                return (
+                  <text x={fits ? right : x(r.startMs)} y={fits ? y + 3.5 : y + 15} fontSize={10}
+                    fill={label.bad ? 'var(--bad)' : 'var(--muted)'}>
+                    {label.text}
+                  </text>
+                );
+              })()}
             </g>
           );
         })}
