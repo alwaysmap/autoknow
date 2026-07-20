@@ -186,40 +186,15 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
     <Link href={r.kind === 'partner' ? `/partners/${r.id}` : `/people/${r.id}`} className={styles.entityLink}>{r.name}</Link>
   );
 
-  // ---- headline: the fact, then its history ----
-  const headlineParts: React.ReactNode[] = [];
-  if (sopMs != null && ledger.bufferDays != null) {
+  // ---- headline: ONE sentence — buffer, estimated end date, SOP. The history
+  // (started with / used / who took it) lives in Where the buffer went. ----
+  let headline: string | null = null;
+  if (sopMs != null && ledger.bufferDays != null && ledger.projectedFinishMs != null) {
     const month = monthLong(sopDate!, locale);
-    headlineParts.push(
-      ledger.bufferDays >= 0
-        ? t(locale, 'clBufferHeadline', { d: ledger.bufferDays, month })
-        : t(locale, 'clOvershootHeadline', { d: -ledger.bufferDays, month }),
-    );
-    if (ledger.startBufferDays != null && ledger.usedDays != null && ledger.usedDays !== 0) {
-      headlineParts.push(
-        ledger.usedDays > 0
-          ? t(locale, 'clStartedWith', { b0: ledger.startBufferDays, used: ledger.usedDays })
-          : t(locale, 'clGainedSince', { b0: ledger.startBufferDays, g: -ledger.usedDays }),
-      );
-      const losses = ledger.waterfall
-        .filter((w) => !w.gain && w.kind !== 'unattributed')
-        .sort((a, b) => b.days - a.days)
-        .slice(0, 2)
-        .map((w) => w.kind === 'gap'
-          ? tNodes(locale, 'clFragGap', { d: w.days, phase: phaseBtn(w.toId!) })
-          : tNodes(locale, 'clFragOverrun', { d: w.days, phase: phaseBtn(w.phaseId!) }));
-      if (ledger.usedDays > 0 && losses.length > 0) {
-        headlineParts.push(tNodes(locale, 'clUsedMostlyBy', { items: joinNodes(losses) }));
-      }
-    }
-    if (ledger.fourWeekDeltaDays != null && ledger.fourWeekDeltaDays !== 0) {
-      const b4 = ledger.bufferDays - ledger.fourWeekDeltaDays;
-      headlineParts.push(
-        b4 >= 0
-          ? t(locale, 'clWasFourWeeks', { b4 })
-          : t(locale, 'clWasFourWeeksOver', { b4: -b4 }),
-      );
-    }
+    const date = localDate(new Date(ledger.projectedFinishMs), locale, { month: 'long', day: 'numeric', year: 'numeric' });
+    headline = ledger.bufferDays >= 0
+      ? t(locale, 'clBufferHeadline', { d: ledger.bufferDays, date, month })
+      : t(locale, 'clOvershootHeadline', { d: -ledger.bufferDays, date, month });
   }
 
   // ---- judgment sentence: register opener + computed reactions ----
@@ -321,7 +296,7 @@ export default function ChainLedger({ projectId, locale, now, ledger, sopDate, v
       ) : (
         <p className={styles.headline}
           title={t(locale, 'clGuidelineTitle', { b: ledger.bufferDays, rem: remTotal, g: ledger.guidelineDays })}>
-          {joinNodes(headlineParts, ' ')}
+          {headline}
         </p>
       )}
 

@@ -236,8 +236,9 @@ Goldratt and should not have to. Goldratt's vocabulary lives in this doc and
 of PhaseTrack and passes three tests:
 
 1. **No mental translation.** Facts are written as sentences with the units and
-   dates spelled out — "61 days of buffer between the forecast end of work and
-   the SOP date (end of February 2027)", never "Buffer: 61d to SOP (2027-02)".
+   dates spelled out — "61 days of buffer between the estimated end on
+   December 30, 2026 and the SOP at the end of February 2027", never
+   "Buffer: 61d to SOP (2027-02)".
    Inside dense charts a label may be a short phrase ("9 days over plan"),
    never bare signed notation ("+9d"). No framing filler either — phrases like
    "the practical levers" or "key considerations" name nothing; state the
@@ -268,7 +269,7 @@ now) live in the sentence itself.
 
 | In this doc (method term) | On the surface |
 |---|---|
-| Program buffer / buffer penetration | "61 days of buffer between the forecast end of work and the SOP date (end of February 2027)" · "14 of the original 75 days have been used" |
+| Program buffer / buffer penetration | "61 days of buffer between the estimated end on December 30, 2026 and the SOP at the end of February 2027" (the headline; consumption detail lives in Where the buffer went) |
 | Chain ledger (§4a) | Section titled **Schedule** — bars, dates, and the SOP line |
 | Buffer waterfall (§4b) | Section titled **Where the buffer went**; rows read "cost 9 days" / "gave back 3 days" |
 | Feeding-branch penetration | "A side branch is running late: *Cert prep* will hold up *Cert* by about 6 days" |
@@ -282,15 +283,18 @@ now) live in the sentence itself.
 
 ### Headline
 
-> **61 days of buffer** between the forecast end of work and the SOP date (end
-> of February 2027). The program started with 75 days; 14 have been used,
-> mostly by *HW bring-up* running 9 days over its plan and 6 idle days before
-> *Cert* started.
+> **61 days of buffer** between the estimated end on December 30, 2026 and the
+> SOP at the end of February 2027.
 >
 > Nothing needs to change today. If the trend keeps falling: *Cert* is with
 > Alice — their other programs' slack is listed below — and the *Cert* →
 > *Production readiness* handoff can be agreed now so no idle days repeat
 > there.
+
+The headline is ONE sentence (2026-07-20 user call): buffer, the estimated end
+date, the SOP. The history it used to carry — started with N days, M used, and
+which phases took them — is exactly what §4b's "Where the buffer went" shows
+with evidence, so the headline no longer repeats it.
 
 Fact, then judgment-with-reactions — all generated from the ledger (the
 reactions sentence composes from §4c's computed options, not canned text). The

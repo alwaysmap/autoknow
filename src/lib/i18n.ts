@@ -1239,64 +1239,22 @@ const STRINGS = {
   // problems name computed reactions; people are named, never gendered (names over
   // pronouns also keeps de/ja/ko free of pronoun inflection).
   clBufferHeadline: {
-    en: '{d} days of buffer between the forecast end of work and the SOP date (end of {month}).',
-    de: '{d} Tage Puffer zwischen dem prognostizierten Arbeitsende und dem SOP-Termin (Ende {month}).',
-    ja: '作業完了予測とSOP（{month}末）の間に{d}日のバッファがあります。',
-    ko: '작업 완료 예측과 SOP({month} 말) 사이에 {d}일의 버퍼가 있습니다.',
+    en: '{d} days of buffer between the estimated end on {date} and the SOP at the end of {month}.',
+    de: '{d} Tage Puffer zwischen dem geschätzten Ende am {date} und dem SOP Ende {month}.',
+    ja: '見込み完了日（{date}）とSOP（{month}末）の間に{d}日のバッファがあります。',
+    ko: '예상 완료일({date})과 SOP({month} 말) 사이에 {d}일의 버퍼가 있습니다.',
   },
   clOvershootHeadline: {
-    en: 'The forecast end of work lands {d} days after the SOP date (end of {month}).',
-    de: 'Das prognostizierte Arbeitsende liegt {d} Tage nach dem SOP-Termin (Ende {month}).',
-    ja: '作業完了予測はSOP（{month}末）より{d}日遅れています。',
-    ko: '작업 완료 예측이 SOP({month} 말)보다 {d}일 늦습니다.',
+    en: 'The estimated end on {date} lands {d} days after the SOP at the end of {month}.',
+    de: 'Das geschätzte Ende am {date} liegt {d} Tage nach dem SOP Ende {month}.',
+    ja: '見込み完了日（{date}）はSOP（{month}末）を{d}日超過しています。',
+    ko: '예상 완료일({date})이 SOP({month} 말)보다 {d}일 늦습니다.',
   },
   clNoSop: {
     en: 'This program has no SOP date, so the buffer cannot be computed. Set the SOP in the program header.',
     de: 'Dieses Programm hat keinen SOP-Termin, daher kann der Puffer nicht berechnet werden. SOP im Programmkopf setzen.',
     ja: 'この プログラムにはSOPが未設定のため、バッファを計算できません。プログラムヘッダーでSOPを設定してください。',
     ko: '이 프로그램에는 SOP 날짜가 없어 버퍼를 계산할 수 없습니다. 프로그램 헤더에서 SOP를 설정하세요.',
-  },
-  clStartedWith: {
-    en: 'The program started with {b0} days; {used} have been used.',
-    de: 'Das Programm startete mit {b0} Tagen; {used} davon sind verbraucht.',
-    ja: '開始時は{b0}日でしたが、これまでに{used}日を使いました。',
-    ko: '프로그램 시작 시 {b0}일이었고 지금까지 {used}일을 사용했습니다.',
-  },
-  clGainedSince: {
-    en: 'The program started with {b0} days and has gained {g} since.',
-    de: 'Das Programm startete mit {b0} Tagen und hat seitdem {g} hinzugewonnen.',
-    ja: '開始時は{b0}日で、その後{g}日増えました。',
-    ko: '프로그램 시작 시 {b0}일이었고 이후 {g}일 늘었습니다.',
-  },
-  clUsedMostlyBy: {
-    en: 'Most of it went to {items}.',
-    de: 'Der Großteil entfiel auf {items}.',
-    ja: 'その大半は{items}によるものです。',
-    ko: '대부분은 {items} 때문입니다.',
-  },
-  clFragOverrun: {
-    en: '{phase} running {d} days over plan',
-    de: '{phase} ({d} Tage über Plan)',
-    ja: '{phase}の計画超過{d}日',
-    ko: '{phase}의 계획 초과 {d}일',
-  },
-  clFragGap: {
-    en: '{d} idle days before {phase}',
-    de: '{d} Leerlauftage vor {phase}',
-    ja: '{phase}前の待機{d}日',
-    ko: '{phase} 전 대기 {d}일',
-  },
-  clWasFourWeeks: {
-    en: 'Four weeks ago it was {b4} days.',
-    de: 'Vor vier Wochen waren es {b4} Tage.',
-    ja: '4週間前は{b4}日でした。',
-    ko: '4주 전에는 {b4}일이었습니다.',
-  },
-  clWasFourWeeksOver: {
-    en: 'Four weeks ago the forecast was {b4} days past the SOP.',
-    de: 'Vor vier Wochen lag die Prognose {b4} Tage hinter dem SOP.',
-    ja: '4週間前の時点で予測はSOPを{b4}日超過していました。',
-    ko: '4주 전 예측은 SOP를 {b4}일 초과한 상태였습니다.',
   },
   clGuidelineTitle: {
     en: '{b} days of buffer against {rem} days of remaining chain work — a comfortable reserve for that much work is about {g} days.',
