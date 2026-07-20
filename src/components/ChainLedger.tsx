@@ -154,10 +154,19 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
   return (
     <div className={styles.chartwrap}>
       <svg viewBox={`0 0 ${W} ${H}`} className={styles.scheduleSvg} role="img" aria-label={t(locale, 'clSchedule')}>
-        {bands.map((b, i) => (
-          <rect key={`band${i}`} x={x(b.x1)} y={TOP - 8} width={Math.max(1.5, x(b.x2) - x(b.x1))} height={rows.length * ROW_H + 16}
-            fill={BAND_FILL[b.kind]} />
-        ))}
+        {/* The buffer bands sweep out from their own left edge as the chart
+            arrives — the one place this app animates DATA, because the gesture IS
+            the reading: you watch the buffer get eaten and handed back.
+            Deliberately a CSS animation on the group, not JS: the rects are
+            always at their true width, so nothing in the chain — a missing
+            observer, a paused frame loop, a failed effect — can leave the bands
+            invisible. Worst case the reading simply appears without its sweep. */}
+        <g className={styles.bands}>
+          {bands.map((b, i) => (
+            <rect key={`band${i}`} x={x(b.x1)} y={TOP - 8} width={Math.max(1.5, x(b.x2) - x(b.x1))}
+              height={rows.length * ROW_H + 16} fill={BAND_FILL[b.kind]} />
+          ))}
+        </g>
         {/* graticule: week ticks (finest), month ticks, quarter lines + labels */}
         {weeks.map((ms) => (
           <line key={`w${ms}`} x1={x(ms)} y1={axisY - 3} x2={x(ms)} y2={axisY}

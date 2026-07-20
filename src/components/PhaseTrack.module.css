@@ -533,11 +533,11 @@
 .pillGoogler {
   background: transparent;
   color: var(--fg);
-  border: 1.5px dotted #5b7bb8;
+  border: 1.5px dotted var(--googler);
 }
 .pillGoogler:hover {
-  border-color: #1a56c4;
-  color: #1a56c4;
+  border-color: var(--googler-hover);
+  color: var(--googler-hover);
 }
 
 /* Structural editors, revealed only behind Edit. */

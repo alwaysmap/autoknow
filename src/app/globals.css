@@ -66,6 +66,12 @@
      health — they say what a row is, never how it is doing. Tokenised because the
      hexes they replace were chosen against a light page and rendered at 1.7:1 on
      the dark themes. All four are >= 5.6:1 on every ground the app has. */
+  /* Google-internal identity. Tokenised for the same reason as the kind inks: the
+     literals were picked on a light page and the hover value measured 2.19:1 on
+     dark — the "practically impossible to read" blue. */
+  --googler: #3a63b5;
+  --googler-hover: #1f4894;
+
   --kind-partner: #1a6b3c;
   --kind-program: #1a4d8f;
   --kind-person:  #7a4ea0;
@@ -153,6 +159,9 @@
   --gauge-face: #f2efe9;
 
   /* Kind inks lifted for a dark ground (>= 6.5:1 on both dark themes). */
+  --googler: #93b0e8;
+  --googler-hover: #bcd0f5;
+
   --kind-partner: #7fc79b;
   --kind-program: #93b8e8;
   --kind-person:  #c1a3dd;

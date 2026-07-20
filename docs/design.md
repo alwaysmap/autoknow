@@ -300,6 +300,22 @@ combination must work:
   `width: 100%` or a shrink-wrapped row gives a 40px stub of a rule, and the
   `::after` belongs on the TITLE ROW, never on a `flex-direction: column` header —
   there it becomes a row of its own and drops a tick fragment mid-header.
+* **Motion is ONE idea, not a collection of effects: an instrument settles.**
+  A reading sweeps from its stop to its value once, quickly, easing out. There
+  are exactly two implementations and adding a third needs a reason:
+  1. **Interaction-driven** — `useSettle` (rAF, `prefers-reduced-motion` aware)
+     drives the CTA dial on hover. JS, because it has to follow a pointer.
+  2. **Reveal** — a CSS animation sweeps the schedule's buffer bands out from the
+     chart's left edge on arrival. **CSS, never JS**, and that is a hard rule: a
+     JS reveal gates the data on an effect firing. The first version used an
+     IntersectionObserver, and in an environment where the API exists but never
+     delivers a callback (this app's own preview pane) the chart rendered with no
+     visible bands at all. A CSS animation starts from a state the element
+     already has, so nothing it does can hide a reading.
+  Rejected deliberately: a gauge on every boxed label (30+ per table is noise,
+  and the point of these is to be scannable at rest), and animating dialogs open
+  (the `<dialog>` top-layer/focus behaviour is correct now and not worth risking
+  for a flourish).
 * **Every search bar gets the rounding and the dial**, not just the hero, and the
   dial lights as soon as suggestions appear — not only on hover.
 * **The gauge face is near-WHITE in both themes** (`--gauge-face`). It is the one
