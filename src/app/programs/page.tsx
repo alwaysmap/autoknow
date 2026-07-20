@@ -1,5 +1,7 @@
 import { prisma } from '../../lib/db';
 import { runMonteCarlo } from '../../lib/forecast';
+import { computeCriticalChain } from '../../lib/criticalChain';
+import { sopBufferCategory } from '../../lib/sop';
 import { getLocale } from '../../lib/locale';
 import { t } from '../../lib/i18n';
 import ProgramsClient from './ProgramsClient';
@@ -18,7 +20,7 @@ export default async function ProgramsPage(props: {
   // Shareable table state (design.md §6): canonical per-column params + sort/dir + q.
   // The legacy ?minRisk / ?filter=active deep links above still preselect; any change
   // in the UI rewrites the URL to the canonical form.
-  const initialFilters = parseFilterParams(sp, ['partner.name', 'partner.region', 'ownerName', 'theNeedle', 'status']);
+  const initialFilters = parseFilterParams(sp, ['partner.name', 'partner.region', 'ownerName', 'theNeedle', 'status', 'sopOutlook']);
   const initialTableSort = sp.sort === 'risk' ? null : parseSortParams(sp);
   const initialQ = typeof sp.q === 'string' ? sp.q : '';
   const projects = await prisma.project.findMany({
@@ -34,17 +36,46 @@ export default async function ProgramsPage(props: {
           states: {
             orderBy: { timestamp: 'desc' },
             take: 1
-          }
+          },
+          dependencies: true
         }
       }
     }
   });
 
+  // Snapshot "now" once per request (server-side) so the deterministic SOP outlook is
+  // stable across SSR + hydration — same rule as the ecosystem dashboard.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
+
   const serializedProjects = projects.map(proj => {
-    const unstartedCount = proj.phases.filter(p => 
+    const unstartedCount = proj.phases.filter(p =>
       p.states[0]?.status === 'Not Started' || !p.states[0]
     ).length;
     const sim = runMonteCarlo(unstartedCount, proj.id);
+
+    // Deterministic critical-chain buffer (NOT the Monte Carlo sim): remaining chain
+    // days vs the SOP target is THE on-track signal, and it drives the SOP-outlook
+    // column + the ecosystem "SOP at risk" tile's deep link.
+    const chain = computeCriticalChain(
+      proj.phases.map((p) => ({
+        id: p.id,
+        name: p.name,
+        forecastedDuration: p.forecastedDuration,
+        progress: p.states[0]?.hillChartProgress ?? 0,
+        parentIds: p.dependencies.map((d) => d.dependsOnPhaseId),
+      })),
+    );
+    const sopOutlook = sopBufferCategory(
+      {
+        isArchived: proj.isArchived,
+        lifecycle: proj.lifecycle,
+        hillChartProgress: proj.hillChartProgress,
+        sopDate: proj.sopDate ? proj.sopDate.toISOString() : null,
+        chainRemainingDays: chain.remainingDays,
+      },
+      now,
+    );
 
     return {
       id: proj.id,
@@ -54,6 +85,7 @@ export default async function ProgramsPage(props: {
       theNeedle: proj.theNeedle,
       hillChartProgress: proj.hillChartProgress,
       sopDate: proj.sopDate ? proj.sopDate.toISOString() : null,
+      sopOutlook,
       ownerName: proj.ownerName,
       volumeFirstYear: proj.volumeFirstYear,
       partner: {

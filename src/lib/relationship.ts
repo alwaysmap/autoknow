@@ -47,6 +47,44 @@ export function scoreToHealth(score: number): Health {
   return 'Concerned';
 }
 
+export interface RelMixBucket {
+  score: RelScore;
+  count: number;
+  /** Share of RATED relationships, 0..1. */
+  share: number;
+}
+
+/**
+ * Where the partner book sits on the 1..5 scale — the input to the ecosystem
+ * relationship-mix bar. Every point gets a bucket (zero-count included) so the bar
+ * always has the same five slots in the same order; position, not hue, is the
+ * reading. Unrated partners are excluded from the denominator — "no reading yet" is
+ * not a health class — and returned separately so the tile can own up to them.
+ */
+export function relationshipMix(scores: (string | number | null | undefined)[]): {
+  buckets: RelMixBucket[];
+  rated: number;
+  unrated: number;
+} {
+  const counts: Record<RelScore, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  let unrated = 0;
+  for (const raw of scores) {
+    const s = parseScore(raw);
+    if (s === null) {
+      unrated += 1;
+      continue;
+    }
+    counts[s] += 1;
+  }
+  const rated = REL_SCORES.reduce((n, s) => n + counts[s], 0);
+  const buckets = REL_SCORES.map((score) => ({
+    score,
+    count: counts[score],
+    share: rated === 0 ? 0 : counts[score] / rated,
+  }));
+  return { buckets, rated, unrated };
+}
+
 /** Score for a state row: the stored score, else one derived from legacy health. */
 export function deriveScore(state: { relationshipScore?: number | null; theNeedle?: string | null } | null | undefined): RelScore {
   if (!state) return 3;

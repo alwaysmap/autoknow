@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import EcosystemStats from '../components/EcosystemStats';
+import SopRiskStat from '../components/SopRiskStat';
+import RelationshipMix from '../components/RelationshipMix';
 import SummaryPanel from '../components/SummaryPanel';
 import { getSummary } from '../lib/summaries';
 import { geminiConfigured } from '../lib/gemini';
 import CapacityChart from '../components/CapacityChart';
-import { getEcosystemDashboardData } from '../lib/dashboardData';
+import { getEcosystemDashboardData, getPartnerRelationshipScores } from '../lib/dashboardData';
 import { getLocale } from '../lib/locale';
 import { t } from '../lib/i18n';
 import EcosystemDashboardClient from './EcosystemDashboardClient';
@@ -16,10 +18,12 @@ export default async function Home() {
   const locale = await getLocale();
   const summary = await getSummary('ecosystem', 0);
 
-  // 2. Load the shared dashboard data (projects, forecasts, cycle times, briefings).
-  const {
-    serializedProjects,
-  } = await getEcosystemDashboardData();
+  // 2. Load the shared dashboard data (projects, forecasts, cycle times, briefings)
+  //    plus the partner relationship scores the mix tile reads.
+  const [{ serializedProjects }, relationshipScores] = await Promise.all([
+    getEcosystemDashboardData(),
+    getPartnerRelationshipScores(),
+  ]);
 
   // Snapshot "now" server-side so SSR and hydration agree. This is an async Server
   // Component — Date.now() runs once per request on the server, not on every client
@@ -36,11 +40,13 @@ export default async function Home() {
       </header>
 
       <main className={styles.main}>
-        {/* the leadership strip, in reading order: what threatens capacity first,
-            then when capacity lands (with/without GAS), then how many programs */}
-        <section className={styles.dashboardSection}
-          style={{ display: 'flex', flexWrap: 'wrap', gap: '28px 48px', alignItems: 'flex-start' }}>
+        {/* the leadership strip, in reading order: how much work is in flight, how
+            much of it is slipping its SOP, and how healthy the partner book carrying
+            it is — the three questions the capacity chart below then answers in time */}
+        <section className={styles.statStrip}>
           <EcosystemStats activeCount={activeCount} allTimeCount={serializedProjects.length} />
+          <SopRiskStat now={now} programs={serializedProjects} />
+          <RelationshipMix scores={relationshipScores} />
         </section>
 
         {/* the capacity picture gets the full page width — it's the chart leadership

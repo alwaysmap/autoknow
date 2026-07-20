@@ -17,6 +17,7 @@
 /.next/
 /.next-test/
 /.next-demo/
+/.next-preview/
 /out/
 
 # production

@@ -67,6 +67,17 @@
   margin-bottom: 30px;
 }
 
+/* The leadership tiles above the capacity chart. Auto-fit keeps them one row on a
+   laptop and lets them reflow to two (then one) on narrow viewports without a
+   breakpoint — the chart tile just needs room to stay legible. */
+.statStrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1.75rem 3rem;
+  align-items: start;
+  margin-bottom: 30px;
+}
+
 .sectionHeader {
   display: flex;
   align-items: baseline;

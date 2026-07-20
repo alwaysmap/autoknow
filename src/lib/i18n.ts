@@ -420,6 +420,42 @@ const STRINGS = {
   },
   statsActivePrograms: { en: 'Active programs', de: 'Aktive Programme', ja: 'アクティブなプログラム', ko: '활성 프로그램' },
   statsAllTime: { en: '{n} all time', de: '{n} insgesamt', ja: '累計{n}件', ko: '전체 {n}개' },
+  // Ecosystem strip tile 2 — SOP buffer exhaustion (lib/sop.sopBufferRisk).
+  statsSopAtRisk: { en: 'SOP at risk', de: 'SOP gefährdet', ja: 'SOP遅延リスク', ko: 'SOP 위험' },
+  statsSopAtRiskTitle: {
+    en: 'Active programs whose remaining critical-chain work no longer fits before their target SOP — the buffer is exhausted.',
+    de: 'Aktive Programme, deren verbleibende Arbeit auf der kritischen Kette nicht mehr vor den SOP-Termin passt — der Puffer ist aufgebraucht.',
+    ja: '残りのクリティカルチェーン作業が目標SOPに収まらなくなったアクティブなプログラム — バッファが尽きています。',
+    ko: '남은 크리티컬 체인 작업이 목표 SOP 안에 들어가지 않는 활성 프로그램 — 버퍼가 소진되었습니다.',
+  },
+  statsSopOfDated: { en: 'of {n} with a target SOP', de: 'von {n} mit SOP-Ziel', ja: '目標SOPあり{n}件中', ko: '목표 SOP 보유 {n}개 중' },
+  statsSopUndated: { en: '{n} without one', de: '{n} ohne', ja: '未設定{n}件', ko: '미설정 {n}개' },
+  // Ecosystem strip tile 3 — partner relationship mix (lib/relationship.relationshipMix).
+  statsRelationshipMix: { en: 'Partner relationships', de: 'Partnerbeziehungen', ja: 'パートナー関係', ko: '파트너 관계' },
+  statsRelationshipMixAria: {
+    en: 'Share of rated partner relationships by health class, critical (left) to exemplary (right).',
+    de: 'Anteil der bewerteten Partnerbeziehungen je Gesundheitsklasse, kritisch (links) bis vorbildlich (rechts).',
+    ja: '評価済みパートナー関係の健全度クラス別の割合、危機的（左）から模範的（右）まで。',
+    ko: '평가된 파트너 관계의 상태 등급별 비율, 위기(왼쪽)에서 모범적(오른쪽)까지.',
+  },
+  // Phrased so it stays grammatical at any count — this catalog has no pluralization
+  // (cf. '{n} days', '{n} units') and "1 partners" is not worth inventing one for.
+  statsRelationshipSegment: {
+    en: '{p} of rated partners ({n})',
+    de: '{p} der bewerteten Partner ({n})',
+    ja: '評価済みパートナーの{p}（{n}社）',
+    ko: '평가된 파트너의 {p} ({n}개)',
+  },
+  statsRelationshipRated: { en: '{n} rated', de: '{n} bewertet', ja: '評価済み{n}社', ko: '평가 완료 {n}개' },
+  statsRelationshipRatedTitle: { en: 'View rated partners', de: 'Bewertete Partner anzeigen', ja: '評価済みパートナーを表示', ko: '평가된 파트너 보기' },
+  statsRelationshipUnrated: { en: '{n} unrated', de: '{n} unbewertet', ja: '未評価{n}社', ko: '미평가 {n}개' },
+  statsRelationshipUnratedTitle: { en: 'View partners with no rating yet', de: 'Noch nicht bewertete Partner anzeigen', ja: '未評価のパートナーを表示', ko: '아직 평가되지 않은 파트너 보기' },
+  statsRelationshipNone: {
+    en: 'No partner relationships rated yet.',
+    de: 'Noch keine Partnerbeziehungen bewertet.',
+    ja: 'パートナー関係の評価はまだありません。',
+    ko: '아직 평가된 파트너 관계가 없습니다.',
+  },
   highRiskTitle: { en: 'High-risk programs', de: 'Hochrisiko-Programme', ja: 'ハイリスクプログラム', ko: '고위험 프로그램' },
   highRiskMore: { en: 'More →', de: 'Mehr →', ja: 'さらに表示 →', ko: '더 보기 →' },
   highRiskNone: {
@@ -828,6 +864,14 @@ const STRINGS = {
   partnerName: { en: 'Partner Name', de: 'Partnername', ja: 'パートナー名', ko: '파트너 이름' },
   programOwner: { en: 'Program Owner', de: 'Programmverantwortlicher', ja: 'プログラムオーナー', ko: '프로그램 담당자' },
   targetSopHeader: { en: 'Target SOP', de: 'SOP-Ziel', ja: '目標SOP', ko: '목표 SOP' },
+  // /programs "SOP outlook" column — the deterministic critical-chain buffer vs the
+  // target SOP (lib/sop.sopBufferCategory). The ecosystem "SOP at risk" tile deep-links
+  // to ?sopOutlook=late.
+  sopOutlookHeader: { en: 'SOP outlook', de: 'SOP-Aussicht', ja: 'SOP見通し', ko: 'SOP 전망' },
+  sopOutlookLate: { en: 'At risk', de: 'Gefährdet', ja: '遅延リスク', ko: '위험' },
+  sopOutlookOnTrack: { en: 'On track', de: 'Im Plan', ja: '順調', ko: '정상' },
+  sopOutlookNoSop: { en: 'No target', de: 'Kein Ziel', ja: '目標なし', ko: '목표 없음' },
+  sopOutlookNa: { en: '—', de: '—', ja: '—', ko: '—' },
   oemPartnerHeader: { en: 'OEM / Partner', de: 'OEM / Partner', ja: 'OEM / パートナー', ko: 'OEM / 파트너' },
   currentPhase: { en: 'Current Phase', de: 'Aktuelle Phase', ja: '現在のフェーズ', ko: '현재 단계' },
   figuringItOutTime: { en: '"Figuring it out" Time', de: '„Klären“-Dauer', ja: '「模索」時間', ko: '"파악" 시간' },

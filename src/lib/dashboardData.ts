@@ -2,6 +2,7 @@ import { prisma } from './db';
 import { runMonteCarlo } from './forecast';
 import { percentile } from './stats';
 import { computeCriticalChain } from './criticalChain';
+import { deriveScore } from './relationship';
 import type { CycleTimeData, CycleTimeStats } from '../components/CycleTimeScatterPlot';
 
 // Shared loader for the ecosystem dashboards. The home page (`/`) and the
@@ -47,6 +48,28 @@ export interface EcosystemDashboardData {
   people: DashboardPerson[];
   cycleTimeData: CycleTimeData[];
   cycleTimeStats: Record<string, CycleTimeStats>;
+}
+
+/**
+ * Latest relationship score per partner, for the ecosystem relationship-mix tile.
+ * Same rule as the /partners list: the newest PartnerState wins, and a row without a
+ * stored score derives one from its legacy health (lib/relationship.deriveScore). A
+ * partner with no state at all has never been rated → null.
+ *
+ * Deliberately NOT folded into getEcosystemDashboardData: /ecosystem-summary renders
+ * the same projects but no partner health, and shouldn't pay for this query.
+ */
+export async function getPartnerRelationshipScores(): Promise<(number | null)[]> {
+  const partners = await prisma.partner.findMany({
+    select: {
+      states: {
+        orderBy: { timestamp: 'desc' },
+        take: 1,
+        select: { relationshipScore: true, theNeedle: true },
+      },
+    },
+  });
+  return partners.map((p) => (p.states[0] ? deriveScore(p.states[0]) : null));
 }
 
 export async function getEcosystemDashboardData(): Promise<EcosystemDashboardData> {
