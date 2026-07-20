@@ -23,6 +23,10 @@ npm run test                                         # jest incl. DB tests (own 
 inspect. Seeding is the `/admin` console (idempotent core seed vs destructive
 mock seed — OPERATIONS §1).
 
+**Docker Compose only:** never install Postgres (or any server) directly on the
+host — `npm run db:up` / `db:down` manage the one sanctioned container
+(`pgvector/pgvector:pg16` from docker-compose.yml).
+
 ## Non-negotiables (enforced, not advisory)
 
 - **Additive** (new table, nullable/defaulted column, index): ships WITH app

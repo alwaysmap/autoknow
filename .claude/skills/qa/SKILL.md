@@ -32,6 +32,8 @@ warnings is the bar — the suite was once left red on main and it hid real bugs
 
 - TDD: new behavior gets a failing test first; bug fixes start with a test
   reproducing the bug. Test expectations (black-box), not implementation.
+- Coverage bar: **80%+ statements/lines**, proven by `npm run test:coverage`
+  output — not asserted from memory.
 - UI changes additionally get verified in the running app (`npm run dev` /
   preview): computed styles, both themes — tests don't catch visual drift.
 - When a fix lands, grep for sibling instances of the same defect pattern
