@@ -12,6 +12,7 @@
 .intro {
   color: var(--muted);
   font-size: 0.8125rem;
+  line-height: 20px;
   margin: 0 0 0.625rem;
 }
 
@@ -27,6 +28,7 @@
   padding: 0.5rem 1rem 0.5rem 0;
   border-bottom: 1px solid var(--border);
   font-size: 0.8125rem;
+  line-height: 20px;
   vertical-align: top;
 }
 
@@ -42,7 +44,7 @@
 .consider td {
   padding-top: 0.125rem;
   color: var(--muted);
-  font-size: 0.78125rem;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 
@@ -60,7 +62,7 @@
 
 .legend {
   color: var(--muted);
-  font-size: 0.78125rem;
+  font-size: 0.75rem;
   line-height: 1.5;
   margin: 0.5rem 0 0;
   max-width: 58rem;

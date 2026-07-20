@@ -21,7 +21,10 @@
 .row .heading {
   margin: 0;
   scroll-margin-top: calc(var(--nav-h) + 0.75rem);
-  line-height: 1.2;
+  /* An integer box at the heading sizes this app uses (18px and 22px): the 1.2
+     ratio it replaces computed 21.6px and 26.4px, which put every rule BELOW a
+     heading on a fractional pixel. */
+  line-height: 28px;
 }
 
 .anchor {

@@ -76,6 +76,7 @@
 
 .metricSubtext {
   font-size: 13px;
+  line-height: 20px;
   color: var(--muted);
 }
 
@@ -149,6 +150,7 @@
 .aiBadge {
   font-family: var(--head-font);
   font-size: 11px;
+  line-height: 16px;
   font-weight: 700;
   text-transform: uppercase;
   background-color: var(--p-500);

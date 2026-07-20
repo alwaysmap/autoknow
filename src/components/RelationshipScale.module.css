@@ -48,6 +48,7 @@
 
 .descriptor {
   font-size: 13px;
+  line-height: 20px;
   font-weight: 600;
   color: var(--fg);
 }
@@ -58,6 +59,7 @@
 
 .updatedAt {
   font-size: 11px;
+  line-height: 16px;
   color: var(--muted, #888);
   white-space: nowrap;
 }
@@ -67,6 +69,7 @@
   border: 1px solid var(--border);
   color: var(--muted);
   font-size: 11px;
+  line-height: 16px;
   font-weight: 700;
   padding: 3px 10px;
   border-radius: 6px;
@@ -87,6 +90,7 @@
 
 .cellScore {
   font-size: 13px;
+  line-height: 20px;
   font-weight: 700;
   color: var(--fg);
   font-variant-numeric: tabular-nums;
@@ -94,6 +98,7 @@
 
 .cellDen {
   font-size: 11px;
+  line-height: 16px;
   font-weight: 600;
   color: var(--muted);
 }
@@ -129,7 +134,7 @@
 
 .dialogHeader h3 {
   font-family: var(--head-font);
-  font-size: 1.15rem;
+  font-size: 1.125rem;
   font-weight: 700;
   margin: 0 0 16px 0;
   color: var(--fg);
@@ -195,6 +200,7 @@
 
 .pickDescriptor {
   font-size: 13px;
+  line-height: 20px;
   font-weight: 600;
   color: var(--fg);
   min-height: 1.2em;
@@ -219,6 +225,7 @@
   padding: 8px 16px;
   border-radius: 6px;
   font-size: 13px;
+  line-height: 20px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -230,6 +237,7 @@
   padding: 8px 16px;
   border-radius: 6px;
   font-size: 13px;
+  line-height: 20px;
   font-weight: 600;
   cursor: pointer;
 }

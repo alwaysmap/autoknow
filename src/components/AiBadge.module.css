@@ -6,14 +6,15 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 9.5px;
+  font-size: 10px;
+  line-height: 16px; /* even, so the pill's border lands on the grid */
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted, #8a8378);
   border: 1px solid currentColor;
   border-radius: 999px;
-  padding: 0.5px 6px;
+  padding: 0 6px;
   vertical-align: 1px;
   cursor: help;
   user-select: none;

@@ -142,6 +142,7 @@
 
 .empty {
   font-size: 13px;
+  line-height: 20px;
   font-style: italic;
   color: var(--muted);
 }

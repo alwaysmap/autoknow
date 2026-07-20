@@ -33,7 +33,7 @@
 .logo {
   font-family: var(--head-font);
   font-weight: 700;
-  font-size: 1.15rem;
+  font-size: 1.125rem;
   color: var(--fg);
   text-decoration: none;
   letter-spacing: 0.02em;
@@ -83,6 +83,7 @@
   padding: 6px 12px;
   border-radius: 20px;
   font-size: 13px;
+  line-height: 20px;
   font-weight: 500;
   color: var(--fg);
 }
@@ -114,6 +115,7 @@
   background-color: #4285f4;
   color: var(--white);
   font-size: 9px;
+  line-height: 14px;
   font-weight: bold;
   display: flex;
   align-items: center;

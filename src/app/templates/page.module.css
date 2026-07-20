@@ -25,7 +25,7 @@
 
 .header h1 {
   font-family: var(--head-font);
-  font-size: 1.6rem;
+  font-size: 1.625rem;
   margin: 0;
 }
 
@@ -36,7 +36,7 @@
 
 .table th {
   text-align: left;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -60,7 +60,7 @@
 }
 
 .desc {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--muted);
   margin-top: 2px;
   max-width: 520px;
@@ -87,7 +87,7 @@
 }
 
 .by {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--muted);
 }
 
@@ -117,6 +117,7 @@
 
 .miniBtn {
   font-size: 11px;
+  line-height: 16px;
   font-weight: 600;
   padding: 3px 10px;
   border: 1px solid var(--border);
@@ -133,6 +134,7 @@
 
 .dangerBtn {
   font-size: 11px;
+  line-height: 16px;
   font-weight: 600;
   padding: 3px 10px;
   border: 1px solid var(--border);

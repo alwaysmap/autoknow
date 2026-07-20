@@ -99,6 +99,7 @@
 
 .metric .label {
   font-size: 11px;
+  line-height: 16px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
@@ -114,6 +115,7 @@
   display: inline-block;
   padding: 2px 6px;
   font-size: 11px;
+  line-height: 16px;
   font-weight: 700;
   text-transform: uppercase;
   border-radius: 3px;
@@ -152,6 +154,7 @@
 
 .noActions {
   font-size: 13px;
+  line-height: 20px;
   color: var(--muted);
   font-style: italic;
 }
@@ -163,6 +166,7 @@
 
 .actionItem {
   font-size: 13px;
+  line-height: 20px;
   display: flex;
   align-items: center;
   margin-bottom: 8px;

@@ -53,10 +53,10 @@
 
 .detail {
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 20px;
   color: var(--fg, #333);
   white-space: pre-line;
   margin-top: 6px;
 }
 
-.empty { font-size: 13px; font-style: italic; color: var(--muted, var(--muted)); padding: 8px 0; }
+.empty { font-size: 13px; line-height: 20px; font-style: italic; color: var(--muted, var(--muted)); padding: 8px 0; }

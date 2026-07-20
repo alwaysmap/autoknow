@@ -27,6 +27,7 @@
 
 .userLabel {
   font-size: 13px;
+  line-height: 20px;
   color: var(--muted);
 }
 
@@ -44,6 +45,7 @@
   gap: 22px;
   padding: 10px 0 2px;
   font-size: 13px;
+  line-height: 20px;
 }
 
 .toolbarToggle {
@@ -92,12 +94,13 @@
 
 /* Partner type: quiet muted text (still clickable to filter). */
 .typeText {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--muted);
 }
 
 .telList {
   font-size: 13px;
+  line-height: 20px;
   color: var(--muted);
   max-width: 320px;
   overflow: hidden;

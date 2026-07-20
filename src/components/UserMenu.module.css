@@ -61,7 +61,7 @@
 }
 
 .email {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--muted);
 }
 
@@ -75,7 +75,7 @@
   background: var(--white, var(--paper));
   border-radius: 999px;
   padding: 5px 16px;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--fg);
   cursor: pointer;

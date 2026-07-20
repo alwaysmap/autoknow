@@ -55,7 +55,7 @@
 
 .health {
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
 }
 
 .date {
@@ -77,12 +77,14 @@
 
 .noteEmpty {
   font-size: 13px;
+  line-height: 20px;
   font-style: italic;
   color: var(--muted);
 }
 
 .empty {
   font-size: 13px;
+  line-height: 20px;
   font-style: italic;
   color: var(--muted);
 }
@@ -104,10 +106,10 @@
 }
 
 .compact .head {
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .compact .note {
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 18px;
 }

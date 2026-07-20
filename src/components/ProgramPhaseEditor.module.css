@@ -4,7 +4,7 @@
 
 .hint {
   margin: 0 0 14px;
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--muted);
   max-width: 640px;
 }
@@ -83,7 +83,7 @@
 }
 
 .nodeName {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--fg);
   white-space: nowrap;
@@ -115,6 +115,7 @@
   background: none;
   border: none;
   font-size: 13px;
+  line-height: 20px;
   color: var(--muted);
   cursor: pointer;
   padding: 4px;
@@ -128,6 +129,7 @@
   flex-direction: column;
   gap: 4px;
   font-size: 11px;
+  line-height: 16px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -144,6 +146,7 @@
 .panelHead {
   flex-basis: 100%;
   font-size: 11px;
+  line-height: 16px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;

@@ -25,6 +25,7 @@
 
 .title {
   font-size: 0.9375rem;
+  line-height: 22px;
   font-weight: 400;
   color: var(--link);
 }
@@ -42,7 +43,7 @@
 .snippet {
   margin: 0.1875rem 0 0;
   font-size: 0.8125rem;
-  line-height: 1.55;
+  line-height: 20px;
   color: var(--muted);
   max-width: 60rem;
   display: -webkit-box;
@@ -54,6 +55,7 @@
 
 .empty {
   font-size: 0.8125rem;
+  line-height: 20px;
   font-style: italic;
   color: var(--muted);
   margin: 0;

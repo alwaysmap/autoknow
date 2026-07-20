@@ -19,6 +19,7 @@
 .axisLabel {
   fill: var(--muted);
   font-size: 11px;
+  line-height: 16px;
   font-weight: 500;
   font-family: var(--body-font);
 }

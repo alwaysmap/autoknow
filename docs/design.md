@@ -263,6 +263,39 @@ combination must work:
 
 ---
 
+## 8d. Vertical rhythm: everything that affects HEIGHT lands on a whole pixel
+
+(2026-07-20, user call — 1px hiccups are the whole problem.) A 1px border on a
+fractional y renders as a soft 2px smear, and the drift accumulates down the
+page, so section rules end up a pixel apart from each other. Four rules, all
+enforced by `tests/vertical-rhythm.test.ts` rather than by good intentions:
+
+1. **The body line box is a whole number.** `line-height: 1.5` at 16px = 24px.
+   The `1.6` it replaced computed 25.6px and put 547 elements off-grid on the
+   program page alone.
+2. **Every `font-size` resolves to a whole pixel.** No `12.5px`, no `1.15rem`
+   (18.4px). Half-pixel type can never produce an integer line box.
+3. **An ODD font-size states an explicit integer `line-height`.** 13px × 1.5 =
+   19.5px; the small label steps (9/11/13/15px) are deliberate, so they pin
+   14/16/20/22px boxes instead of inheriting a ratio.
+4. **No fractional `padding`/`margin`/`gap`/`height`.** `padding: 0.5px 6px` on
+   the AI badge was a real instance. `letter-spacing` and `border-width` are
+   exempt — a hairline is allowed to be thin.
+
+Two traps worth knowing. `vertical-align: super` on a sized inline (the briefing
+citations) grows the LINE BOX, so each bullet became 21.66px tall; offset the
+glyph with `position: relative; top` and `line-height: 0` instead. And an SVG
+with `width: 100%; height: auto` computes a fractional height at almost any
+width — this is the one **known remaining** source (the needle gauge and hill
+containers), left alone deliberately because fixing it means choosing how gauges
+behave when they shrink, which is a design decision, not a cleanup.
+
+Measure, don't eyeball: the audit that found all of this compares rendered
+rects, and reported 0 near-miss horizontal edges throughout — the defects were
+all vertical.
+
+---
+
 ## 9. Sizing & responsive widths — rem-first
 
 **Use `rem` for every size** — font-size, padding, margin, gap, width,

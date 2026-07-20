@@ -13,6 +13,7 @@
 .refreshBtn {
   margin-left: auto;
   font-size: 11px;
+  line-height: 16px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -70,6 +71,7 @@
 
 .sectionTitle {
   font-size: 0.6875rem;
+  line-height: 16px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -89,7 +91,7 @@
 }
 
 .bullet {
-  font-size: 0.84375rem;
+  font-size: 0.875rem;
   line-height: 1.5;
   color: var(--fg);
   margin-bottom: 0.25rem;
@@ -103,10 +105,15 @@
 
 .citation {
   font-size: 10px;
-  vertical-align: super;
+  /* `vertical-align: super` on a sized inline grows the LINE BOX, which pushed
+     every bullet to a fractional height (21.66px on a 21px line). Offsetting with
+     position instead lifts the glyph without the line box noticing. */
+  position: relative;
+  top: -0.4em;
+  line-height: 0;
   color: var(--link);
   text-decoration: none;
-  padding: 0 1.5px;
+  padding: 0 2px;
 }
 .citation:hover {
   text-decoration: underline;
@@ -114,6 +121,7 @@
 
 .empty {
   font-size: 13px;
+  line-height: 20px;
   font-style: italic;
   color: var(--muted);
   margin: 0;

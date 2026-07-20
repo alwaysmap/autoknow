@@ -52,8 +52,8 @@
 }
 
 .content {
-  font-size: 13.5px;
-  line-height: 1.55;
+  font-size: 14px;
+  line-height: 22px;
   color: var(--fg);
   /* Room to invite a real write-up without hollowing out the dialog: ~5 lines
      at rest; grows with content, scrolls past a point so a long update never

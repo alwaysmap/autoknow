@@ -188,6 +188,26 @@
      health palette above still owns "bad". */
   --redline: #c2410c;
 
+  /* RAG, drawn from the pearish family rather than generic traffic lights
+     (2026-07-20, user call). Good is the PEAR itself, not a blue-green; meh is
+     pearish's amber; bad is its ripe red. Hue separation is what makes a RAG
+     palette work, so it is stated: 86° / 34° / 8° — a 52° and a 26° gap, at
+     least as wide as the standard style's. All AA on both --paper and --bg
+     (4.9–8.9:1). Soft chip grounds stay above --paper, as everywhere else. */
+  --ok: #4d7c0f;        --ok-soft: hsl(76, 44%, 92%);
+  --warn: #a15c00;      --warn-soft: hsl(38, 60%, 92%);
+  --bad: #b32d19;       --bad-soft: hsl(10, 60%, 93%);
+  --crit: #8c1f0e;      --crit-soft: hsl(8, 55%, 92%);
+  --ok-ring: rgba(77, 124, 15, 0.28);
+  --bad-ring: rgba(179, 45, 25, 0.28);
+
+  /* Buffer bands follow the same family — the chart and the health chips must
+     not disagree about what "lost" looks like. */
+  --band-lost: hsla(8, 72%, 52%, 0.30);
+  --band-lost-forecast: hsla(38, 90%, 46%, 0.32);
+  --band-gained: hsla(80, 60%, 38%, 0.30);
+  --band-buffer: hsla(150, 40%, 40%, 0.20);
+
   /* Graticule rules: a hairline made of ticks. Consumed as a background-image,
      so any border it replaces must also set border-color: transparent. */
   --graticule: repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px 9px);
@@ -205,6 +225,19 @@
   --paper: hsl(32, 10%, 17%);
 
   --redline: #f0913f;
+
+  /* Same three hues, lifted for a dark ground (74° / 39° / 11°). */
+  --ok: #a8c940;        --ok-soft: hsl(76, 26%, 25%);
+  --warn: #f0b03c;      --warn-soft: hsl(38, 32%, 24%);
+  --bad: #f5836a;       --bad-soft: hsl(10, 32%, 25%);
+  --crit: #f09b83;      --crit-soft: hsl(8, 36%, 23%);
+  --ok-ring: rgba(168, 201, 64, 0.35);
+  --bad-ring: rgba(245, 131, 106, 0.35);
+
+  --band-lost: hsla(10, 80%, 62%, 0.34);
+  --band-lost-forecast: hsla(40, 92%, 58%, 0.34);
+  --band-gained: hsla(78, 58%, 55%, 0.32);
+  --band-buffer: hsla(150, 45%, 52%, 0.24);
 }
 
 /* Digits line up in columns — the most characteristic thing a cluster does, and
@@ -238,10 +271,17 @@ html {
   height: 100%;
 }
 
+/* VERTICAL RHYTHM (2026-07-20, user call: 1px hiccups are the whole problem).
+   `line-height: 1.6` at 16px produced 25.6px line boxes, so every stacked block
+   landed on a fractional y and every hairline under it rendered as a soft 2px
+   smear instead of a rule — 547 elements on the program page alone. 1.5 gives a
+   whole 24px, and the type scale is kept on WHOLE pixels (no 12.5/13.5) so the
+   multiplier keeps landing on integers. Anything setting its own odd font-size
+   states an explicit integer line-height rather than inheriting a ratio. */
 body {
   font-family: var(--body-font);
   font-size: 1rem;
-  line-height: 1.6;
+  line-height: 1.5;
   background: var(--white);
   color: var(--fg);
   margin: 0;
@@ -292,7 +332,7 @@ th {
   border-bottom: 1.5px solid var(--border) !important;
   background-color: transparent !important;
   text-transform: uppercase;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0.06em;
   user-select: none;
 }

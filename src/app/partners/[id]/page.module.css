@@ -35,6 +35,7 @@
 
 .partnerType {
   font-size: 11px;
+  line-height: 16px;
   font-weight: 700;
   color: var(--muted);
   text-transform: uppercase;
@@ -81,7 +82,7 @@
 
 .projectsSection h2 {
   font-family: var(--head-font);
-  font-size: 1.35rem;
+  font-size: 1.375rem;
   font-weight: 600;
   margin: 0 0 12px;
 }
@@ -130,7 +131,7 @@
 /* The human-written one-liner about the partner (edit dialog), NOT the AI briefing. */
 .summaryText {
   font-size: 13px;
-  line-height: 1.55;
+  line-height: 20px;
   color: var(--fg);
   margin: 10px 0 0;
 }
@@ -142,6 +143,7 @@
   flex-wrap: wrap;
   gap: 4px 0;
   font-size: 13px;
+  line-height: 20px;
   margin-top: 10px;
   min-width: 0;
 }
@@ -181,13 +183,14 @@
   display: flex;
   align-items: baseline;
   gap: 7px;
-  line-height: 1.5;
+  line-height: 20px;
 }
 .teamItem strong {
   color: var(--fg);
 }
 .teamRole {
   font-size: 11px;
+  line-height: 16px;
   color: var(--muted);
   font-style: italic;
 }
@@ -197,7 +200,7 @@
   display: flex;
   align-items: baseline;
   gap: 7px;
-  line-height: 1.5;
+  line-height: 20px;
 }
 .personLink {
   color: var(--fg);
@@ -210,6 +213,7 @@
 }
 .personRole {
   font-size: 11px;
+  line-height: 16px;
   color: var(--muted);
 }
 
