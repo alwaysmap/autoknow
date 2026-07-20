@@ -70,13 +70,15 @@ async function partnerCount(): Promise<number> {
   }
 }
 
-async function seedWhenReady(): Promise<void> {
+/** Wait for the dev server, seed if needed. Returns the phase timings (ms) so the
+ *  tool self-reports bring-up cost — no external instrumentation needed. */
+async function seedWhenReady(spawnedAt: number): Promise<{ bootMs: number; seedMs: number | null }> {
   process.stdout.write('• waiting for the dev server');
-  let up = false;
+  let readyAt = 0;
   for (let i = 0; i < 240; i++) {
     try {
       await fetch(`${ORIGIN}/api/health`); // any response means the socket is listening
-      up = true;
+      readyAt = Date.now();
       break;
     } catch {
       process.stdout.write('.');
@@ -84,33 +86,42 @@ async function seedWhenReady(): Promise<void> {
     }
   }
   process.stdout.write('\n');
-  if (!up) {
+  if (!readyAt) {
     console.error('• dev server did not come up in time — seed skipped');
-    return;
+    return { bootMs: 0, seedMs: null };
   }
 
+  let seedMs: number | null = null;
   if (RESEED || (await partnerCount()) === 0) {
     console.log('• seeding mock data via /api/admin/seed …');
+    const startedSeed = Date.now();
     const res = await fetch(`${ORIGIN}/api/admin/seed`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ mode: 'mock' }),
     });
-    console.log(res.ok ? '• ✓ mock data seeded' : `• ✗ seed failed (${res.status})`);
+    seedMs = Date.now() - startedSeed;
+    console.log(res.ok ? `• ✓ mock data seeded (${secs(seedMs)})` : `• ✗ seed failed (${res.status})`);
   } else {
     console.log('• demo DB already has data — skipping seed (pass --reseed to refresh)');
   }
-  console.log(`\n  ▶  AutoKnow demo running at ${ORIGIN}\n`);
+  return { bootMs: readyAt - spawnedAt, seedMs };
 }
 
+const secs = (ms: number): string => `${(ms / 1000).toFixed(1)}s`;
+
 async function main(): Promise<void> {
+  const startedAt = Date.now();
   await ensureDatabase();
 
   console.log('• syncing schema (prisma db push) …');
+  const startedSchema = Date.now();
   execFileSync('npm', ['run', 'db:push'], { env: { ...process.env, DATABASE_URL: DB_URL }, stdio: 'inherit' });
+  const schemaMs = Date.now() - startedSchema;
 
   // The seed runs in parallel with the server it targets; the dev process stays in the
   // foreground so Ctrl-C stops the demo.
+  const spawnedAt = Date.now();
   const server = spawn('npm', ['run', 'dev', '--', '-p', String(PORT)], {
     env: {
       ...process.env,
@@ -128,7 +139,13 @@ async function main(): Promise<void> {
   // Forward Ctrl-C / termination to the dev server so the demo stops cleanly.
   for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => server.kill(sig));
 
-  await seedWhenReady();
+  const { bootMs, seedMs } = await seedWhenReady(spawnedAt);
+
+  // The tool reports its own bring-up cost — answers "how long from scratch" without
+  // any external timing.
+  const seedPart = seedMs != null ? `seed ${secs(seedMs)}` : 'seed skipped';
+  console.log(`\n  ▶  AutoKnow demo running at ${ORIGIN}`);
+  console.log(`     from scratch: ${secs(Date.now() - startedAt)}  (schema ${secs(schemaMs)} · boot ${secs(bootMs)} · ${seedPart})\n`);
 }
 
 main().catch((err) => {
