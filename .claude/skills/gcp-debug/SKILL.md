@@ -8,6 +8,16 @@ description: Debugging or verifying the LIVE GCP deployment — deploy status, l
 Constants: project `autoknow-prod-1895f1` · service `autoknow` · region
 `us-central1` · https://autoknow.alwaysmap.com
 
+**Browser identity first.** Open every Google console URL as the
+`alwaysmap.com` identity or you will see "project not found" / empty lists:
+append `&authuser=dylan@alwaysmap.com` to console.cloud.google.com and
+admin.google.com URLs, and confirm the top-right avatar before trusting the
+page. Example:
+`https://console.cloud.google.com/run/detail/us-central1/autoknow/logs?project=autoknow-prod-1895f1&authuser=dylan@alwaysmap.com`
+(chat.google.com and other Workspace apps take `…/u/dylan@alwaysmap.com/`.)
+Prefer looking at the live console/logs in the browser over speculating — the
+loop is free.
+
 ## First question: what is prod actually running?
 
 ```bash

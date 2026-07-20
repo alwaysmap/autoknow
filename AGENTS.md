@@ -24,6 +24,31 @@ Deep docs live in `docs/` (OPERATIONS, CHANGE_PLAYBOOK, DEPLOYMENT_GCP,
 design.md, plan docs). Read the specific section a skill points you at, not the
 whole file.
 
+# Close the loop in a real browser — freely
+
+You have a Chrome browser instance; treat it as a first-class dev tool, not a
+last resort. Changed UI? Load the page and look (both themes). Debugging prod?
+Open the console URLs from `gcp-debug`. Testing Chat? Drive chat.google.com.
+Verifying a form? Fill and submit it. Seeing beats inferring — several bugs in
+this repo's history survived green tests and died on first real page load.
+
+**Google-identity rule (multi-login gotcha):** every Google property must be
+loaded as **the `alwaysmap.com` Workspace identity** (`dylan@alwaysmap.com`) —
+it owns the GCP project, the Workspace admin console, and satisfies the app's
+domain gate. Google defaults multi-login sessions to the wrong account, and the
+failure mode is silent: "project not found", empty resource lists, or a
+consumer-flavored UI. So, in every case:
+
+- Force the account in the URL: append `authuser=dylan@alwaysmap.com` to any
+  `console.cloud.google.com` / `admin.google.com` / `aistudio.google.com` URL
+  (e.g. `…/run/detail/us-central1/autoknow/logs?project=autoknow-prod-1895f1&authuser=dylan@alwaysmap.com`);
+  Gmail/Chat/Drive/Calendar take the path form `…/u/dylan@alwaysmap.com/`.
+- **Verify the active avatar (top-right) before trusting anything on the page.**
+  A missing project or space almost always means wrong account, not missing
+  resource — switch accounts before concluding anything.
+- The app itself (`https://autoknow.alwaysmap.com`) only admits
+  `alwaysmap.com` accounts (`AUTH_ALLOWED_DOMAIN`).
+
 # Safety non-negotiables (always in force)
 
 - **Never `prisma db push`, `migrate reset`, or edit an applied migration

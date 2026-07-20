@@ -29,7 +29,11 @@ and the ✦ AI-provenance mark (§8).
 
 ## Workflow
 
-1. `npm run dev` (or the preview server) — build against the running app.
+1. `npm run dev` (or the preview server) — build against the running app, and
+   drive it in the browser freely: click the actual dialog, submit the actual
+   form, read computed styles. Several past bugs passed tests and died on
+   first real page load. (Deployed-app checks need the `alwaysmap.com`
+   sign-in — identity rules in AGENTS.md.)
 2. Verify visually in BOTH themes (`data-theme` light/dark) — tokens live in
    `globals.css`; components must not hard-code colors.
 3. `npm run lint && npm run typecheck`.
