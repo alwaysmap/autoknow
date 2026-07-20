@@ -6,6 +6,7 @@ import { t, Locale } from '../lib/i18n';
 import { tNodes, joinNodes } from './tNodes';
 import { localDate } from '../lib/dates';
 import { DAY_MS } from '../lib/sop';
+import AnchorHeading from './AnchorHeading';
 import { isForecastOver } from '../lib/chainLedger';
 import type { ChainLedgerResult, ResourceRef, ScheduleRow, Situation, WaterfallRow } from '../lib/chainLedger';
 import styles from './ChainLedger.module.css';
@@ -457,19 +458,24 @@ export default function ChainLedger({
 
   return (
     <section className={styles.wrapper} data-testid="chain-ledger">
-      <div className={styles.titleRow}>
-        <h2 className={styles.title}>{t(locale, 'criticalChain')}</h2>
-        {/* the key lives behind the ⓘ, not on the page (design.md §7) — same
-            pattern as the Phases decoder */}
-        <button type="button" className={styles.infoBtn} title={t(locale, 'clKeyTitle')}
-          aria-label={t(locale, 'clKeyTitle')} onClick={() => legendRef.current?.showModal()}>
-          <svg viewBox="0 0 16 16" width={15} height={15} aria-hidden>
-            <circle cx={8} cy={8} r={6.6} fill="none" stroke="currentColor" strokeWidth={1.4} />
-            <circle cx={8} cy={5} r={1} fill="currentColor" />
-            <line x1={8} y1={7.4} x2={8} y2={11.2} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" />
-          </svg>
-        </button>
-      </div>
+      <AnchorHeading
+        id="critical-chain"
+        linkLabel={t(locale, 'anchorLink')}
+        actions={
+          /* the key lives behind the ⓘ, not on the page (design.md §7) — same
+             pattern as the Phases decoder */
+          <button type="button" className={styles.infoBtn} title={t(locale, 'clKeyTitle')}
+            aria-label={t(locale, 'clKeyTitle')} onClick={() => legendRef.current?.showModal()}>
+            <svg viewBox="0 0 16 16" width={15} height={15} aria-hidden>
+              <circle cx={8} cy={8} r={6.6} fill="none" stroke="currentColor" strokeWidth={1.4} />
+              <circle cx={8} cy={5} r={1} fill="currentColor" />
+              <line x1={8} y1={7.4} x2={8} y2={11.2} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" />
+            </svg>
+          </button>
+        }
+      >
+        {t(locale, 'criticalChain')}
+      </AnchorHeading>
 
       {sopMs == null || ledger.bufferDays == null ? (
         <p className={styles.headline}>{t(locale, 'clNoSop')}</p>

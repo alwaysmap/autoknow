@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { t, Locale } from '../lib/i18n';
 import { tNodes, joinNodes } from './tNodes';
+import AnchorHeading from './AnchorHeading';
 import type { BusiestRow, BusiestProgramRef } from '../lib/chainLedger';
 import styles from './BusiestResources.module.css';
 
@@ -57,7 +58,9 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
 
   return (
     <section className={styles.wrapper} data-testid="busiest-resources">
-      <h2 className={styles.title}>{t(locale, 'clBusiest')}</h2>
+      <AnchorHeading id="busiest-resources" linkLabel={t(locale, 'anchorLink')} className={styles.title}>
+        {t(locale, 'clBusiest')}
+      </AnchorHeading>
       <p className={styles.intro}>{t(locale, 'clBusiestIntro')}</p>
       <table className={styles.table}>
         <thead>

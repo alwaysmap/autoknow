@@ -18,6 +18,7 @@ import { geminiConfigured } from '../../../lib/gemini';
 import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
 import { resolvePerson } from '../../../lib/people';
 import ChainLedger from '../../../components/ChainLedger';
+import AnchorHeading from '../../../components/AnchorHeading';
 import { computeChainLedger, type LedgerResourceInput, type StateTuple } from '../../../lib/chainLedger';
 import { getProgramLedgers } from '../../../lib/chainLedgerData';
 
@@ -346,15 +347,6 @@ export default async function ProjectDetailsPage(props: {
       </header>
 
       <main className={styles.main}>
-        {/* Quick links: jump straight to each section's anchor. */}
-        <nav className={styles.quickLinks} aria-label={t(locale, 'qlNav')}>
-          <a href="#program-status">{t(locale, 'progressHealth')}</a>
-          <a href="#program-briefing">{t(locale, 'qlBriefing')}</a>
-          <a href="#critical-chain">{t(locale, 'criticalChain')}</a>
-          <a href="#phases">{t(locale, 'phasesCard')}</a>
-          <a href="#activity">{t(locale, 'navActivity')}</a>
-        </nav>
-
         {/* Top row (user call 2026-07-20): the needle and the AI briefing side by
             side; everything from the Critical Chain section down spans the full
             width of both columns. */}
@@ -369,7 +361,10 @@ export default async function ProjectDetailsPage(props: {
               updatedAt={project.states[0]?.timestamp?.toISOString() ?? null}
             />
           </div>
-          <section id="program-briefing" className={styles.anchor}>
+          <section>
+            <AnchorHeading id="briefing" linkLabel={t(locale, 'anchorLink')} className={styles.briefingHeading}>
+              {t(locale, 'briefingHeading')}
+            </AnchorHeading>
             <SummaryPanel scope="program" targetId={projectId} path={`/programs/${projectId}`}
               summary={summary} configured={geminiConfigured} />
           </section>
@@ -378,7 +373,9 @@ export default async function ProjectDetailsPage(props: {
         <div className={styles.contentCol}>
             {/* Critical Chain ledger: buffer vs SOP, where it went, who is
                 oversubscribed — "how are we doing" before the rail's structure. */}
-            <section id="critical-chain" className={`${styles.historySection} ${styles.anchor}`}>
+            {/* the anchor lives on ChainLedger's own heading, not here — two
+                elements sharing an id is invalid and the jump hits the wrong one */}
+            <section className={styles.historySection}>
               <ChainLedger projectId={projectId} locale={locale} now={now} ledger={ledger}
                 sopDate={project.sopDate ? project.sopDate.toISOString() : null}
                 volumeFirstYear={project.volumeFirstYear}
@@ -388,7 +385,7 @@ export default async function ProjectDetailsPage(props: {
 
             {/* Phases as a vertical rail (spec §2.13): node per phase, latest hill +
                 update + partners per row, Done rows collapsed, add/remove inline. */}
-            <section id="phases" className={`${styles.historySection} ${styles.anchor}`}>
+            <section className={styles.historySection}>
               {showTrack ? (
                 // PhaseTrack owns its title row — the ⋯ menu (expand/hide/edit) rides
                 // beside it and needs the component's collapse state.
@@ -396,7 +393,9 @@ export default async function ProjectDetailsPage(props: {
                   allPeople={allPeople} locale={locale} />
               ) : (
                 <>
-                  <h2>{t(locale, 'phasesCard')}</h2>
+                  <AnchorHeading id="phases" linkLabel={t(locale, 'anchorLink')}>
+                    {t(locale, 'phasesCard')}
+                  </AnchorHeading>
                   <PhaseGraph projectId={projectId} phases={graphRows} allPartners={allPartners} />
                 </>
               )}
@@ -404,8 +403,10 @@ export default async function ProjectDetailsPage(props: {
 
             {/* Activity: scoped search riding on top of the feed — one section, one
                 chip row (the feed's), no duplicated heading or intro */}
-            <section id="activity" className={`${styles.historySection} ${styles.anchor}`}>
-              <h2>{t(locale, 'navActivity')}</h2>
+            <section className={styles.historySection}>
+              <AnchorHeading id="activity" linkLabel={t(locale, 'anchorLink')}>
+                {t(locale, 'navActivity')}
+              </AnchorHeading>
               <div style={{ margin: '4px 0 14px' }}>
                 <UnifiedSearch
                   scope={{ kind: 'project', id: projectId }}

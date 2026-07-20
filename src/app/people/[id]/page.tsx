@@ -7,6 +7,7 @@ import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
 import { localDate } from '../../../lib/dates';
+import AnchorHeading from '../../../components/AnchorHeading';
 
 export const dynamic = 'force-dynamic';
 
@@ -143,7 +144,9 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
 
         <div className={styles.colMain}>
           <section className={styles.section}>
-            <h2>{t(locale, 'navPrograms')}</h2>
+            <AnchorHeading id="programs" linkLabel={t(locale, 'anchorLink')}>
+              {t(locale, 'navPrograms')}
+            </AnchorHeading>
             {programRows.length === 0 ? (
               <p className={styles.empty}>{t(locale, 'noPartnerPrograms')}</p>
             ) : (
@@ -169,7 +172,9 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
           </section>
 
           <section className={styles.section}>
-            <h2>{t(locale, 'historyLabel')}</h2>
+            <AnchorHeading id="history" linkLabel={t(locale, 'anchorLink')}>
+              {t(locale, 'historyLabel')}
+            </AnchorHeading>
             {(() => {
               // prior companies only — the current post lives in the identity line
               const prior = person.affiliations.filter(

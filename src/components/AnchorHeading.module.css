@@ -1,0 +1,45 @@
+/* Section heading with a hover-revealed deep link (see AnchorHeading.tsx).
+   globals.css applies `* { padding: 0; margin: 0 }`, so spacing here is
+   explicit rather than inherited from UA heading defaults. */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* scroll-margin belongs on the element the browser actually scrolls to — the
+   h2 carries the id, so putting it on the wrapper left deep links parked
+   underneath the sticky nav. */
+.heading {
+  margin: 0;
+  scroll-margin-top: calc(var(--nav-h) + 0.75rem);
+}
+
+.anchor {
+  margin-left: 0.125rem;
+  color: var(--muted);
+  font-weight: 400;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+/* Revealed by hovering the heading row, or by tabbing to the link itself —
+   keyboard users get the same affordance, never a link they can focus but
+   cannot see. */
+.row:hover .anchor,
+.anchor:focus-visible {
+  opacity: 1;
+}
+
+.anchor:hover {
+  color: var(--fg);
+}
+
+/* Coarse pointers have no hover state: show the link permanently, quietly. */
+@media (hover: none) {
+  .anchor {
+    opacity: 0.45;
+  }
+}

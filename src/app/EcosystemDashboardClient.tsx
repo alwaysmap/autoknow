@@ -14,6 +14,7 @@ import { t } from '../lib/i18n';
 import { useLocale } from '../components/LocaleProvider';
 import BusiestResources from '../components/BusiestResources';
 import type { BusiestRow } from '../lib/chainLedger';
+import AnchorHeading from '../components/AnchorHeading';
 
 interface Project {
   id: number;
@@ -92,7 +93,9 @@ export default function EcosystemDashboardClient({
 
       {/* Main Database Table */}
       <section className={styles.tableSection}>
-        <h2>{t(locale, 'programsAtRisk')}</h2>
+        <AnchorHeading id="programs-at-risk" linkLabel={t(locale, 'anchorLink')}>
+          {t(locale, 'programsAtRisk')}
+        </AnchorHeading>
         <DataTable
           headers={[
             { key: 'name', label: t(locale, 'programName') },

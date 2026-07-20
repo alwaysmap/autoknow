@@ -10,6 +10,7 @@ import { HEALTHS, HEALTH_KEY, healthKey, healthColor, healthOrder } from '../../
 import { resolvePerson } from '../../lib/people';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
+import AnchorHeading from '../../components/AnchorHeading';
 
 interface Project {
   id: number;
@@ -314,7 +315,9 @@ export default function EcosystemSummaryClient({
 
       {/* Active Implementation Pipelines */}
       <section className={styles.tableSection}>
-        <h2>{t(locale, 'programLifecycleLaunches')}</h2>
+        <AnchorHeading id="lifecycle-launches" linkLabel={t(locale, 'anchorLink')}>
+          {t(locale, 'programLifecycleLaunches')}
+        </AnchorHeading>
         <DataTable
           headers={[
             { key: 'partner.name', label: t(locale, 'partnerLabel') },

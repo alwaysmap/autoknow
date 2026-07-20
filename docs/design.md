@@ -16,6 +16,14 @@ To maximize readability and ensure a clean, distraction-free environment:
 ---
 
 ## 2. "Everything is a URL" Navigation Pattern
+* **Sections own their deep link**: every `<h2>` renders through
+  `AnchorHeading` — hovering (or tabbing to) the heading reveals a quiet `#`
+  beside it, and clicking it puts the section anchor in the address bar to
+  share. No standing "on this page" nav rows. The id is passed explicitly and
+  is never derived from the heading text: headings are localized, so a
+  slugified anchor would differ per locale and break links already shared. The
+  `#` link is a SIBLING of the heading, never a child — nested, its text joins
+  the heading's accessible name.
 Every entity displayed in a dashboard view or detail card must serve as an active navigation affordance:
 * **Hyperlinked Names**: Partner names, OEM names, Supplier lists, and owner LDAP emails must always be links leading to their respective detail pages (e.g. `/partners/[id]`, `/people/[ldap]`).
 * **Interactive Cells**: Count fields (e.g. "Active Programs") must link to pre-filtered lists (e.g., `/partners/[id]?filter=active`). Action phase names must link directly to the history logs of the project detail view.

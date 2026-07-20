@@ -11,6 +11,7 @@ import { getLocale } from '../lib/locale';
 import { t } from '../lib/i18n';
 import EcosystemDashboardClient from './EcosystemDashboardClient';
 import styles from './page.module.css';
+import AnchorHeading from '../components/AnchorHeading';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,7 +76,9 @@ export default async function Home() {
         {serializedProjects.length === 0 ? (
           <section className={styles.dashboardSection}>
             <div className={styles.sectionHeader}>
-              <h2>{t(locale, 'programsAtRisk')}</h2>
+              <AnchorHeading id="programs-at-risk" linkLabel={t(locale, 'anchorLink')}>
+                {t(locale, 'programsAtRisk')}
+              </AnchorHeading>
             </div>
             <div className={styles.onboardingBox}>
               <h3>{t(locale, 'welcomeAutoknow')}</h3>

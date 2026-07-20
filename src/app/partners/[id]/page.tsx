@@ -16,6 +16,7 @@ import { geminiConfigured } from '../../../lib/gemini';
 import { deriveScore } from '../../../lib/relationship';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
+import AnchorHeading from '../../../components/AnchorHeading';
 
 export const dynamic = 'force-dynamic';
 
@@ -194,12 +195,16 @@ export default async function PartnerDetailPage(props: PageProps) {
           </section>
 
           <section className={styles.projectsSection}>
-            <h2>{t(locale, 'navPrograms')}</h2>
+            <AnchorHeading id="programs" linkLabel={t(locale, 'anchorLink')}>
+              {t(locale, 'navPrograms')}
+            </AnchorHeading>
             <PartnerProgramRows programs={programs} locale={locale} />
           </section>
 
           <section className={styles.projectsSection}>
-            <h2>{t(locale, 'navActivity')}</h2>
+            <AnchorHeading id="activity" linkLabel={t(locale, 'anchorLink')}>
+              {t(locale, 'navActivity')}
+            </AnchorHeading>
             <div style={{ margin: '4px 0 14px' }}>
               <UnifiedSearch
                 scope={{ kind: 'partner', id: partner.id }}

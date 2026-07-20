@@ -23,6 +23,7 @@ const CURL_COMMAND_2 = `curl -X POST http://localhost:3000/api/integrations/chat
   }'`;
 
 import { wipeAllData as libWipeAllData, seedCoreData as libSeedCoreData, seedMockData as libSeedMockData } from '../../lib/seed';
+import AnchorHeading from '../../components/AnchorHeading';
 
 async function seedMockData() {
   'use server';
@@ -82,7 +83,9 @@ export default async function AdminPage() {
 
       {/* Simulation & Integrations Help */}
       <section className={styles.helpSection}>
-        <h2>{t(locale, 'simulateChatHeading')}</h2>
+        <AnchorHeading id="simulate-chat" linkLabel={t(locale, 'anchorLink')}>
+          {t(locale, 'simulateChatHeading')}
+        </AnchorHeading>
         <p className={styles.helpIntro}>
           {t(locale, 'adminHelpIntro1')} <code>curl</code> {t(locale, 'adminHelpIntro2')} <code>/api/integrations/chat</code>).
         </p>

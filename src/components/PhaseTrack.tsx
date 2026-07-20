@@ -12,6 +12,7 @@ import { validateTemplateDag } from '../lib/templateDag';
 import { HILL_PATH, hillCoordinates } from '../lib/geometry';
 import { t, statusKey, Locale } from '../lib/i18n';
 import { isPhaseActive, statusProgress, phaseColor } from '../lib/phase';
+import AnchorHeading from './AnchorHeading';
 import HillHistoryList from './HillHistoryList';
 import type { HillChange } from '../lib/history';
 import { updatePhaseHill, setPhaseStarted } from '../app/actions/hill';
@@ -819,7 +820,9 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
       {/* Title + ⋯ actions: bulk expand/hide and the door to the phase editor live
           here, off the rail — the rail itself stays read-only reporting. */}
       <div className={styles.trackHead}>
-        <h2 className={styles.trackTitle}>{t(locale, 'phasesCard')}</h2>
+        <AnchorHeading id="phases" linkLabel={t(locale, 'anchorLink')} className={styles.trackTitle}>
+          {t(locale, 'phasesCard')}
+        </AnchorHeading>
         <button type="button" className={styles.infoBtn} title={t(locale, 'phaseKeyTitle')}
           aria-label={t(locale, 'phaseKeyTitle')} onClick={() => legendRef.current?.showModal()}>
           <svg viewBox="0 0 16 16" width={15} height={15} aria-hidden>

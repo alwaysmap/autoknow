@@ -95,23 +95,9 @@
    and the AI briefing side by side, then every section from the Critical Chain
    down at the full width of both columns. */
 
-.quickLinks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1.125rem;
-  font-size: 0.8125rem;
-  margin: 0 0 1rem;
-}
-
-.quickLinks a {
-  color: var(--muted);
-  text-decoration: none;
-  font-weight: 400;
-}
-
-.quickLinks a:hover {
-  color: var(--fg);
-  text-decoration: underline;
+/* The briefing's own heading — quiet, since the AI provenance row sits under it. */
+.briefingHeading {
+  font-size: 1.125rem;
 }
 
 .topGrid {
