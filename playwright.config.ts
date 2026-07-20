@@ -2,15 +2,20 @@ import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
 import path from 'path';
 import { testDatabaseUrl } from './tests/helpers/testDatabaseUrl';
+import { testServerPort } from './tests/helpers/worktree';
 
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
-// The suite runs against ITS OWN Next server on :3130 (NEVER :3100 — that is
-// the long-lived demo server), bound to the dedicated
-// `<name>_test` database (tests/helpers/testDatabaseUrl.ts — the name is forced to end
-// in `_test`, so the suite can never touch the real database). Auth and Gemini are
-// explicitly unconfigured so behavior is deterministic: stub identity, no AI calls.
+// The suite runs against ITS OWN Next server (NEVER :3100 — that is the long-lived
+// demo server), bound to the dedicated `<name>_<worktree>_test` database
+// (tests/helpers/testDatabaseUrl.ts — the name is forced to end in `_test`, so the
+// suite can never touch the real database). Both the port and the DB carry a
+// per-worktree token so two checkouts' e2e runs never collide on the socket or the
+// fixtures (AGENTS lesson 9). Auth and Gemini are explicitly unconfigured so behavior
+// is deterministic: stub identity, no AI calls.
 const TEST_DB = testDatabaseUrl();
+const PORT = testServerPort();
+const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: './tests',
@@ -26,12 +31,12 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? 'html' : 'line',
   use: {
-    baseURL: 'http://localhost:3130',
+    baseURL: BASE_URL,
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'npm run dev -- -p 3130',
-    url: 'http://localhost:3130/login',
+    command: `npm run dev -- -p ${PORT}`,
+    url: `${BASE_URL}/login`,
     reuseExistingServer: false,
     timeout: 120_000,
     env: {

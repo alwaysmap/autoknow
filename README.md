@@ -73,7 +73,7 @@ local use):
 | `dev` / `build` / `start` | Next.js dev server / production build / serve the build |
 | `lint` / `typecheck` | ESLint / `tsc --noEmit` |
 | `test` (`:watch`, `:coverage`) | Jest unit + DB tests against the `*_test` database |
-| `test:e2e` (`:ui`) | Playwright: full suite on Chromium + engine-sensitive specs on WebKit (own server :3130, own `*_test` DB) |
+| `test:e2e` (`:ui`) | Playwright: full suite on Chromium + engine-sensitive specs on WebKit (own server on a per-worktree port, own per-worktree `*_test` DB) |
 | `test:e2e:screens` | opt-in: capture UI screenshots into `./screenshots` for visual review |
 | `evidence` | The full local gate: typecheck → lint → coverage → e2e → build |
 | `db:up` / `db:down` | Start / stop the local Postgres container |
@@ -127,11 +127,13 @@ npm run test:coverage  # Generate a coverage report
 ```
 
 **End-to-End Tests (Playwright):**
-The Playwright config starts its own dev server on **:3130** (its own `_test`
-database and a separate `.next-test` build dir), so it never disturbs a dev server
-you're running on :3000. The browser matrix is deliberate: Chromium runs the full
-suite; WebKit re-runs only the engine-sensitive specs (dialogs, month/range
-inputs, SVG drag). Screenshot capture is a separate opt-in project.
+The Playwright config starts its own dev server on a **per-worktree port** (~3130,
+derived in `tests/helpers/worktree`) with its own **per-worktree** `_test` database
+and a separate `.next-test` build dir, so it never disturbs a dev server you're
+running on :3000 and two worktrees' e2e runs never collide. The browser matrix is
+deliberate: Chromium runs the full suite; WebKit re-runs only the engine-sensitive
+specs (dialogs, month/range inputs, SVG drag). Screenshot capture is a separate
+opt-in project.
 ```bash
 npm run test:e2e          # chromium (all) + webkit (engine-sensitive specs)
 npm run test:e2e:ui       # Opens the Playwright interactive UI

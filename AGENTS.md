@@ -92,7 +92,10 @@ you earn a new one.
    usually exists in a second file, in a different disguise.
 8. Browser-only state reads use `useSyncExternalStore` with a neutral server
    snapshot; first e2e interactions get hydration-guarded retries (`ui-design`, `qa`).
-9. The `*_test` database is shared and wiped per spec: one suite at a time,
+9. The `*_test` database (and the e2e port) is **per-worktree** — the name and
+   port carry a token derived from the checkout (`tests/helpers/worktree`), so
+   concurrent worktrees never clobber one shared DB or one `:3130` socket. WITHIN
+   a worktree it's still one DB, wiped per spec: one suite at a time (`workers=1`),
    and never point a server or demo at it (`db-change`, `qa`).
 10. Docs state their status or they lie — the PR that implements or retires
     what a doc describes updates that doc's STATUS line.

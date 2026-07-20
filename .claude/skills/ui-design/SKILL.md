@@ -45,9 +45,11 @@ and the ✦ AI-provenance mark (§8).
    `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` set EMPTY (unconfigured auth = stub
    signed-in identity, no Google login) and `DATABASE_URL` pointed at a
    **scratch DB you create** — `CREATE DATABASE x` + `prisma migrate deploy`,
-   seed via SQL/admin. NEVER `autoknow_test` (e2e wipes it mid-demo — AGENTS
-   lesson 9). Ports: :3000 dev default, :3100 long-lived demo, :3130 e2e —
-   pick another. `NEXT_DIST_DIR` resolves RELATIVE to the project root even
+   seed via SQL/admin. NEVER this worktree's own `*_test` DB (e2e wipes it
+   mid-demo — AGENTS lesson 9; the e2e DB/port are now per-worktree, see
+   `tests/helpers/worktree`). Ports: :3000 dev default, :3100 long-lived demo,
+   e2e is a per-worktree port ~3130 — pick something else for the preview.
+   `NEXT_DIST_DIR` resolves RELATIVE to the project root even
    when absolute — use a short name like `.next-preview` and delete it after;
    `git checkout tsconfig.json` afterward (Next appends dist types to it).
    Fresh worktrees need `npm ci` + `npx prisma generate` first.
