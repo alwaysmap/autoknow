@@ -340,11 +340,20 @@ export default async function ProjectDetailsPage(props: {
       </header>
 
       <main className={styles.main}>
-        {/* One full-width column (user call 2026-07-20): the needle sits as a top
-            band instead of owning a sidebar, so every section below gets the
-            whole viewport width. */}
-        <div className={styles.contentCol}>
-          <div id="program-status">
+        {/* Quick links: jump straight to each section's anchor. */}
+        <nav className={styles.quickLinks} aria-label={t(locale, 'qlNav')}>
+          <a href="#program-status">{t(locale, 'progressHealth')}</a>
+          <a href="#program-briefing">{t(locale, 'qlBriefing')}</a>
+          <a href="#critical-chain">{t(locale, 'criticalChain')}</a>
+          <a href="#phases">{t(locale, 'phasesCard')}</a>
+          <a href="#activity">{t(locale, 'navActivity')}</a>
+        </nav>
+
+        {/* Top row (user call 2026-07-20): the needle and the AI briefing side by
+            side; everything from the Critical Chain section down spans the full
+            width of both columns. */}
+        <div className={styles.topGrid}>
+          <div id="program-status" className={styles.anchor}>
             <ProjectStatusDashboard
               projectId={project.id}
               currentNeedle={project.theNeedle}
@@ -354,16 +363,16 @@ export default async function ProjectDetailsPage(props: {
               updatedAt={project.states[0]?.timestamp?.toISOString() ?? null}
             />
           </div>
+          <section id="program-briefing" className={styles.anchor}>
+            <SummaryPanel scope="program" targetId={projectId} path={`/programs/${projectId}`}
+              summary={summary} configured={geminiConfigured} />
+          </section>
+        </div>
 
-          {/* The leadership summary: words beside the gauges' numbers, above the fold. */}
-            <section className={styles.historySection}>
-              <SummaryPanel scope="program" targetId={projectId} path={`/programs/${projectId}`}
-                summary={summary} configured={geminiConfigured} />
-            </section>
-
+        <div className={styles.contentCol}>
             {/* Critical Chain ledger: buffer vs SOP, where it went, who is
                 oversubscribed — "how are we doing" before the rail's structure. */}
-            <section className={styles.historySection}>
+            <section id="critical-chain" className={`${styles.historySection} ${styles.anchor}`}>
               <ChainLedger projectId={projectId} locale={locale} now={now} ledger={ledger}
                 sopDate={project.sopDate ? project.sopDate.toISOString() : null}
                 volumeFirstYear={project.volumeFirstYear} />
@@ -371,7 +380,7 @@ export default async function ProjectDetailsPage(props: {
 
             {/* Phases as a vertical rail (spec §2.13): node per phase, latest hill +
                 update + partners per row, Done rows collapsed, add/remove inline. */}
-            <section className={styles.historySection}>
+            <section id="phases" className={`${styles.historySection} ${styles.anchor}`}>
               {showTrack ? (
                 // PhaseTrack owns its title row — the ⋯ menu (expand/hide/edit) rides
                 // beside it and needs the component's collapse state.
@@ -387,7 +396,7 @@ export default async function ProjectDetailsPage(props: {
 
             {/* Activity: scoped search riding on top of the feed — one section, one
                 chip row (the feed's), no duplicated heading or intro */}
-            <section className={styles.historySection}>
+            <section id="activity" className={`${styles.historySection} ${styles.anchor}`}>
               <h2>{t(locale, 'navActivity')}</h2>
               <div style={{ margin: '4px 0 14px' }}>
                 <UnifiedSearch

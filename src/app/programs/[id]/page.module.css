@@ -91,10 +91,51 @@
   padding: 22px 0 32px;
 }
 
-/* One full-width column (2026-07-20, user call): the needle is a top band, not a
-   sidebar — every section gets the whole viewport width. min-width: 0 lets wide
-   children (chain charts, tables) scroll in their own containers instead of
-   overflowing the viewport. */
+/* Program-page arrangement (2026-07-20, user call): quick links, then the needle
+   and the AI briefing side by side, then every section from the Critical Chain
+   down at the full width of both columns. */
+
+.quickLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.125rem;
+  font-size: 0.8125rem;
+  margin: 0 0 1rem;
+}
+
+.quickLinks a {
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 400;
+}
+
+.quickLinks a:hover {
+  color: var(--fg);
+  text-decoration: underline;
+}
+
+.topGrid {
+  display: grid;
+  /* minmax(0, …) lets the briefing cell shrink below min-content width */
+  grid-template-columns: 20rem minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .topGrid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+}
+
+/* Anchor targets land below the sticky app nav, not underneath it. */
+.anchor {
+  scroll-margin-top: calc(var(--nav-h) + 0.75rem);
+}
+
+/* min-width: 0 lets wide children (chain charts, tables) scroll in their own
+   containers instead of overflowing the viewport. */
 .contentCol {
   display: flex;
   flex-direction: column;

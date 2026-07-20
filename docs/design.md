@@ -33,9 +33,9 @@ Every entity displayed in a dashboard view or detail card must serve as an activ
 
 ## 4. Reusable 2-Column Sidebar Layouts
 **Exception — program detail pages (2026-07-20, user call):** `/programs/[id]`
-is a single full-width column. The Needle renders as a compact band at the top
-instead of owning a sidebar, so every section below it (summary, critical
-chain, phase rail, activity) gets the whole viewport width.
+opens with a quick-links anchor row, then ONE two-column row — the Needle
+(20rem) beside the AI briefing — and everything from the Critical Chain section
+down (chain, phase rail, activity) spans the full width of both columns.
 
 For other detail pages (like Partner details):
 * **Sidebar (Left Column)**: 20rem (320px) wide. Contains compact overall status widgets (Needle and Hill Chart progress visualizers), primary metadata grid properties (TEL, SOP targets, volumes), and action managers.

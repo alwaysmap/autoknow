@@ -1230,6 +1230,10 @@ const STRINGS = {
     ja: 'AI生成 — Geminiが保存済みソースから合成。マークのないテキストは人が書いたものです。',
     ko: 'AI 생성 — Gemini가 저장된 소스에서 합성. 표시가 없는 텍스트는 사람이 작성한 것입니다.',
   },
+  // ---- program page quick links ----
+  qlNav: { en: 'On this page', de: 'Auf dieser Seite', ja: 'このページ内', ko: '이 페이지에서' },
+  qlBriefing: { en: 'Briefing', de: 'Briefing', ja: 'ブリーフィング', ko: '브리핑' },
+
   // ---- Critical Chain ledger (docs/CRITICAL_CHAIN_VIEW_PLAN.md) ----
   // Language rules: sentences not notation; every fact carries its judgment; visible
   // problems name computed reactions; people are named, never gendered (names over
