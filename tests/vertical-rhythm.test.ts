@@ -103,8 +103,10 @@ describe('vertical rhythm', () => {
     // graticule's tick — plus blur radii and media-query breakpoints (conditions,
     // not declarations, so the declaration-level scan below never sees them).
     // border-RADIUS is a length and must scale; only border/outline WIDTHS are the
-    // sanctioned hairline exception.
-    const EXEMPT = /^(border(?!-radius)[a-z-]*|outline[a-z-]*|stroke[a-z-]*|background-size|backdrop-filter|text-decoration-thickness|--graticule)$/;
+    // sanctioned hairline exception. box-shadow is decorative (offsets, blur, and
+    // 1px inset hairline dividers) and doesn't participate in layout rhythm — a
+    // shadow that doesn't grow with the root is invisible, not broken.
+    const EXEMPT = /^(border(?!-radius)[a-z-]*|outline[a-z-]*|stroke[a-z-]*|box-shadow|background-size|backdrop-filter|text-decoration-thickness|--graticule)$/;
     const offenders: string[] = [];
     for (const file of CSS) {
       const text = readFileSync(file, 'utf8')

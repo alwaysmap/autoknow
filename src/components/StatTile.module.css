@@ -12,7 +12,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-size: 0.65625rem;
+  font-size: 0.625rem;
   color: var(--muted);
 }
 
@@ -49,7 +49,7 @@ a.big:hover {
 }
 
 .sub {
-  font-size: 0.78125rem;
+  font-size: 0.75rem;
   color: var(--muted);
   align-self: flex-start;
 }
