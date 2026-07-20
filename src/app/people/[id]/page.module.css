@@ -222,7 +222,10 @@
   content: '';
   flex: 1 1 1.5rem;
   min-width: 1.5rem;
-  align-self: center;
+  /* Baseline, not centre: rests the graticule on the heading's text
+     baseline so it sits identically across headings of any size or row
+     height (a pseudo-element's synthesized baseline is its bottom edge). */
+  align-self: baseline;
   height: 0.375rem;
   margin-left: 0.75rem;
   background-image: var(--graticule);

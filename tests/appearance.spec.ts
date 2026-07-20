@@ -119,6 +119,30 @@ test.describe('Appearance: style and theme are independent', () => {
     expect(metrics.leftBox).toBe(metrics.rightBox);
   });
 
+  // The trailing graticule on Instrument headings rests on the text BASELINE, so
+  // it sits identically whether the row is a page title (align-items:baseline) or
+  // a section h2 (align-items:center). It had been merely centred, landing at a
+  // different offset in rows of different height.
+  test('heading graticules are baseline-aligned in every style-instrument heading', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('autoknow-style', 'instrument'));
+    await page.goto(`/programs/${seeded.projectId}`);
+
+    const alignments = await page.evaluate(() => {
+      const rows = [
+        document.querySelector('[class*="titleRow"]'),
+        ...document.querySelectorAll('[class*="AnchorHeading"][class*="row"]'),
+      ].filter(Boolean) as HTMLElement[];
+      return rows.map((row) => {
+        const after = getComputedStyle(row, '::after');
+        return after.backgroundImage === 'none' ? null : after.alignSelf;
+      }).filter(Boolean);
+    });
+
+    expect(alignments.length).toBeGreaterThan(1); // a title AND some h2s
+    // Every graticule opts into baseline, regardless of its row's align-items.
+    expect(alignments.every((a) => a === 'baseline')).toBe(true);
+  });
+
   test('the style picker persists the choice', async ({ page }) => {
     await page.goto('/');
     await page.getByTestId('user-menu').click();
