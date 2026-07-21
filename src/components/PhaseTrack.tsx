@@ -132,6 +132,9 @@ const writeHash = (id: number | null) => {
 
 // Ink rides the theme token — a hardcoded dark gray vanishes on the dark paper.
 const RAIL_PAD = 10, LANE_W = 20, INK = 'var(--fg)';
+// The traced track's backing stroke — wide enough to read as a band UNDER the line
+// rather than a halo around it (the hill chart backs its 2.5px line the same way).
+const BACKING_W = 9;
 const DAY_MS = 86_400_000;
 
 // Involvement pills replace the old "· Role" text. A company's kind drives its colour,
@@ -368,12 +371,29 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   // "any rider is traced" and "every rider is traced" now agree — a stem can no
   // longer light on behalf of dependencies that are not on the path.
   const dimEdges = (es: Edge[]) => !!focus && es.length > 0 && es.every(dimEdge);
-  // Rail ink now answers ONE question — is this on the path — by dimming or not.
-  // DIRECTION moved off the rail and onto a pale row background (the two trace hues),
-  // which is calmer than the drop-shadow glow the rail wore before and reads as
-  // orientation rather than decoration.
   const inkClass = (es: Edge[]): string | undefined =>
     !focus ? undefined : dimEdges(es) ? styles.dim : undefined;
+
+  // DIRECTION rides the TRACK, as a solid colour laid UNDER the traced ink — the way
+  // the hill chart backs its line with a wide pale stroke. Not a glow (that bloomed
+  // and read as decoration) and not the cards (the track is what carries direction;
+  // the cards are just where the phases are written down).
+  //
+  // An edge is upstream when BOTH ends are upstream-or-self — the same both-ends test
+  // focusSubgraph uses to admit the edge at all, so an edge merely touching an
+  // ancestor cannot claim it. A shared stretch mixing the two directions gets no
+  // backing rather than a wrong one: silence beats a confident wrong answer.
+  const backingOf = (es: Edge[]): string | undefined => {
+    if (!focus || es.length === 0 || dimEdges(es)) return undefined;
+    const live = es.filter((e) => onPath(e));
+    if (live.length === 0) return undefined;
+    const isUp = (e: Edge) =>
+      (focus.upstream.has(e.from) || e.from === focus.id) &&
+      (focus.upstream.has(e.to) || e.to === focus.id);
+    if (live.every(isUp)) return 'var(--trace-up)';
+    if (live.every((e) => !isUp(e))) return 'var(--trace-down)';
+    return undefined;
+  };
 
   const closeDetails = useCallback(() => { setDetailsId(null); writeHash(null); }, []);
 
@@ -1174,6 +1194,10 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
             if (y1 == null || y2 == null) return null;
             return (
               <g key={`m${e.from}-${e.to}`} className={inkClass([e])}>
+                {backingOf([e]) && (
+                  <line x1={mainX} y1={y1} x2={mainX} y2={y2} className={styles.trackBacking}
+                    stroke={backingOf([e])} strokeWidth={BACKING_W} strokeLinecap="round" />
+                )}
                 <line x1={mainX} y1={y1} x2={mainX} y2={y2}
                   stroke={e.done ? INK : 'var(--border)'} strokeWidth={e.onChain ? 3.5 : 2} strokeLinecap="round" />
                 <title>{edgeTitle(e)}</title>
@@ -1193,24 +1217,41 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               <g key={b.key}>
                 {/* trunk, one stretch per gap between ties — each inks only when
                     every dependency riding that stretch has departed a done phase */}
-                {b.segments.map((s, k) => (
-                  <line key={`s${k}`} x1={bx} x2={bx}
-                    y1={k === 0 ? ys[0]! + rTop : ys[k]!}
-                    y2={k === last - 1 ? ys[last]! - rBot : ys[k + 1]!}
-                    stroke={s.done ? INK : 'var(--border)'} strokeWidth={s.onChain ? 3.5 : 1.8}
-                    className={inkClass(s.edges)} />
-                ))}
+                {b.segments.map((s, k) => {
+                  const y1 = k === 0 ? ys[0]! + rTop : ys[k]!;
+                  const y2 = k === last - 1 ? ys[last]! - rBot : ys[k + 1]!;
+                  const back = backingOf(s.edges);
+                  return (
+                    <React.Fragment key={`s${k}`}>
+                      {back && (
+                        <line x1={bx} x2={bx} y1={y1} y2={y2} className={styles.trackBacking}
+                          stroke={back} strokeWidth={BACKING_W} strokeLinecap="round" />
+                      )}
+                      <line x1={bx} x2={bx} y1={y1} y2={y2}
+                        stroke={s.done ? INK : 'var(--border)'} strokeWidth={s.onChain ? 3.5 : 1.8}
+                        className={inkClass(s.edges)} />
+                    </React.Fragment>
+                  );
+                })}
                 {/* ties: the branch meeting the main line at each phase on it */}
-                {b.ties.map((tie, k) => (
-                  <g key={tie.phaseId} className={inkClass(tie.edges)}>
-                    <path
-                      d={tiePath(bx, ys[k]!, k === 0 ? rTop : rBot, k === 0 ? 'top' : k === last ? 'bottom' : 'mid')}
-                      fill="none" stroke={tie.done ? INK : 'var(--border)'}
-                      strokeWidth={tie.onChain ? 3.5 : 1.8} strokeLinecap="round"
-                      className={styles.hoverable} />
-                    <title>{tieTitle(b, tie)}</title>
-                  </g>
-                ))}
+                {b.ties.map((tie, k) => {
+                  const d = tiePath(bx, ys[k]!, k === 0 ? rTop : rBot, k === 0 ? 'top' : k === last ? 'bottom' : 'mid');
+                  const back = backingOf(tie.edges);
+                  return (
+                    <g key={tie.phaseId} className={inkClass(tie.edges)}>
+                      {back && (
+                        <path d={d} fill="none" stroke={back} strokeWidth={BACKING_W}
+                          strokeLinecap="round" strokeLinejoin="round" className={styles.trackBacking} />
+                      )}
+                      <path
+                        d={d}
+                        fill="none" stroke={tie.done ? INK : 'var(--border)'}
+                        strokeWidth={tie.onChain ? 3.5 : 1.8} strokeLinecap="round"
+                        className={styles.hoverable} />
+                      <title>{tieTitle(b, tie)}</title>
+                    </g>
+                  );
+                })}
               </g>
             );
           })}

@@ -141,16 +141,17 @@
      opacity  RELEVANCE — on the path, or not. Unrelated rail ink recedes to a
               bare ghost and unrelated rows fade, present so the program's shape
               survives but nowhere near competing with the traced path.
-     hue      DIRECTION — a PALE semi-transparent wash on the row: --trace-up for
-              what this phase waits FOR, --trace-down for what waits ON it. The
-              rail ink itself just dims-or-not; direction reads off the row's own
-              tint, the way the selected card already reads as a surface.
+     hue      DIRECTION — a solid band of colour laid UNDER the traced track:
+              --trace-up for what this phase waits FOR, --trace-down for what
+              waits ON it. It rides the TRACK, because the track is the thing that
+              goes somewhere; the cards are only where the phases are written down.
 
-   Direction is a CATEGORY, and an earlier version spent opacity on it (upstream at
-   half), which states "these matter less" when the only claim is "these came
-   first". It then lived as a drop-shadow GLOW on the rail — bright, and more
-   decoration than orientation. A quiet tinted background is calmer and still
-   unmistakable, and it leaves the constraint purple free to read on either side.
+   Direction is a CATEGORY, and it took three tries to land. Opacity (upstream at
+   half) states "these matter less" when the only claim is "these came first". A
+   drop-shadow GLOW on the rail bloomed and read as decoration. A wash on the row
+   CARDS put the answer on the wrong object. A solid backing under the line — the
+   way the hill chart backs its curve — is calm, unmistakable, and leaves the
+   constraint purple free to read on either side of the trace.
 
    The split is also what makes a trace on a spine phase say anything: everything
    is on a path through those, so a relevance-only scale dimmed nothing and the
@@ -163,14 +164,14 @@
 .row[data-rel='far'] {
   opacity: 0.18;
 }
-/* The two directions as a pale wash — subtle, like the faint field behind the hill
-   line, not a stripe. color-mix keeps it a TINT of the paper rather than an opaque
-   block, so it re-inks with the theme and never fights the text on top. */
-.row[data-rel='up'] {
-  background: color-mix(in srgb, var(--trace-up) 12%, transparent);
-}
-.row[data-rel='down'] {
-  background: color-mix(in srgb, var(--trace-down) 12%, transparent);
+
+/* The traced track's backing: a SOLID band of the direction's colour laid under the
+   line, the way the hill chart backs its curve with a wide pale stroke. It is drawn
+   before the ink in the same group, so the track keeps its own weight and reads as
+   a coloured route rather than something wearing a halo. Semi-transparent so the
+   graticule and the buffer bands still show through underneath it. */
+.trackBacking {
+  opacity: 0.45;
 }
 
 /* A receded row still holds real controls — the phase name and the zoom button —
@@ -181,18 +182,14 @@
 .row[data-rel='far']:focus-within {
   opacity: 1;
 }
+/* Only the SELECTED card is tinted — direction is the track's job, not the cards'.
+   Its tint sits clear of its own text on every side, because a background flush
+   against the title looks like a highlighter stroke rather than a surface the
+   content rests on. The negative margin buys that left inset out of the station
+   gutter rather than the text column, so content stays aligned with every other row
+   and nothing shifts horizontally when a card is picked. */
 .row[data-rel='self'] {
   background: var(--surface);
-}
-
-/* Any tinted row reads as a CARD, so the wash sits clear of its own text on every
-   side — a background flush against the title looks like a highlighter stroke, not a
-   surface the content rests on. The negative margin buys the left inset out of the
-   station gutter rather than the text column, so content stays aligned with every
-   other row and nothing shifts horizontally when a card is picked. */
-.row[data-rel='self'],
-.row[data-rel='up'],
-.row[data-rel='down'] {
   border-radius: 0.5rem;
   margin-left: -0.625rem;
   padding-left: 0.625rem;
