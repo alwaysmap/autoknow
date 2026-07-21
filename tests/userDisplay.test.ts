@@ -3,7 +3,7 @@ import { initialsOf } from '../src/lib/people';
 
 // How a person is SHOWN: the avatar initials, and the photo field behind them.
 // The nav read 'DY'/'@dylan' because layout.tsx reached past getCurrentUser() for the
-// name (ADR 0005) — that bypass is now a lint error; these pin the display rules.
+// name (ADR session-is-the-only-source-of-who-i-am) — that bypass is now a lint error; these pin the display rules.
 
 describe('initialsOf', () => {
   it('takes the FIRST and LAST name initials', () => {
@@ -36,7 +36,7 @@ describe('initialsOf', () => {
 
 describe('userFromHandle carries the profile photo', () => {
   // Name derivation itself is owned by tests/identity.test.ts — this covers only the
-  // field added for the avatar proxy (ADR 0006).
+  // field added for the avatar proxy (ADR proxy-third-party-images-keep-csp-self).
   it('keeps the provider URL, and defaults to null rather than undefined', () => {
     const url = 'https://lh3.googleusercontent.com/a/ACg8ocK';
     expect(userFromHandle('dylan', 'Dylan Thomas', url).image).toBe(url);

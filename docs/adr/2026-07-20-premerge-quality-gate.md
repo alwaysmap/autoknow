@@ -6,7 +6,7 @@ superseded-by: ""
 tags: [ci, testing, deploy]
 ---
 
-# 0004. Every PR runs the full quality gate, because merges auto-deploy
+# Every PR runs the full quality gate, because merges auto-deploy
 
 **Context.** Merging to `main` deploys to production automatically
 (deploy.yml), but PRs only ran `migrations-lint`. PR #15 merged green while
@@ -25,7 +25,7 @@ mixed-infra/app PR gate, each with a reviewed in-diff opt-in
 - *Keep the gate local-only (`npm run evidence`)* — honor-system; PR #15 is
   the counterexample.
 - *Run a subset (lint+jest) for speed* — the incident WAS an e2e-only miss;
-  the flows-only suite (ADR 0002) made the full gate affordable (~10 min).
+  the flows-only suite (ADR e2e-flows-only-deliberate-matrix) made the full gate affordable (~10 min).
 - *Gate on merge to main instead of PRs* — too late: the same push triggers
   the deploy.
 
@@ -34,4 +34,4 @@ are cached to keep it there. The rule generalizes: in an auto-deploy repo,
 any "never do X" worth writing down is worth a CI gate with a visible opt-in.
 
 **Receipts.** PR #15 (the miss); `1810c5d` (quality job); `12fb3b2`
-(ordering gate); ADR 0002 (what made it affordable).
+(ordering gate); ADR e2e-flows-only-deliberate-matrix (what made it affordable).

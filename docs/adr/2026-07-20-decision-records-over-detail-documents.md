@@ -6,7 +6,7 @@ superseded-by: ""
 tags: [docs, knowledge, agents]
 ---
 
-# 0003. Decision records over detail documents; skills over bulk context
+# Decision records over detail documents; skills over bulk context
 
 **Context.** The repo's knowledge lived in long documents: a 391-line
 implemented "plan" still marked "no code written yet", a 148-line playbook

@@ -2,7 +2,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
-// ADR 0005, enforced rather than asked for. Identity is read through
+// ADR session-is-the-only-source-of-who-i-am, enforced rather than asked for. Identity is read through
 // getCurrentUser() (src/lib/session.ts), whose CurrentUser carries every field the UI
 // displays. Reaching for a FIELD of session.user at a call site is how the nav came to
 // render '@dylan' — the call site invents its own fallback, and it disagrees with the
@@ -11,7 +11,7 @@ import nextTs from "eslint-config-next/typescript";
 // fires is to widen CurrentUser, never to work around the selector.
 const IDENTITY_MESSAGE =
   "Read identity through getCurrentUser() — CurrentUser carries every displayed field. " +
-  "Add the field there instead of reading session.user.* here (docs/adr/0005-identity-accessor-carries-every-displayed-field.md).";
+  "Add the field there instead of reading session.user.* here (docs/adr/2026-07-21-session-is-the-only-source-of-who-i-am.md).";
 
 // Anchored on ".user" rather than on the identifier `session`, because the shapes a
 // caller can spell are open-ended — `session.user.x`, `session?.user?.x`,

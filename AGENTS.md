@@ -115,13 +115,13 @@ you earn a new one.
 13. "Who am I" comes from the session, never a literal — seed data binds its
     "me" persona to `getCurrentUser()`, and resolution uses `CurrentUser.email`
     (`.display` is lossy: deriving an address from it rewrites the domain and
-    lands on a different person). [ADR 0005](docs/adr/0005-session-is-the-only-source-of-who-i-am.md).
+    lands on a different person). [ADR: The signed-in session is the only source of "who I am"](docs/adr/2026-07-21-session-is-the-only-source-of-who-i-am.md).
 14. Third-party assets are proxied through our own origin, never linked — the CSP
     `img-src` stays `'self'` and the host allowlist becomes the security boundary
-    ([ADR 0006](docs/adr/0006-proxy-third-party-images-keep-csp-self.md)).
+    ([ADR: Third-party images are proxied through our origin; `img-src` stays `'self'`](docs/adr/2026-07-21-proxy-third-party-images-keep-csp-self.md)).
 15. A URL here is DATA, not just code — AI-brief citations persist hrefs — so
     retiring one means migrating the rows that cite it, not only grepping
-    `src/**` ([ADR 0007](docs/adr/0007-retiring-a-url-migrates-the-data-that-cites-it.md)).
+    `src/**` ([ADR: Retiring a URL deletes the route and migrates the data that cites it](docs/adr/2026-07-21-retiring-a-url-migrates-the-data-that-cites-it.md)).
 16. `npm ci` bootstraps a checkout (links `.env`, generates the Prisma client) —
     so CI and Docker must NOT depend on that hook, and nothing added to it may
-    need the source tree ([ADR 0008](docs/adr/0008-npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it.md)).
+    need the source tree ([ADR: `npm ci` bootstraps a checkout — and CI and Docker never depend on that](docs/adr/2026-07-21-npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it.md)).

@@ -6,7 +6,7 @@ superseded-by: ""
 tags: [dev-loop, ci, docker, env]
 ---
 
-# 0006. `npm ci` bootstraps a checkout — and CI and Docker never depend on that
+# `npm ci` bootstraps a checkout — and CI and Docker never depend on that
 
 **Context.** A fresh git worktree was not a working checkout. `.env` is gitignored
 (it holds real secrets), so `git worktree add` cannot bring it, and `prisma generate`

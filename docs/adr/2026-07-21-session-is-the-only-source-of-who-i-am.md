@@ -6,7 +6,7 @@ superseded-by: ""
 tags: [auth, identity, seed, demo, lint]
 ---
 
-# 0005. The signed-in session is the only source of "who I am"
+# The signed-in session is the only source of "who I am"
 
 **Context.** The mock seeder authored the lead-PM persona as a literal,
 `dylan@google.com`. Real sign-in is Google Workspace, which returns whatever the
@@ -79,7 +79,7 @@ loud false positive costs a comment; a false negative is the defect that shipped
   literal address.
 - `CurrentUser` gained a required `name`, sourced from the identity provider and
   falling back to a title-cased handle, then a required `image` (the provider's photo
-  URL, or null — server-side only, see ADR 0006). Test mocks of `lib/session` must
+  URL, or null — server-side only, see ADR proxy-third-party-images-keep-csp-self). Test mocks of `lib/session` must
   supply both; that is rule 3's cost, and it is the point.
 - The personas that are NOT you (Alice, Clara, partner contacts) stay authored —
   only "me" is dynamic.

@@ -9,7 +9,7 @@ name: CI
 #                     merges auto-deploy, so drift main-ward must be caught pre-merge.
 #   image           — the Dockerfile itself. `npm run build` proves the app compiles;
 #                     it does NOT prove the IMAGE builds, and the deploy pipeline
-#                     builds in Docker only after merge (ADR 0008).
+#                     builds in Docker only after merge (ADR npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it).
 on:
   pull_request:
 
@@ -67,7 +67,7 @@ jobs:
       # must not depend on a lifecycle-script side effect. `--ignore-scripts`
       # anywhere upstream would otherwise leave no client and fail as a confusing
       # typecheck error. `prisma generate` is idempotent, so the cost is seconds.
-      # ADR 0008.
+      # ADR npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it.
       - run: npm run db:generate
       - run: npm run typecheck
       - run: npm run lint
@@ -95,9 +95,9 @@ jobs:
       - uses: actions/checkout@v4
       # Runs in parallel with `quality`, which is far longer, so this is close to
       # free in wall-clock. It covers two things nothing else does:
-      #   1. the image builds at all — merges auto-deploy (ADR 0004), so a broken
+      #   1. the image builds at all — merges auto-deploy (ADR premerge-quality-gate), so a broken
       #      Dockerfile used to surface as a red deploy rather than a red PR;
       #   2. the deps stage's contract — `npm ci` runs postinstall there WITHOUT the
-      #      source tree, so the bootstrap must degrade to nothing (ADR 0008).
+      #      source tree, so the bootstrap must degrade to nothing (ADR npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it).
       # No push, no registry credentials: building is the whole assertion.
       - run: docker build -t autoknow:ci .

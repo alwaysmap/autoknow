@@ -6,7 +6,7 @@ superseded-by: ""
 tags: [deploy, ci]
 ---
 
-# 0001. Serialize deploys; newest queued merge wins
+# Serialize deploys; newest queued merge wins
 
 **Context.** Five PRs merged within two minutes on 2026-07-20. Their deploy
 runs executed in parallel and finished out of order: one failed with

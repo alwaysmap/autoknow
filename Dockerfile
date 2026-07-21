@@ -12,7 +12,7 @@ WORKDIR /app
 # The builder stage below generates the client explicitly, because it never re-runs
 # `npm ci`. CI's `image` job builds this file so the contract is checked, not
 # assumed — an earlier attempt to COPY the script in here died on exactly that
-# .dockerignore rule, in CI-shaped verification rather than at deploy time. ADR 0008.
+# .dockerignore rule, in CI-shaped verification rather than at deploy time. ADR npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it.
 COPY package.json package-lock.json ./
 RUN npm ci
 

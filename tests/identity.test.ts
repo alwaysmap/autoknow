@@ -64,7 +64,7 @@ describe('identity helpers', () => {
       email: 'dylan@google.com',
       name: 'Dylan',
       // Null, not absent: there is no identity provider behind the stub to supply a
-      // photo, so the avatar falls back to initials (ADR 0006).
+      // photo, so the avatar falls back to initials (ADR proxy-third-party-images-keep-csp-self).
       image: null,
     });
   });

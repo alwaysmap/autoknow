@@ -6,7 +6,7 @@ superseded-by: ""
 tags: [testing, e2e]
 ---
 
-# 0002. E2E tests user/system flows only, on a deliberate browser matrix
+# E2E tests user/system flows only, on a deliberate browser matrix
 
 **Context.** The suite ran 86 tests × 3 browsers (chromium/firefox/webkit) =
 258 serial executions against one shared DB, and ~a third of the tests were
@@ -32,7 +32,7 @@ static test is allowed per app.
   is design-review territory.
 
 **Consequences.** 258 → 87 executions (~2.3 min), cheap enough to gate every
-PR (ADR 0004). Firefox regressions would surface only via users; accepted for
+PR (ADR premerge-quality-gate). Firefox regressions would surface only via users; accepted for
 an internal Chrome-dominant tool. Screenshot capture became opt-in
 (`npm run test:e2e:screens`).
 

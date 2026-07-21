@@ -6,7 +6,7 @@ superseded-by: ""
 tags: [security, csp, ui, auth]
 ---
 
-# 0006. Third-party images are proxied through our origin; `img-src` stays `'self'`
+# Third-party images are proxied through our origin; `img-src` stays `'self'`
 
 **Context.** Google Workspace profile photos are served from `*.googleusercontent.com`.
 `next.config.ts` sets `img-src 'self' data: blob:` under a standing claim in its own

@@ -6,7 +6,7 @@ superseded-by: ""
 tags: [urls, data, ai, migrations]
 ---
 
-# 0005. Retiring a URL deletes the route and migrates the data that cites it
+# Retiring a URL deletes the route and migrates the data that cites it
 
 **Context.** "Everything is a URL" (design.md §2) means in-app links are not only
 written in components — they are **persisted**. AI briefs store their citation

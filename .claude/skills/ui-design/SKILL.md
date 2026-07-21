@@ -26,12 +26,12 @@ and the ✦ AI-provenance mark (§8).
   from `getCurrentUser()`, and resolution uses `.email` — `.display` drops the domain,
   so `deriveEmail()` on it silently rewrites the address. `CurrentUser` carries every
   field the UI shows, so reaching into `session.user.*` for one is a lint error
-  ([ADR 0005](../../../docs/adr/0005-session-is-the-only-source-of-who-i-am.md)).
+  ([ADR: The signed-in session is the only source of "who I am"](../../../docs/adr/2026-07-21-session-is-the-only-source-of-who-i-am.md)).
 - **Avatars: initials from `initialsOf` (`src/lib/people.ts`), never a local copy.**
   First + LAST name initial ('Dylan V. Thomas' → DT); a single-token name keeps its
   first two characters. Two divergent copies of this already existed. The signed-in
   user's photo comes from `/api/me/avatar`, never a googleusercontent URL
-  ([ADR 0006](../../../docs/adr/0006-proxy-third-party-images-keep-csp-self.md));
+  ([ADR: Third-party images are proxied through our origin; `img-src` stays `'self'`](../../../docs/adr/2026-07-21-proxy-third-party-images-keep-csp-self.md));
   initials are the resting state, the photo an enhancement that may fail to load.
 - **Hydration-safe browser state.** localStorage/matchMedia reads use
   `useSyncExternalStore` with a neutral server snapshot —
