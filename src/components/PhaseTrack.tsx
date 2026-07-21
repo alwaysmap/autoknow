@@ -139,6 +139,10 @@ const RAIL_PAD = 10, LANE_W = 20, INK = 'var(--fg)';
 // out of every corner. Butt ends exactly where its path does, so neighbouring
 // stretches meet flush instead of poking past each other.
 const BACKING_W = 9;
+// Hop-over geometry: half-width of the bridge and how far it rises. Sized to clear
+// the 3.5px track it crosses AND to stay legible under the 9px band that may be
+// riding the same path.
+const HOP_R = 5, HOP_RISE = 9;
 const DAY_MS = 86_400_000;
 
 // Involvement pills replace the old "· Role" text. A company's kind drives its colour,
@@ -378,25 +382,28 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   const inkClass = (es: Edge[]): string | undefined =>
     !focus ? undefined : dimEdges(es) ? styles.dim : undefined;
 
-  // DIRECTION rides the TRACK, as a solid colour laid UNDER the traced ink — the way
-  // the hill chart backs its line with a wide pale stroke. Not a glow (that bloomed
-  // and read as decoration) and not the cards (the track is what carries direction;
-  // the cards are just where the phases are written down).
+  // DIRECTION rides the TRACK, as a solid band laid UNDER the ink — the way the hill
+  // chart backs its line. It paints the phase's DIRECT neighbourhood only: what it
+  // waits for, and what waits on it.
   //
-  // An edge is upstream when BOTH ends are upstream-or-self — the same both-ends test
-  // focusSubgraph uses to admit the edge at all, so an edge merely touching an
-  // ancestor cannot claim it. A shared stretch mixing the two directions gets no
-  // backing rather than a wrong one: silence beats a confident wrong answer.
+  // Painting the transitive closure was the mistake. On a converging plan the
+  // closure is nearly the whole diagram — tracing a mid-chain phase lit 14 of 15 —
+  // so the ink scaled with reachability, which is not information, instead of with
+  // the structure, which is. 11 of those 15 phases have exactly one edge in and one
+  // out; the fan points top out at 8. So the neighbourhood is small at any program
+  // size, and it is the thing a reader can act on: these must finish before I can
+  // start, and these unblock the moment I do. The FULL reach stays on the tracing
+  // line in words, where a count belongs.
   const backingOf = (es: Edge[]): string | undefined => {
-    if (!focus || es.length === 0 || dimEdges(es)) return undefined;
-    const live = es.filter((e) => onPath(e));
+    if (!focus || es.length === 0) return undefined;
+    const live = es.filter((e) => focus.directKeys.has(`${e.from}-${e.to}`));
     if (live.length === 0) return undefined;
-    const isUp = (e: Edge) =>
-      (focus.upstream.has(e.from) || e.from === focus.id) &&
-      (focus.upstream.has(e.to) || e.to === focus.id);
-    if (live.every(isUp)) return 'var(--trace-up-band)';
-    if (live.every((e) => !isUp(e))) return 'var(--trace-down-band)';
-    return undefined;
+    // An edge ENDING at the phase is something it waits for; one LEAVING it is
+    // something waiting on it. A stretch carrying both gets no band rather than a
+    // guessed one — silence beats a confident wrong answer.
+    const up = live.every((e) => e.to === focus.id);
+    const down = live.every((e) => e.from === focus.id);
+    return up ? 'var(--trace-up-band)' : down ? 'var(--trace-down-band)' : undefined;
   };
 
   const closeDetails = useCallback(() => { setDetailsId(null); writeHash(null); }, []);
@@ -526,10 +533,50 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   // jog would double back on itself.
   const corner = (yA: number, yB: number) =>
     Math.max(2, Math.min(7, lanePitch - 3, Math.abs(yB - yA) / 2 - 2));
-  const tiePath = (bx: number, y: number, r: number, at: 'top' | 'bottom' | 'mid') => {
-    if (at === 'top') return `M ${mainX} ${y} L ${bx + r} ${y} Q ${bx} ${y} ${bx} ${y + r}`;
-    if (at === 'bottom') return `M ${bx} ${y - r} Q ${bx} ${y} ${bx + r} ${y} L ${mainX} ${y}`;
-    return `M ${mainX} ${y} L ${bx} ${y}`;
+  // ---- crossings ----
+  // A tube map has no unexplained crossings and neither does a circuit diagram: where
+  // one line must pass another it says so with a hop. Here the only crossing kind is
+  // a branch's horizontal tie running out to its own lane ACROSS some other branch's
+  // trunk. Those get the hop; the line that hops is the one going over.
+  const trunkSpans = bundles.map((b) => {
+    const ys = b.ties.map((tie) => geom.ys[tie.phaseId]);
+    if (ys.some((y) => y == null)) return null;
+    const last = ys.length - 1;
+    return {
+      key: b.key,
+      x: laneX(b.lane),
+      y0: ys[0]! + corner(ys[0], ys[1]),
+      y1: ys[last]! - corner(ys[last - 1], ys[last]),
+    };
+  }).filter((t): t is { key: string; x: number; y0: number; y1: number } => t !== null);
+
+  /** Lane x-positions a horizontal run at `y` crosses, in the order it meets them. */
+  const hopsBetween = (xA: number, xB: number, y: number, ownKey: string) => {
+    const lo = Math.min(xA, xB), hi = Math.max(xA, xB);
+    const xs = trunkSpans
+      .filter((t) => t.key !== ownKey && t.x > lo + 1 && t.x < hi - 1 && y > t.y0 + 1 && y < t.y1 - 1)
+      .map((t) => t.x);
+    return xB < xA ? xs.sort((a, b) => b - a) : xs.sort((a, b) => a - b);
+  };
+
+  /** A horizontal run that arcs OVER each track it crosses instead of through it. */
+  const runX = (fromX: number, toX: number, y: number, hops: number[]) => {
+    const dir = toX > fromX ? 1 : -1;
+    let d = '';
+    for (const x of hops) {
+      d += ` L ${x - dir * HOP_R} ${y} Q ${x} ${y - HOP_RISE} ${x + dir * HOP_R} ${y}`;
+    }
+    return `${d} L ${toX} ${y}`;
+  };
+
+  const tiePath = (bx: number, y: number, r: number, at: 'top' | 'bottom' | 'mid', key: string) => {
+    if (at === 'top') {
+      return `M ${mainX} ${y}${runX(mainX, bx + r, y, hopsBetween(mainX, bx + r, y, key))} Q ${bx} ${y} ${bx} ${y + r}`;
+    }
+    if (at === 'bottom') {
+      return `M ${bx} ${y - r} Q ${bx} ${y} ${bx + r} ${y}${runX(bx + r, mainX, y, hopsBetween(bx + r, mainX, y, key))}`;
+    }
+    return `M ${mainX} ${y}${runX(mainX, bx, y, hopsBetween(mainX, bx, y, key))}`;
   };
 
   // THE CARD IS THE CONTROL. A phase reads as one object — title, goal, plan, hill,
@@ -1239,7 +1286,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                 })}
                 {/* ties: the branch meeting the main line at each phase on it */}
                 {b.ties.map((tie, k) => {
-                  const d = tiePath(bx, ys[k]!, k === 0 ? rTop : rBot, k === 0 ? 'top' : k === last ? 'bottom' : 'mid');
+                  const d = tiePath(bx, ys[k]!, k === 0 ? rTop : rBot, k === 0 ? 'top' : k === last ? 'bottom' : 'mid', b.key);
                   const back = backingOf(tie.edges);
                   return (
                     <g key={tie.phaseId} className={inkClass(tie.edges)}>

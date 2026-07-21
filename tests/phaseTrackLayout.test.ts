@@ -216,6 +216,28 @@ describe('focusSubgraph', () => {
     expect(f.nodes.has(5)).toBe(false);
   });
 
+  // What the TRACK paints. The closure is not information on a converging plan —
+  // it is nearly the whole diagram — so the band follows the phase's own edges:
+  // what it waits for, and what waits on it. Everything transitive stays a COUNT on
+  // the tracing line, where a count belongs.
+  it('directKeys is the phase’s own edges, never the closure', () => {
+    const f = focusSubgraph(rows, 3)!;
+    expect([...f.directKeys].sort()).toEqual(['2-3', '3-4']);
+    // on a path through 3, but not touching it — so it is related, not painted
+    expect(f.edgeKeys.has('1-2')).toBe(true);
+    expect(f.directKeys.has('1-2')).toBe(false);
+  });
+
+  it('the painted set stays small while the closure grows', () => {
+    // A long chain: the closure reaches everything, the neighbourhood never exceeds
+    // the phase's own degree. This is the property that keeps the rail legible on a
+    // 15-phase program, so it is asserted rather than assumed.
+    const chain = [row(1), row(2, [1]), row(3, [2]), row(4, [3]), row(5, [4]), row(6, [5])];
+    const f = focusSubgraph(chain, 4)!;
+    expect(f.nodes.size).toBe(6);        // everything is related
+    expect(f.directKeys.size).toBe(2);   // one in, one out
+  });
+
   it('excludes an edge that skips PAST the selection', () => {
     // 1→4 has both ends in the related set but never passes through 3
     const f = focusSubgraph(rows, 3)!;
@@ -260,7 +282,9 @@ describe('a trace never lights ink that stands for an untraced dependency', () =
   // EVERY dependency riding it is off the path, so it is lit as soon as one is on it.
   // Whatever is lit therefore speaks for all of its riders — which is the whole point.
   const litDependencies = (mainline: Edge[], bundles: Bundle[], focus: FocusSet): Set<string> => {
-    const onPath = (e: Edge) => focus.edgeKeys.has(key(e));
+    // PAINTED means the phase's own edges (directKeys), not the closure: the track
+    // shows the neighbourhood and leaves reachability to the counts in words.
+    const onPath = (e: Edge) => focus.directKeys.has(key(e));
     const lit = new Set<string>();
     const ink = (riders: Edge[]) => {
       if (riders.length > 0 && riders.some(onPath)) riders.forEach((e) => lit.add(key(e)));
@@ -284,7 +308,7 @@ describe('a trace never lights ink that stands for an untraced dependency', () =
       const { focus, mainline, bundles } = trace(rows, r.id);
       // equality, not containment: no supersets (false claims), no missing ink either
       expect([...litDependencies(mainline, bundles, focus)].sort())
-        .toEqual([...focus.edgeKeys].sort());
+        .toEqual([...focus.directKeys].sort());
     }
   });
 
@@ -293,7 +317,7 @@ describe('a trace never lights ink that stands for an untraced dependency', () =
     for (const r of rows) {
       const { focus, bundles } = trace(rows, r.id);
       for (const b of bundles) {
-        const traced = b.edges.map((e) => focus.edgeKeys.has(key(e)));
+        const traced = b.edges.map((e) => focus.directKeys.has(key(e)));
         expect(new Set(traced).size).toBe(1); // homogeneous
         expect(b.traced).toBe(traced[0]); // and the flag says which
       }
@@ -326,23 +350,31 @@ describe('a trace never lights ink that stands for an untraced dependency', () =
     const { focus, mainline, bundles } = trace(rows, 10);
     const lit = litDependencies(mainline, bundles, focus);
 
-    expect([...lit].sort()).toEqual(['1-2', '10-13', '13-14', '14-15', '2-3', '3-10']);
-    // the eleven siblings on those two stems stay dark
-    for (const other of ['3-6', '3-7', '3-9', '3-11', '3-12', '4-13', '6-13', '7-13', '8-13', '9-13', '11-13']) {
+    // Its OWN two edges and nothing else: fed by BSP, feeds Compliance gates. The
+    // rest of the chain it happens to be reachable from stays unpainted — those are
+    // the "3 before · 3 after" on the tracing line, which is where a count belongs.
+    expect([...lit].sort()).toEqual(['10-13', '3-10']);
+    for (const other of ['1-2', '2-3', '13-14', '14-15',
+                         '3-6', '3-7', '3-9', '3-11', '3-12',
+                         '4-13', '6-13', '7-13', '8-13', '9-13', '11-13']) {
       expect(lit.has(other)).toBe(false);
     }
-    // and the two traced bypasses are their own lines, not a share of anyone's
+    // and the two painted bypasses are their own lines, not a share of anyone's
     const traced = bundles.filter((b) => b.traced);
     expect(traced.map((b) => b.edges.map(key)).sort()).toEqual([['10-13'], ['3-10']]);
   });
 
-  it('still merges the traced side rather than exploding it into one lane each', () => {
-    // Tracing the convergence phase puts every dependency on the path: bundling has
-    // to keep working there, or the gutter returns to the nine-lane thicket.
+  it('still merges the painted side rather than exploding it into one lane each', () => {
+    // The worst case for the neighbourhood rule: Compliance gates is fed by EIGHT
+    // phases, so its own edges alone are a fan. Bundling has to keep working there
+    // or the gutter returns to a lane per feeder.
     const rows = fordEvos();
     const { focus, bundles, laneCount } = trace(rows, 13);
-    expect(bundles.every((b) => b.traced)).toBe(true);
+    expect(focus.directKeys.size).toBe(9); // 8 in + 1 out — a fan, but a bounded one
+    // …while the closure would have been the entire program.
     expect(focus.edgeKeys.size).toBe(dependencyKeys(rows).size);
+    const traced = bundles.filter((b) => b.traced);
+    expect(traced.length).toBeLessThanOrEqual(2); // merged, not one branch per feeder
     expect(laneCount).toBe(3);
   });
 

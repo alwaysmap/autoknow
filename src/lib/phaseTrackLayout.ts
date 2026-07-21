@@ -290,7 +290,10 @@ export function bundleEdges(
   const all = railEdges(ordered, chainKeys);
   const mainline = all.filter((e) => !isBypass(e));
   const bypasses = all.filter(isBypass);
-  const onPath = (e: Edge) => !!focus && focus.edgeKeys.has(`${e.from}-${e.to}`);
+  // Partition on the DIRECT edges — the ones the track paints. Bundling exists so
+  // painted ink never shares a line with unpainted ink; keying it to the closure
+  // while painting only the neighbourhood would put them back on one stem.
+  const onPath = (e: Edge) => !!focus && focus.directKeys.has(`${e.from}-${e.to}`);
   const lay = (edges: Edge[], traced: boolean, prefix: string) =>
     groupBypasses(edges, ordered).map((g) => {
       const b = buildBundle(g, ordered);
@@ -328,6 +331,14 @@ export interface FocusSet {
   downstream: Set<number>; // descendants — what is waiting
   nodes: Set<number>; // upstream ∪ downstream ∪ the phase itself
   edgeKeys: Set<string>; // `${from}-${to}` for every edge on a path through it
+  /**
+   * Only the edges TOUCHING the selected phase — what it waits for, and what waits
+   * on it. This is what the track paints, because the closure is not information:
+   * on a converging plan it is nearly the whole diagram (14 of 15 phases for a
+   * mid-chain phase), while the direct neighbourhood is the thing a reader can act
+   * on and is 1–8 edges however big the program grows.
+   */
+  directKeys: Set<string>;
 }
 
 export function focusSubgraph(rows: LayoutRow[], selectedId: number | null): FocusSet | null {
@@ -359,15 +370,18 @@ export function focusSubgraph(rows: LayoutRow[], selectedId: number | null): Foc
   const inUp = (x: number) => x === selectedId || upstream.has(x);
   const inDown = (x: number) => x === selectedId || downstream.has(x);
   const edgeKeys = new Set<string>();
+  const directKeys = new Set<string>();
   for (const r of rows) {
     for (const p of r.parents) {
       if (!present.has(p.id)) continue;
       if ((inUp(p.id) && inUp(r.id)) || (inDown(p.id) && inDown(r.id))) edgeKeys.add(`${p.id}-${r.id}`);
+      if (p.id === selectedId || r.id === selectedId) directKeys.add(`${p.id}-${r.id}`);
     }
   }
   return {
     id: selectedId, upstream, downstream,
     nodes: new Set([selectedId, ...upstream, ...downstream]),
     edgeKeys,
+    directKeys,
   };
 }
