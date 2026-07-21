@@ -21,10 +21,19 @@
      warmer one lies ahead. Deliberately NOT --chain (that purple is the constraint,
      which can appear on either side of a trace) and not a status hue.
      The 700 weight, not 500: it is the one restated PER THEME to stay readable
-     against its own paper (34%/32% lightness on cream, 72% on the dark), which is
-     exactly what a glow needs — the 500s washed out on light paper. */
+     against its own paper (34%/32% lightness on cream, 72% on the dark). */
   --trace-up: var(--s-700);
   --trace-down: var(--t-700);
+
+  /* The BAND laid under a traced track. Opaque on purpose: the bands butt and
+     overlap at every corner, and two translucent strokes stacking there compounded
+     into a visibly darker blob at each joint. An opaque colour cannot compound.
+     Stated as their own tokens rather than an alpha over --trace-*, because light
+     and dark want different lightness, not different opacity: a band must stay
+     clearly COLOURED against its own paper while the track ink still reads on top
+     of it — near-black ink on cream, near-white ink on the dark. */
+  --trace-up-band: hsl(calc(var(--hue) + 60), 44%, 74%);
+  --trace-down-band: hsl(calc(var(--hue) - 60), 52%, 72%);
 
   --chain: #6b4fa1;
   --chain-ink: #5a4488;  /* readable text weight on the cream background */
@@ -126,6 +135,12 @@
    Scale semantics stay: p-50 is still "faint tint", p-600 still "strong ink" —
    the VALUES flip lightness so existing component CSS themes for free. */
 :root[data-theme="dark"] {
+  /* Dark paper takes DARKER, more saturated bands: the light-theme values washed
+     out to two near-identical pastels here, which is worse than no colour at all
+     — the reader sees two bands and cannot tell which way either points. */
+  --trace-up-band: hsl(calc(var(--hue) + 60), 42%, 30%);
+  --trace-down-band: hsl(calc(var(--hue) - 60), 55%, 30%);
+
   --chain: #9b82cf;
   --chain-ink: #b8a3e0;
   --chain-soft: #5b4885;

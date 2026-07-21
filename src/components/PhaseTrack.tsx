@@ -132,8 +132,12 @@ const writeHash = (id: number | null) => {
 
 // Ink rides the theme token — a hardcoded dark gray vanishes on the dark paper.
 const RAIL_PAD = 10, LANE_W = 20, INK = 'var(--fg)';
-// The traced track's backing stroke — wide enough to read as a band UNDER the line
+// The traced track's backing band — wide enough to read as a band UNDER the line
 // rather than a halo around it (the hill chart backs its 2.5px line the same way).
+// Its caps are BUTT everywhere: a round cap on a 9px band overshoots the 3.5px ink
+// it backs by ~2.75px, and that overshoot is what showed as a coloured nub sticking
+// out of every corner. Butt ends exactly where its path does, so neighbouring
+// stretches meet flush instead of poking past each other.
 const BACKING_W = 9;
 const DAY_MS = 86_400_000;
 
@@ -390,8 +394,8 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     const isUp = (e: Edge) =>
       (focus.upstream.has(e.from) || e.from === focus.id) &&
       (focus.upstream.has(e.to) || e.to === focus.id);
-    if (live.every(isUp)) return 'var(--trace-up)';
-    if (live.every((e) => !isUp(e))) return 'var(--trace-down)';
+    if (live.every(isUp)) return 'var(--trace-up-band)';
+    if (live.every((e) => !isUp(e))) return 'var(--trace-down-band)';
     return undefined;
   };
 
@@ -1196,7 +1200,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               <g key={`m${e.from}-${e.to}`} className={inkClass([e])}>
                 {backingOf([e]) && (
                   <line x1={mainX} y1={y1} x2={mainX} y2={y2} className={styles.trackBacking}
-                    stroke={backingOf([e])} strokeWidth={BACKING_W} strokeLinecap="round" />
+                    stroke={backingOf([e])} strokeWidth={BACKING_W} strokeLinecap="butt" />
                 )}
                 <line x1={mainX} y1={y1} x2={mainX} y2={y2}
                   stroke={e.done ? INK : 'var(--border)'} strokeWidth={e.onChain ? 3.5 : 2} strokeLinecap="round" />
@@ -1225,7 +1229,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     <React.Fragment key={`s${k}`}>
                       {back && (
                         <line x1={bx} x2={bx} y1={y1} y2={y2} className={styles.trackBacking}
-                          stroke={back} strokeWidth={BACKING_W} strokeLinecap="round" />
+                          stroke={back} strokeWidth={BACKING_W} strokeLinecap="butt" />
                       )}
                       <line x1={bx} x2={bx} y1={y1} y2={y2}
                         stroke={s.done ? INK : 'var(--border)'} strokeWidth={s.onChain ? 3.5 : 1.8}
@@ -1241,7 +1245,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     <g key={tie.phaseId} className={inkClass(tie.edges)}>
                       {back && (
                         <path d={d} fill="none" stroke={back} strokeWidth={BACKING_W}
-                          strokeLinecap="round" strokeLinejoin="round" className={styles.trackBacking} />
+                          strokeLinecap="butt" strokeLinejoin="round" className={styles.trackBacking} />
                       )}
                       <path
                         d={d}

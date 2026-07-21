@@ -166,12 +166,15 @@
 }
 
 /* The traced track's backing: a SOLID band of the direction's colour laid under the
-   line, the way the hill chart backs its curve with a wide pale stroke. It is drawn
-   before the ink in the same group, so the track keeps its own weight and reads as
-   a coloured route rather than something wearing a halo. Semi-transparent so the
-   graticule and the buffer bands still show through underneath it. */
+   line, the way the hill chart backs its curve. Drawn before the ink in the same
+   group, so the track keeps its own weight and reads as a coloured route rather
+   than something wearing a halo.
+   NO opacity here, deliberately: the bands butt and overlap at every corner, and two
+   translucent strokes stacking there compounded into a darker blob at each joint.
+   The colour is pre-mixed for its paper in --trace-*-band instead, and an opaque
+   colour cannot compound with itself. */
 .trackBacking {
-  opacity: 0.45;
+  fill: none;
 }
 
 /* A receded row still holds real controls — the phase name and the zoom button —
