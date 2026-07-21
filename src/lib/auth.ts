@@ -7,12 +7,15 @@
 
 const DEFAULT_HANDLE = 'dylan';
 const EMAIL_DOMAIN = 'google.com';
-
 export interface CurrentUser {
   handle: string; // bare handle, e.g. 'dylan'
   display: string; // '@'-prefixed handle, e.g. '@dylan'
   email: string; // full email, e.g. 'dylan@google.com' — the WHOLE address, domain included
   name: string; // human name from the provider, e.g. 'Dylan Thomas'
+  // Google's profile photo URL, or null. SERVER-SIDE ONLY: it is fetched by
+  // /api/me/avatar and must never be handed to the browser, which would put a
+  // googleusercontent.com request back on the page the proxy exists to avoid.
+  image: string | null;
 }
 
 /** 'dylan' -> 'Dylan'; 'dylan.thomas' -> 'Dylan Thomas'. Used when the identity
@@ -43,15 +46,20 @@ export function deriveEmail(input: string | null | undefined): string {
   return `${handle}@${EMAIL_DOMAIN}`;
 }
 
-/** Build a CurrentUser from any handle/email-ish string, plus the provider's
- *  display name when it has one. */
-export function userFromHandle(input: string | null | undefined, name?: string | null): CurrentUser {
+/** Build a CurrentUser from any handle/email-ish string, plus what the identity
+ *  provider itself told us — display name and profile photo — when it has them. */
+export function userFromHandle(
+  input: string | null | undefined,
+  name?: string | null,
+  image?: string | null,
+): CurrentUser {
   const handle = normalizeHandle(input) || DEFAULT_HANDLE;
   return {
     handle,
     display: `@${handle}`,
     email: deriveEmail(input || handle),
     name: (name ?? '').trim() || nameFromHandle(handle),
+    image: image || null,
   };
 }
 
@@ -61,5 +69,7 @@ export function userFromHandle(input: string | null | undefined, name?: string |
  * which reads the Auth.js session and falls back here.
  */
 export function stubUser(): CurrentUser {
+  // No name and no photo: there is no identity provider behind the stub, so the
+  // handle-derived name and the initials fallback are what dev/e2e should exercise.
   return userFromHandle(DEFAULT_HANDLE);
 }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import SwCleanup from '../components/SwCleanup';
 import { LocaleProvider } from '../components/LocaleProvider';
 import { getCurrentUser } from '../lib/session';
+import { allowedAvatarUrl } from '../lib/avatar';
 import { getLocale } from '../lib/locale';
 import { t } from '../lib/i18n';
 import { auth, signIn, signOut, authConfigured } from '../auth';
@@ -102,8 +103,13 @@ export default async function RootLayout({
               </svg>
             </Link>
             <UserMenu
-              name={session?.user?.name ?? user.display}
+              name={user.name}
               email={user.email}
+              // The route, never the googleusercontent URL — that stays server-side.
+              // Asking allowedAvatarUrl (rather than just "is there a URL?") keeps this
+              // in lockstep with what /api/me/avatar will actually serve: a photo the
+              // route would reject must not render an <img> that only 404s.
+              photoUrl={allowedAvatarUrl(user.image) ? '/api/me/avatar' : null}
               signedIn={!!session?.user}
               authConfigured={authConfigured}
               signInAction={async () => {

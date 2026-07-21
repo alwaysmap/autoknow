@@ -6,22 +6,25 @@ import { useLocale } from './LocaleProvider';
 import ThemeToggle from './ThemeToggle';
 import StyleToggle from './StyleToggle';
 import LocaleSwitcher from './LocaleSwitcher';
+import { initialsOf } from '../lib/people';
 import styles from './UserMenu.module.css';
 
 // Google-style session affordance: a circle with the user's initials, nothing else in
 // the bar. Clicking opens a small card with the name, email, and the sign-out action.
 // When auth is configured but no session exists, the whole thing is a Sign in button.
-
-function initialsOf(name: string, email: string): string {
-  const source = name.trim() || email.split('@')[0];
-  const words = source.replace(/^@/, '').split(/[\s._-]+/).filter(Boolean);
-  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
-  return source.replace(/^@/, '').slice(0, 2).toUpperCase();
-}
+//
+// The card shows a HUMAN NAME ('Dylan Thomas'), never the '@handle': the handle is a
+// lookup key, and the initials read off the name (first + last) — so a card showing
+// '@dylan' meant the name never made it here, not that the initials rule was wrong.
+//
+// `photoUrl` is our own /api/me/avatar route, never Google's URL (see that route).
+// Initials are not a placeholder to be replaced — they are the resting state, and the
+// photo is an enhancement that has to earn its way in by loading.
 
 export default function UserMenu({
   name,
   email,
+  photoUrl,
   signedIn,
   authConfigured,
   signInAction,
@@ -29,6 +32,7 @@ export default function UserMenu({
 }: {
   name: string;
   email: string;
+  photoUrl?: string | null;
   signedIn: boolean;
   authConfigured: boolean;
   signInAction?: () => Promise<void>;
@@ -37,6 +41,28 @@ export default function UserMenu({
   const locale = useLocale();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  // Last-resort fallback only: CurrentUser.name is always populated (lib/auth derives
+  // one from the handle when the provider gives none), so this is belt-and-braces.
+  const fullName = name.trim() || email.split('@')[0];
+  const initials = initialsOf(fullName);
+  // A photo that 404s (no picture claim, upstream hiccup) drops back to initials
+  // rather than leaving a broken-image glyph in the nav.
+  const [photoBroken, setPhotoBroken] = useState(false);
+  const face =
+    photoUrl && !photoBroken ? (
+      // next/image would route this through the optimizer for a 30px same-origin
+      // avatar that /api/me/avatar already caches; alt="" because the enclosing
+      // control is labelled with the person's name.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={photoUrl}
+        alt=""
+        className={styles.photo}
+        onError={() => setPhotoBroken(true)}
+      />
+    ) : (
+      initials
+    );
 
   useEffect(() => {
     if (!open) return;
@@ -68,17 +94,17 @@ export default function UserMenu({
       <button
         type="button"
         className={styles.avatar}
-        aria-label={email}
+        aria-label={fullName ? `${fullName} (${email})` : email}
         aria-expanded={open}
         data-testid="user-menu"
         onClick={() => setOpen((v) => !v)}
       >
-        {initialsOf(name, email)}
+        {face}
       </button>
       {open && (
         <div className={styles.pop}>
-          <div className={styles.popAvatar}>{initialsOf(name, email)}</div>
-          <div className={styles.name}>{name}</div>
+          <div className={styles.popAvatar}>{face}</div>
+          <div className={styles.name}>{fullName}</div>
           <div className={styles.email}>{email}</div>
           {/* Personal settings — they follow the person, not the deployment, so they
               live here rather than in the nav or Manage. */}

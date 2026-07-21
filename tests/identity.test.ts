@@ -56,13 +56,16 @@ describe('identity helpers', () => {
     expect(normalizeHandle(undefined)).toBe('');
   });
 
-  it('stubUser is a complete identity — every field populated', () => {
+  it('stubUser is a complete identity — every field accounted for', () => {
     const stub = stubUser();
     expect(stub).toEqual({
       handle: 'dylan',
       display: '@dylan',
       email: 'dylan@google.com',
       name: 'Dylan',
+      // Null, not absent: there is no identity provider behind the stub to supply a
+      // photo, so the avatar falls back to initials (ADR 0006).
+      image: null,
     });
   });
 });

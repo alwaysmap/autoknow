@@ -14,6 +14,26 @@ export interface PersonLike {
 }
 
 /**
+ * Avatar initials: FIRST name initial + LAST name initial — 'Dylan Thomas' -> 'DT',
+ * 'Junichi Monma' -> 'JM', 'Anne-Marie Dubois' -> 'AD'. Taking the LAST word (not the
+ * second) keeps the family name when a middle name is present, and splitting on
+ * whitespace only keeps hyphenated surnames intact ('Mary Smith-Jones' -> 'MS').
+ *
+ * A single-token name — a mononym, or an unspaced CJK name like '本間淳一' — keeps its
+ * first two characters. That is a deliberately simple rule rather than a guess at
+ * every script's name order; when a name has spaces, first+last is the safe reading.
+ */
+export function initialsOf(name: string): string {
+  const words = (name || '').trim().replace(/^@/, '').split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '';
+  // Array.from, not [0]/slice: those index UTF-16 units and would halve an emoji or
+  // an astral-plane character into a replacement glyph.
+  const chars = (w: string) => Array.from(w);
+  if (words.length === 1) return chars(words[0]).slice(0, 2).join('').toUpperCase();
+  return (chars(words[0])[0] + chars(words[words.length - 1])[0]).toUpperCase();
+}
+
+/**
  * Resolve a handle or email ('@jdoe', 'jdoe', 'jdoe@google.com') to a Person, or
  * null when there is no confident match. Order: exact email, then email local-part,
  * then exact (case-insensitive) full name. No substring matching by design.

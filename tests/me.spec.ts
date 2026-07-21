@@ -80,9 +80,11 @@ test.describe('Me Landing Page', () => {
     await page.selectOption('select[name="partnerId"]', { label: 'Google LLC' });
     await page.getByTestId('create-my-profile').click();
 
-    // Lands on the canonical person page; identity came from the login.
+    // Lands on the canonical person page; identity came from the login. The
+    // directory records a human NAME ('Casey'), not the raw handle — the handle
+    // stays the lookup key, and people read the directory.
     await page.waitForURL(/\/people\/\d+/);
-    await expect(page.locator('h1')).toContainText('casey');
+    await expect(page.locator('h1')).toContainText('Casey');
     await expect(page.locator('body')).toContainText('casey@google.com');
     await expect(page.locator('body')).toContainText('Google LLC');
   });

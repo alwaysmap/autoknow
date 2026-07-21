@@ -6,7 +6,7 @@ import { prisma } from '../../lib/db';
 import { indexEntity } from '../../lib/search';
 import { getCurrentUser } from '../../lib/session';
 import { authConfigured } from '../../auth';
-import { deriveEmail } from '../../lib/auth';
+import { userFromHandle } from '../../lib/auth';
 import { parseForm, personCopySchema, personCreateSchema, personDeleteSchema, personMoveSchema } from '../../lib/schemas';
 import { guarded, type ActionResult } from '../../lib/actionResult';
 
@@ -32,8 +32,8 @@ export async function createMyProfile(formData: FormData) {
   // With real auth, the SESSION is the identity — the form can't spoof it. The
   // ?user= override only exists in stub mode (no auth configured: dev, e2e).
   const override = ((formData.get('user') as string) || '').trim();
-  const display = !authConfigured && override ? override : current.display;
-  const email = deriveEmail(display);
+  const identity = !authConfigured && override ? userFromHandle(override) : current;
+  const email = identity.email;
   const partnerId = parseInt((formData.get('partnerId') as string) || '', 10);
   if (Number.isNaN(partnerId) || partnerId <= 0) throw new Error('Pick an organization');
 
@@ -41,7 +41,9 @@ export async function createMyProfile(formData: FormData) {
   if (existing) redirect(`/people/${existing.id}`);
 
   const person = await prisma.person.create({
-    data: { name: display.replace(/^@/, ''), email, currentPartnerId: partnerId },
+    // The person's NAME is the human name ('Dylan Thomas'), not the handle — the
+    // directory is read by people, and resolvePerson matches on the unique email.
+    data: { name: identity.name, email, currentPartnerId: partnerId },
   });
   await prisma.personAffiliation.create({
     data: { personId: person.id, partnerId, role: 'Member', startDate: new Date() },
