@@ -77,10 +77,17 @@ test.describe('Retired history pages', () => {
     const row = page.getByTestId('phase-row').filter({ has: page.locator('a:text-is("Integration")') });
     const details = page.getByTestId('phase-details');
     // Hydration-resilient open (phase_graph.spec.ts): only click while closed — a
-    // late-opening popover scrims the button and a blind retry would hang on it.
+    // late-opening popover scrims the button and a blind retry would hang on it. The
+    // Details/zoom button only exists at STANDARD size (main's rail work: MIN is one
+    // line), so expand the card first when it is collapsed.
     await expect(async () => {
       if (!(await details.isVisible())) {
-        await row.getByRole('button', { name: 'Details' }).click({ timeout: 2000 });
+        const zoom = row.getByRole('button', { name: 'Details' });
+        if (!(await zoom.isVisible())) {
+          const title = row.locator('a[data-card-title]');
+          if ((await title.getAttribute('aria-expanded')) !== 'true') await title.click();
+        }
+        await zoom.click({ timeout: 2000 });
       }
       await expect(details).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
