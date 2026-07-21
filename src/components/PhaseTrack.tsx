@@ -199,18 +199,42 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   );
   const onChainSet = new Set(chain.path);
   const ordered = stationOrder(phases, chain.path);
-  const { mainline, bundles, laneCount } = bundleEdges(ordered, chain.edgeKeys);
-  const mainX = RAIL_PAD + laneCount * LANE_W + 6;
+
+  // FOCUS: one phase at a time, traced through the whole graph. A persistent
+  // selection rather than hover — hover cannot be reached from a keyboard, and a
+  // structure you have to keep the pointer still to read is not one you can study.
+  // It is resolved BEFORE the bundling because it changes it: traced dependencies
+  // are bundled apart from untraced ones so no line carries both (phaseTrackLayout).
+  const [focusId, setFocusId] = useState<number | null>(null);
+  const focus = focusSubgraph(ordered, focusId);
+  const focused = focusId != null ? byId.get(focusId) : null;
+  const toggleFocus = (id: number) => setFocusId((cur) => (cur === id ? null : id));
+
+  const { mainline, bundles, laneCount, restingLaneCount } = bundleEdges(ordered, chain.edgeKeys, focus);
+  // The gutter is sized by the RESTING lane count and never moves: it is the rows'
+  // left padding, so a wider one re-wraps row text and the whole list jumps under the
+  // pointer the moment you click a phase. Extra lanes a trace needs are fitted into
+  // the same width at a finer pitch — the rail gets denser, never wider. (Measured:
+  // three of the fifteen phases on Ford Evos changed row heights before this.)
+  const mainX = RAIL_PAD + restingLaneCount * LANE_W + 6;
   const gutterW = mainX + 16;
-  const laneX = (lane: number) => mainX - lane * LANE_W;
+  const lanePitch = laneCount > 0
+    ? Math.min(LANE_W, (restingLaneCount * LANE_W) / laneCount)
+    : LANE_W;
+  const laneX = (lane: number) => mainX - lane * lanePitch;
 
   const status = (p: number) => t(locale, statusKey(p));
   const skippedNames = (e: Edge) => ordered.slice(e.fromIdx + 1, e.toIdx).map((s) => s.name).join(', ');
+  // The "skips" clause is dropped while tracing: it enumerates the stations a line
+  // flies OVER, which during a trace are mostly ghosted, and a lit line whose label
+  // lists faded phases is exactly the confusion this mode exists to remove. At rest
+  // it is the useful half of the label and stays.
   const edgeTitle = (e: Edge) =>
     `${byId.get(e.from)?.name} → ${byId.get(e.to)?.name}` +
-    (isBypass(e) ? ` · ${t(locale, 'skips', { names: skippedNames(e) })}` : '');
+    (isBypass(e) && !focus ? ` · ${t(locale, 'skips', { names: skippedNames(e) })}` : '');
   // The hub tie carries the whole bundle: name every phase on the branch, so the
-  // merged line can be read back out to the dependencies it stands for.
+  // merged line can be read back out to the dependencies it stands for. Because a
+  // bundle is never mixed, a LIT stem can only ever name phases that are lit too.
   const tieTitle = (b: Bundle, tie: BundleTie) => {
     if (tie.edges.length === 1) return edgeTitle(tie.edges[0]);
     const hub = byId.get(b.hubId)?.name ?? '';
@@ -305,13 +329,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   const toggle = (p: PhaseTrackRow) => setCollapsed((s) => ({ ...s, [p.id]: !isCollapsed(p) }));
   const [detailsId, setDetailsId] = useState<number | null>(null);
 
-  // FOCUS: one phase at a time, traced through the whole graph. A persistent
-  // selection rather than hover — hover cannot be reached from a keyboard, and a
-  // structure you have to keep the pointer still to read is not one you can study.
-  const [focusId, setFocusId] = useState<number | null>(null);
-  const focus = focusSubgraph(ordered, focusId);
-  const focused = focusId != null ? byId.get(focusId) : null;
-  const toggleFocus = (id: number) => setFocusId((cur) => (cur === id ? null : id));
   // FOUR levels while tracing, all on the one recession channel (PhaseTrack.module.css):
   // the phase itself, what WAITS on it at full strength, what it waits FOR at half,
   // and everything else a ghost. Splitting the two directions is what gives a trace on
@@ -335,10 +352,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     !!focus && onPath(e) &&
     (focus.upstream.has(e.from) || e.from === focus.id) &&
     (focus.upstream.has(e.to) || e.to === focus.id);
-  // A trunk is shared conduit, not a claim in itself: it stays lit while any
-  // dependency riding it is in the traced set, or its own ties would float loose.
-  // By the same logic it only recedes to upstream weight when EVERY dependency on
-  // it is upstream — one downstream rider keeps the whole stretch at full strength.
+  // A stretch of shared trunk takes its level from its riders. Since the bundling is
+  // partitioned by the trace, riders are either ALL on the path or ALL off it, so
+  // "any rider is traced" and "every rider is traced" now agree — a stem can no
+  // longer light on behalf of dependencies that are not on the path. What is still a
+  // genuine mixture is DIRECTION: a stem carrying both an upstream and a downstream
+  // dependency stays at full strength, because half-fading a live conduit under-claims.
   const dimEdges = (es: Edge[]) => !!focus && es.length > 0 && es.every(dimEdge);
   const upEdges = (es: Edge[]) => !!focus && es.length > 0 && es.every((e) => upEdge(e) || dimEdge(e)) && es.some(upEdge);
   // One class for a piece of rail ink, so every site picks its level the same way.
@@ -454,7 +473,11 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   // degenerate span must degrade to a tight jog, never a negative radius (which
   // renders as a giant off-panel arc — the old branch-then-rejoin bug). A bundle of
   // one draws exactly the single bypass loop it always did.
-  const corner = (yA: number, yB: number) => Math.max(2, Math.min(7, Math.abs(yB - yA) / 2 - 2));
+  // The radius is clamped by the lane PITCH as well as the vertical gap: at a trace's
+  // finer pitch an unclamped corner would start its arc past the main line and the
+  // jog would double back on itself.
+  const corner = (yA: number, yB: number) =>
+    Math.max(2, Math.min(7, lanePitch - 3, Math.abs(yB - yA) / 2 - 2));
   const tiePath = (bx: number, y: number, r: number, at: 'top' | 'bottom' | 'mid') => {
     if (at === 'top') return `M ${mainX} ${y} L ${bx + r} ${y} Q ${bx} ${y} ${bx} ${y + r}`;
     if (at === 'bottom') return `M ${bx} ${y - r} Q ${bx} ${y} ${bx + r} ${y} L ${mainX} ${y}`;
@@ -1043,7 +1066,9 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               </g>
             );
           })}
-          {bundles.map((b) => {
+          {/* ghosts first, traced routes last: the answer is never crossed by the
+              context it was extracted from */}
+          {[...bundles].sort((a, b) => Number(a.traced) - Number(b.traced)).map((b) => {
             const ys = b.ties.map((tie) => geom.ys[tie.phaseId]);
             if (ys.some((y) => y == null)) return null;
             const bx = laneX(b.lane);

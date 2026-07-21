@@ -1,5 +1,6 @@
 import {
-  stationOrder, bundleEdges, focusSubgraph, type Bundle, type LayoutRow,
+  stationOrder, bundleEdges, focusSubgraph,
+  type Bundle, type Edge, type FocusSet, type LayoutRow,
 } from '../src/lib/phaseTrackLayout';
 
 const row = (id: number, parents: number[] = [], progress = 0): LayoutRow => ({
@@ -67,6 +68,19 @@ const renderedKeys = (mainline: { from: number; to: number }[], bundles: Bundle[
   expect(new Set(keys).size).toBe(keys.length); // no duplicates: no edge drawn twice
   return new Set(keys);
 };
+
+// The program this whole change exists for: the built-in AAOS template as it
+// renders on Ford Evos — one phase (3, BSP & power-on) feeding six workstreams that
+// all converge on one compliance gate (13). Fifteen bypasses used to claim nine
+// parallel lanes. Ids follow rail order: 1 Architecture lock · 2 Silicon · 3 BSP ·
+// 4 Connectivity · 5 App platform · 6 Display · 7 Audio · 8 Rich media · 9 Vehicle
+// sensors · 10 Camera & ADAS · 11 Hypervisor · 12 OTA · 13 Compliance gates ·
+// 14 GAS/GBI · 15 Launch readiness.
+const fordEvos = (): LayoutRow[] => [
+  row(1), row(2, [1]), row(3, [2]), row(4, [3]), row(5, [4]),
+  row(6, [3]), row(7, [3]), row(8, [7, 5, 6]), row(9, [3]), row(10, [3]),
+  row(11, [3]), row(12, [3]), row(13, [12, 4, 6, 7, 8, 9, 10, 11]), row(14, [13]), row(15, [14]),
+];
 
 describe('bundleEdges', () => {
   it('keeps adjacent edges on the main line — no branch, no lane', () => {
@@ -145,15 +159,6 @@ describe('bundleEdges', () => {
     expect(mainline[0].done).toBe(true);
   });
 
-  // The program this whole change exists for: the built-in AAOS template as it
-  // renders on Ford Evos — one phase feeding six workstreams that all converge on
-  // one compliance gate. Fifteen bypasses used to claim nine parallel lanes.
-  const fordEvos = (): LayoutRow[] => [
-    row(1), row(2, [1]), row(3, [2]), row(4, [3]), row(5, [4]),
-    row(6, [3]), row(7, [3]), row(8, [7, 5, 6]), row(9, [3]), row(10, [3]),
-    row(11, [3]), row(12, [3]), row(13, [12, 4, 6, 7, 8, 9, 10, 11]), row(14, [13]), row(15, [14]),
-  ];
-
   it('collapses the Ford Evos thicket from nine lanes to three', () => {
     const { bundles, laneCount } = bundleEdges(fordEvos(), new Set());
     expect(laneCount).toBe(3);
@@ -231,5 +236,121 @@ describe('focusSubgraph', () => {
     const cyclic = [row(1, [2]), row(2, [1])];
     expect(() => focusSubgraph(cyclic, 1)).not.toThrow();
     expect(focusSubgraph(cyclic, 1)!.nodes.has(2)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A LIT LINE MEANS EXACTLY ONE THING: "this dependency is on a path through the
+// selected phase."
+//
+// Bundle ink cannot be partly lit, so while traced and untraced dependencies shared
+// a stem, one traced rider lit the whole thing — and that stem's label enumerated
+// phases sitting ghosted a few pixels away. Tracing Camera & ADAS lit both the
+// six-way fan-out of BSP and the seven-way fan-in of Compliance gates, when only one
+// dependency on each was actually on the path: eleven false claims.
+//
+// The fix is a partition, not a weight: traced and untraced bypasses are bundled
+// separately, so no line ever carries both. These tests hold that line — they are the
+// layout-level twin of the DOM audit "no lit line may name a faded phase".
+// ---------------------------------------------------------------------------
+describe('a trace never lights ink that stands for an untraced dependency', () => {
+  const key = (e: Edge) => `${e.from}-${e.to}`;
+
+  // Mirrors PhaseTrack's ink rule exactly: a piece of rail ink recedes only when
+  // EVERY dependency riding it is off the path, so it is lit as soon as one is on it.
+  // Whatever is lit therefore speaks for all of its riders — which is the whole point.
+  const litDependencies = (mainline: Edge[], bundles: Bundle[], focus: FocusSet): Set<string> => {
+    const onPath = (e: Edge) => focus.edgeKeys.has(key(e));
+    const lit = new Set<string>();
+    const ink = (riders: Edge[]) => {
+      if (riders.length > 0 && riders.some(onPath)) riders.forEach((e) => lit.add(key(e)));
+    };
+    mainline.forEach((e) => ink([e]));
+    for (const b of bundles) {
+      b.segments.forEach((s) => ink(s.edges));
+      b.ties.forEach((tie) => ink(tie.edges));
+    }
+    return lit;
+  };
+
+  const trace = (rows: LayoutRow[], id: number) => {
+    const focus = focusSubgraph(rows, id)!;
+    return { focus, ...bundleEdges(rows, new Set(), focus) };
+  };
+
+  it('lights exactly the traced dependencies, for EVERY phase of the fixture', () => {
+    const rows = fordEvos();
+    for (const r of rows) {
+      const { focus, mainline, bundles } = trace(rows, r.id);
+      // equality, not containment: no supersets (false claims), no missing ink either
+      expect([...litDependencies(mainline, bundles, focus)].sort())
+        .toEqual([...focus.edgeKeys].sort());
+    }
+  });
+
+  it('never leaves a bundle carrying both a traced and an untraced dependency', () => {
+    const rows = fordEvos();
+    for (const r of rows) {
+      const { focus, bundles } = trace(rows, r.id);
+      for (const b of bundles) {
+        const traced = b.edges.map((e) => focus.edgeKeys.has(key(e)));
+        expect(new Set(traced).size).toBe(1); // homogeneous
+        expect(b.traced).toBe(traced[0]); // and the flag says which
+      }
+    }
+  });
+
+  // The DOM audit, at layout level. A tie's label names the other end of every
+  // dependency terminating there; on a LIT line every one of those must be a phase
+  // the reader can see (self, upstream or downstream).
+  it('lets a lit line name only phases that are themselves lit', () => {
+    const rows = fordEvos();
+    for (const r of rows) {
+      const { focus, bundles } = trace(rows, r.id);
+      for (const b of bundles.filter((x) => x.traced)) {
+        for (const tie of b.ties) {
+          for (const e of tie.edges) {
+            expect(focus.nodes.has(e.from)).toBe(true);
+            expect(focus.nodes.has(e.to)).toBe(true);
+          }
+        }
+      }
+    }
+  });
+
+  // The reported defect, pinned: Camera & ADAS (10) is fed only by BSP (3) and feeds
+  // only Compliance gates (13). Both of its neighbours head big bundles, and both
+  // used to light whole.
+  it('extracts Camera & ADAS from the two fans it sits in the middle of', () => {
+    const rows = fordEvos();
+    const { focus, mainline, bundles } = trace(rows, 10);
+    const lit = litDependencies(mainline, bundles, focus);
+
+    expect([...lit].sort()).toEqual(['1-2', '10-13', '13-14', '14-15', '2-3', '3-10']);
+    // the eleven siblings on those two stems stay dark
+    for (const other of ['3-6', '3-7', '3-9', '3-11', '3-12', '4-13', '6-13', '7-13', '8-13', '9-13', '11-13']) {
+      expect(lit.has(other)).toBe(false);
+    }
+    // and the two traced bypasses are their own lines, not a share of anyone's
+    const traced = bundles.filter((b) => b.traced);
+    expect(traced.map((b) => b.edges.map(key)).sort()).toEqual([['10-13'], ['3-10']]);
+  });
+
+  it('still merges the traced side rather than exploding it into one lane each', () => {
+    // Tracing the convergence phase puts every dependency on the path: bundling has
+    // to keep working there, or the gutter returns to the nine-lane thicket.
+    const rows = fordEvos();
+    const { focus, bundles, laneCount } = trace(rows, 13);
+    expect(bundles.every((b) => b.traced)).toBe(true);
+    expect(focus.edgeKeys.size).toBe(dependencyKeys(rows).size);
+    expect(laneCount).toBe(3);
+  });
+
+  it('leaves the resting view bundled exactly as it was', () => {
+    const rows = fordEvos();
+    const rest = bundleEdges(rows, new Set());
+    expect(rest.laneCount).toBe(3);
+    expect(rest.bundles.every((b) => b.traced)).toBe(false);
+    expect(renderedKeys(rest.mainline, rest.bundles)).toEqual(dependencyKeys(rows));
   });
 });

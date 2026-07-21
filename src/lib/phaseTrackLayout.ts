@@ -161,6 +161,12 @@ export interface Bundle {
   ties: BundleTie[]; // sorted top → bottom
   segments: TrunkSegment[]; // ties.length - 1 of them, top → bottom
   edges: Edge[];
+  /**
+   * Every dependency on this line is on a path through the traced phase. Always
+   * false with no trace running. A bundle is never MIXED (see bundleEdges), so
+   * this is a property of the whole line rather than of each rider.
+   */
+  traced: boolean;
 }
 
 interface Group {
@@ -214,7 +220,7 @@ const betterGroup = (a: Group, b: Group): boolean =>
       : a.hubIdx !== b.hubIdx ? a.hubIdx < b.hubIdx
         : a.key < b.key;
 
-function buildBundle(g: Group, ordered: LayoutRow[]): Omit<Bundle, 'lane'> {
+function buildBundle(g: Group, ordered: LayoutRow[]): Omit<Bundle, 'lane' | 'traced'> {
   const tieIdxs = [...new Set(g.edges.flatMap((e) => [e.fromIdx, e.toIdx]))].sort((a, b) => a - b);
   const hubId = ordered[g.hubIdx].id;
   const ties: BundleTie[] = tieIdxs.map((i) => {
@@ -242,13 +248,15 @@ function buildBundle(g: Group, ordered: LayoutRow[]): Omit<Bundle, 'lane'> {
 }
 
 /**
- * Interval coloring over BUNDLES rather than edges. Short branches take the inner
- * lanes so the long ones cross fewer ties, and two branches never share a lane when
- * their spans touch — a shared tie position would fuse them into one apparent line.
+ * Interval coloring over BUNDLES rather than edges. Traced branches take the inner
+ * lanes — the answer to the question belongs nearest the spine — then short branches,
+ * so the long ones cross fewer ties. Two branches never share a lane when their spans
+ * touch: a shared tie position would fuse them into one apparent line.
  */
 function assignLanes(bundles: Omit<Bundle, 'lane'>[]): { bundles: Bundle[]; laneCount: number } {
   const order = [...bundles].sort((a, b) =>
-    (a.toIdx - a.fromIdx) - (b.toIdx - b.fromIdx) || a.fromIdx - b.fromIdx || (a.key < b.key ? -1 : 1));
+    Number(b.traced) - Number(a.traced)
+    || (a.toIdx - a.fromIdx) - (b.toIdx - b.fromIdx) || a.fromIdx - b.fromIdx || (a.key < b.key ? -1 : 1));
   const lanes: { from: number; to: number }[][] = [];
   const placed = new Map<string, number>();
   for (const b of order) {
@@ -266,15 +274,41 @@ function assignLanes(bundles: Omit<Bundle, 'lane'>[]): { bundles: Bundle[]; lane
 /**
  * Split dependency edges into main-line segments (adjacent stations) and bundled
  * branch lines (everything that skips a station), then lane the branches.
+ *
+ * With a trace running, the traced and untraced bypasses are bundled SEPARATELY, so
+ * no line ever carries both. Sharing was the defect: bundle ink cannot be partly
+ * lit, so one traced rider lit the whole stem — and that stem's label enumerated six
+ * other phases sitting ghosted a few pixels away. A lit line has to mean exactly one
+ * thing, "this dependency is on a path through the selected phase", and a mixed line
+ * cannot. Partitioning keeps the promise while still merging within each side, so the
+ * traced routes stay readable instead of exploding back into one lane per dependency
+ * (tracing a convergence phase would be fifteen of them on the AAOS template).
  */
 export function bundleEdges(
-  ordered: LayoutRow[], chainKeys: Set<string>,
-): { mainline: Edge[]; bundles: Bundle[]; laneCount: number } {
+  ordered: LayoutRow[], chainKeys: Set<string>, focus?: FocusSet | null,
+): { mainline: Edge[]; bundles: Bundle[]; laneCount: number; restingLaneCount: number } {
   const all = railEdges(ordered, chainKeys);
   const mainline = all.filter((e) => !isBypass(e));
-  const groups = groupBypasses(all.filter(isBypass), ordered);
-  const { bundles, laneCount } = assignLanes(groups.map((g) => buildBundle(g, ordered)));
-  return { mainline, bundles, laneCount };
+  const bypasses = all.filter(isBypass);
+  const onPath = (e: Edge) => !!focus && focus.edgeKeys.has(`${e.from}-${e.to}`);
+  const lay = (edges: Edge[], traced: boolean, prefix: string) =>
+    groupBypasses(edges, ordered).map((g) => {
+      const b = buildBundle(g, ordered);
+      return { ...b, key: `${prefix}${b.key}`, traced };
+    });
+  // Prefixed keys: the same hub can head a traced AND an untraced branch, and the two
+  // are different lines that must not collide in the lane map or in React's keys.
+  const built = focus
+    ? [...lay(bypasses.filter((e) => !onPath(e)), false, 'rest:'), ...lay(bypasses.filter(onPath), true, 'trace:')]
+    : lay(bypasses, false, '');
+  const { bundles, laneCount } = assignLanes(built);
+  // Splitting a bundle can need more lanes than the resting view. The GUTTER must not
+  // grow to hold them: its width is the rows' left padding, so widening it re-wraps
+  // every row and the whole list jumps vertically the moment you click. The caller
+  // sizes the gutter from the resting count and fits any extra lanes into it by
+  // narrowing the pitch — the rail gets denser, never wider.
+  const restingLaneCount = focus ? assignLanes(lay(bypasses, false, '')).laneCount : laneCount;
+  return { mainline, bundles, laneCount, restingLaneCount };
 }
 
 // ---------------------------------------------------------------------------
