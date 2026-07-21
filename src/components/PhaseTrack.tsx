@@ -129,14 +129,15 @@ function pillClass(typeName: string | null, companyName: string | null, isPerson
 // Monochrome station symbol: filled = done, right-half = in progress, open = not
 // started. Heavier ink for critical-chain stations; the shared ConstraintRing marks
 // the constraint. Hover for the name+status; click traces the phase's dependencies.
-function Station({ x, y, progress, started, onChain, isConstraint, title, dimmed, onClick }: {
+function Station({ x, y, progress, started, onChain, isConstraint, title, dimmed, upstream, onClick }: {
   x: number; y: number; progress: number; started?: boolean; onChain: boolean; isConstraint: boolean;
-  title: string; dimmed?: boolean; onClick?: () => void;
+  title: string; dimmed?: boolean; upstream?: boolean; onClick?: () => void;
 }) {
   const r = onChain ? 6 : 5;
   const stroke = onChain ? INK : 'var(--muted)';
+  const level = dimmed ? styles.dim : upstream ? styles.upstream : '';
   return (
-    <g onClick={onClick} className={dimmed ? `${styles.station} ${styles.dim}` : styles.station}>
+    <g onClick={onClick} className={`${styles.station} ${level}`.trim()}>
       {/* The dot is 10px across and it is now a control (click to trace), so it
           carries a 24px transparent target — the drawn symbol stays the same size,
           the thing you can hit does not. `transparent` is a paint, so SVG's
@@ -311,15 +312,38 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   const focus = focusSubgraph(ordered, focusId);
   const focused = focusId != null ? byId.get(focusId) : null;
   const toggleFocus = (id: number) => setFocusId((cur) => (cur === id ? null : id));
-  // Three levels while tracing: the phase itself, anything on a path through it,
-  // everything else receding. Off the mode, everything reads at full strength.
-  const relOf = (id: number): 'self' | 'near' | 'far' | undefined =>
-    !focus ? undefined : id === focus.id ? 'self' : focus.nodes.has(id) ? 'near' : 'far';
+  // FOUR levels while tracing, all on the one recession channel (PhaseTrack.module.css):
+  // the phase itself, what WAITS on it at full strength, what it waits FOR at half,
+  // and everything else a ghost. Splitting the two directions is what gives a trace on
+  // a spine phase anything to say — everything is on a path through those, so a
+  // near/far scale dimmed nothing and the click read as "nothing happened".
+  // Off the mode, everything reads at full strength.
+  const relOf = (id: number): 'self' | 'up' | 'down' | 'far' | undefined =>
+    !focus ? undefined
+      : id === focus.id ? 'self'
+      : focus.upstream.has(id) ? 'up'
+      : focus.downstream.has(id) ? 'down'
+      : 'far';
   const dimNode = (id: number) => !!focus && !focus.nodes.has(id);
-  const dimEdge = (e: Edge) => !!focus && !focus.edgeKeys.has(`${e.from}-${e.to}`);
+  const upNode = (id: number) => !!focus && focus.upstream.has(id);
+  const onPath = (e: Edge) => !!focus && focus.edgeKeys.has(`${e.from}-${e.to}`);
+  const dimEdge = (e: Edge) => !!focus && !onPath(e);
+  // An edge sits on the upstream side when BOTH its ends do — the same both-ends
+  // test focusSubgraph uses to admit the edge at all, so an edge that merely
+  // touches an ancestor cannot claim the upstream treatment.
+  const upEdge = (e: Edge) =>
+    !!focus && onPath(e) &&
+    (focus.upstream.has(e.from) || e.from === focus.id) &&
+    (focus.upstream.has(e.to) || e.to === focus.id);
   // A trunk is shared conduit, not a claim in itself: it stays lit while any
   // dependency riding it is in the traced set, or its own ties would float loose.
+  // By the same logic it only recedes to upstream weight when EVERY dependency on
+  // it is upstream — one downstream rider keeps the whole stretch at full strength.
   const dimEdges = (es: Edge[]) => !!focus && es.length > 0 && es.every(dimEdge);
+  const upEdges = (es: Edge[]) => !!focus && es.length > 0 && es.every((e) => upEdge(e) || dimEdge(e)) && es.some(upEdge);
+  // One class for a piece of rail ink, so every site picks its level the same way.
+  const inkClass = (es: Edge[]): string | undefined =>
+    dimEdges(es) ? styles.dim : upEdges(es) ? styles.upstream : undefined;
 
   // Title ⋯ menu: bulk expand/hide plus the one door to structural editing.
   const [menuOpen, setMenuOpen] = useState(false);
@@ -1012,7 +1036,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
             const y1 = geom.ys[e.from], y2 = geom.ys[e.to];
             if (y1 == null || y2 == null) return null;
             return (
-              <g key={`m${e.from}-${e.to}`} className={dimEdge(e) ? styles.dim : undefined}>
+              <g key={`m${e.from}-${e.to}`} className={inkClass([e])}>
                 <line x1={mainX} y1={y1} x2={mainX} y2={y2}
                   stroke={e.done ? INK : 'var(--border)'} strokeWidth={e.onChain ? 3.5 : 2} strokeLinecap="round" />
                 <title>{edgeTitle(e)}</title>
@@ -1035,11 +1059,11 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     y1={k === 0 ? ys[0]! + rTop : ys[k]!}
                     y2={k === last - 1 ? ys[last]! - rBot : ys[k + 1]!}
                     stroke={s.done ? INK : 'var(--border)'} strokeWidth={s.onChain ? 3.5 : 1.8}
-                    className={dimEdges(s.edges) ? styles.dim : undefined} />
+                    className={inkClass(s.edges)} />
                 ))}
                 {/* ties: the branch meeting the main line at each phase on it */}
                 {b.ties.map((tie, k) => (
-                  <g key={tie.phaseId} className={dimEdges(tie.edges) ? styles.dim : undefined}>
+                  <g key={tie.phaseId} className={inkClass(tie.edges)}>
                     <path
                       d={tiePath(bx, ys[k]!, k === 0 ? rTop : rBot, k === 0 ? 'top' : k === last ? 'bottom' : 'mid')}
                       fill="none" stroke={tie.done ? INK : 'var(--border)'}
@@ -1056,7 +1080,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               <Station key={p.id} x={mainX} y={geom.ys[p.id]} progress={p.progress}
                 started={isPhaseActive(p.progress, p.startedAt)}
                 onChain={onChainSet.has(p.id)} isConstraint={chain.constraintId === p.id}
-                dimmed={dimNode(p.id)}
+                dimmed={dimNode(p.id)} upstream={upNode(p.id)}
                 title={`${p.name} — ${status(statusProgress(p.progress, p.startedAt))}`}
                 onClick={() => toggleFocus(p.id)} />
             ),

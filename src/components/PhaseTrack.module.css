@@ -133,15 +133,47 @@
 }
 
 /* ---- TRACE mode: one phase, its ancestors, its descendants ----
-   Three levels, and only free channels: weight already says "critical chain" and
-   the chain purple already says "constraint", so the trace works by RECEDING
-   everything unrelated. The picked phase gets one quiet surface band so it can be
-   told from the rest of its own neighbourhood. */
+   Only free channels: weight already says "critical chain" and the chain purple
+   already says "constraint", so the trace works by RECEDING what matters less.
+   The picked phase gets one quiet surface band so it can be told from the rest of
+   its own neighbourhood.
+
+   FOUR steps on that ONE channel, ordered by how much the phase should concern
+   you right now, so no second channel is spent and no legend is needed to read
+   it — brighter is simply more relevant:
+
+     self       the picked phase, plus a surface band
+     downstream full strength — what is WAITING on it; if this slips, these slip
+     upstream   half — what it is waiting FOR: context, already accounted for
+     unrelated  a bare ghost — present, so the program's shape survives, but
+                nowhere near competing with the path
+
+   The upstream/downstream split is what makes a trace on a spine phase say
+   something. Everything is on a path through those, so a two-step scale dimmed
+   nothing and the click read as "nothing happened" — on the 15-phase template
+   that was 6 phases of 15, and every phase of a purely linear program. */
 .dim {
-  opacity: 0.15;
+  opacity: 0.06;
+}
+.upstream {
+  opacity: 0.5;
 }
 .row[data-rel='far'] {
-  opacity: 0.32;
+  opacity: 0.18;
+}
+.row[data-rel='up'] {
+  opacity: 0.55;
+}
+
+/* A receded row still holds real controls — the phase name, DETAILS, the collapse
+   toggle — and they stay tabbable while tracing. At 18% they would be reachable
+   and unreadable at once, which is the worst of both, so reaching a row with
+   pointer or keyboard restores it. The trace is a reading aid, never a lock. */
+.row[data-rel='far']:hover,
+.row[data-rel='far']:focus-within,
+.row[data-rel='up']:hover,
+.row[data-rel='up']:focus-within {
+  opacity: 1;
 }
 .row[data-rel='self'] {
   background: var(--surface);

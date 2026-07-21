@@ -54,6 +54,31 @@ test.describe('PhaseTrack rail', () => {
     await expect(page.getByRole('link', { name: /click to trace/ })).toHaveCount(0);
   });
 
+  // A trace has to distinguish the two DIRECTIONS, not just related-vs-not. On a
+  // phase every other phase happens to sit on a path through — the spine of a
+  // converging plan — a related/unrelated scale dims nothing, so the click reads as
+  // "nothing happened" (it was 6 of 15 phases on the AAOS template). Asserting the
+  // four levels on the fixture's diamond: Bring-up → Integration → Certification,
+  // with Audio hanging off Bring-up and therefore unrelated to Integration.
+  test('tracing separates upstream, downstream and unrelated', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
+    const rel = (name: string) => row(page, name).getAttribute('data-rel');
+
+    await expect(async () => {
+      await row(page, 'Integration').locator('a:text-is("Integration")').click({ timeout: 2000 });
+      expect(await rel('Integration')).toBe('self');
+    }).toPass({ timeout: 20000 });
+
+    expect(await rel('Bring-up')).toBe('up');        // what Integration waits FOR
+    expect(await rel('Certification')).toBe('down'); // what waits ON Integration
+    expect(await rel('Audio')).toBe('far');          // a sibling branch, on no path through it
+
+    // Receded rows keep real controls, so they must not be left reachable-but-unreadable.
+    const audio = row(page, 'Audio');
+    await audio.locator('a:text-is("Audio")').focus();
+    await expect(audio).toHaveCSS('opacity', '1');
+  });
+
   test('cards are compact: typed pills without role labels, no status words', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
 
