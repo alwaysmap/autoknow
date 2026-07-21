@@ -431,11 +431,45 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     setStartedSave(null);
     setDetailsId(p.id);
   };
+  const startedRef = useRef<HTMLInputElement>(null);
+  // Commit (or clear) the explicit "work started on" date — shared by the date picker
+  // and the drag-to-Not-Started gesture. An empty value nulls the start (nullable).
+  const commitStarted = async (value: string) => {
+    if (!details) return;
+    const fd = new FormData();
+    fd.set('phaseId', String(details.id));
+    fd.set('projectId', String(projectId));
+    fd.set('startedOn', value);
+    setSubmitting(true);
+    if (startedTimer.current) clearTimeout(startedTimer.current);
+    setStartedSave(null);
+    try {
+      await setPhaseStarted(fd);
+      setStartedSave('saved');
+      startedTimer.current = setTimeout(() => setStartedSave(null), 2500);
+    } catch (err) {
+      console.error(err);
+      setStartedSave('error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  // Dragging the dot to the far-left "Not Started" position clears the start date, so a
+  // retract is one gesture. No-ops once the field is already empty, so a drag that
+  // dwells at 0 commits the clear only once.
+  const clearStarted = () => {
+    const el = startedRef.current;
+    if (!el || !el.value) return;
+    el.value = '';
+    void commitStarted('');
+  };
   const fromX = (clientX: number) => {
     if (!updateSvgRef.current) return;
     const r = updateSvgRef.current.getBoundingClientRect();
     const xv = ((clientX - r.left) / r.width) * 200;
-    setDrag(Math.round(Math.max(0, Math.min(100, ((xv - 10) / 180) * 100))));
+    const next = Math.round(Math.max(0, Math.min(100, ((xv - 10) / 180) * 100)));
+    setDrag(next);
+    if (next === 0) clearStarted();
   };
 
   // The popover body — built only when a phase is focused, rendered inside the scrim.
@@ -516,29 +550,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               <label className={styles.startedRow}>
                 <span>{t(locale, 'workStartedOn')}</span>
                 <input
+                  ref={startedRef}
                   type="date"
                   className={styles.startedInput}
                   defaultValue={p.startedAt ? p.startedAt.slice(0, 10) : ''}
                   disabled={submitting}
-                  onChange={async (e) => {
-                    const fd = new FormData();
-                    fd.set('phaseId', String(p.id));
-                    fd.set('projectId', String(projectId));
-                    fd.set('startedOn', e.target.value);
-                    setSubmitting(true);
-                    if (startedTimer.current) clearTimeout(startedTimer.current);
-                    setStartedSave(null);
-                    try {
-                      await setPhaseStarted(fd);
-                      setStartedSave('saved');
-                      startedTimer.current = setTimeout(() => setStartedSave(null), 2500);
-                    } catch (err) {
-                      console.error(err);
-                      setStartedSave('error');
-                    } finally {
-                      setSubmitting(false);
-                    }
-                  }}
+                  onChange={(e) => commitStarted(e.target.value)}
                 />
                 {startedSave === 'saved' && (
                   <span className={styles.savedTick} role="status">✓ {t(locale, 'saved')}</span>
@@ -596,8 +613,9 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     min="0"
                     max="100"
                     name="hillChartProgress"
+                    // (keyboard/E2E path to the same dot) — 0 clears the start too
                     value={drag}
-                    onChange={(e) => setDrag(parseInt(e.target.value))}
+                    onChange={(e) => { const v = parseInt(e.target.value); setDrag(v); if (v === 0) clearStarted(); }}
                     style={{ position: 'absolute', left: '-624.9375rem', width: 10, height: 10, opacity: 0.01 }}
                   />
                 )}
