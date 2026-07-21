@@ -164,4 +164,43 @@ describe('seedMockData through the API', () => {
     expect(states[1].theNeedle).toBe('Some Risk'); // scoreToHealth(3)
     expect(states[0].notes).toBeTruthy(); // the journal requires a written note
   });
+
+  // Faulty-mock-data guard. A phase must not be seeded as started (current progress
+  // > 0) while any dependency is still incomplete — that would draw the schedule
+  // chart as if a downstream phase began before its prerequisite finished, which the
+  // DAG forbids. seedTemplatePhases enforces it for template programs; the chain-ledger
+  // showcase is hand-authored to respect it. This asserts it holds across EVERY seeded
+  // program, so a future edit that reintroduces the incoherence fails loudly here. (A
+  // deliberate edge case would be documented and exempted — none exists today.)
+  it('no phase is started before its dependencies are complete (DAG coherence)', async () => {
+    const projects = await prisma.project.findMany({
+      include: {
+        phases: {
+          include: {
+            states: { orderBy: { timestamp: 'desc' }, take: 1 },
+            dependencies: true,
+          },
+        },
+      },
+    });
+    const violations: string[] = [];
+    for (const proj of projects) {
+      const progressById = new Map(proj.phases.map((ph) => [ph.id, ph.states[0]?.hillChartProgress ?? 0]));
+      const nameById = new Map(proj.phases.map((ph) => [ph.id, ph.name]));
+      for (const ph of proj.phases) {
+        const progress = progressById.get(ph.id) ?? 0;
+        if (progress <= 0) continue; // not started — nothing to gate
+        for (const dep of ph.dependencies) {
+          const depProgress = progressById.get(dep.dependsOnPhaseId) ?? 0;
+          if (depProgress < 100) {
+            violations.push(
+              `${proj.name}: "${ph.name}" is ${progress}% but its dependency ` +
+                `"${nameById.get(dep.dependsOnPhaseId)}" is only ${depProgress}%`,
+            );
+          }
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
 });

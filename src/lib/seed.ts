@@ -764,7 +764,7 @@ export async function seedMockData() {
     // --- AAOS bring-ups ---
     { name: 'Honda Accord AAOS Bring-up', partnerId: hondaId, owner: 'marcusw', sop: '2027-04-30', vol: 220000,
       gas: true, gbi: true, dk: false, needle: 'Some Risk', hill: 45,
-      phases: [ { n: 'BSP & Power-on', d: 30, p: 100 }, { n: 'HAL Integration', d: 45, p: 55 }, { n: 'Cluster Bring-up', d: 30, p: 20 }, { n: 'Certification', d: 40, p: 0 } ],
+      phases: [ { n: 'BSP & Power-on', d: 30, p: 100 }, { n: 'HAL Integration', d: 45, p: 55 }, { n: 'Cluster Bring-up', d: 30, p: 0 }, { n: 'Certification', d: 40, p: 0 } ],
       suppliers: [densoId, mediatekId], people: [aikoId, deepakId, marcusId] },
     { name: 'GM Ultifi AAOS Migration', partnerId: gmId, owner: 'marcusw', sop: '2027-09-30', vol: 340000,
       gas: true, gbi: true, dk: false, needle: 'On Track', hill: 30,
@@ -772,7 +772,7 @@ export async function seedMockData() {
       suppliers: [lgeId], people: [carlosId, minjiId, marcusId] },
     { name: 'Volvo EX90 AAOS Refresh', partnerId: volvoCarsId, owner: 'dylan', sop: '2026-12-31', vol: 90000,
       gas: true, gbi: false, dk: false, needle: 'Concerned', hill: 70,
-      phases: [ { n: 'Platform Rebase', d: 30, p: 100 }, { n: 'Driver Update Pass', d: 25, p: 80 }, { n: 'Regression & Cert', d: 35, p: 10 } ],
+      phases: [ { n: 'Platform Rebase', d: 30, p: 100 }, { n: 'Driver Update Pass', d: 25, p: 80 }, { n: 'Regression & Cert', d: 35, p: 0 } ],
       suppliers: [continentalId], people: [lenaId, svenId] },
     // --- GAS integrations ---
     { name: 'Hyundai Ioniq GAS Integration', partnerId: hyundaiId, owner: 'priyash', sop: '2027-06-30', vol: 260000,
