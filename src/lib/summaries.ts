@@ -5,7 +5,7 @@ import { DEFAULT_SUMMARY_PROMPTS, type SummaryScope } from './summaryPrompts';
 import { computeCriticalChain } from './criticalChain';
 import { parseHealth } from './health';
 import { deriveScore } from './relationship';
-import { hillStatus } from './phase';
+import { hillStatus, phaseDetailHref } from './phase';
 import { sopOutlook } from './sop';
 
 // The leadership-summary engine, one machine for three scopes (ecosystem / partner /
@@ -153,7 +153,7 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
         ev.push(
           'hill',
           `${i === 0 ? 'CURRENT ' : ''}phase "${phase.name}" (${project.name}) ${fmtDate(s.timestamp)}: ${hillStatus(s.hillChartProgress ?? 0)}${s.notes ? ` — ${s.notes}` : ''}${partners && i === 0 ? ` [partners involved: ${partners}]` : ''}`,
-          { label: `${phase.name} · ${fmtDate(s.timestamp)}`, href: `/history/phase/${phase.id}`, external: false },
+          { label: `${phase.name} · ${fmtDate(s.timestamp)}`, href: phaseDetailHref(projectId, phase.id), external: false },
         );
       });
 
@@ -390,6 +390,50 @@ ${ev.records.map((e) => `[${e.id}] (${e.kind}) ${e.text}`).join('\n')}`;
   return row.id;
 }
 
+// Briefs are stored append-only with their citation hrefs baked in, and a brief is
+// only regenerated once its scope goes stale — so every brief written before
+// 2026-07-21 still cites `/history/phase/:id`, a page that no longer exists. Rewrite
+// those on READ rather than leave a 404 under a bullet: the same record now lives in
+// the DETAILS popover on the phase's program page. Split into a pure rewrite plus an
+// id-collector so the mapping can be unit-tested without a database, and delete both
+// once no stored brief carries the old shape.
+const LEGACY_PHASE_HREF = /^\/history\/phase\/(\d+)$/;
+
+export function legacyPhaseCitationIds(body: SummaryBody): number[] {
+  const ids = new Set<number>();
+  for (const s of body.sections ?? []) {
+    for (const b of s.bullets ?? []) {
+      for (const c of b.citations ?? []) {
+        const m = LEGACY_PHASE_HREF.exec(c.href);
+        if (m) ids.add(parseInt(m[1], 10));
+      }
+    }
+  }
+  return [...ids];
+}
+
+/** @param projectOf phase id → the program it belongs to; a phase missing from the
+ *  map was deleted, and its citation is DROPPED — a dead link is worse than one
+ *  fewer receipt, and the bullet's words still stand. */
+export function rewriteLegacyPhaseCitations(body: SummaryBody, projectOf: Map<number, number>): SummaryBody {
+  return {
+    ...body,
+    sections: (body.sections ?? []).map((s) => ({
+      ...s,
+      bullets: (s.bullets ?? []).map((b) => ({
+        ...b,
+        citations: (b.citations ?? []).flatMap((c) => {
+          const m = LEGACY_PHASE_HREF.exec(c.href);
+          if (!m) return [c];
+          const phaseId = parseInt(m[1], 10);
+          const projectId = projectOf.get(phaseId);
+          return projectId == null ? [] : [{ ...c, href: phaseDetailHref(projectId, phaseId) }];
+        }),
+      })),
+    })),
+  };
+}
+
 /** Latest summary for a scope, with a staleness flag against newer scope-relevant
  *  content (new content ingested or added ⇒ stale ⇒ the panel refreshes it). */
 export async function getSummary(scope: SummaryScope, targetId: number): Promise<SummaryView | null> {
@@ -425,6 +469,17 @@ export async function getSummary(scope: SummaryScope, targetId: number): Promise
     stale = !!(a || b || c);
   }
 
+  // Only costs a query while a pre-retirement brief is still on file.
+  let body = row.body as unknown as SummaryBody;
+  const legacyIds = legacyPhaseCitationIds(body);
+  if (legacyIds.length > 0) {
+    const phases = await prisma.phase.findMany({
+      where: { id: { in: legacyIds } },
+      select: { id: true, projectId: true },
+    });
+    body = rewriteLegacyPhaseCitations(body, new Map(phases.map((p) => [p.id, p.projectId])));
+  }
+
   const counts = row.sourceCounts as Record<string, number> | null;
   return {
     id: row.id,
@@ -434,7 +489,7 @@ export async function getSummary(scope: SummaryScope, targetId: number): Promise
     trigger: row.trigger,
     model: row.model,
     tldr: row.tldr,
-    body: row.body as unknown as SummaryBody,
+    body,
     sourceCount: counts ? Object.values(counts).reduce((x, y) => x + y, 0) : 0,
     stale,
   };

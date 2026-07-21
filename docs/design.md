@@ -26,7 +26,7 @@ To maximize readability and ensure a clean, distraction-free environment:
   the heading's accessible name.
 Every entity displayed in a dashboard view or detail card must serve as an active navigation affordance:
 * **Hyperlinked Names**: Partner names, OEM names, Supplier lists, and owner LDAP emails must always be links leading to their respective detail pages (e.g. `/partners/[id]`, `/people/[ldap]`).
-* **Interactive Cells**: Count fields (e.g. "Active Programs") must link to pre-filtered lists (e.g., `/partners/[id]?filter=active`). Action phase names must link directly to the history logs of the project detail view.
+* **Interactive Cells**: Count fields (e.g. "Active Programs") must link to pre-filtered lists (e.g., `/partners/[id]?filter=active`). Phase names must link to that phase's record — `/programs/[id]#phase-[phaseId]-detail`, the DETAILS popover (§5).
 * **No Plain-Text Dead Ends**: Sighted users must never be presented with static, non-clickable entity names when a corresponding detail route is available in the application.
 
 ---
@@ -92,7 +92,8 @@ copy it (2026-07-20, user call):
   wrong layer. The health picker sits inside the gauge's own container, since
   picking a value repaints the gauge directly above it.
 * The open popup is a URL: `/programs/:id#status-history` opens it, and opening
-  it writes that hash. There is no separate history *page* for needles.
+  it writes that hash. There is no separate history *page* for needles — and as
+  of 2026-07-21 none for phases either (§5), so `/history/**` is gone entirely.
 
 Two `<dialog>` traps this pattern hit, worth knowing before writing another:
 `display: flex` on the dialog overrides the UA's `display: none` for the CLOSED
@@ -108,6 +109,25 @@ Every project detail page must include a direct way to see, edit, add, or delete
 * **Add Phase**: An explicit "Add Phase" button opening a `<dialog>` for inputting names and duration.
 * **Edit Phase**: Prefilled edit controls inside a dialog.
 * **Delete Phase**: Forms calling server actions to clean up associated log histories, dependencies, and tasks with confirmation.
+
+**A phase has no page of its own** (2026-07-21, user call — `/history/phase/:id`
+retired, the last of the `/history/**` pages to go). Its home is the DETAILS
+popover on its program page, and that popover follows §4b's rule exactly:
+`/programs/:id#phase-:phaseId-detail` opens it, opening it writes that fragment,
+closing takes the fragment back off. Every link to a phase anywhere in the app —
+feeds, AI briefing citations, partner and person pages — goes there
+(`phaseDetailHref`, `src/lib/phase.ts`; never hand-built).
+
+Two consequences that are easy to get wrong:
+* **The popover must hold the COMPLETE log, or the retirement lost data.** The
+  program page renders a dozen phases and preloads only the 6 newest states per
+  phase, so the popover fetches the rest on demand for the one phase you opened
+  (`getPhaseLog`). Whatever it renders is the whole record — there is nothing
+  further to click through to, and no "full history →" link to offer.
+* **`#phase-:id` and `#phase-:id-detail` are one family, not a collision**: the
+  bare id is the rail row's scroll anchor, the `-detail` suffix is the popover
+  over it. Fragments that are not ours are left untouched when the popover
+  writes or clears its own.
 
 ---
 

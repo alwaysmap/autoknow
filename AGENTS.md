@@ -119,3 +119,6 @@ you earn a new one.
 14. Third-party assets are proxied through our own origin, never linked — the CSP
     `img-src` stays `'self'` and the host allowlist becomes the security boundary
     ([ADR 0006](docs/adr/0006-proxy-third-party-images-keep-csp-self.md)).
+15. A URL here is DATA, not just code — AI-brief citations persist hrefs — so
+    retiring one means migrating the rows that cite it, not only grepping
+    `src/**` ([ADR 0007](docs/adr/0007-retiring-a-url-migrates-the-data-that-cites-it.md)).

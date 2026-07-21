@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Markdown from './Markdown';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
@@ -14,12 +14,12 @@ import { deriveEndPhase } from '../lib/programDag';
 import { validateTemplateDag } from '../lib/templateDag';
 import { HILL_PATH, hillCoordinates } from '../lib/geometry';
 import { t, statusKey, Locale } from '../lib/i18n';
-import { isPhaseActive, statusProgress, phaseColor } from '../lib/phase';
+import { isPhaseActive, statusProgress, phaseColor, phaseDetailHash, parsePhaseDetailHash } from '../lib/phase';
 import AnchorHeading from './AnchorHeading';
 import ConstraintRing from './ConstraintRing';
 import HillHistoryList from './HillHistoryList';
 import type { HillChange } from '../lib/history';
-import { updatePhaseHill, setPhaseStarted } from '../app/actions/hill';
+import { updatePhaseHill, setPhaseStarted, getPhaseLog, type PhaseLogEntry } from '../app/actions/hill';
 import { addPhasePartner, removePhasePartner } from '../app/actions/phasePartners';
 import { addPhasePerson, removePhasePerson } from '../app/actions/phasePeople';
 import type { PhaseGraphRow } from './PhaseGraph';
@@ -63,9 +63,12 @@ import { localDate } from '../lib/dates';
 // role labels, the pill colour carries the type). The DETAILS affordance lifts the
 // phase into a focused popover over a scrim (status update with a REQUIRED note, full
 // history, partner/people involvement editing) — clearly a different mode, not a
-// third inline density. STRUCTURE is not editable here: phases and dependencies are
-// added/removed only in the program phase editor (/programs/[id]/phases), which
-// validates the whole DAG — so the rail can never produce a broken program.
+// third inline density. That popover is a phase's ONLY home: the standalone
+// /history/phase/:id page was retired 2026-07-21, so the popover is itself a URL
+// (`#phase-:id-detail`, lib/phase) and carries the COMPLETE log, not an excerpt.
+// STRUCTURE is not editable here: phases and dependencies are added/removed only in
+// the program phase editor (/programs/[id]/phases), which validates the whole DAG —
+// so the rail can never produce a broken program.
 // All strings via lib/i18n (en / de / ja / ko).
 
 export interface PhaseActivity {
@@ -76,12 +79,10 @@ export interface PhaseActivity {
   linkUrl: string | null;
 }
 
-export interface PhaseHistoryEntry {
-  at: string;
-  progress: number;
-  note: string | null;
-  by: string | null;
-}
+// One hill update in a phase's log. Defined by the action that reads them
+// (app/actions/hill) so the popover's on-demand full log and the page's preloaded
+// excerpt can never drift into two shapes.
+export type PhaseHistoryEntry = PhaseLogEntry;
 
 export interface PhasePersonLink {
   linkId: number;
@@ -111,6 +112,23 @@ interface PhaseTrackProps {
   allPeople: { id: number; name: string }[];
   locale: Locale;
 }
+
+// The open popover IS a URL — the same rule the needle's log follows (design.md
+// §4b). Opening writes `#phase-:id-detail`, closing takes it back off, and arriving
+// with it opens that phase. replaceState, never push: the popover is a mode of this
+// page, and a trail of entries would make Back mean "close the thing I already
+// closed". Fragments that aren't ours (the rail's own `#phase-:id` row anchors) are
+// left exactly as they are.
+const writeHash = (id: number | null) => {
+  const current = window.location.hash;
+  if (id == null) {
+    if (parsePhaseDetailHash(current) == null) return;
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    return;
+  }
+  const want = `#${phaseDetailHash(id)}`;
+  if (current !== want) window.history.replaceState(null, '', want);
+};
 
 // Ink rides the theme token — a hardcoded dark gray vanishes on the dark paper.
 const RAIL_PAD = 10, LANE_W = 20, INK = 'var(--fg)';
@@ -371,6 +389,8 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
       : upEdges(es) ? styles.glowUp
       : styles.glowDown;
 
+  const closeDetails = useCallback(() => { setDetailsId(null); writeHash(null); }, []);
+
   // Title ⋯ menu: bulk expand/hide plus the one door to structural editing.
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -407,8 +427,8 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   // Jump-and-flash (station clicks, chain links, dependency chips).
   const [flashId, setFlashId] = useState<number | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const jumpTo = (id: number) => {
-    setDetailsId(null);
+  const jumpTo = useCallback((id: number) => {
+    closeDetails();
     setCollapsed((s) => ({ ...s, [id]: false }));
     // Align the phase head to the TOP of the scrollport (it clears the sticky nav via
     // html { scroll-padding-top }), matching the row's `#phase-N` anchor so the two
@@ -417,7 +437,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     setFlashId(id);
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlashId(null), 1400);
-  };
+  }, [closeDetails]);
   useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
 
   // Deeplinks from the dashboard's hill chart: a dot click jump-and-flashes here.
@@ -428,12 +448,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     };
     window.addEventListener('autoknow:jump-phase', onJump);
     return () => window.removeEventListener('autoknow:jump-phase', onJump);
-  }, [phases]);
+  }, [phases, jumpTo]);
 
   // Esc closes the focused popover — the scrim is the other way out.
   useEffect(() => {
     if (detailsId == null) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDetailsId(null); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeDetails(); };
     window.addEventListener('keydown', onKey);
     // A modal owns the viewport: the page behind must not scroll under the scrim.
     const prevOverflow = document.body.style.overflow;
@@ -442,7 +462,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [detailsId]);
+  }, [detailsId, closeDetails]);
 
   // Esc leaves the traced mode too — but only once the popover has taken its turn,
   // so one key never closes two things at once.
@@ -586,12 +606,44 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   // Save/Cancel drop back to view.
   const [editing, setEditing] = useState(false);
   const updateSvgRef = useRef<SVGSVGElement>(null);
+  // The page preloads only the 6 newest updates per phase (a dozen phases render at
+  // once and the log is append-only), but this popover is a phase's whole record, so
+  // it pulls the rest for the ONE phase that was opened. The preloaded excerpt shows
+  // instantly and the older updates land under it; a failed fetch leaves the excerpt
+  // standing rather than emptying the pane.
+  const [fullLog, setFullLog] = useState<{ phaseId: number; entries: PhaseHistoryEntry[] } | null>(null);
+  const loadLog = async (phaseId: number) => {
+    try { setFullLog({ phaseId, entries: await getPhaseLog(phaseId) }); }
+    catch (err) { console.error(err); }
+  };
   const openDetails = (p: PhaseTrackRow) => {
     setDrag(p.progress); setNoteError(false); setAddOpen(null); setEditing(false);
     if (startedTimer.current) clearTimeout(startedTimer.current);
     setStartedSave(null);
+    setFullLog(null);
     setDetailsId(p.id);
+    writeHash(p.id);
+    void loadLog(p.id);
   };
+
+  // Arriving at /programs/:id#phase-:phaseId-detail opens that phase's popover, so a
+  // link anywhere in the app (feeds, briefings, partner and person pages) lands on the
+  // record itself. Re-runs when `phases` changes identity after a revalidate; the
+  // already-open guard keeps that from resetting a pane someone is working in.
+  const detailsIdRef = useRef<number | null>(null);
+  useEffect(() => { detailsIdRef.current = detailsId; }, [detailsId]);
+  useEffect(() => {
+    const openFromHash = () => {
+      const id = parsePhaseDetailHash(window.location.hash);
+      if (id == null || id === detailsIdRef.current) return;
+      const target = byId.get(id);
+      if (target) openDetails(target);
+    };
+    openFromHash();
+    window.addEventListener('hashchange', openFromHash);
+    return () => window.removeEventListener('hashchange', openFromHash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phases]);
   const startedRef = useRef<HTMLInputElement>(null);
   // Commit (or clear) the explicit "work started on" date — shared by the date picker
   // and the drag-to-Not-Started gesture. An empty value nulls the start (nullable).
@@ -643,9 +695,11 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     const availablePeople = allPeople.filter((a) => !p.people.some((pp) => pp.personId === a.id));
     const upstream = p.parents.filter((par) => byId.has(par.id));
     const downstream = enables.get(p.id) ?? [];
+    // The complete log once it arrives, the page's preloaded 6 until then.
+    const log = fullLog?.phaseId === p.id ? fullLog.entries : p.history;
 
     return (
-      <div className={styles.scrim} role="presentation" onClick={() => setDetailsId(null)}>
+      <div className={styles.scrim} role="presentation" onClick={closeDetails}>
         <div
           className={styles.popover}
           role="dialog"
@@ -653,7 +707,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
           aria-label={p.name}
           onClick={(e) => e.stopPropagation()}
         >
-          <button type="button" className={styles.popClose} onClick={() => setDetailsId(null)}
+          <button type="button" className={styles.popClose} onClick={closeDetails}
             aria-label={t(locale, 'closeEdit')}>✕</button>
 
           {/* keyed by phase: swapping a neighbour into this window must remount the
@@ -693,7 +747,10 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                 if (!((fd.get('notes') as string) || '').trim()) { setNoteError(true); return; }
                 setNoteError(false);
                 setSubmitting(true);
-                try { await updatePhaseHill(fd); setEditing(false); }
+                // The saved update has to join the log the popover is showing —
+                // revalidatePath refreshes the page's preloaded excerpt, not the
+                // full log this pane fetched for itself.
+                try { await updatePhaseHill(fd); setEditing(false); await loadLog(p.id); }
                 catch (err) { console.error(err); }
                 finally { setSubmitting(false); }
               }}
@@ -749,8 +806,10 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                   {/* movement in brand ink: the immediate PRIOR position is a ghost
                       ring (same grammar as the rail's mini hill), older positions a
                       faint trail, and the live ball full brand — all theme tokens,
-                      so both light and dark paper keep the contrast */}
-                  {p.history.slice(1).map((h, i) => {
+                      so both light and dark paper keep the contrast. The trail is
+                      RECENT movement, so it stays capped at five ghosts however long
+                      the log below it runs. */}
+                  {log.slice(1, 6).map((h, i) => {
                     const d = hillCoordinates(h.progress);
                     return i === 0 ? (
                       <circle key={i} cx={d.x} cy={d.y} r={4} fill="var(--paper)"
@@ -805,48 +864,46 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
             </form>
 
             {/* the story, view mode only: the LATEST update is the headline — big
-                note, status + date · author above it — older updates follow as the
-                same compact cards as /history/phase/:id */}
+                note, status + date · author above it — and EVERY older update
+                follows as a compact card. This list is the phase's complete
+                record; there is nowhere further to click through to. */}
             {!editing && (
               <div className={styles.storyView}>
-                {p.history.length > 0 ? (
+                {log.length > 0 ? (
                   <div className={styles.latestUpdate}>
                     <div className={styles.latestMeta}>
                       <span className={styles.latestStatus} style={{ color: phaseColor(p.id) }}>
-                        {status(p.history[0].progress)}
+                        {status(log[0].progress)}
                       </span>
                       <span className={styles.latestWhen}>
-                        {fmtDate(p.history[0].at)}
-                        {p.history[0].by ? ` · ${p.history[0].by}` : ''}
+                        {fmtDate(log[0].at)}
+                        {log[0].by ? ` · ${log[0].by}` : ''}
                       </span>
                     </div>
-                    {p.history[0].note
-                      ? <div className={styles.latestNote}><Markdown>{p.history[0].note}</Markdown></div>
+                    {log[0].note
+                      ? <div className={styles.latestNote}><Markdown>{log[0].note}</Markdown></div>
                       : <div className={styles.noteEmpty}>{t(locale, 'noNote')}</div>}
                   </div>
                 ) : (
                   <div className={styles.noteEmpty}>{t(locale, 'noNote')}</div>
                 )}
-                {p.history.length > 1 && (
+                {log.length > 1 && (
                   <div className={styles.historyList}>
                     <span className={styles.metaLabel}>{t(locale, 'history')}</span>
                     <HillHistoryList
                       compact
                       locale={locale}
                       color={phaseColor(p.id)}
-                      changes={p.history.slice(1).map((h, i): HillChange => ({
+                      changes={log.slice(1).map((h, i): HillChange => ({
                         timestamp: h.at,
                         progress: h.progress,
-                        previousProgress: p.history[i + 2]?.progress ?? null,
+                        previousProgress: log[i + 2]?.progress ?? null,
                         notes: h.note,
                         source: h.by,
                       }))}
                     />
                   </div>
                 )}
-                <Link href={`/history/phase/${p.id}`} className={styles.fullHistory}>
-                  {t(locale, 'fullHistory')}
-                </Link>
               </div>
             )}
 

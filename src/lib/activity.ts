@@ -2,7 +2,7 @@ import 'server-only';
 import { prisma } from './db';
 import { formatNeedleValue } from './needle';
 import { deriveScore } from './relationship';
-import { hillStatus, phaseColor } from './phase';
+import { hillStatus, phaseColor, phaseDetailHref } from './phase';
 import type { FeedItem, FeedScope, FeedKind } from './feed';
 
 // The unified activity stream as FeedItem[]: ingested context AND core system-of-record
@@ -194,7 +194,7 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
       title: `${s.phase.name}: ${hillStatus(progress)}`,
       subtitle: meta(s.phase.project.name, s.source, true),
       detail: clampDetail(s.notes),
-      href: `/history/phase/${s.phaseId}`,
+      href: phaseDetailHref(s.phase.project.id, s.phaseId),
       external: false,
       timestamp: s.timestamp.toISOString(),
       hill: {

@@ -90,6 +90,9 @@ and the ✦ AI-provenance mark (§8).
    when absolute — use a short name like `.next-preview` and delete it after;
    `git checkout tsconfig.json` afterward (Next appends dist types to it).
    Fresh worktrees need `npm ci` + `npx prisma generate` first.
+   `launch.json` has no env field, so inject the vars by making the command
+   `env` itself: `runtimeExecutable: "env"` with the assignments as leading
+   `runtimeArgs` before `npm run dev -- -p <port>`.
 2. Verify visually in BOTH themes (`data-theme` light/dark) — tokens live in
    `globals.css`; components must not hard-code colors.
 3. `npm run lint && npm run typecheck`.

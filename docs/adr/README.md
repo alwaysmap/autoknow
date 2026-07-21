@@ -22,3 +22,4 @@ and invariants kept, narrative deleted).
 | [0004](0004-premerge-quality-gate.md) | Every PR runs the full quality gate, because merges auto-deploy | accepted | ci, testing, deploy |
 | [0005](0005-session-is-the-only-source-of-who-i-am.md) | The signed-in session is the only source of "who I am" | accepted | auth, identity, seed, demo, lint |
 | [0006](0006-proxy-third-party-images-keep-csp-self.md) | Third-party images are proxied through our origin; `img-src` stays `'self'` | accepted | security, csp, ui, auth |
+| [0007](0007-retiring-a-url-migrates-the-data-that-cites-it.md) | Retiring a URL deletes the route and migrates the data that cites it | accepted | urls, data, ai, migrations |

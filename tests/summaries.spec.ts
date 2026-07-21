@@ -66,7 +66,7 @@ test.describe('Leadership summaries', () => {
               bullets: [
                 {
                   text: 'Codec drops are blocking the DSP path in Integration.',
-                  citations: [{ label: 'Integration · update', href: `/history/phase/${seeded.phases.integration}`, external: false }],
+                  citations: [{ label: 'Integration · update', href: `/programs/${seeded.projectId}#phase-${seeded.phases.integration}-detail`, external: false }],
                 },
               ],
             },
@@ -90,8 +90,8 @@ test.describe('Leadership summaries', () => {
     await expect(panel).toContainText('Risks');
     await expect(panel).toContainText('Actions');
     await expect(panel).toContainText('Codec drops are blocking the DSP path');
-    // Citation superscript links back to the exact history page.
-    await expect(panel.locator(`a[href="/history/phase/${seeded.phases.integration}"]`)).toBeVisible();
+    // Citation superscript deep-links to that phase's DETAILS popover.
+    await expect(panel.locator(`a[href="/programs/${seeded.projectId}#phase-${seeded.phases.integration}-detail"]`)).toBeVisible();
     await expect(panel).toContainText('from 6 sources');
   });
 

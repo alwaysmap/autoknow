@@ -71,3 +71,24 @@ export function effectiveStartedAt<T>(
   if (explicit != null) return explicit;
   return currentProgress > 0 ? firstProgressAt : null;
 }
+
+/**
+ * A phase's home is the DETAILS popover on its program page — there is no
+ * standalone phase page (`/history/phase/:id` was retired 2026-07-21). The
+ * popover IS a URL: this fragment opens it, and opening it writes the fragment.
+ *
+ * `#phase-:id` (the rail row) and `#phase-:id-detail` (the popover over it) are
+ * deliberately one family: the row anchor is the prefix, so a reader who knows
+ * one can guess the other and neither can collide with the other's target.
+ */
+export const phaseDetailHash = (phaseId: number): string => `phase-${phaseId}-detail`;
+
+/** The full deep link: `/programs/12#phase-218-detail`. */
+export const phaseDetailHref = (projectId: number, phaseId: number): string =>
+  `/programs/${projectId}#${phaseDetailHash(phaseId)}`;
+
+/** Phase id out of a `#phase-:id-detail` fragment (with or without the `#`), or null. */
+export const parsePhaseDetailHash = (hash: string): number | null => {
+  const m = /^#?phase-(\d+)-detail$/.exec(hash);
+  return m ? parseInt(m[1], 10) : null;
+};

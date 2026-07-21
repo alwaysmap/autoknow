@@ -208,18 +208,24 @@ test.describe('PhaseTrack rail', () => {
 
   test('the popover is a modal over the rail; Esc closes it', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
-    const url = page.url();
+    const before = new URL(page.url());
 
     await openDetails(page, 'Audio');
-    // Same PAGE — the popover is not a route. Compared by pathname, not by the whole
-    // URL: opening a card goes through its title, which is a real `#phase-N` deep
-    // link and is supposed to set the hash. The claim under test is that no
-    // NAVIGATION happened, not that the fragment never moves.
-    expect(new URL(page.url()).pathname).toBe(new URL(url).pathname);
+    // Same page — a modal over the rail, no navigation and no <dialog>. Opening a
+    // card can set an intermediate `#phase-N` (the title is a real deep link, main's
+    // rail work), but the LAST thing this flow does is click Details, and the popover
+    // that replaced the retired /history/phase/:id page is itself a URL (design.md
+    // §5) — so it lands on `#phase-N-detail`. Path and query must not move; only the
+    // fragment does, and to the detail anchor.
+    const opened = new URL(page.url());
+    expect(opened.pathname + opened.search).toBe(before.pathname + before.search);
+    expect(opened.hash).toBe(`#phase-${seeded.phases.audio}-detail`);
     await expect(page.getByRole('dialog', { name: 'Audio' })).toBeVisible();
 
     await page.keyboard.press('Escape');
     await expect(details(page)).toHaveCount(0);
+    // Closing takes the fragment back off — the URL never claims an open popover.
+    await expect.poll(() => new URL(page.url()).hash).toBe('');
   });
 
   test('a hill update REQUIRES a note; saving records history', async ({ page }) => {

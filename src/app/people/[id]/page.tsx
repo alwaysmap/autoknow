@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import PersonAdminControls from '../../../components/PersonEditor';
 import { initialsOf } from '../../../lib/people';
-import { phaseColor } from '../../../lib/phase';
+import { phaseColor, phaseDetailHref } from '../../../lib/phase';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
@@ -149,7 +149,7 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
                     {prog.tel && <span className={styles.telMark}>TEL</span>}
                     <span className={styles.phaseChips}>
                       {prog.phases.map((ph) => (
-                        <Link key={ph.id} href={`/history/phase/${ph.id}`} className={styles.phaseChip}
+                        <Link key={ph.id} href={phaseDetailHref(prog.id, ph.id)} className={styles.phaseChip}
                           title={ph.role ? `${ph.name} · ${ph.role}` : ph.name}>
                           <span className={styles.phaseDot} style={{ background: phaseColor(ph.id) }} />
                           {ph.name}

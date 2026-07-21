@@ -49,6 +49,32 @@ export async function updatePhaseHill(formData: FormData) {
   revalidatePath('/ecosystem-summary');
 }
 
+// One phase's COMPLETE update log, newest first. The program page fetches only the
+// 6 newest states per phase (it renders a dozen phases at once and the log is
+// append-only and unbounded), so the DETAILS popover — now the only place a phase's
+// full history is readable — pulls the rest on demand, for the one phase you opened.
+export interface PhaseLogEntry {
+  at: string;
+  progress: number;
+  note: string | null;
+  by: string | null;
+}
+
+export async function getPhaseLog(phaseId: number): Promise<PhaseLogEntry[]> {
+  if (!Number.isInteger(phaseId)) throw new Error('Invalid phase ID');
+  const states = await prisma.phaseState.findMany({
+    where: { phaseId },
+    orderBy: { timestamp: 'desc' },
+    select: { timestamp: true, hillChartProgress: true, notes: true, source: true },
+  });
+  return states.map((s) => ({
+    at: s.timestamp.toISOString(),
+    progress: s.hillChartProgress ?? 0,
+    note: s.notes,
+    by: s.source,
+  }));
+}
+
 // Explicit "work has begun" toggle (cycle time: wait vs active). Independent of hill
 // updates — work frequently starts at a partner long before the first update is
 // filed, and the Basecamp convention (first update IS the start) undercounts active

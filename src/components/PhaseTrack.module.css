@@ -508,17 +508,6 @@
 .historyBy {
   color: var(--muted);
 }
-.fullHistory {
-  font-size: 0.75rem;
-  color: var(--muted);
-  text-decoration: none;
-  align-self: flex-start;
-}
-.fullHistory:hover {
-  color: var(--fg);
-  text-decoration: underline;
-}
-
 /* Read-only meta lines on the default card: activities + Googler focus. */
 .metaLine {
   font-size: 0.75rem;
