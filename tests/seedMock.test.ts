@@ -9,6 +9,7 @@ import { testDatabaseUrl } from './helpers/testDatabaseUrl';
 process.env.DATABASE_URL = testDatabaseUrl();
 
 import { prisma, disconnectTestDb } from './helpers/db';
+import { BUILTIN_TEMPLATES } from '../src/lib/builtinTemplates';
 
 jest.mock('server-only', () => ({}));
 jest.mock('../src/auth', () => ({ authConfigured: false, auth: jest.fn(async () => null) }));
@@ -120,15 +121,31 @@ describe('seedMockData through the API', () => {
     expect(oldest.hillChartProgress).toBe(0);
   });
 
-  it('dependency edges follow the template DAG (via the cycle-rejecting action)', async () => {
+  // Demo programs instantiate the REAL built-in templates, so they carry the researched
+  // phase set, its DAG, and each phase's Goal + provable Done-when — not a bare stub.
+  // Derived from BUILTIN_TEMPLATES so editing a template can't silently desync the demo.
+  it('phases and dependency edges mirror the built-in AAOS template', async () => {
+    const aaos = BUILTIN_TEMPLATES.find((t) => t.name.startsWith('AAOS'))!;
     const ford = await prisma.project.findFirstOrThrow({
       where: { name: 'Ford Evos AAOS Bring-up' },
       include: { phases: true },
     });
+
+    expect(ford.phases.map((p) => p.name).sort()).toEqual(aaos.phases.map((p) => p.name).sort());
+    for (const p of ford.phases) {
+      expect(p.description).toMatch(/\*\*Goal:\*\*/);
+      expect(p.description).toMatch(/\*\*Done when:\*\*/);
+      expect(p.googleFocus?.trim()).toBeTruthy();
+    }
+    // Exactly one convergence point, carried over from the template.
+    expect(ford.phases.filter((p) => p.isEndPhase).map((p) => p.name)).toEqual(
+      aaos.phases.filter((p) => p.isEndPhase).map((p) => p.name),
+    );
+
     const edges = await prisma.phaseDependency.count({
       where: { phaseId: { in: ford.phases.map((p) => p.id) } },
     });
-    expect(edges).toBe(4); // AAOS template: 4 dependsOn edges across 5 phases
+    expect(edges).toBe(aaos.phases.reduce((n, p) => n + p.dependsOn.length, 0));
   });
 
   it('action items resolved their assignees to people (resolvePerson at the route)', async () => {

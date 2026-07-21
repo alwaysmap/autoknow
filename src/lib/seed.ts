@@ -1,8 +1,8 @@
 import { prisma } from './db';
-import { TEMPLATES } from './templates';
 import { ingestRecord } from './vector';
 import { reindexAll } from './search';
 import { scoreToHealth } from './relationship';
+import { ensureBuiltinTemplates } from './programTemplates';
 import { assertDestructiveDbAllowed } from './dbSafety';
 
 // The mock seeder creates its data THROUGH the application's own mutation
@@ -29,34 +29,9 @@ import { addPhasePartner } from '../app/actions/phasePartners';
 import { addPhasePerson } from '../app/actions/phasePeople';
 import { setPhaseStarted } from '../app/actions/hill';
 
-// Per-program phase progress (0..100), spread across the hill so each program's summary
-// chart shows a distinguishable dot per phase. Status is derived from progress.
-const FORD_PROGRESS: Record<string, number> = {
-  'BSP & power-on': 100,
-  'VHAL Integration': 65,
-  'Audio HAL': 45,
-  'Car Service Integration': 20,
-  'Compliance Testing': 0,
-};
-const TOYOTA_PROGRESS: Record<string, number> = {
-  'NFC Driver bring-up': 100,
-  'Secure Element configuration': 50,
-  'CCC Spec Compliance': 15,
-};
-const BOSCH_PROGRESS: Record<string, number> = {
-  'BSP & power-on': 100,
-  'VHAL Integration': 60,
-  'Audio HAL': 35,
-  'Car Service Integration': 15,
-  'Compliance Testing': 0,
-};
-const QUALCOMM_PROGRESS: Record<string, number> = {
-  'BSP & power-on': 100,
-  'VHAL Integration': 100,
-  'Audio HAL': 85,
-  'Car Service Integration': 55,
-  'Compliance Testing': 30,
-};
+// Phase progress is no longer hand-authored per program: the template-based programs
+// derive it from their plan position (seedPhasesFromBuiltin), which keeps it
+// DAG-coherent by construction.
 
 export async function wipeAllData() {
   // Fail closed: refuse unless the target DB is a disposable *_test database or the
@@ -302,68 +277,131 @@ async function recordRelationship(
   });
 }
 
-interface TemplatePhaseSeed {
-  /** Extra earlier state (mid-flight snapshot) for cycle-time texture. */
-  earlier?: { progress: number; timestamp: string };
-  progress: number;
-  timestamp: string;
-  notes?: string;
-  source?: string;
-  sourceUrl?: string;
+const WEEK_MS = 7 * 86_400_000;
+
+/** Load a built-in template and forward-pass its DAG: planned start = max(dependency
+ *  planned ends). `planWeeks` is the critical path — the whole program's plan length. */
+async function builtinPlan(templateName: string) {
+  const template = await prisma.programTemplate.findFirstOrThrow({
+    where: { name: templateName, isBuiltIn: true },
+    include: { phases: { include: { dependsOn: true }, orderBy: { sortOrder: 'asc' } } },
+  });
+  const byId = new Map(template.phases.map((p) => [p.id, p]));
+  const startWeeks = new Map<number, number>();
+  const endWeeks = new Map<number, number>();
+  const resolve = (id: number): number => {
+    const done = endWeeks.get(id);
+    if (done != null) return done;
+    const p = byId.get(id)!;
+    const start = p.dependsOn.length === 0 ? 0 : Math.max(...p.dependsOn.map((d) => resolve(d.dependsOnId)));
+    startWeeks.set(id, start);
+    const end = start + p.durationWeeks;
+    endWeeks.set(id, end);
+    return end;
+  };
+  for (const p of template.phases) resolve(p.id);
+  return { template, startWeeks, endWeeks, planWeeks: Math.max(...endWeeks.values()) };
 }
 
-/** Create one program's phases from a template: phase + dated states via the API,
- *  dependency edges via the action. Returns name → phaseId. */
-async function seedTemplatePhases(
+/** The SOP a program of this plan length would carry: whatever plan remains after
+ *  today, plus a buffer, normalized to month end the way lib/sop expects. Keeps a
+ *  demo program from reading as catastrophically late just because the real 15-phase
+ *  AAOS plan is ~86 weeks long. */
+async function sopForPlan(templateName: string, throughWeeks: number, bufferWeeks: number): Promise<string> {
+  const { planWeeks } = await builtinPlan(templateName);
+  const finish = new Date(Date.now() + (planWeeks - throughWeeks + bufferWeeks) * WEEK_MS);
+  const monthEnd = new Date(Date.UTC(finish.getUTCFullYear(), finish.getUTCMonth() + 1, 0));
+  return monthEnd.toISOString().slice(0, 10);
+}
+
+/**
+ * Instantiate a demo program's phases from a BUILT-IN template — the same rich content
+ * real program creation copies (lib/builtinTemplates: a **Goal** + provable **Done
+ * when** checklist, googleFocus, plan durations and the converging DAG), so sample
+ * programs read like real ones instead of nameless stubs.
+ *
+ * Progress and DATES are both DERIVED, never hand-authored. `throughWeeks` places the
+ * program on its own plan and the calendar is anchored so that point is TODAY, so the
+ * demo always reads as "now". Each phase's history is dated at its PLANNED window —
+ * work begins at its planned start and a finished phase closes at its planned end — so
+ * the schedule chart cascades down the DAG instead of collapsing every phase onto one
+ * start date. Because a phase's planned start is max(its dependencies' planned ends),
+ * progress > 0 implies every dependency is already complete: the DAG-coherence guard in
+ * tests/seedMock holds by construction, with no per-phase tuning to drift out of sync.
+ *
+ * Returns name → phaseId so involvements and action items can attach to real phases.
+ */
+async function seedPhasesFromBuiltin(
   projectId: number,
-  template: { phases: { name: string; forecastedDuration: number; dependsOn: string[] }[] },
-  perPhase: (name: string) => TemplatePhaseSeed,
-  initialStateTimestamp: string,
+  templateName: string,
+  throughWeeks: number,
 ): Promise<Record<string, number>> {
+  const { template, startWeeks, endWeeks } = await builtinPlan(templateName);
+  const anchorMs = Date.now() - throughWeeks * WEEK_MS; // week 0 of the plan
+  const at = (weeks: number) => new Date(anchorMs + weeks * WEEK_MS).toISOString().slice(0, 10);
+
   const idsByName: Record<string, number> = {};
-  const seeds = template.phases.map((p) => ({ p, s: perPhase(p.name) }));
+  const phaseIdByTemplateId = new Map<number, number>();
 
-  // DAG gate: seed a phase as started (progress > 0) ONLY once EVERY dependency is
-  // complete. A real program can fast-track a downstream phase before its predecessor
-  // finishes — but sample data must not depict it, or the schedule chart reads as if
-  // Car Service Integration began the day VHAL did, which the dependency forbids.
-  // Template phases are listed in dependency order, so one forward pass gates them.
-  const gated: Record<string, number> = {};
-  for (const { p, s } of seeds) {
-    gated[p.name] = p.dependsOn.every((d) => (gated[d] ?? 0) >= 100) ? s.progress : 0;
-  }
-
-  for (const { p, s } of seeds) {
-    const phaseId = await createPhase(projectId, {
-      name: p.name,
-      forecastedDuration: p.forecastedDuration,
-      stateTimestamp: initialStateTimestamp,
-    });
-    idsByName[p.name] = phaseId;
-
-    // Gated-to-zero phases keep only the initial 0 state createPhase wrote — no
-    // started/progress rows — so the ledger schedules them ASAP after their deps.
-    if (gated[p.name] <= 0) continue;
-
-    if (s.earlier) {
-      await postPhaseState(projectId, phaseId, {
-        theNeedle: 'On Track',
-        hillChartProgress: s.earlier.progress,
-        timestamp: s.earlier.timestamp,
-      });
-    }
-    await postPhaseState(projectId, phaseId, {
-      theNeedle: 'On Track',
-      hillChartProgress: gated[p.name],
-      notes: s.notes ?? null,
-      source: s.source ?? null,
-      sourceUrl: s.sourceUrl ?? null,
-      timestamp: s.timestamp,
-    });
-  }
   for (const p of template.phases) {
-    for (const depName of p.dependsOn) {
-      await addDependency(projectId, idsByName[p.name], idsByName[depName]);
+    const start = startWeeks.get(p.id)!;
+    const end = endWeeks.get(p.id)!;
+    const pct = Math.round(Math.max(0, Math.min(1, (throughWeeks - start) / p.durationWeeks)) * 100);
+    const phase = await prisma.phase.create({
+      data: {
+        projectId,
+        name: p.name,
+        forecastedDuration: p.durationWeeks * 7, // templates store weeks; runtime is days
+        description: p.description,
+        googleFocus: p.googleFocus,
+        isEndPhase: p.isEndPhase,
+      },
+    });
+    idsByName[p.name] = phase.id;
+    phaseIdByTemplateId.set(p.id, phase.id);
+
+    // Backdated initial row, so a dated progress row stays newest-wins (CRITICAL_CHAIN §6).
+    await prisma.phaseState.create({
+      data: {
+        phaseId: phase.id,
+        status: 'Not Started',
+        theNeedle: 'On Track',
+        hillChartProgress: 0,
+        notes: 'Initial state',
+        timestamp: new Date(anchorMs - 2 * WEEK_MS),
+      },
+    });
+
+    if (pct > 0) {
+      // Work began at the phase's planned start — this row is what the schedule chart
+      // reads as startedAt, and it is what makes the bars cascade down the chain.
+      await postPhaseState(projectId, phase.id, {
+        theNeedle: 'On Track',
+        hillChartProgress: Math.min(10, pct),
+        notes: `${p.name} under way.`,
+        source: 'seed',
+        timestamp: at(start),
+      });
+      if (pct >= 100) {
+        await postPhaseState(projectId, phase.id, {
+          theNeedle: 'On Track', hillChartProgress: 100, notes: null, source: 'seed', timestamp: at(end),
+        });
+      } else if (pct > 10) {
+        await postPhaseState(projectId, phase.id, {
+          theNeedle: 'On Track',
+          hillChartProgress: pct,
+          notes: `${p.name} in flight.`,
+          source: 'seed',
+          timestamp: at(throughWeeks), // today
+        });
+      }
+    }
+  }
+
+  // Edges go through the cycle-rejecting action, like the rest of the seed.
+  for (const p of template.phases) {
+    for (const d of p.dependsOn) {
+      await addDependency(projectId, phaseIdByTemplateId.get(p.id)!, phaseIdByTemplateId.get(d.dependsOnId)!);
     }
   }
   return idsByName;
@@ -382,6 +420,11 @@ export async function seedMockData() {
   for (const name of ['AMER', 'APAC', 'EMEA', 'Other']) {
     await prisma.region.create({ data: { name } });
   }
+
+  // The built-in program templates are the source of the phases' Goal/"Done when"
+  // content. wipeAllData leaves ProgramTemplate alone and this is idempotent, so it
+  // just guarantees they exist before any program instantiates from them.
+  await ensureBuiltinTemplates();
 
   console.log('Seeding partners (Google self + external OEM & supplier)...');
   // Type and region travel as NAMES — the partners route resolves them to ids and
@@ -483,12 +526,20 @@ export async function seedMockData() {
   await addAffiliation(dieterId, { partnerId: boschId, role: 'Senior ADAS Systems Lead', startDate: '2023-01-10' });
   await addAffiliation(sarahId, { partnerId: qualcommId, role: 'Snapdragon Automotive PM', startDate: '2023-09-01' });
 
+  // Demo programs instantiate these real templates, so their phases carry the
+  // researched Goal/"Done when" content and the full DAG. `through` is how far into
+  // the plan each program sits; SOPs derive from the plan so nothing reads as absurdly
+  // late just because the real AAOS plan is ~86 weeks long.
+  const AAOS_T = 'AAOS Bring-up (chipset \u2192 GBI)';
+  const DK_T = 'Digital Key';
+  const FORD_THROUGH = 48, BOSCH_THROUGH = 44, QUALCOMM_THROUGH = 38, TOYOTA_THROUGH = 5;
+
   console.log('Seeding projects...');
 
   // 1. Ford Evos AAOS Bring-up
   const fordProjectId = await createProject({
     name: 'Ford Evos AAOS Bring-up', partnerId: fordId, ownerName: 'Dylan PM',
-    sopDate: '2026-10-01', volumeFirstYear: 180000,
+    sopDate: await sopForPlan(AAOS_T, FORD_THROUGH, 8), volumeFirstYear: 180000,
   });
   // Dated program history through the needle route, oldest first — the final post
   // also lands the Project columns on the current needle/hill.
@@ -505,21 +556,10 @@ export async function seedMockData() {
     timestamp: '2026-06-15',
   });
 
-  const fordPhases = await seedTemplatePhases(
-    fordProjectId,
-    TEMPLATES.AAOS,
-    (name) => {
-      const isBsp = name === 'BSP & power-on';
-      return {
-        progress: FORD_PROGRESS[name] ?? 0,
-        timestamp: '2026-06-10', // to give it some cycle time
-        notes: isBsp ? 'VHAL wait times are elevated.' : undefined,
-        source: isBsp ? 'Buganizer' : undefined,
-        sourceUrl: isBsp ? 'https://buganizer.corp.google.com/issues/889218' : undefined,
-      };
-    },
-    '2026-02-01',
-  );
+  // ~48 weeks into the 86-week AAOS critical path: architecture, silicon, BSP and the
+  // display/connectivity/EVS tracks are done; VHAL (the long pole) and the hypervisor
+  // and app-platform tracks are in flight; compliance onward hasn't started.
+  const fordPhases = await seedPhasesFromBuiltin(fordProjectId, AAOS_T, FORD_THROUGH);
 
   await createActionItem(fordProjectId, fordPhases['BSP & power-on'], {
     description: 'Determine cause for VHAL wait time delay',
@@ -537,7 +577,7 @@ export async function seedMockData() {
   // 2. Toyota Highlander Digital Key
   const toyotaProjectId = await createProject({
     name: 'Toyota Highlander Digital Key', partnerId: toyotaId, ownerName: 'Alice PM',
-    sopDate: '2027-02-15', volumeFirstYear: 250000,
+    sopDate: await sopForPlan(DK_T, TOYOTA_THROUGH, 4), volumeFirstYear: 250000,
   });
   await postProjectState(toyotaProjectId, {
     theNeedle: 'Low', hillChartProgress: 15,
@@ -546,21 +586,9 @@ export async function seedMockData() {
     timestamp: '2026-06-01',
   });
 
-  const toyotaPhases = await seedTemplatePhases(
-    toyotaProjectId,
-    TEMPLATES['Digital Key'],
-    (name) => {
-      const isSecure = name === 'Secure Element configuration';
-      return {
-        progress: TOYOTA_PROGRESS[name] ?? 0,
-        timestamp: '2026-06-01',
-        notes: isSecure ? 'Threat modeling in review by partner teams.' : undefined,
-        source: isSecure ? 'Google Doc' : undefined,
-        sourceUrl: isSecure ? 'https://docs.google.com/document/d/toyota-digital-key-threat-model' : undefined,
-      };
-    },
-    '2026-02-01',
-  );
+  // ~5 weeks into a 10-week Digital Key plan: the NFC and Secure Element tracks are
+  // done and CCC conformance has just begun — an early-stage program.
+  const toyotaPhases = await seedPhasesFromBuiltin(toyotaProjectId, DK_T, TOYOTA_THROUGH);
 
   await createActionItem(toyotaProjectId, toyotaPhases['Secure Element configuration'], {
     description: 'Review security key exchange protocols for Highlander',
@@ -572,7 +600,7 @@ export async function seedMockData() {
   // 3. Ford Explorer VHAL Integration (Bosch)
   const boschProjectId = await createProject({
     name: 'Ford Explorer VHAL Integration (Bosch)', partnerId: boschId, ownerName: 'Clara Operations',
-    sopDate: '2026-11-20', volumeFirstYear: 120000,
+    sopDate: await sopForPlan(AAOS_T, BOSCH_THROUGH, 6), volumeFirstYear: 120000,
   });
   await postProjectState(boschProjectId, {
     theNeedle: 'Medium', hillChartProgress: 50,
@@ -587,25 +615,11 @@ export async function seedMockData() {
     timestamp: '2026-06-25',
   });
 
-  const boschPhases = await seedTemplatePhases(
-    boschProjectId,
-    TEMPLATES.AAOS,
-    (name) => {
-      const isBsp = name === 'BSP & power-on';
-      const isVhal = name === 'VHAL Integration';
-      return {
-        earlier: isBsp ? { progress: 50, timestamp: '2026-04-01' } : undefined,
-        progress: BOSCH_PROGRESS[name] ?? 0,
-        timestamp: isBsp ? '2026-05-01' : '2026-05-05',
-        notes: isVhal ? 'Telemetry calibration failures reported.' : undefined,
-        source: isVhal ? 'Buganizer' : undefined,
-        sourceUrl: isVhal ? 'https://buganizer.corp.google.com/issues/9987211' : undefined,
-      };
-    },
-    '2026-02-01',
-  );
+  // ~44 weeks in: a little behind Ford Evos — VHAL is mid-flight and the parallel
+  // tracks off BSP are closing out.
+  const boschPhases = await seedPhasesFromBuiltin(boschProjectId, AAOS_T, BOSCH_THROUGH);
 
-  await createActionItem(boschProjectId, boschPhases['VHAL Integration'], {
+  await createActionItem(boschProjectId, boschPhases['Vehicle sensors & VHAL'], {
     description: 'Resolve CAN bus telemetry frame drop issues',
     assignedTo: 'Dieter Meyer', status: 'Pending', nextStep: 'Partner',
     linkUrl: 'https://buganizer.corp.google.com/issues/9987211',
@@ -615,7 +629,7 @@ export async function seedMockData() {
   // 4. Qualcomm Snapdragon Support (SA8295P cockpit)
   const qualcommProjectId = await createProject({
     name: 'Qualcomm Snapdragon Cockpit Support', partnerId: qualcommId, ownerName: 'Dylan PM',
-    sopDate: '2026-08-30', volumeFirstYear: 500000,
+    sopDate: await sopForPlan(AAOS_T, QUALCOMM_THROUGH, 10), volumeFirstYear: 500000,
   });
   await postProjectState(qualcommProjectId, {
     theNeedle: 'Medium', hillChartProgress: 75,
@@ -630,30 +644,17 @@ export async function seedMockData() {
     timestamp: '2026-06-27',
   });
 
-  const qualcommPhases = await seedTemplatePhases(
-    qualcommProjectId,
-    TEMPLATES.AAOS,
-    (name) => {
-      const isAudio = name === 'Audio HAL';
-      return {
-        earlier: isAudio ? { progress: 50, timestamp: '2026-04-15' } : undefined,
-        progress: QUALCOMM_PROGRESS[name] ?? 0,
-        timestamp: isAudio ? '2026-06-27' : '2026-03-01',
-        notes: isAudio ? 'Audio driver cold boot freeze deadlock.' : undefined,
-        source: isAudio ? 'Google Chat' : undefined,
-        sourceUrl: isAudio ? 'https://chat.google.com/room/qcom-audio-deadlocks' : undefined,
-      };
-    },
-    '2026-02-01',
-  );
+  // ~38 weeks in: earlier than the OEM programs — BSP is done and the audio,
+  // display and connectivity tracks are still running.
+  const qualcommPhases = await seedPhasesFromBuiltin(qualcommProjectId, AAOS_T, QUALCOMM_THROUGH);
 
-  await createActionItem(qualcommProjectId, qualcommPhases['Audio HAL'], {
+  await createActionItem(qualcommProjectId, qualcommPhases['Audio'], {
     description: 'Debug audio HAL cold boot freeze issue',
     assignedTo: 'Sarah Jenkins', status: 'Pending', nextStep: 'Partner',
     linkUrl: 'https://chat.google.com/room/qcom-audio-deadlocks',
     source: 'Google Chat', sourceUrl: 'https://chat.google.com/room/qcom-audio-deadlocks',
   });
-  await createActionItem(qualcommProjectId, qualcommPhases['Audio HAL'], {
+  await createActionItem(qualcommProjectId, qualcommPhases['Audio'], {
     description: 'Review Snapdragon SA8295 firmware registry patches',
     assignedTo: '@dylan', status: 'Pending', nextStep: 'Googler',
     linkUrl: 'https://android-review.googlesource.com/c/platform/hardware/qcom/+/99812',
@@ -665,15 +666,15 @@ export async function seedMockData() {
   console.log('Seeding phase-partner involvements...');
   // Ford Evos (owned by Ford): Qualcomm supplies silicon, Bosch supplies audio + VHAL
   await involvePartner(fordProjectId, fordPhases['BSP & power-on'], qualcommId, 'Silicon');
-  await involvePartner(fordProjectId, fordPhases['Audio HAL'], boschId, 'Supplier');
-  await involvePartner(fordProjectId, fordPhases['VHAL Integration'], boschId, 'Supplier');
+  await involvePartner(fordProjectId, fordPhases['Audio'], boschId, 'Supplier');
+  await involvePartner(fordProjectId, fordPhases['Vehicle sensors & VHAL'], boschId, 'Supplier');
   // Toyota Digital Key (owned by Toyota): Qualcomm secure element
   await involvePartner(toyotaProjectId, toyotaPhases['Secure Element configuration'], qualcommId, 'Silicon');
   // Bosch VHAL program (owned by Bosch): Ford is the OEM whose vehicle it lands in
-  await involvePartner(boschProjectId, boschPhases['VHAL Integration'], fordId, 'OEM');
-  await involvePartner(boschProjectId, boschPhases['Compliance Testing'], fordId, 'OEM');
+  await involvePartner(boschProjectId, boschPhases['Vehicle sensors & VHAL'], fordId, 'OEM');
+  await involvePartner(boschProjectId, boschPhases['Compliance gates'], fordId, 'OEM');
   // Qualcomm cockpit program (owned by Qualcomm): Bosch integrates audio
-  await involvePartner(qualcommProjectId, qualcommPhases['Audio HAL'], boschId, 'Integrator');
+  await involvePartner(qualcommProjectId, qualcommPhases['Audio'], boschId, 'Integrator');
 
   console.log('Seeding Context URLs for vector search mapping...');
   // Vector ingest is a lib boundary of its own (embedding + raw SQL insert); there is
