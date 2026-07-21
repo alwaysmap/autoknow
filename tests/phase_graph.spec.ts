@@ -40,6 +40,20 @@ test.describe('PhaseTrack rail', () => {
   };
 
 
+  // The phase name link carries a `title` ("Done · click to trace its dependencies").
+  // Per accname, a link takes its name from its CONTENT and falls back to `title`
+  // only when there is none — but that ordering is easy to break by accident (an
+  // aria-label added "for clarity", or wrapping the text in an aria-hidden span),
+  // and the failure is invisible: sighted users see the phase name while every row
+  // announces the same generic string, and the rows stop being tellable apart. So
+  // assert the NAME, not the markup.
+  test('a phase is reachable by its own name, not by its tooltip', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
+    await expect(page.getByRole('link', { name: 'Bring-up', exact: true })).toBeVisible();
+    // And the tooltip text is NOT what names it.
+    await expect(page.getByRole('link', { name: /click to trace/ })).toHaveCount(0);
+  });
+
   test('cards are compact: typed pills without role labels, no status words', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
 

@@ -5,7 +5,10 @@ import Link from 'next/link';
 import Markdown from './Markdown';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
 import { computeCriticalChain } from '../lib/criticalChain';
-import { stationOrder, classifyEdges, type Edge } from '../lib/phaseTrackLayout';
+import {
+  stationOrder, bundleEdges, focusSubgraph, isBypass,
+  type Edge, type Bundle, type BundleTie,
+} from '../lib/phaseTrackLayout';
 import PhaseHillChart from './PhaseHillChart';
 import { deriveEndPhase } from '../lib/programDag';
 import { validateTemplateDag } from '../lib/templateDag';
@@ -32,6 +35,23 @@ import { localDate } from '../lib/dates';
 // done, and stays gray otherwise. Never a proportional fill — a part-inked segment
 // beside a filled "done" station read as a contradiction. Schedule pace (ahead/over
 // plan) is words instead: a small chip beside the planned/elapsed label.
+//
+// Bypasses that share an endpoint ride ONE bundled branch line (lib/phaseTrackLayout):
+// a trunk in a single lane with a short tie into the main line at every phase on it.
+// The alternative — one lane per dependency — put NINE parallel tracks down the
+// gutter of a 15-phase program: accurate, and useless. Bundling drops that to three
+// while removing no relationship and inventing none (a phase is on the branch iff it
+// has a tie). Rejected on the way there: hiding low-value edges (a missing line is a
+// lie in this grammar), and collapsing a fan behind an "N dependencies" disclosure
+// (it hides the structure at exactly the moment the reader is asking about it).
+//
+// FOCUS answers "what does THIS phase depend on, and what waits on it": clicking a
+// station — or the phase's name, which is the keyboard path to the same thing —
+// traces its ancestors, descendants and only the edges on a path through it, and
+// dims everything else. Dimming (plus one quiet surface tint on the selected row) is
+// the whole treatment: weight already means "on the critical chain" and the chain
+// purple already means "the constraint", so the highlight had to take a free channel.
+// Escape or the Clear affordance on the tracing line is the way out.
 //
 // Critical chain: the longest remaining-duration dependency path, unbuffered, PLUS the
 // resource dimension — the same Googler driving active phases in other programs is
@@ -107,16 +127,21 @@ function pillClass(typeName: string | null, companyName: string | null, isPerson
 }
 
 // Monochrome station symbol: filled = done, right-half = in progress, open = not
-// started. Heavier ink for critical-chain stations; a single amber ring marks the
-// constraint. Hover for the name+status; click jumps to the row.
-function Station({ x, y, progress, started, onChain, isConstraint, title, onClick }: {
+// started. Heavier ink for critical-chain stations; the shared ConstraintRing marks
+// the constraint. Hover for the name+status; click traces the phase's dependencies.
+function Station({ x, y, progress, started, onChain, isConstraint, title, dimmed, onClick }: {
   x: number; y: number; progress: number; started?: boolean; onChain: boolean; isConstraint: boolean;
-  title: string; onClick?: () => void;
+  title: string; dimmed?: boolean; onClick?: () => void;
 }) {
   const r = onChain ? 6 : 5;
   const stroke = onChain ? INK : 'var(--muted)';
   return (
-    <g onClick={onClick} className={styles.station}>
+    <g onClick={onClick} className={dimmed ? `${styles.station} ${styles.dim}` : styles.station}>
+      {/* The dot is 10px across and it is now a control (click to trace), so it
+          carries a 24px transparent target — the drawn symbol stays the same size,
+          the thing you can hit does not. `transparent` is a paint, so SVG's
+          visiblePainted hit-testing still captures it. */}
+      <circle cx={x} cy={y} r={12} fill="transparent" />
       {/* interchange-station treatment: the ring's interior is opaque so the
           track visibly terminates at the station instead of passing through */}
       {isConstraint && <ConstraintRing cx={x} cy={y} r={r} opaque />}
@@ -173,7 +198,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   );
   const onChainSet = new Set(chain.path);
   const ordered = stationOrder(phases, chain.path);
-  const { edges, laneCount } = classifyEdges(ordered, chain.edgeKeys);
+  const { mainline, bundles, laneCount } = bundleEdges(ordered, chain.edgeKeys);
   const mainX = RAIL_PAD + laneCount * LANE_W + 6;
   const gutterW = mainX + 16;
   const laneX = (lane: number) => mainX - lane * LANE_W;
@@ -182,7 +207,15 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   const skippedNames = (e: Edge) => ordered.slice(e.fromIdx + 1, e.toIdx).map((s) => s.name).join(', ');
   const edgeTitle = (e: Edge) =>
     `${byId.get(e.from)?.name} → ${byId.get(e.to)?.name}` +
-    (e.lane > 0 ? ` · ${t(locale, 'skips', { names: skippedNames(e) })}` : '');
+    (isBypass(e) ? ` · ${t(locale, 'skips', { names: skippedNames(e) })}` : '');
+  // The hub tie carries the whole bundle: name every phase on the branch, so the
+  // merged line can be read back out to the dependencies it stands for.
+  const tieTitle = (b: Bundle, tie: BundleTie) => {
+    if (tie.edges.length === 1) return edgeTitle(tie.edges[0]);
+    const hub = byId.get(b.hubId)?.name ?? '';
+    const others = tie.edges.map((e) => byId.get(b.kind === 'out' ? e.to : e.from)?.name).join(' · ');
+    return b.kind === 'out' ? `${hub} → ${others}` : `${others} → ${hub}`;
+  };
 
   // Anticipated (weeks) vs actual: planned from the forecast; elapsed from the first
   // started state (to now, or to the done state). "Now" is frozen per mount — week
@@ -271,6 +304,23 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   const toggle = (p: PhaseTrackRow) => setCollapsed((s) => ({ ...s, [p.id]: !isCollapsed(p) }));
   const [detailsId, setDetailsId] = useState<number | null>(null);
 
+  // FOCUS: one phase at a time, traced through the whole graph. A persistent
+  // selection rather than hover — hover cannot be reached from a keyboard, and a
+  // structure you have to keep the pointer still to read is not one you can study.
+  const [focusId, setFocusId] = useState<number | null>(null);
+  const focus = focusSubgraph(ordered, focusId);
+  const focused = focusId != null ? byId.get(focusId) : null;
+  const toggleFocus = (id: number) => setFocusId((cur) => (cur === id ? null : id));
+  // Three levels while tracing: the phase itself, anything on a path through it,
+  // everything else receding. Off the mode, everything reads at full strength.
+  const relOf = (id: number): 'self' | 'near' | 'far' | undefined =>
+    !focus ? undefined : id === focus.id ? 'self' : focus.nodes.has(id) ? 'near' : 'far';
+  const dimNode = (id: number) => !!focus && !focus.nodes.has(id);
+  const dimEdge = (e: Edge) => !!focus && !focus.edgeKeys.has(`${e.from}-${e.to}`);
+  // A trunk is shared conduit, not a claim in itself: it stays lit while any
+  // dependency riding it is in the traced set, or its own ties would float loose.
+  const dimEdges = (es: Edge[]) => !!focus && es.length > 0 && es.every(dimEdge);
+
   // Title ⋯ menu: bulk expand/hide plus the one door to structural editing.
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -333,9 +383,23 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     };
   }, [detailsId]);
 
+  // Esc leaves the traced mode too — but only once the popover has taken its turn,
+  // so one key never closes two things at once.
+  useEffect(() => {
+    if (focusId == null || detailsId != null) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFocusId(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [focusId, detailsId]);
+
   // Station y-centers are measured from the DOM so the track follows real row heights.
+  // The measurement anchors on the phase NAME, not the header box: on a phone the
+  // header wraps to three lines and its centre lands two lines below the name, which
+  // slides every station off the row it belongs to. The head ref stays — it is what
+  // `jumpTo` scrolls to.
   const containerRef = useRef<HTMLDivElement>(null);
   const headRefs = useRef(new Map<number, HTMLDivElement>());
+  const nameRefs = useRef(new Map<number, HTMLAnchorElement>());
   const [geom, setGeom] = useState<{ ys: Record<number, number>; h: number }>({ ys: {}, h: 0 });
 
   const measure = () => {
@@ -343,7 +407,8 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     if (!c) return;
     const cTop = c.getBoundingClientRect().top;
     const ys: Record<number, number> = {};
-    headRefs.current.forEach((el, id) => {
+    headRefs.current.forEach((head, id) => {
+      const el = nameRefs.current.get(id) ?? head;
       const r = el.getBoundingClientRect();
       ys[id] = r.top - cTop + r.height / 2;
     });
@@ -359,23 +424,17 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     return () => ro.disconnect();
   }, []);
 
-  // Vertical bypass loop: out of the station, down an outer lane, back in. Tube-map
-  // grammar — 90° jogs with small radii, no curves. Direction-agnostic and the radius
-  // clamped positive: stationOrder guarantees downward edges, but a degenerate span
-  // must degrade to a tight loop, never a negative radius (which renders as a giant
-  // off-panel arc — the old branch-then-rejoin bug).
-  const bypassPath = (e: Edge, yA: number, yB: number) => {
-    const [y1, y2] = yA <= yB ? [yA, yB] : [yB, yA];
-    const bx = laneX(e.lane);
-    const r = Math.max(2, Math.min(7, (y2 - y1) / 2 - 2));
-    return [
-      `M ${mainX} ${y1}`,
-      `L ${bx + r} ${y1}`,
-      `Q ${bx} ${y1} ${bx} ${y1 + r}`,
-      `L ${bx} ${y2 - r}`,
-      `Q ${bx} ${y2} ${bx + r} ${y2}`,
-      `L ${mainX} ${y2}`,
-    ].join(' ');
+  // A bundled branch line: out of the main line at the top, down an outer lane, back
+  // in at the bottom, with a plain tie at every phase in between. Tube-map grammar —
+  // 90° jogs with small radii, no curves. The corner radius is clamped positive: a
+  // degenerate span must degrade to a tight jog, never a negative radius (which
+  // renders as a giant off-panel arc — the old branch-then-rejoin bug). A bundle of
+  // one draws exactly the single bypass loop it always did.
+  const corner = (yA: number, yB: number) => Math.max(2, Math.min(7, Math.abs(yB - yA) / 2 - 2));
+  const tiePath = (bx: number, y: number, r: number, at: 'top' | 'bottom' | 'mid') => {
+    if (at === 'top') return `M ${mainX} ${y} L ${bx + r} ${y} Q ${bx} ${y} ${bx} ${y + r}`;
+    if (at === 'bottom') return `M ${bx} ${y - r} Q ${bx} ${y} ${bx + r} ${y} L ${mainX} ${y}`;
+    return `M ${mainX} ${y} L ${bx} ${y}`;
   };
 
   const onHeaderClick = (p: PhaseTrackRow) => (e: React.MouseEvent) => {
@@ -901,7 +960,13 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
           JUMP_PHASE_EVENT, which this component already listens for. */}
       {phases.length > 0 && (
         <div className={styles.hillSummary}>
-          <PhaseHillChart wide phases={phases.map((p) => ({ id: p.id, name: p.name, progress: p.progress }))} />
+          {/* statusProgress, not raw progress: a phase explicitly marked Active
+              before its hill has moved is In Progress, and the rail directly below
+              says so. Passing the raw 0 put it in the "Not Started" pile — the two
+              views contradicting each other about the same phase, on one screen. */}
+          <PhaseHillChart wide phases={phases.map((p) => ({
+            id: p.id, name: p.name, progress: statusProgress(p.progress, p.startedAt),
+          }))} />
         </div>
       )}
 
@@ -923,31 +988,66 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
         </ul>
       )}
 
+      {/* Tracing line: the mode says its own name, counts what it found, and carries
+          the way out. A selection you cannot see the edge of is a trap. */}
+      {focus && focused && (
+        <div className={styles.tracing} role="status">
+          <span className={styles.tracingLabel}>{t(locale, 'tracingLabel')}</span>
+          <span className={styles.tracingName}>{focused.name}</span>
+          <span className={styles.tracingCounts}>
+            {t(locale, 'tracingCounts', { u: focus.upstream.size, d: focus.downstream.size })}
+          </span>
+          <button type="button" className={styles.tracingClear} onClick={() => setFocusId(null)}>
+            {t(locale, 'clearTrace')}
+          </button>
+        </div>
+      )}
+
       <div ref={containerRef} className={styles.graph} style={{ paddingLeft: gutterW }}>
         {/* the track: dependency segments only — where adjacent stations share no
             dependency there is NO connector (a line would claim a false relation);
             bypass loops in outer lanes, stations on top */}
         <svg className={styles.rail} width={gutterW} height={Math.max(geom.h, 1)} aria-hidden>
-          {edges.filter((e) => e.lane === 0).map((e) => {
+          {mainline.map((e) => {
             const y1 = geom.ys[e.from], y2 = geom.ys[e.to];
             if (y1 == null || y2 == null) return null;
             return (
-              <g key={`m${e.from}-${e.to}`}>
+              <g key={`m${e.from}-${e.to}`} className={dimEdge(e) ? styles.dim : undefined}>
                 <line x1={mainX} y1={y1} x2={mainX} y2={y2}
                   stroke={e.done ? INK : 'var(--border)'} strokeWidth={e.onChain ? 3.5 : 2} strokeLinecap="round" />
                 <title>{edgeTitle(e)}</title>
               </g>
             );
           })}
-          {edges.filter((e) => e.lane > 0).map((e) => {
-            const y1 = geom.ys[e.from], y2 = geom.ys[e.to];
-            if (y1 == null || y2 == null) return null;
-            const d = bypassPath(e, y1, y2);
+          {bundles.map((b) => {
+            const ys = b.ties.map((tie) => geom.ys[tie.phaseId]);
+            if (ys.some((y) => y == null)) return null;
+            const bx = laneX(b.lane);
+            const last = ys.length - 1;
+            const rTop = corner(ys[0], ys[1]);
+            const rBot = corner(ys[last - 1], ys[last]);
             return (
-              <g key={`b${e.from}-${e.to}`}>
-                <path d={d} fill="none" stroke={e.done ? INK : 'var(--border)'} strokeWidth={e.onChain ? 3.5 : 1.8}
-                  strokeLinecap="round" pathLength={100} className={styles.hoverable} />
-                <title>{edgeTitle(e)}</title>
+              <g key={b.key}>
+                {/* trunk, one stretch per gap between ties — each inks only when
+                    every dependency riding that stretch has departed a done phase */}
+                {b.segments.map((s, k) => (
+                  <line key={`s${k}`} x1={bx} x2={bx}
+                    y1={k === 0 ? ys[0]! + rTop : ys[k]!}
+                    y2={k === last - 1 ? ys[last]! - rBot : ys[k + 1]!}
+                    stroke={s.done ? INK : 'var(--border)'} strokeWidth={s.onChain ? 3.5 : 1.8}
+                    className={dimEdges(s.edges) ? styles.dim : undefined} />
+                ))}
+                {/* ties: the branch meeting the main line at each phase on it */}
+                {b.ties.map((tie, k) => (
+                  <g key={tie.phaseId} className={dimEdges(tie.edges) ? styles.dim : undefined}>
+                    <path
+                      d={tiePath(bx, ys[k]!, k === 0 ? rTop : rBot, k === 0 ? 'top' : k === last ? 'bottom' : 'mid')}
+                      fill="none" stroke={tie.done ? INK : 'var(--border)'}
+                      strokeWidth={tie.onChain ? 3.5 : 1.8} strokeLinecap="round"
+                      className={styles.hoverable} />
+                    <title>{tieTitle(b, tie)}</title>
+                  </g>
+                ))}
               </g>
             );
           })}
@@ -956,7 +1056,9 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               <Station key={p.id} x={mainX} y={geom.ys[p.id]} progress={p.progress}
                 started={isPhaseActive(p.progress, p.startedAt)}
                 onChain={onChainSet.has(p.id)} isConstraint={chain.constraintId === p.id}
-                title={`${p.name} — ${status(statusProgress(p.progress, p.startedAt))}`} onClick={() => jumpTo(p.id)} />
+                dimmed={dimNode(p.id)}
+                title={`${p.name} — ${status(statusProgress(p.progress, p.startedAt))}`}
+                onClick={() => toggleFocus(p.id)} />
             ),
           )}
         </svg>
@@ -979,16 +1081,21 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
 
           return (
             <div key={p.id} id={`phase-${p.id}`}
-              className={`${styles.row} ${flashId === p.id ? styles.flash : ''}`} data-testid="phase-row">
+              className={`${styles.row} ${flashId === p.id ? styles.flash : ''}`}
+              data-rel={relOf(p.id)} data-testid="phase-row">
               <div
                 ref={(el) => { if (el) headRefs.current.set(p.id, el); else headRefs.current.delete(p.id); }}
                 className={styles.head}
                 onClick={onHeaderClick(p)}
               >
-                {/* deep link, not navigation: the card + DETAILS are the phase's home */}
+                {/* deep link, not navigation: the card + DETAILS are the phase's home.
+                    Clicking (or Entering) it also traces the phase — the keyboard path
+                    to what a station click does, without adding a third icon per row. */}
                 <a href={`#phase-${p.id}`} className={styles.name}
-                  onClick={() => jumpTo(p.id)}
-                  title={status(statusProgress(p.progress, p.startedAt))}
+                  ref={(el) => { if (el) nameRefs.current.set(p.id, el); else nameRefs.current.delete(p.id); }}
+                  onClick={() => toggleFocus(p.id)}
+                  aria-current={focusId === p.id ? 'true' : undefined}
+                  title={`${status(statusProgress(p.progress, p.startedAt))} · ${t(locale, 'traceHint')}`}
                   style={!open && p.progress >= 100 ? { color: 'var(--muted)' } : undefined}>
                   {p.name}
                 </a>
@@ -1091,14 +1198,28 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
           {t(locale, 'legendConstraint')}
         </div>
         <div className={styles.legendRow}>
+          {/* the swatch is the drawing: a trunk leaving the main line, a tie at every
+              phase riding it, and the rejoin — not a lighter-weight imitation */}
           <svg viewBox="0 0 22 14" className={styles.legendGlyphWide}>
-            <path d="M 2 12 L 2 5 Q 2 2 5 2 L 17 2 Q 20 2 20 5 L 20 12" fill="none" stroke="var(--muted)" strokeWidth={1.6} />
+            <path d="M 20 2 L 5 2 Q 2 2 2 5 L 2 9 Q 2 12 5 12 L 20 12"
+              fill="none" stroke="var(--muted)" strokeWidth={1.6} />
+            <path d="M 2 7 L 20 7" fill="none" stroke="var(--muted)" strokeWidth={1.6} />
           </svg>
           {t(locale, 'legendBypass')}
         </div>
         <div className={styles.legendRow}>
           <span className={styles.legendSwatch} />
           {t(locale, 'legendTrack')}
+        </div>
+        <div className={styles.legendRow}>
+          {/* two stations on a line, one of them receding — the trace treatment itself */}
+          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide}>
+            <line x1={5} y1={7} x2={17} y2={7} stroke={INK} strokeWidth={1.6} />
+            <circle cx={5} cy={7} r={3.2} fill="var(--paper)" stroke={INK} strokeWidth={1.5} />
+            <circle cx={17} cy={7} r={3.2} fill="var(--paper)" stroke="var(--muted)" strokeWidth={1.5}
+              opacity={0.25} />
+          </svg>
+          {t(locale, 'legendTrace')}
         </div>
       </dialog>
 

@@ -126,8 +126,69 @@
   animation: trackFlash 1.4s ease-out;
 }
 @keyframes trackFlash {
-  0% { background: rgba(107, 79, 161, 0.16); }
+  /* the chain ink at a wash — a literal rgba here survived the theme switch
+     (design.md §8b: components never hard-code a color) */
+  0% { background: color-mix(in srgb, var(--chain) 16%, transparent); }
   100% { background: transparent; }
+}
+
+/* ---- TRACE mode: one phase, its ancestors, its descendants ----
+   Three levels, and only free channels: weight already says "critical chain" and
+   the chain purple already says "constraint", so the trace works by RECEDING
+   everything unrelated. The picked phase gets one quiet surface band so it can be
+   told from the rest of its own neighbourhood. */
+.dim {
+  opacity: 0.15;
+}
+.row[data-rel='far'] {
+  opacity: 0.32;
+}
+.row[data-rel='self'] {
+  background: var(--surface);
+  /* the band has to breathe past the text, but the row's own left edge is the
+     station gutter — pad on the right only so nothing shifts horizontally */
+  padding-right: 0.5rem;
+}
+
+/* Tracing line: mode name · what it found · the way out. One line, quiet ink
+   (design.md §7) — it reports a state, it is not a control panel. */
+.tracing {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}
+.tracingLabel {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.625rem;
+  color: var(--muted);
+}
+.tracingName {
+  font-weight: 600;
+  color: var(--fg);
+}
+.tracingCounts {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.tracingClear {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.125rem;
+}
+.tracingClear:hover {
+  color: var(--fg);
 }
 
 .head {
@@ -708,11 +769,13 @@
   gap: 0.375rem;
   margin-left: 0.5rem;
 }
+/* The "done" track ink, at legend scale. A literal near-black here vanished on the
+   dark paper — the swatch has to be the SAME ink the rail draws (design.md §8b). */
 .legendSwatch {
   display: inline-block;
   width: 1.125rem;
   height: 0;
-  border-top: 3px solid hsl(0, 0%, 25%);
+  border-top: 3px solid var(--fg);
   border-radius: 0.125rem;
 }
 
