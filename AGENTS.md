@@ -122,3 +122,6 @@ you earn a new one.
 15. A URL here is DATA, not just code — AI-brief citations persist hrefs — so
     retiring one means migrating the rows that cite it, not only grepping
     `src/**` ([ADR 0007](docs/adr/0007-retiring-a-url-migrates-the-data-that-cites-it.md)).
+16. `npm ci` bootstraps a checkout (links `.env`, generates the Prisma client) —
+    so CI and Docker must NOT depend on that hook, and nothing added to it may
+    need the source tree ([ADR 0008](docs/adr/0008-npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it.md)).
