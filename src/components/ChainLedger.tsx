@@ -50,6 +50,9 @@ const BRACKET_LABEL_DY = 18, MONTH_LETTER_DY = 34, QUARTER_DY = 50;
 // Label-column sizing: the gutter fits the LONGEST phase name instead of a fixed
 // width, so short names don't donate a third of the chart to whitespace.
 const RING_PAD = 24, TEXT_PAD = 10, CHAR_W = 5.9, WIDE_CHAR_W = 11;
+// Mirrors .hoverCard's max-width — only used to clamp the card inside the section
+// as it follows the pointer, so an approximate ceiling is enough.
+const CARD_W = 272;
 // One hue per meaning (tokens in globals.css, both themes).
 const BAND_FILL = {
   loss: 'var(--band-lost)',
@@ -123,7 +126,7 @@ export interface RowCard { row: ScheduleRow; left: number; top: number }
 function ScheduleChart({ ledger, sopMs, now, locale, onRowCard }: {
   ledger: ChainLedgerResult; sopMs: number | null; now: number; locale: Locale;
   /** null clears; otherwise the row and the element it was anchored to. */
-  onRowCard: (row: ScheduleRow | null, el: SVGRectElement | null, labelW?: number) => void;
+  onRowCard: (row: ScheduleRow | null, el: SVGRectElement | null, labelW?: number, clientX?: number) => void;
 }) {
   const rows = ledger.schedule;
   if (rows.length === 0) return null;
@@ -329,7 +332,8 @@ function ScheduleChart({ ledger, sopMs, now, locale, onRowCard }: {
                   can open is a card half the users never see. */}
               <rect className={styles.rowHit} x={0} y={y - ROW_H / 2} width={W} height={ROW_H}
                 rx={4} tabIndex={0} role="button" aria-label={r.name}
-                onMouseEnter={(e) => onRowCard(r, e.currentTarget, labelW)}
+                onMouseEnter={(e) => onRowCard(r, e.currentTarget, labelW, e.clientX)}
+                onMouseMove={(e) => onRowCard(r, e.currentTarget, labelW, e.clientX)}
                 onMouseLeave={() => onRowCard(null, null)}
                 onFocus={(e) => onRowCard(r, e.currentTarget, labelW)}
                 onBlur={() => onRowCard(null, null)}
@@ -376,18 +380,23 @@ export default function ChainLedger({
   // Row hover card. Position is measured in the EVENT, not in an effect — the
   // element's box is what anchors it, and setState-in-effect is a lint error here.
   const [rowCard, setRowCard] = useState<RowCard | null>(null);
-  const onRowCard = (row: ScheduleRow | null, el: SVGRectElement | null, labelW = 0) => {
+  const onRowCard = (row: ScheduleRow | null, el: SVGRectElement | null, labelW = 0, clientX?: number) => {
     if (!row || !el || !wrapRef.current) return setRowCard(null);
     const box = el.getBoundingClientRect();
     const wrap = wrapRef.current.getBoundingClientRect();
-    // Anchored to the row's vertical middle and to the START OF THE PLOT, past the
-    // label column: the card must never cover the row names, which are what the
-    // reader is using to keep their place. The hit rect spans the chart's full
-    // width W, so its rendered box gives the px-per-user-unit scale for free.
-    const scale = box.width / W;
+    // LOCKED vertically to its row — the card belongs to that phase and drifting it
+    // up and down would break the tie — but FREE horizontally, following the pointer
+    // so the reader can slide it off whatever it happens to be covering. Clamped to
+    // the section so it can never hang outside; CARD_W is the max-width the
+    // stylesheet gives it, which is all the clamp needs to know.
+    // Without a pointer (keyboard focus) it parks past the label column, which is
+    // the one place guaranteed not to cover the row names.
+    const scale = box.width / W; // the hit rect spans the chart's full W user units
+    const parked = box.left - wrap.left + labelW * scale + 8;
+    const followed = clientX == null ? parked : clientX - wrap.left + 16;
     setRowCard({
       row,
-      left: box.left - wrap.left + labelW * scale + 8,
+      left: Math.round(Math.max(0, Math.min(followed, wrap.width - CARD_W))),
       top: box.top - wrap.top + box.height / 2,
     });
   };

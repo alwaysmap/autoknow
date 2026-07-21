@@ -250,10 +250,18 @@ combination must work:
 | `data-style` | `standard` · `instrument` | `autoknow-style` |
 | `data-theme` | `light` · `dark` (resolved from `light`/`dark`/`system`) | `autoknow-theme` |
 
+* **`instrument` is the DEFAULT** (2026-07-21, user call): it is what the app
+  should look like out of the box, for everyone with no stored preference. Only an
+  explicitly stored `standard` opts out, so nobody who chose the old look loses it.
+  The default lives in TWO places that must agree — the inline script in
+  `layout.tsx` and `StyleToggle`'s server snapshot — or the picker shows the wrong
+  row as current for one frame.
 * **`standard` is the app as it was, and must stay that way.** Adopting a second
   style is only safe if going back is free, so the base token blocks are frozen:
   Instrument adds `:root[data-style="instrument"]` on top, never edits what's
-  underneath. Both pickers live in the user menu and share one control shape.
+  underneath. That holds regardless of which one is the default — the default says
+  what you see first, not which tokens are allowed to move. Both pickers live in
+  the user menu and share one control shape.
 * **Both are resolved by the inline script in `layout.tsx` before first paint.**
   Neither may move into React — that reintroduces the flash the script exists to
   prevent, and `tests/appearance.spec.ts` asserts the attribute before hydration.

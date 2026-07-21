@@ -32,10 +32,16 @@ test.describe('Appearance: style and theme are independent', () => {
     await prisma.$disconnect();
   });
 
-  test('defaults to the standard style, and it survives a reload', async ({ page }) => {
+  test('defaults to the instrument style, and an explicit standard survives', async ({ page }) => {
     await page.goto('/');
     // No stored preference must never leave the attribute unset — unset would fall
-    // through to the standard tokens by luck rather than by decision.
+    // through to whichever tokens sit underneath by luck rather than by decision.
+    await expect(root(page)).toHaveAttribute('data-style', 'instrument');
+
+    // Only an EXPLICIT standard opts out, so nobody who chose the old look loses it
+    // when the default moves.
+    await seed(page, 'standard');
+    await page.goto('/');
     await expect(root(page)).toHaveAttribute('data-style', 'standard');
   });
 

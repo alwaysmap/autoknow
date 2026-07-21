@@ -29,9 +29,11 @@ function subscribe(onChange: () => void) {
 }
 
 // Unlike the theme there is nothing to resolve — the stored value IS the answer,
-// and "standard" is both the default and the neutral server snapshot.
+// and "instrument" is both the default and the neutral server snapshot — it has to
+// match the inline script in layout.tsx exactly, or the toggle renders the wrong
+// row as current for one frame.
 function read(): Style {
-  return localStorage.getItem(STORAGE_KEY) === 'instrument' ? 'instrument' : 'standard';
+  return localStorage.getItem(STORAGE_KEY) === 'standard' ? 'standard' : 'instrument';
 }
 
 // Module scope, like ThemeToggle's `apply`: writing to documentElement from
@@ -43,7 +45,7 @@ function apply(style: Style) {
 
 export default function StyleToggle() {
   const locale = useLocale();
-  const style = useSyncExternalStore(subscribe, read, () => 'standard' as Style);
+  const style = useSyncExternalStore(subscribe, read, () => 'instrument' as Style);
 
   const choose = (next: Style) => {
     localStorage.setItem(STORAGE_KEY, next);
