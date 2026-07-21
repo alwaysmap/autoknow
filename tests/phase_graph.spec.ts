@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Locator } from '@playwright/test';
 import { prisma } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
@@ -7,6 +7,11 @@ import { seedProgram, type SeededProgram } from './helpers/fixtures';
 // cards (typed involvement pills, no role labels, no status words), the focused
 // popover (required-note status update, involvement editing, read-only dependencies),
 // and structural editing gated behind whole-graph DAG validation.
+
+// THE CARD IS THE CONTROL: rows default collapsed and there is no chevron any more,
+// so a click anywhere on the card sizes it (and selects and traces it). The title is
+// the stable, keyboard-reachable part of that card, so tests drive it there.
+const expandCard = (rowLocator: Locator) => rowLocator.locator('a[data-card-title]').click();
 
 test.describe('PhaseTrack rail', () => {
   test.describe.configure({ mode: 'serial' });
@@ -79,6 +84,39 @@ test.describe('PhaseTrack rail', () => {
     await expect(audio).toHaveCSS('opacity', '1');
   });
 
+  // The card is one object to the reader even though it is a dozen elements, so a
+  // click on ANY of it — not just the title — does the whole job: size it, trace it,
+  // take the selection off whatever held it. Clicking dead space in the card body is
+  // the case that regresses silently if the handler ever drifts back onto the header.
+  test('clicking anywhere on a card sizes, selects and traces it', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
+    const integration = row(page, 'Integration');
+    const audio = row(page, 'Audio');
+
+    await expect(async () => {
+      await expandCard(integration);
+      await expect(integration).toHaveAttribute('data-rel', 'self', { timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+    await expect(integration).toContainText('Denso'); // opened to standard
+
+    // The note text: plain prose in the card BODY, no control anywhere near it, and
+    // precisely the area a header-scoped handler would miss. (Not the card's corner —
+    // the involvement pills sit there, and those are links that rightly keep their
+    // own job; webkit and chromium put them in different places.)
+    await integration.getByText('Codec drops blocking the DSP path.').click();
+    await expect(integration).not.toContainText('Denso'); // folded back to min
+    await expect(integration).toHaveAttribute('data-rel', 'self');
+
+    // A different card takes the selection outright — one phase is selected, ever.
+    await expandCard(audio);
+    await expect(audio).toHaveAttribute('data-rel', 'self');
+    await expect(integration).not.toHaveAttribute('data-rel', 'self');
+    await expect(page.getByTestId('phase-row').filter({ has: page.locator('[data-rel]') })).toBeTruthy();
+
+    // The chevron is gone: sizing lives on the card, not on a second affordance.
+    await expect(page.locator('button[aria-label^="Toggle detail"]')).toHaveCount(0);
+  });
+
   test('cards are compact: typed pills without role labels, no status words', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
 
@@ -94,18 +132,19 @@ test.describe('PhaseTrack rail', () => {
 
     // Involvement renders as pills — names only, the colour carries the company
     // type. Rows default collapsed: expand first.
-    const toggle = integration.locator('button[aria-label^="Toggle detail"]');
-    await toggle.click();
+    await expandCard(integration);
     await expect(integration).toContainText('Denso');
     await expect(integration).toContainText('Kenji Sato');
     await expect(integration).not.toContainText('FAE');
 
-    // The caret folds the card away again; Details stays reachable either way.
+    // Clicking the card again folds it back to min — the same gesture both ways —
+    // and the zoom affordance stays reachable at either size.
     await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
-    await toggle.click();
+    await expandCard(integration);
     await expect(integration).not.toContainText('Denso');
     await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
-    await toggle.click();
+    await expandCard(integration);
+    await expect(integration).toContainText('Denso');
     await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
   });
 
@@ -149,7 +188,7 @@ test.describe('PhaseTrack rail', () => {
     // Back on the track: the card (expanded — rows default collapsed) shows the
     // new note but NOT the history list.
     const audio = row(page, 'Audio');
-    await audio.locator('button[aria-label^="Toggle detail"]').click();
+    await expandCard(audio);
     await expect(audio).toContainText('Codec samples landed; over the hill.', { timeout: 10000 });
     await expect(audio.getByText('History')).toHaveCount(0);
 
@@ -322,7 +361,7 @@ test.describe('Program phase editor', () => {
     // The chain extends through the new phase: 74 + 28 ≈ 102 days — visible on the
     // constraint card's evidence line (Integration still heads the chain; rows
     // default collapsed, so expand first).
-    await railRow(page, 'Integration').getByRole('button', { name: /Toggle detail/ }).click();
+    await expandCard(railRow(page, 'Integration'));
     await expect(railRow(page, 'Integration')).toContainText('gates ≈102 days of downstream chain work');
 
     // Remove it from its panel (no history yet → no confirm) and save.
@@ -333,7 +372,7 @@ test.describe('Program phase editor', () => {
     await saveBtn(page).click();
     await page.waitForURL(`**/programs/${seeded.projectId}`);
     // rows default collapsed — expand the constraint card before reading evidence
-    await railRow(page, 'Integration').getByRole('button', { name: /Toggle detail/ }).click();
+    await expandCard(railRow(page, 'Integration'));
     await expect(railRow(page, 'Integration')).toContainText('gates ≈74 days of downstream chain work');
   });
 
@@ -355,7 +394,7 @@ test.describe('Program phase editor', () => {
     // The chain grew from the TOP: Prep (28d) + the old ≈74 ≈ 102 — and the
     // CONSTRAINT moves to Prep, the new first unfinished stop on the chain.
     // (rows default collapsed — expand before reading the evidence line)
-    await railRow(page, 'Prep').getByRole('button', { name: /Toggle detail/ }).click();
+    await expandCard(railRow(page, 'Prep'));
     await expect(railRow(page, 'Prep')).toContainText('gates ≈102 days of downstream chain work');
     const bringUpDeps = await prisma.phaseDependency.count({ where: { phaseId: seeded.phases.bringUp } });
     expect(bringUpDeps).toBe(1);
@@ -367,7 +406,7 @@ test.describe('Program phase editor', () => {
     await saveBtn(page).click();
     await page.waitForURL(`**/programs/${seeded.projectId}`);
     // rows default collapsed — expand the constraint card before reading evidence
-    await railRow(page, 'Integration').getByRole('button', { name: /Toggle detail/ }).click();
+    await expandCard(railRow(page, 'Integration'));
     await expect(railRow(page, 'Integration')).toContainText('gates ≈74 days of downstream chain work');
   });
 });

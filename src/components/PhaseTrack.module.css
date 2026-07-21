@@ -117,9 +117,12 @@
   pointer-events: stroke; /* hover titles on bypass loops */
 }
 
+/* The whole card is the control — clicking any of it picks that phase, sizes it and
+   traces it — so the pointer cursor belongs here, not on the header alone. */
 .row {
   padding: 0.625rem 0 0.75rem;
   border-radius: 0.5rem;
+  cursor: pointer;
 }
 
 .flash {
@@ -188,8 +191,8 @@
   border-left-color: var(--trace-down);
 }
 
-/* A receded row still holds real controls — the phase name, DETAILS, the collapse
-   toggle — and they stay tabbable while tracing. At 18% they would be reachable
+/* A receded row still holds real controls — the phase name and the zoom button —
+   and they stay tabbable while tracing. At 18% they would be reachable
    and unreadable at once, which is the worst of both, so reaching a row with
    pointer or keyboard restores it. The trace is a reading aid, never a lock. */
 .row[data-rel='far']:hover,
@@ -249,7 +252,6 @@
   align-items: baseline;
   gap: 0.125rem 0.75rem;
   min-height: 1.5rem;
-  cursor: pointer;
   /* the name always wins: meta wraps to its own line before the name truncates */
   flex-wrap: wrap;
 }
@@ -411,23 +413,6 @@
 .paceOver {
   color: var(--chain-ink);
   border: 1px solid var(--chain-soft);
-}
-
-/* Disclosure caret — deliberately NOT a circular +/- button (that read as "Add").
-   A rotating chevron is unambiguous: down = open, right = collapsed. */
-.chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  padding: 0.125rem;
-  color: var(--muted);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.chevron:hover {
-  color: var(--fg);
 }
 
 .body {

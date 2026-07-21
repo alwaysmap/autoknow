@@ -328,7 +328,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   // focused DETAILS popover.
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
   const isCollapsed = (p: PhaseTrackRow) => collapsed[p.id] ?? true;
-  const toggle = (p: PhaseTrackRow) => setCollapsed((s) => ({ ...s, [p.id]: !isCollapsed(p) }));
+  const rowRefs = useRef(new Map<number, HTMLDivElement>());
   const [detailsId, setDetailsId] = useState<number | null>(null);
 
   // FOUR levels while tracing, all on the one recession channel (PhaseTrack.module.css):
@@ -491,9 +491,34 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     return `M ${mainX} ${y} L ${bx} ${y}`;
   };
 
-  const onHeaderClick = (p: PhaseTrackRow) => (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('a, button, input, select, textarea, form')) return;
-    toggle(p);
+  // THE CARD IS THE CONTROL. A phase reads as one object — title, goal, plan, hill,
+  // note, involvement — even though it is a dozen elements, so a click anywhere on it
+  // does the single thing that object means: pick this phase. That one gesture now
+  // covers what took a chevron, a station click and a separate selection:
+  //   size    min ↔ standard, so the click that selects also opens what you selected
+  //   trace   its upstream/downstream highlight comes up with it
+  //   focus   selection is single, so picking this one drops the last one
+  //   place   it ends up whole on screen rather than half under the sticky nav
+  const activateCard = (p: PhaseTrackRow) => {
+    setFocusId(p.id);
+    setCollapsed((s) => ({ ...s, [p.id]: !isCollapsed(p) }));
+    // AFTER the commit: expanding changes the card's height, and measuring first
+    // would scroll to the box it used to have. Two frames — one for React to paint
+    // the new size, one for layout to settle on it. `block: 'start'` clears the nav
+    // via html { scroll-padding-top }, and matches the row's own `#phase-N` anchor
+    // so the deep link and this scroll agree instead of fighting.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      rowRefs.current.get(p.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
+  };
+
+  // Everything interactive inside the card keeps its own job — pills navigate, the
+  // zoom button opens the popover. The TITLE is the exception: it is the card's own
+  // name, so it deep-links AND activates, which is also the keyboard path in.
+  const onCardClick = (p: PhaseTrackRow) => (e: React.MouseEvent) => {
+    const hit = (e.target as HTMLElement).closest('a, button, input, select, textarea, form');
+    if (hit && !hit.hasAttribute('data-card-title')) return;
+    activateCard(p);
   };
 
 
@@ -1137,20 +1162,21 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
 
           return (
             <div key={p.id} id={`phase-${p.id}`}
+              ref={(el) => { if (el) rowRefs.current.set(p.id, el); else rowRefs.current.delete(p.id); }}
               className={`${styles.row} ${flashId === p.id ? styles.flash : ''}`}
-              data-rel={relOf(p.id)} data-testid="phase-row">
+              data-rel={relOf(p.id)} data-testid="phase-row"
+              onClick={onCardClick(p)}>
               <div
                 ref={(el) => { if (el) headRefs.current.set(p.id, el); else headRefs.current.delete(p.id); }}
                 className={styles.head}
-                onClick={onHeaderClick(p)}
               >
-                {/* deep link, not navigation: the card + DETAILS are the phase's home.
-                    Clicking (or Entering) it also traces the phase — the keyboard path
-                    to what a station click does, without adding a third icon per row. */}
-                <a href={`#phase-${p.id}`} className={styles.name}
+                {/* The card's own name: a real href so the section stays linkable and
+                    copyable, and the keyboard route into everything the card click
+                    does — aria-expanded because it is now what opens the card. */}
+                <a href={`#phase-${p.id}`} className={styles.name} data-card-title
                   ref={(el) => { if (el) nameRefs.current.set(p.id, el); else nameRefs.current.delete(p.id); }}
-                  onClick={() => toggleFocus(p.id)}
                   aria-current={focusId === p.id ? 'true' : undefined}
+                  aria-expanded={open}
                   title={`${status(statusProgress(p.progress, p.startedAt))} · ${t(locale, 'traceHint')}`}
                   style={!open && p.progress >= 100 ? { color: 'var(--muted)' } : undefined}>
                   {p.name}
@@ -1159,21 +1185,16 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                 <span className={styles.headRight}>
                   <span className={styles.plan}>{planWords(p)}</span>
                   {paceChip(p)}
-                  {/* Details stays reachable even collapsed — rows default closed now */}
+                  {/* The card's ONE affordance. Sizing moved onto the card itself, so
+                      the chevron is gone; what is left is the step the card cannot do
+                      — lift the phase out into its focused popover. Arrows breaking
+                      outward, because that is the promise: bigger, not "more below". */}
                   <button type="button" className={styles.iconBtn} onClick={() => openDetails(p)}
                     title={t(locale, 'details')} aria-label={t(locale, 'details')}>
                     <svg viewBox="0 0 14 14" width={13} height={13} aria-hidden>
-                      <path d="M2 5 V2 H5 M9 2 H12 V5 M12 9 V12 H9 M5 12 H2 V9"
+                      <path d="M8.5 5.5 L12.5 1.5 M12.5 1.5 H9 M12.5 1.5 V5
+                               M5.5 8.5 L1.5 12.5 M1.5 12.5 H5 M1.5 12.5 V9"
                         fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                  <button type="button" className={styles.chevron} onClick={() => toggle(p)}
-                    aria-expanded={open}
-                    aria-label={`${t(locale, 'toggleDetail')}: ${open ? 'open' : 'collapsed'}`}>
-                    <svg viewBox="0 0 12 12" width={12} height={12} aria-hidden
-                      style={{ transform: open ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s ease' }}>
-                      <path d="M2.5 4.5 L6 8 L9.5 4.5" fill="none" stroke="currentColor"
-                        strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </button>
                 </span>

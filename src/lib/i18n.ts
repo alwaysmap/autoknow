@@ -121,12 +121,6 @@ const STRINGS = {
     ja: '線路は先行フェーズの完了で塗られます',
     ko: '트랙은 선행 단계가 완료되면 채워집니다',
   },
-  toggleDetail: {
-    en: 'Toggle detail',
-    de: 'Detailansicht umschalten',
-    ja: '詳細表示を切り替え',
-    ko: '상세 보기 전환',
-  },
   figuringItOut: { en: 'Figuring it out', de: 'Klären', ja: '模索中', ko: '파악 중' },
   makingItHappen: { en: 'Making it happen', de: 'Umsetzen', ja: '実行中', ko: '실행 중' },
   dialogTitle: {
