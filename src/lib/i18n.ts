@@ -252,8 +252,12 @@ const STRINGS = {
   weeksUnit: { en: '{n}w', de: '{n} Wo.', ja: '{n}週', ko: '{n}주' },
   paceEarly: { en: '{d} early', de: '{d} früher', ja: '{d}前倒し', ko: '{d} 단축' },
   paceOver: { en: '{d} over plan', de: '{d} über Plan', ja: '計画超過{d}', ko: '계획 초과 {d}' },
-  expandAll: { en: 'Expand all', de: 'Alle ausklappen', ja: 'すべて展開', ko: '모두 펼치기' },
-  collapseAll: { en: 'Hide all', de: 'Alle einklappen', ja: 'すべて隠す', ko: '모두 숨기기' },
+  expandAll: { en: 'Expand diagram', de: 'Diagramm ausklappen', ja: '図を展開', ko: '다이어그램 펼치기' },
+  collapseAll: { en: 'Collapse diagram', de: 'Diagramm einklappen', ja: '図を折りたたむ', ko: '다이어그램 접기' },
+  // Shown WHILE the tracks are put away: absent ink must never be mistaken for
+  // absent dependencies (design.md — a missing line means "no relationship").
+  tracksHidden: { en: 'Dependency tracks hidden', de: 'Abhängigkeitsstrecken ausgeblendet', ja: '依存トラックは非表示', ko: '의존성 트랙 숨김' },
+  showTracks: { en: 'Show', de: 'Einblenden', ja: '表示', ko: '표시' },
   phaseActions: {
     en: 'Phase actions',
     de: 'Phasen-Aktionen',

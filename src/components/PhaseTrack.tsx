@@ -388,12 +388,21 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
       window.removeEventListener('keydown', onKey);
     };
   }, [menuOpen]);
-  const setAll = (value: boolean) => {
-    setCollapsed(Object.fromEntries(phases.map((p) => [p.id, value])));
+  // "Collapse the diagram" is one state, not two: every card at min AND the track
+  // ink put away, leaving the stations as a plain list. Collapsing only the cards
+  // left the densest thing on screen — the tracks — untouched, which is why the
+  // bulk item read as doing nothing on a rail that already opens collapsed.
+  const [tracksHidden, setTracksHidden] = useState(false);
+  const setAll = (collapse: boolean) => {
+    setCollapsed(Object.fromEntries(phases.map((p) => [p.id, collapse])));
+    setTracksHidden(collapse);
     setMenuOpen(false);
   };
-  /** How many cards are at standard size — drives which bulk item is still live. */
+  /** How many cards are at standard size — with the tracks, this is what the bulk
+   *  items act on, so each can tell whether it still has anything to do. */
   const openCount = phases.filter((p) => !isCollapsed(p)).length;
+  const fullyExpanded = openCount === phases.length && !tracksHidden;
+  const fullyCollapsed = openCount === 0 && tracksHidden;
 
   // Jump-and-flash (station clicks, chain links, dependency chips).
   const [flashId, setFlashId] = useState<number | null>(null);
@@ -1034,11 +1043,11 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                       nothing when you click it does not read as "already done", it
                       reads as broken. */}
                   <button type="button" role="menuitem" className={styles.menuItem}
-                    disabled={openCount === phases.length} onClick={() => setAll(false)}>
+                    disabled={fullyExpanded} onClick={() => setAll(false)}>
                     {t(locale, 'expandAll')}
                   </button>
                   <button type="button" role="menuitem" className={styles.menuItem}
-                    disabled={openCount === 0} onClick={() => setAll(true)}>
+                    disabled={fullyCollapsed} onClick={() => setAll(true)}>
                     {t(locale, 'collapseAll')}
                   </button>
                   <Link href={`/programs/${projectId}/phases`} role="menuitem" className={styles.menuItem}
@@ -1102,12 +1111,27 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
         </div>
       )}
 
+      {/* Collapsed, the rail has no connecting ink — and in this grammar a missing
+          line MEANS "no relationship". So the state says itself, with the way back
+          on the same line: absent ink is only honest while it is labelled absent. */}
+      {tracksHidden && (
+        <div className={styles.tracing} role="status">
+          <span className={styles.tracingLabel}>{t(locale, 'tracksHidden')}</span>
+          <button type="button" className={styles.tracingClear} onClick={() => setTracksHidden(false)}>
+            {t(locale, 'showTracks')}
+          </button>
+        </div>
+      )}
+
       <div ref={containerRef} className={styles.graph} style={{ paddingLeft: gutterW }}>
         {/* the track: dependency segments only — where adjacent stations share no
             dependency there is NO connector (a line would claim a false relation);
             bypass loops in outer lanes, stations on top */}
         <svg className={styles.rail} width={gutterW} height={Math.max(geom.h, 1)} aria-hidden>
-          {mainline.map((e) => {
+          {/* Collapsed: stations only. The dependency ink is what makes a 15-phase
+              program dense, so putting it away IS the collapse — and the stations
+              stay, so the phases keep their place on the line. */}
+          {!tracksHidden && mainline.map((e) => {
             const y1 = geom.ys[e.from], y2 = geom.ys[e.to];
             if (y1 == null || y2 == null) return null;
             return (
@@ -1120,7 +1144,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
           })}
           {/* ghosts first, traced routes last: the answer is never crossed by the
               context it was extracted from */}
-          {[...bundles].sort((a, b) => Number(a.traced) - Number(b.traced)).map((b) => {
+          {!tracksHidden && [...bundles].sort((a, b) => Number(a.traced) - Number(b.traced)).map((b) => {
             const ys = b.ties.map((tie) => geom.ys[tie.phaseId]);
             if (ys.some((y) => y == null)) return null;
             const bx = laneX(b.lane);

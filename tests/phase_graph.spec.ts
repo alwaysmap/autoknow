@@ -117,33 +117,46 @@ test.describe('PhaseTrack rail', () => {
     await expect(page.locator('button[aria-label^="Toggle detail"]')).toHaveCount(0);
   });
 
-  // Rows default to collapsed, so on a fresh page "Hide all" had nothing to do and
-  // changed not one pixel when clicked — which reads as a broken menu, not as
-  // "already done". A bulk item that cannot change anything says so up front.
-  test('the bulk size items are live only when they would change something', async ({ page }) => {
+  // Collapsing the DIAGRAM is one state: every card at min and the dependency track
+  // ink put away, stations left standing. Collapsing only the cards left the densest
+  // thing on screen untouched, and on a rail that already opens with collapsed cards
+  // it changed nothing at all — a live-looking item that swallows the click.
+  test('collapsing the diagram puts the tracks away and says so', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
     const menu = page.getByRole('button', { name: 'Phase actions' });
-    const expandAll = page.getByRole('menuitem', { name: 'Expand all' });
-    const hideAll = page.getByRole('menuitem', { name: 'Hide all' });
+    const expand = page.getByRole('menuitem', { name: 'Expand diagram' });
+    const collapse = page.getByRole('menuitem', { name: 'Collapse diagram' });
+    const rail = page.locator('svg[class*="rail"]');
+    // Track ink only — a station draws its own <path> for the in-progress half-disc,
+    // and those must SURVIVE the collapse, so they cannot be counted as track.
+    const tracks = rail.locator('g:not([class*="station"]) > line, g:not([class*="station"]) > g > path');
 
     await expect(async () => {
       await menu.click({ timeout: 2000 });
-      await expect(expandAll).toBeVisible({ timeout: 1500 });
+      await expect(expand).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
 
-    // Everything starts collapsed: there is nothing to hide.
-    await expect(hideAll).toBeDisabled();
-    await expect(expandAll).toBeEnabled();
+    // Cards open collapsed but the tracks are drawn, so collapsing still has work.
+    await expect(collapse).toBeEnabled();
+    const drawn = await tracks.count();
+    expect(drawn).toBeGreaterThan(0);
 
-    await expandAll.click();
-    await expect(row(page, 'Integration')).toContainText('Denso'); // it really expanded
+    await collapse.click();
+    // Stations survive; the connecting ink does not.
+    await expect(rail.locator('g[class*="station"]')).not.toHaveCount(0);
+    await expect(tracks).toHaveCount(0);
+    // And absent ink is labelled absent — in this grammar a missing line otherwise
+    // means "no dependency", which would be a lie.
+    await expect(page.getByText('Dependency tracks hidden')).toBeVisible();
 
-    // Now the pair swaps: nothing left to expand.
+    // Now the pair swaps, and the way back restores the tracks.
     await menu.click();
-    await expect(expandAll).toBeDisabled();
-    await expect(hideAll).toBeEnabled();
-    await hideAll.click();
-    await expect(row(page, 'Integration')).not.toContainText('Denso');
+    await expect(collapse).toBeDisabled();
+    await expect(expand).toBeEnabled();
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Show' }).click();
+    await expect(tracks).toHaveCount(drawn);
+    await expect(page.getByText('Dependency tracks hidden')).toHaveCount(0);
   });
 
   test('cards are compact: typed pills without role labels, no status words', async ({ page }) => {
