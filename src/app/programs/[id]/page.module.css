@@ -115,10 +115,8 @@
   }
 }
 
-/* Anchor targets land below the sticky app nav, not underneath it. */
-.anchor {
-  scroll-margin-top: calc(var(--nav-h) + 0.75rem);
-}
+/* Anchor targets land below the sticky app nav via `html { scroll-padding-top }`
+   (globals.css) — a single scroll offset for the whole app, not one per target. */
 
 /* min-width: 0 lets wide children (chain charts, tables) scroll in their own
    containers instead of overflowing the viewport. */

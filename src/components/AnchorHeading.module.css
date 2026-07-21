@@ -34,11 +34,10 @@
 
 /* `.row .heading` (0,1,1) is deliberate: it has to outrank page-level
    descendant rules (`.historySection h2`) that set heading margins.
-   scroll-margin sits here, not on the row, because the h2 carries the id and
-   is what the browser scrolls to. */
+   The sticky-nav scroll offset now lives once on `html { scroll-padding-top }`
+   (globals.css), so it is NOT repeated here — two offsets would stack. */
 .row .heading {
   margin: 0;
-  scroll-margin-top: calc(var(--nav-h) + 0.75rem);
   /* An integer box at the heading sizes this app uses (18px and 22px): the 1.2
      ratio it replaces computed 21.6px and 26.4px, which put every rule BELOW a
      heading on a fractional pixel. */

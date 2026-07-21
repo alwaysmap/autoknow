@@ -298,7 +298,10 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   const jumpTo = (id: number) => {
     setDetailsId(null);
     setCollapsed((s) => ({ ...s, [id]: false }));
-    headRefs.current.get(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Align the phase head to the TOP of the scrollport (it clears the sticky nav via
+    // html { scroll-padding-top }), matching the row's `#phase-N` anchor so the two
+    // scrolls this click fires agree instead of fighting (one to top, one to centre).
+    headRefs.current.get(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setFlashId(id);
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlashId(null), 1400);
