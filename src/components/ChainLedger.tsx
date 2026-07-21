@@ -694,32 +694,40 @@ export default function ChainLedger({
         <div className={styles.block}>
           <h3 className={styles.subtitle}>{t(locale, 'clWhereBufferWent')}</h3>
           <div className={styles.wf}>
-            {wfRows.map((w, i) => (
-              <React.Fragment key={i}>
-                <span className={w.kind === 'unattributed' ? styles.muted : undefined}>
-                  {w.kind === 'gap' ? tNodes(locale, 'clIdleBefore', { phase: phaseBtn(w.toId!) })
-                    : w.kind === 'unattributed' ? t(locale, 'clUnattributed')
-                    : (
-                      // a BUTTON, not an anchor: it jumps to the rail row (an action),
-                      // and anchors here would collide with the rail's phase links
-                      // in strict-mode selectors.
-                      <button type="button" className={styles.phaseLink} onClick={() => jumpToPhase(w.phaseId!)}>
-                        {nameOf(w.phaseId!)}
-                      </button>
-                    )}
-                </span>
-                <span>
-                  <span className={`${styles.bar} ${w.gain ? styles.barGain : styles.barLoss} ${w.kind === 'unattributed' ? styles.barFaint : ''}`}
-                    style={{ width: `${Math.min(12, Math.max(0.5, w.days * 0.55))}rem` }} />
-                </span>
-                <span className={`${styles.num} ${w.gain ? styles.gainText : styles.lossText}`}>
-                  {w.days === 1
-                    ? t(locale, w.gain ? 'clGaveBackOneDay' : 'clCostOneDay')
-                    : t(locale, w.gain ? 'clGaveBackDays' : 'clCostDays', { d: w.days })}
-                </span>
-                <span className={styles.evidence}>{joinNodes(evidence(w), ' · ')}</span>
-              </React.Fragment>
-            ))}
+            {wfRows.map((w, i) => {
+              // Evidence is optional (unattributed rows have none), and rendering an
+              // empty cell was what made this list choppy — a phantom grid track under
+              // every other row. Emit it only when there is something to say.
+              const ev = evidence(w);
+              return (
+                <React.Fragment key={i}>
+                  <span className={w.kind === 'unattributed' ? styles.muted : styles.wfLabel}>
+                    {w.kind === 'gap' ? tNodes(locale, 'clIdleBefore', { phase: phaseBtn(w.toId!) })
+                      : w.kind === 'unattributed' ? t(locale, 'clUnattributed')
+                      : (
+                        // a BUTTON, not an anchor: it jumps to the rail row (an action),
+                        // and anchors here would collide with the rail's phase links
+                        // in strict-mode selectors.
+                        <button type="button" className={styles.phaseLink} onClick={() => jumpToPhase(w.phaseId!)}>
+                          {nameOf(w.phaseId!)}
+                        </button>
+                      )}
+                  </span>
+                  {/* bar and number as ONE right-anchored unit, so the number lands at
+                      the column edge and the numbers line up down the list. */}
+                  <span className={styles.wfValue}>
+                    <span className={`${styles.bar} ${w.gain ? styles.barGain : styles.barLoss} ${w.kind === 'unattributed' ? styles.barFaint : ''}`}
+                      style={{ width: `${Math.min(12, Math.max(0.5, w.days * 0.55))}rem` }} />
+                    <span className={`${styles.num} ${w.gain ? styles.gainText : styles.lossText}`}>
+                      {w.days === 1
+                        ? t(locale, w.gain ? 'clGaveBackOneDay' : 'clCostOneDay')
+                        : t(locale, w.gain ? 'clGaveBackDays' : 'clCostDays', { d: w.days })}
+                    </span>
+                  </span>
+                  {ev.length > 0 && <span className={styles.evidence}>{joinNodes(ev, ' · ')}</span>}
+                </React.Fragment>
+              );
+            })}
           </div>
           {ledger.usedDays != null && ledger.startBufferDays != null && (
             <p className={styles.net}>

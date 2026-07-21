@@ -147,17 +147,14 @@ function pillClass(typeName: string | null, companyName: string | null, isPerson
 // Monochrome station symbol: filled = done, right-half = in progress, open = not
 // started. Heavier ink for critical-chain stations; the shared ConstraintRing marks
 // the constraint. Hover for the name+status; click traces the phase's dependencies.
-function Station({ x, y, progress, started, onChain, isConstraint, title, dimmed, glow, onClick }: {
+function Station({ x, y, progress, started, onChain, isConstraint, title, dimmed, onClick }: {
   x: number; y: number; progress: number; started?: boolean; onChain: boolean; isConstraint: boolean;
-  /** Direction relative to the traced phase; absent at rest, and on the phase itself
-   *  — the pivot takes neither hue, so the two sides visibly meet AT it. */
-  title: string; dimmed?: boolean; glow?: 'up' | 'down'; onClick?: () => void;
+  title: string; dimmed?: boolean; onClick?: () => void;
 }) {
   const r = onChain ? 6 : 5;
   const stroke = onChain ? INK : 'var(--muted)';
-  const level = dimmed ? styles.dim : glow === 'up' ? styles.glowUp : glow === 'down' ? styles.glowDown : '';
   return (
-    <g onClick={onClick} className={`${styles.station} ${level}`.trim()}>
+    <g onClick={onClick} className={`${styles.station} ${dimmed ? styles.dim : ''}`.trim()}>
       {/* The dot is 10px across and it is now a control (click to trace), so it
           carries a 24px transparent target — the drawn symbol stays the same size,
           the thing you can hit does not. `transparent` is a paint, so SVG's
@@ -237,7 +234,9 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   // the same width at a finer pitch — the rail gets denser, never wider. (Measured:
   // three of the fifteen phases on Ford Evos changed row heights before this.)
   const mainX = RAIL_PAD + restingLaneCount * LANE_W + 6;
-  const gutterW = mainX + 16;
+  // +28, not +16: the extra 12px is breathing room between the station marker and
+  // the card content, so a phase doesn't butt right up against its own dot.
+  const gutterW = mainX + 28;
   const lanePitch = laneCount > 0
     ? Math.min(LANE_W, (restingLaneCount * LANE_W) / laneCount)
     : LANE_W;
@@ -362,32 +361,19 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
       : focus.downstream.has(id) ? 'down'
       : 'far';
   const dimNode = (id: number) => !!focus && !focus.nodes.has(id);
-  const stationGlow = (id: number): 'up' | 'down' | undefined =>
-    !focus || id === focus.id || !focus.nodes.has(id) ? undefined : focus.upstream.has(id) ? 'up' : 'down';
   const onPath = (e: Edge) => !!focus && focus.edgeKeys.has(`${e.from}-${e.to}`);
   const dimEdge = (e: Edge) => !!focus && !onPath(e);
-  // An edge sits on the upstream side when BOTH its ends do — the same both-ends
-  // test focusSubgraph uses to admit the edge at all, so an edge that merely
-  // touches an ancestor cannot claim the upstream treatment.
-  const upEdge = (e: Edge) =>
-    !!focus && onPath(e) &&
-    (focus.upstream.has(e.from) || e.from === focus.id) &&
-    (focus.upstream.has(e.to) || e.to === focus.id);
   // A stretch of shared trunk takes its level from its riders. Since the bundling is
   // partitioned by the trace, riders are either ALL on the path or ALL off it, so
   // "any rider is traced" and "every rider is traced" now agree — a stem can no
-  // longer light on behalf of dependencies that are not on the path. What is still a
-  // genuine mixture is DIRECTION: a stem carrying both an upstream and a downstream
-  // dependency stays at full strength, because half-fading a live conduit under-claims.
+  // longer light on behalf of dependencies that are not on the path.
   const dimEdges = (es: Edge[]) => !!focus && es.length > 0 && es.every(dimEdge);
-  const upEdges = (es: Edge[]) => !!focus && es.length > 0 && es.every((e) => upEdge(e) || dimEdge(e)) && es.some(upEdge);
-  // One class for a piece of rail ink, so every site picks its level the same way.
-  // Off the trace there is no glow at all: the resting rail is unchanged.
+  // Rail ink now answers ONE question — is this on the path — by dimming or not.
+  // DIRECTION moved off the rail and onto a pale row background (the two trace hues),
+  // which is calmer than the drop-shadow glow the rail wore before and reads as
+  // orientation rather than decoration.
   const inkClass = (es: Edge[]): string | undefined =>
-    !focus ? undefined
-      : dimEdges(es) ? styles.dim
-      : upEdges(es) ? styles.glowUp
-      : styles.glowDown;
+    !focus ? undefined : dimEdges(es) ? styles.dim : undefined;
 
   const closeDetails = useCallback(() => { setDetailsId(null); writeHash(null); }, []);
 
@@ -563,11 +549,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     activateCard(p);
   };
 
-
-  // One-line goal excerpt for the rail card: the first meaningful line of the
-  // Goal & DoD markdown, tokens stripped — the phase's purpose at a glance.
-  const goalExcerpt = (md: string): string =>
-    md.split('\n').map((l) => l.replace(/^[#>*\-\s]+/, '').replace(/\*\*/g, '').trim()).find(Boolean) ?? '';
 
   const fmtDate = (iso: string) =>
     localDate(iso, locale, { month: 'short', day: 'numeric' });
@@ -1238,7 +1219,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               <Station key={p.id} x={mainX} y={geom.ys[p.id]} progress={p.progress}
                 started={isPhaseActive(p.progress, p.startedAt)}
                 onChain={onChainSet.has(p.id)} isConstraint={chain.constraintId === p.id}
-                dimmed={dimNode(p.id)} glow={stationGlow(p.id)}
+                dimmed={dimNode(p.id)}
                 title={`${p.name} — ${status(statusProgress(p.progress, p.startedAt))}`}
                 onClick={() => toggleFocus(p.id)} />
             ),
@@ -1282,11 +1263,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                   style={!open && p.progress >= 100 ? { color: 'var(--muted)' } : undefined}>
                   {p.name}
                 </a>
-                {/* MIN is one line: name and plan, nothing else. The goal excerpt and the
-                    zoom button belong to the standard size — at min they turned a list
-                    of phases into a wall of prose and a column of icons, which is the
-                    opposite of what a collapsed diagram is for. */}
-                {open && p.description && <span className={styles.goalLine} title={goalExcerpt(p.description)}>{goalExcerpt(p.description)}</span>}
+                {/* The head is name on the left, plan + zoom right-justified on the SAME
+                    line (headRight is margin-left:auto). The goal excerpt used to ride
+                    here; it is gone — the full Goal lives in the popover, and a clamped
+                    half-sentence per row was noise between the two things that matter,
+                    the name and the schedule. The zoom button shows only at standard
+                    size, so min stays a single clean line. */}
                 <span className={styles.headRight}>
                   <span className={styles.plan}>{planWords(p)}</span>
                   {paceChip(p)}

@@ -174,9 +174,9 @@ test.describe('PhaseTrack rail', () => {
   test('cards are compact: typed pills without role labels, no status words', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
 
-    // MIN is a single line: the name and the plan, and nothing else. No goal
-    // excerpt, no zoom button — a collapsed diagram that still carries a sentence of
-    // prose and an icon per row is not collapsed.
+    // MIN is a single line: the name and the plan, and nothing else. No zoom button,
+    // and the Goal never rides the card at all — it lives only in the popover, so it
+    // is absent at both sizes.
     const bringUp = row(page, 'Bring-up');
     await expect(bringUp.getByRole('button', { name: 'Details' })).toHaveCount(0);
     await expect(bringUp).not.toContainText('Goal:');
@@ -192,15 +192,14 @@ test.describe('PhaseTrack rail', () => {
     await expect(integration).toContainText('Denso');
     await expect(integration).toContainText('Kenji Sato');
     await expect(integration).not.toContainText('FAE');
-
-    // At standard size the goal and the zoom button are there…
-    await expect(integration).toContainText('Goal:');
+    // The zoom button appears at standard size; the Goal does NOT — it is popover-only.
     await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
+    await expect(integration).not.toContainText('Goal:');
 
-    // …and clicking the card again folds it back to one line, taking both with it.
+    // Clicking the card again folds it back to one line, taking the pills and the
+    // zoom button with it.
     await expandCard(integration);
     await expect(integration).not.toContainText('Denso');
-    await expect(integration).not.toContainText('Goal:');
     await expect(integration.getByRole('button', { name: 'Details' })).toHaveCount(0);
   });
 
