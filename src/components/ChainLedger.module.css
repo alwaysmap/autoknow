@@ -3,6 +3,10 @@
 
 .wrapper {
   margin: 0 0 1rem;
+  /* the row hover card is positioned against this, NOT against .chartwrap —
+     that one scrolls (overflow-x), which would clip the card or drag it out of
+     place when the chart is scrolled sideways */
+  position: relative;
 }
 
 .titleRow {
@@ -164,6 +168,62 @@
 
 .rowLabel:hover {
   text-decoration: underline;
+}
+
+/* ONE hit target per schedule row, spanning the full chart width: the label, the
+   bar, the plan tick and the trailing note all belong to the same phase, so they
+   answer to the same hover instead of each being its own little target. */
+.rowHit {
+  fill: transparent;
+  cursor: pointer;
+}
+.rowHit:hover {
+  fill: var(--surface);
+  fill-opacity: 0.55;
+}
+/* Suppress the UA ring on BOTH, then draw our own only for :focus-visible. Without
+   the plain :focus rule the browser's default outline (a 5px amber halo in Chrome)
+   paints across the whole chart width whenever the row takes focus from a click. */
+.rowHit:focus {
+  outline: none;
+}
+.rowHit:focus-visible {
+  fill: var(--surface);
+  fill-opacity: 0.55;
+  stroke: var(--link);
+  stroke-width: 1.5;
+}
+
+/* The card states facts about one phase; it never takes the pointer, so moving
+   toward it can't make it flicker or block the row underneath. */
+.hoverCard {
+  position: absolute;
+  z-index: 30;
+  pointer-events: none;
+  max-width: 17rem;
+  padding: 0.5rem 0.625rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: 0 0.25rem 0.75rem rgb(0 0 0 / 0.12);
+  font-size: 0.75rem;
+  /* 20px, not the 21.6px that 1.35rem computes to — every line box lands on a
+     whole pixel (design.md §8d), and tests/vertical-rhythm enforces it. */
+  line-height: 1.25rem;
+  color: var(--fg);
+}
+.hoverCardName {
+  font-weight: 700;
+  line-height: 1.25rem;
+}
+.hoverCardLine {
+  color: var(--muted);
+}
+.hoverCardBad {
+  color: var(--bad);
+}
+.hoverCardChain {
+  color: var(--chain-ink);
 }
 
 .block + .block,

@@ -91,6 +91,33 @@ test.describe('Project Details and Action Item Operations', () => {
     expect(box.x + box.width).toBeLessThanOrEqual(section.x + section.width);
   });
 
+  // A schedule row is ONE target covering label, bar and trailing note, and its card
+  // must be reachable without a pointer — a hover-only card is a card half the users
+  // never see. It also must not cover the label column: the names are what the reader
+  // uses to keep their place, so a card that hides them costs more than it gives.
+  test('a critical-chain row offers a keyboard-reachable card, clear of the labels', async ({ page }) => {
+    await page.goto(`/programs/${projectId}`);
+    const rows = page.locator('[class*="rowHit"]');
+    const card = page.getByTestId('chain-row-card');
+
+    await expect(async () => {
+      await rows.first().focus();
+      await expect(card).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+
+    // It names the phase whose row it belongs to, and says something about the buffer.
+    await expect(card).toContainText('Compliance Testing');
+
+    const labels = page.locator('[class*="rowLabel"]').first();
+    const labelBox = (await labels.boundingBox())!;
+    const cardBox = (await card.boundingBox())!;
+    expect(cardBox.x).toBeGreaterThanOrEqual(labelBox.x + labelBox.width);
+
+    // Blur clears it — it must not strand itself on screen.
+    await rows.first().blur();
+    await expect(card).toHaveCount(0);
+  });
+
   test('lead partner (OEM) is editable from the program Edit dialog', async ({ page }) => {
     // A second OEM to switch to.
     const bmw = await prisma.partner.create({

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, Locale } from '../lib/i18n';
 import { tNodes, joinNodes } from './tNodes';
@@ -117,8 +117,13 @@ function BandSwatch({ kind }: { kind: BandKind }) {
 const textWidth = (s: string) =>
   [...s].reduce((w, ch) => w + (ch.charCodeAt(0) > 0x2e80 ? WIDE_CHAR_W : CHAR_W), 0);
 
-function ScheduleChart({ ledger, sopMs, now, locale }: {
+/** A hovered/focused row plus where its card should sit, in px relative to the section. */
+export interface RowCard { row: ScheduleRow; left: number; top: number }
+
+function ScheduleChart({ ledger, sopMs, now, locale, onRowCard }: {
   ledger: ChainLedgerResult; sopMs: number | null; now: number; locale: Locale;
+  /** null clears; otherwise the row and the element it was anchored to. */
+  onRowCard: (row: ScheduleRow | null, el: SVGRectElement | null, labelW?: number) => void;
 }) {
   const rows = ledger.schedule;
   if (rows.length === 0) return null;
@@ -319,6 +324,18 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
                   {t(locale, 'clSatIdle', { d: r.gapBeforeDays })}
                 </text>
               )}
+              {/* Last in the row, so it sits over the bar and the labels: the whole
+                  row is ONE target. Keyboard reaches it too — a card only a pointer
+                  can open is a card half the users never see. */}
+              <rect className={styles.rowHit} x={0} y={y - ROW_H / 2} width={W} height={ROW_H}
+                rx={4} tabIndex={0} role="button" aria-label={r.name}
+                onMouseEnter={(e) => onRowCard(r, e.currentTarget, labelW)}
+                onMouseLeave={() => onRowCard(null, null)}
+                onFocus={(e) => onRowCard(r, e.currentTarget, labelW)}
+                onBlur={() => onRowCard(null, null)}
+                onClick={() => jumpToPhase(r.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jumpToPhase(r.id); } }}
+                data-row-id={r.id} />
               {label && (() => {
                 // Beside the bar when it fits; otherwise under it (starting at the
                 // bar's own left edge, always clear) — never clipped off-canvas.
@@ -353,7 +370,27 @@ export default function ChainLedger({
   projectId, locale, now, ledger, sopDate, volumeFirstYear, owner, ownerPersonId, ownerOtherActive,
 }: ChainLedgerProps) {
   const legendRef = useRef<HTMLDialogElement>(null);
+  const wrapRef = useRef<HTMLElement>(null);
   const sopMs = sopDate ? +new Date(sopDate) : null;
+
+  // Row hover card. Position is measured in the EVENT, not in an effect — the
+  // element's box is what anchors it, and setState-in-effect is a lint error here.
+  const [rowCard, setRowCard] = useState<RowCard | null>(null);
+  const onRowCard = (row: ScheduleRow | null, el: SVGRectElement | null, labelW = 0) => {
+    if (!row || !el || !wrapRef.current) return setRowCard(null);
+    const box = el.getBoundingClientRect();
+    const wrap = wrapRef.current.getBoundingClientRect();
+    // Anchored to the row's vertical middle and to the START OF THE PLOT, past the
+    // label column: the card must never cover the row names, which are what the
+    // reader is using to keep their place. The hit rect spans the chart's full
+    // width W, so its rendered box gives the px-per-user-unit scale for free.
+    const scale = box.width / W;
+    setRowCard({
+      row,
+      left: box.left - wrap.left + labelW * scale + 8,
+      top: box.top - wrap.top + box.height / 2,
+    });
+  };
   const nameOf = (id: number) => ledger.schedule.find((r) => r.id === id)?.name ?? `#${id}`;
   const remTotal = ledger.schedule.reduce((s, r) => s + r.remainingDays, 0);
 
@@ -549,7 +586,7 @@ export default function ChainLedger({
   };
 
   return (
-    <section className={styles.wrapper} data-testid="chain-ledger">
+    <section className={styles.wrapper} data-testid="chain-ledger" ref={wrapRef}>
       <AnchorHeading
         id="critical-chain"
         linkLabel={t(locale, 'anchorLink')}
@@ -578,7 +615,49 @@ export default function ChainLedger({
         </p>
       )}
 
-      <ScheduleChart ledger={ledger} sopMs={sopMs} now={now} locale={locale} />
+      <ScheduleChart ledger={ledger} sopMs={sopMs} now={now} locale={locale} onRowCard={onRowCard} />
+
+      {/* One phase's whole story against the buffer: when it ran, what it cost or
+          handed back, and whether the chain is currently waiting on it. Rendered
+          here rather than inside the chart because .chartwrap scrolls. */}
+      {rowCard && (() => {
+        const r = rowCard.row;
+        const when =
+          r.kind === 'done' ? t(locale, 'clRowRan', { a: dayShort(r.startMs, locale), b: dayShort(r.endMs, locale) })
+          : r.kind === 'active' ? t(locale, 'clRowRunning', { a: dayShort(r.startMs, locale), b: dayShort(r.endMs, locale) })
+          : t(locale, 'clRowPlannedWindow', { a: dayShort(r.startMs, locale), b: dayShort(r.endMs, locale) });
+        const status = r.kind === 'done' ? 'statusDone' : r.kind === 'active' ? 'statusInProgress' : 'statusNotStarted';
+        // The buffer claim. An ACTIVE row defers to isForecastOver and to the very
+        // keys the bar's own label uses: a forecast variance under FORECAST_NOISE_DAYS
+        // is rounding noise, and saying "spends 1 more day" beside a bar labelled "on
+        // pace" is the exact disagreement lib/chainLedger warns about. A DONE row is
+        // measured from real dates, so there it counts from one day.
+        const claim: { text: string; bad: boolean } =
+          r.kind === 'notStarted' ? { text: t(locale, 'clRowNoClaim'), bad: false }
+          : r.kind === 'active'
+            ? (isForecastOver(r)
+                ? { text: t(locale, r.remainingDays === 1 ? 'clWorkLeftOverOne' : 'clWorkLeftOver', { d: r.remainingDays, o: r.varianceDays }), bad: true }
+                : { text: t(locale, r.remainingDays === 1 ? 'clWorkLeftOnPaceOne' : 'clWorkLeftOnPace', { d: r.remainingDays }), bad: false })
+          : r.varianceDays >= 1
+            ? { text: t(locale, r.varianceDays === 1 ? 'clRowSpentOne' : 'clRowSpent', { d: r.varianceDays }), bad: true }
+          : r.varianceDays <= -1
+            ? { text: t(locale, r.varianceDays === -1 ? 'clRowGaveOne' : 'clRowGave', { d: -r.varianceDays }), bad: false }
+            : { text: t(locale, 'clRowOnPlan'), bad: false };
+        return (
+          <div className={styles.hoverCard} role="status" data-testid="chain-row-card"
+            style={{ left: rowCard.left, top: rowCard.top, transform: 'translateY(-50%)' }}>
+            <div className={styles.hoverCardName}>{r.name}</div>
+            <div className={styles.hoverCardLine}>{t(locale, status)} · {when}</div>
+            <div className={claim.bad ? styles.hoverCardBad : styles.hoverCardLine}>{claim.text}</div>
+            {r.gapBeforeDays >= 1 && (
+              <div className={styles.hoverCardBad}>{t(locale, 'clSatIdle', { d: r.gapBeforeDays })}</div>
+            )}
+            {ledger.liveConstraintId === r.id && (
+              <div className={styles.hoverCardChain}>{t(locale, 'clKeyRing')}</div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Below the chart, the two readings of it sit SIDE BY SIDE on a wide
           screen — what to do next (left) and where the buffer went (right) —

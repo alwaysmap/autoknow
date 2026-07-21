@@ -1408,6 +1408,16 @@ const STRINGS = {
   clDaysOverPlan: { en: '{d} days over plan', de: '{d} Tage über Plan', ja: '計画超過{d}日', ko: '계획 초과 {d}일' },
   clOneDayOverPlan: { en: '1 day over plan', de: '1 Tag über Plan', ja: '計画超過1日', ko: '계획 초과 1일' },
   clSatIdle: { en: 'sat idle {d} days', de: '{d} Tage Leerlauf', ja: '{d}日間待機', ko: '{d}일간 대기' },
+  // Schedule-row hover card: what this phase did to the buffer, in one line each.
+  clRowRan: { en: 'Ran {a} – {b}', de: 'Lief {a} – {b}', ja: '実績 {a}〜{b}', ko: '진행 {a} – {b}' },
+  clRowRunning: { en: 'Started {a}, forecast to {b}', de: 'Start {a}, Prognose bis {b}', ja: '{a}開始・{b}完了見込み', ko: '{a} 시작 · {b} 완료 예상' },
+  clRowPlannedWindow: { en: 'Projected {a} – {b}', de: 'Geplant {a} – {b}', ja: '予定 {a}〜{b}', ko: '예정 {a} – {b}' },
+  clRowOnPlan: { en: 'Finished on plan — no buffer moved.', de: 'Planmäßig beendet — kein Puffer bewegt.', ja: '計画どおり完了 — バッファの増減なし。', ko: '계획대로 완료 — 버퍼 변동 없음.' },
+  clRowSpent: { en: 'Spent {d} days of buffer.', de: '{d} Tage Puffer verbraucht.', ja: 'バッファを{d}日消費。', ko: '버퍼 {d}일 소모.' },
+  clRowSpentOne: { en: 'Spent 1 day of buffer.', de: '1 Tag Puffer verbraucht.', ja: 'バッファを1日消費。', ko: '버퍼 1일 소모.' },
+  clRowGave: { en: 'Handed {d} days back to the buffer.', de: '{d} Tage an den Puffer zurückgegeben.', ja: 'バッファに{d}日返却。', ko: '버퍼에 {d}일 반환.' },
+  clRowGaveOne: { en: 'Handed 1 day back to the buffer.', de: '1 Tag an den Puffer zurückgegeben.', ja: 'バッファに1日返却。', ko: '버퍼에 1일 반환.' },
+  clRowNoClaim: { en: 'Not started — it has not moved the buffer yet.', de: 'Nicht begonnen — noch kein Puffereinfluss.', ja: '未着手 — バッファへの影響はまだありません。', ko: '시작 전 — 아직 버퍼에 영향 없음.' },
   clWorkLeftOnPace: {
     en: '≈{d} days of work left · on pace with its plan',
     de: '≈{d} Tage Arbeit übrig · im Plan',
