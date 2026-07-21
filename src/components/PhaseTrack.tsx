@@ -504,11 +504,22 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     setCollapsed((s) => ({ ...s, [p.id]: !isCollapsed(p) }));
     // AFTER the commit: expanding changes the card's height, and measuring first
     // would scroll to the box it used to have. Two frames — one for React to paint
-    // the new size, one for layout to settle on it. `block: 'start'` clears the nav
-    // via html { scroll-padding-top }, and matches the row's own `#phase-N` anchor
-    // so the deep link and this scroll agree instead of fighting.
+    // the new size, one for layout to settle on it.
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      rowRefs.current.get(p.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const node = rowRefs.current.get(p.id);
+      if (!node) return;
+      // Move the page ONLY when the card is not already whole on screen. Scrolling
+      // on every click reads as the page yanking itself around under a plain
+      // selection — the motion has to be the exception that rescues a half-visible
+      // card, not the rule. The threshold is the scroll padding itself, resolved to
+      // px by the computed style, so "clear of the sticky nav" means exactly what it
+      // means to the scroll that follows.
+      const clearance = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+      const box = node.getBoundingClientRect();
+      if (box.top >= clearance && box.bottom <= window.innerHeight) return;
+      // `block: 'start'` honours html { scroll-padding-top } and matches the card's
+      // own `#phase-N` anchor, so the deep link and this scroll agree.
+      node.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }));
   };
 

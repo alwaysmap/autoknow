@@ -142,8 +142,9 @@
               ghost, present so the program's shape survives but nowhere near
               competing with the traced path.
      hue      DIRECTION — --trace-up for what this phase waits FOR, --trace-down
-              for what waits ON it, as a glow behind the rail ink and a quiet left
-              edge on the rows. Both sides keep FULL strength.
+              for what waits ON it, as a glow behind the RAIL INK only. Both sides
+              keep FULL strength. The rows stay unmarked: the track already says
+              which way, and repeating it per row read as a striped list.
 
    Splitting them this way is the point. Direction is a CATEGORY, and an earlier
    version spent opacity on it — upstream at half — which states "these matter
@@ -175,21 +176,10 @@
 .row[data-rel='far'] {
   opacity: 0.18;
 }
-/* Rows carry no glow — a bloom behind a block of text is smudge, not signal — so
-   they take the direction as a quiet left edge in the same two hues. Full opacity
-   on both sides, for the same reason the rail is. */
-.row[data-rel='up'],
-.row[data-rel='down'] {
-  border-left: 0.125rem solid transparent;
-  margin-left: -0.5rem;
-  padding-left: calc(0.5rem - 0.125rem);
-}
-.row[data-rel='up'] {
-  border-left-color: var(--trace-up);
-}
-.row[data-rel='down'] {
-  border-left-color: var(--trace-down);
-}
+/* Rows themselves carry NO direction mark. The rail beside them already says it in
+   the two hues, and repeating it as an edge on every related row turned a quiet
+   answer into a striped list — the direction is a property of the track, not
+   something each card needs to restate. */
 
 /* A receded row still holds real controls — the phase name and the zoom button —
    and they stay tabbable while tracing. At 18% they would be reachable
@@ -199,11 +189,17 @@
 .row[data-rel='far']:focus-within {
   opacity: 1;
 }
+/* The selected card is the one place the row reads as an actual CARD, so its tint
+   needs to sit clear of its own text on every side — a background flush against the
+   title looks like a highlighter stroke, not a surface the content sits on. The
+   negative margin buys that left inset out of the station gutter rather than the
+   text column, so the content stays aligned with every other row and nothing
+   shifts horizontally when a card is picked. */
 .row[data-rel='self'] {
   background: var(--surface);
-  /* the band has to breathe past the text, but the row's own left edge is the
-     station gutter — pad on the right only so nothing shifts horizontally */
   padding-right: 0.5rem;
+  margin-left: -0.625rem;
+  padding-left: 0.625rem;
 }
 
 /* Tracing line: mode name · what it found · the way out. One line, quiet ink
