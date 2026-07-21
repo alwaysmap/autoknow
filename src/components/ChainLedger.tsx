@@ -7,6 +7,7 @@ import { tNodes, joinNodes } from './tNodes';
 import { localDate } from '../lib/dates';
 import { DAY_MS } from '../lib/sop';
 import AnchorHeading from './AnchorHeading';
+import ConstraintRing from './ConstraintRing';
 import { isForecastOver } from '../lib/chainLedger';
 import type { ChainLedgerResult, ResourceRef, ScheduleRow, Situation, WaterfallRow } from '../lib/chainLedger';
 import styles from './ChainLedger.module.css';
@@ -289,7 +290,9 @@ function ScheduleChart({ ledger, sopMs, now, locale }: {
           const isConstraint = ledger.liveConstraintId === r.id;
           return (
             <g key={r.id}>
-              {isConstraint && <circle cx={labelW - 12} cy={y} r={6} fill="none" stroke="var(--chain)" strokeWidth={2} />}
+              {/* r=2 keeps the ring at the radius 6 this layout has always reserved
+                  (RING_PAD); only its weight changes. */}
+              {isConstraint && <ConstraintRing cx={labelW - 12} cy={y} r={2} />}
               <text x={isConstraint ? labelW - RING_PAD : labelW - TEXT_PAD} y={y + 3.5} textAnchor="end" fontSize={11} fill="var(--fg)"
                 className={styles.rowLabel} onClick={() => jumpToPhase(r.id)}>
                 {r.name}
@@ -672,8 +675,8 @@ export default function ChainLedger({
           {t(locale, 'clKeyTick')}
         </div>
         <div className={styles.legendRow}>
-          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <circle cx={11} cy={7} r={5.5} fill="none" stroke="var(--chain)" strokeWidth={1.8} />
+          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden style={{ overflow: 'visible' }}>
+            <ConstraintRing cx={11} cy={7} r={1.5} />
           </svg>
           {t(locale, 'clKeyRing')}
         </div>

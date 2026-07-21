@@ -3,6 +3,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import PhaseHillGauge from './PhaseHillGauge';
+import ConstraintRing from './ConstraintRing';
 import Markdown from './Markdown';
 import { hillStatus, hillStatusColor, phaseColor } from '../lib/phase';
 import { computeCriticalChain } from '../lib/criticalChain';
@@ -239,14 +240,18 @@ export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGrap
             const isConstraint = chain.constraintId === p.id;
             return (
               <g key={p.id}>
-                {onChain.has(p.id) && (
+                {/* On-chain members get a quiet ring; the CONSTRAINT gets the one
+                    shared marker, identical to the rail's and the schedule's. */}
+                {isConstraint ? (
+                  <ConstraintRing cx={laneX(p.id)} cy={geom.ys[p.id]} r={NODE_R} />
+                ) : onChain.has(p.id) && (
                   <circle
                     cx={laneX(p.id)}
                     cy={geom.ys[p.id]}
                     r={NODE_R + 3.5}
                     fill="none"
-                    stroke={isConstraint ? 'var(--chain)' : 'var(--muted)'}
-                    strokeWidth={isConstraint ? 2 : 1.25}
+                    stroke="var(--muted)"
+                    strokeWidth={1.25}
                   />
                 )}
                 <circle cx={laneX(p.id)} cy={geom.ys[p.id]} r={NODE_R} fill={phaseColor(p.id)} stroke="var(--paper)" strokeWidth={1.6}>

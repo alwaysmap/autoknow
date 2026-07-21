@@ -7,12 +7,12 @@
   list-style: none;
 }
 
+/* No rules between items (design.md §1): with enough space between entries the
+   gap already groups each title with its own meta line, so the hairlines were
+   ink that carried no information. The padding grows to pay for them — separation
+   has to come from somewhere, and whitespace costs no ink. */
 .item {
-  padding: 0.5rem 0;
-}
-
-.item + .item {
-  border-top: 1px solid var(--border);
+  padding: 0.75rem 0;
 }
 
 /* Title and its provenance share ONE line and wrap together on narrow screens. */

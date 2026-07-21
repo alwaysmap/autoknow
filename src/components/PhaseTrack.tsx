@@ -13,6 +13,7 @@ import { HILL_PATH, hillCoordinates } from '../lib/geometry';
 import { t, statusKey, Locale } from '../lib/i18n';
 import { isPhaseActive, statusProgress, phaseColor } from '../lib/phase';
 import AnchorHeading from './AnchorHeading';
+import ConstraintRing from './ConstraintRing';
 import HillHistoryList from './HillHistoryList';
 import type { HillChange } from '../lib/history';
 import { updatePhaseHill, setPhaseStarted } from '../app/actions/hill';
@@ -116,9 +117,9 @@ function Station({ x, y, progress, started, onChain, isConstraint, title, onClic
   const stroke = onChain ? INK : 'var(--muted)';
   return (
     <g onClick={onClick} className={styles.station}>
-      {/* interchange-station treatment: the ring's interior is solid white so the
+      {/* interchange-station treatment: the ring's interior is opaque so the
           track visibly terminates at the station instead of passing through */}
-      {isConstraint && <circle cx={x} cy={y} r={r + 4} fill="var(--paper)" stroke="var(--chain)" strokeWidth={2} />}
+      {isConstraint && <ConstraintRing cx={x} cy={y} r={r} opaque />}
       <circle cx={x} cy={y} r={r} fill={progress >= 100 ? stroke : 'var(--paper)'} stroke={stroke} strokeWidth={onChain ? 2 : 1.5} />
       {progress > 0 && progress < 100 && (
         <path d={`M ${x} ${y - (r - 0.75)} A ${r - 0.75} ${r - 0.75} 0 0 1 ${x} ${y + (r - 0.75)} Z`} fill={stroke} stroke="none" />
@@ -1080,10 +1081,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
           {status(0)}
         </div>
         <div className={styles.legendRow}>
-          <svg viewBox="0 0 18 18" className={styles.legendGlyph}>
-            <circle cx={9} cy={9} r={7.5} fill="none" stroke="var(--chain)" strokeWidth={1.8} />
-            <circle cx={9} cy={9} r={4} fill="var(--paper)" stroke={INK} strokeWidth={1.5} />
-            <path d="M 9 5.4 A 3.6 3.6 0 0 1 9 12.6 Z" fill={INK} />
+          {/* The legend swatch is the SAME marker at the same proportions — a
+              lighter-weight imitation here is how a legend starts lying. */}
+          <svg viewBox="0 0 20 20" className={styles.legendGlyph} style={{ overflow: 'visible' }}>
+            <ConstraintRing cx={10} cy={10} r={4} opaque />
+            <circle cx={10} cy={10} r={4} fill="var(--paper)" stroke={INK} strokeWidth={1.5} />
+            <path d="M 10 6.4 A 3.6 3.6 0 0 1 10 13.6 Z" fill={INK} />
           </svg>
           {t(locale, 'legendConstraint')}
         </div>
