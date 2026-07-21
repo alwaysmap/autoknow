@@ -26,7 +26,7 @@ export function parseSopInput(value: string): Date | null {
 
 export interface SopOutlook {
   forecastFinishMs: number; // now + remaining chain work
-  slackDays: number; // positive = finishes before SOP, negative = late
+  bufferDays: number; // positive = finishes before SOP, negative = late
   onTrack: boolean;
 }
 
@@ -34,8 +34,8 @@ export interface SopOutlook {
 export function sopOutlook(remainingChainDays: number, sopDate: Date | string, now: number): SopOutlook {
   const sop = typeof sopDate === 'string' ? new Date(sopDate) : sopDate;
   const forecastFinishMs = now + remainingChainDays * DAY_MS;
-  const slackDays = Math.round((+sop - forecastFinishMs) / DAY_MS);
-  return { forecastFinishMs, slackDays, onTrack: slackDays >= 0 };
+  const bufferDays = Math.round((+sop - forecastFinishMs) / DAY_MS);
+  return { forecastFinishMs, bufferDays, onTrack: bufferDays >= 0 };
 }
 
 // ---- capacity over time ----
@@ -152,7 +152,7 @@ export interface SopBufferRisk {
 export type SopBufferCategory = 'late' | 'ontrack' | 'nosop' | 'na';
 
 /**
- * A program's SOP outlook. The buffer is the slack between the SOP target and
+ * A program's SOP outlook. The buffer is the room between the SOP target and
  * `now + remaining critical-chain work`; when it goes negative the buffer is exhausted
  * and the date slips.
  *   late    — active, buffer gone: the forecast finish overruns the target SOP.
@@ -204,7 +204,7 @@ export function sopBufferRisk(programs: SopBufferProgram[], now: number): SopBuf
  * isn't. Missing SOP contributes no lateness (it's flagged separately: SOP is
  * required, so absence is its own problem).
  */
-export function riskScore(healthOrderValue: number, slackDays: number | null): number {
-  const lateDays = slackDays == null ? 0 : Math.max(0, -slackDays);
+export function riskScore(healthOrderValue: number, bufferDays: number | null): number {
+  const lateDays = bufferDays == null ? 0 : Math.max(0, -bufferDays);
   return healthOrderValue * 100_000 + Math.min(99_999, lateDays);
 }

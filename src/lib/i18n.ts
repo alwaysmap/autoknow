@@ -321,7 +321,7 @@ const STRINGS = {
   phasesCard: { en: 'Phases', de: 'Phasen', ja: 'フェーズ', ko: '단계' },
   blockersDecisions: { en: 'Blockers & Decisions', de: 'Blocker & Entscheidungen', ja: 'ブロッカーと意思決定', ko: '블로커 및 의사결정' },
   pendingIssues: { en: 'Pending integration issues', de: 'Offene Integrationsprobleme', ja: '未解決の統合課題', ko: '미해결 통합 이슈' },
-  projectMetadata: { en: 'Project Metadata', de: 'Projekt-Metadaten', ja: 'プロジェクト情報', ko: '프로젝트 메타데이터' },
+  projectMetadata: { en: 'Program Metadata', de: 'Programm-Metadaten', ja: 'プログラム情報', ko: '프로그램 메타데이터' },
   suppliersLabel: { en: 'Suppliers', de: 'Zulieferer', ja: 'サプライヤー', ko: '공급업체' },
   googlerOwner: { en: 'Googler Owner', de: 'Googler-Verantwortlicher', ja: '担当Googler', ko: '담당 구글러' },
   sopTarget: { en: 'SOP Target', de: 'SOP-Ziel', ja: 'SOP目標', ko: 'SOP 목표' },
@@ -331,7 +331,7 @@ const STRINGS = {
   assignOwner: { en: 'Assign owner — required', de: 'Owner zuweisen — erforderlich', ja: 'オーナー割当が必要', ko: '담당자 지정 필요' },
   undecided: { en: 'Undecided', de: 'Offen', ja: '未定', ko: '미정' },
   notSet: { en: 'Not Set', de: 'Nicht gesetzt', ja: '未設定', ko: '설정 안 됨' },
-  editMetadata: { en: 'Edit Project Metadata', de: 'Projekt-Metadaten bearbeiten', ja: 'プロジェクト情報を編集', ko: '프로젝트 메타데이터 편집' },
+  editMetadata: { en: 'Edit Program Metadata', de: 'Programm-Metadaten bearbeiten', ja: 'プログラム情報を編集', ko: '프로그램 메타데이터 편집' },
   updateNoteOptional: { en: 'Update Note (Optional)', de: 'Update-Notiz (optional)', ja: '更新メモ（任意）', ko: '업데이트 메모 (선택)' },
   metadataNotesPlaceholder: { en: 'Metadata change notes', de: 'Notizen zur Metadaten-Änderung', ja: 'メタデータ変更のメモ', ko: '메타데이터 변경 메모' },
   saveSettings: { en: 'Save Settings', de: 'Einstellungen speichern', ja: '設定を保存', ko: '설정 저장' },
@@ -464,7 +464,10 @@ const STRINGS = {
     ko: '현재 고위험 항목이 없습니다.',
   },
   lateByWeeks: { en: '≈{n}w late', de: '≈{n} Wo. Verzug', ja: '約{n}週遅れ', ko: '약 {n}주 지연' },
-  slackWeeks: { en: '≈{n}w slack', de: '≈{n} Wo. Puffer', ja: '約{n}週の余裕', ko: '약 {n}주 여유' },
+  // Same quantity as the chain's buffer (sopOutlook's days before SOP), so it takes
+  // the same word. The German already said "Puffer" while EN said "slack" — one
+  // concept was wearing two names, and a reader cannot know they are the same.
+  slackWeeks: { en: '≈{n}w buffer', de: '≈{n} Wo. Puffer', ja: '約{n}週のバッファ', ko: '약 {n}주 버퍼' },
   missingSop: { en: 'no SOP target', de: 'kein SOP-Ziel', ja: 'SOP目標なし', ko: 'SOP 목표 없음' },
   // ---- leadership summaries ----
   aiSummary: { en: 'Leadership summary', de: 'Leadership-Zusammenfassung', ja: 'リーダーシップサマリー', ko: '리더십 요약' },
@@ -711,7 +714,6 @@ const STRINGS = {
   otherLabel: { en: 'Other', de: 'Sonstige', ja: 'その他', ko: '기타' },
   partnerLabel: { en: 'Partner', de: 'Partner', ja: 'パートナー', ko: '파트너' },
   programLabel: { en: 'Program', de: 'Programm', ja: 'プログラム', ko: '프로그램' },
-  projectLabel: { en: 'Project', de: 'Projekt', ja: 'プロジェクト', ko: '프로젝트' },
   personLabel: { en: 'Person', de: 'Person', ja: '担当者', ko: '사람' },
   contextLabel: { en: 'Context', de: 'Kontext', ja: 'コンテキスト', ko: '컨텍스트' },
   statusLabel: { en: 'Status', de: 'Status', ja: 'ステータス', ko: '상태' },
@@ -803,25 +805,25 @@ const STRINGS = {
   // ---- project admin controls ----
   archiveShort: { en: 'Archive', de: 'Archivieren', ja: 'アーカイブ', ko: '보관' },
   unarchiveShort: { en: 'Unarchive', de: 'Wiederherstellen', ja: 'アーカイブ解除', ko: '보관 해제' },
-  unarchiveProject: { en: 'Unarchive Project', de: 'Projekt wiederherstellen', ja: 'プロジェクトのアーカイブを解除', ko: '프로젝트 보관 해제' },
-  archiveProject: { en: 'Archive Project', de: 'Projekt archivieren', ja: 'プロジェクトをアーカイブ', ko: '프로젝트 보관' },
-  deleteProject: { en: 'Delete Project', de: 'Projekt löschen', ja: 'プロジェクトを削除', ko: '프로젝트 삭제' },
-  confirmProjectDeletion: { en: 'Confirm Project Deletion', de: 'Projektlöschung bestätigen', ja: 'プロジェクト削除の確認', ko: '프로젝트 삭제 확인' },
+  unarchiveProject: { en: 'Unarchive Program', de: 'Programm wiederherstellen', ja: 'プログラムのアーカイブを解除', ko: '프로그램 보관 해제' },
+  archiveProject: { en: 'Archive Program', de: 'Programm archivieren', ja: 'プログラムをアーカイブ', ko: '프로그램 보관' },
+  deleteProject: { en: 'Delete Program', de: 'Programm löschen', ja: 'プログラムを削除', ko: '프로그램 삭제' },
+  confirmProjectDeletion: { en: 'Confirm Program Deletion', de: 'Programmlöschung bestätigen', ja: 'プログラム削除の確認', ko: '프로그램 삭제 확인' },
   deleteWarning: {
-    en: 'Are you sure you want to delete this project? This will permanently remove all associated phases, action items, and status log histories.',
-    de: 'Dieses Projekt wirklich löschen? Alle zugehörigen Phasen, Action Items und Statusverläufe werden dauerhaft entfernt.',
-    ja: 'このプロジェクトを削除しますか？関連するすべてのフェーズ、アクションアイテム、ステータス履歴が完全に削除されます。',
-    ko: '이 프로젝트를 삭제하시겠습니까? 관련된 모든 단계, 액션 아이템, 상태 기록이 영구적으로 제거됩니다.',
+    en: 'Are you sure you want to delete this program? This will permanently remove all associated phases, action items, and status log histories.',
+    de: 'Dieses Programm wirklich löschen? Alle zugehörigen Phasen, Action Items und Statusverläufe werden dauerhaft entfernt.',
+    ja: 'このプログラムを削除しますか？関連するすべてのフェーズ、アクションアイテム、ステータス履歴が完全に削除されます。',
+    ko: '이 프로그램을 삭제하시겠습니까? 관련된 모든 단계, 액션 아이템, 상태 기록이 영구적으로 제거됩니다.',
   },
   cannotBeUndone: { en: 'This action cannot be undone.', de: 'Diese Aktion kann nicht rückgängig gemacht werden.', ja: 'この操作は元に戻せません。', ko: '이 작업은 되돌릴 수 없습니다.' },
   confirmTypeName: {
-    en: 'Please type the name of the project to confirm',
-    de: 'Zur Bestätigung bitte den Projektnamen eingeben',
-    ja: '確認のためプロジェクト名を入力してください',
-    ko: '확인을 위해 프로젝트 이름을 입력하세요',
+    en: 'Please type the name of the program to confirm',
+    de: 'Zur Bestätigung bitte den Programmnamen eingeben',
+    ja: '確認のためプログラム名を入力してください',
+    ko: '확인을 위해 프로그램 이름을 입력하세요',
   },
-  typeProjectNameExactly: { en: 'Type project name exactly', de: 'Projektnamen exakt eingeben', ja: 'プロジェクト名を正確に入力', ko: '프로젝트 이름을 정확히 입력' },
-  permanentlyDeleteProject: { en: 'Permanently Delete Project', de: 'Projekt endgültig löschen', ja: 'プロジェクトを完全に削除', ko: '프로젝트 영구 삭제' },
+  typeProjectNameExactly: { en: 'Type program name exactly', de: 'Programmnamen exakt eingeben', ja: 'プログラム名を正確に入力', ko: '프로그램 이름을 정확히 입력' },
+  permanentlyDeleteProject: { en: 'Permanently Delete Program', de: 'Programm endgültig löschen', ja: 'プログラムを完全に削除', ko: '프로그램 영구 삭제' },
 
   // ---- history lists / charts ----
   noUpdatesRecorded: { en: 'No updates recorded yet.', de: 'Noch keine Updates erfasst.', ja: 'まだ更新は記録されていません。', ko: '아직 기록된 업데이트가 없습니다.' },
@@ -847,10 +849,10 @@ const STRINGS = {
   activeParen: { en: '(Active)', de: '(Aktiv)', ja: '（進行中）', ko: '(진행 중)' },
   // ---- SOP chart ----
   sopChartEmpty: {
-    en: 'No active projects with target SOP dates found. Edit projects to set SOP target dates.',
-    de: 'Keine aktiven Projekte mit SOP-Zieldaten gefunden. Projekte bearbeiten, um SOP-Ziele zu setzen.',
-    ja: '目標SOP日を持つアクティブなプロジェクトがありません。プロジェクトを編集してSOP目標日を設定してください。',
-    ko: '목표 SOP 날짜가 있는 활성 프로젝트가 없습니다. 프로젝트를 편집해 SOP 목표일을 설정하세요.',
+    en: 'No active programs with target SOP dates found. Edit programs to set SOP target dates.',
+    de: 'Keine aktiven Programme mit SOP-Zieldaten gefunden. Programme bearbeiten, um SOP-Ziele zu setzen.',
+    ja: '目標SOP日を持つアクティブなプログラムがありません。プログラムを編集してSOP目標日を設定してください。',
+    ko: '목표 SOP 날짜가 있는 활성 프로그램이 없습니다. 프로그램을 편집해 SOP 목표일을 설정하세요.',
   },
   sopChartSub: {
     en: 'Anticipated units shipping per program (bars) and running industry volume total (line)',
@@ -874,7 +876,7 @@ const STRINGS = {
 
   // ---- tables: shared headers ----
   programName: { en: 'Program Name', de: 'Programmname', ja: 'プログラム名', ko: '프로그램 이름' },
-  projectNameHeader: { en: 'Project Name', de: 'Projektname', ja: 'プロジェクト名', ko: '프로젝트 이름' },
+  projectNameHeader: { en: 'Program Name', de: 'Programmname', ja: 'プログラム名', ko: '프로그램 이름' },
   partnerName: { en: 'Partner Name', de: 'Partnername', ja: 'パートナー名', ko: '파트너 이름' },
   programOwner: { en: 'Program Owner', de: 'Programmverantwortlicher', ja: 'プログラムオーナー', ko: '프로그램 담당자' },
   targetSopHeader: { en: 'Target SOP', de: 'SOP-Ziel', ja: '目標SOP', ko: '목표 SOP' },
@@ -964,7 +966,7 @@ const STRINGS = {
     ja: 'このトラッカーは、Android Automotive OS統合、Google Automotive Services、デジタルキー標準に関するチームの連携を支援します。標準テンプレートから最初のプログラムを開始しましょう:',
     ko: '이 트래커는 Android Automotive OS 통합, Google Automotive Services, 디지털 키 표준에 대한 팀 협업을 돕습니다. 표준 템플릿에서 첫 프로그램을 시작해 보세요:',
   },
-  createProjectFromTemplate: { en: '➕ Create Project from Template', de: '➕ Projekt aus Vorlage erstellen', ja: '➕ テンプレートからプロジェクトを作成', ko: '➕ 템플릿에서 프로젝트 만들기' },
+  createProjectFromTemplate: { en: '➕ Create Program from Template', de: '➕ Programm aus Vorlage erstellen', ja: '➕ テンプレートからプログラムを作成', ko: '➕ 템플릿에서 프로그램 만들기' },
   seedMockDataWalkthrough: { en: '⚙️ Seed Mock Data (Walkthrough Mode)', de: '⚙️ Mock-Daten einspielen (Demo-Modus)', ja: '⚙️ モックデータを投入（ウォークスルーモード）', ko: '⚙️ 모의 데이터 채우기 (둘러보기 모드)' },
   priorityCritical: { en: '🔴 Critical', de: '🔴 Kritisch', ja: '🔴 重大', ko: '🔴 심각' },
   priorityWarning: { en: '🟡 Warning', de: '🟡 Warnung', ja: '🟡 警告', ko: '🟡 경고' },
@@ -1085,10 +1087,10 @@ const STRINGS = {
   present: { en: 'Present', de: 'Heute', ja: '現在', ko: '현재' },
   actionDecisionHistory: { en: 'Action & Decision History', de: 'Aktions- & Entscheidungsverlauf', ja: 'アクション・意思決定履歴', ko: '액션 및 의사결정 이력' },
   actionHistorySubtext: {
-    en: 'Historical activities and project decisions mapped to the organization/role they held at the time of action:',
-    de: 'Frühere Aktivitäten und Projektentscheidungen, zugeordnet zur damaligen Organisation/Rolle:',
-    ja: '過去の活動とプロジェクトの意思決定を、当時の組織・役割に対応付けて表示します:',
-    ko: '과거 활동과 프로젝트 의사결정을 당시의 조직/역할에 매핑하여 표시합니다:',
+    en: 'Historical activities and program decisions mapped to the organization/role they held at the time of action:',
+    de: 'Frühere Aktivitäten und Programmentscheidungen, zugeordnet zur damaligen Organisation/Rolle:',
+    ja: '過去の活動とプログラムの意思決定を、当時の組織・役割に対応付けて表示します:',
+    ko: '과거 활동과 프로그램 의사결정을 당시의 조직/역할에 매핑하여 표시합니다:',
   },
   noActionsRecorded: { en: 'No actions recorded during this tenure.', de: 'Keine Aktionen in diesem Zeitraum erfasst.', ja: 'この在籍期間中のアクションは記録されていません。', ko: '이 재직 기간에 기록된 액션이 없습니다.' },
   otherUnassociated: { en: 'Other / Unassociated', de: 'Sonstige / Nicht zugeordnet', ja: 'その他 / 未対応付け', ko: '기타 / 미연결' },
@@ -1112,12 +1114,12 @@ const STRINGS = {
   // ---- me page ----
   myActionItems: { en: 'My action items', de: 'Meine Action Items', ja: 'マイアクションアイテム', ko: '내 액션 아이템' },
   actionItemDescription: { en: 'Action Item Description', de: 'Beschreibung des Action Items', ja: 'アクションアイテムの内容', ko: '액션 아이템 설명' },
-  projectContext: { en: 'Project Context', de: 'Projektkontext', ja: 'プロジェクトコンテキスト', ko: '프로젝트 컨텍스트' },
+  projectContext: { en: 'Program Context', de: 'Programmkontext', ja: 'プログラムコンテキスト', ko: '프로그램 컨텍스트' },
   assignedDate: { en: 'Assigned Date', de: 'Zugewiesen am', ja: '割り当て日', ko: '할당일' },
   noPendingAssigned: { en: 'No pending action items assigned to you.', de: 'Keine offenen Action Items für dich.', ja: 'あなたに割り当てられた未処理のアクションアイテムはありません。', ko: '할당된 대기 중 액션 아이템이 없습니다.' },
-  myProjects: { en: 'My projects', de: 'Meine Projekte', ja: 'マイプロジェクト', ko: '내 프로젝트' },
+  myProjects: { en: 'My programs', de: 'Meine Programme', ja: 'マイプログラム', ko: '내 프로그램' },
   activePhase: { en: 'Active Phase', de: 'Aktive Phase', ja: 'アクティブなフェーズ', ko: '활성 단계' },
-  noProjectAccountabilities: { en: 'No project accountabilities found for you.', de: 'Keine Projektverantwortlichkeiten für dich gefunden.', ja: 'あなたが担当するプロジェクトは見つかりません。', ko: '담당 중인 프로젝트가 없습니다.' },
+  noProjectAccountabilities: { en: 'No program accountabilities found for you.', de: 'Keine Programmverantwortlichkeiten für dich gefunden.', ja: 'あなたが担当するプログラムは見つかりません。', ko: '담당 중인 프로그램이 없습니다.' },
   noPartnerRelationships: { en: 'No partner relationships associated with you.', de: 'Keine Partnerbeziehungen mit dir verknüpft.', ja: 'あなたに関連するパートナー関係はありません。', ko: '연결된 파트너 관계가 없습니다.' },
 
   // ---- activity / ingest / login / search pages ----
@@ -1179,10 +1181,10 @@ const STRINGS = {
   },
   onboardingMode: { en: '🚀 Onboarding Mode (Seed Mock Data)', de: '🚀 Onboarding-Modus (Mock-Daten)', ja: '🚀 オンボーディングモード（モックデータ投入）', ko: '🚀 온보딩 모드 (모의 데이터 시드)' },
   seedMockDesc: {
-    en: 'Populates the database with full partner accounts, projects, templates, action items, and status feeds. Perfect for walkthroughs and E2E validation.',
-    de: 'Befüllt die Datenbank mit vollständigen Partnerkonten, Projekten, Vorlagen, Action Items und Statusfeeds. Ideal für Demos und E2E-Validierung.',
-    ja: 'パートナーアカウント、プロジェクト、テンプレート、アクションアイテム、ステータスフィード一式をデータベースに投入します。ウォークスルーやE2E検証に最適です。',
-    ko: '전체 파트너 계정, 프로젝트, 템플릿, 액션 아이템, 상태 피드를 데이터베이스에 채웁니다. 둘러보기와 E2E 검증에 적합합니다.',
+    en: 'Populates the database with full partner accounts, programs, templates, action items, and status feeds. Perfect for walkthroughs and E2E validation.',
+    de: 'Befüllt die Datenbank mit vollständigen Partnerkonten, Programmen, Vorlagen, Action Items und Statusfeeds. Ideal für Demos und E2E-Validierung.',
+    ja: 'パートナーアカウント、プログラム、テンプレート、アクションアイテム、ステータスフィード一式をデータベースに投入します。ウォークスルーやE2E検証に最適です。',
+    ko: '전체 파트너 계정, 프로그램, 템플릿, 액션 아이템, 상태 피드를 데이터베이스에 채웁니다. 둘러보기와 E2E 검증에 적합합니다.',
   },
   seedMockData: { en: 'Seed Mock Data', de: 'Mock-Daten einspielen', ja: 'モックデータを投入', ko: '모의 데이터 시드' },
   seedCoreHeading: { en: '🌱 Seed Core Data', de: '🌱 Kerndaten einspielen', ja: '🌱 コアデータを投入', ko: '🌱 핵심 데이터 시드' },
@@ -1213,13 +1215,13 @@ const STRINGS = {
   curlExample2: { en: '2. Assign Owner / Action Item update', de: '2. Verantwortlichen zuweisen / Action Item aktualisieren', ja: '2. 担当者の割り当て / アクションアイテム更新', ko: '2. 담당자 할당 / 액션 아이템 업데이트' },
 
   // ---- project pages (new + detail) ----
-  createNewProject: { en: 'Create New Project', de: 'Neues Projekt erstellen', ja: '新規プロジェクトを作成', ko: '새 프로젝트 만들기' },
+  createNewProject: { en: 'Create New Program', de: 'Neues Programm erstellen', ja: '新規プログラムを作成', ko: '새 프로그램 만들기' },
   projectNamePlaceholder: { en: 'e.g. Ford F-150 AAOS Bring-up', de: 'z. B. Ford F-150 AAOS Bring-up', ja: '例: Ford F-150 AAOS Bring-up', ko: '예: Ford F-150 AAOS Bring-up' },
   partnerOemSupplier: { en: 'Partner (OEM / Supplier)', de: 'Partner (OEM / Zulieferer)', ja: 'パートナー（OEM / サプライヤー）', ko: '파트너 (OEM / 공급업체)' },
   selectAPartner: { en: 'Select a partner...', de: 'Partner wählen…', ja: 'パートナーを選択...', ko: '파트너 선택...' },
-  projectTemplateDag: { en: 'Project Template (Critical Chain DAG)', de: 'Projektvorlage (Kritische-Kette-DAG)', ja: 'プロジェクトテンプレート（クリティカルチェーンDAG）', ko: '프로젝트 템플릿 (크리티컬 체인 DAG)' },
+  projectTemplateDag: { en: 'Program Template (Critical Chain DAG)', de: 'Programmvorlage (Kritische-Kette-DAG)', ja: 'プログラムテンプレート（クリティカルチェーンDAG）', ko: '프로그램 템플릿 (크리티컬 체인 DAG)' },
   selectAPerson: { en: 'Select a person...', de: 'Person wählen…', ja: '担当者を選択...', ko: '담당자 선택...' },
-  createProject: { en: 'Create Project', de: 'Projekt erstellen', ja: 'プロジェクトを作成', ko: '프로젝트 만들기' },
+  createProject: { en: 'Create Program', de: 'Programm erstellen', ja: 'プログラムを作成', ko: '프로그램 만들기' },
   backTo: { en: '← Back to {name}', de: '← Zurück zu {name}', ja: '← {name}に戻る', ko: '← {name}(으)로 돌아가기' },
   archivedTag: { en: '[Archived]', de: '[Archiviert]', ja: '[アーカイブ済み]', ko: '[보관됨]' },
   oemColon: { en: 'OEM:', de: 'OEM:', ja: 'OEM:', ko: 'OEM:' },
@@ -1287,10 +1289,10 @@ const STRINGS = {
     ko: '이 프로그램에는 SOP 날짜가 없어 버퍼를 계산할 수 없습니다. 프로그램 헤더에서 SOP를 설정하세요.',
   },
   clGuidelineTitle: {
-    en: '{b} days of buffer against {rem} days of remaining chain work — a comfortable reserve for that much work is about {g} days.',
-    de: '{b} Tage Puffer bei {rem} Tagen verbleibender Kettenarbeit — eine komfortable Reserve wären etwa {g} Tage.',
-    ja: '残り{rem}日のチェーン作業に対しバッファは{b}日 — 十分な余裕の目安は約{g}日です。',
-    ko: '남은 체인 작업 {rem}일에 대해 버퍼 {b}일 — 여유 있는 예비는 약 {g}일입니다.',
+    en: '{b} days of buffer against {rem} days of remaining chain work — a comfortable buffer for that much work is about {g} days.',
+    de: '{b} Tage Puffer bei {rem} Tagen verbleibender Kettenarbeit — ein komfortabler Puffer wären etwa {g} Tage.',
+    ja: '残り{rem}日のチェーン作業に対しバッファは{b}日 — 十分なバッファの目安は約{g}日です。',
+    ko: '남은 체인 작업 {rem}일에 대해 버퍼 {b}일 — 여유 있는 버퍼는 약 {g}일입니다.',
   },
   // Judgment sentence openers, by register (the status IS this sentence).
   clJudgeNone: {
@@ -1425,7 +1427,10 @@ const STRINGS = {
     ja: '残り約1日 · 予測で計画超過約{o}日',
     ko: '남은 작업 약 1일 · 예측상 계획 초과 약 {o}일',
   },
-  clDaysOfRoom: { en: '{d} days of room', de: '{d} Tage Spielraum', ja: '余裕{d}日', ko: '여유 {d}일' },
+  // "buffer" is THE word for this quantity across the app (headline, row cards, the
+  // ecosystem tile). "room"/"Spielraum"/"余裕"/"여유" were synonyms for the same thing
+  // and a synonym reads as a different thing — matched to the canonical term.
+  clDaysOfBuffer: { en: '{d} days of buffer', de: '{d} Tage Puffer', ja: 'バッファ{d}日', ko: '버퍼 {d}일' },
   clSopLabel: { en: 'SOP · end of {month}', de: 'SOP · Ende {month}', ja: 'SOP · {month}末', ko: 'SOP · {month} 말' },
   clTodayLabel: { en: 'today · {date}', de: 'heute · {date}', ja: '今日 · {date}', ko: '오늘 · {date}' },
   // Waterfall

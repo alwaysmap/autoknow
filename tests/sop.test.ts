@@ -24,14 +24,14 @@ describe('sopOutlook', () => {
   it('is on track when remaining chain work lands before the SOP', () => {
     const o = sopOutlook(74, new Date(Date.UTC(2027, 2, 31)), now);
     expect(o.onTrack).toBe(true);
-    expect(o.slackDays).toBeGreaterThan(180);
+    expect(o.bufferDays).toBeGreaterThan(180);
   });
 
   it('is late when the chain overshoots the SOP', () => {
     const o = sopOutlook(74, new Date(Date.UTC(2026, 7, 31)), now); // SOP 2026-08-31
     expect(o.onTrack).toBe(false);
-    expect(o.slackDays).toBe(Math.round((Date.UTC(2026, 7, 31) - (now + 74 * DAY_MS)) / DAY_MS));
-    expect(o.slackDays).toBeLessThan(0);
+    expect(o.bufferDays).toBe(Math.round((Date.UTC(2026, 7, 31) - (now + 74 * DAY_MS)) / DAY_MS));
+    expect(o.bufferDays).toBeLessThan(0);
   });
 });
 

@@ -160,7 +160,7 @@ test.describe('Admin and Maintenance Operations', () => {
     // Delete project with confirmation name typing
     await viaKebab('Delete');
     await page.fill('input[id="confirmProjectName"]', 'Waymo Autonomous Trucking');
-    await page.click('button:has-text("Permanently Delete Project")');
+    await page.click('button:has-text("Permanently Delete Program")');
 
     // Verify redirected to the dashboard and the project is gone
     await page.waitForURL('/ecosystem');

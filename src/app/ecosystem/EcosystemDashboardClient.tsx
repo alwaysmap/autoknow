@@ -130,10 +130,10 @@ export default function EcosystemDashboardClient({
                   {(() => {
                     if (!p.sopDate) return <span className={styles.finishedText}>{t(locale, 'tbd')}</span>;
                     if (p.hillChartProgress >= 100) return <span className={styles.finishedText}>{t(locale, 'finishedLabel')}</span>;
-                    const { slackDays, onTrack } = sopOutlook(p.chainRemainingDays, p.sopDate, now);
+                    const { bufferDays, onTrack } = sopOutlook(p.chainRemainingDays, p.sopDate, now);
                     return onTrack
-                      ? <span style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>{t(locale, 'slackWeeks', { n: Math.floor(slackDays / 7) })}</span>
-                      : <span className={styles.forecastText} style={{ color: 'var(--warn)' }}>{t(locale, 'lateByWeeks', { n: Math.ceil(-slackDays / 7) })}</span>;
+                      ? <span style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>{t(locale, 'slackWeeks', { n: Math.floor(bufferDays / 7) })}</span>
+                      : <span className={styles.forecastText} style={{ color: 'var(--warn)' }}>{t(locale, 'lateByWeeks', { n: Math.ceil(-bufferDays / 7) })}</span>;
                   })()}
                 </td>
                 <td>

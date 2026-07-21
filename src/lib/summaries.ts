@@ -123,8 +123,8 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
     if (project.sopDate) {
       const o = sopOutlook(chain.remainingDays, project.sopDate, Date.now());
       sopClause = o.onTrack
-        ? `; SOP target ${fmtDate(project.sopDate)} looks reachable (≈${o.slackDays} days of slack)`
-        : `; SOP target ${fmtDate(project.sopDate)} is at risk — remaining chain work overshoots it by ≈${-o.slackDays} days`;
+        ? `; SOP target ${fmtDate(project.sopDate)} looks reachable (≈${o.bufferDays} days of buffer)`
+        : `; SOP target ${fmtDate(project.sopDate)} is at risk — remaining chain work overshoots it by ≈${-o.bufferDays} days`;
     } else {
       sopClause = '; NO SOP target set (it is required)';
     }
@@ -255,8 +255,8 @@ async function gatherEcosystemEvidence(windowStart: Date, ev: EvidenceList) {
     if (proj.sopDate) {
       const o = sopOutlook(chain.remainingDays, proj.sopDate, Date.now());
       sopClause = o.onTrack
-        ? `SOP ${fmtDate(proj.sopDate)} reachable (≈${o.slackDays}d slack)`
-        : `SOP ${fmtDate(proj.sopDate)} AT RISK (≈${-o.slackDays}d overshoot)`;
+        ? `SOP ${fmtDate(proj.sopDate)} reachable (≈${o.bufferDays}d buffer)`
+        : `SOP ${fmtDate(proj.sopDate)} AT RISK (≈${-o.bufferDays}d overshoot)`;
     }
     const products = [proj.hasGas && 'GAS', proj.hasGbi && 'GBI', proj.hasDigitalKey && 'Digital Key']
       .filter(Boolean)

@@ -30,7 +30,7 @@ const rubik = Rubik({
 
 export const metadata: Metadata = {
   title: "AutoKnow",
-  description: "Android Automotive Partner Relationship and Project Tracker",
+  description: "Android Automotive Partner Relationship and Program Tracker",
 };
 
 export const viewport = {

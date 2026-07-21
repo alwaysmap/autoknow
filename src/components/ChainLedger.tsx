@@ -361,7 +361,7 @@ function ScheduleChart({ ledger, sopMs, now, locale, onRowCard }: {
             <path d={`M ${x(lastEnd)} ${TOP + rows.length * ROW_H + 4} L ${x(lastEnd)} ${TOP + rows.length * ROW_H + 8} L ${x(sopMs)} ${TOP + rows.length * ROW_H + 8} L ${x(sopMs)} ${TOP + rows.length * ROW_H + 4}`}
               fill="none" stroke="var(--ok)" strokeWidth={1.5} />
             <text x={(x(lastEnd) + x(sopMs)) / 2} y={axisY + BRACKET_LABEL_DY} textAnchor="middle" fontSize={10} fill="var(--ok)">
-              {t(locale, 'clDaysOfRoom', { d: ledger.bufferDays })}
+              {t(locale, 'clDaysOfBuffer', { d: ledger.bufferDays })}
             </text>
           </g>
         )}
