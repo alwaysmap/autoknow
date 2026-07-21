@@ -27,7 +27,18 @@ function worktreeToken(): string {
   return createHash('sha1').update(process.cwd()).digest('hex').slice(0, 8);
 }
 
-const BASE = new URL(process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/autoknow');
+// A missing DATABASE_URL means a missing .env, which a fresh worktree cannot
+// inherit (scripts/dev/link-env.sh). Say so rather than silently demoing against
+// whatever happens to be on localhost — the demo looking healthy while pointed at
+// the wrong database is the expensive failure here.
+const DEFAULT_DB_URL = 'postgresql://postgres:postgres@localhost:5432/autoknow';
+if (!process.env.DATABASE_URL) {
+  console.warn(
+    `No DATABASE_URL set — using ${DEFAULT_DB_URL}. In a fresh worktree run ` +
+      '`npm run postinstall` to link .env from the main checkout.',
+  );
+}
+const BASE = new URL(process.env.DATABASE_URL || DEFAULT_DB_URL);
 const TOKEN = worktreeToken();
 const DB = `autoknow_${TOKEN}_demo`;
 const DB_URL = (() => {

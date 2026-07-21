@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "postinstall": "sh scripts/dev/link-env.sh 2>/dev/null || true",
     "demo": "ts-node scripts/dev/demo.ts",
     "build": "next build",
     "start": "next start",
