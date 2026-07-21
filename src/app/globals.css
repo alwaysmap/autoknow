@@ -13,6 +13,19 @@
   /* Structural emphasis — critical chain, constraint evidence, END phase, editor
      selection. Deliberately NOT amber: amber/red/green are the health palette, and
      "constraint" is a structural fact, not a risk verdict. */
+  /* Trace direction on the phase rail. Hue carries WHICH WAY, never how much a
+     phase matters — direction is a category, and fading one side said "these count
+     for less", which is not what upstream means. Aliases onto the sanctioned triad
+     off the locked --hue (both already restated for dark), so this spends no NEW
+     colour and the pairing can be re-cast in one place: cool sits behind you, the
+     warmer one lies ahead. Deliberately NOT --chain (that purple is the constraint,
+     which can appear on either side of a trace) and not a status hue.
+     The 700 weight, not 500: it is the one restated PER THEME to stay readable
+     against its own paper (34%/32% lightness on cream, 72% on the dark), which is
+     exactly what a glow needs — the 500s washed out on light paper. */
+  --trace-up: var(--s-700);
+  --trace-down: var(--t-700);
+
   --chain: #6b4fa1;
   --chain-ink: #5a4488;  /* readable text weight on the cream background */
   --chain-soft: #c9b9e6; /* light variant, e.g. badges on solid-ink pills */

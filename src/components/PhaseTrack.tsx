@@ -129,13 +129,15 @@ function pillClass(typeName: string | null, companyName: string | null, isPerson
 // Monochrome station symbol: filled = done, right-half = in progress, open = not
 // started. Heavier ink for critical-chain stations; the shared ConstraintRing marks
 // the constraint. Hover for the name+status; click traces the phase's dependencies.
-function Station({ x, y, progress, started, onChain, isConstraint, title, dimmed, upstream, onClick }: {
+function Station({ x, y, progress, started, onChain, isConstraint, title, dimmed, glow, onClick }: {
   x: number; y: number; progress: number; started?: boolean; onChain: boolean; isConstraint: boolean;
-  title: string; dimmed?: boolean; upstream?: boolean; onClick?: () => void;
+  /** Direction relative to the traced phase; absent at rest, and on the phase itself
+   *  — the pivot takes neither hue, so the two sides visibly meet AT it. */
+  title: string; dimmed?: boolean; glow?: 'up' | 'down'; onClick?: () => void;
 }) {
   const r = onChain ? 6 : 5;
   const stroke = onChain ? INK : 'var(--muted)';
-  const level = dimmed ? styles.dim : upstream ? styles.upstream : '';
+  const level = dimmed ? styles.dim : glow === 'up' ? styles.glowUp : glow === 'down' ? styles.glowDown : '';
   return (
     <g onClick={onClick} className={`${styles.station} ${level}`.trim()}>
       {/* The dot is 10px across and it is now a control (click to trace), so it
@@ -342,7 +344,8 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
       : focus.downstream.has(id) ? 'down'
       : 'far';
   const dimNode = (id: number) => !!focus && !focus.nodes.has(id);
-  const upNode = (id: number) => !!focus && focus.upstream.has(id);
+  const stationGlow = (id: number): 'up' | 'down' | undefined =>
+    !focus || id === focus.id || !focus.nodes.has(id) ? undefined : focus.upstream.has(id) ? 'up' : 'down';
   const onPath = (e: Edge) => !!focus && focus.edgeKeys.has(`${e.from}-${e.to}`);
   const dimEdge = (e: Edge) => !!focus && !onPath(e);
   // An edge sits on the upstream side when BOTH its ends do — the same both-ends
@@ -361,8 +364,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   const dimEdges = (es: Edge[]) => !!focus && es.length > 0 && es.every(dimEdge);
   const upEdges = (es: Edge[]) => !!focus && es.length > 0 && es.every((e) => upEdge(e) || dimEdge(e)) && es.some(upEdge);
   // One class for a piece of rail ink, so every site picks its level the same way.
+  // Off the trace there is no glow at all: the resting rail is unchanged.
   const inkClass = (es: Edge[]): string | undefined =>
-    dimEdges(es) ? styles.dim : upEdges(es) ? styles.upstream : undefined;
+    !focus ? undefined
+      : dimEdges(es) ? styles.dim
+      : upEdges(es) ? styles.glowUp
+      : styles.glowDown;
 
   // Title ⋯ menu: bulk expand/hide plus the one door to structural editing.
   const [menuOpen, setMenuOpen] = useState(false);
@@ -1105,7 +1112,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               <Station key={p.id} x={mainX} y={geom.ys[p.id]} progress={p.progress}
                 started={isPhaseActive(p.progress, p.startedAt)}
                 onChain={onChainSet.has(p.id)} isConstraint={chain.constraintId === p.id}
-                dimmed={dimNode(p.id)} upstream={upNode(p.id)}
+                dimmed={dimNode(p.id)} glow={stationGlow(p.id)}
                 title={`${p.name} — ${status(statusProgress(p.progress, p.startedAt))}`}
                 onClick={() => toggleFocus(p.id)} />
             ),

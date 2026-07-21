@@ -133,36 +133,59 @@
 }
 
 /* ---- TRACE mode: one phase, its ancestors, its descendants ----
-   Only free channels: weight already says "critical chain" and the chain purple
-   already says "constraint", so the trace works by RECEDING what matters less.
-   The picked phase gets one quiet surface band so it can be told from the rest of
-   its own neighbourhood.
+   TWO channels, each carrying exactly one thing:
 
-   FOUR steps on that ONE channel, ordered by how much the phase should concern
-   you right now, so no second channel is spent and no legend is needed to read
-   it — brighter is simply more relevant:
+     opacity  RELEVANCE — on the path, or not. Unrelated ink recedes to a bare
+              ghost, present so the program's shape survives but nowhere near
+              competing with the traced path.
+     hue      DIRECTION — --trace-up for what this phase waits FOR, --trace-down
+              for what waits ON it, as a glow behind the rail ink and a quiet left
+              edge on the rows. Both sides keep FULL strength.
 
-     self       the picked phase, plus a surface band
-     downstream full strength — what is WAITING on it; if this slips, these slip
-     upstream   half — what it is waiting FOR: context, already accounted for
-     unrelated  a bare ghost — present, so the program's shape survives, but
-                nowhere near competing with the path
+   Splitting them this way is the point. Direction is a CATEGORY, and an earlier
+   version spent opacity on it — upstream at half — which states "these matter
+   less" when the only claim is "these came first". Weight and the chain purple
+   were already taken (critical chain, constraint), so hue was the free channel,
+   and the constraint ring stays legible on either side of a trace.
 
-   The upstream/downstream split is what makes a trace on a spine phase say
-   something. Everything is on a path through those, so a two-step scale dimmed
-   nothing and the click read as "nothing happened" — on the 15-phase template
-   that was 6 phases of 15, and every phase of a purely linear program. */
+   The split is also what makes a trace on a spine phase say anything: everything
+   is on a path through those, so a relevance-only scale dimmed nothing and the
+   click read as "nothing happened" — 6 phases of 15 on the AAOS template, and
+   every phase of a purely linear program. */
 .dim {
   opacity: 0.06;
 }
-.upstream {
-  opacity: 0.5;
+
+/* Direction is carried by a GLOW behind the traced ink — one themed hue for what
+   this phase waits FOR, another for what waits ON it. Both sides then keep FULL
+   strength: fading upstream encoded a category on an ordinal channel, which reads
+   as "these matter less" when the actual claim is only "these came first".
+   Two shadows, not one: a tight core that hugs the line so the mark stays crisp,
+   and a wider bloom that reaches past it. Static — design.md §8c caps motion at
+   two implementations and a pulsing trace would be a third. */
+.glowUp {
+  filter: drop-shadow(0 0 0.0625rem var(--trace-up)) drop-shadow(0 0 0.25rem var(--trace-up));
+}
+.glowDown {
+  filter: drop-shadow(0 0 0.0625rem var(--trace-down)) drop-shadow(0 0 0.25rem var(--trace-down));
 }
 .row[data-rel='far'] {
   opacity: 0.18;
 }
+/* Rows carry no glow — a bloom behind a block of text is smudge, not signal — so
+   they take the direction as a quiet left edge in the same two hues. Full opacity
+   on both sides, for the same reason the rail is. */
+.row[data-rel='up'],
+.row[data-rel='down'] {
+  border-left: 0.125rem solid transparent;
+  margin-left: -0.5rem;
+  padding-left: calc(0.5rem - 0.125rem);
+}
 .row[data-rel='up'] {
-  opacity: 0.55;
+  border-left-color: var(--trace-up);
+}
+.row[data-rel='down'] {
+  border-left-color: var(--trace-down);
 }
 
 /* A receded row still holds real controls — the phase name, DETAILS, the collapse
@@ -170,9 +193,7 @@
    and unreadable at once, which is the worst of both, so reaching a row with
    pointer or keyboard restores it. The trace is a reading aid, never a lock. */
 .row[data-rel='far']:hover,
-.row[data-rel='far']:focus-within,
-.row[data-rel='up']:hover,
-.row[data-rel='up']:focus-within {
+.row[data-rel='far']:focus-within {
   opacity: 1;
 }
 .row[data-rel='self'] {
