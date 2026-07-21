@@ -18,11 +18,18 @@ interface SearchParams {
 
 export default async function MePage(props: { searchParams: Promise<SearchParams> }) {
   const searchParams = await props.searchParams;
-  const user = searchParams.user || (await getCurrentUser()).display;
+  const me = await getCurrentUser();
+  const override = searchParams.user;
+  const user = override || me.display;
   const locale = await getLocale();
 
   const userClean = normalizeHandle(user);
-  const userEmail = deriveEmail(user);
+  // The session's own email is authoritative and used VERBATIM. Going through
+  // deriveEmail() here re-derived the address from the bare handle and so forced
+  // the org default domain onto it — a real login of dylan@alwaysmap.com resolved
+  // as dylan@google.com and landed on a DIFFERENT person. Only the ?user=
+  // override (a handle typed by a human, stub mode) needs deriving.
+  const userEmail = override ? deriveEmail(override) : me.email;
 
   const person = await prisma.person.findFirst({
     where: {

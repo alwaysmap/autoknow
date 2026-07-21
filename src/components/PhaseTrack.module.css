@@ -189,16 +189,10 @@
 
 /* Title row: the component owns its heading so the ⋯ menu can drive collapse state.
    The h2 inherits the section's heading style; this row only lays the two out. */
-.trackHead {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 0.5rem;
-}
-/* Outrank the page's `.historySection h2` margin so the ⋯ button centers true. */
-.trackHead h2.trackTitle {
-  margin: 0;
-}
+/* No wrapper around the heading: the ⓘ and ⋯ ride inside AnchorHeading via its
+   `actions` prop, so AnchorHeading's own `.row` is the flex line (and its
+   `.row .heading` already outranks the page's `.historySection h2` margin).
+   A wrapper here would put these buttons AFTER the row's trailing graticule. */
 .menuWrap {
   position: relative;
   display: inline-flex;

@@ -4,6 +4,7 @@ import { reindexAll } from './search';
 import { scoreToHealth } from './relationship';
 import { ensureBuiltinTemplates } from './programTemplates';
 import { assertDestructiveDbAllowed } from './dbSafety';
+import { getCurrentUser } from './session';
 
 // The mock seeder creates its data THROUGH the application's own mutation
 // boundaries — API route handlers invoked in-process, plus the server actions for
@@ -411,6 +412,19 @@ export async function seedMockData() {
   console.log('Seeding full mock data...');
   await wipeAllData();
 
+  // WHO IS "ME": taken from the live session, never authored as a literal.
+  //
+  // The seed used to hardcode dylan@google.com as the lead PM. Signed in as a real
+  // Workspace account (dylan@alwaysmap.com), /me then resolved to a person the
+  // seed had invented and the app disagreed with itself about who you are — the
+  // nav said one address, the Me page showed another, and the programs "you" own
+  // belonged to a stranger. The seeder cannot anticipate the address, so it stops
+  // guessing: it runs through the API routes as the signed-in user, so it just
+  // ASKS. Every place that used to name Dylan now names `me.email`, which
+  // resolvePerson matches exactly — so this holds for any login, not just Dylan's.
+  const me = await getCurrentUser();
+  console.log(`Seeding as ${me.name} <${me.email}> — the lead PM persona is bound to this login.`);
+
   // Reference lookup tables are seed/migration-owned — there is deliberately no API
   // that creates partner types or regions, so these two stay direct writes.
   console.log('Seeding lookup tables (Regions, Partner Types)...');
@@ -465,7 +479,7 @@ export async function seedMockData() {
   const contactPatches: Array<{ id: number; phone: string; googleTeam: { email: string; role: string }[] }> = [
     { id: googlePartnerId, phone: '+1-650-253-0000', googleTeam: [] },
     { id: fordId, phone: '+1-313-322-3000', googleTeam: [
-      { email: 'dylan@google.com', role: 'Relationship Lead' },
+      { email: me.email, role: 'Relationship Lead' },
       { email: 'bob@google.com', role: 'Cloud Account Manager' },
     ] },
     { id: toyotaId, phone: '+81-565-28-2121', googleTeam: [
@@ -475,7 +489,7 @@ export async function seedMockData() {
       { email: 'clara@google.com', role: 'Supplier Operations Lead' },
     ] },
     { id: qualcommId, phone: '+1-858-587-1121', googleTeam: [
-      { email: 'dylan@google.com', role: 'Silicon Alignment Engineer' },
+      { email: me.email, role: 'Silicon Alignment Engineer' },
     ] },
   ];
   for (const patch of contactPatches) {
@@ -488,8 +502,8 @@ export async function seedMockData() {
   console.log('Seeding people...');
   // People come BEFORE programs: the projects route resolves each program's owner
   // against existing people and refuses freeform names.
-  const dylanId = await createPerson({
-    name: 'Dylan PM', email: 'dylan@google.com', currentPartnerId: googlePartnerId,
+  const meId = await createPerson({
+    name: me.name, email: me.email, currentPartnerId: googlePartnerId,
     notes: 'Lead Program Manager for AutoKnow ecosystem and Ford relationship.',
   });
   const bobId = await createPerson({
@@ -518,7 +532,7 @@ export async function seedMockData() {
   });
 
   console.log('Seeding person affiliations...');
-  await addAffiliation(dylanId, { partnerId: googlePartnerId, role: 'Lead Program Manager', startDate: '2024-01-01' });
+  await addAffiliation(meId, { partnerId: googlePartnerId, role: 'Lead Program Manager', startDate: '2024-01-01' });
   await addAffiliation(bobId, { partnerId: googlePartnerId, role: 'Cloud Account Manager', startDate: '2024-03-15' });
   await addAffiliation(aliceId, { partnerId: googlePartnerId, role: 'Partner Engineering Manager', startDate: '2023-02-01' });
   await addAffiliation(claraId, { partnerId: googlePartnerId, role: 'Supplier Operations Lead', startDate: '2023-07-01' });
@@ -538,7 +552,7 @@ export async function seedMockData() {
 
   // 1. Ford Evos AAOS Bring-up
   const fordProjectId = await createProject({
-    name: 'Ford Evos AAOS Bring-up', partnerId: fordId, ownerName: 'Dylan PM',
+    name: 'Ford Evos AAOS Bring-up', partnerId: fordId, ownerName: me.email,
     sopDate: await sopForPlan(AAOS_T, FORD_THROUGH, 8), volumeFirstYear: 180000,
   });
   // Dated program history through the needle route, oldest first — the final post
@@ -563,7 +577,7 @@ export async function seedMockData() {
 
   await createActionItem(fordProjectId, fordPhases['BSP & power-on'], {
     description: 'Determine cause for VHAL wait time delay',
-    assignedTo: '@dylan', status: 'Pending', nextStep: 'Googler',
+    assignedTo: me.email, status: 'Pending', nextStep: 'Googler',
     linkUrl: 'https://buganizer.corp.google.com/issues/889218',
     source: 'Buganizer', sourceUrl: 'https://buganizer.corp.google.com/issues/889218',
   });
@@ -628,7 +642,7 @@ export async function seedMockData() {
 
   // 4. Qualcomm Snapdragon Support (SA8295P cockpit)
   const qualcommProjectId = await createProject({
-    name: 'Qualcomm Snapdragon Cockpit Support', partnerId: qualcommId, ownerName: 'Dylan PM',
+    name: 'Qualcomm Snapdragon Cockpit Support', partnerId: qualcommId, ownerName: me.email,
     sopDate: await sopForPlan(AAOS_T, QUALCOMM_THROUGH, 10), volumeFirstYear: 500000,
   });
   await postProjectState(qualcommProjectId, {
@@ -656,7 +670,7 @@ export async function seedMockData() {
   });
   await createActionItem(qualcommProjectId, qualcommPhases['Audio'], {
     description: 'Review Snapdragon SA8295 firmware registry patches',
-    assignedTo: '@dylan', status: 'Pending', nextStep: 'Googler',
+    assignedTo: me.email, status: 'Pending', nextStep: 'Googler',
     linkUrl: 'https://android-review.googlesource.com/c/platform/hardware/qcom/+/99812',
     source: 'Gerrit', sourceUrl: 'https://android-review.googlesource.com/c/platform/hardware/qcom/+/99812',
   });
@@ -771,7 +785,7 @@ export async function seedMockData() {
       gas: true, gbi: true, dk: false, needle: 'On Track', hill: 30,
       phases: [ { n: 'Architecture Lock', d: 25, p: 100 }, { n: 'Compute Board Bring-up', d: 40, p: 40 }, { n: 'App Platform Port', d: 50, p: 0 }, { n: 'Fleet Validation', d: 45, p: 0 } ],
       suppliers: [lgeId], people: [carlosId, minjiId, marcusId] },
-    { name: 'Volvo EX90 AAOS Refresh', partnerId: volvoCarsId, owner: 'dylan', sop: '2026-12-31', vol: 90000,
+    { name: 'Volvo EX90 AAOS Refresh', partnerId: volvoCarsId, owner: me.email, sop: '2026-12-31', vol: 90000,
       gas: true, gbi: false, dk: false, needle: 'Concerned', hill: 70,
       phases: [ { n: 'Platform Rebase', d: 30, p: 100 }, { n: 'Driver Update Pass', d: 25, p: 80 }, { n: 'Regression & Cert', d: 35, p: 0 } ],
       suppliers: [continentalId], people: [lenaId, svenId] },
@@ -785,11 +799,11 @@ export async function seedMockData() {
       phases: [ { n: 'Brand Matrix Scoping', d: 20, p: 100 }, { n: 'Reference Head Unit', d: 45, p: 30 }, { n: 'Per-brand Skinning', d: 40, p: 0 }, { n: 'Rollout Wave 1', d: 50, p: 0 } ],
       suppliers: [harmanId], people: [priyaId] },
     // --- Digital Key programs ---
-    { name: 'Honda Digital Key CCC', partnerId: hondaId, owner: 'dylan', sop: '2027-01-31', vol: 150000,
+    { name: 'Honda Digital Key CCC', partnerId: hondaId, owner: me.email, sop: '2027-01-31', vol: 150000,
       gas: false, gbi: false, dk: true, needle: 'Some Risk', hill: 50,
       phases: [ { n: 'NFC Driver Bring-up', d: 20, p: 100 }, { n: 'Secure Element Config', d: 30, p: 60 }, { n: 'CCC Spec Compliance', d: 40, p: 0 } ],
       suppliers: [densoId], people: [aikoId] },
-    { name: 'Volvo Digital Key', partnerId: volvoCarsId, owner: 'dylan', sop: '2027-08-31', vol: 70000,
+    { name: 'Volvo Digital Key', partnerId: volvoCarsId, owner: me.email, sop: '2027-08-31', vol: 70000,
       gas: false, gbi: false, dk: true, needle: 'On Track', hill: 25,
       phases: [ { n: 'Key Architecture', d: 25, p: 100 }, { n: 'UWB Ranging', d: 35, p: 25 }, { n: 'Companion App', d: 30, p: 0 }, { n: 'CCC Certification', d: 30, p: 0 } ],
       suppliers: [continentalId], people: [svenId, lenaId] },
@@ -891,7 +905,7 @@ export async function seedMockData() {
     // Bosch was multiplexed; 6 idle days before SW integration AND before Cert;
     // Cert (constraint, Priya + Marcus) trending ~5d over; Production readiness
     // (Bosch) is the upcoming handoff. Buffer 35 → 12 of a 45-day guideline.
-    { name: 'Gemini X Cockpit', partnerId: gmId, owner: 'dylan', sopInDays: 101, vol: 120000,
+    { name: 'Gemini X Cockpit', partnerId: gmId, owner: me.email, sopInDays: 101, vol: 120000,
       gas: true, gbi: true, needle: 'Some Risk', hill: 55,
       note: 'Cert is moving but slower than planned; watching the buffer weekly.',
       phases: [
@@ -906,7 +920,7 @@ export async function seedMockData() {
       ] },
     // SOP overshoot: certification forecast lands ~13 days past the SOP — the
     // "declare Concerned, propose the SOP move" example, with delayed units.
-    { name: 'Polaris EV Digital Key', partnerId: volvoCarsId, owner: 'dylan', sopInDays: 5, vol: 60000,
+    { name: 'Polaris EV Digital Key', partnerId: volvoCarsId, owner: me.email, sopInDays: 5, vol: 60000,
       dk: true, needle: 'Concerned', hill: 60,
       note: 'UWB ranging overran and certification is pacing behind plan.',
       phases: [

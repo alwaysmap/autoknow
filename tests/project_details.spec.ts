@@ -53,6 +53,44 @@ test.describe('Project Details and Action Item Operations', () => {
   });
 
 
+  // design.md §8c fixes ONE heading order — text → affordances (ⓘ, menus) →
+  // graticule to the end of the line — and prose alone did not hold it: PhaseTrack
+  // rendered its ⓘ/⋯ as SIBLINGS of AnchorHeading. The graticule is a ::after on
+  // the heading row, so it can only ever be last WITHIN that row; a sibling lands
+  // after the whole row and gets flung to the far right, divorced from the title it
+  // acts on, with its left-anchored popup opening off the container's edge.
+  // Geometry, not DOM shape, so this holds in both styles and for any future header.
+  test('the Phases affordances sit against the title, not at the far edge', async ({ page }) => {
+    await page.goto(`/programs/${projectId}`);
+    const heading = page.locator('h2#phases');
+    const menu = page.getByRole('button', { name: 'Phase actions' });
+
+    await expect(async () => {
+      const h = await heading.boundingBox();
+      const m = await menu.boundingBox();
+      const section = await heading.locator('xpath=ancestor::section[1]').boundingBox();
+      expect(h && m && section).toBeTruthy();
+
+      // Adjacent to the title: the gap fits the # anchor and the ⓘ, nothing more.
+      const gap = m!.x - (h!.x + h!.width);
+      expect(gap).toBeGreaterThanOrEqual(0);
+      expect(gap).toBeLessThan(80);
+
+      // And decisively NOT pinned to the right edge — that is where the filler goes,
+      // and where a popup would have no room to open.
+      const fromRight = section!.x + section!.width - (m!.x + m!.width);
+      expect(fromRight).toBeGreaterThan(200);
+    }).toPass({ timeout: 20000 });
+
+    // The menu opens fully inside the section rather than off its right edge.
+    await menu.click();
+    const item = page.getByRole('menuitem', { name: 'Edit phases →' });
+    await expect(item).toBeVisible();
+    const box = (await item.boundingBox())!;
+    const section = (await heading.locator('xpath=ancestor::section[1]').boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(section.x + section.width);
+  });
+
   test('lead partner (OEM) is editable from the program Edit dialog', async ({ page }) => {
     // A second OEM to switch to.
     const bmw = await prisma.partner.create({

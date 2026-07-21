@@ -12,7 +12,7 @@ export async function getCurrentUser(): Promise<CurrentUser> {
   try {
     const session = await auth();
     const email = session?.user?.email;
-    if (email) return userFromHandle(email);
+    if (email) return userFromHandle(email, session?.user?.name);
   } catch {
     // Auth not configured or unavailable — fall back to the stub identity.
   }

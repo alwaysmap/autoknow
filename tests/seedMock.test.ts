@@ -14,7 +14,7 @@ import { BUILTIN_TEMPLATES } from '../src/lib/builtinTemplates';
 jest.mock('server-only', () => ({}));
 jest.mock('../src/auth', () => ({ authConfigured: false, auth: jest.fn(async () => null) }));
 jest.mock('../src/lib/session', () => ({
-  getCurrentUser: jest.fn(async () => ({ handle: 'dev', display: '@dev', email: 'dev@google.com' })),
+  getCurrentUser: jest.fn(async () => ({ handle: 'dev', display: '@dev', email: 'dev@google.com', name: 'Dev Eloper' })),
   getAccessToken: jest.fn(async () => null),
 }));
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
@@ -48,7 +48,9 @@ describe('seedMockData through the API', () => {
   it('program owners are canonical emails of existing people (requireOwnerEmail at the route)', async () => {
     const byName = async (name: string) =>
       prisma.project.findFirstOrThrow({ where: { name }, select: { ownerName: true } });
-    expect((await byName('Ford Evos AAOS Bring-up')).ownerName).toBe('dylan@google.com');
+    // The lead-PM persona is bound to the SIGNED-IN identity (mocked to dev@google.com
+    // above), not to a literal in the seed — see 'the lead PM is the signed-in user'.
+    expect((await byName('Ford Evos AAOS Bring-up')).ownerName).toBe('dev@google.com');
     expect((await byName('Toyota Highlander Digital Key')).ownerName).toBe('alice@google.com');
     expect((await byName('Ford Explorer VHAL Integration (Bosch)')).ownerName).toBe('clara@google.com');
     expect((await byName('Honda Accord AAOS Bring-up')).ownerName).toBe('marcusw@google.com');
@@ -59,6 +61,31 @@ describe('seedMockData through the API', () => {
     for (const { ownerName } of owners) {
       expect(ownerName && emails.has(ownerName)).toBe(true);
     }
+  });
+
+  // The seed cannot anticipate who is signed in — a real Workspace login is
+  // whatever Google returns (dylan@alwaysmap.com), not the address someone typed
+  // into this file. So the lead-PM persona is minted FROM the session, and /me
+  // lands on a person whose email really is the login. Guarded because the failure
+  // is silent and only shows up in a demo: the nav says one address, the Me page
+  // shows another, and the programs "you" own belong to a stranger.
+  it('the lead PM persona is the signed-in user, not a hardcoded identity', async () => {
+    // Name AND address come from the session (mocked above): 'Dev Eloper' appears
+    // nowhere in the seed, so matching it proves the row was minted from the
+    // identity rather than from any string the seeder authored.
+    const me = await prisma.person.findFirstOrThrow({ where: { email: 'dev@google.com' } });
+    expect(me.name).toBe('Dev Eloper');
+
+    // resolvePerson matches the session email EXACTLY — the ownership chips, the
+    // action-item assignees and /me all agree on one row.
+    const ownedByMe = await prisma.project.count({ where: { ownerName: 'dev@google.com' } });
+    expect(ownedByMe).toBeGreaterThan(0);
+
+    // Nothing anywhere reintroduced the literal the seed used to carry.
+    expect(await prisma.person.count({ where: { email: 'dylan@google.com' } })).toBe(0);
+    expect(await prisma.project.count({ where: { ownerName: 'dylan@google.com' } })).toBe(0);
+    const teams = await prisma.partner.findMany({ select: { googleTeam: true } });
+    expect(JSON.stringify(teams)).not.toContain('dylan@google.com');
   });
 
   it('health labels are canonical — the routes normalized the legacy risk values', async () => {
@@ -149,7 +176,7 @@ describe('seedMockData through the API', () => {
   });
 
   it('action items resolved their assignees to people (resolvePerson at the route)', async () => {
-    const dylan = await prisma.person.findFirstOrThrow({ where: { email: 'dylan@google.com' } });
+    const dylan = await prisma.person.findFirstOrThrow({ where: { email: 'dev@google.com' } });
     const kenji = await prisma.person.findFirstOrThrow({ where: { email: 'kenji.sato@toyota.com' } });
 
     const vhal = await prisma.actionItem.findFirstOrThrow({

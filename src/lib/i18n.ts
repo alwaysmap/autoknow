@@ -1554,7 +1554,7 @@ const STRINGS = {
     ko: '{current}이(가) 끝나기 전에 인력 배치를 확인해 시작 가능한 날 바로 착수하게 하세요.',
   },
   // Ecosystem: busiest people and partners
-  clBusiest: { en: 'Busiest people and partners', de: 'Am stärksten ausgelastete Personen und Partner', ja: '最も忙しい人とパートナー', ko: '가장 바쁜 사람과 파트너' },
+  clBusiest: { en: 'Possible Resource Constraints', de: 'Mögliche Ressourcenengpässe', ja: 'リソース制約の可能性', ko: '잠재적 리소스 제약' },
   clBusiestIntro: {
     en: 'The people and partners several programs depend on at once — one calendar driving many SOPs.',
     de: 'Personen und Partner, von denen mehrere Programme gleichzeitig abhängen — ein Kalender bestimmt viele SOPs.',

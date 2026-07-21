@@ -14,7 +14,7 @@ import { wipeAll } from './helpers/fixtures';
 jest.mock('server-only', () => ({}));
 jest.mock('../src/auth', () => ({ authConfigured: false, auth: jest.fn(async () => null) }));
 jest.mock('../src/lib/session', () => ({
-  getCurrentUser: jest.fn(async () => ({ handle: 'dev', display: '@dev', email: 'dev@google.com' })),
+  getCurrentUser: jest.fn(async () => ({ handle: 'dev', display: '@dev', email: 'dev@google.com', name: 'Dev Eloper' })),
   getAccessToken: jest.fn(async () => null),
 }));
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));

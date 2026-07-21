@@ -845,45 +845,55 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   return (
     <div className={styles.wrapper}>
       {/* Title + ⋯ actions: bulk expand/hide and the door to the phase editor live
-          here, off the rail — the rail itself stays read-only reporting. */}
-      <div className={styles.trackHead}>
-        <AnchorHeading id="phases" linkLabel={t(locale, 'anchorLink')} className={styles.trackTitle}>
-          {t(locale, 'phasesCard')}
-        </AnchorHeading>
-        <button type="button" className={styles.infoBtn} title={t(locale, 'phaseKeyTitle')}
-          aria-label={t(locale, 'phaseKeyTitle')} onClick={() => legendRef.current?.showModal()}>
-          <svg viewBox="0 0 16 16" width={15} height={15} aria-hidden>
-            <circle cx={8} cy={8} r={6.6} fill="none" stroke="currentColor" strokeWidth={1.4} />
-            <circle cx={8} cy={5} r={1} fill="currentColor" />
-            <line x1={8} y1={7.4} x2={8} y2={11.2} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" />
-          </svg>
-        </button>
-        <div className={styles.menuWrap} ref={menuRef}>
-          <button type="button" className={styles.menuBtn} aria-haspopup="menu" aria-expanded={menuOpen}
-            aria-label={t(locale, 'phaseActions')} title={t(locale, 'phaseActions')}
-            onClick={() => setMenuOpen((o) => !o)}>
-            <svg viewBox="0 0 18 18" width={18} height={18} aria-hidden>
-              <circle cx={9} cy={3.5} r={1.8} fill="currentColor" />
-              <circle cx={9} cy={9} r={1.8} fill="currentColor" />
-              <circle cx={9} cy={14.5} r={1.8} fill="currentColor" />
-            </svg>
-          </button>
-          {menuOpen && (
-            <div className={styles.menu} role="menu">
-              <button type="button" role="menuitem" className={styles.menuItem} onClick={() => setAll(false)}>
-                {t(locale, 'expandAll')}
+          here, off the rail — the rail itself stays read-only reporting.
+          They ride INSIDE AnchorHeading via `actions`, never as siblings of it:
+          the heading row ends in the graticule (a ::after), so a sibling lands
+          after the rule — the affordances get flung to the far right, visually
+          divorced from the title they act on, and the menu (left-anchored) then
+          opens off the edge of the container. */}
+      <AnchorHeading
+        id="phases"
+        linkLabel={t(locale, 'anchorLink')}
+        actions={
+          <>
+            <button type="button" className={styles.infoBtn} title={t(locale, 'phaseKeyTitle')}
+              aria-label={t(locale, 'phaseKeyTitle')} onClick={() => legendRef.current?.showModal()}>
+              <svg viewBox="0 0 16 16" width={15} height={15} aria-hidden>
+                <circle cx={8} cy={8} r={6.6} fill="none" stroke="currentColor" strokeWidth={1.4} />
+                <circle cx={8} cy={5} r={1} fill="currentColor" />
+                <line x1={8} y1={7.4} x2={8} y2={11.2} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" />
+              </svg>
+            </button>
+            <div className={styles.menuWrap} ref={menuRef}>
+              <button type="button" className={styles.menuBtn} aria-haspopup="menu" aria-expanded={menuOpen}
+                aria-label={t(locale, 'phaseActions')} title={t(locale, 'phaseActions')}
+                onClick={() => setMenuOpen((o) => !o)}>
+                <svg viewBox="0 0 18 18" width={18} height={18} aria-hidden>
+                  <circle cx={9} cy={3.5} r={1.8} fill="currentColor" />
+                  <circle cx={9} cy={9} r={1.8} fill="currentColor" />
+                  <circle cx={9} cy={14.5} r={1.8} fill="currentColor" />
+                </svg>
               </button>
-              <button type="button" role="menuitem" className={styles.menuItem} onClick={() => setAll(true)}>
-                {t(locale, 'collapseAll')}
-              </button>
-              <Link href={`/programs/${projectId}/phases`} role="menuitem" className={styles.menuItem}
-                onClick={() => setMenuOpen(false)}>
-                {t(locale, 'editPhases')}
-              </Link>
+              {menuOpen && (
+                <div className={styles.menu} role="menu">
+                  <button type="button" role="menuitem" className={styles.menuItem} onClick={() => setAll(false)}>
+                    {t(locale, 'expandAll')}
+                  </button>
+                  <button type="button" role="menuitem" className={styles.menuItem} onClick={() => setAll(true)}>
+                    {t(locale, 'collapseAll')}
+                  </button>
+                  <Link href={`/programs/${projectId}/phases`} role="menuitem" className={styles.menuItem}
+                    onClick={() => setMenuOpen(false)}>
+                    {t(locale, 'editPhases')}
+                  </Link>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
+          </>
+        }
+      >
+        {t(locale, 'phasesCard')}
+      </AnchorHeading>
 
       {/* Summary hill first: every phase as a dot on one wide hill — the at-a-glance
           progress read before the rail's structural detail. Dots deeplink to rows via

@@ -58,7 +58,13 @@ export default async function RootLayout({
   const session = authConfigured ? await auth() : null;
   const locale = await getLocale();
   return (
-    <html lang={locale} className={`${geistSans.variable} ${geistMono.variable} ${rubik.variable}`} suppressHydrationWarning>
+    // data-scroll-behavior: globals.css sets `scroll-behavior: smooth` so in-page
+    // jumps ease into place. Next asks for this attribute so its router knows the
+    // smoothness is deliberate and restores scroll position instantly on route
+    // CHANGES anyway — without it every navigation logs an advisory and a back
+    // button can visibly glide instead of landing where it left off.
+    <html lang={locale} data-scroll-behavior="smooth"
+      className={`${geistSans.variable} ${geistMono.variable} ${rubik.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>

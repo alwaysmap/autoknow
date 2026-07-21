@@ -11,7 +11,18 @@ const EMAIL_DOMAIN = 'google.com';
 export interface CurrentUser {
   handle: string; // bare handle, e.g. 'dylan'
   display: string; // '@'-prefixed handle, e.g. '@dylan'
-  email: string; // full email, e.g. 'dylan@google.com'
+  email: string; // full email, e.g. 'dylan@google.com' — the WHOLE address, domain included
+  name: string; // human name from the provider, e.g. 'Dylan Thomas'
+}
+
+/** 'dylan' -> 'Dylan'; 'dylan.thomas' -> 'Dylan Thomas'. Used when the identity
+ *  provider supplies no display name (stub identity, tests). */
+function nameFromHandle(handle: string): string {
+  const words = handle
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1));
+  return words.join(' ') || handle;
 }
 
 /** Strip a leading '@' and any domain, l-casing the result: '@Foo@bar.com' -> 'foo'. */
@@ -32,10 +43,16 @@ export function deriveEmail(input: string | null | undefined): string {
   return `${handle}@${EMAIL_DOMAIN}`;
 }
 
-/** Build a CurrentUser from any handle/email-ish string. */
-export function userFromHandle(input: string | null | undefined): CurrentUser {
+/** Build a CurrentUser from any handle/email-ish string, plus the provider's
+ *  display name when it has one. */
+export function userFromHandle(input: string | null | undefined, name?: string | null): CurrentUser {
   const handle = normalizeHandle(input) || DEFAULT_HANDLE;
-  return { handle, display: `@${handle}`, email: deriveEmail(input || handle) };
+  return {
+    handle,
+    display: `@${handle}`,
+    email: deriveEmail(input || handle),
+    name: (name ?? '').trim() || nameFromHandle(handle),
+  };
 }
 
 /**
