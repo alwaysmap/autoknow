@@ -18,6 +18,7 @@ import { getSummary } from '../../../lib/summaries';
 import { geminiConfigured } from '../../../lib/gemini';
 import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
 import { resolvePerson } from '../../../lib/people';
+import { effectiveStartedAt } from '../../../lib/phase';
 import ChainLedger from '../../../components/ChainLedger';
 import AnchorHeading from '../../../components/AnchorHeading';
 import { computeChainLedger, type LedgerResourceInput, type StateTuple } from '../../../lib/chainLedger';
@@ -158,7 +159,7 @@ export default async function ProjectDetailsPage(props: {
       googleFocus: phase.googleFocus ?? null,
       // Explicit start (the Active toggle) wins over the derived first-progress
       // timestamp — work often begins before the first update is filed.
-      startedAt: (phase.startedAt ?? spanByPhase.get(phase.id)?.startedAt)?.toISOString() ?? null,
+      startedAt: effectiveStartedAt(phase.startedAt, phase.states[0]?.hillChartProgress ?? 0, spanByPhase.get(phase.id)?.startedAt ?? null)?.toISOString() ?? null,
       startedExplicit: phase.startedAt != null,
       completedAt: spanByPhase.get(phase.id)?.finishedAt?.toISOString() ?? null,
       history: phase.states.slice(0, 6).map((s) => ({
@@ -253,7 +254,7 @@ export default async function ProjectDetailsPage(props: {
       forecastedDuration: phase.forecastedDuration,
       progress: phase.states[0]?.hillChartProgress ?? 0,
       parentIds: phase.dependencies.map((d) => d.dependsOnPhaseId),
-      startedAt: (phase.startedAt ?? spanByPhase.get(phase.id)?.startedAt)?.toISOString() ?? null,
+      startedAt: effectiveStartedAt(phase.startedAt, phase.states[0]?.hillChartProgress ?? 0, spanByPhase.get(phase.id)?.startedAt ?? null)?.toISOString() ?? null,
       completedAt: spanByPhase.get(phase.id)?.finishedAt?.toISOString() ?? null,
     })),
     sopDate: project.sopDate ? project.sopDate.toISOString() : null,

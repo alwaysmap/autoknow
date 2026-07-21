@@ -49,3 +49,25 @@ export function isPhaseActive(progress: number, startedAt: string | null): boole
 export function statusProgress(progress: number, startedAt: string | null): number {
   return progress <= 0 && startedAt != null ? 1 : progress;
 }
+
+/**
+ * The date a phase's work began. An explicit "started on" claim (the Active toggle)
+ * ALWAYS wins — work often begins before the first update is filed. Otherwise it is
+ * DERIVED from the first progress — but only while the phase is still in flight:
+ * dragging the dot back to 0% with no explicit claim RETRACTS a premature start, so
+ * the phase reads Not Started again. Without this gate a single historical progress
+ * row pinned the phase "started" forever, and a user could never undo a mistaken
+ * start (they'd have deleted append-only history to do it).
+ *
+ * @param explicit        the Phase.startedAt column (the Active toggle), or null
+ * @param currentProgress the LATEST state's progress (0..100)
+ * @param firstProgressAt earliest timestamp with progress > 0, or null
+ */
+export function effectiveStartedAt<T>(
+  explicit: T | null,
+  currentProgress: number,
+  firstProgressAt: T | null,
+): T | null {
+  if (explicit != null) return explicit;
+  return currentProgress > 0 ? firstProgressAt : null;
+}

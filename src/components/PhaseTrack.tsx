@@ -488,6 +488,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                 a silent dot move is unreadable in history and invisible to the
                 brief — and Save lands the update back at the top of the story. */}
             <form
+              // noValidate: the "Work started on" date input auto-commits on its own
+              // (setPhaseStarted) and never rides this submit, but a half-cleared date
+              // left it :invalid and the browser blocked Save — including a drag back
+              // to Not Started. The note is validated in JS below, so native
+              // constraint validation has nothing else to enforce here.
+              noValidate
               action={async (fd) => {
                 if (!((fd.get('notes') as string) || '').trim()) { setNoteError(true); return; }
                 setNoteError(false);
