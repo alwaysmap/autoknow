@@ -65,8 +65,11 @@ export async function seedProgram(): Promise<SeededProgram> {
     },
   });
 
-  const mkPhase = async (name: string, forecastedDuration: number, progress: number, notes: string | null = null) => {
-    const phase = await prisma.phase.create({ data: { name, projectId: project.id, forecastedDuration } });
+  const mkPhase = async (
+    name: string, forecastedDuration: number, progress: number,
+    notes: string | null = null, description: string | null = null,
+  ) => {
+    const phase = await prisma.phase.create({ data: { name, projectId: project.id, forecastedDuration, description } });
     await prisma.phaseState.create({
       data: {
         phaseId: phase.id,
@@ -81,7 +84,12 @@ export async function seedProgram(): Promise<SeededProgram> {
   };
 
   const bringUp = await mkPhase('Bring-up', 20, 100, 'Board is stable.');
-  const integration = await mkPhase('Integration', 40, 40, 'Codec drops blocking the DSP path.');
+  // One phase carries a Goal so the rail's goal excerpt is exercised — it is what
+  // separates the one-line MIN card from the standard one.
+  const integration = await mkPhase(
+    'Integration', 40, 40, 'Codec drops blocking the DSP path.',
+    '**Goal:** The codec path is stable on the target board.',
+  );
   const certification = await mkPhase('Certification', 50, 0);
   const audio = await mkPhase('Audio', 25, 30);
 

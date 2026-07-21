@@ -188,10 +188,13 @@ test.describe('Project Details and Action Item Operations', () => {
 
     // Details lifts the phase into the focused popover over a scrim. Hydration-
     // resilient open: click only while closed (see phase_graph.spec.ts helper).
+    // MIN is one line (name + plan), so open the card before reaching for the zoom.
     const details = page.getByTestId('phase-details');
     await expect(async () => {
       if (!(await details.isVisible())) {
-        await row.getByRole('button', { name: 'Details' }).click({ timeout: 2000 });
+        const zoom = row.getByRole('button', { name: 'Details' });
+        if (!(await zoom.isVisible())) await row.locator('a[data-card-title]').click();
+        await zoom.click({ timeout: 2000 });
       }
       await expect(details).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
@@ -207,8 +210,8 @@ test.describe('Project Details and Action Item Operations', () => {
     await expect(details).toContainText('All CTS modules passing; phase complete.');
     await page.keyboard.press('Escape');
 
-    // Progress 100 derives Done — the row collapses into the quiet completed state.
-    // Details stays reachable even collapsed (rows default to hide-all now).
+    // Progress 100 derives Done — the row keeps the quiet completed state, and the
+    // card is still at standard size from the open above, so its zoom stays there.
     await expect(row.getByRole('button', { name: 'Details' })).toBeVisible({ timeout: 10000 });
     await expect(page.locator('body')).toContainText('All CTS modules passing; phase complete.');
   });

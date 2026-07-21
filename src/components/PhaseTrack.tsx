@@ -1225,22 +1225,26 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                   style={!open && p.progress >= 100 ? { color: 'var(--muted)' } : undefined}>
                   {p.name}
                 </a>
-                {p.description && <span className={styles.goalLine} title={goalExcerpt(p.description)}>{goalExcerpt(p.description)}</span>}
+                {/* MIN is one line: name and plan, nothing else. The goal excerpt and the
+                    zoom button belong to the standard size — at min they turned a list
+                    of phases into a wall of prose and a column of icons, which is the
+                    opposite of what a collapsed diagram is for. */}
+                {open && p.description && <span className={styles.goalLine} title={goalExcerpt(p.description)}>{goalExcerpt(p.description)}</span>}
                 <span className={styles.headRight}>
                   <span className={styles.plan}>{planWords(p)}</span>
                   {paceChip(p)}
-                  {/* The card's ONE affordance. Sizing moved onto the card itself, so
-                      the chevron is gone; what is left is the step the card cannot do
-                      — lift the phase out into its focused popover. Arrows breaking
-                      outward, because that is the promise: bigger, not "more below". */}
-                  <button type="button" className={styles.iconBtn} onClick={() => openDetails(p)}
+                  {/* The card's ONE affordance, and only at standard size — the step
+                      the card cannot do itself: lift the phase into its focused
+                      popover. Arrows breaking outward, because that is the promise:
+                      bigger, not "more below". */}
+                  {open && <button type="button" className={styles.iconBtn} onClick={() => openDetails(p)}
                     title={t(locale, 'details')} aria-label={t(locale, 'details')}>
                     <svg viewBox="0 0 14 14" width={13} height={13} aria-hidden>
                       <path d="M8.5 5.5 L12.5 1.5 M12.5 1.5 H9 M12.5 1.5 V5
                                M5.5 8.5 L1.5 12.5 M1.5 12.5 H5 M1.5 12.5 V9"
                         fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                  </button>
+                  </button>}
                 </span>
               </div>
 

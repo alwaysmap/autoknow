@@ -11,7 +11,15 @@ import { seedProgram, type SeededProgram } from './helpers/fixtures';
 // THE CARD IS THE CONTROL: rows default collapsed and there is no chevron any more,
 // so a click anywhere on the card sizes it (and selects and traces it). The title is
 // the stable, keyboard-reachable part of that card, so tests drive it there.
+//
+// Two helpers, because the click is a TOGGLE and half the call sites want a state.
+// Opening the popover now opens the card on the way (min is one line, so the zoom
+// button is not there yet), which means a later blind toggle would close it again.
 const expandCard = (rowLocator: Locator) => rowLocator.locator('a[data-card-title]').click();
+const openCard = async (rowLocator: Locator) => {
+  const title = rowLocator.locator('a[data-card-title]');
+  if ((await title.getAttribute('aria-expanded')) !== 'true') await title.click();
+};
 
 test.describe('PhaseTrack rail', () => {
   test.describe.configure({ mode: 'serial' });
@@ -36,9 +44,13 @@ test.describe('PhaseTrack rail', () => {
     // on a cold dev-server load, and a swallowed click is never retried by expect().
     // Only click while the popover is closed (a late-opening popover scrims the
     // button, so a blind retry-click would hang on it).
+    // The zoom button only exists at STANDARD size — min is one line, name and plan
+    // — so the card is opened first when it is not already.
     await expect(async () => {
       if (!(await details(page).isVisible())) {
-        await row(page, name).getByRole('button', { name: 'Details' }).click({ timeout: 2000 });
+        const zoom = row(page, name).getByRole('button', { name: 'Details' });
+        if (!(await zoom.isVisible())) await openCard(row(page, name));
+        await zoom.click({ timeout: 2000 });
       }
       await expect(details(page)).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
@@ -162,10 +174,12 @@ test.describe('PhaseTrack rail', () => {
   test('cards are compact: typed pills without role labels, no status words', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
 
-    // Done phase starts collapsed: header line only. Details stays reachable even
-    // collapsed (rows default to hide-all).
+    // MIN is a single line: the name and the plan, and nothing else. No goal
+    // excerpt, no zoom button — a collapsed diagram that still carries a sentence of
+    // prose and an icon per row is not collapsed.
     const bringUp = row(page, 'Bring-up');
-    await expect(bringUp.getByRole('button', { name: 'Details' })).toBeVisible();
+    await expect(bringUp.getByRole('button', { name: 'Details' })).toHaveCount(0);
+    await expect(bringUp).not.toContainText('Goal:');
 
     // Status is carried by glyphs, not words, on the card header.
     await expect(bringUp).not.toContainText('Done');
@@ -179,15 +193,15 @@ test.describe('PhaseTrack rail', () => {
     await expect(integration).toContainText('Kenji Sato');
     await expect(integration).not.toContainText('FAE');
 
-    // Clicking the card again folds it back to min — the same gesture both ways —
-    // and the zoom affordance stays reachable at either size.
+    // At standard size the goal and the zoom button are there…
+    await expect(integration).toContainText('Goal:');
     await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
+
+    // …and clicking the card again folds it back to one line, taking both with it.
     await expandCard(integration);
     await expect(integration).not.toContainText('Denso');
-    await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
-    await expandCard(integration);
-    await expect(integration).toContainText('Denso');
-    await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
+    await expect(integration).not.toContainText('Goal:');
+    await expect(integration.getByRole('button', { name: 'Details' })).toHaveCount(0);
   });
 
 
@@ -197,7 +211,11 @@ test.describe('PhaseTrack rail', () => {
     const url = page.url();
 
     await openDetails(page, 'Audio');
-    expect(page.url()).toBe(url); // same page — no navigation, no <dialog>
+    // Same PAGE — the popover is not a route. Compared by pathname, not by the whole
+    // URL: opening a card goes through its title, which is a real `#phase-N` deep
+    // link and is supposed to set the hash. The claim under test is that no
+    // NAVIGATION happened, not that the fragment never moves.
+    expect(new URL(page.url()).pathname).toBe(new URL(url).pathname);
     await expect(page.getByRole('dialog', { name: 'Audio' })).toBeVisible();
 
     await page.keyboard.press('Escape');
@@ -230,7 +248,7 @@ test.describe('PhaseTrack rail', () => {
     // Back on the track: the card (expanded — rows default collapsed) shows the
     // new note but NOT the history list.
     const audio = row(page, 'Audio');
-    await expandCard(audio);
+    await openCard(audio); // openDetails already opened it — a toggle would shut it
     await expect(audio).toContainText('Codec samples landed; over the hill.', { timeout: 10000 });
     await expect(audio.getByText('History')).toHaveCount(0);
 
