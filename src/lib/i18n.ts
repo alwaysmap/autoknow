@@ -1296,22 +1296,25 @@ const STRINGS = {
   },
   // Judgment sentence openers, by register (the status IS this sentence).
   clJudgeNone: {
-    en: 'Nothing needs to change today.',
-    de: 'Heute muss nichts geändert werden.',
-    ja: '今日は何も変更する必要はありません。',
-    ko: '오늘은 아무것도 바꿀 필요가 없습니다.',
+    en: 'Nothing needs to change today',
+    de: 'Heute muss nichts geändert werden',
+    ja: '今日は何も変更する必要はありません',
+    ko: '오늘은 아무것도 바꿀 필요가 없습니다',
   },
+  // These three share ONE <h3>, beside "Where the buffer went". A heading states a
+  // thing; it needs no colon to announce that content follows, and the terminal stop
+  // goes with it so all the headings in that grid read the same way.
   clJudgePlan: {
-    en: 'Next Step:',
-    de: 'Nächster Schritt:',
-    ja: '次のステップ:',
-    ko: '다음 단계:',
+    en: 'Next step',
+    de: 'Nächster Schritt',
+    ja: '次のステップ',
+    ko: '다음 단계',
   },
   clJudgeAct: {
-    en: 'Time to act. In order of least disruption:',
-    de: 'Zeit zu handeln. In der Reihenfolge des geringsten Eingriffs:',
-    ja: '対応が必要です。影響の小さい順に:',
-    ko: '조치가 필요합니다. 영향이 작은 순서로:',
+    en: 'Time to act, in order of least disruption',
+    de: 'Zeit zu handeln, in der Reihenfolge des geringsten Eingriffs',
+    ja: '対応が必要です。影響の小さい順',
+    ko: '조치가 필요합니다. 영향이 작은 순서로',
   },
   clLeverHandoff: {
     en: 'Agree the {from} → {to} handoff now, so the phase starts the day it can.',
