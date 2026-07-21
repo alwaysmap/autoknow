@@ -22,9 +22,17 @@ and the ✦ AI-provenance mark (§8).
   a sibling of `<AnchorHeading>`. The heading row ends in a `::after` graticule,
   so a sibling renders after the rule: the control is flung to the far right and
   its popup opens off the container's edge (design.md §8c, third trap).
-- **Identity is never a literal.** "Me" comes from `getCurrentUser()`, and
-  resolution uses `.email` — `.display` drops the domain, so `deriveEmail()` on it
-  silently rewrites the address ([ADR 0005](../../../docs/adr/0005-session-is-the-only-source-of-who-i-am.md)).
+- **Identity is never a literal, and never re-derived at the call site.** "Me" comes
+  from `getCurrentUser()`, and resolution uses `.email` — `.display` drops the domain,
+  so `deriveEmail()` on it silently rewrites the address. `CurrentUser` carries every
+  field the UI shows, so reaching into `session.user.*` for one is a lint error
+  ([ADR 0005](../../../docs/adr/0005-session-is-the-only-source-of-who-i-am.md)).
+- **Avatars: initials from `initialsOf` (`src/lib/people.ts`), never a local copy.**
+  First + LAST name initial ('Dylan V. Thomas' → DT); a single-token name keeps its
+  first two characters. Two divergent copies of this already existed. The signed-in
+  user's photo comes from `/api/me/avatar`, never a googleusercontent URL
+  ([ADR 0006](../../../docs/adr/0006-proxy-third-party-images-keep-csp-self.md));
+  initials are the resting state, the photo an enhancement that may fail to load.
 - **Hydration-safe browser state.** localStorage/matchMedia reads use
   `useSyncExternalStore` with a neutral server snapshot —
   `src/components/ThemeToggle.tsx` is the reference. setState-in-effect is a

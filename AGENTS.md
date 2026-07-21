@@ -116,3 +116,6 @@ you earn a new one.
     "me" persona to `getCurrentUser()`, and resolution uses `CurrentUser.email`
     (`.display` is lossy: deriving an address from it rewrites the domain and
     lands on a different person). [ADR 0005](docs/adr/0005-session-is-the-only-source-of-who-i-am.md).
+14. Third-party assets are proxied through our own origin, never linked — the CSP
+    `img-src` stays `'self'` and the host allowlist becomes the security boundary
+    ([ADR 0006](docs/adr/0006-proxy-third-party-images-keep-csp-self.md)).
