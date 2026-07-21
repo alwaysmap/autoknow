@@ -321,7 +321,19 @@ async function seedTemplatePhases(
   initialStateTimestamp: string,
 ): Promise<Record<string, number>> {
   const idsByName: Record<string, number> = {};
-  for (const p of template.phases) {
+  const seeds = template.phases.map((p) => ({ p, s: perPhase(p.name) }));
+
+  // DAG gate: seed a phase as started (progress > 0) ONLY once EVERY dependency is
+  // complete. A real program can fast-track a downstream phase before its predecessor
+  // finishes — but sample data must not depict it, or the schedule chart reads as if
+  // Car Service Integration began the day VHAL did, which the dependency forbids.
+  // Template phases are listed in dependency order, so one forward pass gates them.
+  const gated: Record<string, number> = {};
+  for (const { p, s } of seeds) {
+    gated[p.name] = p.dependsOn.every((d) => (gated[d] ?? 0) >= 100) ? s.progress : 0;
+  }
+
+  for (const { p, s } of seeds) {
     const phaseId = await createPhase(projectId, {
       name: p.name,
       forecastedDuration: p.forecastedDuration,
@@ -329,7 +341,10 @@ async function seedTemplatePhases(
     });
     idsByName[p.name] = phaseId;
 
-    const s = perPhase(p.name);
+    // Gated-to-zero phases keep only the initial 0 state createPhase wrote — no
+    // started/progress rows — so the ledger schedules them ASAP after their deps.
+    if (gated[p.name] <= 0) continue;
+
     if (s.earlier) {
       await postPhaseState(projectId, phaseId, {
         theNeedle: 'On Track',
@@ -339,7 +354,7 @@ async function seedTemplatePhases(
     }
     await postPhaseState(projectId, phaseId, {
       theNeedle: 'On Track',
-      hillChartProgress: s.progress,
+      hillChartProgress: gated[p.name],
       notes: s.notes ?? null,
       source: s.source ?? null,
       sourceUrl: s.sourceUrl ?? null,
