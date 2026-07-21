@@ -296,10 +296,16 @@ combination must work:
   the end of the line.** It rules trailing every `AnchorHeading` (so every `<h2>`),
   every page title row, and underlines every `DataTable` header — not just the
   nav. In both cases the border keeps its place in the box model and only its ink
-  moves, so switching styles never shifts layout. Two traps: the heading row needs
-  `width: 100%` or a shrink-wrapped row gives a 40px stub of a rule, and the
+  moves, so switching styles never shifts layout. Three traps: the heading row needs
+  `width: 100%` or a shrink-wrapped row gives a 40px stub of a rule; the
   `::after` belongs on the TITLE ROW, never on a `flex-direction: column` header —
-  there it becomes a row of its own and drops a tick fragment mid-header.
+  there it becomes a row of its own and drops a tick fragment mid-header; and
+  **affordances go INSIDE the row (`AnchorHeading`'s `actions` prop), never as
+  siblings of it.** The graticule is a `::after`, so it is last within its row and
+  nowhere else: a sibling lands after the whole row, which flings the ⓘ/⋯ to the
+  far right — divorced from the title they act on, and with no room for a
+  left-anchored popup, which then opens off the container's edge. Enforced by
+  `tests/project_details.spec.ts` "the Phases affordances sit against the title".
 * **Motion is ONE idea, not a collection of effects: an instrument settles.**
   A reading sweeps from its stop to its value once, quickly, easing out. There
   are exactly two implementations and adding a third needs a reason:

@@ -112,3 +112,7 @@ you earn a new one.
     mined from.
 12. Red-team plans before building them; the review's job is to DELETE
     mechanisms, not add them.
+13. "Who am I" comes from the session, never a literal — seed data binds its
+    "me" persona to `getCurrentUser()`, and resolution uses `CurrentUser.email`
+    (`.display` is lossy: deriving an address from it rewrites the domain and
+    lands on a different person). [ADR 0005](docs/adr/0005-session-is-the-only-source-of-who-i-am.md).

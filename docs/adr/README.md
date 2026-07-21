@@ -20,3 +20,4 @@ and invariants kept, narrative deleted).
 | [0002](0002-e2e-flows-only-deliberate-matrix.md) | E2E tests user/system flows only, on a deliberate browser matrix | accepted | testing, e2e |
 | [0003](0003-decision-records-over-detail-documents.md) | Decision records over detail documents; skills over bulk context | accepted | docs, knowledge, agents |
 | [0004](0004-premerge-quality-gate.md) | Every PR runs the full quality gate, because merges auto-deploy | accepted | ci, testing, deploy |
+| [0005](0005-session-is-the-only-source-of-who-i-am.md) | The signed-in session is the only source of "who I am" | accepted | auth, identity, seed, demo |

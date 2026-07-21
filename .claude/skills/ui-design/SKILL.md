@@ -17,6 +17,14 @@ and the ✦ AI-provenance mark (§8).
   `/people/:id`, partners → `/partners/:id`. A field naming another entity is a
   `<select>` over existing rows + server-side resolution (`requireOwnerEmail` /
   `resolvePerson` in `src/lib/`), never free text (PR #11).
+- **Section affordances ride INSIDE the heading.** A ⓘ, ⋯ menu or any control
+  belonging to an `<h2>` goes through `AnchorHeading`'s `actions` prop — never as
+  a sibling of `<AnchorHeading>`. The heading row ends in a `::after` graticule,
+  so a sibling renders after the rule: the control is flung to the far right and
+  its popup opens off the container's edge (design.md §8c, third trap).
+- **Identity is never a literal.** "Me" comes from `getCurrentUser()`, and
+  resolution uses `.email` — `.display` drops the domain, so `deriveEmail()` on it
+  silently rewrites the address ([ADR 0005](../../../docs/adr/0005-session-is-the-only-source-of-who-i-am.md)).
 - **Hydration-safe browser state.** localStorage/matchMedia reads use
   `useSyncExternalStore` with a neutral server snapshot —
   `src/components/ThemeToggle.tsx` is the reference. setState-in-effect is a
