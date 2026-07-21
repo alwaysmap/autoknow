@@ -63,6 +63,16 @@ and the ✦ AI-provenance mark (§8).
    port ~3600 (`--reseed` to refresh). That is the whole recipe below, scripted;
    reach for it first. `scripts/dev/demo.ts` is the source of truth for the env.
 
+   **A demo you need to OUTLIVE the current step goes under `preview_start`, not
+   a background shell job.** A backgrounded `npm run demo` dies with its task and
+   takes the server with it — which is silent until a later page load returns a
+   blank screen, and is indistinguishable from "my change broke the page" (it cost
+   a subagent a chunk of its verification here). Point `.claude/launch.json` at
+   THIS worktree's demo DB + port and `preview_start` it. That file is gitignored
+   BECAUSE it is per-worktree: a checked-out copy naming another worktree's
+   `autoknow_<token>_demo` is stale — derive the pair the way `scripts/dev/demo.ts`
+   does (sha1 of the checkout path) rather than trusting what is in the file.
+
    **Worktree preview recipe** — what `npm run demo` automates, and the path an
    AGENT uses when it can't hold a foreground server (drive via `preview_start`
    + `.claude/launch.json`): run the dev server with
