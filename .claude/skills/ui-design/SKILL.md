@@ -78,7 +78,7 @@ and the ✦ AI-provenance mark (§8).
    + `.claude/launch.json`): run the dev server with
    `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` set EMPTY (unconfigured auth = stub
    signed-in identity, no Google login) and `DATABASE_URL` pointed at a
-   **scratch DB you create** — `CREATE DATABASE x` + `npx prisma migrate deploy`,
+   **scratch DB you create** — `CREATE DATABASE x` + `npm run db:migrate:deploy`,
    then seed by POSTing `{"mode":"mock"}` to `/api/admin/seed` on the running
    server (CLI `db:seed` can't: the seed runs through the API routes +
    `server-only`), with `DESTRUCTIVE_DB_ALLOWED=<scratch-db>` set so the wipe
@@ -89,9 +89,9 @@ and the ✦ AI-provenance mark (§8).
    `NEXT_DIST_DIR` resolves RELATIVE to the project root even
    when absolute — use a short name like `.next-preview` and delete it after;
    `git checkout tsconfig.json` afterward (Next appends dist types to it).
-   Fresh worktrees need `npm ci` + `npx prisma generate` first. `npm ci` also
-   links `.env` from the main checkout — a worktree cannot inherit a gitignored
-   file (`scripts/dev/link-env.sh`).
+   Fresh worktrees need `npm ci` first — and ONLY that: its postinstall links
+   `.env` from the main checkout (a worktree cannot inherit a gitignored file,
+   `scripts/dev/link-env.sh`) and generates the Prisma client.
    `launch.json` has no env field, so inject the vars by making the command
    `env` itself: `runtimeExecutable: "env"` with the assignments as leading
    `runtimeArgs` before `npm run dev -- -p <port>`.

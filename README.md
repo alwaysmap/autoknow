@@ -78,8 +78,10 @@ local use):
 | `test:e2e:screens` | opt-in: capture UI screenshots into `./screenshots` for visual review |
 | `evidence` | The full local gate: typecheck → lint → coverage → e2e → build |
 | `db:up` / `db:down` | Start / stop the local Postgres container |
+| `db:generate` | Regenerate the Prisma client (run automatically by `npm ci`) |
 | `db:push` | Sync schema to the **local** dev DB (never prod — see playbook) |
 | `db:migrate` | Create/apply a migration locally (`prisma migrate dev`; playbook §D) |
+| `db:migrate:deploy` | Forward-only `prisma migrate deploy` against `DATABASE_URL` (sandbox/scratch DBs) |
 | `db:seed` | Prisma seed (mock data; wipe-guarded — see OPERATIONS §1) |
 | `db:studio` | Prisma Studio on :5555 |
 | `db:test:clean` | Drop stray per-worktree `autoknow…_test` DBs (skips in-use; never the dev/demo DBs) |
