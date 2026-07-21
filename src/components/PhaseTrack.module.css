@@ -353,8 +353,15 @@
   cursor: pointer;
   white-space: nowrap;
 }
-.menuItem:hover {
+.menuItem:hover:not(:disabled) {
   background: var(--border);
+}
+
+/* A bulk item that would change nothing says so before it is clicked, rather than
+   swallowing the click and looking broken. */
+.menuItem:disabled {
+  color: var(--muted);
+  cursor: default;
 }
 
 /* Single-line rows (variants b/c): partners ride in the header. */

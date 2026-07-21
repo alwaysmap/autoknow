@@ -392,6 +392,8 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     setCollapsed(Object.fromEntries(phases.map((p) => [p.id, value])));
     setMenuOpen(false);
   };
+  /** How many cards are at standard size — drives which bulk item is still live. */
+  const openCount = phases.filter((p) => !isCollapsed(p)).length;
 
   // Jump-and-flash (station clicks, chain links, dependency chips).
   const [flashId, setFlashId] = useState<number | null>(null);
@@ -1026,10 +1028,17 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               </button>
               {menuOpen && (
                 <div className={styles.menu} role="menu">
-                  <button type="button" role="menuitem" className={styles.menuItem} onClick={() => setAll(false)}>
+                  {/* Each of these is disabled when it would do nothing. Rows default
+                      to collapsed, so on a fresh page "Hide all" was a live-looking
+                      item that changed not one pixel — and an affordance that does
+                      nothing when you click it does not read as "already done", it
+                      reads as broken. */}
+                  <button type="button" role="menuitem" className={styles.menuItem}
+                    disabled={openCount === phases.length} onClick={() => setAll(false)}>
                     {t(locale, 'expandAll')}
                   </button>
-                  <button type="button" role="menuitem" className={styles.menuItem} onClick={() => setAll(true)}>
+                  <button type="button" role="menuitem" className={styles.menuItem}
+                    disabled={openCount === 0} onClick={() => setAll(true)}>
                     {t(locale, 'collapseAll')}
                   </button>
                   <Link href={`/programs/${projectId}/phases`} role="menuitem" className={styles.menuItem}

@@ -117,6 +117,35 @@ test.describe('PhaseTrack rail', () => {
     await expect(page.locator('button[aria-label^="Toggle detail"]')).toHaveCount(0);
   });
 
+  // Rows default to collapsed, so on a fresh page "Hide all" had nothing to do and
+  // changed not one pixel when clicked — which reads as a broken menu, not as
+  // "already done". A bulk item that cannot change anything says so up front.
+  test('the bulk size items are live only when they would change something', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
+    const menu = page.getByRole('button', { name: 'Phase actions' });
+    const expandAll = page.getByRole('menuitem', { name: 'Expand all' });
+    const hideAll = page.getByRole('menuitem', { name: 'Hide all' });
+
+    await expect(async () => {
+      await menu.click({ timeout: 2000 });
+      await expect(expandAll).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+
+    // Everything starts collapsed: there is nothing to hide.
+    await expect(hideAll).toBeDisabled();
+    await expect(expandAll).toBeEnabled();
+
+    await expandAll.click();
+    await expect(row(page, 'Integration')).toContainText('Denso'); // it really expanded
+
+    // Now the pair swaps: nothing left to expand.
+    await menu.click();
+    await expect(expandAll).toBeDisabled();
+    await expect(hideAll).toBeEnabled();
+    await hideAll.click();
+    await expect(row(page, 'Integration')).not.toContainText('Denso');
+  });
+
   test('cards are compact: typed pills without role labels, no status words', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
 
