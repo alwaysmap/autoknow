@@ -69,14 +69,22 @@ describe('InstrumentGauge', () => {
   // It must be the app's REAL gauge primitive (track + needle), not a shape drawn
   // to look like one — the data-needle / data-track handles come from Gauge.
   it('renders the real gauge, with the needle and track handles', () => {
-    const { container } = render(<InstrumentGauge active={false} />);
+    const { container } = render(<InstrumentGauge busy={false} />);
     expect(container.querySelector('svg')).toBeInTheDocument();
     expect(container.querySelector('[data-needle]')).toBeInTheDocument();
     expect(container.querySelector('[data-track]')).toBeInTheDocument();
   });
 
-  it('renders without throwing whether or not it is active', () => {
-    expect(() => render(<InstrumentGauge active />)).not.toThrow();
-    expect(() => render(<InstrumentGauge active={false} />)).not.toThrow();
+  it('renders without throwing whether or not a query is in flight', () => {
+    expect(() => render(<InstrumentGauge busy />)).not.toThrow();
+    expect(() => render(<InstrumentGauge busy={false} />)).not.toThrow();
+  });
+
+  it('is decorative: the dial carries no accessible name of its own', () => {
+    // The busy state a sighted reader gets from the needle reaches a screen
+    // reader through UnifiedSearch's live region instead — a dial that announced
+    // itself would say the same thing twice, in a voice that cannot draw.
+    const { container } = render(<InstrumentGauge busy />);
+    expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
   });
 });

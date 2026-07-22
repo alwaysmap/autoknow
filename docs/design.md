@@ -39,6 +39,10 @@ get you to the thing you came for:
   autofocused, and the only place `hero`-sized styling is sanctioned
   (`UnifiedSearch` takes a `hero` prop). It deep-links: `/?q=…` runs the query on
   load, and `/search?q=…` redirects here so older shared links keep working.
+  **It is the whole control — there is no submit button beside it** (2026-07-22,
+  user call): Enter and the suggestion panel's "see all results" row commit, and
+  the app's own gauge sits at the field's trailing edge reporting whether a query
+  is in flight (§8c).
 * **It suggests while you type, and hands off to the full list.** Hero mode adds a
   debounced autosuggest panel (top 8, overlaying rather than pushing the page
   down) with a "see all results" row that runs the real search into the same
@@ -302,10 +306,20 @@ combination must work:
 * **Icons stay scarce.** The app mark is untouched, and Instrument adds no icon
   set — its identity is carried by rules, numerals, and one graphic: the app's
   OWN gauge, at glyph size, at the trailing edge of the hero search field.
-* **The dial lives on the primary CTA, and only there.** Never on a text input:
-  an instrument is an affordance, and affordances belong on the thing you press.
-  **Hover** drives it (plus `:focus-visible`, so keyboard users get the same
-  affordance) — never click.
+* **The dial lives INSIDE the search field, and reports the search** (2026-07-22,
+  user call — this reverses "the dial lives on the primary CTA, and only there",
+  which had it answering to hover). It sits at the field's trailing edge, rests
+  while nothing is running, and hunts while a request is in flight — the suggest
+  while you type, the full search once you commit. Two consequences:
+  * **The hero has no submit button.** A field that answers as you type does not
+    also need a button saying "answer": Enter and the panel's "see all results"
+    row commit, and the dial is what tells you the machine heard you. Scoped
+    searches (partner/program pages) genuinely wait for a submit and keep their
+    button — as a plain label, since the dial no longer rides on it.
+  * **The dial is a READOUT, so it needs a state to report.** `SearchField`
+    filter boxes still get none: they filter rows already in the page, and a
+    needle parked forever is decoration. A dial driven by hover was the same
+    mistake in a better costume — it reported the mouse, not the machine.
 * **Motion uses the real instrument, never a stand-in, and never a CSS rotation.**
   Two attempts failed first. A CSS gradient bar that swept on focus read as a
   progress bar in costume, because that is what it was. Rotating the real needle
@@ -337,8 +351,15 @@ combination must work:
 * **Motion is ONE idea, not a collection of effects: an instrument settles.**
   A reading sweeps from its stop to its value once, quickly, easing out. There
   are exactly two implementations and adding a third needs a reason:
-  1. **Interaction-driven** — `useSettle` (rAF, `prefers-reduced-motion` aware)
-     drives the CTA dial on hover. JS, because it has to follow a pointer.
+  1. **State-driven** — `useSettle` (rAF, `prefers-reduced-motion` aware) drives
+     the search dial as a query starts and stops. JS, because the needle's
+     geometry is a React prop, not something CSS can reach. The dial's *hunt*
+     while a request is in flight is not a fourth idea: it is this one repeated —
+     an instrument with no reading yet swings between two stops looking for one,
+     each leg the same settle. Repeating motion has to branch on
+     `prefers-reduced-motion` (`usePrefersReducedMotion`) rather than lean on
+     `useSettle`'s degrade: a single settle degrades by jumping to its value, but
+     a hunt that jumps is a needle flicking between two stops forever.
   2. **Reveal** — a CSS animation sweeps the schedule's buffer bands out from the
      chart's left edge on arrival. **CSS, never JS**, and that is a hard rule: a
      JS reveal gates the data on an effect firing. The first version used an
@@ -375,13 +396,13 @@ combination must work:
   and the point of these is to be scannable at rest), and animating dialogs open
   (the `<dialog>` top-layer/focus behaviour is correct now and not worth risking
   for a flourish).
-* **Every search bar gets the rounding and the dial**, not just the hero, and the
-  dial lights as soon as suggestions appear — not only on hover. Live-filter
-  boxes that are not a full `UnifiedSearch` (the Programs table, Sources) use
-  `SearchField`, which matches `UnifiedSearch`'s input exactly. Both are
-  COMPONENTS, not shared classes, because CSS modules cannot share a class across
-  files and this control had drifted into three separate definitions. A filter
-  box gets no dial: the gauge is an affordance and belongs on a button.
+* **Every search bar gets the rounding**, not just the hero, and every one that
+  issues a REQUEST gets the dial. Live-filter boxes that are not a full
+  `UnifiedSearch` (the Programs table, Sources) use `SearchField`, which matches
+  `UnifiedSearch`'s input exactly. Both are COMPONENTS, not shared classes,
+  because CSS modules cannot share a class across files and this control had
+  drifted into three separate definitions. A filter box gets no dial — see above:
+  nothing is in flight, so there is no reading to take.
 * **The buffer bands are TEXTURES in Instrument, not similar washes.** Standard
   keeps its four translucent hue washes; Instrument paints each meaning as a
   hatch/stipple (dense crosshatch = spent, single hatch = forecast, dense dots =

@@ -68,13 +68,16 @@ export default function UnifiedSearch({
   // The landing page answers while you type; every other surface waits for submit.
   // Its own request and abort controller, so a slow suggest can never clobber the
   // full result set the user actually asked for.
-  // Drives the Instrument dial on the CTA. Hover is the trigger the user asked
-  // for; focus-visible is included so keyboard users get the same affordance.
-  const [ctaLive, setCtaLive] = useState(false);
   const [suggest, setSuggest] = useState<FeedItem[] | null>(null);
   const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const suggestAbort = useRef<AbortController | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
+
+  // What the dial in the field reports: SOMETHING IS IN FLIGHT. Both requests
+  // count — while you type it is the suggest, after you commit it is the full
+  // search — because the dial reports the machine, not which endpoint is busy.
+  const busy = loading || suggesting;
 
   const run = async (q: string, types = active) => {
     if (!q.trim() || types.size === 0) {
@@ -116,14 +119,21 @@ export default function UnifiedSearch({
     const timer = setTimeout(async () => {
       if (!query.trim()) {
         setSuggest(null);
+        setSuggesting(false);
         return;
       }
+      setSuggesting(true);
       try {
         const params = new URLSearchParams({ q: query, types: [...active].join(',') });
         const res = await fetch(`/api/search?${params.toString()}`, { signal: ctrl.signal });
         if (res.ok) setSuggest(((await res.json()).items ?? []).slice(0, SUGGEST_MAX));
       } catch (e) {
         if ((e as Error).name !== 'AbortError') console.error('Suggest failed:', e);
+      } finally {
+        // Same rule as `run` above: only the CURRENT request may park the dial.
+        // An aborted predecessor's `finally` resolves AFTER its replacement set
+        // the dial running, and would stop it mid-flight.
+        if (suggestAbort.current === ctrl) setSuggesting(false);
       }
     }, 150);
     suggestAbort.current = ctrl;
@@ -174,8 +184,11 @@ export default function UnifiedSearch({
     <div className={hero ? styles.hero : undefined}>
       <div className={styles.box} ref={boxRef}>
         <form className={styles.form} onSubmit={(e) => { e.preventDefault(); submit(query); }}>
-          {/* The wrapper exists purely to anchor the Instrument style's focus sweep
-              (a ::after on this element); it is layout-neutral in both styles. */}
+          {/* The wrapper is the dial's positioning context — an `<input>` cannot
+              have children, so the only way to put something INSIDE the field is
+              to overlay it on a box that shares the field's edges. (It previously
+              anchored a `::after` focus sweep that has since been deleted; it was
+              vestigial until the dial moved in here.) */}
           <span className={styles.inputWrap}>
             <input
               type="search"
@@ -188,23 +201,31 @@ export default function UnifiedSearch({
               aria-label={inputPlaceholder}
               className={styles.input}
             />
-          </span>
-          <button
-            type="submit"
-            disabled={loading}
-            className={styles.button}
-            onMouseEnter={() => setCtaLive(true)}
-            onMouseLeave={() => setCtaLive(false)}
-            onFocus={() => setCtaLive(true)}
-            onBlur={() => setCtaLive(false)}
-          >
-            {/* The Instrument style's one graphic. Rendered in both styles and
-                revealed by CSS, like every other style-conditional flourish. */}
+            {/* The Instrument style's one graphic, INSIDE the field it reports on.
+                Rendered in both styles and revealed by CSS, like every other
+                style-conditional flourish. */}
             <span data-inst-only className={styles.gaugeSlot}>
-              <InstrumentGauge active={ctaLive || showSuggest} />
+              <InstrumentGauge busy={busy} />
             </span>
-            {loading ? t(locale, 'searchingBtn') : t(locale, 'searchBtn')}
-          </button>
+          </span>
+          {/* The hero has no submit button: it answers while you type, so Enter
+              and "see all results" are the only ways to commit, and a button
+              beside a self-answering field is a second affordance for a job that
+              already has one (2026-07-22, user call). Scoped searches DO wait for
+              submit, so they keep theirs — and it is a plain label now, because
+              the dial that used to ride on it lives in the field. */}
+          {!hero && (
+            <button type="submit" disabled={loading} className={styles.button}>
+              {loading ? t(locale, 'searchingBtn') : t(locale, 'searchBtn')}
+            </button>
+          )}
+          {/* The dial is aria-hidden, so without this a committed search is
+              silent to a screen reader — which is exactly what the button's
+              "Searching…" label used to say. Only the COMMITTED search speaks:
+              announcing every debounced keystroke would make the field chatter. */}
+          <span role="status" aria-live="polite" className={styles.srStatus}>
+            {loading ? t(locale, 'searchingBtn') : ''}
+          </span>
         </form>
 
         {showSuggest && (

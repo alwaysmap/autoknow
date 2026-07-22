@@ -8,9 +8,10 @@ import styles from './SearchField.module.css';
 // same near-pill radius, same focus ring as `UnifiedSearch`'s input, so a search
 // box looks like a search box wherever you meet one.
 //
-// No dial here, deliberately: the Instrument gauge is an affordance and lives on
-// a primary CTA button (design.md §8c). These filter as you type and have no
-// button to put one on.
+// No dial here, deliberately: the Instrument gauge reports a query IN FLIGHT
+// (design.md §8c). These filter rows already in the page — there is no request,
+// so there is nothing for a dial to report and a permanently-parked needle would
+// be decoration.
 //
 // It is a component rather than a shared class because CSS modules cannot share a
 // class across files, and this drifted into three separate definitions the last
