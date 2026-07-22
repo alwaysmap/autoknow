@@ -153,7 +153,12 @@ tables) so nothing has to be relearned page to page.
 * **Dates are ISO** (`yyyy-mm-dd`, tabular-nums, via the shared `DateCell`), which
   sorts lexicographically = chronologically; hover reveals the ISO calendar week
   ("W29"). Never locale-formatted dates in table cells — they misalign and
-  mis-sort.
+  mis-sort. **But ISO is a TABLE format, not a prose one**: both reasons it earns
+  its place — lexical sort and tabular-nums alignment — vanish inside a sentence,
+  so dates in narrative text (AI briefings, status notes, any running prose) read
+  the way a person says them — "August 2027", "end of March" — at the coarsest
+  truthful altitude. The boundary is the cell edge; ISO on the wrong side of it
+  reads as a machine wrote it (issue #20).
 * **Header click sorts. Filtering is a secondary, per-column action**: a small
   three-line funnel icon beside the label opens a checklist of that column's
   distinct values. Selections within a column are OR-ed ("Concerned" *and* "On
