@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 // THE motion primitive for the Instrument style, and deliberately the only one.
 //
@@ -10,12 +10,13 @@ import { useEffect, useRef, useState } from 'react';
 // in this app moves this way, so motion reads as one behaviour rather than as a
 // collection of effects.
 //
-// Interaction-driven motion only — the CTA dial settling on hover. REVEAL motion
-// (the schedule's buffer bands sweeping out on arrival) is a CSS animation
-// instead, deliberately: a reveal implemented in JS gates the data on an effect
-// firing, and the first version of this file did exactly that — an observer that
-// never delivered a callback left the chart with no visible bands at all. CSS
-// animates from a state the element already has, so it cannot hide anything.
+// State-driven motion only — the search dial settling as a query starts and
+// stops. REVEAL motion (the schedule's buffer bands sweeping out on arrival) is a
+// CSS animation instead, deliberately: a reveal implemented in JS gates the data
+// on an effect firing, and the first version of this file did exactly that — an
+// observer that never delivered a callback left the chart with no visible bands
+// at all. CSS animates from a state the element already has, so it cannot hide
+// anything.
 //
 // It refuses to run when the OS asks for reduced motion — it jumps to the value
 // instead, because the VALUE is the information and the sweep is only manners.
@@ -31,9 +32,33 @@ const prefersReduced = () =>
   typeof window !== 'undefined' &&
   (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false);
 
+// Module-level so the reference is stable across renders — useSyncExternalStore
+// resubscribes on every new `subscribe` identity.
+const subscribeReduced = (onChange: () => void) => {
+  const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  mq?.addEventListener('change', onChange);
+  return () => mq?.removeEventListener('change', onChange);
+};
+
 /**
- * Animates towards `target`, resuming from wherever it currently is — so a fast
- * hover-out-hover-in reverses rather than snapping back to the stop first.
+ * The same preference `useSettle` obeys, but as a value a component can BRANCH on
+ * — for motion that repeats. A single settle degrades correctly by jumping to its
+ * value; a repeating one cannot, because jumping between two stops forever is the
+ * effect at its loudest, not its absence.
+ *
+ * `useSyncExternalStore` with a neutral server snapshot (AGENTS lesson 8): `false`
+ * is "animate normally", the same way `prefersReduced()` degrades where there is
+ * no `matchMedia`.
+ */
+export function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(subscribeReduced, prefersReduced, () => false);
+}
+
+/**
+ * Animates towards `target`, resuming from wherever it currently is — so a target
+ * that flips mid-sweep reverses from there rather than snapping back to the stop
+ * first. That is what makes the search dial's hunt look like one continuous
+ * mechanism instead of a needle being reset between legs.
  */
 export function useSettle(target: number, duration = DURATION): number {
   const [value, setValue] = useState(0);

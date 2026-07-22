@@ -21,17 +21,26 @@ also sorts chronologically in `ls`, which is the order these are read in.
 
 * **The SLUG is the identity** — stable, greppable, and what prose cites: "ADR
   `premerge-quality-gate`". The date prefix only orders the directory.
-* **Reference it as a link where the medium allows** (`[ADR: <title>](path)`),
+* **Reference it as a link where the medium allows** (`[ADR: <title>](<path>)`),
   and as `ADR <slug>` in code comments, where a link is not clickable.
+  Placeholders in docs are spelled with angle brackets so a link checker can tell
+  them from a real path that has rotted.
 * **`supersedes:` / `superseded-by:` carry the other record's slug**, not a
   number. A reversal is a NEW record; history is never edited.
+* **`extends:` / `extended-by:` are the same machinery for the non-reversal
+  case**: the old record still holds but no longer describes the whole system.
+  Without the forward pointer it quietly starts lying. Filling in a forward field
+  is additive, not a history edit.
 * `tests/adrNaming.test.ts` enforces the shape and keeps the index honest.
 
-Related knowledge with other homes: cross-cutting one-liners live in
-[AGENTS.md](../../AGENTS.md) "Compounding lessons"; task-scoped rules live in
-the agent skills; subsystem design rationale lives in the distilled plan docs
-([INGEST_FRESHNESS_PLAN](../INGEST_FRESHNESS_PLAN.md) is the model: decisions
-and invariants kept, narrative deleted).
+Related knowledge with other homes: **findings** — how the system actually
+behaves, learned the hard way, as opposed to anything we chose — live in
+[docs/knowledge/](../knowledge/README.md), undated and edited in place;
+cross-cutting one-liners live in [AGENTS.md](../../AGENTS.md) "Compounding
+lessons"; task-scoped rules live in the agent skills; subsystem design rationale
+lives in the distilled plan docs ([INGEST_FRESHNESS_PLAN](../INGEST_FRESHNESS_PLAN.md)
+is the model: decisions and invariants kept, narrative deleted). The `compound`
+skill routes between them.
 
 ## Index
 
@@ -47,3 +56,4 @@ and invariants kept, narrative deleted).
 | 2026-07-21 | [The signed-in session is the only source of "who I am"](2026-07-21-session-is-the-only-source-of-who-i-am.md) | accepted | auth, identity, seed, demo, lint |
 | 2026-07-21 | [A trace paints direct neighbours; the closure only fades cards](2026-07-21-a-trace-paints-direct-neighbours-not-the-closure.md) | accepted | ui, rail, graph, tufte |
 | 2026-07-21 | [A semantic overlay derives from the data it means, never from the layer beneath](2026-07-21-semantic-overlays-derive-from-data-not-from-the-layer-beneath.md) | accepted | ui, rail, svg, motion, verification |
+| 2026-07-22 | [Findings get a third home, and the homes are priced by retrieval cost](2026-07-22-findings-get-a-third-home-priced-by-retrieval.md) | accepted | docs, knowledge, agents, context |

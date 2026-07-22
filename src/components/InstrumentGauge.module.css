@@ -1,6 +1,6 @@
-/* Glyph-sized dial for the Instrument style's primary CTA. Monochrome: every part
-   is inked from the button's own `currentColor`, so it sits on a filled button
-   without carrying a colour of its own.
+/* Glyph-sized dial for the Instrument style's search field. Monochrome: every
+   part is inked from the slot's own `currentColor`, so it carries no colour of
+   its own and cannot be mistaken for a health reading.
 
    There is no CSS transform here on purpose. The needle moves because the
    component animates the gauge's `progress` and the primitive redraws the path —
@@ -13,26 +13,47 @@
   width: auto;
   overflow: visible;
   flex: 0 0 auto;
+  /* The dial's ONE ink, which every part below tints from. Quiet at rest so a
+     field nobody is using stays a field; the reader's own foreground while a
+     query runs, so the state the needle is reporting is legible at 18px without
+     the dial borrowing a hue that means something else in this app. */
+  color: var(--muted);
+}
+
+.gauge[data-busy] {
+  color: var(--fg);
+}
+
+/* The brightening is part of the sweep, not a second effect — so it lasts about
+   one settle, and it goes away with the rest of the motion when asked. */
+@media (prefers-reduced-motion: no-preference) {
+  .gauge {
+    transition: color 420ms ease-out;
+  }
 }
 
 /* CSS beats presentation attributes, so these re-ink the shared primitive
-   without widening its API. The track is a groove in the button, not a card. */
+   without widening its API. The track is a groove in the field, not a card. */
 .gauge [data-track] {
   fill: none;
   stroke: currentColor;
-  opacity: 0.4;
+  opacity: 0.55;
 }
 
-/* The needle's ring exists to lift it off a page background; on a filled button
-   the button IS that background, so drop the ring and let the needle be solid. */
+/* The needle's ring exists to lift it off a page background; here the field's own
+   surface is directly behind it, so drop the ring and let the needle be solid —
+   at 18px a stroked ring is a smudge, not a highlight. */
 .gauge [data-needle] {
   fill: currentColor;
   stroke: none;
 }
 
 /* Graticules come through at the primitive's own opacity; damp them so an 18px
-   dial reads as a dial rather than a smudge. */
+   dial reads as a dial rather than a smudge. They were 0.3 when the ink was a
+   filled button's white — against `--muted` on the field's own surface that
+   compounded to invisible, which made the drawing read as a stray squiggle
+   instead of a face. */
 .gauge line {
   stroke: currentColor;
-  opacity: 0.3;
+  opacity: 0.45;
 }

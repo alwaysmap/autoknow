@@ -69,12 +69,18 @@ test.describe('usability invariants', () => {
     expect(await displayFor('instrument'), 'dial shown in Instrument').not.toBe('none');
   });
 
-  test('the CTA dial sweeps on HOVER and when autosuggest appears, then returns', async ({ page }) => {
-    // The dial is the Instrument style's one motion, and it is an affordance on
-    // the button — driven by hover (2026-07-20 user call), and lit as soon as
-    // suggestions appear even without a hover. The needle is the REAL gauge path,
-    // so a sweep is a change in that path's `d`, not a CSS transform.
+  test('the dial reports the SEARCH: it hunts in flight and parks when idle', async ({ page }) => {
+    // The dial moved off the CTA and into the field (2026-07-22 user call), and
+    // reports a request in flight rather than the pointer. The needle is the REAL
+    // gauge path, so a sweep is a change in that path's `d`, not a CSS transform.
     await page.addInitScript(() => localStorage.setItem('autoknow-style', 'instrument'));
+
+    // Hold the response open. A local search answers in single-digit ms, and
+    // polling for a window that short is how you write a flake, not a test.
+    await page.route('**/api/search**', async (route) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      await route.continue();
+    });
     await page.goto('/');
 
     const needle = page.locator('[class*="InstrumentGauge"] [data-needle]');
@@ -82,18 +88,38 @@ test.describe('usability invariants', () => {
     const rest = await needle.getAttribute('d');
     expect(rest).toBeTruthy();
 
-    // Hover the CTA → the needle leaves its rest position.
-    await page.getByRole('button', { name: /^Search$/ }).hover();
-    await expect.poll(() => needle.getAttribute('d')).not.toBe(rest);
+    // Hovering is NOT a reading any more — the field must stay parked.
+    await page.getByRole('searchbox').hover();
+    await page.waitForTimeout(300);
+    expect(await needle.getAttribute('d')).toBe(rest);
 
-    // Move away → it settles back to exactly rest.
-    await page.mouse.move(2, 2);
-    await expect.poll(() => needle.getAttribute('d'), { timeout: 2500 }).toBe(rest);
+    // Typing starts a request → the needle leaves its stop while it is in flight.
+    await expect(async () => {
+      await page.getByRole('searchbox').fill('bosch');
+      await expect.poll(() => needle.getAttribute('d'), { timeout: 2000 }).not.toBe(rest);
+    }).toPass();
 
-    // Autosuggest appearing drives it too, with no hover.
-    await page.getByRole('searchbox').fill('bosch');
-    await expect(page.getByTestId('search-suggest')).toBeVisible();
-    await expect.poll(() => needle.getAttribute('d')).not.toBe(rest);
+    // The answer lands → it settles back to exactly rest. `d` is the assertion
+    // because a needle that stops mid-arc is the bug this replaced.
+    await expect(page.getByTestId('search-suggest')).toBeVisible({ timeout: 5000 });
+    await expect.poll(() => needle.getAttribute('d'), { timeout: 3000 }).toBe(rest);
+  });
+
+  test('the hero commits with Enter — it renders no submit button at all', async ({ page }) => {
+    // Removing the button is only safe if the keyboard path it replaced works:
+    // implicit submission needs the form to hold exactly one field that blocks it,
+    // which is a property of the markup and can silently stop being true.
+    await page.goto('/');
+
+    const box = page.getByRole('searchbox');
+    await expect(box).toBeVisible();
+    await expect(page.getByRole('button', { name: /^(Search|Searching…)$/ })).toHaveCount(0);
+
+    await expect(async () => {
+      await box.fill('bosch');
+      await box.press('Enter');
+      await expect(page.getByText(/results? across the ecosystem/)).toBeVisible({ timeout: 3000 });
+    }).toPass();
   });
 
   test('form controls inherit page type, so root scaling reaches them', async ({ page }) => {
