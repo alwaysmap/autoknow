@@ -261,12 +261,20 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     return pct > 0 && pct < 100;
   };
   /**
-   * Does this piece of track carry work LEAVING one in-progress phase? Every rider
-   * must depart the same phase, so a shared stretch fed by several sources never
-   * animates on behalf of one of them — the same under-claiming rule the ink uses.
+   * Does this piece of track carry live work — anything departing a phase that is
+   * under way? EXISTENTIAL, unlike the ink's done-ness rule, and the difference is
+   * real rather than a shortcut: "complete" is a claim about the whole stretch, so
+   * it needs every rider to be finished, whereas "carrying live work" is true the
+   * moment ONE rider is live. Requiring all of them made the drift stop dead at the
+   * first shared stretch, which on a converging plan is immediately — a stub two
+   * pixels long that nobody could see.
+   *
+   * A fan-in trunk only picks up a feeder's edge below the point that feeder joins,
+   * so the drift starts at the in-progress phase and runs down to where its work
+   * lands. If that destination is itself under way, its own outgoing edges keep the
+   * drift going — so it flows to the next phase that is NOT in progress and stops.
    */
-  const flowingEdges = (es: Edge[]) =>
-    es.length > 0 && es.every((e) => e.from === es[0].from) && flowing(es[0].from);
+  const flowingEdges = (es: Edge[]) => es.some((e) => flowing(e.from));
 
   const status = (p: number) => t(locale, statusKey(p));
   const skippedNames = (e: Edge) => ordered.slice(e.fromIdx + 1, e.toIdx).map((s) => s.name).join(', ');

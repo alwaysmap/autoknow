@@ -352,8 +352,13 @@ combination must work:
      the rail said where. This makes the live front of the program the only thing
      with movement, and the movement points the direction dependencies run. Scoped
      hard so it stays one idea rather than an effect: only phases that are
-     started-and-unfinished, only their outgoing mainline edge, one shared
-     keyframe. CSS, and `display: none` unless
+     started-and-unfinished, only the track carrying their work, one shared
+     keyframe. The drift runs from the phase to wherever its work lands, and
+     stops at the first phase that is not itself under way. Note the quantifier
+     differs from the ink's: a stretch is "done" only if EVERY dependency on it
+     has departed a finished phase, but it is "carrying live work" the moment ONE
+     has — requiring all of them stopped the drift at the first shared stretch,
+     which on a converging plan is a stub nobody can see. CSS, and `display: none` unless
      `prefers-reduced-motion: no-preference` — gating only the animation would
      leave a dashed line sitting on the track for a reader who asked for stillness,
      which is decoration they never asked for rather than an effect they opted out

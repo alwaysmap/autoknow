@@ -197,8 +197,8 @@
   .flow {
     display: inline;
     fill: none;
-    stroke-dasharray: 0.25rem 0.5rem;
-    opacity: 0.55;
+    stroke-dasharray: 0.3125rem 0.4375rem;
+    opacity: 0.8;
     animation: railFlow 1.5s linear infinite;
   }
 }
