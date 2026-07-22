@@ -1,12 +1,13 @@
 import 'server-only';
 import { prisma } from './db';
-import { generateStructuredSummary, geminiConfigured, SUMMARY_MODEL, type SummaryEvidence } from './gemini';
+import { generateStructuredSummary, geminiConfigured, SUMMARY_MODEL, type SummaryEvidence, type RawSummary } from './gemini';
 import { DEFAULT_SUMMARY_PROMPTS, type SummaryScope } from './summaryPrompts';
 import { computeCriticalChain } from './criticalChain';
 import { parseHealth } from './health';
 import { deriveScore } from './relationship';
 import { hillStatus, phaseDetailHref } from './phase';
 import { sopOutlook } from './sop';
+import { localDate } from './dates';
 
 // The leadership-summary engine, one machine for three scopes (ecosystem / partner /
 // program): gather what AutoKnow already stores — needle updates, hill updates,
@@ -56,13 +57,21 @@ export interface SummaryView {
   stale: boolean; // scope-relevant data is newer than the summary
 }
 
+// ISO for citation LABELS only — a label is a table-style receipt the model echoes
+// verbatim, where yyyy-mm-dd sorts and aligns (design.md §6).
 const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
+// PROSE dates for evidence TEXT — the narrative the model reads and paraphrases. ISO
+// is a table format that has no reason to survive inside a sentence, and the model
+// copies whatever shape it is shown (issue #20): a far-out target reads best coarse
+// ("August 2027"); an event keeps its day but drops the hyphens ("Jul 15, 2026").
+const proseMonth = (d: Date) => localDate(d, 'en-US', { month: 'long', year: 'numeric' });
+const proseDay = (d: Date) => localDate(d, 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
 // Evidence carries lifecycle, not just text (plan §5.3): a resolved bug must stop
 // reading as a blocker the moment its resolution revision lands.
 const lifecyclePrefix = (c: { sourceStatus: string | null; frozenReason: string | null; lastChangedAt: Date | null }): string => {
   if (c.sourceStatus === 'resolved' || c.frozenReason === 'resolved') {
-    return `RESOLVED${c.lastChangedAt ? ` ${fmtDate(c.lastChangedAt)}` : ''} `;
+    return `RESOLVED${c.lastChangedAt ? ` ${proseDay(c.lastChangedAt)}` : ''} `;
   }
   if (c.sourceStatus === 'open') return 'OPEN ';
   return '';
@@ -123,8 +132,8 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
     if (project.sopDate) {
       const o = sopOutlook(chain.remainingDays, project.sopDate, Date.now());
       sopClause = o.onTrack
-        ? `; SOP target ${fmtDate(project.sopDate)} looks reachable (≈${o.bufferDays} days of buffer)`
-        : `; SOP target ${fmtDate(project.sopDate)} is at risk — remaining chain work overshoots it by ≈${-o.bufferDays} days`;
+        ? `; SOP target ${proseMonth(project.sopDate)} looks reachable (≈${o.bufferDays} days of buffer)`
+        : `; SOP target ${proseMonth(project.sopDate)} is at risk — remaining chain work overshoots it by ≈${-o.bufferDays} days`;
     } else {
       sopClause = '; NO SOP target set (it is required)';
     }
@@ -140,7 +149,7 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
     .forEach((s, i) => {
       ev.push(
         'needle',
-        `${i === 0 ? 'CURRENT ' : ''}"${project.name}" program update ${fmtDate(s.timestamp)}: health ${parseHealth(s.theNeedle)}${s.notes ? ` — ${s.notes}` : ''}${s.source ? ` (by ${s.source})` : ''}`,
+        `${i === 0 ? 'CURRENT ' : ''}"${project.name}" program update ${proseDay(s.timestamp)}: health ${parseHealth(s.theNeedle)}${s.notes ? ` — ${s.notes}` : ''}${s.source ? ` (by ${s.source})` : ''}`,
         { label: `Weekly update · ${fmtDate(s.timestamp)}`, href: `/programs/${projectId}#status-history`, external: false },
       );
     });
@@ -152,7 +161,7 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
       .forEach((s, i) => {
         ev.push(
           'hill',
-          `${i === 0 ? 'CURRENT ' : ''}phase "${phase.name}" (${project.name}) ${fmtDate(s.timestamp)}: ${hillStatus(s.hillChartProgress ?? 0)}${s.notes ? ` — ${s.notes}` : ''}${partners && i === 0 ? ` [partners involved: ${partners}]` : ''}`,
+          `${i === 0 ? 'CURRENT ' : ''}phase "${phase.name}" (${project.name}) ${proseDay(s.timestamp)}: ${hillStatus(s.hillChartProgress ?? 0)}${s.notes ? ` — ${s.notes}` : ''}${partners && i === 0 ? ` [partners involved: ${partners}]` : ''}`,
           { label: `${phase.name} · ${fmtDate(s.timestamp)}`, href: phaseDetailHref(projectId, phase.id), external: false },
         );
       });
@@ -171,7 +180,7 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
     .forEach((c) => {
       ev.push(
         'context',
-        `${lifecyclePrefix(c)}ingested ${c.type} ${fmtDate(c.createdAt)}${c.title ? ` "${c.title}"` : ''} (${project.name}): ${c.ingestedText!.slice(0, 600)}`,
+        `${lifecyclePrefix(c)}ingested ${c.type} ${proseDay(c.createdAt)}${c.title ? ` "${c.title}"` : ''} (${project.name}): ${c.ingestedText!.slice(0, 600)}`,
         { label: c.title || `${c.type} source`, href: c.url, external: true },
       );
     });
@@ -196,7 +205,7 @@ async function gatherPartnerEvidence(partnerId: number, windowStart: Date, ev: E
     .forEach((s, i) => {
       ev.push(
         'relationship',
-        `${i === 0 ? 'CURRENT ' : ''}relationship update ${fmtDate(s.timestamp)}: score ${deriveScore(s)}/5 (1=critical, 5=exemplary)${s.notes ? ` — ${s.notes}` : ''}${s.source ? ` (by ${s.source})` : ''}`,
+        `${i === 0 ? 'CURRENT ' : ''}relationship update ${proseDay(s.timestamp)}: score ${deriveScore(s)}/5 (1=critical, 5=exemplary)${s.notes ? ` — ${s.notes}` : ''}${s.source ? ` (by ${s.source})` : ''}`,
         { label: `Relationship · ${fmtDate(s.timestamp)}`, href: `/partners/${partnerId}`, external: false },
       );
     });
@@ -206,7 +215,7 @@ async function gatherPartnerEvidence(partnerId: number, windowStart: Date, ev: E
     .forEach((c) => {
       ev.push(
         'context',
-        `${lifecyclePrefix(c)}ingested ${c.type} ${fmtDate(c.createdAt)}${c.title ? ` "${c.title}"` : ''}: ${c.ingestedText!.slice(0, 600)}`,
+        `${lifecyclePrefix(c)}ingested ${c.type} ${proseDay(c.createdAt)}${c.title ? ` "${c.title}"` : ''}: ${c.ingestedText!.slice(0, 600)}`,
         { label: c.title || `${c.type} source`, href: c.url, external: true },
       );
     });
@@ -255,8 +264,8 @@ async function gatherEcosystemEvidence(windowStart: Date, ev: EvidenceList) {
     if (proj.sopDate) {
       const o = sopOutlook(chain.remainingDays, proj.sopDate, Date.now());
       sopClause = o.onTrack
-        ? `SOP ${fmtDate(proj.sopDate)} reachable (≈${o.bufferDays}d buffer)`
-        : `SOP ${fmtDate(proj.sopDate)} AT RISK (≈${-o.bufferDays}d overshoot)`;
+        ? `SOP ${proseMonth(proj.sopDate)} reachable (≈${o.bufferDays}d buffer)`
+        : `SOP ${proseMonth(proj.sopDate)} AT RISK (≈${-o.bufferDays}d overshoot)`;
     }
     const products = [proj.hasGas && 'GAS', proj.hasGbi && 'GBI', proj.hasDigitalKey && 'Digital Key']
       .filter(Boolean)
@@ -286,14 +295,14 @@ async function gatherEcosystemEvidence(windowStart: Date, ev: EvidenceList) {
   for (const s of recentStates) {
     ev.push(
       'needle',
-      `"${s.project.name}" update ${fmtDate(s.timestamp)}: health ${parseHealth(s.theNeedle)} — ${s.notes}`,
+      `"${s.project.name}" update ${proseDay(s.timestamp)}: health ${parseHealth(s.theNeedle)} — ${s.notes}`,
       { label: `Weekly update · ${s.project.name}`, href: `/programs/${s.project.id}#status-history`, external: false },
     );
   }
   for (const c of recentContext) {
     ev.push(
       'context',
-      `${lifecyclePrefix(c)}ingested ${c.type} ${fmtDate(c.createdAt)}${c.title ? ` "${c.title}"` : ''}${c.project ? ` (${c.project.name})` : ''}: ${c.ingestedText!.slice(0, 500)}`,
+      `${lifecyclePrefix(c)}ingested ${c.type} ${proseDay(c.createdAt)}${c.title ? ` "${c.title}"` : ''}${c.project ? ` (${c.project.name})` : ''}: ${c.ingestedText!.slice(0, 500)}`,
       { label: c.title || `${c.type} source`, href: c.url, external: true },
     );
   }
@@ -307,6 +316,27 @@ export async function getPrompt(scope: SummaryScope): Promise<{ prompt: string; 
   return row?.prompt?.trim()
     ? { prompt: row.prompt, source: 'db' }
     : { prompt: DEFAULT_SUMMARY_PROMPTS[scope], source: 'default' };
+}
+
+// Issue #20 / design.md §6 guard: ISO dates are a TABLE format; a generated brief must
+// never echo one into prose. This is the check that keeps the fix fixed (AGENTS lesson
+// 2) — the VOICE exemplar and the prose evidence formatters stop the model being TAUGHT
+// ISO; this catches any that still slips through. Scoped to prose fields — citation
+// labels and generatedAt are legitimately ISO and are not model-authored.
+export const PROSE_ISO_DATE_RE = /\b\d{4}-\d{2}(-\d{2})?\b/;
+
+/** Prose fields of a generated summary carrying an ISO-shaped date, as "field: text"
+ *  strings — empty when clean. Pure, so it unit-tests without a model or a database. */
+export function isoDatesInGeneratedProse(raw: RawSummary): string[] {
+  const offenders: string[] = [];
+  const scan = (label: string, text: string | undefined) => {
+    if (text && PROSE_ISO_DATE_RE.test(text)) offenders.push(`${label}: ${text}`);
+  };
+  scan('tldr', raw.tldr);
+  for (const key of SECTION_KEYS) {
+    (raw[key] ?? []).forEach((b, i) => scan(`${key}[${i}]`, b?.text));
+  }
+  return offenders;
 }
 
 /** Generate + persist a new summary for the scope. Null when Gemini is unconfigured
@@ -356,6 +386,15 @@ ${ev.records.map((e) => `[${e.id}] (${e.kind}) ${e.text}`).join('\n')}`;
 
   const raw = await generateStructuredSummary(fullPrompt);
   if (!raw) return null;
+
+  // Guard (issue #20): the exemplar and prose evidence formatters should keep ISO out
+  // of narrative, but flag any that slips through so a regression is visible, not silent.
+  const isoInProse = isoDatesInGeneratedProse(raw);
+  if (isoInProse.length > 0) {
+    console.warn(
+      `[summaries] ISO date in generated prose (design.md §6 / #20) scope=${scope} target=${targetId}: ${isoInProse.join(' | ')}`,
+    );
+  }
 
   // Map evidence ids to concrete citations, dropping hallucinated ids; strip any
   // bracketed id references the model wrote into the prose.
