@@ -21,8 +21,16 @@ loop is free.
 ## First question: what is prod actually running?
 
 ```bash
-curl -s https://autoknow.alwaysmap.com/api/health   # {ok, sha, db} — sha must match `git log origin/main -1`
+curl -s https://autoknow.alwaysmap.com/api/health   # {ok, sha, db}
 ```
+
+The sha must match `git log origin/main -1` **only if that merge touched a
+deploy-triggering path** (the allowlist is under Deploys below). When it did not,
+prod correctly keeps serving the PREVIOUS sha and no `Deploy app` run exists for
+the new one — that is success, not a stuck deploy. Diff the merge against the
+allowlist BEFORE concluding anything failed; the wrong conclusion leads to a
+`workflow_dispatch` that redeploys an unchanged image at prod to fix a non-problem
+(2026-07-21: PR #18, 15 minutes spent polling for a deploy correctly never fired).
 
 Green Actions runs are NOT proof of deployment (2026-07-20: parallel deploys
 finished out of order and prod served the oldest commit while newer runs showed
@@ -30,8 +38,11 @@ green — deploy.yml's concurrency group exists because of this; never remove it
 
 ## Deploys
 
-- Merge to `main` auto-deploys — but the workflow is path-filtered: docs-only
-  merges deploy nothing, by design.
+- Merge to `main` auto-deploys — but only for the `paths` allowlist in
+  `deploy.yml`: `src/**`, `prisma/**`, `public/**`, `package.json`,
+  `package-lock.json`, `Dockerfile`, `next.config.ts`, `scripts/ci/**`,
+  `.github/workflows/deploy.yml`. Anything else — `docs/**`, `AGENTS.md`,
+  `.claude/**`, tests — deploys nothing, by design: the image would be identical.
 - Redeploy current main: `gh workflow run deploy.yml --repo alwaysmap/autoknow --ref main`
 - Watch: `gh run watch --repo alwaysmap/autoknow` · failures:
   `gh run view <id> --log-failed`

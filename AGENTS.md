@@ -84,7 +84,9 @@ One-liners; receipts and commands live in the task skills. Extend this list when
 you earn a new one.
 
 1. A green pipeline is not a deploy — verify `/api/health` `.sha` against
-   `origin/main`, never the Actions UI (`gcp-debug`).
+   `origin/main`, never the Actions UI; but that check only applies when the merge
+   touched a deploy-triggering path, since a docs-only merge correctly deploys
+   nothing and never matches (`gcp-debug`).
 2. Enforce rules in software, not prose: a new dangerous operation ships its
    fail-closed guard in the same PR (wipe guard, DDL-less runtime role,
    migration lint are the precedents).
