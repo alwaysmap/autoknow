@@ -1,11 +1,15 @@
 # AutoKnow — Scaling Limits of Ingestion & the Vector Store
 
-Status: **Advisory analysis** (2026-07-20). Not an implemented change. Grounds
-every claim in the current code; recommends architectural adjustments and states
-the hard constraints to surface honestly (AGENTS.md lesson 5). Cross-references
-`docs/INGEST_FRESHNESS_PLAN.md` (the design this analysis stress-tests) — whose
-§6 explicitly scopes the system to *"hundreds of sources."* Every scenario below
-is a variant of "what happens at 10K," i.e. two orders of magnitude past that.
+Status: **Analysis, now decided** (2026-07-20 analysis; decision 2026-07-22). This
+grounds — but no longer precedes — a decision: [ADR: Ingestion is sized for
+hundreds of sources; declare the limits, gate the 10K rebuild](adr/2026-07-22-ingestion-sized-for-hundreds-gate-the-10k-rebuild.md)
+consumes this analysis, accepts the hundreds-scale limits and requires them
+surfaced in-product (AGENTS.md lesson 5), and gates the 10K rebuild behind an
+explicit product commitment. §2/§5 below are the standing candidate list for that
+gated program. This still grounds every claim in the current code and
+cross-references `docs/INGEST_FRESHNESS_PLAN.md` (the design it stress-tests) —
+whose §6 the ADR reaffirms. Every scenario below is a variant of "what happens at
+10K," two orders of magnitude past the hundreds §6 was built for.
 
 ---
 

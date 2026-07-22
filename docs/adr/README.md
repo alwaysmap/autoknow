@@ -58,3 +58,4 @@ skill routes between them.
 | 2026-07-21 | [A semantic overlay derives from the data it means, never from the layer beneath](2026-07-21-semantic-overlays-derive-from-data-not-from-the-layer-beneath.md) | accepted | ui, rail, svg, motion, verification |
 | 2026-07-22 | [Findings get a third home, and the homes are priced by retrieval cost](2026-07-22-findings-get-a-third-home-priced-by-retrieval.md) | accepted | docs, knowledge, agents, context |
 | 2026-07-22 | [Containers own outer spacing; charts fill width and own their height](2026-07-22-containers-own-spacing-charts-own-height.md) | accepted | ui, layout, css, box-model, charts |
+| 2026-07-22 | [Ingestion is sized for hundreds of sources; declare the limits, gate the 10K rebuild](2026-07-22-ingestion-sized-for-hundreds-gate-the-10k-rebuild.md) | accepted | scaling, ingestion, vectors, freshness, architecture |

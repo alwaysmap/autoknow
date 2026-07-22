@@ -110,7 +110,13 @@ weekly, snapshots/frozen never; per-cycle cap on re-digests (overflow carries,
 oldest first). v1's AIMD adaptive scheduling with per-row `nextCheckAt` was
 **killed on review**: the corpus is hundreds of sources, the expensive work is
 already double-gated, and Drive's delta feed makes per-row schedules pointless.
-Don't rebuild adaptive scheduling without new evidence.
+Don't rebuild adaptive scheduling without new evidence. **This §6 is reaffirmed**
+by [ADR: Ingestion is sized for hundreds of sources; declare the limits, gate the
+10K rebuild](adr/2026-07-22-ingestion-sized-for-hundreds-gate-the-10k-rebuild.md),
+which names the one "new evidence" that reverses it: a committed product
+requirement for thousands of watched sources at sub-daily freshness. Absent that,
+§6 holds; with it, adaptive per-row scheduling returns as part of the gated
+rebuild, not piecemeal.
 
 ## 7. Re-distill on change; revisions are append-only
 
