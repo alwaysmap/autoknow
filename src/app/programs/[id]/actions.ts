@@ -72,7 +72,7 @@ export async function setProjectLifecycle(formData: FormData) {
   await prisma.project.update({ where: { id: projectId }, data: { lifecycle } });
   revalidatePath(`/programs/${projectId}`);
   revalidatePath('/programs');
-  revalidatePath('/');
+  revalidatePath('/ecosystem');
 }
 
 export async function archiveProject(formData: FormData) {
@@ -122,7 +122,7 @@ export async function deleteProject(formData: FormData) {
       prisma.project.delete({ where: { id: projectId } })
     ]);
   }
-  redirect('/');
+  redirect('/ecosystem');
 }
 
 export async function addPhase(formData: FormData) {

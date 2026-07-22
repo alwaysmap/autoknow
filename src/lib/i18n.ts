@@ -90,22 +90,36 @@ const STRINGS = {
   removeName: { en: 'Remove {name}', de: '{name} entfernen', ja: '{name}を削除', ko: '{name} 제거' },
   skips: { en: 'skips {names}', de: 'überspringt {names}', ja: '{names}をスキップ', ko: '{names} 건너뜀' },
   legendBypass: {
-    en: 'bypass — skips a phase',
-    de: 'Umgehung — überspringt eine Phase',
-    ja: 'バイパス — フェーズをスキップ',
-    ko: '우회 — 단계 건너뜀',
+    en: 'branch line — dependencies that skip phases; those sharing an end share one line',
+    de: 'Zweiglinie — Abhängigkeiten, die Phasen überspringen; solche mit gemeinsamem Ende teilen sich eine Linie',
+    ja: '支線 — フェーズをスキップする依存関係。端点を共有するものは1本の線にまとまります',
+    ko: '지선 — 단계를 건너뛰는 의존성. 끝점을 공유하면 한 선을 함께 씁니다',
   },
+  legendTrace: {
+    en: 'click a station or a phase name to trace what feeds it and what waits on it',
+    de: 'Auf eine Station oder einen Phasennamen klicken, um Zuflüsse und Wartende zu verfolgen',
+    ja: '駅またはフェーズ名をクリックすると、前提と後続をたどれます',
+    ko: '역이나 단계 이름을 클릭하면 선행과 후속을 따라갈 수 있습니다',
+  },
+  traceHint: {
+    en: 'click to trace its dependencies',
+    de: 'klicken, um Abhängigkeiten zu verfolgen',
+    ja: 'クリックで依存関係をたどる',
+    ko: '클릭하면 의존성을 추적합니다',
+  },
+  tracingLabel: { en: 'Tracing', de: 'Verfolgt', ja: 'トレース中', ko: '추적 중' },
+  tracingCounts: {
+    en: '{u} before · {d} after',
+    de: '{u} davor · {d} danach',
+    ja: '前提{u}件・後続{d}件',
+    ko: '선행 {u}개 · 후속 {d}개',
+  },
+  clearTrace: { en: 'Clear', de: 'Aufheben', ja: '解除', ko: '해제' },
   legendTrack: {
     en: 'track darkens when the preceding phase is done',
     de: 'Strecke färbt sich, wenn die vorangehende Phase abgeschlossen ist',
     ja: '線路は先行フェーズの完了で塗られます',
     ko: '트랙은 선행 단계가 완료되면 채워집니다',
-  },
-  toggleDetail: {
-    en: 'Toggle detail',
-    de: 'Detailansicht umschalten',
-    ja: '詳細表示を切り替え',
-    ko: '상세 보기 전환',
   },
   figuringItOut: { en: 'Figuring it out', de: 'Klären', ja: '模索中', ko: '파악 중' },
   makingItHappen: { en: 'Making it happen', de: 'Umsetzen', ja: '実行中', ko: '실행 중' },
@@ -222,19 +236,6 @@ const STRINGS = {
     ko: '대기 중인 활동 없음',
   },
   googlerFocus: { en: 'Googler focus', de: 'Googler-Fokus', ja: 'Googlerの注力', ko: '구글러 포커스' },
-  resource: { en: 'Resource', de: 'Ressource', ja: 'リソース', ko: '리소스' },
-  alsoActive: {
-    en: 'also on {n} active phases elsewhere',
-    de: 'außerdem an {n} aktiven Phasen beteiligt',
-    ja: '他プログラムでアクティブなフェーズ{n}件を担当中',
-    ko: '다른 프로그램에서 활성 단계 {n}개 동시 진행 중',
-  },
-  alsoActiveOne: {
-    en: 'also on 1 active phase elsewhere',
-    de: 'außerdem an 1 aktiven Phase beteiligt',
-    ja: '他プログラムでアクティブなフェーズ1件を担当中',
-    ko: '다른 프로그램에서 활성 단계 1개 동시 진행 중',
-  },
   plannedElapsed: {
     en: '{p} planned · {e} elapsed',
     de: '{p} geplant · {e} bisher',
@@ -251,8 +252,12 @@ const STRINGS = {
   weeksUnit: { en: '{n}w', de: '{n} Wo.', ja: '{n}週', ko: '{n}주' },
   paceEarly: { en: '{d} early', de: '{d} früher', ja: '{d}前倒し', ko: '{d} 단축' },
   paceOver: { en: '{d} over plan', de: '{d} über Plan', ja: '計画超過{d}', ko: '계획 초과 {d}' },
-  expandAll: { en: 'Expand all', de: 'Alle ausklappen', ja: 'すべて展開', ko: '모두 펼치기' },
-  collapseAll: { en: 'Hide all', de: 'Alle einklappen', ja: 'すべて隠す', ko: '모두 숨기기' },
+  expandAll: { en: 'Expand diagram', de: 'Diagramm ausklappen', ja: '図を展開', ko: '다이어그램 펼치기' },
+  collapseAll: { en: 'Collapse diagram', de: 'Diagramm einklappen', ja: '図を折りたたむ', ko: '다이어그램 접기' },
+  // Shown WHILE the tracks are put away: absent ink must never be mistaken for
+  // absent dependencies (design.md — a missing line means "no relationship").
+  tracksHidden: { en: 'Dependency tracks hidden', de: 'Abhängigkeitsstrecken ausgeblendet', ja: '依存トラックは非表示', ko: '의존성 트랙 숨김' },
+  showTracks: { en: 'Show', de: 'Einblenden', ja: '表示', ko: '표시' },
   phaseActions: {
     en: 'Phase actions',
     de: 'Phasen-Aktionen',
@@ -261,12 +266,6 @@ const STRINGS = {
   },
   backToPhases: { en: '← Phases', de: '← Phasen', ja: '← フェーズ', ko: '← 단계' },
   history: { en: 'History', de: 'Verlauf', ja: '履歴', ko: '기록' },
-  fullHistory: {
-    en: 'Full history →',
-    de: 'Gesamter Verlauf →',
-    ja: '履歴をすべて表示 →',
-    ko: '전체 기록 →',
-  },
   partnersLabel: { en: 'Partners', de: 'Partner', ja: 'パートナー', ko: '파트너' },
   peopleLabel: { en: 'People', de: 'Personen', ja: '担当者', ko: '관련 인원' },
   details: { en: 'Details', de: 'Details', ja: '詳細', ko: '상세' },
@@ -322,7 +321,7 @@ const STRINGS = {
   phasesCard: { en: 'Phases', de: 'Phasen', ja: 'フェーズ', ko: '단계' },
   blockersDecisions: { en: 'Blockers & Decisions', de: 'Blocker & Entscheidungen', ja: 'ブロッカーと意思決定', ko: '블로커 및 의사결정' },
   pendingIssues: { en: 'Pending integration issues', de: 'Offene Integrationsprobleme', ja: '未解決の統合課題', ko: '미해결 통합 이슈' },
-  projectMetadata: { en: 'Project Metadata', de: 'Projekt-Metadaten', ja: 'プロジェクト情報', ko: '프로젝트 메타데이터' },
+  projectMetadata: { en: 'Program Metadata', de: 'Programm-Metadaten', ja: 'プログラム情報', ko: '프로그램 메타데이터' },
   suppliersLabel: { en: 'Suppliers', de: 'Zulieferer', ja: 'サプライヤー', ko: '공급업체' },
   googlerOwner: { en: 'Googler Owner', de: 'Googler-Verantwortlicher', ja: '担当Googler', ko: '담당 구글러' },
   sopTarget: { en: 'SOP Target', de: 'SOP-Ziel', ja: 'SOP目標', ko: 'SOP 목표' },
@@ -332,7 +331,7 @@ const STRINGS = {
   assignOwner: { en: 'Assign owner — required', de: 'Owner zuweisen — erforderlich', ja: 'オーナー割当が必要', ko: '담당자 지정 필요' },
   undecided: { en: 'Undecided', de: 'Offen', ja: '未定', ko: '미정' },
   notSet: { en: 'Not Set', de: 'Nicht gesetzt', ja: '未設定', ko: '설정 안 됨' },
-  editMetadata: { en: 'Edit Project Metadata', de: 'Projekt-Metadaten bearbeiten', ja: 'プロジェクト情報を編集', ko: '프로젝트 메타데이터 편집' },
+  editMetadata: { en: 'Edit Program Metadata', de: 'Programm-Metadaten bearbeiten', ja: 'プログラム情報を編集', ko: '프로그램 메타데이터 편집' },
   updateNoteOptional: { en: 'Update Note (Optional)', de: 'Update-Notiz (optional)', ja: '更新メモ（任意）', ko: '업데이트 메모 (선택)' },
   metadataNotesPlaceholder: { en: 'Metadata change notes', de: 'Notizen zur Metadaten-Änderung', ja: 'メタデータ変更のメモ', ko: '메타데이터 변경 메모' },
   saveSettings: { en: 'Save Settings', de: 'Einstellungen speichern', ja: '設定を保存', ko: '설정 저장' },
@@ -420,6 +419,42 @@ const STRINGS = {
   },
   statsActivePrograms: { en: 'Active programs', de: 'Aktive Programme', ja: 'アクティブなプログラム', ko: '활성 프로그램' },
   statsAllTime: { en: '{n} all time', de: '{n} insgesamt', ja: '累計{n}件', ko: '전체 {n}개' },
+  // Ecosystem strip tile 2 — SOP buffer exhaustion (lib/sop.sopBufferRisk).
+  statsSopAtRisk: { en: 'SOP at risk', de: 'SOP gefährdet', ja: 'SOP遅延リスク', ko: 'SOP 위험' },
+  statsSopAtRiskTitle: {
+    en: 'Active programs whose remaining critical-chain work no longer fits before their target SOP — the buffer is exhausted.',
+    de: 'Aktive Programme, deren verbleibende Arbeit auf der kritischen Kette nicht mehr vor den SOP-Termin passt — der Puffer ist aufgebraucht.',
+    ja: '残りのクリティカルチェーン作業が目標SOPに収まらなくなったアクティブなプログラム — バッファが尽きています。',
+    ko: '남은 크리티컬 체인 작업이 목표 SOP 안에 들어가지 않는 활성 프로그램 — 버퍼가 소진되었습니다.',
+  },
+  statsSopOfDated: { en: 'of {n} with a target SOP', de: 'von {n} mit SOP-Ziel', ja: '目標SOPあり{n}件中', ko: '목표 SOP 보유 {n}개 중' },
+  statsSopUndated: { en: '{n} without one', de: '{n} ohne', ja: '未設定{n}件', ko: '미설정 {n}개' },
+  // Ecosystem strip tile 3 — partner relationship mix (lib/relationship.relationshipMix).
+  statsRelationshipMix: { en: 'Partner relationships', de: 'Partnerbeziehungen', ja: 'パートナー関係', ko: '파트너 관계' },
+  statsRelationshipMixAria: {
+    en: 'Share of rated partner relationships by health class, critical (left) to exemplary (right).',
+    de: 'Anteil der bewerteten Partnerbeziehungen je Gesundheitsklasse, kritisch (links) bis vorbildlich (rechts).',
+    ja: '評価済みパートナー関係の健全度クラス別の割合、危機的（左）から模範的（右）まで。',
+    ko: '평가된 파트너 관계의 상태 등급별 비율, 위기(왼쪽)에서 모범적(오른쪽)까지.',
+  },
+  // Phrased so it stays grammatical at any count — this catalog has no pluralization
+  // (cf. '{n} days', '{n} units') and "1 partners" is not worth inventing one for.
+  statsRelationshipSegment: {
+    en: '{p} of rated partners ({n})',
+    de: '{p} der bewerteten Partner ({n})',
+    ja: '評価済みパートナーの{p}（{n}社）',
+    ko: '평가된 파트너의 {p} ({n}개)',
+  },
+  statsRelationshipRated: { en: '{n} rated', de: '{n} bewertet', ja: '評価済み{n}社', ko: '평가 완료 {n}개' },
+  statsRelationshipRatedTitle: { en: 'View rated partners', de: 'Bewertete Partner anzeigen', ja: '評価済みパートナーを表示', ko: '평가된 파트너 보기' },
+  statsRelationshipUnrated: { en: '{n} unrated', de: '{n} unbewertet', ja: '未評価{n}社', ko: '미평가 {n}개' },
+  statsRelationshipUnratedTitle: { en: 'View partners with no rating yet', de: 'Noch nicht bewertete Partner anzeigen', ja: '未評価のパートナーを表示', ko: '아직 평가되지 않은 파트너 보기' },
+  statsRelationshipNone: {
+    en: 'No partner relationships rated yet.',
+    de: 'Noch keine Partnerbeziehungen bewertet.',
+    ja: 'パートナー関係の評価はまだありません。',
+    ko: '아직 평가된 파트너 관계가 없습니다.',
+  },
   highRiskTitle: { en: 'High-risk programs', de: 'Hochrisiko-Programme', ja: 'ハイリスクプログラム', ko: '고위험 프로그램' },
   highRiskMore: { en: 'More →', de: 'Mehr →', ja: 'さらに表示 →', ko: '더 보기 →' },
   highRiskNone: {
@@ -429,7 +464,10 @@ const STRINGS = {
     ko: '현재 고위험 항목이 없습니다.',
   },
   lateByWeeks: { en: '≈{n}w late', de: '≈{n} Wo. Verzug', ja: '約{n}週遅れ', ko: '약 {n}주 지연' },
-  slackWeeks: { en: '≈{n}w slack', de: '≈{n} Wo. Puffer', ja: '約{n}週の余裕', ko: '약 {n}주 여유' },
+  // Same quantity as the chain's buffer (sopOutlook's days before SOP), so it takes
+  // the same word. The German already said "Puffer" while EN said "slack" — one
+  // concept was wearing two names, and a reader cannot know they are the same.
+  slackWeeks: { en: '≈{n}w buffer', de: '≈{n} Wo. Puffer', ja: '約{n}週のバッファ', ko: '약 {n}주 버퍼' },
   missingSop: { en: 'no SOP target', de: 'kein SOP-Ziel', ja: 'SOP目標なし', ko: 'SOP 목표 없음' },
   // ---- leadership summaries ----
   aiSummary: { en: 'Leadership summary', de: 'Leadership-Zusammenfassung', ja: 'リーダーシップサマリー', ko: '리더십 요약' },
@@ -490,6 +528,9 @@ const STRINGS = {
   restoreDefaultPrompt: { en: 'Restore default', de: 'Standard wiederherstellen', ja: 'デフォルトに戻す', ko: '기본값 복원' },
   navManage: { en: 'Manage', de: 'Verwalten', ja: '管理', ko: '관리' },
   themeLabel: { en: 'Theme', de: 'Design', ja: 'テーマ', ko: '테마' },
+  styleLabel: { en: 'Style', de: 'Stil', ja: 'スタイル', ko: '스타일' },
+  styleStandard: { en: 'Standard', de: 'Standard', ja: 'スタンダード', ko: '스탠다드' },
+  styleInstrument: { en: 'Instrument', de: 'Instrument', ja: 'インストゥルメント', ko: '인스트루먼트' },
   progressZone: { en: 'Progress', de: 'Fortschritt', ja: '進捗', ko: '진행' },
   aboutZone: { en: 'About this phase', de: 'Über diese Phase', ja: 'このフェーズについて', ko: '이 단계 정보' },
   goalDodPlaceholder: { en: 'Goal: what this phase achieves…\n\nDefinition of done:\n- …', de: 'Ziel: …\n\nDefinition of done:\n- …', ja: 'ゴール: …\n\n完了の定義:\n- …', ko: '목표: …\n\n완료 정의:\n- …' },
@@ -673,7 +714,6 @@ const STRINGS = {
   otherLabel: { en: 'Other', de: 'Sonstige', ja: 'その他', ko: '기타' },
   partnerLabel: { en: 'Partner', de: 'Partner', ja: 'パートナー', ko: '파트너' },
   programLabel: { en: 'Program', de: 'Programm', ja: 'プログラム', ko: '프로그램' },
-  projectLabel: { en: 'Project', de: 'Projekt', ja: 'プロジェクト', ko: '프로젝트' },
   personLabel: { en: 'Person', de: 'Person', ja: '担当者', ko: '사람' },
   contextLabel: { en: 'Context', de: 'Kontext', ja: 'コンテキスト', ko: '컨텍스트' },
   statusLabel: { en: 'Status', de: 'Status', ja: 'ステータス', ko: '상태' },
@@ -690,31 +730,44 @@ const STRINGS = {
   forecastLabel: { en: 'Forecast', de: 'Prognose', ja: '予測', ko: '예측' },
   needleLabel: { en: 'Needle', de: 'Nadel', ja: 'ニードル', ko: '니들' },
   searchHeading: { en: 'Search', de: 'Suche', ja: '検索', ko: '검색' },
+
+  // ---- landing page (/) ----
+  landingHeadline: {
+    en: 'What do you need to know?',
+    de: 'Was möchten Sie wissen?',
+    ja: '何を知りたいですか？',
+    ko: '무엇을 알고 싶으신가요?',
+  },
+  landingLede: {
+    en: 'Search every partner, program, and person — and every document, note, and update gathered about them.',
+    de: 'Durchsuchen Sie alle Partner, Programme und Personen – und jedes Dokument, jede Notiz und jede Aktualisierung dazu.',
+    ja: 'すべてのパートナー・プログラム・担当者、そしてそれらについて集められた資料・メモ・更新を検索します。',
+    ko: '모든 파트너, 프로그램, 사람 — 그리고 그에 대해 수집된 모든 문서, 메모, 업데이트를 검색합니다.',
+  },
+  landingLatest: {
+    en: 'Latest updates',
+    de: 'Neueste Aktualisierungen',
+    ja: '最新の更新',
+    ko: '최신 업데이트',
+  },
+  landingLatestEmpty: {
+    en: 'Nothing has been gathered or written yet.',
+    de: 'Bisher wurde nichts erfasst oder geschrieben.',
+    ja: 'まだ何も収集・記録されていません。',
+    ko: '아직 수집되거나 작성된 내용이 없습니다.',
+  },
+  landingBrowse: {
+    en: 'Or go straight to {ecosystem}, {programs}, {partners}, or {people}.',
+    de: 'Oder direkt zu {ecosystem}, {programs}, {partners} oder {people}.',
+    ja: 'または{ecosystem}・{programs}・{partners}・{people}へ直接移動します。',
+    ko: '또는 {ecosystem}, {programs}, {partners}, {people}(으)로 바로 이동하세요.',
+  },
+
   tbd: { en: 'TBD', de: 'Offen', ja: '未定', ko: '미정' },
   notAvailable: { en: 'N/A', de: 'k. A.', ja: '該当なし', ko: '해당 없음' },
   unassigned: { en: 'Unassigned', de: 'Nicht zugewiesen', ja: '未割り当て', ko: '미지정' },
   finishedLabel: { en: 'Finished', de: 'Fertig', ja: '完了', ko: '완료' },
   archived: { en: 'Archived', de: 'Archiviert', ja: 'アーカイブ済み', ko: '보관됨' },
-  historyNeedleIntro: {
-    en: 'Every needle status update, newest first.',
-    de: 'Jedes Needle-Statusupdate, neueste zuerst.',
-    ja: 'ニードルのステータス更新履歴（新しい順）。',
-    ko: '니들 상태 업데이트 전체 (최신순).',
-  },
-  historyHillIntro: {
-    en: 'Every hill-chart update for this phase, newest first.',
-    de: 'Jedes Hill-Chart-Update dieser Phase, neueste zuerst.',
-    ja: 'このフェーズのヒルチャート更新履歴（新しい順）。',
-    ko: '이 단계의 힐 차트 업데이트 전체 (최신순).',
-  },
-  historyRelIntro: {
-    en: 'Every relationship update, newest first.',
-    de: 'Jedes Beziehungs-Update, neueste zuerst.',
-    ja: '関係の更新履歴（新しい順）。',
-    ko: '관계 업데이트 전체 (최신순).',
-  },
-  statusUpdates: { en: 'Status updates', de: 'Statusupdates', ja: 'ステータス更新', ko: '상태 업데이트' },
-  backLabel: { en: '← Back', de: '← Zurück', ja: '← 戻る', ko: '← 뒤로' },
   removeLabel: { en: 'Remove', de: 'Entfernen', ja: '削除', ko: '제거' },
   clone: { en: 'Clone', de: 'Duplizieren', ja: '複製', ko: '복제' },
   deleteLabel: { en: 'Delete', de: 'Löschen', ja: '削除', ko: '삭제' },
@@ -752,30 +805,29 @@ const STRINGS = {
   // ---- project admin controls ----
   archiveShort: { en: 'Archive', de: 'Archivieren', ja: 'アーカイブ', ko: '보관' },
   unarchiveShort: { en: 'Unarchive', de: 'Wiederherstellen', ja: 'アーカイブ解除', ko: '보관 해제' },
-  unarchiveProject: { en: 'Unarchive Project', de: 'Projekt wiederherstellen', ja: 'プロジェクトのアーカイブを解除', ko: '프로젝트 보관 해제' },
-  archiveProject: { en: 'Archive Project', de: 'Projekt archivieren', ja: 'プロジェクトをアーカイブ', ko: '프로젝트 보관' },
-  deleteProject: { en: 'Delete Project', de: 'Projekt löschen', ja: 'プロジェクトを削除', ko: '프로젝트 삭제' },
-  confirmProjectDeletion: { en: 'Confirm Project Deletion', de: 'Projektlöschung bestätigen', ja: 'プロジェクト削除の確認', ko: '프로젝트 삭제 확인' },
+  unarchiveProject: { en: 'Unarchive Program', de: 'Programm wiederherstellen', ja: 'プログラムのアーカイブを解除', ko: '프로그램 보관 해제' },
+  archiveProject: { en: 'Archive Program', de: 'Programm archivieren', ja: 'プログラムをアーカイブ', ko: '프로그램 보관' },
+  deleteProject: { en: 'Delete Program', de: 'Programm löschen', ja: 'プログラムを削除', ko: '프로그램 삭제' },
+  confirmProjectDeletion: { en: 'Confirm Program Deletion', de: 'Programmlöschung bestätigen', ja: 'プログラム削除の確認', ko: '프로그램 삭제 확인' },
   deleteWarning: {
-    en: 'Are you sure you want to delete this project? This will permanently remove all associated phases, action items, and status log histories.',
-    de: 'Dieses Projekt wirklich löschen? Alle zugehörigen Phasen, Action Items und Statusverläufe werden dauerhaft entfernt.',
-    ja: 'このプロジェクトを削除しますか？関連するすべてのフェーズ、アクションアイテム、ステータス履歴が完全に削除されます。',
-    ko: '이 프로젝트를 삭제하시겠습니까? 관련된 모든 단계, 액션 아이템, 상태 기록이 영구적으로 제거됩니다.',
+    en: 'Are you sure you want to delete this program? This will permanently remove all associated phases, action items, and status log histories.',
+    de: 'Dieses Programm wirklich löschen? Alle zugehörigen Phasen, Action Items und Statusverläufe werden dauerhaft entfernt.',
+    ja: 'このプログラムを削除しますか？関連するすべてのフェーズ、アクションアイテム、ステータス履歴が完全に削除されます。',
+    ko: '이 프로그램을 삭제하시겠습니까? 관련된 모든 단계, 액션 아이템, 상태 기록이 영구적으로 제거됩니다.',
   },
   cannotBeUndone: { en: 'This action cannot be undone.', de: 'Diese Aktion kann nicht rückgängig gemacht werden.', ja: 'この操作は元に戻せません。', ko: '이 작업은 되돌릴 수 없습니다.' },
   confirmTypeName: {
-    en: 'Please type the name of the project to confirm',
-    de: 'Zur Bestätigung bitte den Projektnamen eingeben',
-    ja: '確認のためプロジェクト名を入力してください',
-    ko: '확인을 위해 프로젝트 이름을 입력하세요',
+    en: 'Please type the name of the program to confirm',
+    de: 'Zur Bestätigung bitte den Programmnamen eingeben',
+    ja: '確認のためプログラム名を入力してください',
+    ko: '확인을 위해 프로그램 이름을 입력하세요',
   },
-  typeProjectNameExactly: { en: 'Type project name exactly', de: 'Projektnamen exakt eingeben', ja: 'プロジェクト名を正確に入力', ko: '프로젝트 이름을 정확히 입력' },
-  permanentlyDeleteProject: { en: 'Permanently Delete Project', de: 'Projekt endgültig löschen', ja: 'プロジェクトを完全に削除', ko: '프로젝트 영구 삭제' },
+  typeProjectNameExactly: { en: 'Type program name exactly', de: 'Programmnamen exakt eingeben', ja: 'プログラム名を正確に入力', ko: '프로그램 이름을 정확히 입력' },
+  permanentlyDeleteProject: { en: 'Permanently Delete Program', de: 'Programm endgültig löschen', ja: 'プログラムを完全に削除', ko: '프로그램 영구 삭제' },
 
   // ---- history lists / charts ----
   noUpdatesRecorded: { en: 'No updates recorded yet.', de: 'Noch keine Updates erfasst.', ja: 'まだ更新は記録されていません。', ko: '아직 기록된 업데이트가 없습니다.' },
   noNoteForUpdate: { en: 'No note for this update.', de: 'Keine Notiz zu diesem Update.', ja: 'この更新にはメモがありません。', ko: '이 업데이트에는 메모가 없습니다.' },
-  noChangesRecorded: { en: 'No changes recorded.', de: 'Keine Änderungen erfasst.', ja: '変更は記録されていません。', ko: '기록된 변경이 없습니다.' },
   noStatusHistory: { en: 'No status history yet.', de: 'Noch kein Statusverlauf.', ja: 'ステータス履歴はまだありません。', ko: '아직 상태 기록이 없습니다.' },
   healthProgressOverTime: { en: 'Health and progress over time', de: 'Status und Fortschritt im Zeitverlauf', ja: '健全性と進捗の推移', ko: '시간에 따른 상태 및 진행률' },
   progressOverTime: { en: 'Progress over time', de: 'Fortschritt im Zeitverlauf', ja: '進捗の推移', ko: '시간에 따른 진행률' },
@@ -797,10 +849,10 @@ const STRINGS = {
   activeParen: { en: '(Active)', de: '(Aktiv)', ja: '（進行中）', ko: '(진행 중)' },
   // ---- SOP chart ----
   sopChartEmpty: {
-    en: 'No active projects with target SOP dates found. Edit projects to set SOP target dates.',
-    de: 'Keine aktiven Projekte mit SOP-Zieldaten gefunden. Projekte bearbeiten, um SOP-Ziele zu setzen.',
-    ja: '目標SOP日を持つアクティブなプロジェクトがありません。プロジェクトを編集してSOP目標日を設定してください。',
-    ko: '목표 SOP 날짜가 있는 활성 프로젝트가 없습니다. 프로젝트를 편집해 SOP 목표일을 설정하세요.',
+    en: 'No active programs with target SOP dates found. Edit programs to set SOP target dates.',
+    de: 'Keine aktiven Programme mit SOP-Zieldaten gefunden. Programme bearbeiten, um SOP-Ziele zu setzen.',
+    ja: '目標SOP日を持つアクティブなプログラムがありません。プログラムを編集してSOP目標日を設定してください。',
+    ko: '목표 SOP 날짜가 있는 활성 프로그램이 없습니다. 프로그램을 편집해 SOP 목표일을 설정하세요.',
   },
   sopChartSub: {
     en: 'Anticipated units shipping per program (bars) and running industry volume total (line)',
@@ -824,10 +876,18 @@ const STRINGS = {
 
   // ---- tables: shared headers ----
   programName: { en: 'Program Name', de: 'Programmname', ja: 'プログラム名', ko: '프로그램 이름' },
-  projectNameHeader: { en: 'Project Name', de: 'Projektname', ja: 'プロジェクト名', ko: '프로젝트 이름' },
+  projectNameHeader: { en: 'Program Name', de: 'Programmname', ja: 'プログラム名', ko: '프로그램 이름' },
   partnerName: { en: 'Partner Name', de: 'Partnername', ja: 'パートナー名', ko: '파트너 이름' },
   programOwner: { en: 'Program Owner', de: 'Programmverantwortlicher', ja: 'プログラムオーナー', ko: '프로그램 담당자' },
   targetSopHeader: { en: 'Target SOP', de: 'SOP-Ziel', ja: '目標SOP', ko: '목표 SOP' },
+  // /programs "SOP outlook" column — the deterministic critical-chain buffer vs the
+  // target SOP (lib/sop.sopBufferCategory). The ecosystem "SOP at risk" tile deep-links
+  // to ?sopOutlook=late.
+  sopOutlookHeader: { en: 'SOP outlook', de: 'SOP-Aussicht', ja: 'SOP見通し', ko: 'SOP 전망' },
+  sopOutlookLate: { en: 'At risk', de: 'Gefährdet', ja: '遅延リスク', ko: '위험' },
+  sopOutlookOnTrack: { en: 'On track', de: 'Im Plan', ja: '順調', ko: '정상' },
+  sopOutlookNoSop: { en: 'No target', de: 'Kein Ziel', ja: '目標なし', ko: '목표 없음' },
+  sopOutlookNa: { en: '—', de: '—', ja: '—', ko: '—' },
   oemPartnerHeader: { en: 'OEM / Partner', de: 'OEM / Partner', ja: 'OEM / パートナー', ko: 'OEM / 파트너' },
   currentPhase: { en: 'Current Phase', de: 'Aktuelle Phase', ja: '現在のフェーズ', ko: '현재 단계' },
   figuringItOutTime: { en: '"Figuring it out" Time', de: '„Klären“-Dauer', ja: '「模索」時間', ko: '"파악" 시간' },
@@ -906,7 +966,7 @@ const STRINGS = {
     ja: 'このトラッカーは、Android Automotive OS統合、Google Automotive Services、デジタルキー標準に関するチームの連携を支援します。標準テンプレートから最初のプログラムを開始しましょう:',
     ko: '이 트래커는 Android Automotive OS 통합, Google Automotive Services, 디지털 키 표준에 대한 팀 협업을 돕습니다. 표준 템플릿에서 첫 프로그램을 시작해 보세요:',
   },
-  createProjectFromTemplate: { en: '➕ Create Project from Template', de: '➕ Projekt aus Vorlage erstellen', ja: '➕ テンプレートからプロジェクトを作成', ko: '➕ 템플릿에서 프로젝트 만들기' },
+  createProjectFromTemplate: { en: '➕ Create Program from Template', de: '➕ Programm aus Vorlage erstellen', ja: '➕ テンプレートからプログラムを作成', ko: '➕ 템플릿에서 프로그램 만들기' },
   seedMockDataWalkthrough: { en: '⚙️ Seed Mock Data (Walkthrough Mode)', de: '⚙️ Mock-Daten einspielen (Demo-Modus)', ja: '⚙️ モックデータを投入（ウォークスルーモード）', ko: '⚙️ 모의 데이터 채우기 (둘러보기 모드)' },
   priorityCritical: { en: '🔴 Critical', de: '🔴 Kritisch', ja: '🔴 重大', ko: '🔴 심각' },
   priorityWarning: { en: '🟡 Warning', de: '🟡 Warnung', ja: '🟡 警告', ko: '🟡 경고' },
@@ -1027,10 +1087,10 @@ const STRINGS = {
   present: { en: 'Present', de: 'Heute', ja: '現在', ko: '현재' },
   actionDecisionHistory: { en: 'Action & Decision History', de: 'Aktions- & Entscheidungsverlauf', ja: 'アクション・意思決定履歴', ko: '액션 및 의사결정 이력' },
   actionHistorySubtext: {
-    en: 'Historical activities and project decisions mapped to the organization/role they held at the time of action:',
-    de: 'Frühere Aktivitäten und Projektentscheidungen, zugeordnet zur damaligen Organisation/Rolle:',
-    ja: '過去の活動とプロジェクトの意思決定を、当時の組織・役割に対応付けて表示します:',
-    ko: '과거 활동과 프로젝트 의사결정을 당시의 조직/역할에 매핑하여 표시합니다:',
+    en: 'Historical activities and program decisions mapped to the organization/role they held at the time of action:',
+    de: 'Frühere Aktivitäten und Programmentscheidungen, zugeordnet zur damaligen Organisation/Rolle:',
+    ja: '過去の活動とプログラムの意思決定を、当時の組織・役割に対応付けて表示します:',
+    ko: '과거 활동과 프로그램 의사결정을 당시의 조직/역할에 매핑하여 표시합니다:',
   },
   noActionsRecorded: { en: 'No actions recorded during this tenure.', de: 'Keine Aktionen in diesem Zeitraum erfasst.', ja: 'この在籍期間中のアクションは記録されていません。', ko: '이 재직 기간에 기록된 액션이 없습니다.' },
   otherUnassociated: { en: 'Other / Unassociated', de: 'Sonstige / Nicht zugeordnet', ja: 'その他 / 未対応付け', ko: '기타 / 미연결' },
@@ -1054,12 +1114,12 @@ const STRINGS = {
   // ---- me page ----
   myActionItems: { en: 'My action items', de: 'Meine Action Items', ja: 'マイアクションアイテム', ko: '내 액션 아이템' },
   actionItemDescription: { en: 'Action Item Description', de: 'Beschreibung des Action Items', ja: 'アクションアイテムの内容', ko: '액션 아이템 설명' },
-  projectContext: { en: 'Project Context', de: 'Projektkontext', ja: 'プロジェクトコンテキスト', ko: '프로젝트 컨텍스트' },
+  projectContext: { en: 'Program Context', de: 'Programmkontext', ja: 'プログラムコンテキスト', ko: '프로그램 컨텍스트' },
   assignedDate: { en: 'Assigned Date', de: 'Zugewiesen am', ja: '割り当て日', ko: '할당일' },
   noPendingAssigned: { en: 'No pending action items assigned to you.', de: 'Keine offenen Action Items für dich.', ja: 'あなたに割り当てられた未処理のアクションアイテムはありません。', ko: '할당된 대기 중 액션 아이템이 없습니다.' },
-  myProjects: { en: 'My projects', de: 'Meine Projekte', ja: 'マイプロジェクト', ko: '내 프로젝트' },
+  myProjects: { en: 'My programs', de: 'Meine Programme', ja: 'マイプログラム', ko: '내 프로그램' },
   activePhase: { en: 'Active Phase', de: 'Aktive Phase', ja: 'アクティブなフェーズ', ko: '활성 단계' },
-  noProjectAccountabilities: { en: 'No project accountabilities found for you.', de: 'Keine Projektverantwortlichkeiten für dich gefunden.', ja: 'あなたが担当するプロジェクトは見つかりません。', ko: '담당 중인 프로젝트가 없습니다.' },
+  noProjectAccountabilities: { en: 'No program accountabilities found for you.', de: 'Keine Programmverantwortlichkeiten für dich gefunden.', ja: 'あなたが担当するプログラムは見つかりません。', ko: '담당 중인 프로그램이 없습니다.' },
   noPartnerRelationships: { en: 'No partner relationships associated with you.', de: 'Keine Partnerbeziehungen mit dir verknüpft.', ja: 'あなたに関連するパートナー関係はありません。', ko: '연결된 파트너 관계가 없습니다.' },
 
   // ---- activity / ingest / login / search pages ----
@@ -1121,10 +1181,10 @@ const STRINGS = {
   },
   onboardingMode: { en: '🚀 Onboarding Mode (Seed Mock Data)', de: '🚀 Onboarding-Modus (Mock-Daten)', ja: '🚀 オンボーディングモード（モックデータ投入）', ko: '🚀 온보딩 모드 (모의 데이터 시드)' },
   seedMockDesc: {
-    en: 'Populates the database with full partner accounts, projects, templates, action items, and status feeds. Perfect for walkthroughs and E2E validation.',
-    de: 'Befüllt die Datenbank mit vollständigen Partnerkonten, Projekten, Vorlagen, Action Items und Statusfeeds. Ideal für Demos und E2E-Validierung.',
-    ja: 'パートナーアカウント、プロジェクト、テンプレート、アクションアイテム、ステータスフィード一式をデータベースに投入します。ウォークスルーやE2E検証に最適です。',
-    ko: '전체 파트너 계정, 프로젝트, 템플릿, 액션 아이템, 상태 피드를 데이터베이스에 채웁니다. 둘러보기와 E2E 검증에 적합합니다.',
+    en: 'Populates the database with full partner accounts, programs, templates, action items, and status feeds. Perfect for walkthroughs and E2E validation.',
+    de: 'Befüllt die Datenbank mit vollständigen Partnerkonten, Programmen, Vorlagen, Action Items und Statusfeeds. Ideal für Demos und E2E-Validierung.',
+    ja: 'パートナーアカウント、プログラム、テンプレート、アクションアイテム、ステータスフィード一式をデータベースに投入します。ウォークスルーやE2E検証に最適です。',
+    ko: '전체 파트너 계정, 프로그램, 템플릿, 액션 아이템, 상태 피드를 데이터베이스에 채웁니다. 둘러보기와 E2E 검증에 적합합니다.',
   },
   seedMockData: { en: 'Seed Mock Data', de: 'Mock-Daten einspielen', ja: 'モックデータを投入', ko: '모의 데이터 시드' },
   seedCoreHeading: { en: '🌱 Seed Core Data', de: '🌱 Kerndaten einspielen', ja: '🌱 コアデータを投入', ko: '🌱 핵심 데이터 시드' },
@@ -1155,13 +1215,13 @@ const STRINGS = {
   curlExample2: { en: '2. Assign Owner / Action Item update', de: '2. Verantwortlichen zuweisen / Action Item aktualisieren', ja: '2. 担当者の割り当て / アクションアイテム更新', ko: '2. 담당자 할당 / 액션 아이템 업데이트' },
 
   // ---- project pages (new + detail) ----
-  createNewProject: { en: 'Create New Project', de: 'Neues Projekt erstellen', ja: '新規プロジェクトを作成', ko: '새 프로젝트 만들기' },
+  createNewProject: { en: 'Create New Program', de: 'Neues Programm erstellen', ja: '新規プログラムを作成', ko: '새 프로그램 만들기' },
   projectNamePlaceholder: { en: 'e.g. Ford F-150 AAOS Bring-up', de: 'z. B. Ford F-150 AAOS Bring-up', ja: '例: Ford F-150 AAOS Bring-up', ko: '예: Ford F-150 AAOS Bring-up' },
   partnerOemSupplier: { en: 'Partner (OEM / Supplier)', de: 'Partner (OEM / Zulieferer)', ja: 'パートナー（OEM / サプライヤー）', ko: '파트너 (OEM / 공급업체)' },
   selectAPartner: { en: 'Select a partner...', de: 'Partner wählen…', ja: 'パートナーを選択...', ko: '파트너 선택...' },
-  projectTemplateDag: { en: 'Project Template (Critical Chain DAG)', de: 'Projektvorlage (Kritische-Kette-DAG)', ja: 'プロジェクトテンプレート（クリティカルチェーンDAG）', ko: '프로젝트 템플릿 (크리티컬 체인 DAG)' },
+  projectTemplateDag: { en: 'Program Template (Critical Chain DAG)', de: 'Programmvorlage (Kritische-Kette-DAG)', ja: 'プログラムテンプレート（クリティカルチェーンDAG）', ko: '프로그램 템플릿 (크리티컬 체인 DAG)' },
   selectAPerson: { en: 'Select a person...', de: 'Person wählen…', ja: '担当者を選択...', ko: '담당자 선택...' },
-  createProject: { en: 'Create Project', de: 'Projekt erstellen', ja: 'プロジェクトを作成', ko: '프로젝트 만들기' },
+  createProject: { en: 'Create Program', de: 'Programm erstellen', ja: 'プログラムを作成', ko: '프로그램 만들기' },
   backTo: { en: '← Back to {name}', de: '← Zurück zu {name}', ja: '← {name}に戻る', ko: '← {name}(으)로 돌아가기' },
   archivedTag: { en: '[Archived]', de: '[Archiviert]', ja: '[アーカイブ済み]', ko: '[보관됨]' },
   oemColon: { en: 'OEM:', de: 'OEM:', ja: 'OEM:', ko: 'OEM:' },
@@ -1186,12 +1246,395 @@ const STRINGS = {
     ja: 'AI生成 — Geminiが保存済みソースから合成。マークのないテキストは人が書いたものです。',
     ko: 'AI 생성 — Gemini가 저장된 소스에서 합성. 표시가 없는 텍스트는 사람이 작성한 것입니다.',
   },
+  // ---- needle history popup ----
+  close: { en: 'Close', de: 'Schließen', ja: '閉じる', ko: '닫기' },
+  detail: { en: 'Detail', de: 'Details', ja: '詳細', ko: '상세' },
+  byAuthor: { en: 'by {name}', de: 'von {name}', ja: '{name} による', ko: '{name} 작성' },
+  needleDetailTitle: {
+    en: 'Progress & health — full history',
+    de: 'Fortschritt & Status — vollständiger Verlauf',
+    ja: '進捗と健全性 — 全履歴',
+    ko: '진행 및 상태 — 전체 기록',
+  },
+
+  // ---- section deep links (AnchorHeading) ----
+  anchorLink: {
+    en: 'Link to this section',
+    de: 'Link zu diesem Abschnitt',
+    ja: 'このセクションへのリンク',
+    ko: '이 섹션으로 연결되는 링크',
+  },
+  briefingHeading: { en: 'Briefing', de: 'Briefing', ja: 'ブリーフィング', ko: '브리핑' },
+
+  // ---- Critical Chain ledger (docs/CRITICAL_CHAIN_VIEW_PLAN.md) ----
+  // Language rules: sentences not notation; every fact carries its judgment; visible
+  // problems name computed reactions; people are named, never gendered (names over
+  // pronouns also keeps de/ja/ko free of pronoun inflection).
+  clBufferHeadline: {
+    en: '{d} days of buffer between the estimated end on {date} and the SOP at the end of {month}.',
+    de: '{d} Tage Puffer zwischen dem geschätzten Ende am {date} und dem SOP Ende {month}.',
+    ja: '見込み完了日（{date}）とSOP（{month}末）の間に{d}日のバッファがあります。',
+    ko: '예상 완료일({date})과 SOP({month} 말) 사이에 {d}일의 버퍼가 있습니다.',
+  },
+  clOvershootHeadline: {
+    en: 'The estimated end on {date} lands {d} days after the SOP at the end of {month}.',
+    de: 'Das geschätzte Ende am {date} liegt {d} Tage nach dem SOP Ende {month}.',
+    ja: '見込み完了日（{date}）はSOP（{month}末）を{d}日超過しています。',
+    ko: '예상 완료일({date})이 SOP({month} 말)보다 {d}일 늦습니다.',
+  },
+  clNoSop: {
+    en: 'This program has no SOP date, so the buffer cannot be computed. Set the SOP in the program header.',
+    de: 'Dieses Programm hat keinen SOP-Termin, daher kann der Puffer nicht berechnet werden. SOP im Programmkopf setzen.',
+    ja: 'この プログラムにはSOPが未設定のため、バッファを計算できません。プログラムヘッダーでSOPを設定してください。',
+    ko: '이 프로그램에는 SOP 날짜가 없어 버퍼를 계산할 수 없습니다. 프로그램 헤더에서 SOP를 설정하세요.',
+  },
+  clGuidelineTitle: {
+    en: '{b} days of buffer against {rem} days of remaining chain work — a comfortable buffer for that much work is about {g} days.',
+    de: '{b} Tage Puffer bei {rem} Tagen verbleibender Kettenarbeit — ein komfortabler Puffer wären etwa {g} Tage.',
+    ja: '残り{rem}日のチェーン作業に対しバッファは{b}日 — 十分なバッファの目安は約{g}日です。',
+    ko: '남은 체인 작업 {rem}일에 대해 버퍼 {b}일 — 여유 있는 버퍼는 약 {g}일입니다.',
+  },
+  // Judgment sentence openers, by register (the status IS this sentence).
+  clJudgeNone: {
+    en: 'Nothing needs to change today',
+    de: 'Heute muss nichts geändert werden',
+    ja: '今日は何も変更する必要はありません',
+    ko: '오늘은 아무것도 바꿀 필요가 없습니다',
+  },
+  // These three share ONE <h3>, beside "Where the buffer went". A heading states a
+  // thing; it needs no colon to announce that content follows, and the terminal stop
+  // goes with it so all the headings in that grid read the same way.
+  clJudgePlan: {
+    en: 'Next step',
+    de: 'Nächster Schritt',
+    ja: '次のステップ',
+    ko: '다음 단계',
+  },
+  clJudgeAct: {
+    en: 'Time to act, in order of least disruption',
+    de: 'Zeit zu handeln, in der Reihenfolge des geringsten Eingriffs',
+    ja: '対応が必要です。影響の小さい順',
+    ko: '조치가 필요합니다. 영향이 작은 순서로',
+  },
+  clLeverHandoff: {
+    en: 'Agree the {from} → {to} handoff now, so the phase starts the day it can.',
+    de: 'Die Übergabe {from} → {to} jetzt vereinbaren, damit die Phase am erstmöglichen Tag startet.',
+    ja: '{from}→{to}の引き継ぎを今のうちに合意し、開始可能日に即着手できるようにしましょう。',
+    ko: '{from} → {to} 인수인계를 지금 합의해 시작 가능한 날 바로 착수하게 하세요.',
+  },
+  clLeverDeclare: {
+    en: 'Declare the program Concerned and propose moving SOP to {month}',
+    de: 'Das Programm auf „Concerned“ setzen und eine SOP-Verschiebung auf {month} vorschlagen',
+    ja: 'プログラムを「Concerned」にし、SOPの{month}への変更を提案する',
+    ko: '프로그램을 "Concerned"로 선언하고 SOP를 {month}(으)로 옮기는 안을 제안하기',
+  },
+  clUnitsDelayed: {
+    en: '≈{units} of the {volume} first-year units would arrive later.',
+    de: '≈{units} der {volume} Einheiten im ersten Jahr kämen später.',
+    ja: '初年度{volume}台のうち約{units}台が後ろ倒しになります。',
+    ko: '첫해 {volume}대 중 약 {units}대가 늦어집니다.',
+  },
+  clRebaseline: {
+    en: 'The longest remaining work no longer runs along the planned chain. Review the phase plan?',
+    de: 'Die längste verbleibende Arbeit verläuft nicht mehr entlang der geplanten Kette. Phasenplan prüfen?',
+    ja: '残作業の最長経路が計画上のチェーンから外れています。フェーズ計画を見直しますか？',
+    ko: '남은 작업의 최장 경로가 계획된 체인을 벗어났습니다. 단계 계획을 검토할까요?',
+  },
+  // Schedule chart
+  clSchedule: { en: 'Schedule', de: 'Zeitplan', ja: 'スケジュール', ko: '일정' },
+  clKeyTitle: { en: 'How to read the schedule', de: 'So liest du den Zeitplan', ja: 'スケジュールの読み方', ko: '일정 읽는 법' },
+  clKeySolid: {
+    en: 'Solid bars are dates that happened.',
+    de: 'Volle Balken sind eingetretene Daten.',
+    ja: '塗りつぶしバーは実績です。',
+    ko: '채워진 막대는 실제 날짜입니다.',
+  },
+  clKeyOutline: {
+    en: 'Outlined bars are the forecast.',
+    de: 'Umrandete Balken sind die Prognose.',
+    ja: '枠線バーは予測です。',
+    ko: '윤곽선 막대는 예측입니다.',
+  },
+  clKeyTick: {
+    en: 'The tick on a bar is where the plan said it would end.',
+    de: 'Der Strich markiert das geplante Ende.',
+    ja: '目盛りは計画上の終了点です。',
+    ko: '눈금은 계획된 종료 지점입니다.',
+  },
+  clKeyRing: {
+    en: 'The ring marks the phase gating the SOP.',
+    de: 'Der Ring markiert die Phase, die den SOP bestimmt.',
+    ja: 'リングはSOPを左右するフェーズを示します。',
+    ko: '링은 SOP를 좌우하는 단계를 표시합니다.',
+  },
+  clKeyRed: {
+    en: 'Red: days already lost — overruns and idle handoffs.',
+    de: 'Rot: bereits verlorene Tage — Überschreitungen und Leerlauf bei Übergaben.',
+    ja: '赤: すでに失った日数（超過と引き継ぎ待ち）。',
+    ko: '빨강: 이미 잃은 일수 — 초과와 인수인계 대기.',
+  },
+  clKeyAmber: {
+    en: 'Amber: days the forecast expects to lose — not spent yet.',
+    de: 'Bernstein: Tage, die laut Prognose verloren gehen — noch nicht verbraucht.',
+    ja: '琥珀色: 予測上これから失う日数（未確定）。',
+    ko: '호박색: 예측상 앞으로 잃을 일수 — 아직 쓰지 않음.',
+  },
+  clKeyGreen: {
+    en: 'Green: days handed back by finishing early.',
+    de: 'Grün: Tage, die durch frühes Fertigwerden zurückkommen.',
+    ja: '緑: 前倒し完了で取り戻した日数。',
+    ko: '초록: 일찍 끝내 되돌린 일수.',
+  },
+  clKeyTeal: {
+    en: 'Teal: the buffer still in hand before the SOP.',
+    de: 'Petrol: der vor dem SOP verbleibende Puffer.',
+    ja: '青緑: SOP前に残っているバッファ。',
+    ko: '청록: SOP 전에 남아 있는 버퍼.',
+  },
+  clDaysEarly: { en: '{d} days early', de: '{d} Tage früher', ja: '{d}日早く完了', ko: '{d}일 일찍 완료' },
+  clOneDayEarly: { en: '1 day early', de: '1 Tag früher', ja: '1日早く完了', ko: '1일 일찍 완료' },
+  clDaysOverPlan: { en: '{d} days over plan', de: '{d} Tage über Plan', ja: '計画超過{d}日', ko: '계획 초과 {d}일' },
+  clOneDayOverPlan: { en: '1 day over plan', de: '1 Tag über Plan', ja: '計画超過1日', ko: '계획 초과 1일' },
+  clSatIdle: { en: 'sat idle {d} days', de: '{d} Tage Leerlauf', ja: '{d}日間待機', ko: '{d}일간 대기' },
+  // Schedule-row hover card: what this phase did to the buffer, in one line each.
+  clRowRan: { en: 'Ran {a} – {b}', de: 'Lief {a} – {b}', ja: '実績 {a}〜{b}', ko: '진행 {a} – {b}' },
+  clRowRunning: { en: 'Started {a}, forecast to {b}', de: 'Start {a}, Prognose bis {b}', ja: '{a}開始・{b}完了見込み', ko: '{a} 시작 · {b} 완료 예상' },
+  clRowPlannedWindow: { en: 'Projected {a} – {b}', de: 'Geplant {a} – {b}', ja: '予定 {a}〜{b}', ko: '예정 {a} – {b}' },
+  clRowOnPlan: { en: 'Finished on plan — no buffer moved.', de: 'Planmäßig beendet — kein Puffer bewegt.', ja: '計画どおり完了 — バッファの増減なし。', ko: '계획대로 완료 — 버퍼 변동 없음.' },
+  clRowSpent: { en: 'Spent {d} days of buffer.', de: '{d} Tage Puffer verbraucht.', ja: 'バッファを{d}日消費。', ko: '버퍼 {d}일 소모.' },
+  clRowSpentOne: { en: 'Spent 1 day of buffer.', de: '1 Tag Puffer verbraucht.', ja: 'バッファを1日消費。', ko: '버퍼 1일 소모.' },
+  clRowGave: { en: 'Handed {d} days back to the buffer.', de: '{d} Tage an den Puffer zurückgegeben.', ja: 'バッファに{d}日返却。', ko: '버퍼에 {d}일 반환.' },
+  clRowGaveOne: { en: 'Handed 1 day back to the buffer.', de: '1 Tag an den Puffer zurückgegeben.', ja: 'バッファに1日返却。', ko: '버퍼에 1일 반환.' },
+  clRowNoClaim: { en: 'Not started — it has not moved the buffer yet.', de: 'Nicht begonnen — noch kein Puffereinfluss.', ja: '未着手 — バッファへの影響はまだありません。', ko: '시작 전 — 아직 버퍼에 영향 없음.' },
+  clWorkLeftOnPace: {
+    en: '≈{d} days of work left · on pace with its plan',
+    de: '≈{d} Tage Arbeit übrig · im Plan',
+    ja: '残り約{d}日 · 計画どおり',
+    ko: '남은 작업 약 {d}일 · 계획대로 진행 중',
+  },
+  clWorkLeftOnPaceOne: {
+    en: '≈1 day of work left · on pace with its plan',
+    de: '≈1 Tag Arbeit übrig · im Plan',
+    ja: '残り約1日 · 計画どおり',
+    ko: '남은 작업 약 1일 · 계획대로 진행 중',
+  },
+  clWorkLeftOver: {
+    en: '≈{d} days of work left · forecast ~{o} days over plan',
+    de: '≈{d} Tage Arbeit übrig · Prognose ~{o} Tage über Plan',
+    ja: '残り約{d}日 · 予測で計画超過約{o}日',
+    ko: '남은 작업 약 {d}일 · 예측상 계획 초과 약 {o}일',
+  },
+  clWorkLeftOverOne: {
+    en: '≈1 day of work left · forecast ~{o} days over plan',
+    de: '≈1 Tag Arbeit übrig · Prognose ~{o} Tage über Plan',
+    ja: '残り約1日 · 予測で計画超過約{o}日',
+    ko: '남은 작업 약 1일 · 예측상 계획 초과 약 {o}일',
+  },
+  // "buffer" is THE word for this quantity across the app (headline, row cards, the
+  // ecosystem tile). "room"/"Spielraum"/"余裕"/"여유" were synonyms for the same thing
+  // and a synonym reads as a different thing — matched to the canonical term.
+  clDaysOfBuffer: { en: '{d} days of buffer', de: '{d} Tage Puffer', ja: 'バッファ{d}日', ko: '버퍼 {d}일' },
+  clSopLabel: { en: 'SOP · end of {month}', de: 'SOP · Ende {month}', ja: 'SOP · {month}末', ko: 'SOP · {month} 말' },
+  clTodayLabel: { en: 'today · {date}', de: 'heute · {date}', ja: '今日 · {date}', ko: '오늘 · {date}' },
+  // Waterfall
+  clWhereBufferWent: { en: 'Where the buffer went', de: 'Wohin der Puffer ging', ja: 'バッファの行方', ko: '버퍼가 쓰인 곳' },
+  clCostDays: { en: 'cost {d} days', de: 'kostete {d} Tage', ja: '{d}日を消費', ko: '{d}일 소모' },
+  clCostOneDay: { en: 'cost 1 day', de: 'kostete 1 Tag', ja: '1日を消費', ko: '1일 소모' },
+  clGaveBackDays: { en: 'gave back {d} days', de: 'gab {d} Tage zurück', ja: '{d}日を返上', ko: '{d}일 회복' },
+  clGaveBackOneDay: { en: 'gave back 1 day', de: 'gab 1 Tag zurück', ja: '1日を返上', ko: '1일 회복' },
+  clIdleBefore: { en: 'Idle before {phase}', de: 'Leerlauf vor {phase}', ja: '{phase}前の待機', ko: '{phase} 전 대기' },
+  clUnattributed: { en: 'Unattributed', de: 'Nicht zugeordnet', ja: '内訳不明', ko: '미분류' },
+  clEvidencePlanTook: {
+    en: 'planned {p} days, took {a} ({from} → {to})',
+    de: 'geplant {p} Tage, gebraucht {a} ({from} → {to})',
+    ja: '計画{p}日、実績{a}日（{from}→{to}）',
+    ko: '계획 {p}일, 실제 {a}일 ({from} → {to})',
+  },
+  clEvidenceSunk: {
+    en: 'Already spent — shown so the next plan is realistic.',
+    de: 'Bereits verbraucht — angezeigt, damit der nächste Plan realistisch wird.',
+    ja: 'すでに消費済み — 次の計画を現実的にするために表示しています。',
+    ko: '이미 소모됨 — 다음 계획을 현실적으로 만들기 위해 표시합니다.',
+  },
+  clEvidenceContended: {
+    en: '{names} had work in other programs while this ran.',
+    de: '{names} hatte währenddessen Arbeit in anderen Programmen.',
+    ja: 'この間、{names}は他プログラムの作業も抱えていました。',
+    ko: '이 기간 동안 {names}은(는) 다른 프로그램 작업도 맡고 있었습니다.',
+  },
+  clEvidenceGap: {
+    en: '{from} finished {d1}; {to} did not start until {d2}.',
+    de: '{from} endete am {d1}; {to} begann erst am {d2}.',
+    ja: '{from}は{d1}に完了、{to}の開始は{d2}でした。',
+    ko: '{from}은(는) {d1}에 끝났지만 {to}은(는) {d2}에야 시작했습니다.',
+  },
+  clEvidenceGapOngoing: {
+    en: '{from} finished {d1}; the next phase has not started.',
+    de: '{from} endete am {d1}; die nächste Phase hat noch nicht begonnen.',
+    ja: '{from}は{d1}に完了しましたが、次のフェーズは未着手です。',
+    ko: '{from}은(는) {d1}에 끝났지만 다음 단계가 아직 시작되지 않았습니다.',
+  },
+  clEvidenceGapAvoid: {
+    en: 'Avoidable next time — the next handoff can be agreed before the phase finishes.',
+    de: 'Beim nächsten Mal vermeidbar — die nächste Übergabe lässt sich vor Phasenende vereinbaren.',
+    ja: '次回は回避可能 — 次の引き継ぎはフェーズ完了前に合意できます。',
+    ko: '다음에는 피할 수 있습니다 — 다음 인수인계는 단계가 끝나기 전에 합의할 수 있습니다.',
+  },
+  clEvidenceForecast: {
+    en: 'Forecast, not yet spent: {e} days elapsed and ≈{r} left against {p} planned.',
+    de: 'Prognose, noch nicht verbraucht: {e} Tage vergangen, ≈{r} übrig, bei {p} geplant.',
+    ja: '未確定の予測: 経過{e}日+残り約{r}日、計画は{p}日。',
+    ko: '아직 쓰지 않은 예측: 경과 {e}일 + 남은 약 {r}일, 계획은 {p}일.',
+  },
+  clEvidenceUnattributed: {
+    en: 'Plan edits and rounding — the books are not forced to balance.',
+    de: 'Plan-Änderungen und Rundung — die Bilanz wird nicht erzwungen.',
+    ja: '計画変更と丸め — 帳尻合わせは行いません。',
+    ko: '계획 수정과 반올림 — 억지로 수지를 맞추지 않습니다.',
+  },
+  clNetUsed: {
+    en: '{used} days used of the original {b0} since program start',
+    de: 'seit Programmstart {used} von ursprünglich {b0} Tagen verbraucht',
+    ja: '開始時{b0}日のうち{used}日を使用',
+    ko: '시작 시 {b0}일 중 {used}일 사용',
+  },
+  clNetGained: {
+    en: '{g} days gained vs. the original {b0} since program start',
+    de: 'seit Programmstart {g} Tage gegenüber ursprünglich {b0} gewonnen',
+    ja: '開始時{b0}日に対し{g}日増加',
+    ko: '시작 시 {b0}일 대비 {g}일 증가',
+  },
+  // Who is oversubscribed
+  clOwnerLoad: {
+    en: '{owner} owns this program and is also on {n} active phases elsewhere: {items}. Not proven to gate this chain, but worth knowing before asking for more of their time.',
+    de: '{owner} verantwortet dieses Programm und ist zusätzlich in {n} aktiven Phasen anderswo tätig: {items}. Nicht nachweislich kettenbestimmend, aber gut zu wissen, bevor mehr Zeit angefragt wird.',
+    ja: '{owner}は本プログラムのオーナーであり、他にも{n}件の進行中フェーズを担当しています: {items}。本チェーンを律速している証拠はありませんが、追加の時間を依頼する前に把握しておく価値があります。',
+    ko: '{owner}은(는) 이 프로그램의 오너이며 다른 곳에서도 진행 중인 단계 {n}개를 맡고 있습니다: {items}. 이 체인을 좌우한다는 증거는 없지만, 시간을 더 요청하기 전에 알아둘 만합니다.',
+  },
+  clOwnerLoadOne: {
+    en: '{owner} owns this program and is also on 1 active phase elsewhere: {items}. Not proven to gate this chain, but worth knowing before asking for more of their time.',
+    de: '{owner} verantwortet dieses Programm und ist zusätzlich in 1 aktiven Phase anderswo tätig: {items}. Nicht nachweislich kettenbestimmend, aber gut zu wissen, bevor mehr Zeit angefragt wird.',
+    ja: '{owner}は本プログラムのオーナーであり、他にも進行中フェーズを1件担当しています: {items}。本チェーンを律速している証拠はありませんが、追加の時間を依頼する前に把握しておく価値があります。',
+    ko: '{owner}은(는) 이 프로그램의 오너이며 다른 곳에서도 진행 중인 단계 1개를 맡고 있습니다: {items}. 이 체인을 좌우한다는 증거는 없지만, 시간을 더 요청하기 전에 알아둘 만합니다.',
+  },
+  // Two openers: the phase is visibly overrunning, or it simply has a contended
+  // resource on it. Claiming "while X is overrunning" on a phase that is on plan
+  // (or hasn't started) would be false — see the language rules' judgment test.
+  clOversubOverrun: {
+    en: '{name} is active in {n} other programs while {phase} is overrunning.',
+    de: '{name} ist in {n} weiteren Programmen aktiv, während {phase} über Plan läuft.',
+    ja: '{phase}が計画を超過している間、{name}は他に{n}件のプログラムでも稼働しています。',
+    ko: '{phase}이(가) 계획을 초과하는 동안 {name}은(는) 다른 프로그램 {n}개에서도 일하고 있습니다.',
+  },
+  clOversubOverrunOne: {
+    en: '{name} is active in 1 other program while {phase} is overrunning.',
+    de: '{name} ist in 1 weiteren Programm aktiv, während {phase} über Plan läuft.',
+    ja: '{phase}が計画を超過している間、{name}は他に1件のプログラムでも稼働しています。',
+    ko: '{phase}이(가) 계획을 초과하는 동안 {name}은(는) 다른 프로그램 1개에서도 일하고 있습니다.',
+  },
+  clOversubNeutral: {
+    en: '{name} is on {phase} and is also active in {n} other programs.',
+    de: '{name} arbeitet an {phase} und ist außerdem in {n} weiteren Programmen aktiv.',
+    ja: '{name}は{phase}を担当し、他に{n}件のプログラムでも稼働しています。',
+    ko: '{name}은(는) {phase}을(를) 맡고 있으며 다른 프로그램 {n}개에서도 일하고 있습니다.',
+  },
+  clOversubNeutralOne: {
+    en: '{name} is on {phase} and is also active in 1 other program.',
+    de: '{name} arbeitet an {phase} und ist außerdem in 1 weiteren Programm aktiv.',
+    ja: '{name}は{phase}を担当し、他に1件のプログラムでも稼働しています。',
+    ko: '{name}은(는) {phase}을(를) 맡고 있으며 다른 프로그램 1개에서도 일하고 있습니다.',
+  },
+  clOversubMoves: {
+    en: 'If {phase} needs more time from {name}: {programs} can afford to give some back.',
+    de: 'Falls {phase} mehr Zeit von {name} braucht: {programs} können etwas abgeben.',
+    ja: '{phase}に{name}の時間がもっと必要なら、{programs}から融通できます。',
+    ko: '{phase}에 {name}의 시간이 더 필요하면 {programs}에서 돌려받을 수 있습니다.',
+  },
+  clOversubTight: {
+    en: '{programs} has no buffer to give.',
+    de: '{programs} hat keinen Puffer abzugeben.',
+    ja: '{programs}には融通できるバッファがありません。',
+    ko: '{programs}에는 내어줄 버퍼가 없습니다.',
+  },
+  clProgWithBuffer: {
+    en: '{name} ({d} days of buffer)',
+    de: '{name} ({d} Tage Puffer)',
+    ja: '{name}（バッファ{d}日）',
+    ko: '{name}(버퍼 {d}일)',
+  },
+  clUpNextLine: {
+    en: 'Up next: {phase} — {names}, also active in {n} other programs.',
+    de: 'Als Nächstes: {phase} — {names}, außerdem in {n} weiteren Programmen aktiv.',
+    ja: '次は{phase} — 担当は{names}（他に{n}件のプログラムでも活動中）。',
+    ko: '다음은 {phase} — {names}, 다른 프로그램 {n}개에서도 활동 중.',
+  },
+  clUpNextConfirm: {
+    en: 'Worth confirming staffing before {current} finishes, so the phase starts the day it can.',
+    de: 'Vor dem Ende von {current} die Besetzung klären, damit die Phase am erstmöglichen Tag startet.',
+    ja: '{current}が終わる前に体制を確認し、開始可能日に即着手できるようにしましょう。',
+    ko: '{current}이(가) 끝나기 전에 인력 배치를 확인해 시작 가능한 날 바로 착수하게 하세요.',
+  },
+  // Ecosystem: busiest people and partners
+  clBusiest: { en: 'Possible Resource Constraints', de: 'Mögliche Ressourcenengpässe', ja: 'リソース制約の可能性', ko: '잠재적 리소스 제약' },
+  clBusiestIntro: {
+    en: 'The people and partners several programs depend on at once — one calendar driving many SOPs.',
+    de: 'Personen und Partner, von denen mehrere Programme gleichzeitig abhängen — ein Kalender bestimmt viele SOPs.',
+    ja: '複数のプログラムが同時に依存する人とパートナー — 一つのカレンダーが多くのSOPを左右します。',
+    ko: '여러 프로그램이 동시에 의존하는 사람과 파트너 — 하나의 일정이 여러 SOP를 좌우합니다.',
+  },
+  clWho: { en: 'Who', de: 'Wer', ja: '誰', ko: '누구' },
+  clGatingSop: { en: 'Currently gating the SOP of', de: 'Bestimmt derzeit den SOP von', ja: '現在SOPを左右', ko: '현재 SOP를 좌우' },
+  clAlsoActiveIn: { en: 'Also active in', de: 'Außerdem aktiv in', ja: '他の活動', ko: '기타 활동' },
+  clBufferChange: {
+    en: "Buffer change, last 4 weeks · what's at stake",
+    de: 'Pufferänderung, letzte 4 Wochen · was auf dem Spiel steht',
+    ja: '直近4週のバッファ変化 · 影響規模',
+    ko: '최근 4주 버퍼 변화 · 걸린 규모',
+  },
+  clLostDays: { en: '{name} lost {d} days', de: '{name} verlor {d} Tage', ja: '{name}は{d}日減', ko: '{name} {d}일 감소' },
+  clNoChangeCell: {
+    en: 'no change — nothing to do here',
+    de: 'keine Änderung — hier ist nichts zu tun',
+    ja: '変化なし — 対応不要',
+    ko: '변화 없음 — 조치 불필요',
+  },
+  clUnitsIn: { en: '{units} units in {year}', de: '{units} Einheiten in {year}', ja: '{year}に{units}台', ko: '{year}에 {units}대' },
+  clNMore: { en: '{n} more', de: '{n} weitere', ja: '他{n}件', ko: '외 {n}건' },
+  clConsiderPerson: {
+    en: "Consider: {name}'s movable time is in {programs} — shifting it protects the falling SOPs at the least cost.",
+    de: 'Erwägen: Die verlagerbare Zeit von {name} liegt in {programs} — sie zu verschieben schützt die fallenden SOPs mit dem geringsten Aufwand.',
+    ja: '検討: {name}の融通可能な時間は{programs}にあります — そこから移すのが最小コストで悪化中のSOPを守れます。',
+    ko: '고려: {name}의 옮길 수 있는 시간은 {programs}에 있습니다 — 이를 옮기면 최소 비용으로 악화 중인 SOP를 지킬 수 있습니다.',
+  },
+  clConsiderTiebreak: {
+    en: "If all can't be protected, decide which program gets their time: {program} carries the most volume.",
+    de: 'Falls nicht alle zu schützen sind: entscheiden, welches Programm die Zeit bekommt — {program} trägt das größte Volumen.',
+    ja: 'すべて守れない場合はどのプログラムに時間を充てるか決めます: 台数が最も大きいのは{program}です。',
+    ko: '모두 지킬 수 없다면 어느 프로그램에 시간을 줄지 정해야 합니다: 물량이 가장 큰 곳은 {program}입니다.',
+  },
+  clConsiderPartner: {
+    en: 'Consider: one company is active in {n} programs — ask {name} for their staffing plan. {program} is the only SOP they gate today; a named team there closes the biggest exposure.',
+    de: 'Erwägen: Ein Unternehmen ist in {n} Programmen aktiv — {name} nach dem Besetzungsplan fragen. {program} ist der einzige SOP, den sie derzeit bestimmen; ein benanntes Team dort schließt das größte Risiko.',
+    ja: '検討: 一社で{n}件のプログラムに関与 — {name}に体制計画を確認しましょう。現在SOPを左右しているのは{program}のみで、そこへの専任チームが最大のリスクを解消します。',
+    ko: '고려: 한 회사가 {n}개 프로그램에 관여 중 — {name}에 인력 계획을 요청하세요. 현재 SOP를 좌우하는 곳은 {program}뿐이며, 그곳의 전담 팀이 가장 큰 위험을 해소합니다.',
+  },
+  clBusiestLegend: {
+    en: 'The top row is the person or company whose calendar is currently delaying the most units across the portfolio. Every name links to its detail page.',
+    de: 'Die oberste Zeile ist die Person oder Firma, deren Kalender derzeit portfolioweit die meisten Einheiten verzögert. Jeder Name verlinkt auf seine Detailseite.',
+    ja: '最上段は、ポートフォリオ全体で最も多くの台数を遅らせているカレンダーの持ち主です。各名前は詳細ページへリンクします。',
+    ko: '맨 윗줄은 포트폴리오 전체에서 가장 많은 물량을 지연시키고 있는 일정의 주인입니다. 모든 이름은 상세 페이지로 연결됩니다.',
+  },
 } satisfies Record<string, Entry>;
 
 export type StringKey = keyof typeof STRINGS;
 
+/** The raw template with its {var} slots intact — for node interpolation (tNodes). */
+export function tRaw(locale: Locale, key: StringKey): string {
+  return STRINGS[key][locale] ?? STRINGS[key].en;
+}
+
 export function t(locale: Locale, key: StringKey, vars?: Record<string, string | number>): string {
-  let s: string = STRINGS[key][locale] ?? STRINGS[key].en;
+  let s = tRaw(locale, key);
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
   return s;
 }

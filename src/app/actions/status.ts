@@ -32,6 +32,7 @@ export async function deleteFeedItem(formData: FormData) {
       return;
   }
 
-  revalidatePath('/'); // the ecosystem feed lives on the home page
+  revalidatePath('/ecosystem'); // the dashboard
+  revalidatePath('/'); // the landing page's latest-updates teasers
   if (revalidate) revalidatePath(revalidate);
 }

@@ -8,6 +8,7 @@ import { refreshSourceAction, toggleSourcePause, toggleSourceMode } from '../../
 import { inferSource } from '../../../lib/sources';
 import { t, type StringKey } from '../../../lib/i18n';
 import { useLocale } from '../../../components/LocaleProvider';
+import SearchField from '../../../components/SearchField';
 
 // Manage → Sources at operator scale (thousands of rows eventually): sortable
 // columns via DataTable, client-side filters for kind / tracking state / who added
@@ -62,19 +63,19 @@ const stateOf = (row: SourceRow): StateId =>
 const btn: React.CSSProperties = {
   background: 'none',
   border: '1px solid var(--border, #ddd)',
-  borderRadius: 6,
-  padding: '3px 10px',
-  fontSize: 11,
+  borderRadius: '0.375rem',
+  padding: '0.1875rem 0.625rem',
+  fontSize: '0.6875rem',
   fontWeight: 700,
   color: 'var(--muted, #666)',
   cursor: 'pointer',
 };
 
 const select: React.CSSProperties = {
-  fontSize: 12,
-  padding: '4px 8px',
+  fontSize: '0.75rem',
+  padding: '0.25rem 0.5rem',
   border: '1px solid var(--border, #ddd)',
-  borderRadius: 6,
+  borderRadius: '0.375rem',
   background: 'var(--white, #fff)',
   color: 'var(--fg, #222)',
 };
@@ -115,13 +116,11 @@ export default function SourcesClient({ sources }: { sources: SourceRow[] }) {
   return (
     <>
       {/* filters: free text + the three facets that matter at scale */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', margin: '0 0 14px' }}>
-        <input
-          type="search"
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', margin: '0 0 0.875rem' }}>
+        <SearchField
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={setText}
           placeholder={t(locale, 'searchSourcesPlaceholder')}
-          style={{ ...select, flex: '1 1 260px', minWidth: 200, padding: '6px 10px' }}
         />
         <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} style={select} aria-label={t(locale, 'colKind')}>
           <option value="all">{t(locale, 'filterAllKinds')}</option>
@@ -159,25 +158,25 @@ export default function SourcesClient({ sources }: { sources: SourceRow[] }) {
         pageSize={25}
         renderRow={(s) => (
           <tr key={s.id} data-testid={`source-${s.id}`}>
-            <td style={{ padding: '10px 12px 10px 0', maxWidth: 360 }}>
+            <td style={{ padding: '0.625rem 0.75rem 0.625rem 0', maxWidth: '22.5rem' }}>
               <a href={s.url} target="_blank" rel="noopener noreferrer"
                 style={{ fontWeight: 600, color: 'var(--fg, #222)', textDecoration: 'none' }}>
                 {s.title || s.url}
               </a>
               {s.entityName && (
-                <div style={{ fontSize: 11.5, marginTop: 2 }}>
+                <div style={{ fontSize: '0.75rem', marginTop: '0.125rem' }}>
                   {s.entityHref
                     ? <Link href={s.entityHref} style={{ color: 'var(--muted, #888)' }}>{s.entityName}</Link>
                     : <span style={{ color: 'var(--muted, #888)' }}>{s.entityName}</span>}
                 </div>
               )}
             </td>
-            <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--muted, #666)' }}>
+            <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--muted, #666)' }}>
               {s.kindLabel}
             </td>
-            <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+            <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap' }}>
               <span style={{
-                fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999,
+                fontSize: '0.6875rem', fontWeight: 700, padding: '0.125rem 0.5625rem', borderRadius: '62.4375rem',
                 border: '1px solid',
                 borderColor: !s.frozenReason && s.mode === 'watched' ? 'var(--chain-soft, #c9b9e6)' : 'var(--border, #ddd)',
                 color: !s.frozenReason && s.mode === 'watched' ? 'var(--chain-ink, #5a4488)' : 'var(--muted, #888)',
@@ -185,19 +184,19 @@ export default function SourcesClient({ sources }: { sources: SourceRow[] }) {
                 {s.stateLabel}
               </span>
             </td>
-            <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--muted, #666)' }}>
+            <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--muted, #666)' }}>
               {s.addedBy || '—'}
             </td>
-            <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--muted, #666)' }}>
+            <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--muted, #666)' }}>
               {!s.frozenReason && s.mode === 'watched'
                 ? <DateCell value={s.lastCheckedAt} fallback={t(locale, 'neverChecked')} />
                 : '—'}
             </td>
-            <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--muted, #666)', fontVariantNumeric: 'tabular-nums' }}>
+            <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--muted, #666)', fontVariantNumeric: 'tabular-nums' }}>
               {s.revisions}
             </td>
-            <td style={{ padding: '10px 0', whiteSpace: 'nowrap', textAlign: 'right' }}>
-              <div style={{ display: 'inline-flex', gap: 6 }}>
+            <td style={{ padding: '0.625rem 0', whiteSpace: 'nowrap', textAlign: 'right' }}>
+              <div style={{ display: 'inline-flex', gap: '0.375rem' }}>
                 {s.mode === 'watched' && (
                   <>
                     <form action={refreshSourceAction} style={{ display: 'inline' }}>

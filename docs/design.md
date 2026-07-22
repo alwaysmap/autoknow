@@ -16,10 +16,43 @@ To maximize readability and ensure a clean, distraction-free environment:
 ---
 
 ## 2. "Everything is a URL" Navigation Pattern
+* **Sections own their deep link**: every `<h2>` renders through
+  `AnchorHeading` — hovering (or tabbing to) the heading reveals a quiet `#`
+  beside it, and clicking it puts the section anchor in the address bar to
+  share. No standing "on this page" nav rows. The id is passed explicitly and
+  is never derived from the heading text: headings are localized, so a
+  slugified anchor would differ per locale and break links already shared. The
+  `#` link is a SIBLING of the heading, never a child — nested, its text joins
+  the heading's accessible name.
 Every entity displayed in a dashboard view or detail card must serve as an active navigation affordance:
 * **Hyperlinked Names**: Partner names, OEM names, Supplier lists, and owner LDAP emails must always be links leading to their respective detail pages (e.g. `/partners/[id]`, `/people/[ldap]`).
-* **Interactive Cells**: Count fields (e.g. "Active Programs") must link to pre-filtered lists (e.g., `/partners/[id]?filter=active`). Action phase names must link directly to the history logs of the project detail view.
+* **Interactive Cells**: Count fields (e.g. "Active Programs") must link to pre-filtered lists (e.g., `/partners/[id]?filter=active`). Phase names must link to that phase's record — `/programs/[id]#phase-[phaseId]-detail`, the DETAILS popover (§5).
 * **No Plain-Text Dead Ends**: Sighted users must never be presented with static, non-clickable entity names when a corresponding detail route is available in the application.
+
+---
+
+## 2b. `/` is a landing page; the dashboard lives at `/ecosystem`
+(2026-07-20, user call.) The root route is **not** a dashboard. Its one job is to
+get you to the thing you came for:
+
+* **A big search box is the primary affordance** — the largest control in the app,
+  autofocused, and the only place `hero`-sized styling is sanctioned
+  (`UnifiedSearch` takes a `hero` prop). It deep-links: `/?q=…` runs the query on
+  load, and `/search?q=…` redirects here so older shared links keep working.
+* **It suggests while you type, and hands off to the full list.** Hero mode adds a
+  debounced autosuggest panel (top 8, overlaying rather than pushing the page
+  down) with a "see all results" row that runs the real search into the same
+  `UnifiedSearch` + `FeedList` below. One component, two depths — never a second
+  search implementation. Type-filter chips wait for results: filled chips under an
+  empty box are loud and filter nothing.
+* **Under it, the five most recent updates as teasers** — ingested documents and
+  human-written notes alike, from the same `getActivity` feed the rest of the app
+  uses. Title, provenance, two clamped lines of the actual words. Teasers are
+  `LatestTeasers`, deliberately NOT `FeedList`: the feed renders gauges, hill
+  charts, and delete controls, which is the full record, not an invitation.
+* **The ecosystem dashboard is `/ecosystem`** and the nav points there.
+* **No search box in the nav, on any page.** One search surface, and it is the
+  page you land on. (This retired the global `/` focus shortcut with it.)
 
 ---
 
@@ -32,10 +65,42 @@ Every entity displayed in a dashboard view or detail card must serve as an activ
 ---
 
 ## 4. Reusable 2-Column Sidebar Layouts
-For detail pages (like Project details or Partner details):
+**Exception — program detail pages (2026-07-20, user call):** `/programs/[id]`
+opens with a quick-links anchor row, then ONE two-column row — the Needle
+(20rem) beside the AI briefing — and everything from the Critical Chain section
+down (chain, phase rail, activity) spans the full width of both columns.
+
+For other detail pages (like Partner details):
 * **Sidebar (Left Column)**: 20rem (320px) wide. Contains compact overall status widgets (Needle and Hill Chart progress visualizers), primary metadata grid properties (TEL, SOP targets, volumes), and action managers.
 * **Content Area (Right Column)**: Occupies the remaining horizontal space. Displays long lists, action items grids, visual timeline flows, and update logs.
 * **Space Efficiency**: This prevents massive empty areas and keeps critical timeline indicators visible on standard screens.
+
+---
+
+## 4b. Status updates: the gauge states a fact, the popup holds the record
+Program health (the Needle) follows one pattern, and new status surfaces should
+copy it (2026-07-20, user call):
+* The resting row is **graphic · date · DETAIL** — no note text beside the
+  gauge. Every update REQUIRES a written note (dialog gate + `zText` at the
+  mutation boundary), but that prose feeds the AI briefing and the log, not the
+  card.
+* **DETAIL** opens a popup covering most of the viewport listing every update
+  with its graphic, health label, author, timestamp, and full note. Body scroll
+  locks while it is open; the log scrolls inside it.
+* **UPDATE inside that popup reveals the form in place** (save/cancel), never a
+  second `<dialog>` — stacked modals layer their scrims and trap focus in the
+  wrong layer. The health picker sits inside the gauge's own container, since
+  picking a value repaints the gauge directly above it.
+* The open popup is a URL: `/programs/:id#status-history` opens it, and opening
+  it writes that hash. There is no separate history *page* for needles — and as
+  of 2026-07-21 none for phases either (§5), so `/history/**` is gone entirely.
+
+Two `<dialog>` traps this pattern hit, worth knowing before writing another:
+`display: flex` on the dialog overrides the UA's `display: none` for the CLOSED
+state, leaving an invisible full-size overlay that swallows clicks — scope it to
+`[open]`. And a click on the dialog's own padding reports the dialog as the
+event target, so `target === dialog` treats it as a backdrop click and can
+discard an in-progress form; compare against the element's box instead.
 
 ---
 
@@ -45,6 +110,25 @@ Every project detail page must include a direct way to see, edit, add, or delete
 * **Edit Phase**: Prefilled edit controls inside a dialog.
 * **Delete Phase**: Forms calling server actions to clean up associated log histories, dependencies, and tasks with confirmation.
 
+**A phase has no page of its own** (2026-07-21, user call — `/history/phase/:id`
+retired, the last of the `/history/**` pages to go). Its home is the DETAILS
+popover on its program page, and that popover follows §4b's rule exactly:
+`/programs/:id#phase-:phaseId-detail` opens it, opening it writes that fragment,
+closing takes the fragment back off. Every link to a phase anywhere in the app —
+feeds, AI briefing citations, partner and person pages — goes there
+(`phaseDetailHref`, `src/lib/phase.ts`; never hand-built).
+
+Two consequences that are easy to get wrong:
+* **The popover must hold the COMPLETE log, or the retirement lost data.** The
+  program page renders a dozen phases and preloads only the 6 newest states per
+  phase, so the popover fetches the rest on demand for the one phase you opened
+  (`getPhaseLog`). Whatever it renders is the whole record — there is nothing
+  further to click through to, and no "full history →" link to offer.
+* **`#phase-:id` and `#phase-:id-detail` are one family, not a collision**: the
+  bare id is the rail row's scroll anchor, the `-detail` suffix is the popover
+  over it. Fragments that are not ours are left untouched when the popover
+  writes or clears its own.
+
 ---
 
 ## 6. Tables & Lists — the one grammar
@@ -53,10 +137,15 @@ Applies to every tabular/list surface (Programs, Partners, Sources, Me, ecosyste
 tables) so nothing has to be relearned page to page.
 
 * **One type grammar**: 0.8125–0.875rem (13–14px) cell text in the foreground color; links are quiet
-  (foreground text, **weight 400 app-wide** — color/underline is the affordance,
-  weight stays reserved for hierarchy; underline on hover, never bold green); no
-  background-color badges. Semantic color (health) is colored *text* only. Muted gray is reserved
+  (**weight 400 app-wide** — color/underline is the affordance, weight stays
+  reserved for hierarchy; underline on hover); no background-color badges.
+  Semantic color (health) is colored *text* only. Muted gray is reserved
   for secondary facts (types, provenance, dates' fallbacks).
+* **Links are BLUE — `var(--link)` / `var(--link-hover)`, never the brand
+  green** (2026-07-20, user call). Green is this app's "good / early / saved"
+  signal, so painting navigation green made every link read as a status. The
+  green ramp (`--p-600`) stays for semantic positives — pace chips, saved
+  ticks — and for solid button fills.
 * **Dates are ISO** (`yyyy-mm-dd`, tabular-nums, via the shared `DateCell`), which
   sorts lexicographically = chronologically; hover reveals the ISO calendar week
   ("W29"). Never locale-formatted dates in table cells — they misalign and
@@ -69,6 +158,20 @@ tables) so nothing has to be relearned page to page.
   the only filter allowed outside the table, and page-level deep links
   (`?minRisk=…`, `?filter=active`) initialize column filters rather than adding
   widgets.
+* **BOX vs PILL is a rule, not a per-table choice** (2026-07-20, user call):
+  a **box** (squared corners, `ClassBox`) marks a CLASS the thing shares with
+  others — Partner Type, Region, a result's kind. A **pill** (fully rounded)
+  marks a PROPER NOUN, one specific named entity — "Bosch", a person. The SHAPE
+  carries the distinction, so it survives greyscale and colour blindness. Names
+  in table cells stay quiet links: the rule says which decoration to use *when
+  you decorate*, not that every name must be decorated.
+* **Result types are BOXED readouts, not coloured words** (`KindBox`, shared by
+  the suggestion dropdown and the full result list so they cannot drift). The
+  inks are `--kind-*` tokens: the hexes they replace were picked against a light
+  page and rendered at 1.7:1 on both dark themes, which made "Program"
+  effectively invisible. The box is a hairline in the label's own ink — a rule,
+  not a filled badge — so the type no longer depends on colour alone to separate
+  itself from the title beside it. Kind colour is IDENTITY, never health.
 * **One measure per cell**: a value gets exactly one visual rendering (a face, a
   number, a bar — never a face *plus* the number *plus* a word). The redundant
   forms live in the tooltip/accessible name.
@@ -125,6 +228,210 @@ One treatment, applied app-wide via the `AiBadge` component:
   derived health) don't get the mark; it flags authorship of words, not
   computation.
 
+## 8b. Color: warm neutrals, and NO literal colors in components
+
+The palette lives entirely in `globals.css` as tokens, restated under
+`:root[data-theme="dark"]`. Two standing rules:
+
+* **The neutral field is warm in both themes** (2026-07-20, user call, adjusted
+  toward [pearish-theme](https://github.com/dvhthomas/pearish-theme)): warm stone
+  in light, roast brown in dark — never a blue-grey, and never near-black. Dark
+  sits at ~16% lightness, not 11%; a dark theme should read as dim paper, not as
+  a void. The stacking order `--bg` < `--paper` < `--surface` is load-bearing, and
+  every "soft" chip background must stay ABOVE `--paper` or it reads as a hole
+  punched in the card rather than a tint. The brand `--hue: 142` stays locked, and
+  links stay blue (§6) — pearish's mint/pear accents are inspiration for the
+  NEUTRALS, not a license to recolor semantics.
+* **Components never hard-code a color, including inside SVG.** `fill="#fff"` is
+  the recurring offender: it means "the surface behind me", which is
+  `var(--paper)` — as literal white it survives the theme switch and glares. This
+  existed in six components at once (gauges, hill charts, capacity bands, phase
+  graph); fix the whole family when you find one.
+* **Third-party widgets carry their own palettes and ignore our tokens.**
+  MDXEditor is the live example: it needs its `dark-theme` class, which CSS alone
+  cannot add, so `MarkdownNoteEditorImpl` reads the resolved theme via
+  `useResolvedTheme()` (a `useSyncExternalStore` over `<html data-theme>`, neutral
+  server snapshot). That hook is ONLY for handing the theme to something CSS can't
+  reach — anything stylable uses tokens.
+
+Verify both themes by eye. Text-content assertions all passed while the note
+editor rendered black ink on black paper for weeks; `tests/needle.spec.ts` now
+compares ink and paper luminance because that is the property that was broken.
+
+---
+
+## 8c. Two appearance axes: STYLE and THEME
+
+(2026-07-20, user call.) `<html>` carries two independent attributes, and every
+combination must work:
+
+| Attribute | Values | Stored in |
+|---|---|---|
+| `data-style` | `standard` · `instrument` | `autoknow-style` |
+| `data-theme` | `light` · `dark` (resolved from `light`/`dark`/`system`) | `autoknow-theme` |
+
+* **`instrument` is the DEFAULT** (2026-07-21, user call): it is what the app
+  should look like out of the box, for everyone with no stored preference. Only an
+  explicitly stored `standard` opts out, so nobody who chose the old look loses it.
+  The default lives in TWO places that must agree — the inline script in
+  `layout.tsx` and `StyleToggle`'s server snapshot — or the picker shows the wrong
+  row as current for one frame.
+* **`standard` is the app as it was, and must stay that way.** Adopting a second
+  style is only safe if going back is free, so the base token blocks are frozen:
+  Instrument adds `:root[data-style="instrument"]` on top, never edits what's
+  underneath. That holds regardless of which one is the default — the default says
+  what you see first, not which tokens are allowed to move. Both pickers live in
+  the user menu and share one control shape.
+* **Both are resolved by the inline script in `layout.tsx` before first paint.**
+  Neither may move into React — that reintroduces the flash the script exists to
+  prevent, and `tests/appearance.spec.ts` asserts the attribute before hydration.
+* **Instrument's vocabulary** is the cluster behind the wheel: pear accent
+  (`--hue` 142 → 76 — the only sanctioned move of the locked brand hue), a
+  `--redline` used solely to show a control is live, `--graticule` tick-mark
+  rules replacing plain hairlines, and tabular numerals throughout.
+* **Style-conditional graphics render in BOTH styles and are revealed by CSS**
+  (`[data-inst-only]`, hidden by default). Nothing may read the style in JS to
+  decide what to draw: hill charts appear dozens to a page, and a per-instance
+  subscription to buy a decoration is a bad trade. `useResolvedTheme()` stays
+  reserved for third-party widgets CSS genuinely cannot reach.
+* **The needle gauge is off limits.** Its shape and mechanics are identical in
+  both styles; it picks up the new tokens and nothing else. The hill charts are
+  where the graphic experiment lives — a groove under the curve and a
+  quarter-tick baseline graticule, both scaled so the wide summary hill and the
+  small per-phase gauges stay the same drawing.
+* **Icons stay scarce.** The app mark is untouched, and Instrument adds no icon
+  set — its identity is carried by rules, numerals, and one graphic: the app's
+  OWN gauge, at glyph size, at the trailing edge of the hero search field.
+* **The dial lives on the primary CTA, and only there.** Never on a text input:
+  an instrument is an affordance, and affordances belong on the thing you press.
+  **Hover** drives it (plus `:focus-visible`, so keyboard users get the same
+  affordance) — never click.
+* **Motion uses the real instrument, never a stand-in, and never a CSS rotation.**
+  Two attempts failed first. A CSS gradient bar that swept on focus read as a
+  progress bar in costume, because that is what it was. Rotating the real needle
+  path about an assumed origin then pivoted visibly wrong. `InstrumentGauge`
+  animates the gauge's `progress` and lets the primitive redraw `needlePath` —
+  the same thing that happens under a drag — so the travel is correct by
+  construction rather than by a transform-origin someone got right once.
+* **The dial is monochrome and empty.** No redline (busy at 18px) and no fill
+  ribbon (a filled arc trailing the needle is a readout, and this dial reports
+  nothing). Track, graticules and needle are all inked from the button's
+  `currentColor`. `Gauge` gained only `data-needle` / `data-track` styling
+  handles — CSS beats presentation attributes, so a variant re-inks the dial
+  without widening the primitive's API. Its geometry is untouched.
+* **The graticule has to appear where headings do, or the style does not read.**
+  Every heading follows one order: **text → affordances (ⓘ, menus) → graticule to
+  the end of the line.** It rules trailing every `AnchorHeading` (so every `<h2>`),
+  every page title row, and underlines every `DataTable` header — not just the
+  nav. In both cases the border keeps its place in the box model and only its ink
+  moves, so switching styles never shifts layout. Three traps: the heading row needs
+  `width: 100%` or a shrink-wrapped row gives a 40px stub of a rule; the
+  `::after` belongs on the TITLE ROW, never on a `flex-direction: column` header —
+  there it becomes a row of its own and drops a tick fragment mid-header; and
+  **affordances go INSIDE the row (`AnchorHeading`'s `actions` prop), never as
+  siblings of it.** The graticule is a `::after`, so it is last within its row and
+  nowhere else: a sibling lands after the whole row, which flings the ⓘ/⋯ to the
+  far right — divorced from the title they act on, and with no room for a
+  left-anchored popup, which then opens off the container's edge. Enforced by
+  `tests/project_details.spec.ts` "the Phases affordances sit against the title".
+* **Motion is ONE idea, not a collection of effects: an instrument settles.**
+  A reading sweeps from its stop to its value once, quickly, easing out. There
+  are exactly two implementations and adding a third needs a reason:
+  1. **Interaction-driven** — `useSettle` (rAF, `prefers-reduced-motion` aware)
+     drives the CTA dial on hover. JS, because it has to follow a pointer.
+  2. **Reveal** — a CSS animation sweeps the schedule's buffer bands out from the
+     chart's left edge on arrival. **CSS, never JS**, and that is a hard rule: a
+     JS reveal gates the data on an effect firing. The first version used an
+     IntersectionObserver, and in an environment where the API exists but never
+     delivers a callback (this app's own preview pane) the chart rendered with no
+     visible bands at all. A CSS animation starts from a state the element
+     already has, so nothing it does can hide a reading.
+  3. **Flow** (2026-07-21, user call) — the phase rail drifts a dashed overlay
+     down the track LEAVING an in-progress phase. What earns it a third slot: a
+     plan is a static picture of something that is actually moving, and nothing on
+     the rail said where. This makes the live front of the program the only thing
+     with movement, and the movement points the direction dependencies run. Scoped
+     hard so it stays one idea rather than an effect: only phases that are
+     started-and-unfinished, only the track carrying their work, one shared
+     keyframe. The drift runs from the phase to wherever its work lands, and
+     stops at the first phase that is not itself under way. Note the quantifier
+     differs from the ink's: a stretch is "done" only if EVERY dependency on it
+     has departed a finished phase, but it is "carrying live work" the moment ONE
+     has — requiring all of them stopped the drift at the first shared stretch,
+     which on a converging plan is a stub nobody can see. The same drift also runs
+     the traced route when a phase is SELECTED, over exactly the stretches the
+     direction bands colour (both come from one filter, so colour and motion can
+     never name different track): the band says which side, the drift says which
+     way. Two rules a re-implementation must keep — a tie drawn against the work it
+     carries (the middle stops of a fan-out) reverses the offset rather than the
+     geometry, and the dashes take the BAND's colour on a finished line, since a
+     finished line is already ink and ink-on-ink is an animation nobody can see.
+     CSS, and `display: none` unless
+     `prefers-reduced-motion: no-preference` — gating only the animation would
+     leave a dashed line sitting on the track for a reader who asked for stillness,
+     which is decoration they never asked for rather than an effect they opted out
+     of.
+  Rejected deliberately: a gauge on every boxed label (30+ per table is noise,
+  and the point of these is to be scannable at rest), and animating dialogs open
+  (the `<dialog>` top-layer/focus behaviour is correct now and not worth risking
+  for a flourish).
+* **Every search bar gets the rounding and the dial**, not just the hero, and the
+  dial lights as soon as suggestions appear — not only on hover. Live-filter
+  boxes that are not a full `UnifiedSearch` (the Programs table, Sources) use
+  `SearchField`, which matches `UnifiedSearch`'s input exactly. Both are
+  COMPONENTS, not shared classes, because CSS modules cannot share a class across
+  files and this control had drifted into three separate definitions. A filter
+  box gets no dial: the gauge is an affordance and belongs on a button.
+* **The buffer bands are TEXTURES in Instrument, not similar washes.** Standard
+  keeps its four translucent hue washes; Instrument paints each meaning as a
+  hatch/stipple (dense crosshatch = spent, single hatch = forecast, dense dots =
+  handed back, sparse dots = room), so the four separate by pattern first and hue
+  only second — which keeps the legend's colour words ("Red: days already lost")
+  honest. Both variants are always in the DOM (`data-std-only` / `data-inst-only`,
+  the symmetric pair); CSS shows one per style, so nothing reads the style in JS.
+  Patterns are `userSpaceOnUse` so a run of bands is one continuous field, and
+  each SVG (chart, and every legend swatch) carries its own pattern ids — no
+  cross-SVG paint references, which are the fragile part.
+* **The gauge face is near-WHITE in both themes** (`--gauge-face`). It is the one
+  surface that does not follow the page into the dark: a real instrument has a
+  light face whatever the light in the cabin, and it is what makes the coloured
+  sweep read.
+
+---
+
+## 8d. Vertical rhythm: everything that affects HEIGHT lands on a whole pixel
+
+(2026-07-20, user call — 1px hiccups are the whole problem.) A 1px border on a
+fractional y renders as a soft 2px smear, and the drift accumulates down the
+page, so section rules end up a pixel apart from each other. Four rules, all
+enforced by `tests/vertical-rhythm.test.ts` rather than by good intentions:
+
+1. **The body line box is a whole number.** `line-height: 1.5` at 16px = 24px.
+   The `1.6` it replaced computed 25.6px and put 547 elements off-grid on the
+   program page alone.
+2. **Every `font-size` resolves to a whole pixel.** No `12.5px`, no `1.15rem`
+   (18.4px). Half-pixel type can never produce an integer line box.
+3. **An ODD font-size states an explicit integer `line-height`.** 13px × 1.5 =
+   19.5px; the small label steps (9/11/13/15px) are deliberate, so they pin
+   14/16/20/22px boxes instead of inheriting a ratio.
+4. **No fractional `padding`/`margin`/`gap`/`height`.** `padding: 0.5px 6px` on
+   the AI badge was a real instance. `letter-spacing` and `border-width` are
+   exempt — a hairline is allowed to be thin.
+
+Two traps worth knowing. `vertical-align: super` on a sized inline (the briefing
+citations) grows the LINE BOX, so each bullet became 21.66px tall; offset the
+glyph with `position: relative; top` and `line-height: 0` instead. And an SVG
+with `width: 100%; height: auto` computes a fractional height at almost any
+width — this is the one **known remaining** source (the needle gauge and hill
+containers), left alone deliberately because fixing it means choosing how gauges
+behave when they shrink, which is a design decision, not a cleanup.
+
+Measure, don't eyeball: the audit that found all of this compares rendered
+rects, and reported 0 near-miss horizontal edges throughout — the defects were
+all vertical.
+
+---
+
 ## 9. Sizing & responsive widths — rem-first
 
 **Use `rem` for every size** — font-size, padding, margin, gap, width,
@@ -137,9 +444,22 @@ Sanctioned `px` exceptions (the *specific reasons not to*):
 3. **Media-query breakpoints** (see below — px is the convention and avoids
    em-in-query quirks).
 
-Anything else in `px` needs a comment saying why. Apply rem-first to all new
-and edited CSS; convert values opportunistically in files you touch — no
-mass-conversion PRs.
+Anything else in `px` needs a comment saying why. **`tests/vertical-rhythm.test.ts`
+enforces this** — it fails on any px length outside the sanctioned list, so the
+rule is checked rather than remembered.
+
+Two traps the conversion hit, worth knowing before the next one:
+* **Media-query conditions are not declarations.** A declaration-level regex will
+  happily rewrite `@media (max-width: 960px)` to `60rem` and silently move where
+  every layout collapses. Breakpoints stay px; a mechanical unit refactor must
+  never change responsive behaviour.
+* **React treats `lineHeight` as unitless.** Inline `lineHeight: 1.55` is a RATIO,
+  so converting the bare number yields a 1.55px line box. `borderRadius: 999px`
+  is likewise a "fully round" sentinel, not a measurement.
+
+Form controls are the silent exception: the UA gives `button`/`input`/`select`/
+`textarea` 13.3333px Arial and they do NOT inherit page type, so they ignore root
+scaling entirely until reset (globals.css does this).
 
 **Compliance widths.** Every layout must render correctly — no horizontal page
 scroll, no clipped controls, no overlapping text — at these viewport widths:

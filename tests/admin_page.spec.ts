@@ -7,16 +7,16 @@ test.describe('Onboarding and Seeding Controls', () => {
 
     // Seed core data only (empty state onboarding)
     await page.click('button:has-text("Seed Core Data")');
-    await page.waitForURL('/');
+    await page.waitForURL('/ecosystem');
 
-    // Verify onboarding boxes are visible (home shows the activity feed's empty state
-    // now — the Action Items table is retired)
+    // Seeding lands on the dashboard, not the landing page — you seed in order to
+    // look at the ecosystem. Its onboarding box is what an empty database shows.
     await expect(page.locator('body')).toContainText('Welcome to AutoKnow');
 
     // Seed mock data
     await page.goto('/admin');
     await page.click('button:has-text("Seed Mock Data")');
-    await page.waitForURL('/');
+    await page.waitForURL('/ecosystem');
 
     // Verify tables populated
     await expect(page.locator('body')).toContainText('Ford Evos AAOS Bring-up');

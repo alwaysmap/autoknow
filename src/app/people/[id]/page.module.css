@@ -4,21 +4,21 @@
 .container {
   min-height: 100vh;
   color: var(--fg);
-  padding: 0 40px;
+  padding: 0 2.5rem;
   font-family: var(--body-font);
 }
 
 .header {
   border-bottom: 1px solid var(--border);
-  padding: 14px 0 12px;
+  padding: 0.875rem 0 0.75rem;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 0.875rem;
 }
 
 .avatar {
-  width: 44px;
-  height: 44px;
+  width: 2.75rem;
+  height: 2.75rem;
   border-radius: 50%;
   background: var(--p-600);
   color: var(--paper);
@@ -27,7 +27,7 @@
   justify-content: center;
   font-family: var(--head-font);
   font-weight: 700;
-  font-size: 16px;
+  font-size: 1rem;
   letter-spacing: 0.02em;
   flex-shrink: 0;
 }
@@ -46,12 +46,13 @@
 .titleRow {
   display: flex;
   align-items: baseline;
-  gap: 4px;
+  gap: 0.25rem;
 }
 
 .identLine {
-  font-size: 13px;
-  margin-top: 2px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  margin-top: 0.125rem;
 }
 .identCompany {
   font-weight: 400;
@@ -59,7 +60,7 @@
   text-decoration: none;
 }
 .identCompany:hover {
-  color: var(--p-600);
+  color: var(--link);
   text-decoration: underline;
 }
 .identRole {
@@ -75,43 +76,43 @@
 }
 .identSep {
   color: var(--muted);
-  margin: 0 8px;
+  margin: 0 0.5rem;
 }
 
 .main {
-  max-width: 860px;
+  max-width: 53.75rem;
   margin: 0 auto;
-  padding: 20px 0 40px;
+  padding: 1.25rem 0 2.5rem;
 }
 
 .notes {
-  font-size: 13.5px;
-  line-height: 1.55;
+  font-size: 0.875rem;
+  line-height: 1.375rem;
   max-width: 72ch;
-  margin: 0 0 4px;
+  margin: 0 0 0.25rem;
 }
 
 .colMain {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  margin-top: 14px;
+  margin-top: 0.875rem;
 }
 .colMain > .section + .section {
-  margin-top: 26px;
+  margin-top: 1.625rem;
   border-top: 1px solid var(--border);
-  padding-top: 18px;
+  padding-top: 1.125rem;
 }
 
 .section h2 {
   font-family: var(--head-font);
-  font-size: 1.35rem;
+  font-size: 1.375rem;
   font-weight: 600;
-  margin: 0 0 12px;
+  margin: 0 0 0.75rem;
 }
 
 .empty {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--muted);
   font-style: italic;
 }
@@ -120,19 +121,19 @@
 .rows {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 0.4375rem;
 }
 
 .row {
   display: flex;
   align-items: baseline;
-  gap: 12px;
-  font-size: 13.5px;
+  gap: 0.75rem;
+  font-size: 0.875rem;
 }
 .rowDates {
   color: var(--muted);
-  font-size: 12px;
-  min-width: 150px;
+  font-size: 0.75rem;
+  min-width: 9.375rem;
   font-variant-numeric: tabular-nums;
 }
 .rowCompany {
@@ -141,7 +142,7 @@
   text-decoration: none;
 }
 .rowCompany:hover {
-  color: var(--p-600);
+  color: var(--link);
   text-decoration: underline;
 }
 .rowRole {
@@ -152,12 +153,12 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px 12px;
-  padding: 2px 0;
+  gap: 0.5rem 0.75rem;
+  padding: 0.125rem 0;
 }
 .progName {
   font-weight: 400;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--fg);
   text-decoration: none;
 }
@@ -166,30 +167,30 @@
 }
 
 .telMark {
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--p-600);
   border: 1px solid currentColor;
   border-radius: 999px;
-  padding: 0.5px 7px;
+  padding: 0 0.4375rem;
 }
 
 .phaseChips {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 0.375rem;
 }
 .phaseChip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 0.375rem;
+  font-size: 0.75rem;
   font-weight: 400;
   color: var(--fg);
   text-decoration: none;
-  padding: 3px 9px;
+  padding: 0.1875rem 0.5625rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--paper);
@@ -198,12 +199,35 @@
   border-color: var(--muted);
 }
 .phaseDot {
-  width: 8px;
-  height: 8px;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 50%;
   flex-shrink: 0;
 }
 .phaseRole {
   color: var(--muted);
   font-weight: 400;
+}
+
+/* Instrument: the page title's rule is a graticule that runs from after the
+   title and its affordances to the end of the line — the same shape AnchorHeading
+   gives every <h2>, so page titles and section titles decorate identically. The
+   border keeps its place in the box model and only its ink moves, so switching
+   styles never shifts layout. */
+:global(:root[data-style='instrument']) .header {
+  border-bottom-color: transparent;
+}
+
+:global(:root[data-style='instrument']) .header::after {
+  content: '';
+  flex: 1 1 1.5rem;
+  min-width: 1.5rem;
+  /* Baseline, not centre: rests the graticule on the heading's text
+     baseline so it sits identically across headings of any size or row
+     height (a pseudo-element's synthesized baseline is its bottom edge). */
+  align-self: baseline;
+  height: 0.375rem;
+  margin-left: 0.75rem;
+  background-image: var(--graticule);
+  background-repeat: repeat-x;
 }

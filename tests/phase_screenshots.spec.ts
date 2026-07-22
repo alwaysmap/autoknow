@@ -33,7 +33,10 @@ test.describe('Phase UI screenshots', () => {
     // hydration-resilient open (see phase_graph.spec.ts)
     await expect(async () => {
       if (!(await page.getByTestId('phase-details').isVisible())) {
-        await row(page, 'Integration').getByRole('button', { name: 'Details' }).click({ timeout: 2000 });
+        // MIN is one line, so the card opens before the zoom button exists.
+        const zoom = row(page, 'Integration').getByRole('button', { name: 'Details' });
+        if (!(await zoom.isVisible())) await row(page, 'Integration').locator('a[data-card-title]').click();
+        await zoom.click({ timeout: 2000 });
       }
       await expect(page.getByTestId('phase-details')).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });

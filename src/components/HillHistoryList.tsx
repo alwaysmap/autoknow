@@ -11,8 +11,7 @@ import { localDate } from '../lib/dates';
 // the right. Mirrors NeedleHistoryList; reuses its styles.
 
 // `compact` renders the same cards at popover scale — ONE component owns how a
-// phase's progress history looks, whether on the standalone history page or in
-// the phase card's Progress pane.
+// phase's progress history looks wherever it is read.
 export default function HillHistoryList({
   changes,
   color,

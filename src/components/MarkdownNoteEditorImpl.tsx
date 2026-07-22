@@ -15,6 +15,7 @@ import {
   CreateLink,
 } from '@mdxeditor/editor';
 import '@mdxeditor/editor/style.css';
+import { useResolvedTheme } from '../lib/useResolvedTheme';
 import type { MarkdownNoteEditorProps } from './MarkdownNoteEditor';
 import styles from './MarkdownNoteEditor.module.css';
 
@@ -29,9 +30,19 @@ export default function MarkdownNoteEditorImpl({ name, placeholder, initialMarkd
   // lives in a showModal() <dialog>, and anything portaled to document.body
   // renders BEHIND the browser's top layer no matter its z-index.
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
+  // MDXEditor carries its OWN palette (Radix scales), switched by a `dark-theme`
+  // class — not by our tokens. Without it the package renders near-black ink and
+  // near-black selection on our dark paper: unreadable, and it stayed that way
+  // because CSS alone cannot add a class. Hence the one theme read in the app.
+  const theme = useResolvedTheme();
   const handleChange = (md: string) => { setMarkdown(md); onChange?.(md); };
   return (
-    <div className={styles.frame} data-testid="note-editor" aria-label={ariaLabel} ref={setFrame}>
+    <div
+      className={`${styles.frame}${theme === 'dark' ? ' dark-theme' : ''}`}
+      data-testid="note-editor"
+      aria-label={ariaLabel}
+      ref={setFrame}
+    >
       <MDXEditor
         markdown={markdown}
         onChange={handleChange}

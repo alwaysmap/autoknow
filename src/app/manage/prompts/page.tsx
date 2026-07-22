@@ -17,13 +17,13 @@ export default async function SummaryPromptsPage() {
   const overrideBy = new Map(overrides.map((o) => [o.scope, o.prompt]));
 
   return (
-    <div style={{ padding: '32px 40px', maxWidth: 860 }}>
-      <header style={{ marginBottom: 20 }}>
-        <div style={{ marginBottom: 8, fontSize: 13 }}>
+    <div style={{ padding: '2rem 2.5rem', maxWidth: '53.75rem' }}>
+      <header style={{ marginBottom: '1.25rem' }}>
+        <div style={{ marginBottom: '0.5rem', fontSize: '0.8125rem' }}>
           <Link href="/manage" style={{ color: 'var(--muted, #666)' }}>← {t(locale, 'navManage')}</Link>
         </div>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{t(locale, 'promptsTitle')}</h1>
-        <p style={{ color: 'var(--muted, #666)', fontSize: 14, marginTop: 4, maxWidth: 720 }}>
+        <p style={{ color: 'var(--muted, #666)', fontSize: '0.875rem', marginTop: '0.25rem', maxWidth: '45rem' }}>
           {t(locale, 'promptsIntro')}
         </p>
       </header>
@@ -31,11 +31,11 @@ export default async function SummaryPromptsPage() {
       {SUMMARY_SCOPES.map((scope) => {
         const override = overrideBy.get(scope);
         return (
-          <section key={scope} style={{ marginBottom: 32 }} data-testid={`prompt-${scope}`}>
-            <h2 style={{ fontSize: '1.05rem', fontWeight: 600, marginBottom: 2, textTransform: 'capitalize' }}>
+          <section key={scope} style={{ marginBottom: '2rem' }} data-testid={`prompt-${scope}`}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.125rem', textTransform: 'capitalize' }}>
               {scope}
               <span style={{
-                marginLeft: 10, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase',
+                marginLeft: '0.625rem', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase',
                 letterSpacing: '0.05em', color: override ? 'var(--chain-ink, #5a4488)' : 'var(--muted, #888)',
               }}>
                 {override ? t(locale, 'promptCustom') : t(locale, 'promptDefault')}
@@ -50,13 +50,13 @@ export default async function SummaryPromptsPage() {
                 aria-label={`${scope} prompt`}
                 style={{
                   width: '100%', font: '12.5px/1.55 var(--font-geist-mono, monospace)',
-                  padding: '10px 12px', border: '1px solid var(--border, #ddd)', borderRadius: 8,
+                  padding: '0.625rem 0.75rem', border: '1px solid var(--border, #ddd)', borderRadius: '0.5rem',
                   background: 'var(--paper)', color: 'var(--fg, #222)', resize: 'vertical',
                 }}
               />
-              <div style={{ marginTop: 8 }}>
+              <div style={{ marginTop: '0.5rem' }}>
                 <button type="submit" style={{
-                  fontSize: 12, fontWeight: 600, padding: '6px 16px', borderRadius: 6, cursor: 'pointer',
+                  fontSize: '0.75rem', fontWeight: 600, padding: '0.375rem 1rem', borderRadius: '0.375rem', cursor: 'pointer',
                   border: '1px solid var(--fg, #222)', background: 'var(--fg, #222)', color: 'var(--paper)',
                 }}>
                   {t(locale, 'savePrompt')}
@@ -66,10 +66,10 @@ export default async function SummaryPromptsPage() {
             {/* Restore is a SEPARATE form (a second submit button inside the save form
                 hijacks the plain Save submit; nested forms are invalid). */}
             {override && (
-              <form action={restoreDefaultPrompt} style={{ marginTop: 8 }}>
+              <form action={restoreDefaultPrompt} style={{ marginTop: '0.5rem' }}>
                 <input type="hidden" name="scope" value={scope} />
                 <button type="submit" style={{
-                  fontSize: 12, fontWeight: 600, padding: '6px 16px', borderRadius: 6, cursor: 'pointer',
+                  fontSize: '0.75rem', fontWeight: 600, padding: '0.375rem 1rem', borderRadius: '0.375rem', cursor: 'pointer',
                   border: '1px solid var(--border, #ccc)', background: 'var(--paper)', color: 'var(--fg, #222)',
                 }}>
                   {t(locale, 'restoreDefaultPrompt')}

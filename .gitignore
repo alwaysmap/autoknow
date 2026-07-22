@@ -17,6 +17,7 @@
 /.next/
 /.next-test/
 /.next-demo/
+/.next-preview/
 /out/
 
 # production
@@ -68,3 +69,5 @@ infra/terraform/tfplan
 
 # Local Claude Code dev-server launch config (session scratch)
 .claude/launch.json
+/.next-verify/
+/.next-preview/

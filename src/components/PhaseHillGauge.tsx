@@ -58,10 +58,32 @@ export function PhaseHillSvg({
   const prev = previousProgress != null ? hillCoordinates(previousProgress) : null;
   return (
     <svg viewBox={VIEWBOX} className={className} style={{ display: 'block', width: '100%', height: 'auto', overflow: 'visible' }} role="img" aria-label="Phase progress on the hill">
+      {/* Instrument style only (revealed by CSS in globals.css — rendered by both
+          styles so no hill has to read a theme in JS). Two additions, both quiet:
+          a GROOVE, a wider faint stroke under the curve so the hill reads as a
+          machined channel the dot travels in rather than a drawn line; and a
+          BASELINE GRATICULE, ticks at each quarter of the run, which is the same
+          scale the phase's progress is judged on. Nothing here moves the curve or
+          the dot — only the surface they sit on. */}
+      <path
+        data-inst-only
+        d={HILL_PATH}
+        fill="none"
+        stroke="var(--fg)"
+        strokeOpacity={0.07}
+        strokeWidth={9}
+        strokeLinecap="round"
+      />
+      <g data-inst-only stroke="var(--border)" strokeWidth={1} strokeLinecap="round">
+        <line x1={10} y1={84} x2={190} y2={84} strokeOpacity={0.55} />
+        {[10, 55, 100, 145, 190].map((x) => (
+          <line key={x} x1={x} y1={84} x2={x} y2={x === 100 ? 78 : 80.5} />
+        ))}
+      </g>
       <path d={HILL_PATH} fill="none" stroke="var(--border, #d9d5c8)" strokeWidth={2.5} strokeLinecap="round" />
       <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border, #e3e0d6)" strokeDasharray="3 3" />
-      {prev && <circle cx={prev.x} cy={prev.y} r={4.5} fill="#fff" stroke={color} strokeWidth={2} />}
-      <circle cx={cur.x} cy={cur.y} r={6} fill={color} stroke="#fff" strokeWidth={1.6}>
+      {prev && <circle cx={prev.x} cy={prev.y} r={4.5} fill="var(--paper)" stroke={color} strokeWidth={2} />}
+      <circle cx={cur.x} cy={cur.y} r={6} fill={color} stroke="var(--paper)" strokeWidth={1.6}>
         {label && <title>{label}</title>}
       </circle>
       {labels && (
@@ -182,7 +204,7 @@ export default function PhaseHillGauge({
             >
               <path d={HILL_PATH} fill="none" stroke="var(--border, #d9d5c8)" strokeWidth={2.5} strokeLinecap="round" />
               <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border, #e3e0d6)" strokeDasharray="3 3" />
-              <circle cx={dot.x} cy={dot.y} r={6} fill={color} stroke="#fff" strokeWidth={1.6} style={{ transition: dragging ? 'none' : 'cx 0.15s, cy 0.15s' }} />
+              <circle cx={dot.x} cy={dot.y} r={6} fill={color} stroke="var(--paper)" strokeWidth={1.6} style={{ transition: dragging ? 'none' : 'cx 0.15s, cy 0.15s' }} />
               <text x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.left}</text>
               <text x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.right}</text>
             </svg>
@@ -195,7 +217,7 @@ export default function PhaseHillGauge({
               name="hillChartProgress"
               value={drag}
               onChange={(e) => setDrag(parseInt(e.target.value))}
-              style={{ position: 'absolute', left: '-9999px', width: 10, height: 10, opacity: 0.01 }}
+              style={{ position: 'absolute', left: '-624.9375rem', width: 10, height: 10, opacity: 0.01 }}
             />
           </div>
 
@@ -203,7 +225,7 @@ export default function PhaseHillGauge({
             <span className={styles.formLabel}>{strings.noteFieldLabel}</span>
             <MarkdownNoteEditor name="notes" ariaLabel={strings.noteFieldLabel}
               placeholder={strings.notePlaceholder} />
-            {noteError && <div style={{ color: 'var(--bad)', fontSize: 12 }}>{t(locale, 'noteRequired')}</div>}
+            {noteError && <div style={{ color: 'var(--bad)', fontSize: '0.75rem' }}>{t(locale, 'noteRequired')}</div>}
           </div>
 
           <div className={styles.actionRow}>

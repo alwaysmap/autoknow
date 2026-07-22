@@ -17,6 +17,27 @@ export function resolveDbName(url: string): string {
   return u.pathname.replace(/^\//, '');
 }
 
+/**
+ * Non-throwing form of the same policy, for callers that gate a FEATURE rather than
+ * refuse an operation — e.g. the seed-time `timestamp` override on the state-writing
+ * API routes (docs/CRITICAL_CHAIN_VIEW_PLAN.md §6): backdating history rows is only
+ * meaningful for seeded demo data, so it is permitted exactly where a wipe would be.
+ * Unset/invalid DATABASE_URL is a plain `false` here — fail closed, no diagnosis.
+ */
+export function destructiveDbAllowed(): boolean {
+  const url = process.env.DATABASE_URL;
+  if (!url) return false;
+  let dbName: string;
+  try {
+    dbName = resolveDbName(url);
+  } catch {
+    return false;
+  }
+  if (dbName.endsWith('_test')) return true;
+  const confirmed = process.env.DESTRUCTIVE_DB_ALLOWED;
+  return !!confirmed && confirmed === dbName;
+}
+
 export function assertDestructiveDbAllowed(op: string): void {
   const url = process.env.DATABASE_URL;
   if (!url) {
@@ -29,11 +50,9 @@ export function assertDestructiveDbAllowed(op: string): void {
     throw new Error(`Refusing ${op}: DATABASE_URL is not a valid connection string.`);
   }
 
-  if (dbName.endsWith('_test')) return; // disposable test database — always safe
+  if (destructiveDbAllowed()) return;
 
   const confirmed = process.env.DESTRUCTIVE_DB_ALLOWED;
-  if (confirmed && confirmed === dbName) return;
-
   throw new Error(
     `Refusing ${op} against database "${dbName}". Destructive DB operations require ` +
       `DESTRUCTIVE_DB_ALLOWED="${dbName}" to be set in this environment ` +

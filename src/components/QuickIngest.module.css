@@ -3,16 +3,18 @@
 .collapsed {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 0.625rem;
 }
 
+/* A button styled as a link (it reveals the paste-a-link form), so it takes the
+   link colour rather than the brand green. */
 .opener {
   background: none;
   border: none;
   padding: 0;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: var(--p-600);
+  color: var(--link);
   cursor: pointer;
 }
 .opener:hover {
@@ -20,37 +22,39 @@
 }
 
 .savedNote {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.375rem;
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .input {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
-  padding: 6px 10px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  padding: 0.375rem 0.625rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0.375rem;
   background: var(--white);
 }
 
 .chip {
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   font-weight: 700;
-  padding: 4px 10px;
+  padding: 0.25rem 0.625rem;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--white);
@@ -72,11 +76,11 @@
 
 .addBtn {
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
-  padding: 6px 14px;
+  padding: 0.375rem 0.875rem;
   border: none;
-  border-radius: 6px;
+  border-radius: 0.375rem;
   background: var(--p-600);
   color: var(--white);
   cursor: pointer;
@@ -90,14 +94,14 @@
   flex-shrink: 0;
   background: none;
   border: none;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
   cursor: pointer;
-  padding: 0 2px;
+  padding: 0 0.125rem;
 }
 
 .result {
-  font-size: 12.5px;
+  font-size: 0.75rem;
 }
 
 .muted {

@@ -22,13 +22,23 @@ warnings is the bar — the suite was once left red on main and it hid real bugs
 
 ## How the test layers work
 
-- **Jest** (unit + DB): DB suites bind the `<name>_test` database via
+- **Jest** (unit + DB): DB suites bind the `<name>_<worktree>_test` database via
   `tests/helpers/testDatabaseUrl` — the `process.env.DATABASE_URL` assignment
   must come BEFORE any import of `src/lib/db` (dynamic-import pattern used in
   every DB test; copy `tests/owner.test.ts` as the template).
-- **Playwright**: boots its own dev server on :3130 with a separate
-  `.next-test` build dir and stubbed auth; `workers=1` is load-bearing (specs
-  serially wipe the shared `*_test` DB). Never run two suites at once.
+- **Per-worktree isolation**: the `*_test` DB name and the Playwright port both
+  carry a token derived from the checkout (`tests/helpers/worktree`), so
+  concurrent worktrees get separate DBs/ports and can't clobber each other
+  (AGENTS lesson 9). Override with `WORKTREE_ID` / `TEST_SERVER_PORT` /
+  `TEST_DATABASE_URL` (e.g. to pin a name in CI). Test DBs are created lazily by
+  `tests/global-setup` and **never auto-dropped**, so each worktree leaves one
+  `autoknow_<token>_test` behind — run **`npm run db:test:clean`** to drop every
+  idle `autoknow…_test` DB (it skips any with open connections, and never touches
+  the real `autoknow` DB or the demo/scratch DBs, which lack the `_test` suffix).
+- **Playwright**: boots its own dev server on the per-worktree port (~3130) with a
+  separate `.next-test` build dir and stubbed auth; `workers=1` is load-bearing
+  (specs serially wipe this worktree's `*_test` DB). Never run two suites at once
+  *within the same worktree* (different worktrees are now safe to run in parallel).
 - **Browser matrix is deliberate — don't widen it casually**: chromium runs the
   full suite; webkit runs only the engine-sensitive specs (dialogs,
   month/range inputs, SVG drag: `projects_flow`, `project_details`,

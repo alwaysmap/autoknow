@@ -2,7 +2,7 @@ import 'server-only';
 import { prisma } from './db';
 import { formatNeedleValue } from './needle';
 import { deriveScore } from './relationship';
-import { hillStatus, phaseColor } from './phase';
+import { hillStatus, phaseColor, phaseDetailHref } from './phase';
 import type { FeedItem, FeedScope, FeedKind } from './feed';
 
 // The unified activity stream as FeedItem[]: ingested context AND core system-of-record
@@ -155,7 +155,7 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
       subtitle: meta(s.project.name, s.source, true),
       detail: created ? null : clampDetail(s.notes),
       // Metric changes link to the value-over-time chart; creation links to the program.
-      href: created ? `/programs/${s.project.id}` : `/history/project/${s.project.id}`,
+      href: created ? `/programs/${s.project.id}` : `/programs/${s.project.id}#status-history`,
       external: false,
       timestamp: s.timestamp.toISOString(),
       needle: created ? null : {
@@ -194,7 +194,7 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
       title: `${s.phase.name}: ${hillStatus(progress)}`,
       subtitle: meta(s.phase.project.name, s.source, true),
       detail: clampDetail(s.notes),
-      href: `/history/phase/${s.phaseId}`,
+      href: phaseDetailHref(s.phase.project.id, s.phaseId),
       external: false,
       timestamp: s.timestamp.toISOString(),
       hill: {
@@ -230,7 +230,7 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
         title: 'Relationship update',
         subtitle: meta(scope.kind === 'ecosystem' ? s.partner.name : null, s.source, true),
         detail: clampDetail(s.notes),
-        href: `/history/partner/${s.partner.id}`,
+        href: `/partners/${s.partner.id}`,
         external: false,
         timestamp: s.timestamp.toISOString(),
         relationship: {

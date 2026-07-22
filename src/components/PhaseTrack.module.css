@@ -15,11 +15,11 @@
 /* CCPM resource line: the owner's concurrent load across other programs. */
 .notices {
   list-style: none;
-  margin: 0 0 10px;
+  margin: 0 0 0.625rem;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0.25rem;
 }
 
 .infoBtn {
@@ -28,8 +28,8 @@
   justify-content: center;
   background: none;
   border: none;
-  border-radius: 6px;
-  padding: 3px 5px;
+  border-radius: 0.375rem;
+  padding: 0.1875rem 0.3125rem;
   color: var(--muted);
   cursor: pointer;
 }
@@ -40,11 +40,11 @@
 
 .legendDialog {
   border: none;
-  border-radius: 12px;
-  padding: 20px 24px;
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.5rem;
   background-color: var(--white, var(--paper));
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-  max-width: 380px;
+  box-shadow: 0 0.625rem 2.5rem rgba(0, 0, 0, 0.15);
+  max-width: 23.75rem;
   width: 90%;
   position: fixed;
   top: 50%;
@@ -57,31 +57,32 @@
 }
 .legendTitle {
   font-family: var(--head-font);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
-  margin: 0 0 12px;
+  margin: 0 0 0.75rem;
 }
 .legendRow {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  padding: 4px 0;
+  gap: 0.625rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  padding: 0.25rem 0;
 }
 
 .resourceLine {
-  margin: -6px 0 14px;
-  font-size: 12.5px;
-  line-height: 1.7;
+  margin: -0.375rem 0 0.875rem;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
   color: var(--muted);
 }
 .resourceLabel {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-size: 10.5px;
+  font-size: 0.625rem;
   color: var(--muted);
-  margin-right: 8px;
+  margin-right: 0.5rem;
 }
 .resourceOwner {
   font-weight: 600;
@@ -116,25 +117,178 @@
   pointer-events: stroke; /* hover titles on bypass loops */
 }
 
+/* The whole card is the control — clicking any of it picks that phase, sizes it and
+   traces it — so the pointer cursor belongs here, not on the header alone. */
 .row {
-  padding: 10px 0 12px;
-  border-radius: 8px;
+  padding: 0.625rem 0 0.75rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
 }
 
 .flash {
   animation: trackFlash 1.4s ease-out;
 }
 @keyframes trackFlash {
-  0% { background: rgba(107, 79, 161, 0.16); }
+  /* the chain ink at a wash — a literal rgba here survived the theme switch
+     (design.md §8b: components never hard-code a color) */
+  0% { background: color-mix(in srgb, var(--chain) 16%, transparent); }
   100% { background: transparent; }
+}
+
+/* ---- TRACE mode: one phase, its ancestors, its descendants ----
+   TWO channels, each carrying exactly one thing:
+
+     opacity  RELEVANCE — on the path, or not. Unrelated rail ink recedes to a
+              bare ghost and unrelated rows fade, present so the program's shape
+              survives but nowhere near competing with the traced path.
+     hue      DIRECTION — a solid band of colour laid UNDER the traced track:
+              --trace-up for what this phase waits FOR, --trace-down for what
+              waits ON it. It rides the TRACK, because the track is the thing that
+              goes somewhere; the cards are only where the phases are written down.
+
+   Direction is a CATEGORY, and it took three tries to land. Opacity (upstream at
+   half) states "these matter less" when the only claim is "these came first". A
+   drop-shadow GLOW on the rail bloomed and read as decoration. A wash on the row
+   CARDS put the answer on the wrong object. A solid backing under the line — the
+   way the hill chart backs its curve — is calm, unmistakable, and leaves the
+   constraint purple free to read on either side of the trace.
+
+   The split is also what makes a trace on a spine phase say anything: everything
+   is on a path through those, so a relevance-only scale dimmed nothing and the
+   click read as "nothing happened" — 6 phases of 15 on the AAOS template, and
+   every phase of a purely linear program. */
+.dim {
+  opacity: 0.06;
+}
+
+.row[data-rel='far'] {
+  opacity: 0.18;
+}
+
+/* The traced track's backing: a SOLID band of the direction's colour laid under the
+   line, the way the hill chart backs its curve. Drawn before the ink in the same
+   group, so the track keeps its own weight and reads as a coloured route rather
+   than something wearing a halo.
+   NO opacity here, deliberately: the bands butt and overlap at every corner, and two
+   translucent strokes stacking there compounded into a darker blob at each joint.
+   The colour is pre-mixed for its paper in --trace-*-band instead, and an opaque
+   colour cannot compound with itself. */
+.trackBacking {
+  fill: none;
+}
+
+/* ---- the one moving thing on this surface ----
+   design.md §8c caps motion at two implementations and says a third needs a reason;
+   this is that third, added on the user's call (2026-07-21). The reason: a plan is a
+   static picture of something that is actually moving, and NOTHING on the rail said
+   where it was moving. An in-progress phase now drifts its outgoing track downward —
+   the direction dependencies run — so the live front of the program is the one thing
+   with movement, and the movement points the way.
+   It obeys the house rules: CSS, never JS, and one idea rather than an effect per
+   element. Hidden by DEFAULT and revealed only where motion is welcome — gating the
+   animation alone would leave a dashed overlay sitting on the track for the reader
+   who asked for stillness, which is a decoration they never asked for rather than an
+   effect they opted out of. */
+.flow {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .flow {
+    display: inline;
+    fill: none;
+    stroke-dasharray: 0.3125rem 0.4375rem;
+    opacity: 0.8;
+    animation: railFlow 1.5s linear infinite;
+  }
+}
+
+/* NEGATIVE offset walks the dashes FORWARD along the path, and every edge here is
+   authored top→bottom, so forward reads as downhill. One full dash+gap period, so
+   the loop is seamless. */
+@keyframes railFlow {
+  to { stroke-dashoffset: -0.75rem; }
+}
+
+/* A tie whose path is drawn against the work it carries (the middle stops of a
+   fan-out) walks its dashes BACKWARD along the path, which is forward along the
+   dependency. Reversing the offset rather than reversing the geometry keeps one
+   path definition feeding the ink, the band, and the drift. */
+.flowBack {
+  animation-name: railFlowBack;
+}
+@keyframes railFlowBack {
+  to { stroke-dashoffset: 0.75rem; }
+}
+
+/* A receded row still holds real controls — the phase name and the zoom button —
+   and they stay tabbable while tracing. At 18% they would be reachable
+   and unreadable at once, which is the worst of both, so reaching a row with
+   pointer or keyboard restores it. The trace is a reading aid, never a lock. */
+.row[data-rel='far']:hover,
+.row[data-rel='far']:focus-within {
+  opacity: 1;
+}
+/* Only the SELECTED card is tinted — direction is the track's job, not the cards'.
+   Its tint sits clear of its own text on every side, because a background flush
+   against the title looks like a highlighter stroke rather than a surface the
+   content rests on. The negative margin buys that left inset out of the station
+   gutter rather than the text column, so content stays aligned with every other row
+   and nothing shifts horizontally when a card is picked. */
+.row[data-rel='self'] {
+  background: var(--surface);
+  border-radius: 0.5rem;
+  margin-left: -0.625rem;
+  padding-left: 0.625rem;
+  padding-right: 0.5rem;
+}
+
+/* Tracing line: mode name · what it found · the way out. One line, quiet ink
+   (design.md §7) — it reports a state, it is not a control panel. */
+.tracing {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}
+.tracingLabel {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.625rem;
+  color: var(--muted);
+}
+.tracingName {
+  font-weight: 600;
+  color: var(--fg);
+}
+.tracingCounts {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.tracingClear {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.125rem;
+}
+.tracingClear:hover {
+  color: var(--fg);
 }
 
 .head {
   display: flex;
   align-items: baseline;
-  gap: 2px 12px;
-  min-height: 24px;
-  cursor: pointer;
+  gap: 0.125rem 0.75rem;
+  min-height: 1.5rem;
   /* the name always wins: meta wraps to its own line before the name truncates */
   flex-wrap: wrap;
 }
@@ -153,7 +307,7 @@
 }
 
 .status {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -166,7 +320,7 @@
    update, it must not out-shout it. */
 .constraintWhy {
   margin: 0;
-  font-size: 11.5px;
+  font-size: 0.75rem;
   line-height: 1.5;
   color: var(--chain-ink);
   white-space: nowrap;
@@ -177,8 +331,8 @@
 
 /* Contention badge inside an involvement pill: +n active phases elsewhere. */
 .pillLoad {
-  margin-left: 5px;
-  font-size: 10.5px;
+  margin-left: 0.3125rem;
+  font-size: 0.625rem;
   font-weight: 700;
   color: var(--chain);
 }
@@ -188,16 +342,10 @@
 
 /* Title row: the component owns its heading so the ⋯ menu can drive collapse state.
    The h2 inherits the section's heading style; this row only lays the two out. */
-.trackHead {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 8px;
-}
-/* Outrank the page's `.historySection h2` margin so the ⋯ button centers true. */
-.trackHead h2.trackTitle {
-  margin: 0;
-}
+/* No wrapper around the heading: the ⓘ and ⋯ ride inside AnchorHeading via its
+   `actions` prop, so AnchorHeading's own `.row` is the flex line (and its
+   `.row .heading` already outranks the page's `.historySection h2` margin).
+   A wrapper here would put these buttons AFTER the row's trailing graticule. */
 .menuWrap {
   position: relative;
   display: inline-flex;
@@ -208,8 +356,8 @@
   justify-content: center;
   background: none;
   border: none;
-  border-radius: 6px;
-  padding: 4px 5px;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.3125rem;
   color: var(--muted);
   cursor: pointer;
 }
@@ -223,22 +371,22 @@
   top: 100%;
   left: 0;
   z-index: 20;
-  min-width: 150px;
-  padding: 4px;
+  min-width: 9.375rem;
+  padding: 0.25rem;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 0.5rem;
   display: flex;
   flex-direction: column;
 }
 .menuItem {
   display: block;
   width: 100%;
-  padding: 6px 10px;
+  padding: 0.375rem 0.625rem;
   border: none;
-  border-radius: 5px;
+  border-radius: 0.3125rem;
   background: none;
-  font-size: 12.5px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--fg);
   text-align: left;
@@ -246,13 +394,20 @@
   cursor: pointer;
   white-space: nowrap;
 }
-.menuItem:hover {
+.menuItem:hover:not(:disabled) {
   background: var(--border);
+}
+
+/* A bulk item that would change nothing says so before it is clicked, rather than
+   swallowing the click and looking broken. */
+.menuItem:disabled {
+  color: var(--muted);
+  cursor: default;
 }
 
 /* Single-line rows (variants b/c): partners ride in the header. */
 .headPartners {
-  font-size: 12.5px;
+  font-size: 0.75rem;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -265,19 +420,19 @@
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.625rem;
   flex-shrink: 0;
 }
 
 .when {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
   white-space: nowrap;
 }
 
 /* Anticipated vs actual (weeks) — the row's temporal signal. */
 .plan {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--fg);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -287,10 +442,11 @@
    completion. Early rides the brand green; over-plan wears the constraint ink
    (buffer consumption is the same signal the evidence line reports). */
 .pace {
-  font-size: 11px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   font-weight: 600;
   white-space: nowrap;
-  padding: 1px 7px;
+  padding: 0.0625rem 0.4375rem;
   border-radius: 999px;
   font-variant-numeric: tabular-nums;
 }
@@ -303,39 +459,25 @@
   border: 1px solid var(--chain-soft);
 }
 
-/* Disclosure caret — deliberately NOT a circular +/- button (that read as "Add").
-   A rotating chevron is unambiguous: down = open, right = collapsed. */
-.chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  padding: 2px;
-  color: var(--muted);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.chevron:hover {
-  color: var(--fg);
-}
-
 .body {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
-  gap: 8px 24px;
+  /* The hill is ~6.5rem wide; the column is sized to it and the gap is tight, so the
+     note and metadata sit right beside the sparkline they describe instead of across
+     a gulf of empty first-column space. */
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: 0.5rem 0.75rem;
   align-items: start;
-  padding: 6px 0 0;
+  padding: 0.375rem 0 0;
 }
 
 .hillCol {
-  max-width: 190px;
+  max-width: 7rem;
 }
 
 /* Textless sparkline hill (compact rows, variant a). */
 .miniHill {
   display: block;
-  width: 104px;
+  width: 6.5rem;
   height: auto;
   overflow: visible;
 }
@@ -343,13 +485,13 @@
 .detailCol {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.625rem;
   min-width: 0;
 }
 
 .note {
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 0.875rem;
+  line-height: 1.375rem;
   color: var(--fg);
 }
 
@@ -362,20 +504,21 @@
 }
 
 .noteEmpty {
-  font-size: 13px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-style: italic;
   color: var(--muted);
 }
 
 /* The update's attribution — rides directly under the note it belongs to. */
 .noteBy {
-  margin-top: -6px;
-  font-size: 11.5px;
+  margin-top: -0.375rem;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
 .partnersInline {
-  font-size: 12.5px;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
@@ -384,19 +527,19 @@
 .historyList {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 0.3125rem;
 }
 .historyItem {
   display: grid;
-  grid-template-columns: 34px 44px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: 2.125rem 2.75rem minmax(0, 1fr);
+  gap: 0.625rem;
   align-items: baseline;
-  font-size: 12.5px;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 .historyWhen {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   white-space: nowrap;
 }
 .historyNote {
@@ -409,30 +552,19 @@
 .historyBy {
   color: var(--muted);
 }
-.fullHistory {
-  font-size: 12px;
-  color: var(--muted);
-  text-decoration: none;
-  align-self: flex-start;
-}
-.fullHistory:hover {
-  color: var(--fg);
-  text-decoration: underline;
-}
-
 /* Read-only meta lines on the default card: activities + Googler focus. */
 .metaLine {
-  font-size: 12.5px;
-  line-height: 1.6;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
   color: var(--fg);
 }
 .metaLabel {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-size: 10.5px;
+  font-size: 0.625rem;
   color: var(--muted);
-  margin-right: 8px;
+  margin-right: 0.5rem;
 }
 .metaMuted {
   font-style: italic;
@@ -445,18 +577,19 @@
   color: var(--fg);
   text-decoration: underline;
   text-decoration-color: var(--border);
-  text-underline-offset: 2px;
+  text-underline-offset: 0.125rem;
 }
 .activityLink:hover {
   text-decoration-color: var(--fg);
 }
 
 .primaryQuietBtn {
-  font-size: 11px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   font-weight: 600;
-  padding: 3px 12px;
+  padding: 0.1875rem 0.75rem;
   border: 1px solid var(--fg);
-  border-radius: 6px;
+  border-radius: 0.375rem;
   background: transparent;
   color: var(--fg);
   cursor: pointer;
@@ -472,11 +605,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 1.5rem;
+  height: 1.5rem;
   background: none;
   border: none;
-  border-radius: 6px;
+  border-radius: 0.375rem;
   padding: 0;
   color: var(--muted);
   cursor: pointer;
@@ -493,14 +626,14 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
 }
 /* Deliberately small and quiet — who's involved is context, not the headline. */
 .pill {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
-  line-height: 1.5;
-  padding: 1px 8px;
+  line-height: 1rem;
+  padding: 0.0625rem 0.5rem;
   border-radius: 999px;
   border: 1px solid transparent;
   text-decoration: none;
@@ -529,19 +662,19 @@
 .pillGoogler {
   background: transparent;
   color: var(--fg);
-  border: 1.5px dotted #5b7bb8;
+  border: 1.5px dotted var(--googler);
 }
 .pillGoogler:hover {
-  border-color: #1a56c4;
-  color: #1a56c4;
+  border-color: var(--googler-hover);
+  color: var(--googler-hover);
 }
 
 /* Structural editors, revealed only behind Edit. */
 .editPanel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 10px 0 2px;
+  gap: 0.625rem;
+  padding: 0.625rem 0 0.125rem;
   border-top: 1px solid var(--border);
 }
 
@@ -549,15 +682,15 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .partnerChip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  padding: 3px 6px 3px 10px;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  padding: 0.1875rem 0.375rem 0.1875rem 0.625rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--paper);
@@ -585,8 +718,8 @@
   border: none;
   cursor: pointer;
   color: var(--muted);
-  font-size: 11px;
-  padding: 0 2px;
+  font-size: 0.6875rem;
+  padding: 0 0.125rem;
   line-height: 1;
 }
 .chipRemove:hover {
@@ -596,7 +729,7 @@
 .addInlineForm {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
   /* never ride under the pane divider: wrap instead of overflowing the cell */
   flex-wrap: wrap;
   min-width: 0;
@@ -604,13 +737,14 @@
 
 .quietSelect,
 .roleInput {
-  font-size: 11px;
-  padding: 3px 6px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  padding: 0.1875rem 0.375rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0.375rem;
   background: transparent;
   color: var(--muted);
-  max-width: 160px;
+  max-width: 10rem;
 }
 .quietSelect:hover,
 .quietSelect:focus,
@@ -620,15 +754,16 @@
   color: var(--fg);
 }
 .roleInput {
-  width: 64px;
+  width: 4rem;
 }
 
 .miniBtn {
-  font-size: 11px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   font-weight: 600;
-  padding: 3px 10px;
+  padding: 0.1875rem 0.625rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0.375rem;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -640,22 +775,22 @@
 }
 
 .depsLabel {
-  font-size: 10.5px;
+  font-size: 0.625rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
-  min-width: 48px;
+  min-width: 3rem;
 }
 
 .depNone {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-style: italic;
   color: var(--muted);
 }
 
 .depError {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--bad);
 }
 
@@ -667,11 +802,11 @@
   background: none;
   border: none;
   padding: 0;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
   cursor: pointer;
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 0.125rem;
 }
 .removeBtn:hover {
   color: var(--bad);
@@ -682,38 +817,40 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 8px;
-  margin: 12px 0 0;
-  font-size: 12px;
+  gap: 0.375rem 0.5rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 .legendGlyph {
-  width: 14px;
-  height: 14px;
+  width: 0.875rem;
+  height: 0.875rem;
   flex-shrink: 0;
-  margin-left: 8px;
+  margin-left: 0.5rem;
 }
 .legendGlyph:first-child {
   margin-left: 0;
 }
 .legendGlyphWide {
-  width: 22px;
-  height: 14px;
+  width: 1.375rem;
+  height: 0.875rem;
   flex-shrink: 0;
-  margin-left: 8px;
+  margin-left: 0.5rem;
 }
 .legendTrack {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-left: 8px;
+  gap: 0.375rem;
+  margin-left: 0.5rem;
 }
+/* The "done" track ink, at legend scale. A literal near-black here vanished on the
+   dark paper — the swatch has to be the SAME ink the rail draws (design.md §8b). */
 .legendSwatch {
   display: inline-block;
-  width: 18px;
+  width: 1.125rem;
   height: 0;
-  border-top: 3px solid hsl(0, 0%, 25%);
-  border-radius: 2px;
+  border-top: 3px solid var(--fg);
+  border-radius: 0.125rem;
 }
 
 /* Focused DETAILS popover: the phase lifts off the rail and floats over a scrim —
@@ -727,7 +864,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 6vh 16px 16px;
+  padding: 6vh 1rem 1rem;
   overflow-y: auto;
   animation: scrimIn 0.12s ease-out;
 }
@@ -737,31 +874,31 @@
 }
 .popover {
   position: relative;
-  width: min(1140px, 94vw); /* two-pane dossier; updates are 4-5 sentence prose */
+  width: min(71.25rem, 94vw); /* two-pane dossier; updates are 4-5 sentence prose */
   background: var(--paper);
   border: 1px solid var(--border);
   /* the chain-accent edge echoes the constraint marker — "you are focused on one station" */
   border-left: 3px solid var(--chain);
-  border-radius: 10px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
-  padding: 22px 26px;
+  border-radius: 0.625rem;
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.18);
+  padding: 1.375rem 1.625rem;
   animation: popIn 0.14s ease-out;
 }
 @keyframes popIn {
-  from { transform: translateY(8px); opacity: 0; }
+  from { transform: translateY(0.5rem); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
 .popClose {
   position: absolute;
-  top: 12px;
-  right: 14px;
+  top: 0.75rem;
+  right: 0.875rem;
   background: none;
   border: none;
-  font-size: 15px;
+  font-size: 0.9375rem;
   line-height: 1;
   color: var(--muted);
   cursor: pointer;
-  padding: 4px;
+  padding: 0.25rem;
 }
 .popClose:hover {
   color: var(--fg);
@@ -775,30 +912,30 @@
      two panes and leaves a dead right third (the old single-column width) */
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 1rem;
 }
 .detailsHead {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 .detailsTitle {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.125rem;
   font-weight: 700;
   color: var(--fg);
 }
 .detailsForm {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0.75rem;
 }
 .detailsSection {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 /* Immediate neighbourhood at the top of the About pane, as two quiet rows of
@@ -808,14 +945,14 @@
 .flowLinks {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 0 0 14px;
+  gap: 0.25rem;
+  margin: 0 0 0.875rem;
 }
 .flowRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
+  gap: 0.5rem;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 .flowArrow {
@@ -826,17 +963,17 @@
   min-width: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 0.375rem;
   align-items: center;
 }
 /* Neighbour phases as pills — same chip grammar as partner/people chips; the
    whole pill is the click target that swaps that phase into this window. */
 .flowLink {
   font: inherit;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 400;
   color: var(--fg);
-  padding: 3px 10px;
+  padding: 0.1875rem 0.625rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--paper);
@@ -851,7 +988,7 @@
 /* Absent Goal & DoD: not silence — a doorway to where the field is edited. */
 .noGoal {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 0.75rem;
   font-style: italic;
   color: var(--muted);
 }
@@ -859,7 +996,7 @@
   color: inherit;
   font-style: normal;
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 0.125rem;
 }
 .noGoal a:hover {
   color: var(--fg);
@@ -871,14 +1008,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 1.375rem;
+  height: 1.375rem;
   padding: 0;
   border: 1px dashed var(--border);
   border-radius: 999px;
   background: none;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1;
   cursor: pointer;
 }
@@ -889,21 +1026,21 @@
 
 /* Template-sourced markdown on the details surface. */
 .templateDoc {
-  font-size: 13.5px;
-  line-height: 1.6;
+  font-size: 0.875rem;
+  line-height: 1.375rem;
   color: var(--fg);
-  max-width: 640px;
+  max-width: 40rem;
 }
 .templateDoc p {
-  margin: 0 0 6px;
+  margin: 0 0 0.375rem;
 }
 /* The Done-when checklist: tight, scannable pass/fail items. */
 .templateDoc ul {
-  margin: 0 0 6px;
-  padding-left: 18px;
+  margin: 0 0 0.375rem;
+  padding-left: 1.125rem;
 }
 .templateDoc li {
-  margin: 0 0 3px;
+  margin: 0 0 0.1875rem;
 }
 .templateFocus {
   display: inline;
@@ -916,7 +1053,7 @@
   background: none;
   border: none;
   padding: 0;
-  font-size: 12.5px;
+  font-size: 0.75rem;
   color: var(--muted);
   cursor: pointer;
 }
@@ -926,20 +1063,20 @@
 }
 .immersiveHill {
   position: relative;
-  padding: 8px 0 0;
+  padding: 0.5rem 0 0;
 }
 .dragHint {
   display: block;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
-  margin-bottom: 6px;
+  margin-bottom: 0.375rem;
 }
 .updateSvg {
   display: block;
   width: 100%;
   /* matches the needle/hill dialog scale — SVG text grows with the chart, so a
      wide chart makes the axis labels shout */
-  max-width: 340px;
+  max-width: 21.25rem;
   height: auto;
   overflow: visible;
   /* centered in the progress pane — the chart is the pane's focal figure */
@@ -947,28 +1084,28 @@
 }
 .noteArea {
   font: inherit;
-  font-size: 13.5px;
-  padding: 8px 10px;
+  font-size: 0.875rem;
+  padding: 0.5rem 0.625rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0.375rem;
   background: var(--paper);
   color: var(--fg);
   resize: vertical;
   width: 100%;
-  max-width: 480px;
+  max-width: 30rem;
 }
 .immersiveActions {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding-top: 4px;
+  gap: 0.625rem;
+  padding-top: 0.25rem;
 }
 .primaryBtn {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
-  padding: 6px 18px;
+  padding: 0.375rem 1.125rem;
   border: 1px solid var(--fg);
-  border-radius: 6px;
+  border-radius: 0.375rem;
   background: var(--fg);
   color: var(--paper);
   cursor: pointer;
@@ -987,10 +1124,10 @@
 @media (max-width: 560px) {
   .body {
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: 0.625rem;
   }
   .hillCol {
-    max-width: 220px;
+    max-width: 13.75rem;
   }
   .headPartners,
   .when {
@@ -1003,19 +1140,19 @@
 .startedRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
+  gap: 0.5rem;
+  font-size: 0.75rem;
   color: var(--fg);
-  margin: 2px 0 0;
+  margin: 0.125rem 0 0;
   width: fit-content;
 }
 
 .startedInput {
   font: inherit;
-  font-size: 12px;
-  padding: 2px 6px;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.375rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0.375rem;
   background: transparent;
   color: var(--fg);
   font-variant-numeric: tabular-nums;
@@ -1031,42 +1168,43 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 0.625rem;
 }
 
 /* View-mode story: latest update as the headline, older ones compact below. */
 .storyView {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin-top: 4px;
+  gap: 0.875rem;
+  margin-top: 0.25rem;
 }
 .latestUpdate {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.375rem;
 }
 .latestMeta {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 0.625rem;
 }
 .latestStatus {
-  font-size: 13px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-weight: 700;
 }
 .latestWhen {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 .latestNote {
-  font-size: 15px;
-  line-height: 1.65;
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
   color: var(--fg);
 }
 .latestNote p {
-  margin: 0 0 8px;
+  margin: 0 0 0.5rem;
 }
 .latestNote p:last-child {
   margin-bottom: 0;
@@ -1075,7 +1213,7 @@
 /* Transient confirmation that the instant-save landed — brand green text (semantic
    color is colored text only, design.md §6), fading in quietly. */
 .savedTick {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--p-600);
   white-space: nowrap;
   animation: savedTickIn 0.15s ease-out;
@@ -1090,16 +1228,16 @@
    screens CSS order places About on the left, Progress on the right. */
 .dossier {
   display: flex;
-  gap: 24px; /* symmetric with the aboutPane's padding — the divider sits centered */
+  gap: 1.5rem; /* symmetric with the aboutPane's padding — the divider sits centered */
   align-items: stretch; /* the divider spans the whole dossier, not just the shorter pane */
-  margin-top: 10px;
+  margin-top: 0.625rem;
 }
 
 .aboutPane {
   order: -1;
   flex: 0.9;
   min-width: 0;
-  padding-right: 24px;
+  padding-right: 1.5rem;
   border-right: 1px solid var(--border); /* the ONE divider between what-is and what-happened */
 }
 
@@ -1109,7 +1247,7 @@
   /* updates + full history scroll inside the pane; the popover itself stays put */
   max-height: 62vh;
   overflow-y: auto;
-  padding-right: 4px; /* room for the scrollbar, not a box */
+  padding-right: 0.25rem; /* room for the scrollbar, not a box */
 }
 
 /* About-pane meta: ONE grammar for every row (design.md §7) — small-caps label
@@ -1117,13 +1255,13 @@
    between the prose block above and this grid. */
 .aboutMeta {
   border-top: 1px solid var(--border);
-  margin-top: 12px;
-  padding-top: 10px;
+  margin-top: 0.75rem;
+  padding-top: 0.625rem;
   align-content: start; /* rows hug the top when the stretched pane is taller than its content */
   display: grid;
-  grid-template-columns: 84px 1fr;
-  column-gap: 12px;
-  row-gap: 7px;
+  grid-template-columns: 5.25rem 1fr;
+  column-gap: 0.75rem;
+  row-gap: 0.4375rem;
   align-items: baseline;
 }
 
@@ -1141,7 +1279,7 @@
 
 .aboutMeta .depsLabel,
 .aboutMeta .metaLabel {
-  font-size: 10.5px;
+  font-size: 0.625rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1157,7 +1295,7 @@
 .aboutMeta .chipCell {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 8px;
+  gap: 0.375rem 0.5rem;
   align-items: center;
   min-width: 0;
 }
@@ -1165,19 +1303,9 @@
 @media (max-width: 860px) {
   .dossier { flex-direction: column; }
   /* narrow: updates stack ABOVE metadata; the divider rotates to horizontal */
-  .aboutPane { order: 2; width: 100%; border-right: none; border-top: 1px solid var(--border); padding: 12px 0 0; }
+  .aboutPane { order: 2; width: 100%; border-right: none; border-top: 1px solid var(--border); padding: 0.75rem 0 0; }
   .progressPane { width: 100%; max-height: none; }
 }
 
 /* One-line goal excerpt on the rail card — the phase's purpose at a glance. */
-.goalLine {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-  margin: 1px 0 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 60%;
-}
 

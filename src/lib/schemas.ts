@@ -147,9 +147,20 @@ export const projectApiSchema = z.object({
 
 // ---- nested phase routes (JSON API) ---------------------------------------------
 
+/** Seed/test-only backdate for history-writing routes: '', null, undefined all mean
+ *  "stamp at write time". Routes that honor it MUST refuse unless the target DB
+ *  passes lib/dbSafety's destructive-allowed check — dated history is a seeding
+ *  affordance (docs/CRITICAL_CHAIN_VIEW_PLAN.md §6), never a live-data feature. */
+const zSeedTimestamp = z.preprocess(
+  (v) => (v === '' || v == null ? undefined : v),
+  z.coerce.date().optional(),
+);
+
 export const phaseCreateApiSchema = z.object({
   name: zText.max(200),
   forecastedDuration: z.coerce.number().int().positive().max(3650).optional(),
+  /** Backdates the phase's auto-created initial "Not Started" state (guarded). */
+  stateTimestamp: zSeedTimestamp,
 });
 
 /** Progress/needle/notes update; every field optional — the route preserves the
@@ -162,6 +173,10 @@ export const phaseStateApiSchema = z.object({
   ),
   notes: zTextOrNull.optional(),
   source: zTextOrNull.optional(),
+  sourceUrl: zUrlOrNull.optional(),
+  /** Backdates the created state row (guarded; shared by the phase-state and
+   *  needle routes, which both append history through this schema). */
+  timestamp: zSeedTimestamp,
 });
 
 /** status/nextStep are closed enums: summaries filter on exactly 'Pending', so a
@@ -172,6 +187,8 @@ export const actionItemApiSchema = z.object({
   status: z.enum(['Pending', 'Completed']),
   nextStep: z.enum(['Undecided', 'Resolved', 'Partner', 'Googler']).optional(),
   linkUrl: zUrlOrNull.optional(),
+  source: zTextOrNull.optional(),
+  sourceUrl: zUrlOrNull.optional(),
 });
 
 export const affiliationApiSchema = z.object({

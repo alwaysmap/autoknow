@@ -1,12 +1,15 @@
 name: CI
 
 # Pull-request gates. Make these required status checks (branch protection) so nothing
-# corrupting can reach main. Two jobs:
+# corrupting can reach main. Three jobs:
 #   migrations-lint — blocks destructive migrations without a reviewed opt-in tag.
 #   quality         — typecheck, lint, jest (unit+DB), the trimmed Playwright suite
 #                     (chromium flows + webkit engine-sensitive specs), and a prod
 #                     build. Added after PR #15 merged green while breaking e2e:
 #                     merges auto-deploy, so drift main-ward must be caught pre-merge.
+#   image           — the Dockerfile itself. `npm run build` proves the app compiles;
+#                     it does NOT prove the IMAGE builds, and the deploy pipeline
+#                     builds in Docker only after merge (ADR npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it).
 on:
   pull_request:
 
@@ -60,7 +63,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx prisma generate
+      # Deliberately explicit, though `npm ci`'s postinstall also generates it: CI
+      # must not depend on a lifecycle-script side effect. `--ignore-scripts`
+      # anywhere upstream would otherwise leave no client and fail as a confusing
+      # typecheck error. `prisma generate` is idempotent, so the cost is seconds.
+      # ADR npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it.
+      - run: npm run db:generate
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test
@@ -78,3 +86,18 @@ jobs:
         env:
           DATABASE_URL: postgresql://build:build@localhost:5432/build
         run: npm run build
+
+  image:
+    name: image (Dockerfile builds; deps-stage postinstall contract)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      # Runs in parallel with `quality`, which is far longer, so this is close to
+      # free in wall-clock. It covers two things nothing else does:
+      #   1. the image builds at all — merges auto-deploy (ADR premerge-quality-gate), so a broken
+      #      Dockerfile used to surface as a red deploy rather than a red PR;
+      #   2. the deps stage's contract — `npm ci` runs postinstall there WITHOUT the
+      #      source tree, so the bootstrap must degrade to nothing (ADR npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it).
+      # No push, no registry credentials: building is the whole assertion.
+      - run: docker build -t autoknow:ci .

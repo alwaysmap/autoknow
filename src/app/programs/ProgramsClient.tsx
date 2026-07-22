@@ -6,14 +6,33 @@ import type { TableSort } from '../../lib/tableUrlState';
 import Link from 'next/link';
 import DateCell from '../../components/DateCell';
 import DataTable from '../../components/DataTable';
+import SearchField from '../../components/SearchField';
+import ClassBox from '../../components/ClassBox';
 import styles from '../ecosystem-summary/EcosystemSummaryClient.module.css';
 import local from './page.module.css';
 import { formatNeedleValue } from '../../lib/needle';
 import { healthKey, healthColor, healthOrder } from '../../lib/health';
 import { resolvePerson } from '../../lib/people';
 import { deriveProgramStatus } from '../../lib/lifecycle';
-import { t } from '../../lib/i18n';
+import type { SopBufferCategory } from '../../lib/sop';
+import { t, type StringKey } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
+
+// SOP-outlook column vocabulary: canonical token → localized label + ink. Only 'late'
+// is colored (warn) — it's the bad news; the rest stay quiet so the column doesn't
+// read as a field of warnings.
+const SOP_OUTLOOK_KEY: Record<SopBufferCategory, StringKey> = {
+  late: 'sopOutlookLate',
+  ontrack: 'sopOutlookOnTrack',
+  nosop: 'sopOutlookNoSop',
+  na: 'sopOutlookNa',
+};
+const SOP_OUTLOOK_COLOR: Record<SopBufferCategory, string> = {
+  late: 'var(--warn)',
+  ontrack: 'var(--muted)',
+  nosop: 'var(--muted)',
+  na: 'var(--muted)',
+};
 
 interface Project {
   id: number;
@@ -23,6 +42,7 @@ interface Project {
   theNeedle: string;
   hillChartProgress: number;
   sopDate: string | null;
+  sopOutlook: SopBufferCategory;
   ownerName: string | null;
   volumeFirstYear: number;
   partner: {
@@ -145,13 +165,11 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
       {/* One compact search input; every categorical filter lives in its column
           header (funnel = secondary action; clicking the label sorts). */}
       <div className={local.searchRow}>
-        <input
+        <SearchField
           id="searchField"
-          type="search"
           placeholder={t(locale, 'searchByNamePartner')}
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className={local.searchInput}
+          onChange={setSearchQuery}
         />
         {Object.values(filters).some((v) => v && v.length > 0) && (
           <button
@@ -198,6 +216,11 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
             { key: 'ownerName', label: t(locale, 'programOwner'), filterable: true },
             { key: 'sopDate', label: t(locale, 'targetSopHeader') },
             {
+              key: 'sopOutlook', label: t(locale, 'sopOutlookHeader'), filterable: true,
+              filterValue: (row) => (row as Project).sopOutlook,
+              filterLabel: (v) => t(locale, SOP_OUTLOOK_KEY[v as SopBufferCategory]),
+            },
+            {
               key: 'theNeedle', label: t(locale, 'healthLabel'), filterable: true,
               // Canonicalize legacy values so "Low"/"On Track" collapse to one option.
               filterValue: (row) => formatNeedleValue((row as Project).theNeedle),
@@ -228,7 +251,13 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
                     {p.partner.name}
                   </Link>
                 </td>
-                <td>{p.partner.region || t(locale, 'otherLabel')}</td>
+                {/* Region is a CLASS the program shares with others, so it takes
+                    the box treatment — same as the Partners table (design.md §6). */}
+                <td>
+                  <ClassBox className={local.classInk}>
+                    {p.partner.region || t(locale, 'otherLabel')}
+                  </ClassBox>
+                </td>
                 <td>
                   {(() => {
                     if (matched) {
@@ -242,6 +271,22 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
                   })()}
                 </td>
                 <td><DateCell value={p.sopDate} fallback={t(locale, 'tbd')} /></td>
+                <td>
+                  {p.sopOutlook === 'na' ? (
+                    <span style={{ color: 'var(--muted)' }}>{t(locale, 'sopOutlookNa')}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setFilters((f) => ({ ...f, sopOutlook: [p.sopOutlook] }))}
+                      className={styles.badgeFilterBtn}
+                      title={t(locale, 'filterColumn', { c: t(locale, 'sopOutlookHeader') })}
+                    >
+                      <span className={styles.badge} style={{ color: SOP_OUTLOOK_COLOR[p.sopOutlook] }}>
+                        {t(locale, SOP_OUTLOOK_KEY[p.sopOutlook])}
+                      </span>
+                    </button>
+                  )}
+                </td>
                 <td>
                   {(() => {
                     const label = formatNeedleValue(p.theNeedle);
@@ -276,7 +321,7 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
                     className={styles.badgeFilterBtn}
                     title={t(locale, 'filterColumn', { c: t(locale, 'statusLabel') })}
                   >
-                    <span className={styles.typeText ?? ''} style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>
+                    <span className={styles.typeText ?? ''} style={{ color: 'var(--muted)', fontSize: '0.75rem', fontWeight: 600 }}>
                       {t(locale, statusKeyOf(statusOf(p)))}
                     </span>
                   </button>

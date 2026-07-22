@@ -5,6 +5,7 @@ import { useTableUrlSync } from '../../lib/useTableUrlSync';
 import type { TableSort } from '../../lib/tableUrlState';
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
+import ClassBox from '../../components/ClassBox';
 import { NewPartnerButton } from '../../components/PartnerEditor';
 import KebabMenu from '../../components/KebabMenu';
 import { RelationshipCell } from '../../components/RelationshipScale';
@@ -168,13 +169,17 @@ export default function PartnersClient({ partners, currentUser, people, relation
                 key: 'relationship',
                 label: t(locale, 'relationshipLabel'),
                 filterable: true,
-                // filterValue keeps the numeric prefix so options order by score;
-                // filterLabel strips it so the dropdown shows just the label.
+                // Canonical, locale-stable token — the score digit, or 'unrated'. The
+                // display label is filterLabel-only, so a shared ?relationship=2 URL
+                // names the same class in every locale (design.md §2 / lesson 3). Digits
+                // sort before 'unrated', so the funnel lists Critical→Exemplary, then
+                // Not rated — and the ecosystem relationship-mix tiles deep-link here
+                // with the same tokens.
                 filterValue: (row) => {
                   const score = (row as { relationship: number }).relationship;
-                  return score === 0 ? t(locale, 'relNotRated') : `${score} — ${t(locale, REL_KEY[clampScore(score)])}`;
+                  return score === 0 ? 'unrated' : String(score);
                 },
-                filterLabel: (v) => v.replace(/^\d+\s*—\s*/, ''),
+                filterLabel: (v) => (v === 'unrated' ? t(locale, 'relNotRated') : t(locale, REL_KEY[clampScore(Number(v))])),
               },
               { key: 'activePrograms', label: t(locale, 'activePrograms') },
               { key: 'lifetimePrograms', label: t(locale, 'lifetimePrograms') },
@@ -196,7 +201,7 @@ export default function PartnersClient({ partners, currentUser, people, relation
                       className={styles.typeFilterBtn}
                       title={t(locale, 'filterByType', { t: p.type })}
                     >
-                      <span className={styles.typeText}>{p.type}</span>
+                      <ClassBox className={styles.classInk}>{p.type}</ClassBox>
                     </button>
                   ) : (
                     <span className={styles.typeText}>—</span>
@@ -209,7 +214,7 @@ export default function PartnersClient({ partners, currentUser, people, relation
                       className={styles.typeFilterBtn}
                       title={t(locale, 'filterColumn', { c: t(locale, 'regionLabel') })}
                     >
-                      <span className={styles.typeText}>{p.region}</span>
+                      <ClassBox className={styles.classInk}>{p.region}</ClassBox>
                     </button>
                   ) : (
                     <span className={styles.typeText}>—</span>

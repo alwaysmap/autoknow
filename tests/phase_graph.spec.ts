@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Locator } from '@playwright/test';
 import { prisma } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
@@ -7,6 +7,19 @@ import { seedProgram, type SeededProgram } from './helpers/fixtures';
 // cards (typed involvement pills, no role labels, no status words), the focused
 // popover (required-note status update, involvement editing, read-only dependencies),
 // and structural editing gated behind whole-graph DAG validation.
+
+// THE CARD IS THE CONTROL: rows default collapsed and there is no chevron any more,
+// so a click anywhere on the card sizes it (and selects and traces it). The title is
+// the stable, keyboard-reachable part of that card, so tests drive it there.
+//
+// Two helpers, because the click is a TOGGLE and half the call sites want a state.
+// Opening the popover now opens the card on the way (min is one line, so the zoom
+// button is not there yet), which means a later blind toggle would close it again.
+const expandCard = (rowLocator: Locator) => rowLocator.locator('a[data-card-title]').click();
+const openCard = async (rowLocator: Locator) => {
+  const title = rowLocator.locator('a[data-card-title]');
+  if ((await title.getAttribute('aria-expanded')) !== 'true') await title.click();
+};
 
 test.describe('PhaseTrack rail', () => {
   test.describe.configure({ mode: 'serial' });
@@ -31,22 +44,161 @@ test.describe('PhaseTrack rail', () => {
     // on a cold dev-server load, and a swallowed click is never retried by expect().
     // Only click while the popover is closed (a late-opening popover scrims the
     // button, so a blind retry-click would hang on it).
+    // The zoom button only exists at STANDARD size — min is one line, name and plan
+    // — so the card is opened first when it is not already.
     await expect(async () => {
       if (!(await details(page).isVisible())) {
-        await row(page, name).getByRole('button', { name: 'Details' }).click({ timeout: 2000 });
+        const zoom = row(page, name).getByRole('button', { name: 'Details' });
+        if (!(await zoom.isVisible())) await openCard(row(page, name));
+        await zoom.click({ timeout: 2000 });
       }
       await expect(details(page)).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
   };
 
 
+  // The phase name link carries a `title` ("Done · click to trace its dependencies").
+  // Per accname, a link takes its name from its CONTENT and falls back to `title`
+  // only when there is none — but that ordering is easy to break by accident (an
+  // aria-label added "for clarity", or wrapping the text in an aria-hidden span),
+  // and the failure is invisible: sighted users see the phase name while every row
+  // announces the same generic string, and the rows stop being tellable apart. So
+  // assert the NAME, not the markup.
+  test('a phase is reachable by its own name, not by its tooltip', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
+    await expect(page.getByRole('link', { name: 'Bring-up', exact: true })).toBeVisible();
+    // And the tooltip text is NOT what names it.
+    await expect(page.getByRole('link', { name: /click to trace/ })).toHaveCount(0);
+  });
+
+  // A trace has to distinguish the two DIRECTIONS, not just related-vs-not. On a
+  // phase every other phase happens to sit on a path through — the spine of a
+  // converging plan — a related/unrelated scale dims nothing, so the click reads as
+  // "nothing happened" (it was 6 of 15 phases on the AAOS template). Asserting the
+  // four levels on the fixture's diamond: Bring-up → Integration → Certification,
+  // with Audio hanging off Bring-up and therefore unrelated to Integration.
+  test('tracing separates upstream, downstream and unrelated', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
+    const rel = (name: string) => row(page, name).getAttribute('data-rel');
+
+    await expect(async () => {
+      await row(page, 'Integration').locator('a:text-is("Integration")').click({ timeout: 2000 });
+      expect(await rel('Integration')).toBe('self');
+    }).toPass({ timeout: 20000 });
+
+    expect(await rel('Bring-up')).toBe('up');        // what Integration waits FOR
+    expect(await rel('Certification')).toBe('down'); // what waits ON Integration
+    expect(await rel('Audio')).toBe('far');          // a sibling branch, on no path through it
+
+    // Receded rows keep real controls, so they must not be left reachable-but-unreadable.
+    const audio = row(page, 'Audio');
+    await audio.locator('a:text-is("Audio")').focus();
+    await expect(audio).toHaveCSS('opacity', '1');
+
+    // The coloured stretch and the moving stretch are ONE set by construction, and
+    // that is the whole guarantee: a reader told "this is your upstream" by colour
+    // and "the work runs this way" by motion must be told it about the same track.
+    // The two are computed from a shared filter, so this fails the moment anyone
+    // reintroduces a second predicate for it.
+    // Matched on GEOMETRY rather than counted, because the counts can agree while the
+    // two sets sit on different track (and a trunk stretch's band and drift are loose
+    // siblings among a bundle's children, so there is no wrapper to pair them by).
+    const unmoving = await page.evaluate(([sel]) => {
+      const geom = (el: Element) =>
+        el.tagName === 'path'
+          ? el.getAttribute('d')!
+          : ['x1', 'y1', 'x2', 'y2'].map((a) => el.getAttribute(a)).join();
+      const drift = new Set([...document.querySelectorAll('svg [class*="__flow"]')].map(geom));
+      return [...document.querySelectorAll(sel)].map(geom).filter((g) => !drift.has(g));
+    }, ['svg [class*="trackBacking"]']);
+    expect(await page.locator('svg [class*="trackBacking"]').count()).toBeGreaterThan(0);
+    expect(unmoving).toEqual([]);
+  });
+
+  // The card is one object to the reader even though it is a dozen elements, so a
+  // click on ANY of it — not just the title — does the whole job: size it, trace it,
+  // take the selection off whatever held it. Clicking dead space in the card body is
+  // the case that regresses silently if the handler ever drifts back onto the header.
+  test('clicking anywhere on a card sizes, selects and traces it', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
+    const integration = row(page, 'Integration');
+    const audio = row(page, 'Audio');
+
+    await expect(async () => {
+      await expandCard(integration);
+      await expect(integration).toHaveAttribute('data-rel', 'self', { timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+    await expect(integration).toContainText('Denso'); // opened to standard
+
+    // The note text: plain prose in the card BODY, no control anywhere near it, and
+    // precisely the area a header-scoped handler would miss. (Not the card's corner —
+    // the involvement pills sit there, and those are links that rightly keep their
+    // own job; webkit and chromium put them in different places.)
+    await integration.getByText('Codec drops blocking the DSP path.').click();
+    await expect(integration).not.toContainText('Denso'); // folded back to min
+    await expect(integration).toHaveAttribute('data-rel', 'self');
+
+    // A different card takes the selection outright — one phase is selected, ever.
+    await expandCard(audio);
+    await expect(audio).toHaveAttribute('data-rel', 'self');
+    await expect(integration).not.toHaveAttribute('data-rel', 'self');
+    await expect(page.getByTestId('phase-row').filter({ has: page.locator('[data-rel]') })).toBeTruthy();
+
+    // The chevron is gone: sizing lives on the card, not on a second affordance.
+    await expect(page.locator('button[aria-label^="Toggle detail"]')).toHaveCount(0);
+  });
+
+  // Collapsing the DIAGRAM is one state: every card at min and the dependency track
+  // ink put away, stations left standing. Collapsing only the cards left the densest
+  // thing on screen untouched, and on a rail that already opens with collapsed cards
+  // it changed nothing at all — a live-looking item that swallows the click.
+  test('collapsing the diagram puts the tracks away and says so', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
+    const menu = page.getByRole('button', { name: 'Phase actions' });
+    const expand = page.getByRole('menuitem', { name: 'Expand diagram' });
+    const collapse = page.getByRole('menuitem', { name: 'Collapse diagram' });
+    const rail = page.locator('svg[class*="rail"]');
+    // Track ink only — a station draws its own <path> for the in-progress half-disc,
+    // and those must SURVIVE the collapse, so they cannot be counted as track.
+    const tracks = rail.locator('g:not([class*="station"]) > line, g:not([class*="station"]) > g > path');
+
+    await expect(async () => {
+      await menu.click({ timeout: 2000 });
+      await expect(expand).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+
+    // Cards open collapsed but the tracks are drawn, so collapsing still has work.
+    await expect(collapse).toBeEnabled();
+    const drawn = await tracks.count();
+    expect(drawn).toBeGreaterThan(0);
+
+    await collapse.click();
+    // Stations survive; the connecting ink does not.
+    await expect(rail.locator('g[class*="station"]')).not.toHaveCount(0);
+    await expect(tracks).toHaveCount(0);
+    // And absent ink is labelled absent — in this grammar a missing line otherwise
+    // means "no dependency", which would be a lie.
+    await expect(page.getByText('Dependency tracks hidden')).toBeVisible();
+
+    // Now the pair swaps, and the way back restores the tracks.
+    await menu.click();
+    await expect(collapse).toBeDisabled();
+    await expect(expand).toBeEnabled();
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Show' }).click();
+    await expect(tracks).toHaveCount(drawn);
+    await expect(page.getByText('Dependency tracks hidden')).toHaveCount(0);
+  });
+
   test('cards are compact: typed pills without role labels, no status words', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
 
-    // Done phase starts collapsed: header line only. Details stays reachable even
-    // collapsed (rows default to hide-all).
+    // MIN is a single line: the name and the plan, and nothing else. No zoom button,
+    // and the Goal never rides the card at all — it lives only in the popover, so it
+    // is absent at both sizes.
     const bringUp = row(page, 'Bring-up');
-    await expect(bringUp.getByRole('button', { name: 'Details' })).toBeVisible();
+    await expect(bringUp.getByRole('button', { name: 'Details' })).toHaveCount(0);
+    await expect(bringUp).not.toContainText('Goal:');
 
     // Status is carried by glyphs, not words, on the card header.
     await expect(bringUp).not.toContainText('Done');
@@ -55,33 +207,43 @@ test.describe('PhaseTrack rail', () => {
 
     // Involvement renders as pills — names only, the colour carries the company
     // type. Rows default collapsed: expand first.
-    const toggle = integration.locator('button[aria-label^="Toggle detail"]');
-    await toggle.click();
+    await expandCard(integration);
     await expect(integration).toContainText('Denso');
     await expect(integration).toContainText('Kenji Sato');
     await expect(integration).not.toContainText('FAE');
+    // The zoom button appears at standard size; the Goal does NOT — it is popover-only.
+    await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
+    await expect(integration).not.toContainText('Goal:');
 
-    // The caret folds the card away again; Details stays reachable either way.
-    await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
-    await toggle.click();
+    // Clicking the card again folds it back to one line, taking the pills and the
+    // zoom button with it.
+    await expandCard(integration);
     await expect(integration).not.toContainText('Denso');
-    await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
-    await toggle.click();
-    await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
+    await expect(integration.getByRole('button', { name: 'Details' })).toHaveCount(0);
   });
 
 
 
   test('the popover is a modal over the rail; Esc closes it', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
-    const url = page.url();
+    const before = new URL(page.url());
 
     await openDetails(page, 'Audio');
-    expect(page.url()).toBe(url); // same page — no navigation, no <dialog>
+    // Same page — a modal over the rail, no navigation and no <dialog>. Opening a
+    // card can set an intermediate `#phase-N` (the title is a real deep link, main's
+    // rail work), but the LAST thing this flow does is click Details, and the popover
+    // that replaced the retired /history/phase/:id page is itself a URL (design.md
+    // §5) — so it lands on `#phase-N-detail`. Path and query must not move; only the
+    // fragment does, and to the detail anchor.
+    const opened = new URL(page.url());
+    expect(opened.pathname + opened.search).toBe(before.pathname + before.search);
+    expect(opened.hash).toBe(`#phase-${seeded.phases.audio}-detail`);
     await expect(page.getByRole('dialog', { name: 'Audio' })).toBeVisible();
 
     await page.keyboard.press('Escape');
     await expect(details(page)).toHaveCount(0);
+    // Closing takes the fragment back off — the URL never claims an open popover.
+    await expect.poll(() => new URL(page.url()).hash).toBe('');
   });
 
   test('a hill update REQUIRES a note; saving records history', async ({ page }) => {
@@ -110,7 +272,7 @@ test.describe('PhaseTrack rail', () => {
     // Back on the track: the card (expanded — rows default collapsed) shows the
     // new note but NOT the history list.
     const audio = row(page, 'Audio');
-    await audio.locator('button[aria-label^="Toggle detail"]').click();
+    await openCard(audio); // openDetails already opened it — a toggle would shut it
     await expect(audio).toContainText('Codec samples landed; over the hill.', { timeout: 10000 });
     await expect(audio.getByText('History')).toHaveCount(0);
 
@@ -283,7 +445,7 @@ test.describe('Program phase editor', () => {
     // The chain extends through the new phase: 74 + 28 ≈ 102 days — visible on the
     // constraint card's evidence line (Integration still heads the chain; rows
     // default collapsed, so expand first).
-    await railRow(page, 'Integration').getByRole('button', { name: /Toggle detail/ }).click();
+    await expandCard(railRow(page, 'Integration'));
     await expect(railRow(page, 'Integration')).toContainText('gates ≈102 days of downstream chain work');
 
     // Remove it from its panel (no history yet → no confirm) and save.
@@ -294,7 +456,7 @@ test.describe('Program phase editor', () => {
     await saveBtn(page).click();
     await page.waitForURL(`**/programs/${seeded.projectId}`);
     // rows default collapsed — expand the constraint card before reading evidence
-    await railRow(page, 'Integration').getByRole('button', { name: /Toggle detail/ }).click();
+    await expandCard(railRow(page, 'Integration'));
     await expect(railRow(page, 'Integration')).toContainText('gates ≈74 days of downstream chain work');
   });
 
@@ -316,7 +478,7 @@ test.describe('Program phase editor', () => {
     // The chain grew from the TOP: Prep (28d) + the old ≈74 ≈ 102 — and the
     // CONSTRAINT moves to Prep, the new first unfinished stop on the chain.
     // (rows default collapsed — expand before reading the evidence line)
-    await railRow(page, 'Prep').getByRole('button', { name: /Toggle detail/ }).click();
+    await expandCard(railRow(page, 'Prep'));
     await expect(railRow(page, 'Prep')).toContainText('gates ≈102 days of downstream chain work');
     const bringUpDeps = await prisma.phaseDependency.count({ where: { phaseId: seeded.phases.bringUp } });
     expect(bringUpDeps).toBe(1);
@@ -328,7 +490,7 @@ test.describe('Program phase editor', () => {
     await saveBtn(page).click();
     await page.waitForURL(`**/programs/${seeded.projectId}`);
     // rows default collapsed — expand the constraint card before reading evidence
-    await railRow(page, 'Integration').getByRole('button', { name: /Toggle detail/ }).click();
+    await expandCard(railRow(page, 'Integration'));
     await expect(railRow(page, 'Integration')).toContainText('gates ≈74 days of downstream chain work');
   });
 });

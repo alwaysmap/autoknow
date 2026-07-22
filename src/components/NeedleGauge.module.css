@@ -25,6 +25,7 @@
 
 .statusValue {
   font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-weight: 700;
   color: var(--fg);
   text-transform: capitalize;
@@ -32,6 +33,7 @@
 
 .updatedAt {
   font-size: 0.6875rem;
+  line-height: 1rem;
   color: var(--muted, #888);
 }
 
@@ -39,6 +41,8 @@
   display: flex;
   gap: 0.375rem;
   flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 0.625rem;
 }
 
 .healthChip {
@@ -62,6 +66,7 @@
   border: 1px solid var(--border);
   color: var(--muted);
   font-size: 0.6875rem;
+  line-height: 1rem;
   font-weight: 700;
   padding: 0.375rem 0.75rem;
   border-radius: 0.375rem;
@@ -77,13 +82,89 @@
   background-color: var(--p-50);
 }
 
+/* The detail popup covers most of the viewport: it holds the complete log plus
+   the update form, and a cramped box would make the history the thing you
+   scroll past rather than the thing you read. */
+.historyDialog {
+  border: none;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  background-color: var(--white);
+  box-shadow: 0 0.625rem 2.5rem rgba(0, 0, 0, 0.15);
+  width: min(56rem, 92vw);
+  max-width: none;
+  height: min(85vh, 56rem);
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+  color: var(--fg);
+}
+
+/* The flex column ONLY when open: a bare `display: flex` on the dialog overrides
+   the UA's `display: none` for closed dialogs, leaving a full-size invisible
+   overlay parked over the page that swallows every click behind it. */
+.historyDialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.historyDialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.historyScroll {
+  flex: 1;
+  min-height: 0; /* lets the log scroll inside the flex column, not overflow it */
+  overflow-y: auto;
+}
+
+/* UPDATE reveals the form above the log, inside this same popup. Separated by a
+   rule so it reads as a distinct mode, not another list entry. */
+.inlineForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1rem;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* Inside the popup the form's own buttons sit with the form, not on the
+   popup's bottom rail — so they don't inherit that rail's top border. */
+.inlineForm .actionRow {
+  border-top: none;
+  padding-top: 0;
+}
+
+.historyDialog .actionRow {
+  flex-shrink: 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.fullHistoryLink {
+  margin-right: auto;
+  align-self: center;
+  color: var(--link);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  text-decoration: none;
+}
+
+.fullHistoryLink:hover {
+  text-decoration: underline;
+}
+
 /* Modal Dialog */
 .dialog {
   border: none;
   border-radius: 0.75rem;
   padding: 1.5rem;
   background-color: var(--white);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 0.625rem 2.5rem rgba(0, 0, 0, 0.15);
   max-width: 26.25rem;
   width: 90%;
   position: fixed;
@@ -101,7 +182,7 @@
 
 .dialogHeader h3 {
   font-family: var(--head-font);
-  font-size: 1.15rem;
+  font-size: 1.125rem;
   font-weight: 700;
   margin: 0 0 1rem 0;
   color: var(--fg);
@@ -113,10 +194,13 @@
   gap: 1rem;
 }
 
+/* Left, like every other label in this dialog — the gauge card above centers its
+   own contents and that centering must not leak into the form below it. */
 .formGroup {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
+  text-align: left;
 }
 
 .formLabel {
@@ -140,6 +224,7 @@
   padding: 0.5rem 1rem;
   border-radius: 0.375rem;
   font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -151,6 +236,7 @@
   padding: 0.5rem 1rem;
   border-radius: 0.375rem;
   font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -172,6 +258,7 @@
 
 .previewLabel {
   font-size: 0.6875rem;
+  line-height: 1rem;
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;

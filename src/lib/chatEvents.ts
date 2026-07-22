@@ -143,6 +143,10 @@ export function normalizeChatEvent(body: unknown): { event: ChatEvent; addon: bo
       addon: true,
       event: {
         type: 'MESSAGE',
+        // `chat.user` is the Chat ADD-ON ENVELOPE's sender — a different user from the
+        // signed-in one, arriving in a webhook payload rather than a session, so the
+        // getCurrentUser rule (ADR session-is-the-only-source-of-who-i-am) does not apply to it.
+        // eslint-disable-next-line no-restricted-syntax
         message: { ...m, sender: { displayName: m.sender?.displayName ?? chat.user?.displayName, email: m.sender?.email ?? chat.user?.email } },
         space: chat.messagePayload.space,
       },

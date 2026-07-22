@@ -18,11 +18,18 @@ interface SearchParams {
 
 export default async function MePage(props: { searchParams: Promise<SearchParams> }) {
   const searchParams = await props.searchParams;
-  const user = searchParams.user || (await getCurrentUser()).display;
+  const me = await getCurrentUser();
+  const override = searchParams.user;
+  const user = override || me.display;
   const locale = await getLocale();
 
   const userClean = normalizeHandle(user);
-  const userEmail = deriveEmail(user);
+  // The session's own email is authoritative and used VERBATIM. Going through
+  // deriveEmail() here re-derived the address from the bare handle and so forced
+  // the org default domain onto it — a real login of dylan@alwaysmap.com resolved
+  // as dylan@google.com and landed on a DIFFERENT person. Only the ?user=
+  // override (a handle typed by a human, stub mode) needs deriving.
+  const userEmail = override ? deriveEmail(override) : me.email;
 
   const person = await prisma.person.findFirst({
     where: {
@@ -44,22 +51,22 @@ export default async function MePage(props: { searchParams: Promise<SearchParams
   const partners = await prisma.partner.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } });
 
   return (
-    <div style={{ padding: '40px', fontFamily: 'var(--body-font)' }}>
-      <h1 style={{ fontFamily: 'var(--head-font)', fontSize: '1.5rem', margin: '0 0 10px' }}>{t(locale, 'navMe')}</h1>
-      <p style={{ fontSize: 14, color: 'var(--muted)', maxWidth: '60ch', margin: '0 0 14px' }}>
+    <div style={{ padding: '2.5rem', fontFamily: 'var(--body-font)' }}>
+      <h1 style={{ fontFamily: 'var(--head-font)', fontSize: '1.5rem', margin: '0 0 0.625rem' }}>{t(locale, 'navMe')}</h1>
+      <p style={{ fontSize: '0.875rem', color: 'var(--muted)', maxWidth: '60ch', margin: '0 0 0.875rem' }}>
         {t(locale, 'noProfileForUser', { u: user })}{' '}
-        <Link href="/people" style={{ color: 'var(--p-600)' }}>{t(locale, 'peopleLabel')} →</Link>
+        <Link href="/people" style={{ color: 'var(--link)' }}>{t(locale, 'peopleLabel')} →</Link>
       </p>
-      <form action={createMyProfile} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <form action={createMyProfile} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
         {/* stub-mode override only; ignored when real auth is configured */}
         <input type="hidden" name="user" value={user} />
         <select name="partnerId" required defaultValue=""
-          style={{ fontSize: 13, padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--paper)' }}>
+          style={{ fontSize: '0.8125rem', padding: '0.375rem 0.625rem', border: '1px solid var(--border)', borderRadius: '0.375rem', background: 'var(--paper)' }}>
           <option value="">{t(locale, 'selectPartner')}</option>
           {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <button type="submit" data-testid="create-my-profile"
-          style={{ fontSize: 13, fontWeight: 600, padding: '6px 14px', border: '1px solid var(--p-600)', borderRadius: 6, background: 'var(--p-600)', color: 'var(--paper)', cursor: 'pointer' }}>
+          style={{ fontSize: '0.8125rem', fontWeight: 600, padding: '0.375rem 0.875rem', border: '1px solid var(--p-600)', borderRadius: '0.375rem', background: 'var(--p-600)', color: 'var(--paper)', cursor: 'pointer' }}>
           {t(locale, 'createMyProfile')}
         </button>
       </form>

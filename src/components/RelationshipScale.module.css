@@ -5,20 +5,20 @@
   display: inline-flex;
   flex-direction: row;
   align-items: center;
-  gap: 10px;
+  gap: 0.625rem;
 }
 
 .readout {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 /* Prior (gray) → arrow → current (dark) faces — the relationship's movement. */
 .faces {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
 }
 .priorFace {
   color: var(--muted);
@@ -32,7 +32,7 @@
 }
 
 .score {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--fg);
   line-height: 1;
@@ -40,14 +40,15 @@
 }
 
 .den {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
-  margin-left: 1px;
+  margin-left: 0.0625rem;
 }
 
 .descriptor {
-  font-size: 13px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-weight: 600;
   color: var(--fg);
 }
@@ -57,7 +58,8 @@
 }
 
 .updatedAt {
-  font-size: 11px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   color: var(--muted, #888);
   white-space: nowrap;
 }
@@ -66,10 +68,11 @@
   background-color: var(--white);
   border: 1px solid var(--border);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 6px;
+  padding: 0.1875rem 0.625rem;
+  border-radius: 0.375rem;
   cursor: pointer;
 }
 .updateBtn:hover {
@@ -82,24 +85,26 @@
 .cell {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .cellScore {
-  font-size: 13px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-weight: 700;
   color: var(--fg);
   font-variant-numeric: tabular-nums;
 }
 
 .cellDen {
-  font-size: 11px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   font-weight: 600;
   color: var(--muted);
 }
 
 .notRated {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-style: italic;
   color: var(--muted);
 }
@@ -110,11 +115,11 @@
      a modal must not inherit their text-align */
   text-align: left;
   border: none;
-  border-radius: 12px;
-  padding: 24px;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
   background-color: var(--white);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-  max-width: 460px;
+  box-shadow: 0 0.625rem 2.5rem rgba(0, 0, 0, 0.15);
+  max-width: 28.75rem;
   width: 90%;
   position: fixed;
   top: 50%;
@@ -129,51 +134,51 @@
 
 .dialogHeader h3 {
   font-family: var(--head-font);
-  font-size: 1.15rem;
+  font-size: 1.125rem;
   font-weight: 700;
-  margin: 0 0 16px 0;
+  margin: 0 0 1rem 0;
   color: var(--fg);
 }
 
 .dialogForm {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 1rem;
 }
 
 .formGroup {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.375rem;
 }
 
 .formLabel {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
 }
 
 .scaleHint {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
 .picker {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
+  gap: 0.375rem;
 }
 
 .pickBtn {
   border: 1px solid var(--border);
   background: var(--white);
   color: var(--fg);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  padding: 8px 0;
-  border-radius: 6px;
+  padding: 0.5rem 0;
+  border-radius: 0.375rem;
   cursor: pointer;
 }
 .pickBtn:hover {
@@ -184,7 +189,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 0.3125rem;
 }
 
 .pickBtnActive {
@@ -194,7 +199,8 @@
 }
 
 .pickDescriptor {
-  font-size: 13px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-weight: 600;
   color: var(--fg);
   min-height: 1.2em;
@@ -202,23 +208,24 @@
 
 .noteError {
   color: var(--bad);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .actionRow {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  margin-top: 8px;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
 }
 
 .cancelBtn {
   background: none;
   border: 1px solid var(--border);
   color: var(--muted);
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 13px;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -227,9 +234,10 @@
   background-color: var(--p-600);
   border: none;
   color: var(--white);
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 13px;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-weight: 600;
   cursor: pointer;
 }

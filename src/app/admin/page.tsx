@@ -23,26 +23,30 @@ const CURL_COMMAND_2 = `curl -X POST http://localhost:3000/api/integrations/chat
   }'`;
 
 import { wipeAllData as libWipeAllData, seedCoreData as libSeedCoreData, seedMockData as libSeedMockData } from '../../lib/seed';
+import AnchorHeading from '../../components/AnchorHeading';
 
 async function seedMockData() {
   'use server';
   await libSeedMockData();
   revalidatePath('/');
-  redirect('/');
+  revalidatePath('/ecosystem');
+  redirect('/ecosystem');
 }
 
 async function seedCoreData() {
   'use server';
   await libSeedCoreData();
   revalidatePath('/');
-  redirect('/');
+  revalidatePath('/ecosystem');
+  redirect('/ecosystem');
 }
 
 async function wipeAllData() {
   'use server';
   await libWipeAllData();
   revalidatePath('/');
-  redirect('/');
+  revalidatePath('/ecosystem');
+  redirect('/ecosystem');
 }
 
 export default async function AdminPage() {
@@ -82,7 +86,9 @@ export default async function AdminPage() {
 
       {/* Simulation & Integrations Help */}
       <section className={styles.helpSection}>
-        <h2>{t(locale, 'simulateChatHeading')}</h2>
+        <AnchorHeading id="simulate-chat" linkLabel={t(locale, 'anchorLink')}>
+          {t(locale, 'simulateChatHeading')}
+        </AnchorHeading>
         <p className={styles.helpIntro}>
           {t(locale, 'adminHelpIntro1')} <code>curl</code> {t(locale, 'adminHelpIntro2')} <code>/api/integrations/chat</code>).
         </p>

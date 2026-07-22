@@ -12,7 +12,9 @@ export async function getCurrentUser(): Promise<CurrentUser> {
   try {
     const session = await auth();
     const email = session?.user?.email;
-    if (email) return userFromHandle(email);
+    // The provider's name and photo are the only authoritative ones we get; carry
+    // them through here so no caller has to reach back into the session for them.
+    if (email) return userFromHandle(email, session?.user?.name, session?.user?.image);
   } catch {
     // Auth not configured or unavailable — fall back to the stub identity.
   }

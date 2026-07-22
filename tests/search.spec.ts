@@ -66,12 +66,45 @@ test.describe('Search Results Page (Text + pgvector)', () => {
     }
   });
 
-  test('UI: searching bosch shows the partner as a result link', async ({ page }) => {
-    await page.goto('/search?q=bosch');
+  test('UI: the landing page searches from ?q= and links the partner it finds', async ({ page }) => {
+    await page.goto('/?q=bosch');
 
     const hit = page.getByRole('link', { name: 'Bosch', exact: true });
     await expect(hit).toBeVisible();
     await expect(hit).toHaveAttribute('href', `/partners/${boschId}`);
+  });
+
+  test('UI: the landing search suggests as you type, then opens the full results', async ({ page }) => {
+    await page.goto('/');
+
+    // Hydration-guarded first interaction (AGENTS lesson 8): an unguarded fill on a
+    // freshly loaded page is this suite's #1 flake source.
+    const suggest = page.getByTestId('search-suggest');
+    await expect(async () => {
+      await page.getByRole('searchbox').fill('bosch');
+      await expect(suggest).toBeVisible({ timeout: 2000 });
+    }).toPass();
+
+    // Suggestions are navigable links whose accessible name says what each one IS,
+    // not just what it's called.
+    const hit = suggest.getByRole('link', { name: /^Bosch — Partner/ });
+    await expect(hit).toBeVisible();
+    await expect(hit).toHaveAttribute('href', `/partners/${boschId}`);
+
+    // "See all results" hands off to the full experience and dismisses the panel.
+    await suggest.getByRole('button').click();
+    await expect(suggest).toHaveCount(0);
+    // `results?` — the count line has a singular form, and how many rows this
+    // fixture happens to match is not what the test is about.
+    await expect(page.getByText(/results? across the ecosystem/)).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Bosch', exact: true })).toBeVisible();
+  });
+
+  test('UI: shared /search?q= links still land on the search experience', async ({ page }) => {
+    await page.goto('/search?q=bosch');
+
+    await expect(page).toHaveURL(/\/\?q=bosch$/);
+    await expect(page.getByRole('link', { name: 'Bosch', exact: true })).toBeVisible();
   });
 
   test('API: ranking survives a full reindex (semantic blend does not bury exact matches)', async ({ request }) => {

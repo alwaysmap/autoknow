@@ -17,21 +17,21 @@ export default async function ManagePage() {
   ];
 
   return (
-    <div style={{ padding: '32px 40px', maxWidth: 720 }}>
-      <header style={{ marginBottom: 20 }}>
+    <div style={{ padding: '2rem 2.5rem', maxWidth: '45rem' }}>
+      <header style={{ marginBottom: '1.25rem' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{t(locale, 'navManage')}</h1>
-        <p style={{ color: 'var(--muted, #666)', fontSize: 14, marginTop: 4 }}>
+        <p style={{ color: 'var(--muted, #666)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
           {t(locale, 'manageIntro')}
         </p>
       </header>
 
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+      <ul style={{ listStyle: 'none', padding: '0', margin: '0' }}>
         {entries.map((e) => (
-          <li key={e.href} style={{ borderBottom: '1px solid var(--border, #ddd)', padding: '16px 0' }}>
-            <Link href={e.href} style={{ fontSize: 16, fontWeight: 600, color: 'var(--fg, #222)', textDecoration: 'none' }}>
+          <li key={e.href} style={{ borderBottom: '1px solid var(--border, #ddd)', padding: '1rem 0' }}>
+            <Link href={e.href} style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--fg, #222)', textDecoration: 'none' }}>
               {e.label} →
             </Link>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--muted, #666)' }}>{e.desc}</p>
+            <p style={{ margin: '0.25rem 0 0', fontSize: '0.8125rem', color: 'var(--muted, #666)' }}>{e.desc}</p>
           </li>
         ))}
         {/* Personal settings (theme, language) live in the User menu, not here —

@@ -3,8 +3,9 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import PhaseHillGauge from './PhaseHillGauge';
+import ConstraintRing from './ConstraintRing';
 import Markdown from './Markdown';
-import { hillStatus, hillStatusColor, phaseColor } from '../lib/phase';
+import { hillStatus, hillStatusColor, phaseColor, phaseDetailHref } from '../lib/phase';
 import { computeCriticalChain } from '../lib/criticalChain';
 import { addPhase, deletePhase } from '../app/programs/[id]/actions';
 import { addPhasePartner, removePhasePartner } from '../app/actions/phasePartners';
@@ -239,17 +240,21 @@ export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGrap
             const isConstraint = chain.constraintId === p.id;
             return (
               <g key={p.id}>
-                {onChain.has(p.id) && (
+                {/* On-chain members get a quiet ring; the CONSTRAINT gets the one
+                    shared marker, identical to the rail's and the schedule's. */}
+                {isConstraint ? (
+                  <ConstraintRing cx={laneX(p.id)} cy={geom.ys[p.id]} r={NODE_R} />
+                ) : onChain.has(p.id) && (
                   <circle
                     cx={laneX(p.id)}
                     cy={geom.ys[p.id]}
                     r={NODE_R + 3.5}
                     fill="none"
-                    stroke={isConstraint ? 'var(--chain)' : 'var(--muted)'}
-                    strokeWidth={isConstraint ? 2 : 1.25}
+                    stroke="var(--muted)"
+                    strokeWidth={1.25}
                   />
                 )}
-                <circle cx={laneX(p.id)} cy={geom.ys[p.id]} r={NODE_R} fill={phaseColor(p.id)} stroke="#fff" strokeWidth={1.6}>
+                <circle cx={laneX(p.id)} cy={geom.ys[p.id]} r={NODE_R} fill={phaseColor(p.id)} stroke="var(--paper)" strokeWidth={1.6}>
                   <title>{`${p.name} — ${hillStatus(p.progress)}${isConstraint ? ' · constraint' : ''}`}</title>
                 </circle>
               </g>
@@ -276,7 +281,7 @@ export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGrap
                 className={styles.head}
                 onClick={onHeaderClick(p)}
               >
-                <Link href={`/history/phase/${p.id}`} className={styles.name} style={state === 'collapsed' && p.progress >= 100 ? { color: 'var(--muted)' } : undefined}>
+                <Link href={phaseDetailHref(projectId, p.id)} className={styles.name} style={state === 'collapsed' && p.progress >= 100 ? { color: 'var(--muted)' } : undefined}>
                   {p.name}
                 </Link>
                 <span className={styles.status} style={{ color: hillStatusColor(p.progress) }}>{status}</span>

@@ -4,6 +4,7 @@ import { jsonError, serverError } from '../../../../../lib/api';
 import { requireRouteAuth } from '../../../../../lib/routeAuth';
 import { parseBody, phaseStateApiSchema } from '../../../../../lib/schemas';
 import { parseHealth } from '../../../../../lib/health';
+import { destructiveDbAllowed } from '../../../../../lib/dbSafety';
 
 export async function POST(
   req: Request,
@@ -20,7 +21,13 @@ export async function POST(
 
     const parsed = parseBody(phaseStateApiSchema, await req.json().catch(() => null));
     if (!parsed.ok) return jsonError(parsed.error, 400);
-    const { theNeedle, hillChartProgress, notes, source } = parsed.data;
+    const { theNeedle, hillChartProgress, notes, source, sourceUrl, timestamp } = parsed.data;
+
+    // Same seed-only backdate rule as the phase-state route: fail closed, and refuse
+    // rather than silently ignore (docs/CRITICAL_CHAIN_VIEW_PLAN.md §6).
+    if (timestamp !== undefined && !destructiveDbAllowed()) {
+      return jsonError('timestamp override is only permitted on seed/test databases', 403);
+    }
 
     const proj = await prisma.project.findUnique({ where: { id: projectId } });
     if (!proj) {
@@ -47,7 +54,9 @@ export async function POST(
           theNeedle: finalNeedle,
           hillChartProgress: finalProgress,
           notes: notes ?? null,
-          source: source ?? 'API'
+          source: source ?? 'API',
+          sourceUrl: sourceUrl ?? null,
+          ...(timestamp !== undefined ? { timestamp } : {}),
         }
       }),
     ]);

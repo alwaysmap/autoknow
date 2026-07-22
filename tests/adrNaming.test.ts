@@ -1,0 +1,85 @@
+/** @jest-environment node */
+// ADRs were numbered `0001…` until 2026-07-21, and the scheme failed the first time
+// two branches wrote one concurrently: both took the next free number, and because
+// the slugs differed (`0005-session-…` vs `0005-retiring-…`) git merged them with NO
+// conflict — two records sharing an id, two index rows claiming it, and nothing to
+// notice until someone read both. A sequential id needs a central allocator; a repo
+// with concurrent branches has none.
+//
+// Dates need no allocator, so that is the convention (docs/adr/README.md). This
+// keeps it true, and keeps the index honest, because neither is self-enforcing.
+
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+
+const DIR = 'docs/adr';
+const NAME = /^(\d{4}-\d{2}-\d{2})-[a-z0-9]+(-[a-z0-9]+)*\.md$/;
+
+const records = (): string[] => readdirSync(DIR).filter((f) => f.endsWith('.md') && f !== 'README.md');
+const frontmatter = (file: string, key: string): string | null => {
+  const m = new RegExp(`^${key}: *(.*)$`, 'm').exec(readFileSync(join(DIR, file), 'utf8'));
+  return m ? m[1].trim().replace(/^["']|["']$/g, '') : null;
+};
+
+describe('ADR naming and index', () => {
+  it('names every record YYYY-MM-DD-slug.md — never a sequence number', () => {
+    expect(records().filter((f) => !NAME.test(f))).toEqual([]);
+  });
+
+  it("agrees with each record's own `date:` frontmatter", () => {
+    const mismatched = records()
+      .map((f) => ({ file: f, prefix: NAME.exec(f)?.[1], declared: frontmatter(f, 'date') }))
+      .filter((r) => r.prefix !== r.declared);
+    expect(mismatched).toEqual([]);
+  });
+
+  it('lists every record in the index exactly once, and links nothing missing', () => {
+    const index = readFileSync(join(DIR, 'README.md'), 'utf8');
+    const linked = [...index.matchAll(/\]\((\d{4}-\d{2}-\d{2}-[a-z0-9-]+\.md)\)/g)].map((m) => m[1]);
+
+    expect([...new Set(linked)].sort()).toEqual(records().sort()); // none missing, none extra
+    expect(linked.length).toBe(new Set(linked).size); // none listed twice
+    expect(linked.filter((f) => !records().includes(f))).toEqual([]); // no dead links
+  });
+
+  it('resolves every ADR path cited anywhere in the repo', () => {
+    // A citation is only worth writing if it opens. This caught an ESLint message
+    // pointing developers at `0005-identity-accessor-carries-every-displayed-field.md`
+    // — a file that never existed, shipped and unnoticed because nothing checked.
+    const known = new Set([...records(), 'README.md']);
+    const roots = ['docs', 'src', 'tests', 'scripts', '.claude', '.github', 'AGENTS.md', 'README.md', 'eslint.config.mjs', 'Dockerfile'];
+    const files: string[] = [];
+    const walk = (p: string) => {
+      const s = statSync(p);
+      if (s.isDirectory()) for (const e of readdirSync(p)) walk(join(p, e));
+      else if (/\.(md|ts|tsx|mjs|js|yml)$/.test(p) || p.endsWith('Dockerfile')) files.push(p);
+    };
+    for (const r of roots) if (existsSync(r)) walk(r);
+
+    const broken: string[] = [];
+    for (const f of files) {
+      for (const m of readFileSync(f, 'utf8').matchAll(/adr\/([A-Za-z0-9._-]+\.md)/g)) {
+        // Template placeholders (`YYYY-MM-DD-slug.md` in the compound skill) are
+        // spelled with capitals; real slugs never are. Skip them, not the check.
+        if (/[A-Z]/.test(m[1]) && !known.has(m[1])) continue;
+        if (!known.has(m[1])) broken.push(`${f} → ${m[1]}`);
+      }
+    }
+    expect(broken).toEqual([]);
+  });
+
+  it('supersession points at a real record, by slug', () => {
+    const known = new Set(records());
+    const bad: string[] = [];
+    for (const f of records()) {
+      for (const key of ['supersedes', 'superseded-by']) {
+        const v = frontmatter(f, key);
+        if (!v) continue;
+        // A slug, resolved against the directory — never a bare number, which is
+        // the identifier this convention exists to abolish.
+        if (/^\d+$/.test(v) || ![...known].some((r) => r.slice(11, -3) === v)) bad.push(`${f}: ${key}=${v}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+});

@@ -1,96 +1,58 @@
 import Link from 'next/link';
-import EcosystemStats from '../components/EcosystemStats';
-import SummaryPanel from '../components/SummaryPanel';
-import { getSummary } from '../lib/summaries';
-import { geminiConfigured } from '../lib/gemini';
-import CapacityChart from '../components/CapacityChart';
-import { getEcosystemDashboardData } from '../lib/dashboardData';
+import UnifiedSearch from '../components/UnifiedSearch';
+import LatestTeasers from '../components/LatestTeasers';
+import AnchorHeading from '../components/AnchorHeading';
+import { getActivity } from '../lib/activity';
 import { getLocale } from '../lib/locale';
 import { t } from '../lib/i18n';
-import EcosystemDashboardClient from './EcosystemDashboardClient';
+import { tNodes } from '../components/tNodes';
 import styles from './page.module.css';
+
+// The landing page (2026-07-20, user call). ONE job: get you to the thing you
+// came for. A big search box is the primary affordance; under it, the five most
+// recent updates — ingested documents and human-written notes alike — as teasers,
+// so an idle visit still shows what moved. The ecosystem dashboard, which used to
+// live here, now has its own URL at /ecosystem.
 
 export const dynamic = 'force-dynamic';
 
-export default async function Home() {
-  const locale = await getLocale();
-  const summary = await getSummary('ecosystem', 0);
+/** Enough to fill the strip; the number the user asked for. */
+const TEASER_COUNT = 5;
 
-  // 2. Load the shared dashboard data (projects, forecasts, cycle times, briefings).
-  const {
-    serializedProjects,
-  } = await getEcosystemDashboardData();
-
-  // Snapshot "now" server-side so SSR and hydration agree. This is an async Server
-  // Component — Date.now() runs once per request on the server, not on every client
-  // render, so the react-hooks purity rule (which assumes client re-render) is a
-  // false positive here.
-  // eslint-disable-next-line react-hooks/purity
-  const now = Date.now();
-  const activeCount = serializedProjects.filter((p) => !p.isArchived && p.hillChartProgress < 100).length;
+export default async function Landing(props: { searchParams: Promise<{ q?: string; lang?: string }> }) {
+  const { q, lang } = await props.searchParams;
+  const locale = await getLocale(lang);
+  const latest = await getActivity({ kind: 'ecosystem' }, TEASER_COUNT);
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>{t(locale, 'ecosystemDashboard')}</h1>
-      </header>
-
-      <main className={styles.main}>
-        {/* the leadership strip, in reading order: what threatens capacity first,
-            then when capacity lands (with/without GAS), then how many programs */}
-        <section className={styles.dashboardSection}
-          style={{ display: 'flex', flexWrap: 'wrap', gap: '28px 48px', alignItems: 'flex-start' }}>
-          <EcosystemStats activeCount={activeCount} allTimeCount={serializedProjects.length} />
-        </section>
-
-        {/* the capacity picture gets the full page width — it's the chart leadership
-            actually reads, and hover needs room */}
-        <section className={styles.dashboardSection}>
-          <CapacityChart
-            now={now}
-            programs={serializedProjects.map((p) => ({
-              id: p.id, name: p.name,
-              sopDate: p.sopDate, volumeFirstYear: p.volumeFirstYear, lifecycle: p.lifecycle,
-              hasGas: p.hasGas, hasGbi: p.hasGbi, hasDigitalKey: p.hasDigitalKey, hasAap: p.hasAap,
-            }))}
-          />
-        </section>
-
-        {/* the ecosystem leadership summary — risks/actions first, fully cited */}
-        <section className={styles.dashboardSection}>
-          <SummaryPanel scope="ecosystem" targetId={0} path="/"
-            summary={summary} configured={geminiConfigured} />
-        </section>
-        {/* Recent activity retired from this page (2026-07-18): the ecosystem page
-            is the leadership strip + briefing; activity lives on partner/program
-            pages where it has an anchor. */}
-
-        {serializedProjects.length === 0 ? (
-          <section className={styles.dashboardSection}>
-            <div className={styles.sectionHeader}>
-              <h2>{t(locale, 'programsAtRisk')}</h2>
-            </div>
-            <div className={styles.onboardingBox}>
-              <h3>{t(locale, 'welcomeAutoknow')}</h3>
-              <p>
-                {t(locale, 'onboardingIntro')}
-              </p>
-              <div className={styles.onboardingOptions}>
-                <Link href="/programs/new" className={styles.onboardingBtn}>
-                  {t(locale, 'createProjectFromTemplate')}
-                </Link>
-                <Link href="/admin" className={styles.onboardingBtnSecondary}>
-                  {t(locale, 'seedMockDataWalkthrough')}
-                </Link>
-              </div>
-            </div>
-          </section>
-        ) : (
-          <EcosystemDashboardClient now={now}
-            initialProjects={serializedProjects}
-          />
-        )}
+      <main className={styles.hero}>
+        <h1 className={styles.headline}>{t(locale, 'landingHeadline')}</h1>
+        <p className={styles.lede}>{t(locale, 'landingLede')}</p>
+        <UnifiedSearch
+          initialQuery={q ?? ''}
+          autoFocus
+          hero
+          placeholder={t(locale, 'searchEverythingPlaceholder')}
+        />
+        {/* The search box answers a question you can phrase. These are for when
+            you'd rather just look. */}
+        <p className={styles.browse}>
+          {tNodes(locale, 'landingBrowse', {
+            ecosystem: <Link key="e" href="/ecosystem">{t(locale, 'navEcosystem')}</Link>,
+            programs: <Link key="pr" href="/programs">{t(locale, 'navPrograms')}</Link>,
+            partners: <Link key="pa" href="/partners">{t(locale, 'navPartners')}</Link>,
+            people: <Link key="pe" href="/people">{t(locale, 'peopleLabel')}</Link>,
+          })}
+        </p>
       </main>
+
+      <section className={styles.latest}>
+        <AnchorHeading id="latest-updates" linkLabel={t(locale, 'anchorLink')}>
+          {t(locale, 'landingLatest')}
+        </AnchorHeading>
+        <LatestTeasers items={latest} locale={locale} />
+      </section>
     </div>
   );
 }

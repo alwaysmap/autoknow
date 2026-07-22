@@ -123,7 +123,7 @@ Template — **Decision** · **MUST** (one thing) · **COULD** (extras) · **Dat
 - **Decision:** what changed on this program, and what needs my attention — *without reading the feed?* For the program owner (daily standup lens) and any exec dropping in cold.
 - **MUST:**
   - A generated brief with fixed sections: **TL;DR** (2–3 sentences) · **Health & trajectory** (needle now vs. previous, direction of travel) · **Risks** · **Decisions made / pending** · **Next steps** · **Partner activity**.
-  - **Cited evidence per bullet** — every claim links to the in-app record it came from (`/history/project/{id}`, `/history/phase/{id}`, or the `ContextUrl` source link). "Everything is a URL."
+  - **Cited evidence per bullet** — every claim links to the in-app record it came from (`/programs/{id}#status-history` for a needle update, `/programs/{id}#phase-{id}-detail` for a phase's log, or the `ContextUrl` source link). "Everything is a URL." (The standalone `/history/**` pages those citations first pointed at were retired — 2026-07-20 for programs and partners, 2026-07-21 for phases — in favour of the popups on the entity's own page.)
   - Provenance line — *"Generated {date} by Gemini · from {n} updates"* — plus a staleness cue whenever underlying data is newer than the brief.
   - An **UPDATE-style regenerate button** (same visual grammar as the needle/hill cards) for on-demand refresh.
   - Honest degradation: when `geminiConfigured === false` (no `GEMINI_API_KEY`), render an empty state that says so — never fake a synthesis.
@@ -131,7 +131,7 @@ Template — **Decision** · **MUST** (one thing) · **COULD** (extras) · **Dat
 - **COULD:** week-over-week diff vs. the previous brief; "what changed since last brief" mode; brief history list (reuse the `NeedleHistoryList` card layout); a `brief` FeedKind so briefs land in the Activity feed with their own filter chip; embed the brief text (768-dim) so unified search finds it.
 - **Data required:**
   - [AI] the synthesis itself (**NEW**): `gemini-2.5-flash` + `responseSchema` structured JSON — same call pattern and graceful-fallback convention as `summarizeDocument` in `lib/gemini.ts`.
-  - [SoR] needle history (`getNeedleHistory`, `lib/history.ts`); per-phase hill history (`getHillHistory`); open `ActionItem`s; program metadata (owner, partner, SOP).
+  - [SoR] needle history (`getNeedleHistory`, `lib/history.ts`); per-phase hill history (`getPhaseLog`, `app/actions/hill.ts`); open `ActionItem`s; program metadata (owner, partner, SOP).
   - [ING] `ContextUrl.ingestedText` digests scoped to the program — already-distilled text only.
   - [DER] the input window (since last brief, else trailing 14 days); stagnation signals (`isStagnant`); update counts per source (feeds the provenance line).
 - **Context:** Project detail, **above the fold on every program page**, side-by-side with the program gauge (`StatusSignal`/needle) and the phases hill chart — the three together are the program's opening read: *the numbers* (gauge + hill) and *the words* (brief). 2-column grid per design.md; the brief takes the wide column, the gauge + hill charts stack beside it. Ecosystem rollup is explicitly **out of scope** for v1 (that's `InsightCard`'s job).

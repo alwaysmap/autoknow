@@ -3,6 +3,8 @@
 // notional remaining phase weeks (the critical chain), this is THE on-track signal,
 // and it drives the ecosystem capacity chart: when units come online, with/without GAS.
 
+import { deriveProgramStatus } from './lifecycle';
+
 export const DAY_MS = 86_400_000;
 
 /** "2027-03" (a <input type="month"> value) → the last day of that month (UTC). */
@@ -24,7 +26,7 @@ export function parseSopInput(value: string): Date | null {
 
 export interface SopOutlook {
   forecastFinishMs: number; // now + remaining chain work
-  slackDays: number; // positive = finishes before SOP, negative = late
+  bufferDays: number; // positive = finishes before SOP, negative = late
   onTrack: boolean;
 }
 
@@ -32,8 +34,8 @@ export interface SopOutlook {
 export function sopOutlook(remainingChainDays: number, sopDate: Date | string, now: number): SopOutlook {
   const sop = typeof sopDate === 'string' ? new Date(sopDate) : sopDate;
   const forecastFinishMs = now + remainingChainDays * DAY_MS;
-  const slackDays = Math.round((+sop - forecastFinishMs) / DAY_MS);
-  return { forecastFinishMs, slackDays, onTrack: slackDays >= 0 };
+  const bufferDays = Math.round((+sop - forecastFinishMs) / DAY_MS);
+  return { forecastFinishMs, bufferDays, onTrack: bufferDays >= 0 };
 }
 
 // ---- capacity over time ----
@@ -124,6 +126,76 @@ export function buildProductCapacitySeries(programs: CapacityProgram[], now: num
   return { points, excluded };
 }
 
+// ---- SOP buffer exhaustion ----
+
+export interface SopBufferProgram {
+  isArchived: boolean;
+  lifecycle?: string | null;
+  hillChartProgress: number;
+  sopDate: string | null;
+  /** Remaining forecast days along the critical chain (lib/criticalChain). */
+  chainRemainingDays: number;
+}
+
+export interface SopBufferRisk {
+  /** Programs whose remaining chain work no longer fits before the SOP target. */
+  late: number;
+  /** Active programs carrying a target SOP — the denominator `late` is drawn from. */
+  assessable: number;
+  /** Active programs with no target SOP: not assessable, which is its own problem. */
+  undated: number;
+}
+
+/** The SOP-outlook class of ONE program, from the deterministic critical-chain buffer
+ *  (never the Monte Carlo forecast). These tokens are what the /programs "SOP outlook"
+ *  column filters on. */
+export type SopBufferCategory = 'late' | 'ontrack' | 'nosop' | 'na';
+
+/**
+ * A program's SOP outlook. The buffer is the room between the SOP target and
+ * `now + remaining critical-chain work`; when it goes negative the buffer is exhausted
+ * and the date slips.
+ *   late    — active, buffer gone: the forecast finish overruns the target SOP.
+ *   ontrack — active, buffer intact.
+ *   nosop   — active but no target SOP (can't be assessed; SOP is required, so its
+ *             absence is its own problem — never silently "safe").
+ *   na      — not active (Done / Cancelled / Archived): the SOP outlook is moot.
+ * Only Active programs get a real reading — lib/lifecycle is the visibility boundary.
+ */
+export function sopBufferCategory(p: SopBufferProgram, now: number): SopBufferCategory {
+  if (deriveProgramStatus(p) !== 'Active') return 'na';
+  if (!p.sopDate) return 'nosop';
+  return sopOutlook(p.chainRemainingDays, p.sopDate, now).onTrack ? 'ontrack' : 'late';
+}
+
+/**
+ * How many active programs are projected to blow their SOP date — the per-ecosystem
+ * tally of sopBufferCategory, so the leadership tile's count and the /programs
+ * ?sopOutlook=late filter can never drift apart. Same signal the at-risk table's
+ * Forecast column renders per row (sopOutlook).
+ */
+export function sopBufferRisk(programs: SopBufferProgram[], now: number): SopBufferRisk {
+  let late = 0;
+  let assessable = 0;
+  let undated = 0;
+  for (const p of programs) {
+    switch (sopBufferCategory(p, now)) {
+      case 'late':
+        late += 1;
+        assessable += 1;
+        break;
+      case 'ontrack':
+        assessable += 1;
+        break;
+      case 'nosop':
+        undated += 1;
+        break;
+      // 'na' — not active, not counted
+    }
+  }
+  return { late, assessable, undated };
+}
+
 // ---- risk ranking ----
 
 /**
@@ -132,7 +204,7 @@ export function buildProductCapacitySeries(programs: CapacityProgram[], now: num
  * isn't. Missing SOP contributes no lateness (it's flagged separately: SOP is
  * required, so absence is its own problem).
  */
-export function riskScore(healthOrderValue: number, slackDays: number | null): number {
-  const lateDays = slackDays == null ? 0 : Math.max(0, -slackDays);
+export function riskScore(healthOrderValue: number, bufferDays: number | null): number {
+  const lateDays = bufferDays == null ? 0 : Math.max(0, -bufferDays);
   return healthOrderValue * 100_000 + Math.min(99_999, lateDays);
 }

@@ -71,10 +71,13 @@ test.describe('Projects and Partners Flow', () => {
     const bsp = page.getByTestId('phase-row').filter({ has: page.locator('a:text-is("BSP & power-on")') });
     await expect(bsp).toContainText('18w planned');
 
-    // Template content is copied onto the live phase and shown in its details.
-    await page.locator('[data-testid="phase-row"]')
-      .filter({ has: page.locator('a:text-is("Architecture lock")') })
-      .getByRole('button', { name: 'Details' }).click();
+    // Template content is copied onto the live phase and shown in its details. The
+    // card opens first: MIN is one line (name + plan), so the zoom button that
+    // reaches the popover only exists once the card is at standard size.
+    const archLock = page.locator('[data-testid="phase-row"]')
+      .filter({ has: page.locator('a:text-is("Architecture lock")') });
+    await archLock.locator('a[data-card-title]').click();
+    await archLock.getByRole('button', { name: 'Details' }).click();
     const details = page.getByTestId('phase-details');
     // Template content copied onto the live phase (Goal/Done-when format since the
     // phase-dossier overhaul, PR #15).

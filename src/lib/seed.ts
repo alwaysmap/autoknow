@@ -1,38 +1,38 @@
 import { prisma } from './db';
-import { TEMPLATES } from './templates';
 import { ingestRecord } from './vector';
 import { reindexAll } from './search';
-import { hillStatus } from './phase';
+import { scoreToHealth } from './relationship';
+import { ensureBuiltinTemplates } from './programTemplates';
 import { assertDestructiveDbAllowed } from './dbSafety';
+import { getCurrentUser } from './session';
 
-// Per-program phase progress (0..100), spread across the hill so each program's summary
-// chart shows a distinguishable dot per phase. Status is derived from progress.
-const FORD_PROGRESS: Record<string, number> = {
-  'BSP & power-on': 100,
-  'VHAL Integration': 65,
-  'Audio HAL': 45,
-  'Car Service Integration': 20,
-  'Compliance Testing': 0,
-};
-const TOYOTA_PROGRESS: Record<string, number> = {
-  'NFC Driver bring-up': 100,
-  'Secure Element configuration': 50,
-  'CCC Spec Compliance': 15,
-};
-const BOSCH_PROGRESS: Record<string, number> = {
-  'BSP & power-on': 100,
-  'VHAL Integration': 60,
-  'Audio HAL': 35,
-  'Car Service Integration': 15,
-  'Compliance Testing': 0,
-};
-const QUALCOMM_PROGRESS: Record<string, number> = {
-  'BSP & power-on': 100,
-  'VHAL Integration': 100,
-  'Audio HAL': 85,
-  'Car Service Integration': 55,
-  'Compliance Testing': 30,
-};
+// The mock seeder creates its data THROUGH the application's own mutation
+// boundaries — API route handlers invoked in-process, plus the server actions for
+// surfaces that have no route (dependencies, involvements, the Active toggle).
+// Rationale (docs/CRITICAL_CHAIN_VIEW_PLAN.md §6): the seed then exercises the API
+// and inherits its constraints — zod validation, name→id resolution, owner/person
+// resolution, parentage checks, derived status, cycle rejection — so seeded data is
+// correct by construction. Dated histories ride the routes' seed-only `timestamp`
+// override, which is fail-closed on the same lib/dbSafety policy as the wipe below.
+//
+// Deliberate direct-write residue (each commented at the site): reference lookup
+// tables, Partner.phone/googleTeam, backdated relationship history, vector ingest.
+import { POST as postPartnerRoute } from '../app/api/partners/route';
+import { POST as postPersonRoute } from '../app/api/people/route';
+import { POST as postAffiliationRoute } from '../app/api/people/[id]/affiliations/route';
+import { POST as postProjectRoute } from '../app/api/projects/route';
+import { POST as postNeedleRoute } from '../app/api/projects/[id]/needle/route';
+import { POST as postPhaseRoute } from '../app/api/projects/[id]/phases/route';
+import { POST as postPhaseStateRoute } from '../app/api/projects/[id]/phases/[phaseId]/state/route';
+import { POST as postActionItemRoute } from '../app/api/projects/[id]/phases/[phaseId]/action-items/route';
+import { addPhaseDependency } from '../app/actions/dependencies';
+import { addPhasePartner } from '../app/actions/phasePartners';
+import { addPhasePerson } from '../app/actions/phasePeople';
+import { setPhaseStarted } from '../app/actions/hill';
+
+// Phase progress is no longer hand-authored per program: the template-based programs
+// derive it from their plan position (seedPhasesFromBuiltin), which keeps it
+// DAG-coherent by construction.
 
 export async function wipeAllData() {
   // Fail closed: refuse unless the target DB is a disposable *_test database or the
@@ -89,700 +89,633 @@ export async function seedCoreData() {
   }
 }
 
-interface SeedPhase {
-  id: number;
-  name: string;
-  projectId: number;
+// ---------------------------------------------------------------------------------
+// In-process API invocation. The route handlers ARE the mutation boundary; calling
+// them directly (the tests/phaseStateRoute.test.ts pattern) exercises the exact same
+// code an HTTP client hits — auth check, zod parse, resolution, derived fields —
+// without needing a base URL or a live socket, so seeding works identically from the
+// admin console, the /api/admin/seed route, jest, and Playwright's dev server.
+// ---------------------------------------------------------------------------------
+
+// `params: Promise<never>` makes every concrete route signature assignable here
+// (parameter contravariance); the one cast below hands each handler the exact
+// params object its own type declares.
+type ApiHandler = (
+  req: Request,
+  props: { params: Promise<never> },
+) => Promise<Response>;
+
+async function apiPost<T>(
+  handler: ApiHandler,
+  path: string,
+  body: unknown,
+  params: Record<string, string> = {},
+): Promise<T> {
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  // requireRouteAuth admits a session or a valid admin token. When seeding runs
+  // inside a signed-in request the session applies; the token covers headless
+  // callers (curl to /api/admin/seed) on deployments where auth is configured.
+  if (process.env.ADMIN_TOKEN) headers['x-admin-token'] = process.env.ADMIN_TOKEN;
+  const req = new Request(`http://seed.internal${path}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+  const res = await handler(req, { params: Promise.resolve(params) as Promise<never> });
+  const json = (await res.json().catch(() => ({}))) as T & { error?: string };
+  if (!res.ok) {
+    throw new Error(`Seed POST ${path} failed (${res.status}): ${json?.error ?? 'unknown error'}`);
+  }
+  return json;
+}
+
+/** FormData for the server actions (dependencies, involvements, Active toggle). */
+function fd(fields: Record<string, string | number>): FormData {
+  const f = new FormData();
+  for (const [k, v] of Object.entries(fields)) f.set(k, String(v));
+  return f;
+}
+
+interface CreatedPartner { partner: { id: number } }
+interface CreatedPerson { person: { id: number } }
+interface CreatedProject { project: { id: number } }
+interface CreatedPhase { phase: { id: number } }
+
+async function createPartner(body: {
+  name: string; type: string; region: string;
+  website?: string; internalDetailsUrl?: string; summary?: string;
+}): Promise<number> {
+  const { partner } = await apiPost<CreatedPartner>(postPartnerRoute, '/api/partners', body);
+  return partner.id;
+}
+
+async function createPerson(body: {
+  name: string; email: string; currentPartnerId: number; notes?: string;
+}): Promise<number> {
+  const { person } = await apiPost<CreatedPerson>(postPersonRoute, '/api/people', body);
+  return person.id;
+}
+
+async function addAffiliation(
+  personId: number,
+  body: { partnerId: number; role: string; startDate: string; endDate?: string },
+): Promise<void> {
+  await apiPost(postAffiliationRoute, `/api/people/${personId}/affiliations`, body, {
+    id: String(personId),
+  });
+}
+
+async function createProject(body: {
+  name: string; partnerId: number; ownerName: string; sopDate?: string; volumeFirstYear?: number;
+}): Promise<number> {
+  const { project } = await apiPost<CreatedProject>(postProjectRoute, '/api/projects', body);
+  return project.id;
+}
+
+/** Append a program status update (and sync the Project columns) via the needle route. */
+async function postProjectState(
+  projectId: number,
+  body: {
+    theNeedle: string; hillChartProgress: number; notes?: string | null;
+    source?: string; sourceUrl?: string; timestamp?: string;
+  },
+): Promise<void> {
+  await apiPost(postNeedleRoute, `/api/projects/${projectId}/needle`, body, {
+    id: String(projectId),
+  });
+}
+
+/** Create a phase; `stateTimestamp` backdates its auto-created initial state so the
+ *  dated history posted afterwards stays the newest-wins truth. */
+async function createPhase(
+  projectId: number,
+  body: { name: string; forecastedDuration: number; stateTimestamp?: string },
+): Promise<number> {
+  const { phase } = await apiPost<CreatedPhase>(
+    postPhaseRoute, `/api/projects/${projectId}/phases`, body, { id: String(projectId) },
+  );
+  return phase.id;
+}
+
+async function postPhaseState(
+  projectId: number,
+  phaseId: number,
+  body: {
+    theNeedle?: string; hillChartProgress: number; notes?: string | null;
+    source?: string | null; sourceUrl?: string | null; timestamp?: string;
+  },
+): Promise<void> {
+  await apiPost(
+    postPhaseStateRoute,
+    `/api/projects/${projectId}/phases/${phaseId}/state`,
+    body,
+    { id: String(projectId), phaseId: String(phaseId) },
+  );
+}
+
+async function createActionItem(
+  projectId: number,
+  phaseId: number,
+  body: {
+    description: string; assignedTo: string; status: 'Pending' | 'Completed';
+    nextStep: 'Undecided' | 'Resolved' | 'Partner' | 'Googler';
+    linkUrl?: string; source?: string; sourceUrl?: string;
+  },
+): Promise<void> {
+  await apiPost(
+    postActionItemRoute,
+    `/api/projects/${projectId}/phases/${phaseId}/action-items`,
+    body,
+    { id: String(projectId), phaseId: String(phaseId) },
+  );
+}
+
+/** Dependency edges go through the server action so its cycle rejection applies. */
+async function addDependency(projectId: number, phaseId: number, dependsOnPhaseId: number): Promise<void> {
+  const result = await addPhaseDependency(fd({ phaseId, dependsOnPhaseId, projectId }));
+  if (result.error) {
+    throw new Error(`Seed dependency ${dependsOnPhaseId} → ${phaseId} rejected: ${result.error}`);
+  }
+}
+
+async function involvePartner(projectId: number, phaseId: number, partnerId: number, role?: string): Promise<void> {
+  await addPhasePartner(fd({ phaseId, partnerId, projectId, role: role ?? '' }));
+}
+
+async function involvePerson(projectId: number, phaseId: number, personId: number, role?: string): Promise<void> {
+  const result = await addPhasePerson(fd({ phaseId, personId, projectId, role: role ?? '' }));
+  if (result.error) {
+    throw new Error(`Seed phase-person involvement failed: ${result.error}`);
+  }
+}
+
+/** The Active toggle: explicit "work has begun" claim, day precision. */
+async function markStarted(projectId: number, phaseId: number, startedOn: Date): Promise<void> {
+  await setPhaseStarted(fd({ phaseId, projectId, startedOn: startedOn.toISOString().slice(0, 10) }));
+}
+
+/**
+ * Backdated relationship journal entries. PartnerState has no API route — the only
+ * mutation surface is the updatePartnerRelationship action, which stamps at write
+ * time — so DATED relationship history stays direct-write (the §6 fallback), with
+ * theNeedle derived through the canonical scoreToHealth so feed/filters stay
+ * coherent with what the action would have written.
+ */
+async function recordRelationship(
+  partnerId: number,
+  entry: { score: number; notes: string; timestamp: Date; hillChartProgress?: number },
+): Promise<void> {
+  await prisma.partnerState.create({
+    data: {
+      partnerId,
+      relationshipScore: entry.score,
+      theNeedle: scoreToHealth(entry.score),
+      hillChartProgress: entry.hillChartProgress ?? 0,
+      notes: entry.notes,
+      source: 'seed',
+      timestamp: entry.timestamp,
+    },
+  });
+}
+
+const WEEK_MS = 7 * 86_400_000;
+
+/** Load a built-in template and forward-pass its DAG: planned start = max(dependency
+ *  planned ends). `planWeeks` is the critical path — the whole program's plan length. */
+async function builtinPlan(templateName: string) {
+  const template = await prisma.programTemplate.findFirstOrThrow({
+    where: { name: templateName, isBuiltIn: true },
+    include: { phases: { include: { dependsOn: true }, orderBy: { sortOrder: 'asc' } } },
+  });
+  const byId = new Map(template.phases.map((p) => [p.id, p]));
+  const startWeeks = new Map<number, number>();
+  const endWeeks = new Map<number, number>();
+  const resolve = (id: number): number => {
+    const done = endWeeks.get(id);
+    if (done != null) return done;
+    const p = byId.get(id)!;
+    const start = p.dependsOn.length === 0 ? 0 : Math.max(...p.dependsOn.map((d) => resolve(d.dependsOnId)));
+    startWeeks.set(id, start);
+    const end = start + p.durationWeeks;
+    endWeeks.set(id, end);
+    return end;
+  };
+  for (const p of template.phases) resolve(p.id);
+  return { template, startWeeks, endWeeks, planWeeks: Math.max(...endWeeks.values()) };
+}
+
+/** The SOP a program of this plan length would carry: whatever plan remains after
+ *  today, plus a buffer, normalized to month end the way lib/sop expects. Keeps a
+ *  demo program from reading as catastrophically late just because the real 15-phase
+ *  AAOS plan is ~86 weeks long. */
+async function sopForPlan(templateName: string, throughWeeks: number, bufferWeeks: number): Promise<string> {
+  const { planWeeks } = await builtinPlan(templateName);
+  const finish = new Date(Date.now() + (planWeeks - throughWeeks + bufferWeeks) * WEEK_MS);
+  const monthEnd = new Date(Date.UTC(finish.getUTCFullYear(), finish.getUTCMonth() + 1, 0));
+  return monthEnd.toISOString().slice(0, 10);
+}
+
+/**
+ * Instantiate a demo program's phases from a BUILT-IN template — the same rich content
+ * real program creation copies (lib/builtinTemplates: a **Goal** + provable **Done
+ * when** checklist, googleFocus, plan durations and the converging DAG), so sample
+ * programs read like real ones instead of nameless stubs.
+ *
+ * Progress and DATES are both DERIVED, never hand-authored. `throughWeeks` places the
+ * program on its own plan and the calendar is anchored so that point is TODAY, so the
+ * demo always reads as "now". Each phase's history is dated at its PLANNED window —
+ * work begins at its planned start and a finished phase closes at its planned end — so
+ * the schedule chart cascades down the DAG instead of collapsing every phase onto one
+ * start date. Because a phase's planned start is max(its dependencies' planned ends),
+ * progress > 0 implies every dependency is already complete: the DAG-coherence guard in
+ * tests/seedMock holds by construction, with no per-phase tuning to drift out of sync.
+ *
+ * Returns name → phaseId so involvements and action items can attach to real phases.
+ */
+async function seedPhasesFromBuiltin(
+  projectId: number,
+  templateName: string,
+  throughWeeks: number,
+): Promise<Record<string, number>> {
+  const { template, startWeeks, endWeeks } = await builtinPlan(templateName);
+  const anchorMs = Date.now() - throughWeeks * WEEK_MS; // week 0 of the plan
+  const at = (weeks: number) => new Date(anchorMs + weeks * WEEK_MS).toISOString().slice(0, 10);
+
+  const idsByName: Record<string, number> = {};
+  const phaseIdByTemplateId = new Map<number, number>();
+
+  for (const p of template.phases) {
+    const start = startWeeks.get(p.id)!;
+    const end = endWeeks.get(p.id)!;
+    const pct = Math.round(Math.max(0, Math.min(1, (throughWeeks - start) / p.durationWeeks)) * 100);
+    const phase = await prisma.phase.create({
+      data: {
+        projectId,
+        name: p.name,
+        forecastedDuration: p.durationWeeks * 7, // templates store weeks; runtime is days
+        description: p.description,
+        googleFocus: p.googleFocus,
+        isEndPhase: p.isEndPhase,
+      },
+    });
+    idsByName[p.name] = phase.id;
+    phaseIdByTemplateId.set(p.id, phase.id);
+
+    // Backdated initial row, so a dated progress row stays newest-wins (CRITICAL_CHAIN §6).
+    await prisma.phaseState.create({
+      data: {
+        phaseId: phase.id,
+        status: 'Not Started',
+        theNeedle: 'On Track',
+        hillChartProgress: 0,
+        notes: 'Initial state',
+        timestamp: new Date(anchorMs - 2 * WEEK_MS),
+      },
+    });
+
+    if (pct > 0) {
+      // Work began at the phase's planned start — this row is what the schedule chart
+      // reads as startedAt, and it is what makes the bars cascade down the chain.
+      await postPhaseState(projectId, phase.id, {
+        theNeedle: 'On Track',
+        hillChartProgress: Math.min(10, pct),
+        notes: `${p.name} under way.`,
+        source: 'seed',
+        timestamp: at(start),
+      });
+      if (pct >= 100) {
+        await postPhaseState(projectId, phase.id, {
+          theNeedle: 'On Track', hillChartProgress: 100, notes: null, source: 'seed', timestamp: at(end),
+        });
+      } else if (pct > 10) {
+        await postPhaseState(projectId, phase.id, {
+          theNeedle: 'On Track',
+          hillChartProgress: pct,
+          notes: `${p.name} in flight.`,
+          source: 'seed',
+          timestamp: at(throughWeeks), // today
+        });
+      }
+    }
+  }
+
+  // Edges go through the cycle-rejecting action, like the rest of the seed.
+  for (const p of template.phases) {
+    for (const d of p.dependsOn) {
+      await addDependency(projectId, phaseIdByTemplateId.get(p.id)!, phaseIdByTemplateId.get(d.dependsOnId)!);
+    }
+  }
+  return idsByName;
 }
 
 export async function seedMockData() {
   console.log('Seeding full mock data...');
   await wipeAllData();
 
-  console.log('Seeding lookup tables (Regions, Partner Types)...');
-  const typeOem = await prisma.partnerType.create({ data: { name: 'OEM' } });
-  const typeSupplier = await prisma.partnerType.create({ data: { name: 'Supplier' } });
+  // WHO IS "ME": taken from the live session, never authored as a literal.
+  //
+  // The seed used to hardcode dylan@google.com as the lead PM. Signed in as a real
+  // Workspace account (dylan@alwaysmap.com), /me then resolved to a person the
+  // seed had invented and the app disagreed with itself about who you are — the
+  // nav said one address, the Me page showed another, and the programs "you" own
+  // belonged to a stranger. The seeder cannot anticipate the address, so it stops
+  // guessing: it runs through the API routes as the signed-in user, so it just
+  // ASKS. Every place that used to name Dylan now names `me.email`, which
+  // resolvePerson matches exactly — so this holds for any login, not just Dylan's.
+  const me = await getCurrentUser();
+  console.log(`Seeding as ${me.name} <${me.email}> — the lead PM persona is bound to this login.`);
 
-  const regAmer = await prisma.region.create({ data: { name: 'AMER' } });
-  const regApac = await prisma.region.create({ data: { name: 'APAC' } });
-  const regEmea = await prisma.region.create({ data: { name: 'EMEA' } });
-  await prisma.region.create({ data: { name: 'Other' } });
+  // Reference lookup tables are seed/migration-owned — there is deliberately no API
+  // that creates partner types or regions, so these two stay direct writes.
+  console.log('Seeding lookup tables (Regions, Partner Types)...');
+  for (const name of ['OEM', 'Supplier']) {
+    await prisma.partnerType.create({ data: { name } });
+  }
+  for (const name of ['AMER', 'APAC', 'EMEA', 'Other']) {
+    await prisma.region.create({ data: { name } });
+  }
+
+  // The built-in program templates are the source of the phases' Goal/"Done when"
+  // content. wipeAllData leaves ProgramTemplate alone and this is idempotent, so it
+  // just guarantees they exist before any program instantiates from them.
+  await ensureBuiltinTemplates();
 
   console.log('Seeding partners (Google self + external OEM & supplier)...');
-  // First seed Google LLC as a partner to hold Googlers
-  const googlePartner = await prisma.partner.create({
-    data: {
-      name: 'Google LLC',
-      typeId: typeOem.id,
-      website: 'https://www.google.com',
-      internalDetailsUrl: 'https://drive.google.com/drive/folders/google-internal',
-      summary: 'Internal Google team profiles and program manager affiliations.',
-      phone: '+1-650-253-0000',
-      regionId: regAmer.id,
-      googleTeam: []
-    }
+  // Type and region travel as NAMES — the partners route resolves them to ids and
+  // 400s on unknowns, which is exactly the boundary check we want the seed to pass.
+  const googlePartnerId = await createPartner({
+    name: 'Google LLC', type: 'OEM', region: 'AMER',
+    website: 'https://www.google.com',
+    internalDetailsUrl: 'https://drive.google.com/drive/folders/google-internal',
+    summary: 'Internal Google team profiles and program manager affiliations.',
+  });
+  const fordId = await createPartner({
+    name: 'Ford', type: 'OEM', region: 'AMER',
+    website: 'https://www.ford.com',
+    internalDetailsUrl: 'https://drive.google.com/drive/folders/ford-partnership',
+    summary: 'Strategic OEM partnership focused on Ford Evos AAOS software stack, instrument cluster integration, and cockpit security features.',
+  });
+  const toyotaId = await createPartner({
+    name: 'Toyota', type: 'OEM', region: 'APAC',
+    website: 'https://www.toyota-global.com',
+    internalDetailsUrl: 'https://drive.google.com/drive/folders/toyota-partnership',
+    summary: 'Long-term OEM relationship for standardizing Android Automotive OS components on next-gen e-TNGA EV platform architectures.',
+  });
+  const boschId = await createPartner({
+    name: 'Bosch', type: 'Supplier', region: 'EMEA',
+    website: 'https://www.bosch.com',
+    internalDetailsUrl: 'https://drive.google.com/drive/folders/bosch-partnership',
+    summary: 'Tier-1 supplier collaboration delivering telematics control units (TCU) and ADAS sensor suite calibration protocols.',
+  });
+  const qualcommId = await createPartner({
+    name: 'Qualcomm', type: 'Supplier', region: 'AMER',
+    website: 'https://www.qualcomm.com',
+    internalDetailsUrl: 'https://drive.google.com/drive/folders/qualcomm-partnership',
+    summary: 'Silicon provider alignment for optimizing Snapdragon Cockpit platforms (SA8155P/SA8295P) with Google Automotive Services (GAS).',
   });
 
-  const ford = await prisma.partner.create({
-    data: {
-      name: 'Ford',
-      typeId: typeOem.id,
-      website: 'https://www.ford.com',
-      internalDetailsUrl: 'https://drive.google.com/drive/folders/ford-partnership',
-      summary: 'Strategic OEM partnership focused on Ford Evos AAOS software stack, instrument cluster integration, and cockpit security features.',
-      phone: '+1-313-322-3000',
-      regionId: regAmer.id,
-      googleTeam: [
-        { email: 'dylan@google.com', role: 'Relationship Lead' },
-        { email: 'bob@google.com', role: 'Cloud Account Manager' }
-      ]
-    }
-  });
-
-  const toyota = await prisma.partner.create({
-    data: {
-      name: 'Toyota',
-      typeId: typeOem.id,
-      website: 'https://www.toyota-global.com',
-      internalDetailsUrl: 'https://drive.google.com/drive/folders/toyota-partnership',
-      summary: 'Long-term OEM relationship for standardizing Android Automotive OS components on next-gen e-TNGA EV platform architectures.',
-      phone: '+81-565-28-2121',
-      regionId: regApac.id,
-      googleTeam: [
-        { email: 'alice@google.com', role: 'Partner Engineering Manager' }
-      ]
-    }
-  });
-
-  const bosch = await prisma.partner.create({
-    data: {
-      name: 'Bosch',
-      typeId: typeSupplier.id,
-      website: 'https://www.bosch.com',
-      internalDetailsUrl: 'https://drive.google.com/drive/folders/bosch-partnership',
-      summary: 'Tier-1 supplier collaboration delivering telematics control units (TCU) and ADAS sensor suite calibration protocols.',
-      phone: '+49-711-400-40290',
-      regionId: regEmea.id,
-      googleTeam: [
-        { email: 'clara@google.com', role: 'Supplier Operations Lead' }
-      ]
-    }
-  });
-  
-  const qualcomm = await prisma.partner.create({
-    data: {
-      name: 'Qualcomm',
-      typeId: typeSupplier.id,
-      website: 'https://www.qualcomm.com',
-      internalDetailsUrl: 'https://drive.google.com/drive/folders/qualcomm-partnership',
-      summary: 'Silicon provider alignment for optimizing Snapdragon Cockpit platforms (SA8155P/SA8295P) with Google Automotive Services (GAS).',
-      phone: '+1-858-587-1121',
-      regionId: regAmer.id,
-      googleTeam: [
-        { email: 'dylan@google.com', role: 'Silicon Alignment Engineer' }
-      ]
-    }
-  });
+  // Contact phone and the googleTeam roster are display-only fields with no
+  // mutation surface (API or action) — patched directly onto the API-created rows.
+  const contactPatches: Array<{ id: number; phone: string; googleTeam: { email: string; role: string }[] }> = [
+    { id: googlePartnerId, phone: '+1-650-253-0000', googleTeam: [] },
+    { id: fordId, phone: '+1-313-322-3000', googleTeam: [
+      { email: me.email, role: 'Relationship Lead' },
+      { email: 'bob@google.com', role: 'Cloud Account Manager' },
+    ] },
+    { id: toyotaId, phone: '+81-565-28-2121', googleTeam: [
+      { email: 'alice@google.com', role: 'Partner Engineering Manager' },
+    ] },
+    { id: boschId, phone: '+49-711-400-40290', googleTeam: [
+      { email: 'clara@google.com', role: 'Supplier Operations Lead' },
+    ] },
+    { id: qualcommId, phone: '+1-858-587-1121', googleTeam: [
+      { email: me.email, role: 'Silicon Alignment Engineer' },
+    ] },
+  ];
+  for (const patch of contactPatches) {
+    await prisma.partner.update({
+      where: { id: patch.id },
+      data: { phone: patch.phone, googleTeam: patch.googleTeam },
+    });
+  }
 
   console.log('Seeding people...');
-  const dylan = await prisma.person.create({
-    data: {
-      name: 'Dylan PM',
-      email: 'dylan@google.com',
-      currentPartnerId: googlePartner.id,
-      notes: 'Lead Program Manager for AutoKnow ecosystem and Ford relationship.'
-    }
+  // People come BEFORE programs: the projects route resolves each program's owner
+  // against existing people and refuses freeform names.
+  const meId = await createPerson({
+    name: me.name, email: me.email, currentPartnerId: googlePartnerId,
+    notes: 'Lead Program Manager for AutoKnow ecosystem and Ford relationship.',
   });
-
-  const bob = await prisma.person.create({
-    data: {
-      name: 'Bob AccountManager',
-      email: 'bob@google.com',
-      currentPartnerId: googlePartner.id,
-      notes: 'Cloud Account Manager supervising OEM contract executions.'
-    }
+  const bobId = await createPerson({
+    name: 'Bob AccountManager', email: 'bob@google.com', currentPartnerId: googlePartnerId,
+    notes: 'Cloud Account Manager supervising OEM contract executions.',
   });
-
-  const kenji = await prisma.person.create({
-    data: {
-      name: 'Kenji Sato',
-      email: 'kenji.sato@toyota.com',
-      currentPartnerId: toyota.id,
-      notes: 'VP of Software Engineering at Toyota Connected.'
-    }
+  const aliceId = await createPerson({
+    name: 'Alice PM', email: 'alice@google.com', currentPartnerId: googlePartnerId,
+    notes: 'Partner Engineering Manager for the Toyota relationship.',
   });
-
-  const dieter = await prisma.person.create({
-    data: {
-      name: 'Dieter Meyer',
-      email: 'dieter.meyer@bosch.com',
-      currentPartnerId: bosch.id,
-      notes: 'Senior Lead ADAS architect at Bosch GmbH.'
-    }
+  const claraId = await createPerson({
+    name: 'Clara Operations', email: 'clara@google.com', currentPartnerId: googlePartnerId,
+    notes: 'Supplier Operations Lead covering Bosch programs.',
   });
-
-  const sarah = await prisma.person.create({
-    data: {
-      name: 'Sarah Jenkins',
-      email: 'sjenkins@qualcomm.com',
-      currentPartnerId: qualcomm.id,
-      notes: 'Qualcomm Snapdragon Cockpit product manager.'
-    }
+  const kenjiId = await createPerson({
+    name: 'Kenji Sato', email: 'kenji.sato@toyota.com', currentPartnerId: toyotaId,
+    notes: 'VP of Software Engineering at Toyota Connected.',
+  });
+  const dieterId = await createPerson({
+    name: 'Dieter Meyer', email: 'dieter.meyer@bosch.com', currentPartnerId: boschId,
+    notes: 'Senior Lead ADAS architect at Bosch GmbH.',
+  });
+  const sarahId = await createPerson({
+    name: 'Sarah Jenkins', email: 'sjenkins@qualcomm.com', currentPartnerId: qualcommId,
+    notes: 'Qualcomm Snapdragon Cockpit product manager.',
   });
 
   console.log('Seeding person affiliations...');
-  await prisma.personAffiliation.create({
-    data: {
-      personId: dylan.id,
-      partnerId: googlePartner.id,
-      role: 'Lead Program Manager',
-      startDate: new Date('2024-01-01')
-    }
-  });
+  await addAffiliation(meId, { partnerId: googlePartnerId, role: 'Lead Program Manager', startDate: '2024-01-01' });
+  await addAffiliation(bobId, { partnerId: googlePartnerId, role: 'Cloud Account Manager', startDate: '2024-03-15' });
+  await addAffiliation(aliceId, { partnerId: googlePartnerId, role: 'Partner Engineering Manager', startDate: '2023-02-01' });
+  await addAffiliation(claraId, { partnerId: googlePartnerId, role: 'Supplier Operations Lead', startDate: '2023-07-01' });
+  await addAffiliation(kenjiId, { partnerId: toyotaId, role: 'VP of Software Engineering', startDate: '2022-06-01' });
+  await addAffiliation(dieterId, { partnerId: boschId, role: 'Senior ADAS Systems Lead', startDate: '2023-01-10' });
+  await addAffiliation(sarahId, { partnerId: qualcommId, role: 'Snapdragon Automotive PM', startDate: '2023-09-01' });
 
-  await prisma.personAffiliation.create({
-    data: {
-      personId: bob.id,
-      partnerId: googlePartner.id,
-      role: 'Cloud Account Manager',
-      startDate: new Date('2024-03-15')
-    }
-  });
-
-  await prisma.personAffiliation.create({
-    data: {
-      personId: kenji.id,
-      partnerId: toyota.id,
-      role: 'VP of Software Engineering',
-      startDate: new Date('2022-06-01')
-    }
-  });
-
-  await prisma.personAffiliation.create({
-    data: {
-      personId: dieter.id,
-      partnerId: bosch.id,
-      role: 'Senior ADAS Systems Lead',
-      startDate: new Date('2023-01-10')
-    }
-  });
-
-  await prisma.personAffiliation.create({
-    data: {
-      personId: sarah.id,
-      partnerId: qualcomm.id,
-      role: 'Snapdragon Automotive PM',
-      startDate: new Date('2023-09-01')
-    }
-  });
+  // Demo programs instantiate these real templates, so their phases carry the
+  // researched Goal/"Done when" content and the full DAG. `through` is how far into
+  // the plan each program sits; SOPs derive from the plan so nothing reads as absurdly
+  // late just because the real AAOS plan is ~86 weeks long.
+  const AAOS_T = 'AAOS Bring-up (chipset \u2192 GBI)';
+  const DK_T = 'Digital Key';
+  const FORD_THROUGH = 48, BOSCH_THROUGH = 44, QUALCOMM_THROUGH = 38, TOYOTA_THROUGH = 5;
 
   console.log('Seeding projects...');
 
   // 1. Ford Evos AAOS Bring-up
-  const fordProject = await prisma.project.create({
-    data: {
-      name: 'Ford Evos AAOS Bring-up',
-      partnerId: ford.id,
-      ownerName: 'Dylan PM',
-      sopDate: new Date('2026-10-01'),
-      volumeFirstYear: 180000,
-      theNeedle: 'Medium', // Medium Risk
-      hillChartProgress: 40
-    }
+  const fordProjectId = await createProject({
+    name: 'Ford Evos AAOS Bring-up', partnerId: fordId, ownerName: me.email,
+    sopDate: await sopForPlan(AAOS_T, FORD_THROUGH, 8), volumeFirstYear: 180000,
+  });
+  // Dated program history through the needle route, oldest first — the final post
+  // also lands the Project columns on the current needle/hill.
+  await postProjectState(fordProjectId, {
+    theNeedle: 'Low', hillChartProgress: 20,
+    notes: 'Initial blueprint kickoff complete.',
+    source: 'Google Doc', sourceUrl: 'https://docs.google.com/document/d/ford-blueprint-kickoff',
+    timestamp: '2026-05-01',
+  });
+  await postProjectState(fordProjectId, {
+    theNeedle: 'Medium', hillChartProgress: 40,
+    notes: 'Progressing on BSP, but VHAL wait times are elevated.',
+    source: 'Google Chat', sourceUrl: 'https://chat.google.com/room/ford-evos-dev-talk',
+    timestamp: '2026-06-15',
   });
 
-  // Project states history logs for Ford
-  await prisma.projectState.create({
-    data: {
-      projectId: fordProject.id,
-      theNeedle: 'Low', // Low
-      hillChartProgress: 20,
-      notes: 'Initial blueprint kickoff complete.',
-      source: 'Google Doc',
-      sourceUrl: 'https://docs.google.com/document/d/ford-blueprint-kickoff',
-      timestamp: new Date('2026-05-01')
-    }
+  // ~48 weeks into the 86-week AAOS critical path: architecture, silicon, BSP and the
+  // display/connectivity/EVS tracks are done; VHAL (the long pole) and the hypervisor
+  // and app-platform tracks are in flight; compliance onward hasn't started.
+  const fordPhases = await seedPhasesFromBuiltin(fordProjectId, AAOS_T, FORD_THROUGH);
+
+  await createActionItem(fordProjectId, fordPhases['BSP & power-on'], {
+    description: 'Determine cause for VHAL wait time delay',
+    assignedTo: me.email, status: 'Pending', nextStep: 'Googler',
+    linkUrl: 'https://buganizer.corp.google.com/issues/889218',
+    source: 'Buganizer', sourceUrl: 'https://buganizer.corp.google.com/issues/889218',
   });
-
-  await prisma.projectState.create({
-    data: {
-      projectId: fordProject.id,
-      theNeedle: 'Medium', // Medium
-      hillChartProgress: 40,
-      notes: 'Progressing on BSP, but VHAL wait times are elevated.',
-      source: 'Google Chat',
-      sourceUrl: 'https://chat.google.com/room/ford-evos-dev-talk',
-      timestamp: new Date('2026-06-15')
-    }
+  await createActionItem(fordProjectId, fordPhases['BSP & power-on'], {
+    description: 'Verify cluster instrumentation panel interface specifications',
+    assignedTo: 'Kenji Sato', status: 'Pending', nextStep: 'Partner',
+    linkUrl: 'https://docs.google.com/document/d/cluster-specs-evos',
+    source: 'Google Doc', sourceUrl: 'https://docs.google.com/document/d/cluster-specs-evos',
   });
-
-  // Partner relationship state logs for Ford (1..7 scale; theNeedle stays derived)
-  await prisma.partnerState.create({
-    data: {
-      partnerId: ford.id,
-      theNeedle: 'Low', // Low
-      hillChartProgress: 25,
-      relationshipScore: 4,
-      notes: 'Executive alignment calls are positive.',
-      source: 'Google Chat',
-      sourceUrl: 'https://chat.google.com/room/ford-exec-chat',
-      timestamp: new Date('2026-05-10')
-    }
-  });
-
-  await prisma.partnerState.create({
-    data: {
-      partnerId: ford.id,
-      theNeedle: 'Medium', // Medium
-      hillChartProgress: 35,
-      relationshipScore: 3,
-      notes: 'Medium risk due to supplier delivery timelines.',
-      source: 'Google Doc',
-      sourceUrl: 'https://docs.google.com/document/d/ford-partnership-status',
-      timestamp: new Date('2026-06-20')
-    }
-  });
-
-  // Phases for Ford Project
-  const fordPhasesMap: Record<string, SeedPhase> = {};
-  for (const p of TEMPLATES.AAOS.phases) {
-    const phase = await prisma.phase.create({
-      data: {
-        name: p.name,
-        projectId: fordProject.id,
-        forecastedDuration: p.forecastedDuration
-      }
-    });
-    fordPhasesMap[p.name] = phase;
-
-    const isBsp = p.name === 'BSP & power-on';
-    const progress = FORD_PROGRESS[p.name] ?? 0;
-    await prisma.phaseState.create({
-      data: {
-        phaseId: phase.id,
-        status: hillStatus(progress),
-        hillChartProgress: progress,
-        theNeedle: 'On Track',
-        isStagnant: false,
-        notes: isBsp ? 'VHAL wait times are elevated.' : null,
-        source: isBsp ? 'Buganizer' : null,
-        sourceUrl: isBsp ? 'https://buganizer.corp.google.com/issues/889218' : null,
-        timestamp: new Date('2026-06-10') // To give it some cycle time
-      }
-    });
-  }
-
-  // Dependencies for Ford
-  for (const p of TEMPLATES.AAOS.phases) {
-    const phase = fordPhasesMap[p.name];
-    for (const depName of p.dependsOn) {
-      const depPhase = fordPhasesMap[depName];
-      await prisma.phaseDependency.create({
-        data: {
-          phaseId: phase.id,
-          dependsOnPhaseId: depPhase.id
-        }
-      });
-    }
-  }
-
-  // Action Items for Ford Project
-  const bspPhase = fordPhasesMap['BSP & power-on'];
-  await prisma.actionItem.create({
-    data: {
-      phaseId: bspPhase.id,
-      description: 'Determine cause for VHAL wait time delay',
-      assignedTo: '@dylan',
-      assignedToPersonId: dylan.id,
-      status: 'Pending',
-      nextStep: 'Googler',
-      linkUrl: 'https://buganizer.corp.google.com/issues/889218',
-      source: 'Buganizer',
-      sourceUrl: 'https://buganizer.corp.google.com/issues/889218'
-    }
-  });
-
-  await prisma.actionItem.create({
-    data: {
-      phaseId: bspPhase.id,
-      description: 'Verify cluster instrumentation panel interface specifications',
-      assignedTo: '@ Kenji Sato',
-      assignedToPersonId: kenji.id,
-      status: 'Pending',
-      nextStep: 'Partner',
-      linkUrl: 'https://docs.google.com/document/d/cluster-specs-evos',
-      source: 'Google Doc',
-      sourceUrl: 'https://docs.google.com/document/d/cluster-specs-evos'
-    }
-  });
-
 
   // 2. Toyota Highlander Digital Key
-  const toyotaProject = await prisma.project.create({
-    data: {
-      name: 'Toyota Highlander Digital Key',
-      partnerId: toyota.id,
-      ownerName: 'Alice PM',
-      sopDate: new Date('2027-02-15'),
-      volumeFirstYear: 250000,
-      theNeedle: 'Low', // Low Risk
-      hillChartProgress: 15
-    }
+  const toyotaProjectId = await createProject({
+    name: 'Toyota Highlander Digital Key', partnerId: toyotaId, ownerName: 'Alice PM',
+    sopDate: await sopForPlan(DK_T, TOYOTA_THROUGH, 4), volumeFirstYear: 250000,
+  });
+  await postProjectState(toyotaProjectId, {
+    theNeedle: 'Low', hillChartProgress: 15,
+    notes: 'Kickoff and initial threat modeling drafted.',
+    source: 'Google Doc', sourceUrl: 'https://docs.google.com/document/d/toyota-digital-key-threat-model',
+    timestamp: '2026-06-01',
   });
 
-  // Project state logs for Toyota Digital Key
-  await prisma.projectState.create({
-    data: {
-      projectId: toyotaProject.id,
-      theNeedle: 'Low',
-      hillChartProgress: 15,
-      notes: 'Kickoff and initial threat modeling drafted.',
-      source: 'Google Doc',
-      sourceUrl: 'https://docs.google.com/document/d/toyota-digital-key-threat-model',
-      timestamp: new Date('2026-06-01')
-    }
+  // ~5 weeks into a 10-week Digital Key plan: the NFC and Secure Element tracks are
+  // done and CCC conformance has just begun — an early-stage program.
+  const toyotaPhases = await seedPhasesFromBuiltin(toyotaProjectId, DK_T, TOYOTA_THROUGH);
+
+  await createActionItem(toyotaProjectId, toyotaPhases['Secure Element configuration'], {
+    description: 'Review security key exchange protocols for Highlander',
+    assignedTo: 'Kenji Sato', status: 'Pending', nextStep: 'Partner',
+    linkUrl: 'https://docs.google.com/document/d/security-key-toyota',
+    source: 'Google Doc', sourceUrl: 'https://docs.google.com/document/d/security-key-toyota',
   });
-
-  const toyotaPhasesMap: Record<string, SeedPhase> = {};
-  for (const p of TEMPLATES['Digital Key'].phases) {
-    const phase = await prisma.phase.create({
-      data: {
-        name: p.name,
-        projectId: toyotaProject.id,
-        forecastedDuration: p.forecastedDuration
-      }
-    });
-    toyotaPhasesMap[p.name] = phase;
-
-    const isKickoff = p.name === 'Secure Element configuration';
-    const progress = TOYOTA_PROGRESS[p.name] ?? 0;
-    await prisma.phaseState.create({
-      data: {
-        phaseId: phase.id,
-        status: hillStatus(progress),
-        hillChartProgress: progress,
-        theNeedle: 'On Track',
-        isStagnant: false,
-        notes: isKickoff ? 'Threat modeling in review by partner teams.' : null,
-        source: isKickoff ? 'Google Doc' : null,
-        sourceUrl: isKickoff ? 'https://docs.google.com/document/d/toyota-digital-key-threat-model' : null,
-        timestamp: new Date('2026-06-01')
-      }
-    });
-  }
-
-  for (const p of TEMPLATES['Digital Key'].phases) {
-    const phase = toyotaPhasesMap[p.name];
-    for (const depName of p.dependsOn) {
-      const depPhase = toyotaPhasesMap[depName];
-      await prisma.phaseDependency.create({
-        data: {
-          phaseId: phase.id,
-          dependsOnPhaseId: depPhase.id
-        }
-      });
-    }
-  }
-
-  // Action Items for Toyota
-  const appPhase = toyotaPhasesMap['Secure Element configuration'];
-  await prisma.actionItem.create({
-    data: {
-      phaseId: appPhase.id,
-      description: 'Review security key exchange protocols for Highlander',
-      assignedTo: '@ Kenji Sato',
-      assignedToPersonId: kenji.id,
-      status: 'Pending',
-      nextStep: 'Partner',
-      linkUrl: 'https://docs.google.com/document/d/security-key-toyota',
-      source: 'Google Doc',
-      sourceUrl: 'https://docs.google.com/document/d/security-key-toyota'
-    }
-  });
-
 
   // 3. Ford Explorer VHAL Integration (Bosch)
-  const boschProject = await prisma.project.create({
-    data: {
-      name: 'Ford Explorer VHAL Integration (Bosch)',
-      partnerId: bosch.id,
-      ownerName: 'Clara Operations',
-      sopDate: new Date('2026-11-20'),
-      volumeFirstYear: 120000,
-      theNeedle: 'High', // High Risk
-      hillChartProgress: 60
-    }
+  const boschProjectId = await createProject({
+    name: 'Ford Explorer VHAL Integration (Bosch)', partnerId: boschId, ownerName: 'Clara Operations',
+    sopDate: await sopForPlan(AAOS_T, BOSCH_THROUGH, 6), volumeFirstYear: 120000,
+  });
+  await postProjectState(boschProjectId, {
+    theNeedle: 'Medium', hillChartProgress: 50,
+    notes: 'Initial integration testing succeeded.',
+    source: 'Gerrit', sourceUrl: 'https://android-review.googlesource.com/c/platform/hardware/interfaces/+/12345',
+    timestamp: '2026-05-15',
+  });
+  await postProjectState(boschProjectId, {
+    theNeedle: 'High', hillChartProgress: 60,
+    notes: 'Telemetry calibration failures reported in telemetry unit.',
+    source: 'Buganizer', sourceUrl: 'https://buganizer.corp.google.com/issues/9987211',
+    timestamp: '2026-06-25',
   });
 
-  // Project state logs for Bosch Explorer
-  await prisma.projectState.create({
-    data: {
-      projectId: boschProject.id,
-      theNeedle: 'Medium', // Medium
-      hillChartProgress: 50,
-      notes: 'Initial integration testing succeeded.',
-      source: 'Gerrit',
-      sourceUrl: 'https://android-review.googlesource.com/c/platform/hardware/interfaces/+/12345',
-      timestamp: new Date('2026-05-15')
-    }
+  // ~44 weeks in: a little behind Ford Evos — VHAL is mid-flight and the parallel
+  // tracks off BSP are closing out.
+  const boschPhases = await seedPhasesFromBuiltin(boschProjectId, AAOS_T, BOSCH_THROUGH);
+
+  await createActionItem(boschProjectId, boschPhases['Vehicle sensors & VHAL'], {
+    description: 'Resolve CAN bus telemetry frame drop issues',
+    assignedTo: 'Dieter Meyer', status: 'Pending', nextStep: 'Partner',
+    linkUrl: 'https://buganizer.corp.google.com/issues/9987211',
+    source: 'Buganizer', sourceUrl: 'https://buganizer.corp.google.com/issues/9987211',
   });
-
-  await prisma.projectState.create({
-    data: {
-      projectId: boschProject.id,
-      theNeedle: 'High', // High
-      hillChartProgress: 60,
-      notes: 'Telemetry calibration failures reported in telemetry unit.',
-      source: 'Buganizer',
-      sourceUrl: 'https://buganizer.corp.google.com/issues/9987211',
-      timestamp: new Date('2026-06-25')
-    }
-  });
-
-  const boschPhasesMap: Record<string, SeedPhase> = {};
-  for (const p of TEMPLATES.AAOS.phases) {
-    const phase = await prisma.phase.create({
-      data: {
-        name: p.name,
-        projectId: boschProject.id,
-        forecastedDuration: p.forecastedDuration
-      }
-    });
-    boschPhasesMap[p.name] = phase;
-
-    const isBsp = p.name === 'BSP & power-on';
-    
-    if (isBsp) {
-      await prisma.phaseState.create({
-        data: {
-          phaseId: phase.id,
-          status: hillStatus(50),
-          hillChartProgress: 50,
-          theNeedle: 'On Track',
-          isStagnant: false,
-          timestamp: new Date('2026-04-01')
-        }
-      });
-    }
-    
-    const progress = BOSCH_PROGRESS[p.name] ?? 0;
-    await prisma.phaseState.create({
-      data: {
-        phaseId: phase.id,
-        status: hillStatus(progress),
-        hillChartProgress: progress,
-        theNeedle: 'On Track',
-        isStagnant: false,
-        notes: p.name === 'VHAL Integration' ? 'Telemetry calibration failures reported.' : null,
-        source: p.name === 'VHAL Integration' ? 'Buganizer' : null,
-        sourceUrl: p.name === 'VHAL Integration' ? 'https://buganizer.corp.google.com/issues/9987211' : null,
-        timestamp: isBsp ? new Date('2026-05-01') : new Date('2026-05-05')
-      }
-    });
-  }
-
-  // Dependencies for Bosch
-  for (const p of TEMPLATES.AAOS.phases) {
-    const phase = boschPhasesMap[p.name];
-    for (const depName of p.dependsOn) {
-      const depPhase = boschPhasesMap[depName];
-      await prisma.phaseDependency.create({
-        data: {
-          phaseId: phase.id,
-          dependsOnPhaseId: depPhase.id
-        }
-      });
-    }
-  }
-
-  // Action Items for Bosch
-  const boschAppPhase = boschPhasesMap['VHAL Integration'];
-  await prisma.actionItem.create({
-    data: {
-      phaseId: boschAppPhase.id,
-      description: 'Resolve CAN bus telemetry frame drop issues',
-      assignedTo: '@ Dieter Meyer',
-      assignedToPersonId: dieter.id,
-      status: 'Pending',
-      nextStep: 'Partner',
-      linkUrl: 'https://buganizer.corp.google.com/issues/9987211',
-      source: 'Buganizer',
-      sourceUrl: 'https://buganizer.corp.google.com/issues/9987211'
-    }
-  });
-
 
   // 4. Qualcomm Snapdragon Support (SA8295P cockpit)
-  const qualcommProject = await prisma.project.create({
-    data: {
-      name: 'Qualcomm Snapdragon Cockpit Support',
-      partnerId: qualcomm.id,
-      ownerName: 'Dylan PM',
-      sopDate: new Date('2026-08-30'),
-      volumeFirstYear: 500000,
-      theNeedle: 'Critical', // Critical Risk
-      hillChartProgress: 85
-    }
+  const qualcommProjectId = await createProject({
+    name: 'Qualcomm Snapdragon Cockpit Support', partnerId: qualcommId, ownerName: me.email,
+    sopDate: await sopForPlan(AAOS_T, QUALCOMM_THROUGH, 10), volumeFirstYear: 500000,
+  });
+  await postProjectState(qualcommProjectId, {
+    theNeedle: 'Medium', hillChartProgress: 75,
+    notes: 'Driver ports in progress, validation suite running.',
+    source: 'Gerrit', sourceUrl: 'https://android-review.googlesource.com/c/platform/hardware/qcom/+/99812',
+    timestamp: '2026-06-01',
+  });
+  await postProjectState(qualcommProjectId, {
+    theNeedle: 'Critical', hillChartProgress: 85,
+    notes: 'Audio driver deadlock causes complete system freeze on cold boot.',
+    source: 'Google Chat', sourceUrl: 'https://chat.google.com/room/qcom-audio-deadlocks',
+    timestamp: '2026-06-27',
   });
 
-  // Project state logs for Qualcomm Snapdragon
-  await prisma.projectState.create({
-    data: {
-      projectId: qualcommProject.id,
-      theNeedle: 'Medium', // Medium
-      hillChartProgress: 75,
-      notes: 'Driver ports in progress, validation suite running.',
-      source: 'Gerrit',
-      sourceUrl: 'https://android-review.googlesource.com/c/platform/hardware/qcom/+/99812',
-      timestamp: new Date('2026-06-01')
-    }
+  // ~38 weeks in: earlier than the OEM programs — BSP is done and the audio,
+  // display and connectivity tracks are still running.
+  const qualcommPhases = await seedPhasesFromBuiltin(qualcommProjectId, AAOS_T, QUALCOMM_THROUGH);
+
+  await createActionItem(qualcommProjectId, qualcommPhases['Audio'], {
+    description: 'Debug audio HAL cold boot freeze issue',
+    assignedTo: 'Sarah Jenkins', status: 'Pending', nextStep: 'Partner',
+    linkUrl: 'https://chat.google.com/room/qcom-audio-deadlocks',
+    source: 'Google Chat', sourceUrl: 'https://chat.google.com/room/qcom-audio-deadlocks',
+  });
+  await createActionItem(qualcommProjectId, qualcommPhases['Audio'], {
+    description: 'Review Snapdragon SA8295 firmware registry patches',
+    assignedTo: me.email, status: 'Pending', nextStep: 'Googler',
+    linkUrl: 'https://android-review.googlesource.com/c/platform/hardware/qcom/+/99812',
+    source: 'Gerrit', sourceUrl: 'https://android-review.googlesource.com/c/platform/hardware/qcom/+/99812',
   });
 
-  await prisma.projectState.create({
-    data: {
-      projectId: qualcommProject.id,
-      theNeedle: 'Critical', // Critical
-      hillChartProgress: 85,
-      notes: 'Audio driver deadlock causes complete system freeze on cold boot.',
-      source: 'Google Chat',
-      sourceUrl: 'https://chat.google.com/room/qcom-audio-deadlocks',
-      timestamp: new Date('2026-06-27')
-    }
-  });
-
-  const qualcommPhasesMap: Record<string, SeedPhase> = {};
-  for (const p of TEMPLATES.AAOS.phases) {
-    const phase = await prisma.phase.create({
-      data: {
-        name: p.name,
-        projectId: qualcommProject.id,
-        forecastedDuration: p.forecastedDuration
-      }
-    });
-    qualcommPhasesMap[p.name] = phase;
-
-    const isApp = p.name === 'Audio HAL';
-    
-    if (isApp) {
-      await prisma.phaseState.create({
-        data: {
-          phaseId: phase.id,
-          status: hillStatus(50),
-          hillChartProgress: 50,
-          theNeedle: 'On Track',
-          isStagnant: false,
-          timestamp: new Date('2026-04-15')
-        }
-      });
-    }
-
-    const progress = QUALCOMM_PROGRESS[p.name] ?? 0;
-    await prisma.phaseState.create({
-      data: {
-        phaseId: phase.id,
-        status: hillStatus(progress),
-        hillChartProgress: progress,
-        theNeedle: 'On Track',
-        isStagnant: false,
-        notes: isApp ? 'Audio driver cold boot freeze deadlock.' : null,
-        source: isApp ? 'Google Chat' : null,
-        sourceUrl: isApp ? 'https://chat.google.com/room/qcom-audio-deadlocks' : null,
-        timestamp: isApp ? new Date('2026-06-27') : new Date('2026-03-01')
-      }
-    });
-  }
-
-  // Dependencies for Qualcomm
-  for (const p of TEMPLATES.AAOS.phases) {
-    const phase = qualcommPhasesMap[p.name];
-    for (const depName of p.dependsOn) {
-      const depPhase = qualcommPhasesMap[depName];
-      await prisma.phaseDependency.create({
-        data: {
-          phaseId: phase.id,
-          dependsOnPhaseId: depPhase.id
-        }
-      });
-    }
-  }
-
-  // Action Items for Qualcomm
-  const qcomAppPhase = qualcommPhasesMap['Audio HAL'];
-  await prisma.actionItem.create({
-    data: {
-      phaseId: qcomAppPhase.id,
-      description: 'Debug audio HAL cold boot freeze issue',
-      assignedTo: '@ Sarah Jenkins',
-      assignedToPersonId: sarah.id,
-      status: 'Pending',
-      nextStep: 'Partner',
-      linkUrl: 'https://chat.google.com/room/qcom-audio-deadlocks',
-      source: 'Google Chat',
-      sourceUrl: 'https://chat.google.com/room/qcom-audio-deadlocks'
-    }
-  });
-
-  await prisma.actionItem.create({
-    data: {
-      phaseId: qcomAppPhase.id,
-      description: 'Review Snapdragon SA8295 firmware registry patches',
-      assignedTo: '@dylan',
-      assignedToPersonId: dylan.id,
-      status: 'Pending',
-      nextStep: 'Googler',
-      linkUrl: 'https://android-review.googlesource.com/c/platform/hardware/qcom/+/99812',
-      source: 'Gerrit',
-      sourceUrl: 'https://android-review.googlesource.com/c/platform/hardware/qcom/+/99812'
-    }
-  });
-
-  // Seed Context URLs for vector searches
-  // Per-phase partner involvement: partners either OWN a program (Project.partnerId) or
-  // are INVOLVED in specific phases of someone else's program via PhasePartner rows.
+  // Per-phase partner involvement: partners either OWN a program (Project.partnerId)
+  // or are INVOLVED in specific phases of someone else's program via PhasePartner.
   console.log('Seeding phase-partner involvements...');
-  await prisma.phasePartner.createMany({
-    data: [
-      // Ford Evos (owned by Ford): Qualcomm supplies silicon, Bosch supplies audio + VHAL
-      { phaseId: fordPhasesMap['BSP & power-on'].id, partnerId: qualcomm.id, role: 'Silicon' },
-      { phaseId: fordPhasesMap['Audio HAL'].id, partnerId: bosch.id, role: 'Supplier' },
-      { phaseId: fordPhasesMap['VHAL Integration'].id, partnerId: bosch.id, role: 'Supplier' },
-      // Toyota Digital Key (owned by Toyota): Qualcomm secure element
-      { phaseId: toyotaPhasesMap['Secure Element configuration'].id, partnerId: qualcomm.id, role: 'Silicon' },
-      // Bosch VHAL program (owned by Bosch): Ford is the OEM whose vehicle it lands in
-      { phaseId: boschPhasesMap['VHAL Integration'].id, partnerId: ford.id, role: 'OEM' },
-      { phaseId: boschPhasesMap['Compliance Testing'].id, partnerId: ford.id, role: 'OEM' },
-      // Qualcomm cockpit program (owned by Qualcomm): Bosch integrates audio
-      { phaseId: qualcommPhasesMap['Audio HAL'].id, partnerId: bosch.id, role: 'Integrator' },
-    ],
-  });
+  // Ford Evos (owned by Ford): Qualcomm supplies silicon, Bosch supplies audio + VHAL
+  await involvePartner(fordProjectId, fordPhases['BSP & power-on'], qualcommId, 'Silicon');
+  await involvePartner(fordProjectId, fordPhases['Audio'], boschId, 'Supplier');
+  await involvePartner(fordProjectId, fordPhases['Vehicle sensors & VHAL'], boschId, 'Supplier');
+  // Toyota Digital Key (owned by Toyota): Qualcomm secure element
+  await involvePartner(toyotaProjectId, toyotaPhases['Secure Element configuration'], qualcommId, 'Silicon');
+  // Bosch VHAL program (owned by Bosch): Ford is the OEM whose vehicle it lands in
+  await involvePartner(boschProjectId, boschPhases['Vehicle sensors & VHAL'], fordId, 'OEM');
+  await involvePartner(boschProjectId, boschPhases['Compliance gates'], fordId, 'OEM');
+  // Qualcomm cockpit program (owned by Qualcomm): Bosch integrates audio
+  await involvePartner(qualcommProjectId, qualcommPhases['Audio'], boschId, 'Integrator');
 
   console.log('Seeding Context URLs for vector search mapping...');
+  // Vector ingest is a lib boundary of its own (embedding + raw SQL insert); there is
+  // no HTTP surface for it, and ingestRecord IS what the app's ingestion paths call.
   await ingestRecord(
-    fordProject.id,
+    fordProjectId,
     'https://chat.google.com/room/ford-evos-dev-talk',
     'Chat',
     'Ford Evos AAOS Development Chat',
     'Ford Evos AAOS Bring-up project updates on VHAL sensor inputs and cluster panel configurations. We are diagnosing BSP power-on latencies and telemetry drops on cold boot.'
   );
-
   await ingestRecord(
-    toyotaProject.id,
+    toyotaProjectId,
     'https://docs.google.com/document/d/toyota-digital-key-threat-model',
     'Doc',
     'Toyota Highlander Digital Key Threat Model',
     'Toyota Highlander Digital Key threat modeling document. Details cryptographic key exchanges, NFC antenna protocols on the e-TNGA chassis, and companion app verification procedures.'
   );
-
   await ingestRecord(
-    boschProject.id,
+    boschProjectId,
     'https://buganizer.corp.google.com/issues/9987211',
     'Chat', // mock category
     'Bosch Explorer VHAL Telemetry Bug',
     'Bosch Explorer VHAL frame drops on telemetry unit. Dieter Meyer noted that telemetry drops occur when ADAS sensor calibrations start during active ignition sequences.'
   );
-
   await ingestRecord(
-    qualcommProject.id,
+    qualcommProjectId,
     'https://chat.google.com/room/qcom-audio-deadlocks',
     'Chat',
     'Qualcomm Snapdragon Audio Drivers chat',
@@ -797,40 +730,41 @@ export async function seedMockData() {
   // ---------------------------------------------------------------------------
   console.log('Seeding ecosystem enrichment (partners, people, programs)...');
 
-  const mkPartner = (name: string, typeId: number, regionId: number, summary: string) =>
-    prisma.partner.create({ data: { name, typeId, regionId, summary } });
+  const DAY = 86_400_000;
+  const seedNow = Date.now();
+  const ago = (days: number) => new Date(seedNow - days * DAY);
+  const agoIso = (days: number) => ago(days).toISOString();
 
-  const honda = await mkPartner('Honda', typeOem.id, regApac.id, 'AAOS bring-up across the next Accord and CR-V cockpits.');
-  const gm = await mkPartner('GM', typeOem.id, regAmer.id, 'Ultifi platform migration onto AAOS with GAS.');
-  const volvoCars = await mkPartner('Volvo Cars', typeOem.id, regEmea.id, 'EX90 follow-on programs: AAOS refresh plus Digital Key.');
-  const hyundai = await mkPartner('Hyundai', typeOem.id, regApac.id, 'Ioniq line GAS integration wave.');
-  const stellantis = await mkPartner('Stellantis', typeOem.id, regEmea.id, 'STLA SmartCockpit GAS rollout across brands.');
-  const denso = await mkPartner('Denso', typeSupplier.id, regApac.id, 'Tier-1 cockpit integrator on Honda and Toyota programs.');
-  const continental = await mkPartner('Continental', typeSupplier.id, regEmea.id, 'Cluster + cockpit compute for European OEMs.');
-  const lge = await mkPartner('LG Electronics', typeSupplier.id, regApac.id, 'IVI head units for GM and Hyundai lines.');
-  const harman = await mkPartner('Harman', typeSupplier.id, regAmer.id, 'Audio + telematics stacks on Stellantis programs.');
-  const mediatek = await mkPartner('MediaTek', typeSupplier.id, regApac.id, 'Dimensity Auto silicon on mid-range cockpits.');
+  const mkPartner = (name: string, type: string, region: string, summary: string) =>
+    createPartner({ name, type, region, summary });
+
+  const hondaId = await mkPartner('Honda', 'OEM', 'APAC', 'AAOS bring-up across the next Accord and CR-V cockpits.');
+  const gmId = await mkPartner('GM', 'OEM', 'AMER', 'Ultifi platform migration onto AAOS with GAS.');
+  const volvoCarsId = await mkPartner('Volvo Cars', 'OEM', 'EMEA', 'EX90 follow-on programs: AAOS refresh plus Digital Key.');
+  const hyundaiId = await mkPartner('Hyundai', 'OEM', 'APAC', 'Ioniq line GAS integration wave.');
+  const stellantisId = await mkPartner('Stellantis', 'OEM', 'EMEA', 'STLA SmartCockpit GAS rollout across brands.');
+  const densoId = await mkPartner('Denso', 'Supplier', 'APAC', 'Tier-1 cockpit integrator on Honda and Toyota programs.');
+  const continentalId = await mkPartner('Continental', 'Supplier', 'EMEA', 'Cluster + cockpit compute for European OEMs.');
+  const lgeId = await mkPartner('LG Electronics', 'Supplier', 'APAC', 'IVI head units for GM and Hyundai lines.');
+  const harmanId = await mkPartner('Harman', 'Supplier', 'AMER', 'Audio + telematics stacks on Stellantis programs.');
+  const mediatekId = await mkPartner('MediaTek', 'Supplier', 'APAC', 'Dimensity Auto silicon on mid-range cockpits.');
 
   const mkPerson = (name: string, email: string, currentPartnerId: number, notes: string) =>
-    prisma.person.create({ data: { name, email, currentPartnerId, notes } });
+    createPerson({ name, email, currentPartnerId, notes });
 
-  const priya = await mkPerson('Priya Sharma', 'priyash@google.com', googlePartner.id, 'Partner engineer across GAS integrations.');
-  const marcus = await mkPerson('Marcus Webb', 'marcusw@google.com', googlePartner.id, 'TPM for the AAOS bring-up portfolio.');
-  const aiko = await mkPerson('Aiko Tanaka', 'aiko@honda.example', honda.id, 'Honda cockpit software lead.');
-  const lena = await mkPerson('Lena Fischer', 'lena@continental.example', continental.id, 'Continental integration architect.');
-  const carlos = await mkPerson('Carlos Ruiz', 'carlos@gm.example', gm.id, 'GM Ultifi platform owner.');
-  const minji = await mkPerson('Min-ji Park', 'minji@lge.example', lge.id, 'LGE head-unit delivery manager.');
-  const sven = await mkPerson('Sven Larsson', 'sven@volvocars.example', volvoCars.id, 'Volvo Digital Key security lead.');
-  const deepak = await mkPerson('Deepak Rao', 'deepak@mediatek.example', mediatek.id, 'MediaTek automotive FAE.');
+  const priyaId = await mkPerson('Priya Sharma', 'priyash@google.com', googlePartnerId, 'Partner engineer across GAS integrations.');
+  const marcusId = await mkPerson('Marcus Webb', 'marcusw@google.com', googlePartnerId, 'TPM for the AAOS bring-up portfolio.');
+  const aikoId = await mkPerson('Aiko Tanaka', 'aiko@honda.example', hondaId, 'Honda cockpit software lead.');
+  const lenaId = await mkPerson('Lena Fischer', 'lena@continental.example', continentalId, 'Continental integration architect.');
+  const carlosId = await mkPerson('Carlos Ruiz', 'carlos@gm.example', gmId, 'GM Ultifi platform owner.');
+  const minjiId = await mkPerson('Min-ji Park', 'minji@lge.example', lgeId, 'LGE head-unit delivery manager.');
+  const svenId = await mkPerson('Sven Larsson', 'sven@volvocars.example', volvoCarsId, 'Volvo Digital Key security lead.');
+  const deepakId = await mkPerson('Deepak Rao', 'deepak@mediatek.example', mediatekId, 'MediaTek automotive FAE.');
 
   // A little career history so people pages have texture.
-  await prisma.personAffiliation.createMany({
-    data: [
-      { personId: lena.id, partnerId: bosch.id, role: 'Platform engineer', startDate: new Date('2019-02-01'), endDate: new Date('2023-05-01') },
-      { personId: deepak.id, partnerId: qualcomm.id, role: 'FAE', startDate: new Date('2018-06-01'), endDate: new Date('2022-01-01') },
-      { personId: minji.id, partnerId: harman.id, role: 'Delivery lead', startDate: new Date('2020-03-01'), endDate: new Date('2024-08-01') },
-    ],
-  });
+  await addAffiliation(lenaId, { partnerId: boschId, role: 'Platform engineer', startDate: '2019-02-01', endDate: '2023-05-01' });
+  await addAffiliation(deepakId, { partnerId: qualcommId, role: 'FAE', startDate: '2018-06-01', endDate: '2022-01-01' });
+  await addAffiliation(minjiId, { partnerId: harmanId, role: 'Delivery lead', startDate: '2020-03-01', endDate: '2024-08-01' });
 
   // Program specs: name, OEM, owner, SOP (month-end), 12-month volume, products,
   // health, hill position, phases (name, days, progress) chained linearly, and the
@@ -843,129 +777,278 @@ export async function seedMockData() {
   }
   const programs: MockProgram[] = [
     // --- AAOS bring-ups ---
-    { name: 'Honda Accord AAOS Bring-up', partnerId: honda.id, owner: 'marcusw', sop: '2027-04-30', vol: 220000,
+    { name: 'Honda Accord AAOS Bring-up', partnerId: hondaId, owner: 'marcusw', sop: '2027-04-30', vol: 220000,
       gas: true, gbi: true, dk: false, needle: 'Some Risk', hill: 45,
-      phases: [ { n: 'BSP & Power-on', d: 30, p: 100 }, { n: 'HAL Integration', d: 45, p: 55 }, { n: 'Cluster Bring-up', d: 30, p: 20 }, { n: 'Certification', d: 40, p: 0 } ],
-      suppliers: [denso.id, mediatek.id], people: [aiko.id, deepak.id, marcus.id] },
-    { name: 'GM Ultifi AAOS Migration', partnerId: gm.id, owner: 'marcusw', sop: '2027-09-30', vol: 340000,
+      phases: [ { n: 'BSP & Power-on', d: 30, p: 100 }, { n: 'HAL Integration', d: 45, p: 55 }, { n: 'Cluster Bring-up', d: 30, p: 0 }, { n: 'Certification', d: 40, p: 0 } ],
+      suppliers: [densoId, mediatekId], people: [aikoId, deepakId, marcusId] },
+    { name: 'GM Ultifi AAOS Migration', partnerId: gmId, owner: 'marcusw', sop: '2027-09-30', vol: 340000,
       gas: true, gbi: true, dk: false, needle: 'On Track', hill: 30,
       phases: [ { n: 'Architecture Lock', d: 25, p: 100 }, { n: 'Compute Board Bring-up', d: 40, p: 40 }, { n: 'App Platform Port', d: 50, p: 0 }, { n: 'Fleet Validation', d: 45, p: 0 } ],
-      suppliers: [lge.id], people: [carlos.id, minji.id, marcus.id] },
-    { name: 'Volvo EX90 AAOS Refresh', partnerId: volvoCars.id, owner: 'dylan', sop: '2026-12-31', vol: 90000,
+      suppliers: [lgeId], people: [carlosId, minjiId, marcusId] },
+    { name: 'Volvo EX90 AAOS Refresh', partnerId: volvoCarsId, owner: me.email, sop: '2026-12-31', vol: 90000,
       gas: true, gbi: false, dk: false, needle: 'Concerned', hill: 70,
-      phases: [ { n: 'Platform Rebase', d: 30, p: 100 }, { n: 'Driver Update Pass', d: 25, p: 80 }, { n: 'Regression & Cert', d: 35, p: 10 } ],
-      suppliers: [continental.id], people: [lena.id, sven.id] },
+      phases: [ { n: 'Platform Rebase', d: 30, p: 100 }, { n: 'Driver Update Pass', d: 25, p: 80 }, { n: 'Regression & Cert', d: 35, p: 0 } ],
+      suppliers: [continentalId], people: [lenaId, svenId] },
     // --- GAS integrations ---
-    { name: 'Hyundai Ioniq GAS Integration', partnerId: hyundai.id, owner: 'priyash', sop: '2027-06-30', vol: 260000,
+    { name: 'Hyundai Ioniq GAS Integration', partnerId: hyundaiId, owner: 'priyash', sop: '2027-06-30', vol: 260000,
       gas: true, gbi: false, dk: false, needle: 'On Track', hill: 35,
       phases: [ { n: 'GMS Core Enablement', d: 30, p: 100 }, { n: 'Play Store Config', d: 20, p: 45 }, { n: 'Assistant Tuning', d: 25, p: 0 }, { n: 'GAS Certification', d: 30, p: 0 } ],
-      suppliers: [lge.id], people: [minji.id, priya.id] },
-    { name: 'Stellantis STLA GAS Rollout', partnerId: stellantis.id, owner: 'priyash', sop: '2028-03-31', vol: 410000,
+      suppliers: [lgeId], people: [minjiId, priyaId] },
+    { name: 'Stellantis STLA GAS Rollout', partnerId: stellantisId, owner: 'priyash', sop: '2028-03-31', vol: 410000,
       gas: true, gbi: true, dk: false, needle: 'Some Risk', hill: 20,
       phases: [ { n: 'Brand Matrix Scoping', d: 20, p: 100 }, { n: 'Reference Head Unit', d: 45, p: 30 }, { n: 'Per-brand Skinning', d: 40, p: 0 }, { n: 'Rollout Wave 1', d: 50, p: 0 } ],
-      suppliers: [harman.id], people: [priya.id] },
+      suppliers: [harmanId], people: [priyaId] },
     // --- Digital Key programs ---
-    { name: 'Honda Digital Key CCC', partnerId: honda.id, owner: 'dylan', sop: '2027-01-31', vol: 150000,
+    { name: 'Honda Digital Key CCC', partnerId: hondaId, owner: me.email, sop: '2027-01-31', vol: 150000,
       gas: false, gbi: false, dk: true, needle: 'Some Risk', hill: 50,
       phases: [ { n: 'NFC Driver Bring-up', d: 20, p: 100 }, { n: 'Secure Element Config', d: 30, p: 60 }, { n: 'CCC Spec Compliance', d: 40, p: 0 } ],
-      suppliers: [denso.id], people: [aiko.id] },
-    { name: 'Volvo Digital Key', partnerId: volvoCars.id, owner: 'dylan', sop: '2027-08-31', vol: 70000,
+      suppliers: [densoId], people: [aikoId] },
+    { name: 'Volvo Digital Key', partnerId: volvoCarsId, owner: me.email, sop: '2027-08-31', vol: 70000,
       gas: false, gbi: false, dk: true, needle: 'On Track', hill: 25,
       phases: [ { n: 'Key Architecture', d: 25, p: 100 }, { n: 'UWB Ranging', d: 35, p: 25 }, { n: 'Companion App', d: 30, p: 0 }, { n: 'CCC Certification', d: 30, p: 0 } ],
-      suppliers: [continental.id], people: [sven.id, lena.id] },
+      suppliers: [continentalId], people: [svenId, lenaId] },
   ];
 
   for (const spec of programs) {
-    const project = await prisma.project.create({
+    const projectId = await createProject({
+      name: spec.name,
+      partnerId: spec.partnerId,
+      ownerName: spec.owner,
+      sopDate: spec.sop,
+      volumeFirstYear: spec.vol,
+    });
+    // Product flags have no mutation surface of their own (the metrics form action
+    // would append a synthetic history row) — set the columns directly.
+    await prisma.project.update({
+      where: { id: projectId },
       data: {
-        name: spec.name,
-        partnerId: spec.partnerId,
-        ownerName: spec.owner,
-        sopDate: new Date(spec.sop),
-        volumeFirstYear: spec.vol,
         hasGas: spec.gas,
         hasGbi: spec.gbi,
         hasDigitalKey: spec.dk,
         hasAap: spec.aap ?? spec.gas, // projection typically rides along with GAS builds
-
-        theNeedle: spec.needle,
-        hillChartProgress: spec.hill,
       },
     });
-    await prisma.projectState.create({
-      data: {
-        projectId: project.id,
-        theNeedle: spec.needle,
-        hillChartProgress: spec.hill,
-        notes: `Weekly update: tracking toward SOP ${spec.sop.slice(0, 7)}.`,
-        source: 'seed',
-      },
+    await postProjectState(projectId, {
+      theNeedle: spec.needle,
+      hillChartProgress: spec.hill,
+      notes: `Weekly update: tracking toward SOP ${spec.sop.slice(0, 7)}.`,
+      source: 'seed',
     });
 
     let prevPhaseId: number | null = null;
     let activePhaseId: number | null = null;
     for (const ph of spec.phases) {
-      const phase = await prisma.phase.create({
-        data: { name: ph.n, projectId: project.id, forecastedDuration: ph.d },
+      const phaseId = await createPhase(projectId, {
+        name: ph.n,
+        forecastedDuration: ph.d,
+        // The initial state predates the progress state so newest-wins ordering holds.
+        stateTimestamp: agoIso(60),
       });
-      await prisma.phaseState.create({
-        data: {
-          phaseId: phase.id,
-          status: ph.p >= 100 ? 'Done' : ph.p > 0 ? 'In Progress' : 'Not Started',
-          theNeedle: 'On Track',
-          hillChartProgress: ph.p,
-          notes: ph.p > 0 && ph.p < 100 ? `${ph.n} in flight.` : null,
-          source: 'seed',
-        },
+      await postPhaseState(projectId, phaseId, {
+        theNeedle: 'On Track',
+        hillChartProgress: ph.p,
+        notes: ph.p > 0 && ph.p < 100 ? `${ph.n} in flight.` : null,
+        source: 'seed',
       });
       if (prevPhaseId != null) {
-        await prisma.phaseDependency.create({ data: { phaseId: phase.id, dependsOnPhaseId: prevPhaseId } });
+        await addDependency(projectId, phaseId, prevPhaseId);
       }
-      if (activePhaseId == null && ph.p > 0 && ph.p < 100) activePhaseId = phase.id;
-      prevPhaseId = phase.id;
+      if (activePhaseId == null && ph.p > 0 && ph.p < 100) activePhaseId = phaseId;
+      prevPhaseId = phaseId;
     }
 
     // Involvement rides on the active phase — pills, contention, partner pages.
     if (activePhaseId != null) {
       for (const supplierId of spec.suppliers) {
-        await prisma.phasePartner.create({ data: { phaseId: activePhaseId, partnerId: supplierId, role: null } });
+        await involvePartner(projectId, activePhaseId, supplierId);
       }
       for (const personId of spec.people) {
-        await prisma.phasePerson.create({ data: { phaseId: activePhaseId, personId, role: null } });
+        await involvePerson(projectId, activePhaseId, personId);
       }
     }
   }
 
-  // Relationship health (1..7 scale) spread across the partner set so the
+  // ---------------------------------------------------------------------------
+  // Critical Chain ledger showcase (docs/CRITICAL_CHAIN_VIEW_PLAN.md): four
+  // programs with DATED progress histories exercising every situation in the
+  // taxonomy — sunk overrun (with a contended partner), idle handoff, forecast
+  // overrun, upcoming handoff, oversubscription with movable slack, SOP
+  // overshoot (the Concerned proposal), and all-clear — plus the portfolio
+  // aggregation (Priya gates several falling SOPs; Harman gates exactly one).
+  // "Gemini X Cockpit" alone carries FIVE overlapping situations — the blend
+  // case a structured Gemini prompt would narrate across. Dates are relative to
+  // seed time so the demo always reads as "today"; they ride the routes'
+  // guarded `timestamp` override — the buffer-trend replay feeds on them.
+  // ---------------------------------------------------------------------------
+  console.log('Seeding chain-ledger showcase programs...');
+  // SOP dates are month-end normalized by policy (lib/sop) — the seed models that.
+  const aheadMonthEnd = (days: number) => {
+    const d = new Date(seedNow + days * DAY);
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
+  };
+
+  interface ShowPhase {
+    n: string;
+    d: number; // forecastedDuration
+    startedAgo: number | null; // explicit startedAt (the Active toggle), days ago
+    states: { ago: number; p: number }[]; // dated hill history, oldest first
+    partnerIds?: number[];
+    personIds?: number[];
+  }
+  interface ShowProgram {
+    name: string; partnerId: number; owner: string; sopInDays: number; vol: number;
+    gas?: boolean; gbi?: boolean; dk?: boolean; needle: string; hill: number; note: string;
+    phases: ShowPhase[];
+  }
+  const showcase: ShowProgram[] = [
+    // Multi-situation program: Kickoff gave back 3d; HW bring-up sank 9d while
+    // Bosch was multiplexed; 6 idle days before SW integration AND before Cert;
+    // Cert (constraint, Priya + Marcus) trending ~5d over; Production readiness
+    // (Bosch) is the upcoming handoff. Buffer 35 → 12 of a 45-day guideline.
+    { name: 'Gemini X Cockpit', partnerId: gmId, owner: me.email, sopInDays: 101, vol: 120000,
+      gas: true, gbi: true, needle: 'Some Risk', hill: 55,
+      note: 'Cert is moving but slower than planned; watching the buffer weekly.',
+      phases: [
+        { n: 'Kickoff', d: 30, startedAgo: 200, states: [{ ago: 200, p: 5 }, { ago: 190, p: 40 }, { ago: 173, p: 100 }] },
+        { n: 'HW bring-up', d: 60, startedAgo: 173, partnerIds: [boschId],
+          states: [{ ago: 173, p: 10 }, { ago: 150, p: 30 }, { ago: 130, p: 60 }, { ago: 110, p: 85 }, { ago: 104, p: 100 }] },
+        { n: 'SW integration', d: 70, startedAgo: 98,
+          states: [{ ago: 98, p: 15 }, { ago: 70, p: 45 }, { ago: 45, p: 80 }, { ago: 28, p: 100 }] },
+        { n: 'Cert', d: 56, startedAgo: 22, personIds: [priyaId, marcusId],
+          states: [{ ago: 22, p: 10 }, { ago: 10, p: 20 }, { ago: 3, p: 30 }] },
+        { n: 'Production readiness', d: 50, startedAgo: null, partnerIds: [boschId], states: [{ ago: 1, p: 0 }] },
+      ] },
+    // SOP overshoot: certification forecast lands ~13 days past the SOP — the
+    // "declare Concerned, propose the SOP move" example, with delayed units.
+    { name: 'Polaris EV Digital Key', partnerId: volvoCarsId, owner: me.email, sopInDays: 5, vol: 60000,
+      dk: true, needle: 'Concerned', hill: 60,
+      note: 'UWB ranging overran and certification is pacing behind plan.',
+      phases: [
+        { n: 'Key Architecture', d: 30, startedAgo: 120, states: [{ ago: 120, p: 20 }, { ago: 110, p: 70 }, { ago: 95, p: 100 }] },
+        { n: 'UWB Ranging', d: 45, startedAgo: 95,
+          states: [{ ago: 95, p: 15 }, { ago: 75, p: 50 }, { ago: 60, p: 80 }, { ago: 40, p: 100 }] },
+        { n: 'CCC Certification', d: 50, startedAgo: 40, personIds: [priyaId],
+          states: [{ ago: 40, p: 10 }, { ago: 20, p: 20 }, { ago: 7, p: 25 }] },
+      ] },
+    // Healthy buffer but a falling trend, with Bosch gating this one SOP.
+    { name: 'Meridian Van GAS', partnerId: stellantisId, owner: 'priyash', sopInDays: 150, vol: 45000,
+      gas: true, needle: 'On Track', hill: 45,
+      note: 'Integration slower than the last four weeks suggested; still roomy.',
+      phases: [
+        { n: 'Board bring-up', d: 40, startedAgo: 100, states: [{ ago: 100, p: 25 }, { ago: 80, p: 70 }, { ago: 60, p: 100 }] },
+        { n: 'Integration', d: 65, startedAgo: 58, partnerIds: [boschId],
+          states: [{ ago: 58, p: 20 }, { ago: 40, p: 55 }, { ago: 20, p: 70 }, { ago: 6, p: 80 }] },
+        { n: 'GAS Certification', d: 30, startedAgo: null, states: [{ ago: 1, p: 0 }] },
+      ] },
+    // All clear: every phase on plan, no gaps, buffer untouched — the
+    // nothing-to-do example AND Priya's movable slack in the portfolio view.
+    { name: 'Nova Compact AAOS', partnerId: hondaId, owner: 'marcusw', sopInDays: 110, vol: 80000,
+      gas: true, needle: 'On Track', hill: 60,
+      note: 'Running to plan.',
+      phases: [
+        { n: 'Bring-up', d: 40, startedAgo: 80, states: [{ ago: 80, p: 30 }, { ago: 60, p: 70 }, { ago: 40, p: 100 }] },
+        { n: 'Integration', d: 50, startedAgo: 40,
+          states: [{ ago: 40, p: 20 }, { ago: 25, p: 50 }, { ago: 10, p: 70 }, { ago: 2, p: 80 }] },
+        { n: 'Certification', d: 35, startedAgo: null, personIds: [priyaId], states: [{ ago: 1, p: 0 }] },
+      ] },
+  ];
+
+  for (const spec of showcase) {
+    const projectId = await createProject({
+      name: spec.name,
+      partnerId: spec.partnerId,
+      ownerName: spec.owner,
+      sopDate: aheadMonthEnd(spec.sopInDays).toISOString(),
+      volumeFirstYear: spec.vol,
+    });
+    await prisma.project.update({
+      where: { id: projectId },
+      data: {
+        hasGas: spec.gas ?? false,
+        hasGbi: spec.gbi ?? false,
+        hasDigitalKey: spec.dk ?? false,
+        hasAap: spec.gas ?? false,
+      },
+    });
+    await postProjectState(projectId, {
+      theNeedle: spec.needle, hillChartProgress: spec.hill,
+      notes: spec.note, source: 'seed', timestamp: agoIso(2),
+    });
+
+    let prevPhaseId: number | null = null;
+    for (const ph of spec.phases) {
+      const oldestAgo = ph.states[0]?.ago ?? 1;
+      const phaseId = await createPhase(projectId, {
+        name: ph.n,
+        forecastedDuration: ph.d,
+        // The initial state predates the phase's whole dated history.
+        stateTimestamp: agoIso(oldestAgo + 2),
+      });
+      if (ph.startedAgo != null) {
+        await markStarted(projectId, phaseId, ago(ph.startedAgo));
+      }
+      for (const s of ph.states) {
+        await postPhaseState(projectId, phaseId, {
+          theNeedle: 'On Track',
+          hillChartProgress: s.p,
+          notes: s.p > 0 && s.p < 100 ? `${ph.n}: progress update.` : null,
+          source: 'seed',
+          timestamp: agoIso(s.ago),
+        });
+      }
+      if (prevPhaseId != null) {
+        await addDependency(projectId, phaseId, prevPhaseId);
+      }
+      for (const partnerId of ph.partnerIds ?? []) {
+        await involvePartner(projectId, phaseId, partnerId);
+      }
+      for (const personId of ph.personIds ?? []) {
+        await involvePerson(projectId, phaseId, personId);
+      }
+      prevPhaseId = phaseId;
+    }
+  }
+
+  // Relationship health (1..5 scale) spread across the partner set so the
   // /partners Relationship column shows real relative variation. Two entries for
   // some partners so the "previous" ghost ring renders.
   // Every relationship update carries a WRITTEN note — the product requires one, so
   // the seed must model that (the feed is a relationship journal, not a scoreboard).
+  // These are BACKDATED journal entries and PartnerState has no API route, so they
+  // are the documented direct-write residue (see recordRelationship above).
+  await recordRelationship(fordId, {
+    score: 4, hillChartProgress: 25,
+    notes: 'Executive alignment calls are positive.',
+    timestamp: new Date('2026-05-10'),
+  });
+  await recordRelationship(fordId, {
+    score: 3, hillChartProgress: 35,
+    notes: 'Medium risk due to supplier delivery timelines.',
+    timestamp: new Date('2026-06-20'),
+  });
+
   const relStates: Array<{ partnerId: number; score: number; prev?: number; prevNote?: string; note: string }> = [
-    { partnerId: honda.id, score: 4, prev: 3, prevNote: 'Codec sourcing worries surfaced in the quarterly review; watching weekly.', note: 'Cadence is healthy; codec supply worry contained for now.' },
-    { partnerId: gm.id, score: 4, prev: 4, prevNote: 'Joint roadmap review landed well; Ultifi leads engaged and responsive.', note: 'Ultifi leadership fully bought in; joint roadmap review done.' },
-    { partnerId: volvoCars.id, score: 2, prev: 3, prevNote: 'Cert timeline tightening; flagged to their PMO, watching closely.', note: 'Cert slip triggered exec escalation; trust needs rebuilding.' },
-    { partnerId: hyundai.id, score: 5, note: 'Model partnership — co-marketing GAS launch.' },
-    { partnerId: stellantis.id, score: 2, prev: 2, prevNote: 'Sponsor missed two syncs running; escalation drafted but not sent.', note: 'Brand-matrix decisions keep stalling; sponsor is disengaged.' },
-    { partnerId: denso.id, score: 4, note: 'Reliable execution; limited strategic alignment discussions.' },
-    { partnerId: continental.id, score: 3, note: 'Delivery fine, but Volvo slip strained the three-way relationship.' },
-    { partnerId: lge.id, score: 4, note: 'Strong delivery track record across GM and Hyundai lines.' },
+    { partnerId: hondaId, score: 4, prev: 3, prevNote: 'Codec sourcing worries surfaced in the quarterly review; watching weekly.', note: 'Cadence is healthy; codec supply worry contained for now.' },
+    { partnerId: gmId, score: 4, prev: 4, prevNote: 'Joint roadmap review landed well; Ultifi leads engaged and responsive.', note: 'Ultifi leadership fully bought in; joint roadmap review done.' },
+    { partnerId: volvoCarsId, score: 2, prev: 3, prevNote: 'Cert timeline tightening; flagged to their PMO, watching closely.', note: 'Cert slip triggered exec escalation; trust needs rebuilding.' },
+    { partnerId: hyundaiId, score: 5, note: 'Model partnership — co-marketing GAS launch.' },
+    { partnerId: stellantisId, score: 2, prev: 2, prevNote: 'Sponsor missed two syncs running; escalation drafted but not sent.', note: 'Brand-matrix decisions keep stalling; sponsor is disengaged.' },
+    { partnerId: densoId, score: 4, note: 'Reliable execution; limited strategic alignment discussions.' },
+    { partnerId: continentalId, score: 3, note: 'Delivery fine, but Volvo slip strained the three-way relationship.' },
+    { partnerId: lgeId, score: 4, note: 'Strong delivery track record across GM and Hyundai lines.' },
   ];
-  const relHealth = (s: number) => (s >= 4 ? 'On Track' : s >= 2 ? 'Some Risk' : 'Concerned');
   for (const r of relStates) {
     if (r.prev != null) {
-      await prisma.partnerState.create({
-        data: {
-          partnerId: r.partnerId, relationshipScore: r.prev, theNeedle: relHealth(r.prev),
-          notes: r.prevNote ?? 'Quarterly relationship review.', source: 'seed', timestamp: new Date('2026-04-15'),
-        },
+      await recordRelationship(r.partnerId, {
+        score: r.prev,
+        notes: r.prevNote ?? 'Quarterly relationship review.',
+        timestamp: new Date('2026-04-15'),
       });
     }
-    await prisma.partnerState.create({
-      data: {
-        partnerId: r.partnerId, relationshipScore: r.score, theNeedle: relHealth(r.score),
-        notes: r.note, source: 'seed', timestamp: new Date('2026-07-01'),
-      },
+    await recordRelationship(r.partnerId, {
+      score: r.score,
+      notes: r.note,
+      timestamp: new Date('2026-07-01'),
     });
   }
 

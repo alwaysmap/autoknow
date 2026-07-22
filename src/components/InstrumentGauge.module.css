@@ -1,0 +1,38 @@
+/* Glyph-sized dial for the Instrument style's primary CTA. Monochrome: every part
+   is inked from the button's own `currentColor`, so it sits on a filled button
+   without carrying a colour of its own.
+
+   There is no CSS transform here on purpose. The needle moves because the
+   component animates the gauge's `progress` and the primitive redraws the path —
+   the same way the draggable control works. Rotating a static path about an
+   assumed origin does not pivot where the real needle pivots. */
+
+.gauge {
+  display: block;
+  height: 1.125rem;
+  width: auto;
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+/* CSS beats presentation attributes, so these re-ink the shared primitive
+   without widening its API. The track is a groove in the button, not a card. */
+.gauge [data-track] {
+  fill: none;
+  stroke: currentColor;
+  opacity: 0.4;
+}
+
+/* The needle's ring exists to lift it off a page background; on a filled button
+   the button IS that background, so drop the ring and let the needle be solid. */
+.gauge [data-needle] {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* Graticules come through at the primitive's own opacity; damp them so an 18px
+   dial reads as a dial rather than a smudge. */
+.gauge line {
+  stroke: currentColor;
+  opacity: 0.3;
+}

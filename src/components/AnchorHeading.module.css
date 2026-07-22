@@ -1,0 +1,92 @@
+/* Section heading with a hover-revealed deep link (see AnchorHeading.tsx).
+   globals.css applies `* { padding: 0; margin: 0 }`, so spacing here is
+   explicit rather than inherited from UA heading defaults. */
+
+/* The ROW is the block-level unit and owns the spacing below the heading.
+   Any margin left on the h2 itself lands INSIDE the flex line, so centring
+   measures the heading's margin box and drops the ⓘ/# below the text — which
+   is exactly what page rules like `.historySection h2 { margin: 0 0 0.5rem }`
+   were doing. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+  /* Full width even when the row is itself a flex ITEM: shrink-wrapped, the
+     trailing graticule had only the leftover 40px to fill, so one heading's rule
+     was a stub while its neighbours ran the width of the page. */
+  width: 100%;
+}
+
+/* Instrument: the whole row baseline-aligns so the trailing graticule sits on
+   the heading's text baseline. `align-self: baseline` on the graticule ALONE is
+   not enough — with the row centred it is the only baseline item, so it has no
+   sibling baseline to share and floats ~15px high (measured). Baselining the row
+   gives it the h2's baseline; the action items (#, ⓘ, menus) are pinned back to
+   centre so only the graticule moves. Standard keeps align-items: center. */
+:global(:root[data-style='instrument']) .row {
+  align-items: baseline;
+}
+
+:global(:root[data-style='instrument']) .row > :not(.heading) {
+  align-self: center;
+}
+
+/* `.row .heading` (0,1,1) is deliberate: it has to outrank page-level
+   descendant rules (`.historySection h2`) that set heading margins.
+   The sticky-nav scroll offset now lives once on `html { scroll-padding-top }`
+   (globals.css), so it is NOT repeated here — two offsets would stack. */
+.row .heading {
+  margin: 0;
+  /* An integer box at the heading sizes this app uses (18px and 22px): the 1.2
+     ratio it replaces computed 21.6px and 26.4px, which put every rule BELOW a
+     heading on a fractional pixel. */
+  line-height: 1.75rem;
+}
+
+.anchor {
+  margin-left: 0.125rem;
+  color: var(--muted);
+  font-weight: 400;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+/* Revealed by hovering the heading row, or by tabbing to the link itself —
+   keyboard users get the same affordance, never a link they can focus but
+   cannot see. */
+.row:hover .anchor,
+.anchor:focus-visible {
+  opacity: 1;
+}
+
+.anchor:hover {
+  color: var(--fg);
+}
+
+/* Coarse pointers have no hover state: show the link permanently, quietly. */
+@media (hover: none) {
+  .anchor {
+    opacity: 0.45;
+  }
+}
+
+/* Instrument: the rule trailing every section heading is a graticule, not a
+   line. AnchorHeading wraps every <h2> in the app (design.md §2), so this one
+   selector is what makes the style read on every page rather than only in the
+   nav. It fills whatever width is left after the title and any actions, so a
+   long heading simply gets a shorter rule. */
+:global(:root[data-style='instrument']) .row::after {
+  content: '';
+  flex: 1 1 1.5rem;
+  min-width: 1.5rem;
+  height: 0.375rem;
+  margin-left: 0.75rem;
+  /* Baseline, not the row's centre: a pseudo-element's synthesized baseline is
+     its bottom edge, so this rests the graticule on the heading's text baseline
+     — identical across every heading regardless of size or row height. */
+  align-self: baseline;
+  background-image: var(--graticule);
+  background-repeat: repeat-x;
+}

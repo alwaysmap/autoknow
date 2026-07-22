@@ -42,23 +42,23 @@ export default async function SourcesPage() {
   }));
 
   return (
-    <div style={{ padding: '32px 40px', maxWidth: 1080 }}>
-      <header style={{ marginBottom: 16 }}>
+    <div style={{ padding: '2rem 2.5rem', maxWidth: '67.5rem' }}>
+      <header style={{ marginBottom: '1rem' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{t(locale, 'sourcesTitle')}</h1>
-        <p style={{ color: 'var(--muted, #666)', fontSize: 14, marginTop: 4, maxWidth: 760 }}>
+        <p style={{ color: 'var(--muted, #666)', fontSize: '0.875rem', marginTop: '0.25rem', maxWidth: '47.5rem' }}>
           {t(locale, 'sourcesIntro')}
         </p>
         {/* what each action actually does — the affordances are otherwise terse */}
-        <p style={{ color: 'var(--muted, #666)', fontSize: 12.5, marginTop: 6, maxWidth: 760, lineHeight: 1.55 }}>
+        <p style={{ color: 'var(--muted, #666)', fontSize: '0.75rem', marginTop: '0.375rem', maxWidth: '47.5rem', lineHeight: '1.25rem' }}>
           {t(locale, 'sourcesLegend')}
         </p>
         {driveConfigured ? (
-          <p data-testid="drive-on" style={{ color: 'var(--muted, #666)', fontSize: 13, marginTop: 6, maxWidth: 760 }}>
+          <p data-testid="drive-on" style={{ color: 'var(--muted, #666)', fontSize: '0.8125rem', marginTop: '0.375rem', maxWidth: '47.5rem' }}>
             {t(locale, 'sourcesDriveOn', { email: serviceAccountEmail() ?? '' })}
           </p>
         ) : (
           sources.some((s) => s.type === 'Doc' && s.mode === 'watched') && (
-            <p style={{ color: 'var(--muted, #666)', fontSize: 13, marginTop: 6, maxWidth: 760, fontStyle: 'italic' }}>
+            <p style={{ color: 'var(--muted, #666)', fontSize: '0.8125rem', marginTop: '0.375rem', maxWidth: '47.5rem', fontStyle: 'italic' }}>
               {t(locale, 'sourcesDriveOff')}
             </p>
           )
@@ -66,7 +66,7 @@ export default async function SourcesPage() {
       </header>
 
       {/* unscoped paste — the global classifier places it (the retired /ingest page's job) */}
-      <div style={{ margin: '0 0 14px' }}>
+      <div style={{ margin: '0 0 0.875rem' }}>
         <QuickIngest path="/manage/sources" />
       </div>
 

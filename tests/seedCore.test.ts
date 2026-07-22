@@ -8,6 +8,17 @@ process.env.DATABASE_URL = testDatabaseUrl();
 import { prisma, disconnectTestDb } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
+// lib/seed now imports the API route handlers and server actions it seeds through,
+// which pull in server-only modules and next-auth (ESM-only under jest) — same
+// mock posture as phaseStateRoute.test.ts.
+jest.mock('server-only', () => ({}));
+jest.mock('../src/auth', () => ({ authConfigured: false, auth: jest.fn(async () => null) }));
+jest.mock('../src/lib/session', () => ({
+  getCurrentUser: jest.fn(async () => ({ handle: 'dev', display: '@dev', email: 'dev@google.com', name: 'Dev Eloper', image: null })),
+  getAccessToken: jest.fn(async () => null),
+}));
+jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
+
 let seedCoreData: typeof import('../src/lib/seed').seedCoreData;
 
 beforeAll(async () => {

@@ -4,6 +4,15 @@
 
 FROM node:22-alpine AS deps
 WORKDIR /app
+# `npm ci` runs postinstall HERE, and the contract is that it degrades to NOTHING:
+# only package*.json is in scope, and `scripts/` is excluded from the build context
+# on purpose (.dockerignore — keep the image clean), so the bootstrap script is
+# absent and its half of the entry is rescued by `|| true`, while the Prisma half
+# skips for want of a schema. Nothing added to postinstall may need the source tree.
+# The builder stage below generates the client explicitly, because it never re-runs
+# `npm ci`. CI's `image` job builds this file so the contract is checked, not
+# assumed — an earlier attempt to COPY the script in here died on exactly that
+# .dockerignore rule, in CI-shaped verification rather than at deploy time. ADR npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it.
 COPY package.json package-lock.json ./
 RUN npm ci
 
@@ -13,7 +22,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build?schema=public"
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npx prisma generate
+RUN npm run db:generate
 RUN npm run build
 
 FROM node:22-alpine AS runner

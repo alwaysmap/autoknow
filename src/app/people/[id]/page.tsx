@@ -2,11 +2,13 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import PersonAdminControls from '../../../components/PersonEditor';
-import { phaseColor } from '../../../lib/phase';
+import { initialsOf } from '../../../lib/people';
+import { phaseColor, phaseDetailHref } from '../../../lib/phase';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
 import { localDate } from '../../../lib/dates';
+import AnchorHeading from '../../../components/AnchorHeading';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,15 +16,6 @@ export const dynamic = 'force-dynamic';
 // A person is two facts: which companies they've been at (affiliations) and which
 // programs they've worked on (owned as TEL, phase involvement, assigned actions).
 // Maintenance lives behind the title kebab (PersonEditor), not a form farm.
-
-function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w[0]!.toUpperCase())
-    .slice(0, 2)
-    .join('');
-}
 
 export default async function PersonProfilePage(props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
@@ -143,7 +136,9 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
 
         <div className={styles.colMain}>
           <section className={styles.section}>
-            <h2>{t(locale, 'navPrograms')}</h2>
+            <AnchorHeading id="programs" linkLabel={t(locale, 'anchorLink')}>
+              {t(locale, 'navPrograms')}
+            </AnchorHeading>
             {programRows.length === 0 ? (
               <p className={styles.empty}>{t(locale, 'noPartnerPrograms')}</p>
             ) : (
@@ -154,7 +149,7 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
                     {prog.tel && <span className={styles.telMark}>TEL</span>}
                     <span className={styles.phaseChips}>
                       {prog.phases.map((ph) => (
-                        <Link key={ph.id} href={`/history/phase/${ph.id}`} className={styles.phaseChip}
+                        <Link key={ph.id} href={phaseDetailHref(prog.id, ph.id)} className={styles.phaseChip}
                           title={ph.role ? `${ph.name} · ${ph.role}` : ph.name}>
                           <span className={styles.phaseDot} style={{ background: phaseColor(ph.id) }} />
                           {ph.name}
@@ -169,7 +164,9 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
           </section>
 
           <section className={styles.section}>
-            <h2>{t(locale, 'historyLabel')}</h2>
+            <AnchorHeading id="history" linkLabel={t(locale, 'anchorLink')}>
+              {t(locale, 'historyLabel')}
+            </AnchorHeading>
             {(() => {
               // prior companies only — the current post lives in the identity line
               const prior = person.affiliations.filter(

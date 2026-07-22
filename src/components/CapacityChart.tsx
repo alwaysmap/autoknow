@@ -174,7 +174,7 @@ function ProductAreaChart({
 
         {/* stacked product bands, AAOS at the base */}
         {activeBands.map((k) => (
-          <path key={k} d={bandPath(k)} fill={BAND_FILL[k]} stroke="#fff" strokeWidth={0.8}>
+          <path key={k} d={bandPath(k)} fill={BAND_FILL[k]} stroke="var(--paper)" strokeWidth={0.8}>
             <title>{t(locale, BAND_NAME_KEY[k])}</title>
           </path>
         ))}
@@ -189,7 +189,7 @@ function ProductAreaChart({
             12-month ramp of shipping units begins */}
         {sops.map((d) => (
           <circle key={`sop${d.id}`} data-testid="sop-dot" cx={xAtMs(d.ms)} cy={y(vehiclesAt(d.ms))} r={fs(3.4)}
-            fill={INK} stroke="#fff" strokeWidth={1.4}>
+            fill={INK} stroke="var(--paper)" strokeWidth={1.4}>
             <title>{`${d.name} — SOP ${d.when}`}</title>
           </circle>
         ))}
@@ -242,7 +242,7 @@ function ProductAreaChart({
       {hover && (
         <div
           className={styles.hoverCard}
-          style={flip ? { right: `${100 - hoverLeftPct}%`, marginRight: 10 } : { left: `${hoverLeftPct}%`, marginLeft: 10 }}
+          style={flip ? { right: `${100 - hoverLeftPct}%`, marginRight: '0.625rem' } : { left: `${hoverLeftPct}%`, marginLeft: '0.625rem' }}
         >
           <div className={styles.hoverQuarter}>{hover.label}</div>
           {[...activeBands].reverse().map((k) => (

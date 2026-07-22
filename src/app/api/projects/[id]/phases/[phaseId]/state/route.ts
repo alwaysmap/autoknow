@@ -5,6 +5,7 @@ import { requireRouteAuth } from '../../../../../../../lib/routeAuth';
 import { parseBody, phaseStateApiSchema } from '../../../../../../../lib/schemas';
 import { parseHealth } from '../../../../../../../lib/health';
 import { hillStatus } from '../../../../../../../lib/phase';
+import { destructiveDbAllowed } from '../../../../../../../lib/dbSafety';
 
 export async function POST(
   req: Request,
@@ -22,7 +23,14 @@ export async function POST(
 
     const parsed = parseBody(phaseStateApiSchema, await req.json().catch(() => null));
     if (!parsed.ok) return jsonError(parsed.error, 400);
-    const { theNeedle, hillChartProgress, notes, source } = parsed.data;
+    const { theNeedle, hillChartProgress, notes, source, sourceUrl, timestamp } = parsed.data;
+
+    // Backdating is a seeding affordance (dated demo histories feed the buffer-trend
+    // replay — docs/CRITICAL_CHAIN_VIEW_PLAN.md §6). Fail closed, and refuse rather
+    // than silently ignore: dropping the timestamp would record WRONG history.
+    if (timestamp !== undefined && !destructiveDbAllowed()) {
+      return jsonError('timestamp override is only permitted on seed/test databases', 403);
+    }
 
     // Parentage check: the phase must belong to the project in the URL — a
     // mismatched pair is a 404, never a silent write to someone else's phase.
@@ -51,7 +59,10 @@ export async function POST(
         theNeedle: parseHealth(theNeedle),
         hillChartProgress: progress,
         notes: notes ?? null,
-        source: source ?? 'API'
+        source: source ?? 'API',
+        sourceUrl: sourceUrl ?? null,
+        // Omitted → the column default (write time) applies.
+        ...(timestamp !== undefined ? { timestamp } : {}),
       }
     });
 

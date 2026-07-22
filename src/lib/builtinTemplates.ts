@@ -5,8 +5,10 @@
 // The AAOS bring-up is the full 15-phase DAG (P0–P14) from the Part 4 bring-up doc;
 // P15 post-launch sustaining is deliberately NOT a DAG node — it lives in the
 // program-level description as a post-SOP lifecycle note, keeping the single-sink rule
-// clean. GAS and Digital Key migrate the old hardcoded stubs (lib/templates.ts keeps
-// feeding the sample-data seeder unchanged).
+// clean. GAS and Digital Key replaced the old hardcoded stubs, which are now gone: the
+// sample-data seeder instantiates these same templates (lib/seed
+// seedPhasesFromBuiltin), so demo programs carry the real Goal/"Done when" content
+// instead of a divergent second definition.
 //
 // Every phase description is a **Goal** (why the phase exists, one sentence) plus a
 // **Done when** checklist of binary, provable criteria — things a reviewer can verify

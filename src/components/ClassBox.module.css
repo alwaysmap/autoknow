@@ -1,0 +1,19 @@
+/* A hairline box in the caller's ink — a RULE, not a filled badge, so it still
+   honours §6's no-background-colour-badges. Squared corners are load-bearing:
+   they are what separates a CLASS box from a proper-noun PILL, which is fully
+   rounded. Ink arrives as `currentColor`, so the border can never disagree with
+   the text. */
+
+.box {
+  display: inline-block;
+  border: 1px solid currentColor;
+  border-radius: 0.1875rem;
+  padding: 0 0.3125rem;
+  font-size: 0.625rem;
+  line-height: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  vertical-align: baseline;
+}

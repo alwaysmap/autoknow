@@ -2,20 +2,20 @@
   min-height: 100vh;
   background-color: transparent;
   color: var(--fg);
-  padding: 0 40px;
+  padding: 0 2.5rem;
   font-family: var(--body-font);
 }
 
 /* Phone: the 40px gutters are a desktop luxury. */
 @media (max-width: 700px) {
   .container {
-    padding: 0 16px;
+    padding: 0 1rem;
   }
 }
 
 .header {
   border-bottom: 1px solid var(--border);
-  padding: 12px 0 12px;
+  padding: 0.75rem 0 0.75rem;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -32,7 +32,7 @@
   font-weight: 600;
   font-size: 0.875rem;
   text-transform: uppercase;
-  margin-bottom: 8px;
+  margin-bottom: 0.5rem;
 }
 
 .brand a {
@@ -48,18 +48,18 @@
   font-family: var(--head-font);
   font-size: 1.5rem;
   font-weight: 600;
-  margin: 0 0 12px 0;
+  margin: 0 0 0.75rem 0;
   color: var(--fg);
 }
 
 .metaCol {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0.25rem;
 }
 
 .metaRow {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--muted);
 }
 
@@ -69,14 +69,14 @@
 }
 
 .metaLink {
-  color: var(--p-600);
+  color: var(--link);
   text-decoration: none;
   font-weight: 400;
   transition: color 0.2s ease;
 }
 
 .metaLink:hover {
-  color: var(--p-700);
+  color: var(--link-hover);
   text-decoration: underline;
 }
 
@@ -86,79 +86,78 @@
 }
 
 .main {
-  max-width: 1280px;
+  max-width: 80rem;
   margin: 0 auto;
-  padding: 22px 0 32px;
+  padding: 1.375rem 0 2rem;
 }
 
-.dashboardGrid {
+/* Program-page arrangement (2026-07-20, user call): quick links, then the needle
+   and the AI briefing side by side, then every section from the Critical Chain
+   down at the full width of both columns. */
+
+/* The briefing's own heading — quiet, since the AI provenance row sits under it. */
+.briefingHeading {
+  font-size: 1.125rem;
+}
+
+.topGrid {
   display: grid;
-  /* minmax(0, …) lets the content column shrink below its min-content width, so wide
-     children (chain summaries, tables) clip/wrap instead of overflowing the viewport */
-  grid-template-columns: 320px minmax(0, 1fr);
-  gap: 32px;
+  /* minmax(0, …) lets the briefing cell shrink below min-content width */
+  grid-template-columns: 20rem minmax(0, 1fr);
+  gap: 2rem;
   align-items: start;
 }
 
-/* Phone-friendly: one fully vertical column — gauges first, then the phase rail. */
-@media (max-width: 900px) {
-  .dashboardGrid {
+@media (max-width: 960px) {
+  .topGrid {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 1.25rem;
   }
 }
 
-.leftColumn {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
+/* Anchor targets land below the sticky app nav via `html { scroll-padding-top }`
+   (globals.css) — a single scroll offset for the whole app, not one per target. */
 
-.rightColumn {
+/* min-width: 0 lets wide children (chain charts, tables) scroll in their own
+   containers instead of overflowing the viewport. */
+.contentCol {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 1.5rem;
   min-width: 0;
 }
 
-/* The first section in the right column tops-aligns with the left column's first card —
-   no divider or extra breathing room before any content exists. */
-.rightColumn > .historySection:first-child {
-  margin-top: 0;
-  border-top: none;
-  padding-top: 0;
-}
-
 .emptyPhasesBox {
-  padding: 40px;
+  padding: 2.5rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 0.5rem;
   background-color: var(--surface);
   text-align: center;
 }
 
 .phaseCard {
   background-color: transparent;
-  border-radius: 8px;
-  margin-bottom: 32px;
+  border-radius: 0.5rem;
+  margin-bottom: 2rem;
   padding: 0;
 }
 
 .phaseHeader {
   border-bottom: 1px solid var(--border);
-  padding-bottom: 16px;
-  margin-bottom: 24px;
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .phaseHeader h2 {
   font-family: var(--head-font);
   font-size: 1.5rem;
   font-weight: 600;
-  margin: 0 0 8px 0;
+  margin: 0 0 0.5rem 0;
 }
 
 .phaseStatusBadge {
-  font-size: 13px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   color: var(--muted);
 }
 
@@ -168,9 +167,9 @@
 
 .actionsSection h3 {
   font-family: var(--head-font);
-  font-size: 1.1rem;
+  font-size: 1.125rem;
   font-weight: 600;
-  margin: 0 0 16px 0;
+  margin: 0 0 1rem 0;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -178,74 +177,77 @@
 
 .actionGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr));
+  gap: 1.25rem;
 }
 
 .actionCard {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 16px;
+  border-radius: 0.375rem;
+  padding: 1rem;
 }
 
 .actionFormGroup {
-  margin-bottom: 12px;
+  margin-bottom: 0.75rem;
 }
 
 .actionLabel {
   display: block;
-  font-size: 11px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   font-weight: 600;
   text-transform: uppercase;
   color: var(--muted);
-  margin-bottom: 4px;
+  margin-bottom: 0.25rem;
 }
 
 .actionDesc {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 500;
   margin: 0;
 }
 
 .select {
   width: 100%;
-  padding: 8px;
-  border-radius: 4px;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
   border: 1px solid var(--border);
   background-color: var(--white);
   font-family: var(--body-font);
-  font-size: 13px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
 }
 
 .input {
   width: 100%;
-  padding: 8px;
-  border-radius: 4px;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
   border: 1px solid var(--border);
   background-color: var(--white);
   font-family: var(--body-font);
-  font-size: 13px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   box-sizing: border-box;
 }
 
 .activeLinkRow {
-  margin-top: 6px;
+  margin-top: 0.375rem;
 }
 
 .linkAnchor {
-  font-size: 12px;
-  color: var(--p-600);
+  font-size: 0.75rem;
+  color: var(--link);
   text-decoration: underline;
   font-weight: 400;
 }
 
 .linkAnchor:hover {
-  color: var(--p-700);
+  color: var(--link-hover);
 }
 
 .submitRow {
-  margin-top: 16px;
+  margin-top: 1rem;
 }
 
 .saveButton {
@@ -253,11 +255,11 @@
   background-color: var(--fg);
   color: var(--white);
   border: none;
-  padding: 10px;
-  border-radius: 4px;
+  padding: 0.625rem;
+  border-radius: 0.25rem;
   font-family: var(--head-font);
   font-weight: 600;
-  font-size: 12px;
+  font-size: 0.75rem;
   cursor: pointer;
 }
 
@@ -266,7 +268,7 @@
 }
 
 .emptyText {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--muted);
   font-style: italic;
 }
@@ -274,11 +276,11 @@
 .archivedLabel {
   color: var(--t-700);
   background-color: var(--t-100);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-left: 12px;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  margin-left: 0.75rem;
   vertical-align: middle;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -286,7 +288,7 @@
 
 .adminControls {
   display: flex;
-  gap: 12px;
+  gap: 0.75rem;
 }
 
 .adminForm {
@@ -297,10 +299,11 @@
   background: none;
   border: 1px solid var(--border);
   color: var(--fg);
-  padding: 8px 16px;
-  font-size: 13px;
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-weight: 600;
-  border-radius: 4px;
+  border-radius: 0.25rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -314,10 +317,11 @@
   background-color: var(--t-100);
   border: 1px solid var(--t-200);
   color: var(--t-700);
-  padding: 8px 16px;
-  font-size: 13px;
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-weight: 600;
-  border-radius: 4px;
+  border-radius: 0.25rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -379,55 +383,56 @@
 .summaryDashboard {
   background-color: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 24px;
-  margin-bottom: 40px;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin-bottom: 2.5rem;
 }
 
 .summaryTopRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 24px;
-  margin-bottom: 24px;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
   align-items: center;
 }
 
 .summaryCard {
   flex: 1;
-  min-width: 160px;
+  min-width: 10rem;
   background-color: var(--white);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 16px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  border-radius: 0.375rem;
+  padding: 1rem;
+  box-shadow: 0 0.0625rem 0.125rem rgba(0,0,0,0.02);
 }
 
 .summaryCardLabel {
-  font-size: 11px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--muted);
-  margin-bottom: 8px;
+  margin-bottom: 0.5rem;
   letter-spacing: 0.05em;
 }
 
 .needleBadge {
   display: inline-block;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 14px;
+  padding: 0.375rem 0.75rem;
+  border-radius: 1.25rem;
+  font-size: 0.875rem;
   font-weight: 700;
   text-transform: uppercase;
 }
 
 .progressText {
-  font-size: 24px;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--fg);
 }
 
 .problemCount {
-  font-size: 24px;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--t-700);
 }
@@ -435,59 +440,59 @@
 .projectFormCard {
   background-color: var(--white);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 12px 16px;
+  border-radius: 0.375rem;
+  padding: 0.75rem 1rem;
 }
 
 .projectMetricsForm {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 1rem;
 }
 
 .inlineFormGroup {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .inlineLabel {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
 }
 
 .inlineSelect, .inlineInput, .inlineTextInput, .inlineDateInput {
-  padding: 6px 10px;
+  padding: 0.375rem 0.625rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 0.25rem;
   background-color: var(--white);
   font-family: var(--body-font);
-  font-size: 12px;
+  font-size: 0.75rem;
   outline: none;
 }
 
 .inlineInput {
-  width: 65px;
+  width: 4.0625rem;
 }
 
 .inlineTextInput {
-  width: 120px;
+  width: 7.5rem;
 }
 
 .inlineDateInput {
-  width: 130px;
+  width: 8.125rem;
 }
 
 .saveMetricsButton {
   background-color: var(--p-600);
   color: var(--white);
   border: none;
-  padding: 8px 14px;
-  border-radius: 4px;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.25rem;
   font-family: var(--head-font);
   font-weight: 600;
-  font-size: 12px;
+  font-size: 0.75rem;
   cursor: pointer;
   transition: background-color 0.2s ease;
 }
@@ -499,16 +504,17 @@
 /* Critical Chain visualizer styling */
 .visualizerSection {
   border-top: 1px solid var(--border);
-  padding-top: 20px;
+  padding-top: 1.25rem;
 }
 
 .visualizerHeading {
   font-family: var(--head-font);
-  font-size: 13px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--muted);
-  margin-bottom: 16px;
+  margin-bottom: 1rem;
   letter-spacing: 0.05em;
 }
 
@@ -516,7 +522,7 @@
   display: flex;
   align-items: center;
   overflow-x: auto;
-  padding-bottom: 8px;
+  padding-bottom: 0.5rem;
 }
 
 .flowStepWrapper {
@@ -525,11 +531,11 @@
 }
 
 .flowStep {
-  padding: 12px 16px;
-  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
   border: 1px solid var(--border);
-  min-width: 140px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  min-width: 8.75rem;
+  box-shadow: 0 0.0625rem 0.1875rem rgba(0,0,0,0.02);
 }
 
 .flowNotStarted {
@@ -562,19 +568,21 @@
 }
 
 .flowStepName {
-  font-size: 13px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: 0.25rem;
 }
 
 .flowStepMeta {
-  font-size: 11px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
 }
 
 .flowConnector {
-  font-size: 20px;
+  font-size: 1.25rem;
   color: var(--muted);
-  margin: 0 12px;
+  margin: 0 0.75rem;
   font-weight: bold;
 }
 
@@ -586,28 +594,30 @@
 .phaseStatusRow {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 8px;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
 }
 
 .statusBadge {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 12px;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 0.75rem;
   text-transform: uppercase;
 }
 
 .needleBadgeMini {
-  font-size: 11px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
   text-transform: uppercase;
 }
 
 .progressBadgeMini {
-  font-size: 11px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   color: var(--muted);
   font-weight: 500;
 }
@@ -618,61 +628,64 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: 1.25rem;
 }
 
 .tagPhaseFormContainer {
   background-color: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 12px;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
 }
 
 .tagPhaseForm {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.75rem;
 }
 
 .formSelectGroup {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.125rem;
 }
 
 .miniLabel {
-  font-size: 9px;
+  font-size: 0.5625rem;
+  line-height: 0.875rem;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--muted);
 }
 
 .miniSelect, .miniInput {
-  padding: 4px 6px;
+  padding: 0.25rem 0.375rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 0.25rem;
   background-color: var(--white);
   font-family: var(--body-font);
-  font-size: 11px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   outline: none;
 }
 
 .miniInput {
-  width: 55px;
+  width: 3.4375rem;
 }
 
 .tagPhaseButton {
   background-color: var(--fg);
   color: var(--white);
   border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.25rem;
   font-family: var(--head-font);
   font-weight: 600;
-  font-size: 11px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   cursor: pointer;
   align-self: flex-end;
-  margin-top: 11px;
+  margin-top: 0.6875rem;
   transition: background-color 0.2s ease;
 }
 
@@ -682,9 +695,9 @@
 
 .needleSlider, .progressSlider, .miniSlider, .miniSliderProgress {
   -webkit-appearance: none;
-  width: 120px;
-  height: 6px;
-  border-radius: 3px;
+  width: 7.5rem;
+  height: 0.375rem;
+  border-radius: 0.1875rem;
   outline: none;
   background: var(--border);
 }
@@ -697,65 +710,66 @@
 .needleSlider::-webkit-slider-thumb, .miniSlider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 0.875rem;
+  height: 0.875rem;
   border-radius: 50%;
   background: var(--fg);
   cursor: pointer;
   border: 2px solid var(--white);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  box-shadow: 0 0.0625rem 0.1875rem rgba(0,0,0,0.2);
 }
 
 .progressSlider::-webkit-slider-thumb, .miniSliderProgress::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 0.875rem;
+  height: 0.875rem;
   border-radius: 50%;
   background: var(--p-600);
   cursor: pointer;
   border: 2px solid var(--white);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  box-shadow: 0 0.0625rem 0.1875rem rgba(0,0,0,0.2);
 }
 
 .miniNotesInput {
   border: 1px solid var(--border);
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  width: 130px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  width: 8.125rem;
   outline: none;
 }
 
 /* History Timeline Log Styling */
 .historySection {
-  margin-top: 26px;
+  margin-top: 1.625rem;
   border-top: 1px solid var(--border);
-  padding-top: 18px;
+  padding-top: 1.125rem;
 }
 
 .historySection h2 {
   font-family: var(--head-font);
-  font-size: 1.4rem;
+  font-size: 1.375rem;
   font-weight: 600;
   color: var(--fg);
-  margin: 0 0 8px 0;
+  margin: 0 0 0.5rem 0;
 }
 
 .historyIntro {
   color: var(--muted);
-  font-size: 13px;
-  margin: 0 0 32px 0;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  margin: 0 0 2rem 0;
 }
 
 .timeline {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 1.5rem;
   position: relative;
-  padding-left: 20px;
+  padding-left: 1.25rem;
   border-left: 2px solid var(--border);
-  margin-left: 10px;
+  margin-left: 0.625rem;
 }
 
 .timelineItem {
@@ -764,10 +778,10 @@
 
 .timelineMarker {
   position: absolute;
-  left: -27px;
-  top: 6px;
-  width: 12px;
-  height: 12px;
+  left: -1.6875rem;
+  top: 0.375rem;
+  width: 0.75rem;
+  height: 0.75rem;
   border-radius: 50%;
   background-color: var(--border);
   border: 2px solid var(--white);
@@ -776,42 +790,43 @@
 .timelineContent {
   background-color: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 16px;
+  border-radius: 0.375rem;
+  padding: 1rem;
 }
 
 .timelineHeader {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.75rem;
   flex-wrap: wrap;
-  margin-bottom: 8px;
+  margin-bottom: 0.5rem;
 }
 
 .timelineBadge {
   display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   font-weight: 700;
   text-transform: uppercase;
 }
 
 .timelineProgress {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--fg);
 }
 
 .timelineDate {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
   margin-left: auto;
 }
 
 .timelineNote {
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   color: var(--fg);
   margin: 0;
   font-style: italic;
@@ -819,13 +834,14 @@
 
 .emptyHistory {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-style: italic;
   margin: 0;
 }
 
 .handleLink {
-  color: var(--p-600);
+  color: var(--link);
   text-decoration: none;
   font-weight: 400;
 }
@@ -833,6 +849,7 @@
 .handleLink:hover {
   text-decoration: underline;
 }
+
 
 
 

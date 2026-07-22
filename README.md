@@ -71,16 +71,20 @@ local use):
 | Script | What it does |
 |---|---|
 | `dev` / `build` / `start` | Next.js dev server / production build / serve the build |
+| `demo` | One command: per-worktree seeded demo DB + `next dev` with stub auth + mock data (`--reseed` to refresh) |
 | `lint` / `typecheck` | ESLint / `tsc --noEmit` |
 | `test` (`:watch`, `:coverage`) | Jest unit + DB tests against the `*_test` database |
-| `test:e2e` (`:ui`) | Playwright: full suite on Chromium + engine-sensitive specs on WebKit (own server :3130, own `*_test` DB) |
+| `test:e2e` (`:ui`) | Playwright: full suite on Chromium + engine-sensitive specs on WebKit (own server on a per-worktree port, own per-worktree `*_test` DB) |
 | `test:e2e:screens` | opt-in: capture UI screenshots into `./screenshots` for visual review |
 | `evidence` | The full local gate: typecheck → lint → coverage → e2e → build |
 | `db:up` / `db:down` | Start / stop the local Postgres container |
+| `db:generate` | Regenerate the Prisma client (run automatically by `npm ci`) |
 | `db:push` | Sync schema to the **local** dev DB (never prod — see playbook) |
 | `db:migrate` | Create/apply a migration locally (`prisma migrate dev`; playbook §D) |
+| `db:migrate:deploy` | Forward-only `prisma migrate deploy` against `DATABASE_URL` (sandbox/scratch DBs) |
 | `db:seed` | Prisma seed (mock data; wipe-guarded — see OPERATIONS §1) |
 | `db:studio` | Prisma Studio on :5555 |
+| `db:test:clean` | Drop stray per-worktree `autoknow…_test` DBs (skips in-use; never the dev/demo DBs) |
 | `ci:lint-migrations` | PR gate: block destructive migrations (used by `ci.yml`) |
 | `ci:migrate` | Forward-only `prisma migrate deploy` to Cloud SQL (used by `deploy.yml`) |
 | `ci:deploy` | Build → push image → roll Cloud Run (used by `deploy.yml`) |
@@ -127,11 +131,13 @@ npm run test:coverage  # Generate a coverage report
 ```
 
 **End-to-End Tests (Playwright):**
-The Playwright config starts its own dev server on **:3130** (its own `_test`
-database and a separate `.next-test` build dir), so it never disturbs a dev server
-you're running on :3000. The browser matrix is deliberate: Chromium runs the full
-suite; WebKit re-runs only the engine-sensitive specs (dialogs, month/range
-inputs, SVG drag). Screenshot capture is a separate opt-in project.
+The Playwright config starts its own dev server on a **per-worktree port** (~3130,
+derived in `tests/helpers/worktree`) with its own **per-worktree** `_test` database
+and a separate `.next-test` build dir, so it never disturbs a dev server you're
+running on :3000 and two worktrees' e2e runs never collide. The browser matrix is
+deliberate: Chromium runs the full suite; WebKit re-runs only the engine-sensitive
+specs (dialogs, month/range inputs, SVG drag). Screenshot capture is a separate
+opt-in project.
 ```bash
 npm run test:e2e          # chromium (all) + webkit (engine-sensitive specs)
 npm run test:e2e:ui       # Opens the Playwright interactive UI

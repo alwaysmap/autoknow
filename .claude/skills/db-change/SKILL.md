@@ -61,5 +61,5 @@ host — `npm run db:up` / `db:down` manage the one sanctioned container
 
 `<name>_test` is SHARED by jest and Playwright and wiped per spec file —
 never run two suites concurrently, never point a server or demo at it. Need a
-sandbox? `CREATE DATABASE x` + `DATABASE_URL=… npx prisma migrate deploy` is
+sandbox? `CREATE DATABASE x` + `DATABASE_URL=… npm run db:migrate:deploy` is
 two commands; do that instead (a live demo got wiped mid-session, 2026-07-19).

@@ -2,10 +2,10 @@ import UserMenu from '../components/UserMenu';
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Rubik } from "next/font/google";
 import Link from 'next/link';
-import Search from '../components/Search';
 import SwCleanup from '../components/SwCleanup';
 import { LocaleProvider } from '../components/LocaleProvider';
 import { getCurrentUser } from '../lib/session';
+import { allowedAvatarUrl } from '../lib/avatar';
 import { getLocale } from '../lib/locale';
 import { t } from '../lib/i18n';
 import { auth, signIn, signOut, authConfigured } from '../auth';
@@ -30,7 +30,7 @@ const rubik = Rubik({
 
 export const metadata: Metadata = {
   title: "AutoKnow",
-  description: "Android Automotive Partner Relationship and Project Tracker",
+  description: "Android Automotive Partner Relationship and Program Tracker",
 };
 
 export const viewport = {
@@ -43,10 +43,12 @@ export const viewport = {
   viewportFit: 'cover'
 };
 
-// Resolves the stored theme preference (light | dark | system) to a concrete
-// data-theme on <html> BEFORE first paint — no flash of the wrong theme. Kept
-// tiny and dependency-free; ThemeToggle takes over after hydration.
-const themeInit = `(function(){try{var p=localStorage.getItem('autoknow-theme');var d=p==='dark'||(p!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();`;
+// Resolves BOTH stored appearance preferences to concrete attributes on <html>
+// BEFORE first paint — no flash of the wrong theme or the wrong style. The two
+// are independent: data-theme is light|dark (resolved from light|dark|system),
+// data-style is standard|instrument. Kept tiny and dependency-free; ThemeToggle
+// and StyleToggle take over after hydration.
+const themeInit = `(function(){try{var p=localStorage.getItem('autoknow-theme');var d=p==='dark'||(p!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';var s=localStorage.getItem('autoknow-style');document.documentElement.dataset.style=s==='standard'?'standard':'instrument';}catch(e){}})();`;
 
 export default async function RootLayout({
   children,
@@ -57,7 +59,13 @@ export default async function RootLayout({
   const session = authConfigured ? await auth() : null;
   const locale = await getLocale();
   return (
-    <html lang={locale} className={`${geistSans.variable} ${geistMono.variable} ${rubik.variable}`} suppressHydrationWarning>
+    // data-scroll-behavior: globals.css sets `scroll-behavior: smooth` so in-page
+    // jumps ease into place. Next asks for this attribute so its router knows the
+    // smoothness is deliberate and restores scroll position instantly on route
+    // CHANGES anyway — without it every navigation logs an advisory and a back
+    // button can visibly glide instead of landing where it left off.
+    <html lang={locale} data-scroll-behavior="smooth"
+      className={`${geistSans.variable} ${geistMono.variable} ${rubik.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
@@ -69,7 +77,7 @@ export default async function RootLayout({
               AutoKnow
             </Link>
             <div className={styles.navLinks}>
-              <Link href="/" className={styles.navLink}>
+              <Link href="/ecosystem" className={styles.navLink}>
                 {t(locale, 'navEcosystem')}
               </Link>
               <Link href="/programs" className={styles.navLink}>
@@ -88,7 +96,6 @@ export default async function RootLayout({
           </div>
           <div className={styles.rightSection}>
             <SwCleanup />
-            <Search />
             <Link href="/manage" className={styles.settingsCog} aria-label={t(locale, 'navManage')} title={t(locale, 'navManage')}>
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                 <circle cx="12" cy="12" r="3" />
@@ -96,8 +103,13 @@ export default async function RootLayout({
               </svg>
             </Link>
             <UserMenu
-              name={session?.user?.name ?? user.display}
+              name={user.name}
               email={user.email}
+              // The route, never the googleusercontent URL — that stays server-side.
+              // Asking allowedAvatarUrl (rather than just "is there a URL?") keeps this
+              // in lockstep with what /api/me/avatar will actually serve: a photo the
+              // route would reject must not render an <img> that only 404s.
+              photoUrl={allowedAvatarUrl(user.image) ? '/api/me/avatar' : null}
               signedIn={!!session?.user}
               authConfigured={authConfigured}
               signInAction={async () => {

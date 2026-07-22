@@ -13,6 +13,9 @@ test.describe('Partner programs summary', () => {
   test.describe.configure({ mode: 'serial' });
 
   let seeded: SeededProgram;
+  // A phase chip's destination: the DETAILS popover on the program page, deep-linked
+  // (lib/phase). Phases have no page of their own.
+  const detail = (phaseId: number) => `/programs/${seeded.projectId}#phase-${phaseId}-detail`;
 
   test.beforeAll(async () => {
     seeded = await seedProgram();
@@ -31,11 +34,11 @@ test.describe('Partner programs summary', () => {
     // Owned, not involved — no "via <owner>" attribution on the row.
     await expect(row.locator(`a[href="/partners/${seeded.oemId}"]`)).toHaveCount(0);
 
-    // Cards are expanded by default — all four phases show as chips linked to their
-    // history without any interaction.
+    // Cards are expanded by default — all four phases show as chips deep-linked to
+    // their DETAILS popover on the program page, without any interaction.
     const { bringUp, integration, certification, audio } = seeded.phases;
     for (const phaseId of [bringUp, integration, certification, audio]) {
-      await expect(row.locator(`a[href="/history/phase/${phaseId}"]`)).toBeVisible();
+      await expect(row.locator(`a[href="${detail(phaseId)}"]`)).toBeVisible();
     }
   });
 
@@ -52,10 +55,10 @@ test.describe('Partner programs summary', () => {
     // All the program's IN-FLIGHT phases show (integration = Denso's, plus audio),
     // not just the one Denso sits on. Denso's phase carries its role; the done
     // (bringUp) and not-started (certification) phases are omitted.
-    await expect(row.locator(`a[href="/history/phase/${seeded.phases.integration}"]`)).toBeVisible();
-    await expect(row.locator(`a[href="/history/phase/${seeded.phases.audio}"]`)).toBeVisible();
+    await expect(row.locator(`a[href="${detail(seeded.phases.integration)}"]`)).toBeVisible();
+    await expect(row.locator(`a[href="${detail(seeded.phases.audio)}"]`)).toBeVisible();
     await expect(row).toContainText('Supplier'); // role on the integration phase
-    await expect(row.locator(`a[href="/history/phase/${seeded.phases.bringUp}"]`)).toHaveCount(0);
-    await expect(row.locator(`a[href="/history/phase/${seeded.phases.certification}"]`)).toHaveCount(0);
+    await expect(row.locator(`a[href="${detail(seeded.phases.bringUp)}"]`)).toHaveCount(0);
+    await expect(row.locator(`a[href="${detail(seeded.phases.certification)}"]`)).toHaveCount(0);
   });
 });

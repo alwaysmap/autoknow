@@ -3,7 +3,7 @@
 // DATABASE_URL names a disposable test database, or the operator has explicitly named
 // this exact database in DESTRUCTIVE_DB_ALLOWED. A misconfigured DATABASE_URL (the
 // realistic accident) can never match a confirmation meant for a different database.
-import { assertDestructiveDbAllowed, resolveDbName } from '../src/lib/dbSafety';
+import { assertDestructiveDbAllowed, destructiveDbAllowed, resolveDbName } from '../src/lib/dbSafety';
 
 const withEnv = (env: Record<string, string | undefined>, fn: () => void) => {
   const saved: Record<string, string | undefined> = {};
@@ -61,6 +61,32 @@ describe('assertDestructiveDbAllowed', () => {
   it('refuses when DATABASE_URL is missing entirely', () => {
     withEnv({ DATABASE_URL: undefined, DESTRUCTIVE_DB_ALLOWED: undefined }, () => {
       expect(() => assertDestructiveDbAllowed('wipe')).toThrow();
+    });
+  });
+});
+
+describe('destructiveDbAllowed (non-throwing predicate — gates the seed-time timestamp override)', () => {
+  it('mirrors the assert: test DB and exact confirmation allow, everything else refuses', () => {
+    withEnv({ DATABASE_URL: 'postgresql://u:p@h:5432/autoknow_test', DESTRUCTIVE_DB_ALLOWED: undefined }, () => {
+      expect(destructiveDbAllowed()).toBe(true);
+    });
+    withEnv({ DATABASE_URL: 'postgresql://u:p@h:5432/autoknow', DESTRUCTIVE_DB_ALLOWED: 'autoknow' }, () => {
+      expect(destructiveDbAllowed()).toBe(true);
+    });
+    withEnv({ DATABASE_URL: 'postgresql://u:p@h:5432/autoknow', DESTRUCTIVE_DB_ALLOWED: undefined }, () => {
+      expect(destructiveDbAllowed()).toBe(false);
+    });
+    withEnv({ DATABASE_URL: 'postgresql://u:p@h:5432/autoknow_prod', DESTRUCTIVE_DB_ALLOWED: 'autoknow_demo' }, () => {
+      expect(destructiveDbAllowed()).toBe(false);
+    });
+  });
+
+  it('fails closed on missing or malformed DATABASE_URL', () => {
+    withEnv({ DATABASE_URL: undefined, DESTRUCTIVE_DB_ALLOWED: undefined }, () => {
+      expect(destructiveDbAllowed()).toBe(false);
+    });
+    withEnv({ DATABASE_URL: 'not a url', DESTRUCTIVE_DB_ALLOWED: undefined }, () => {
+      expect(destructiveDbAllowed()).toBe(false);
     });
   });
 });
