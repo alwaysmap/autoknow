@@ -125,3 +125,9 @@ you earn a new one.
 16. `npm ci` bootstraps a checkout (links `.env`, generates the Prisma client) —
     so CI and Docker must NOT depend on that hook, and nothing added to it may
     need the source tree ([ADR: `npm ci` bootstraps a checkout — and CI and Docker never depend on that](docs/adr/2026-07-21-npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it.md)).
+17. A diagram answers "what does this touch", not "what could this ever reach" —
+    transitive closure lights ~everything and says nothing ([ADR: A trace paints direct neighbours; the closure only fades cards](docs/adr/2026-07-21-a-trace-paints-direct-neighbours-not-the-closure.md)).
+18. Ink that MEANS something derives its direction, extent and contrast from the
+    data — never from the path, constant or predicate beneath it — and is signed
+    off from a SCREENSHOT: counting elements proves existence, not visibility
+    ([ADR: A semantic overlay derives from the data it means, never from the layer beneath](docs/adr/2026-07-21-semantic-overlays-derive-from-data-not-from-the-layer-beneath.md)).

@@ -45,3 +45,5 @@ and invariants kept, narrative deleted).
 | 2026-07-21 | [Third-party images are proxied through our origin; `img-src` stays `'self'`](2026-07-21-proxy-third-party-images-keep-csp-self.md) | accepted | security, csp, ui, auth |
 | 2026-07-21 | [Retiring a URL deletes the route and migrates the data that cites it](2026-07-21-retiring-a-url-migrates-the-data-that-cites-it.md) | accepted | urls, data, ai, migrations |
 | 2026-07-21 | [The signed-in session is the only source of "who I am"](2026-07-21-session-is-the-only-source-of-who-i-am.md) | accepted | auth, identity, seed, demo, lint |
+| 2026-07-21 | [A trace paints direct neighbours; the closure only fades cards](2026-07-21-a-trace-paints-direct-neighbours-not-the-closure.md) | accepted | ui, rail, graph, tufte |
+| 2026-07-21 | [A semantic overlay derives from the data it means, never from the layer beneath](2026-07-21-semantic-overlays-derive-from-data-not-from-the-layer-beneath.md) | accepted | ui, rail, svg, motion, verification |

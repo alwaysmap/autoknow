@@ -392,6 +392,13 @@ combination must work:
   Patterns are `userSpaceOnUse` so a run of bands is one continuous field, and
   each SVG (chart, and every legend swatch) carries its own pattern ids — no
   cross-SVG paint references, which are the fragile part.
+* **Lines never cross unexplained.** A subway map and a circuit diagram both owe
+  the reader an account of every intersection, and the phase rail owes the same:
+  where a branch line must pass over track it is not joining, it draws a HOP — a
+  small arc lifting the line clear (`hopsBetween` / `runX` in `PhaseTrack.tsx`).
+  A bare crossing reads as a junction that isn't there, which is a false statement
+  about the dependency graph, not a cosmetic issue. Simplicity is the only valid
+  reason to let lines meet at all, and it buys the hop, not the ambiguity.
 * **The gauge face is near-WHITE in both themes** (`--gauge-face`). It is the one
   surface that does not follow the page into the dark: a real instrument has a
   light face whatever the light in the cabin, and it is what makes the coloured
