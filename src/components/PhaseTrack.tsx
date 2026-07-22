@@ -253,6 +253,21 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     : LANE_W;
   const laneX = (lane: number) => mainX - lane * lanePitch;
 
+  /** Is this phase under way — started, but not finished? */
+  const flowing = (id: number) => {
+    const p = byId.get(id);
+    if (!p) return false;
+    const pct = statusProgress(p.progress, p.startedAt);
+    return pct > 0 && pct < 100;
+  };
+  /**
+   * Does this piece of track carry work LEAVING one in-progress phase? Every rider
+   * must depart the same phase, so a shared stretch fed by several sources never
+   * animates on behalf of one of them — the same under-claiming rule the ink uses.
+   */
+  const flowingEdges = (es: Edge[]) =>
+    es.length > 0 && es.every((e) => e.from === es[0].from) && flowing(es[0].from);
+
   const status = (p: number) => t(locale, statusKey(p));
   const skippedNames = (e: Edge) => ordered.slice(e.fromIdx + 1, e.toIdx).map((s) => s.name).join(', ');
   // The "skips" clause is dropped while tracing: it enumerates the stations a line
@@ -1251,6 +1266,14 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                 )}
                 <line x1={mainX} y1={y1} x2={mainX} y2={y2}
                   stroke={e.done ? INK : 'var(--border)'} strokeWidth={e.onChain ? 3.5 : 2} strokeLinecap="round" />
+                {/* Work in motion: the track LEAVING a phase that is under way carries a
+                    slow downward drift, so the one place the program is actually moving
+                    announces itself and points the way it is heading. Drawn top→bottom
+                    like every edge here, so "forward along the path" IS "down the rail". */}
+                {flowingEdges([e]) && (
+                  <line x1={mainX} y1={y1} x2={mainX} y2={y2} className={styles.flow}
+                    stroke={INK} strokeWidth={e.onChain ? 3.5 : 2} strokeLinecap="butt" />
+                )}
                 <title>{edgeTitle(e)}</title>
               </g>
             );
@@ -1281,6 +1304,10 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                       <line x1={bx} x2={bx} y1={y1} y2={y2}
                         stroke={s.done ? INK : 'var(--border)'} strokeWidth={s.onChain ? 3.5 : 1.8}
                         className={inkClass(s.edges)} />
+                      {flowingEdges(s.edges) && (
+                        <line x1={bx} x2={bx} y1={y1} y2={y2} className={styles.flow}
+                          stroke={INK} strokeWidth={s.onChain ? 3.5 : 1.8} strokeLinecap="butt" />
+                      )}
                     </React.Fragment>
                   );
                 })}
@@ -1299,6 +1326,10 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                         fill="none" stroke={tie.done ? INK : 'var(--border)'}
                         strokeWidth={tie.onChain ? 3.5 : 1.8} strokeLinecap="round"
                         className={styles.hoverable} />
+                      {flowingEdges(tie.edges) && (
+                        <path d={d} className={styles.flow} stroke={INK}
+                          strokeWidth={tie.onChain ? 3.5 : 1.8} strokeLinecap="butt" />
+                      )}
                       <title>{tieTitle(b, tie)}</title>
                     </g>
                   );

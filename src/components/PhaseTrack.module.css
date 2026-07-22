@@ -177,6 +177,39 @@
   fill: none;
 }
 
+/* ---- the one moving thing on this surface ----
+   design.md §8c caps motion at two implementations and says a third needs a reason;
+   this is that third, added on the user's call (2026-07-21). The reason: a plan is a
+   static picture of something that is actually moving, and NOTHING on the rail said
+   where it was moving. An in-progress phase now drifts its outgoing track downward —
+   the direction dependencies run — so the live front of the program is the one thing
+   with movement, and the movement points the way.
+   It obeys the house rules: CSS, never JS, and one idea rather than an effect per
+   element. Hidden by DEFAULT and revealed only where motion is welcome — gating the
+   animation alone would leave a dashed overlay sitting on the track for the reader
+   who asked for stillness, which is a decoration they never asked for rather than an
+   effect they opted out of. */
+.flow {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .flow {
+    display: inline;
+    fill: none;
+    stroke-dasharray: 0.25rem 0.5rem;
+    opacity: 0.55;
+    animation: railFlow 1.5s linear infinite;
+  }
+}
+
+/* NEGATIVE offset walks the dashes FORWARD along the path, and every edge here is
+   authored top→bottom, so forward reads as downhill. One full dash+gap period, so
+   the loop is seamless. */
+@keyframes railFlow {
+  to { stroke-dashoffset: -0.75rem; }
+}
+
 /* A receded row still holds real controls — the phase name and the zoom button —
    and they stay tabbable while tracing. At 18% they would be reachable
    and unreadable at once, which is the worst of both, so reaching a row with

@@ -346,6 +346,18 @@ combination must work:
      delivers a callback (this app's own preview pane) the chart rendered with no
      visible bands at all. A CSS animation starts from a state the element
      already has, so nothing it does can hide a reading.
+  3. **Flow** (2026-07-21, user call) — the phase rail drifts a dashed overlay
+     down the track LEAVING an in-progress phase. What earns it a third slot: a
+     plan is a static picture of something that is actually moving, and nothing on
+     the rail said where. This makes the live front of the program the only thing
+     with movement, and the movement points the direction dependencies run. Scoped
+     hard so it stays one idea rather than an effect: only phases that are
+     started-and-unfinished, only their outgoing mainline edge, one shared
+     keyframe. CSS, and `display: none` unless
+     `prefers-reduced-motion: no-preference` — gating only the animation would
+     leave a dashed line sitting on the track for a reader who asked for stillness,
+     which is decoration they never asked for rather than an effect they opted out
+     of.
   Rejected deliberately: a gauge on every boxed label (30+ per table is noise,
   and the point of these is to be scannable at rest), and animating dialogs open
   (the `<dialog>` top-layer/focus behaviour is correct now and not worth risking
