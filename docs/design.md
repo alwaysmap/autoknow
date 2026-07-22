@@ -454,10 +454,12 @@ enforced by `tests/vertical-rhythm.test.ts` rather than by good intentions:
 Two traps worth knowing. `vertical-align: super` on a sized inline (the briefing
 citations) grows the LINE BOX, so each bullet became 21.66px tall; offset the
 glyph with `position: relative; top` and `line-height: 0` instead. And an SVG
-with `width: 100%; height: auto` computes a fractional height at almost any
-width — this is the one **known remaining** source (the needle gauge and hill
-containers), left alone deliberately because fixing it means choosing how gauges
-behave when they shrink, which is a design decision, not a cleanup.
+with `width: 100%; height: auto` computes a fractional height at almost any width
+(the needle gauge and hill containers) — the design decision that resolving it
+required (how a chart behaves when it shrinks) is now **taken**: a chart fills its
+container's inline size and owns its height, author-set in `rem` so it lands on a
+whole pixel. See §9b and [ADR: Containers own outer spacing; charts fill width and
+own their height](adr/2026-07-22-containers-own-spacing-charts-own-height.md).
 
 Measure, don't eyeball: the audit that found all of this compares rendered
 rects, and reported 0 near-miss horizontal edges throughout — the defects were
@@ -516,3 +518,30 @@ Wide content (tables, rails, diagrams) scrolls inside its own
 
 Existing stray breakpoints (900/860/700/520) migrate to these when their file
 is next touched.
+
+---
+
+## 9b. Box-model ownership: the container owns outer spacing; a chart owns its height
+
+(2026-07-22 — [ADR: Containers own outer spacing; charts fill width and own their
+height](adr/2026-07-22-containers-own-spacing-charts-own-height.md).) Two rules so a
+component can be dropped into any layout unchanged and a chart sizes predictably:
+
+* **A component's root element never sets an outer margin.** No `margin`,
+  `margin-top`, or `margin-bottom` on the root — the **parent** supplies the space
+  between siblings with `gap` (or `padding`). This is already the majority
+  convention (`gap` outnumbers root margins ~2:1); the rule states it so it stops
+  drifting. Centring (`margin: 0 auto`) and resets (`margin: 0`) are not outer
+  spacing and are fine. Inner elements may still use margins where `gap` doesn't
+  reach — the rule is about the **root**, not every class.
+  `tests/componentRootMargins.test.ts` enforces it: a new component root with an
+  outer margin fails CI. It runs as a ratchet with an explicit allowlist of the
+  remaining legacy violators, and the allowlist may only shrink.
+* **A chart fills its container's inline size and owns its own height.**
+  `width: 100%`, and it does **not** read its container's width in JS to size
+  itself. Height is author-set in `rem` (which also lands it on a whole pixel —
+  this is the resolution of the fractional-height source §8d used to defer).
+  `aspect-ratio` height is rejected (it re-introduces a fractional height and makes
+  a wide chart tall on a phone). Measuring for pointer math, popup placement or
+  scroll anchoring is unrelated and unaffected — the rule bans measuring to
+  **size**, not measuring at all.
