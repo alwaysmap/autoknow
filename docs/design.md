@@ -358,7 +358,15 @@ combination must work:
      differs from the ink's: a stretch is "done" only if EVERY dependency on it
      has departed a finished phase, but it is "carrying live work" the moment ONE
      has — requiring all of them stopped the drift at the first shared stretch,
-     which on a converging plan is a stub nobody can see. CSS, and `display: none` unless
+     which on a converging plan is a stub nobody can see. The same drift also runs
+     the traced route when a phase is SELECTED, over exactly the stretches the
+     direction bands colour (both come from one filter, so colour and motion can
+     never name different track): the band says which side, the drift says which
+     way. Two rules a re-implementation must keep — a tie drawn against the work it
+     carries (the middle stops of a fan-out) reverses the offset rather than the
+     geometry, and the dashes take the BAND's colour on a finished line, since a
+     finished line is already ink and ink-on-ink is an animation nobody can see.
+     CSS, and `display: none` unless
      `prefers-reduced-motion: no-preference` — gating only the animation would
      leave a dashed line sitting on the track for a reader who asked for stillness,
      which is decoration they never asked for rather than an effect they opted out

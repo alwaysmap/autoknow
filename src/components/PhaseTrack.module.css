@@ -210,6 +210,17 @@
   to { stroke-dashoffset: -0.75rem; }
 }
 
+/* A tie whose path is drawn against the work it carries (the middle stops of a
+   fan-out) walks its dashes BACKWARD along the path, which is forward along the
+   dependency. Reversing the offset rather than reversing the geometry keeps one
+   path definition feeding the ink, the band, and the drift. */
+.flowBack {
+  animation-name: railFlowBack;
+}
+@keyframes railFlowBack {
+  to { stroke-dashoffset: 0.75rem; }
+}
+
 /* A receded row still holds real controls — the phase name and the zoom button —
    and they stay tabbable while tracing. At 18% they would be reachable
    and unreadable at once, which is the worst of both, so reaching a row with

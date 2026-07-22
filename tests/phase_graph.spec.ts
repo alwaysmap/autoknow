@@ -94,6 +94,25 @@ test.describe('PhaseTrack rail', () => {
     const audio = row(page, 'Audio');
     await audio.locator('a:text-is("Audio")').focus();
     await expect(audio).toHaveCSS('opacity', '1');
+
+    // The coloured stretch and the moving stretch are ONE set by construction, and
+    // that is the whole guarantee: a reader told "this is your upstream" by colour
+    // and "the work runs this way" by motion must be told it about the same track.
+    // The two are computed from a shared filter, so this fails the moment anyone
+    // reintroduces a second predicate for it.
+    // Matched on GEOMETRY rather than counted, because the counts can agree while the
+    // two sets sit on different track (and a trunk stretch's band and drift are loose
+    // siblings among a bundle's children, so there is no wrapper to pair them by).
+    const unmoving = await page.evaluate(([sel]) => {
+      const geom = (el: Element) =>
+        el.tagName === 'path'
+          ? el.getAttribute('d')!
+          : ['x1', 'y1', 'x2', 'y2'].map((a) => el.getAttribute(a)).join();
+      const drift = new Set([...document.querySelectorAll('svg [class*="__flow"]')].map(geom));
+      return [...document.querySelectorAll(sel)].map(geom).filter((g) => !drift.has(g));
+    }, ['svg [class*="trackBacking"]']);
+    expect(await page.locator('svg [class*="trackBacking"]').count()).toBeGreaterThan(0);
+    expect(unmoving).toEqual([]);
   });
 
   // The card is one object to the reader even though it is a dozen elements, so a

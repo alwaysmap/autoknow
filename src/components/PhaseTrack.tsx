@@ -276,6 +276,38 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
    */
   const flowingEdges = (es: Edge[]) => es.some((e) => flowing(e.from));
 
+  /**
+   * Two reasons a piece of track drifts, and they never compete for the reader's
+   * attention because they are never both prominent: at rest the drift marks where
+   * work is actually moving, and during a trace everything off the route is ghosted
+   * to near-nothing, so the only drift with any contrast left is the traced route.
+   * Same treatment for both because it means the same thing either way — this is the
+   * direction the work travels.
+   */
+  const drifting = (es: Edge[]) => flowingEdges(es) || tracedOn(es).length > 0;
+
+  /**
+   * Does the authored path run the way the work does? Ties are drawn by GEOMETRY —
+   * out from the rail at the top of a branch, back in at the bottom — which matches
+   * the work everywhere except one case: the middle stops of a fan-OUT, where the
+   * path is drawn rail→lane but the work arrives lane→rail. Those get the drift
+   * reversed. Without this the drift on a fan-out would point at the hub it came
+   * from, i.e. confidently backwards, which is worse than no arrow at all.
+   */
+  const withFlow = (tie: BundleTie, at: 'top' | 'bottom' | 'mid') =>
+    tie.edges.some((e) => e.from === tie.phaseId) ? at !== 'bottom' : at === 'bottom';
+
+  /**
+   * The drift has to contrast with the line it RIDES, which is not one colour. An
+   * unfinished line is pale --border, so INK dashes read. A finished line is already
+   * INK, and INK-on-INK is a perfectly correct animation nobody can see — which is
+   * how this shipped invisible on a traced route, where most edges are done. Those
+   * ride in the band's own colour instead: the band is the counter-pole to INK in
+   * both themes (pale band under dark ink, dark band under pale ink), so it reads
+   * either way, and the moving dashes end up being the direction colour itself.
+   */
+  const driftInk = (done: boolean, band: string | undefined) => (done && band ? band : INK);
+
   const status = (p: number) => t(locale, statusKey(p));
   const skippedNames = (e: Edge) => ordered.slice(e.fromIdx + 1, e.toIdx).map((s) => s.name).join(', ');
   // The "skips" clause is dropped while tracing: it enumerates the stations a line
@@ -417,9 +449,18 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   // size, and it is the thing a reader can act on: these must finish before I can
   // start, and these unblock the moment I do. The FULL reach stays on the tracing
   // line in words, where a count belongs.
+  /**
+   * The dependencies on this piece of track that the trace is actually painting.
+   * The band and the drift are both derived from THIS, so the coloured stretch and
+   * the moving stretch are the same stretch by construction rather than by two
+   * predicates that agree today.
+   */
+  const tracedOn = (es: Edge[]): Edge[] =>
+    focus ? es.filter((e) => focus.directKeys.has(`${e.from}-${e.to}`)) : [];
+
   const backingOf = (es: Edge[]): string | undefined => {
     if (!focus || es.length === 0) return undefined;
-    const live = es.filter((e) => focus.directKeys.has(`${e.from}-${e.to}`));
+    const live = tracedOn(es);
     if (live.length === 0) return undefined;
     // An edge ENDING at the phase is something it waits for; one LEAVING it is
     // something waiting on it. A stretch carrying both gets no band rather than a
@@ -1266,11 +1307,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
           {!tracksHidden && mainline.map((e) => {
             const y1 = geom.ys[e.from], y2 = geom.ys[e.to];
             if (y1 == null || y2 == null) return null;
+            const back = backingOf([e]);
             return (
               <g key={`m${e.from}-${e.to}`} className={inkClass([e])}>
-                {backingOf([e]) && (
+                {back && (
                   <line x1={mainX} y1={y1} x2={mainX} y2={y2} className={styles.trackBacking}
-                    stroke={backingOf([e])} strokeWidth={BACKING_W} strokeLinecap="butt" />
+                    stroke={back} strokeWidth={BACKING_W} strokeLinecap="butt" />
                 )}
                 <line x1={mainX} y1={y1} x2={mainX} y2={y2}
                   stroke={e.done ? INK : 'var(--border)'} strokeWidth={e.onChain ? 3.5 : 2} strokeLinecap="round" />
@@ -1278,9 +1320,9 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     slow downward drift, so the one place the program is actually moving
                     announces itself and points the way it is heading. Drawn top→bottom
                     like every edge here, so "forward along the path" IS "down the rail". */}
-                {flowingEdges([e]) && (
+                {drifting([e]) && (
                   <line x1={mainX} y1={y1} x2={mainX} y2={y2} className={styles.flow}
-                    stroke={INK} strokeWidth={e.onChain ? 3.5 : 2} strokeLinecap="butt" />
+                    stroke={driftInk(e.done, back)} strokeWidth={e.onChain ? 3.5 : 2} strokeLinecap="butt" />
                 )}
                 <title>{edgeTitle(e)}</title>
               </g>
@@ -1312,16 +1354,17 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                       <line x1={bx} x2={bx} y1={y1} y2={y2}
                         stroke={s.done ? INK : 'var(--border)'} strokeWidth={s.onChain ? 3.5 : 1.8}
                         className={inkClass(s.edges)} />
-                      {flowingEdges(s.edges) && (
+                      {drifting(s.edges) && (
                         <line x1={bx} x2={bx} y1={y1} y2={y2} className={styles.flow}
-                          stroke={INK} strokeWidth={s.onChain ? 3.5 : 1.8} strokeLinecap="butt" />
+                          stroke={driftInk(s.done, back)} strokeWidth={s.onChain ? 3.5 : 1.8} strokeLinecap="butt" />
                       )}
                     </React.Fragment>
                   );
                 })}
                 {/* ties: the branch meeting the main line at each phase on it */}
                 {b.ties.map((tie, k) => {
-                  const d = tiePath(bx, ys[k]!, k === 0 ? rTop : rBot, k === 0 ? 'top' : k === last ? 'bottom' : 'mid', b.key);
+                  const at = k === 0 ? 'top' : k === last ? 'bottom' : 'mid';
+                  const d = tiePath(bx, ys[k]!, k === 0 ? rTop : rBot, at, b.key);
                   const back = backingOf(tie.edges);
                   return (
                     <g key={tie.phaseId} className={inkClass(tie.edges)}>
@@ -1334,8 +1377,9 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                         fill="none" stroke={tie.done ? INK : 'var(--border)'}
                         strokeWidth={tie.onChain ? 3.5 : 1.8} strokeLinecap="round"
                         className={styles.hoverable} />
-                      {flowingEdges(tie.edges) && (
-                        <path d={d} className={styles.flow} stroke={INK}
+                      {drifting(tie.edges) && (
+                        <path d={d} stroke={driftInk(tie.done, back)}
+                          className={withFlow(tie, at) ? styles.flow : `${styles.flow} ${styles.flowBack}`}
                           strokeWidth={tie.onChain ? 3.5 : 1.8} strokeLinecap="butt" />
                       )}
                       <title>{tieTitle(b, tie)}</title>
