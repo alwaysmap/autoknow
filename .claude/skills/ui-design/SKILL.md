@@ -33,6 +33,14 @@ and the ✦ AI-provenance mark (§8).
   user's photo comes from `/api/me/avatar`, never a googleusercontent URL
   ([ADR: Third-party images are proxied through our origin; `img-src` stays `'self'`](../../../docs/adr/2026-07-21-proxy-third-party-images-keep-csp-self.md));
   initials are the resting state, the photo an enhancement that may fail to load.
+- **A correct element you cannot see is a bug, and the DOM will not tell you.**
+  Three rail-overlay defects in a row rendered valid geometry with valid classes —
+  a scripted audit counted 15 right-looking elements that were invisible (INK
+  dashes over an already-INK line). Sign off any overlay, band, glow or animation
+  from a SCREENSHOT in both themes; counting elements proves existence, not
+  visibility. Same rule for direction: derive it from the data, never from the
+  order a path happens to be authored in
+  ([ADR: A semantic overlay derives from the data it means, never from the layer beneath](../../../docs/adr/2026-07-21-semantic-overlays-derive-from-data-not-from-the-layer-beneath.md)).
 - **Hydration-safe browser state.** localStorage/matchMedia reads use
   `useSyncExternalStore` with a neutral server snapshot —
   `src/components/ThemeToggle.tsx` is the reference. setState-in-effect is a
