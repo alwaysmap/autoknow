@@ -3,6 +3,8 @@ status: accepted
 date: 2026-07-20
 supersedes: ""
 superseded-by: ""
+extends: ""
+extended-by: "findings-get-a-third-home-priced-by-retrieval"
 tags: [docs, knowledge, agents]
 ---
 

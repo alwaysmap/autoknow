@@ -68,11 +68,16 @@ describe('ADR naming and index', () => {
     expect(broken).toEqual([]);
   });
 
-  it('supersession points at a real record, by slug', () => {
+  it('supersession and extension point at a real record, by slug', () => {
+    // `extends`/`extended-by` are the same machinery for the case that is NOT a
+    // reversal: the old record still holds but no longer describes the whole
+    // system, so it must carry a forward pointer or it quietly starts lying
+    // (AGENTS lesson 10). Filling a forward field is additive, not a history edit
+    // — the same reason `superseded-by` is documented as filled in later.
     const known = new Set(records());
     const bad: string[] = [];
     for (const f of records()) {
-      for (const key of ['supersedes', 'superseded-by']) {
+      for (const key of ['supersedes', 'superseded-by', 'extends', 'extended-by']) {
         const v = frontmatter(f, key);
         if (!v) continue;
         // A slug, resolved against the directory — never a bare number, which is

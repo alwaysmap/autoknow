@@ -11,6 +11,11 @@ percentage-free gauges/hill charts, 2-column detail grids, the table grammar
 (§6: per-column funnels, shareable URL state, ISO dates), one-line facts (§7),
 and the ✦ AI-provenance mark (§8).
 
+**Before styling, check the findings.** [docs/knowledge/](../../../docs/knowledge/README.md)
+carries notes triggered by `src/**/*.module.css`, `src/components/**`, and
+symptoms like "right classes, wrong position". Scan the index's trigger column;
+open only the rows that match what you are about to touch.
+
 ## Rules that repeatedly caught agents here
 
 - **Entity displays are links; entity inputs are pickers.** People →

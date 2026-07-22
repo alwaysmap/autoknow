@@ -27,12 +27,24 @@ the distilled rules and points at the exact doc sections that matter:
 | `infra-terraform` | touching `infra/terraform/**`, secrets, env vars, domains |
 | `gcp-debug` | checking/debugging the live deployment: deploys, logs, cron, Chat |
 | `qa` | running quality gates; before declaring any change done |
-| `compound` | end of a session / after an incident or real decision — record it as compounding knowledge (ADRs in `docs/adr/`, lessons here) |
+| `compound` | end of a session / after an incident or real decision — record it as compounding knowledge (decisions → `docs/adr/`, findings → `docs/knowledge/`, always-on rules → here) |
 
 Deep docs live in `docs/` (OPERATIONS, CHANGE_PLAYBOOK, DEPLOYMENT_GCP,
 design.md, plan docs). Read the specific section a skill points you at, not the
-whole file. Decision records live in [docs/adr/](docs/adr/README.md) — check
-there before relitigating a settled question.
+whole file.
+
+**Compounded knowledge has three homes, and you reach for them at different
+moments.** The lessons below are always in context because they always apply.
+The other two are not, and are meant to be looked up:
+
+* [docs/adr/](docs/adr/README.md) — **decisions.** Check before relitigating a
+  settled question.
+* [docs/knowledge/](docs/knowledge/README.md) — **findings**: how this system
+  actually behaves, learned the hard way. Scan the index's trigger column when
+  PLANNING a change (does a row cover what you're about to touch?) and when
+  STUCK on a surprise (`grep -A4 '^symptoms:' docs/knowledge/*.md`). Never
+  bulk-read it — a note that has to be found by reading all of them is a note
+  whose index row is too vague.
 
 # Close the loop in a real browser — freely
 
@@ -80,33 +92,35 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Compounding lessons — each cost a real incident here
 
-One-liners; receipts and commands live in the task skills. Extend this list when
-you earn a new one.
+An index of dangers, not a store of detail: each line flags the trap and names
+where the detail lives. Numbers are cited from code and records, so rewrite text
+freely but **never renumber** (`tests/agentsLessons.test.ts` enforces it). A line
+here taxes every future session, so the `compound` skill sets the bar for adding
+one and routes most findings to [docs/knowledge/](docs/knowledge/README.md).
 
-1. A green pipeline is not a deploy — verify `/api/health` `.sha` against
-   `origin/main`, never the Actions UI; but that check only applies when the merge
-   touched a deploy-triggering path, since a docs-only merge correctly deploys
-   nothing and never matches (`gcp-debug`).
+1. A green pipeline is not a deploy — ask prod what sha it is running, and know
+   when a merge correctly deploys nothing (`gcp-debug`).
 2. Enforce rules in software, not prose: a new dangerous operation ships its
    fail-closed guard in the same PR (wipe guard, DDL-less runtime role,
    migration lint are the precedents).
 3. Entity references are pickers + canonical keys, never free text; reject
-   non-matches at the mutation boundary (`resolvePerson` pattern).
-4. A new machine endpoint needs BOTH a session-gate exemption in `src/proxy.ts`
-   and its own credential — one without the other is broken or exposed.
+   non-matches at the mutation boundary (`ui-design`).
+4. A machine-called endpoint needs a session-gate exemption AND its own
+   credential — one without the other is broken or exposed
+   ([note](docs/knowledge/machine-endpoint-needs-exemption-and-credential.md)).
 5. Gate features on env presence; degrade with an honest message — never a
-   crash, endless spinner, or faked result.
-6. Google-side config is sticky and propagates for up to 24h; get ground truth
-   from Google's logs, not yours (`gcp-debug`).
-7. After fixing a defect, grep for its siblings before closing — the same bug
-   usually exists in a second file, in a different disguise.
-8. Browser-only state reads use `useSyncExternalStore` with a neutral server
-   snapshot; first e2e interactions get hydration-guarded retries (`ui-design`, `qa`).
-9. The `*_test` database (and the e2e port) is **per-worktree** — the name and
-   port carry a token derived from the checkout (`tests/helpers/worktree`), so
-   concurrent worktrees never clobber one shared DB or one `:3130` socket. WITHIN
-   a worktree it's still one DB, wiped per spec: one suite at a time (`workers=1`),
-   and never point a server or demo at it (`db-change`, `qa`).
+   crash, endless spinner, or faked result (`infra-terraform`).
+6. Google-side config is sticky and slow to propagate; get ground truth from
+   Google's logs, not yours (`gcp-debug`).
+7. Fix the PATTERN, not the instance — the same bug usually exists in a second
+   file, in a different disguise, and the same control usually exists in three
+   hand-rolled variants. Sweep before closing, and name the sweep in the issue so
+   nobody has to remember it later (`.github/ISSUE_TEMPLATE`).
+8. Browser-only state reads and first e2e interactions each have ONE required
+   pattern; using anything else is the top flake source (`ui-design`, `qa`).
+9. The `*_test` database and the e2e port are per-worktree, but within a
+   worktree there is still only one of each: run one suite at a time, and never
+   point a server or demo at them (`db-change`, `qa`).
 10. Docs state their status or they lie — the PR that implements or retires
     what a doc describes updates that doc's STATUS line.
 11. Commit messages carry diagnosis + evidence ("heap-profiled, ~10MB/s"), not
