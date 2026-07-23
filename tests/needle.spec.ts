@@ -180,6 +180,55 @@ test.describe('Progress & Health gauge updates', () => {
     await expect(detail).toContainText('Codec blockers piling up');
   });
 
+  // In UPDATE mode the popup used to show the form's Cancel/Save AND a dialog-level
+  // Close at once, and Close (plus the ×, Escape, backdrop) threw away a typed note with
+  // no prompt (#35). Now: one action row while editing, and every dismissal path asks
+  // first when there is unsaved work.
+  test('Update mode: no duplicate Close, and a stray dismissal cannot silently drop an edit', async ({ page }) => {
+    await page.goto(`/programs/${projectId}`);
+    const card = page.locator('[class*="summaryCard"]')
+      .filter({ has: page.getByRole('button', { name: 'Detail', exact: true }) });
+    const detail = page.getByTestId('needle-detail');
+    await openDetail(page, card, detail);
+
+    // Log mode shows the dialog-level Close rail.
+    await expect(detail.locator('button:has-text("Close")')).toHaveCount(1);
+
+    await detail.getByRole('button', { name: 'Update', exact: true }).click();
+    await expect(detail.locator('form')).toBeVisible();
+
+    // Editing: the footer Close is gone — the form's own Cancel/Save is the only action
+    // row (the × in the header carries no visible "Close" text, so this counts the rail).
+    await expect(detail.locator('button:has-text("Close")')).toHaveCount(0);
+    await expect(detail.locator('button:has-text("Cancel")')).toHaveCount(1);
+
+    // Make the form dirty, then try to close via the header × — it must ASK first.
+    await detail.locator('[data-testid="note-editor"] [contenteditable="true"]').click();
+    await page.keyboard.type('Half-typed note that must not vanish');
+
+    let asked = false;
+    page.once('dialog', (d) => { asked = true; d.dismiss(); }); // decline → keep editing
+    await detail.getByRole('button', { name: 'Close', exact: true }).click(); // the × (aria-label Close)
+    await expect.poll(() => asked).toBe(true);
+    await expect(detail.locator('form')).toBeVisible(); // the edit survived the stray close
+
+    // A second try, accepted this time, discards and closes.
+    page.once('dialog', (d) => d.accept());
+    await detail.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+
+    // Pristine form must NOT nag: reopen, enter update, change nothing, and a guarded path
+    // (Escape) closes with no prompt at all.
+    await openDetail(page, card, detail);
+    await detail.getByRole('button', { name: 'Update', exact: true }).click();
+    await expect(detail.locator('form')).toBeVisible();
+    let nagged = false;
+    page.once('dialog', (d) => { nagged = true; d.accept(); });
+    await page.keyboard.press('Escape');
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+    expect(nagged).toBe(false);
+  });
+
   // MDXEditor ships its own palette and ignores our tokens, so for a while the
   // update field rendered near-black ink on our dark paper — invisible, and no
   // test noticed because every other assertion is about text CONTENT, which was

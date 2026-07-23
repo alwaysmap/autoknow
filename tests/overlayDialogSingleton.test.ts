@@ -37,6 +37,16 @@ describe('#34 OverlayDialog is the only modal container', () => {
     expect(offenders).toEqual([]);
   });
 
+  test('the × close button routes through the canClose guard, never a bare .close() (#35)', () => {
+    const src = readFileSync(join(process.cwd(), 'src/components/OverlayDialog.tsx'), 'utf8');
+    // The × must go through the guarded handler, not close directly around canClose —
+    // a bare `onClick={() => ref.current?.close()}` on the × is the silent-discard path
+    // issue #35 removed.
+    expect(src).toMatch(/onClick=\{onCloseButton\}/);
+    const handler = src.slice(src.indexOf('const onCloseButton'), src.indexOf('const onBackdropClick'));
+    expect(handler).toMatch(/canClose/);
+  });
+
   test('OverlayDialog sizes with max-height, never a fixed height (the history-dialog bug)', () => {
     const css = readFileSync(join(process.cwd(), 'src/components/OverlayDialog.module.css'), 'utf8');
     expect(css).toMatch(/max-height:/);

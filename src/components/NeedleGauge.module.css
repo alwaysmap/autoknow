@@ -82,8 +82,10 @@
   background-color: var(--p-50);
 }
 
-/* UPDATE reveals the form above the log, inside this same popup. Separated by a
-   rule so it reads as a distinct mode, not another list entry. */
+/* UPDATE reveals the form above the log, inside this same popup — ONE rule below it is
+   the single boundary between the edit form and the log it sits over (design.md §7). The
+   form's own Cancel/Save row needs no border of its own: the base `.actionRow` draws none,
+   and the popup's bottom rail (OverlayDialog's footer) is hidden while editing. */
 .inlineForm {
   display: flex;
   flex-direction: column;
@@ -93,14 +95,6 @@
   margin-bottom: 0.75rem;
   flex-shrink: 0;
 }
-
-/* Inside the popup the form's own buttons sit with the form, not on the
-   popup's bottom rail — so they don't inherit that rail's top border. */
-.inlineForm .actionRow {
-  border-top: none;
-  padding-top: 0;
-}
-
 
 .fullHistoryLink {
   margin-right: auto;
