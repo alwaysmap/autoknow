@@ -73,14 +73,20 @@ export interface RowCard { row: ScheduleRow; left: number; top: number }
 /** A dated change to the buffer, for the buffer-on-hand lane. */
 interface LaneEvent { atMs: number; deltaDays: number; kind: 'loss' | 'gain' | 'forecast'; projected: boolean }
 
-type CellKind = 'plan' | 'over' | 'under' | 'forecast' | 'fover' | 'sched';
+type CellKind = 'done' | 'elapsed' | 'over' | 'under' | 'forecast' | 'fover' | 'sched';
+// Nuance, not a wall of black (user call): settled/done work recedes (soft ink), the
+// LIVE phase's elapsed work carries the weight, and the red/green exceptions pop against
+// that calm baseline. All theme tokens (design.md §8b).
 const CELL_FILL: Record<CellKind, string> = {
-  plan: 'var(--fg)', over: 'var(--bad)', under: 'var(--ok)',
+  done: 'var(--fg)', elapsed: 'var(--fg)', over: 'var(--bad)', under: 'var(--ok)',
   forecast: 'none', fover: 'none', sched: 'none',
+};
+const CELL_OPACITY: Record<CellKind, number> = {
+  done: 0.42, elapsed: 0.86, over: 0.94, under: 0.94, forecast: 1, fover: 1, sched: 1,
 };
 // forecast/scheduled cells are OUTLINED (nothing has happened yet); fover outlines in --bad.
 const CELL_STROKE: Record<CellKind, string | null> = {
-  plan: null, over: null, under: null,
+  done: null, elapsed: null, over: null, under: null,
   forecast: 'var(--muted)', fover: 'var(--bad)', sched: 'var(--muted)',
 };
 
@@ -88,14 +94,14 @@ const CELL_STROKE: Record<CellKind, string | null> = {
 function phaseSpans(r: ScheduleRow, now: number): { kind: CellKind; a: number; b: number }[] {
   if (r.kind === 'done') {
     const planEnd = Math.min(r.endMs, r.plannedEndMs);
-    const spans: { kind: CellKind; a: number; b: number }[] = [{ kind: 'plan', a: r.startMs, b: planEnd }];
+    const spans: { kind: CellKind; a: number; b: number }[] = [{ kind: 'done', a: r.startMs, b: planEnd }];
     if (r.varianceDays >= 1) spans.push({ kind: 'over', a: r.plannedEndMs, b: r.endMs });
     if (r.varianceDays <= -1) spans.push({ kind: 'under', a: r.endMs, b: r.plannedEndMs }); // days handed back
     return spans;
   }
   if (r.kind === 'active') {
     const elapsedEnd = Math.min(now, r.endMs);
-    const spans: { kind: CellKind; a: number; b: number }[] = [{ kind: 'plan', a: r.startMs, b: elapsedEnd }];
+    const spans: { kind: CellKind; a: number; b: number }[] = [{ kind: 'elapsed', a: r.startMs, b: elapsedEnd }];
     if (isForecastOver(r)) {
       spans.push({ kind: 'forecast', a: now, b: r.plannedEndMs });
       spans.push({ kind: 'fover', a: r.plannedEndMs, b: r.endMs });
@@ -406,7 +412,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
                 const stroke = CELL_STROKE[c.k];
                 return (
                   <rect key={ci} x={c.x1} y={cyTop} width={Math.max(0.75, c.x2 - c.x1)} height={CELL_H} rx={2}
-                    fill={CELL_FILL[c.k]} fillOpacity={c.k === 'plan' ? 0.92 : 1}
+                    fill={CELL_FILL[c.k]} fillOpacity={CELL_OPACITY[c.k]}
                     stroke={stroke ?? 'none'} strokeWidth={stroke ? 1.25 : 0}
                     strokeDasharray={c.k === 'forecast' || c.k === 'sched' ? '2 1.5' : undefined} />
                 );

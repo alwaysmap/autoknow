@@ -442,7 +442,8 @@ export default function ChainLedger({
             textures (issue #75). */}
         <div className={styles.legendRow}>
           <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <rect x={4} y={2} width={14} height={10} rx={2} fill="var(--fg)" fillOpacity={0.92} />
+            <rect x={2} y={2} width={8} height={10} rx={2} fill="var(--fg)" fillOpacity={0.42} />
+            <rect x={12} y={2} width={8} height={10} rx={2} fill="var(--fg)" fillOpacity={0.86} />
           </svg>
           {t(locale, 'clKeyOnPlan')}
         </div>
