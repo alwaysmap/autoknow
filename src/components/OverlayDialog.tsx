@@ -42,8 +42,11 @@ export interface OverlayDialogProps {
   ariaLabel?: string;
   /** Forwarded to the <dialog> (e2e hooks, e.g. "needle-detail"). */
   dataTestId?: string;
-  /** Return false to BLOCK a backdrop/Escape dismiss (e.g. a half-typed note). The × and an
-   *  explicit onClose still close it; this only guards the light-dismiss paths. */
+  /** Guards EVERY dismissal the container owns — backdrop click, Escape, AND the × —
+   *  so an in-progress edit can't be lost by a stray close. Return false to block the
+   *  dismiss (or run a confirm and return the user's choice). A programmatic `onClose`
+   *  from the content (e.g. a footer Cancel button) bypasses this — the content owns
+   *  that path. */
   canClose?: () => boolean;
   /** Extra class on the <dialog> — look only, never sizing/positioning. */
   className?: string;
@@ -104,6 +107,14 @@ export default function OverlayDialog({
     return () => d.removeEventListener('cancel', onCancel);
   }, [canClose]);
 
+  // The × routes through the SAME guard as backdrop/Escape — otherwise it is a silent
+  // discard path around `canClose` (issue #35). An explicit `onClose` from the content
+  // still bypasses the guard; that path is the content's own to decide.
+  const onCloseButton = () => {
+    if (canClose && !canClose()) return;
+    ref.current?.close();
+  };
+
   // (d) Backdrop dismiss decided by the BOUNDING BOX, not target-identity (§4b trap 2).
   const onBackdropClick = (e: React.MouseEvent) => {
     const d = ref.current;
@@ -132,7 +143,7 @@ export default function OverlayDialog({
             type="button"
             className={styles.close}
             aria-label={closeLabel ?? 'Close'}
-            onClick={() => ref.current?.close()}
+            onClick={onCloseButton}
           >
             <svg viewBox="0 0 16 16" width={16} height={16} aria-hidden>
               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />

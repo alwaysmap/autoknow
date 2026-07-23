@@ -1345,6 +1345,12 @@ const STRINGS = {
     ja: '進捗と健全性 — 全履歴',
     ko: '진행 및 상태 — 전체 기록',
   },
+  discardUpdateConfirm: {
+    en: 'Discard your unsaved update?',
+    de: 'Nicht gespeicherte Änderungen verwerfen?',
+    ja: '保存していない更新を破棄しますか？',
+    ko: '저장하지 않은 업데이트를 취소하시겠습니까?',
+  },
 
   // ---- section deep links (AnchorHeading) ----
   anchorLink: {

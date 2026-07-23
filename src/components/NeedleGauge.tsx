@@ -51,21 +51,34 @@ export default function NeedleGauge({
   const [adding, setAdding] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
+  // The note lives inside MarkdownNoteEditor; mirror it out so a dismissal can tell
+  // whether there is unsaved work to protect (#35).
+  const [noteText, setNoteText] = useState('');
   // Mirror detailOpen into a ref so the once-subscribed deep-link handler reads the live
   // value without re-subscribing on every open/close.
   const detailOpenRef = useRef(false);
   useEffect(() => { detailOpenRef.current = detailOpen; }, [detailOpen]);
 
-  const resetForm = () => { setDragProgress(progress); setPickHealth(currentHealth); setNoteError(false); };
+  const resetForm = () => { setDragProgress(progress); setPickHealth(currentHealth); setNoteError(false); setNoteText(''); };
   const openUpdate = () => { resetForm(); setUpdateOpen(true); };
   const closeUpdate = () => setUpdateOpen(false);
+
+  // Has the open form actually changed anything worth protecting? The needle, the health
+  // pick, or a typed note.
+  const fieldsDirty = pickHealth !== currentHealth || dragProgress !== progress || noteText.trim() !== '';
+  // The guard every dismissal path (× / Escape / backdrop) runs through: a close proceeds
+  // freely unless the open form (`active`) has unsaved work, in which case it must be
+  // confirmed first — so a stray close can't silently drop an in-progress edit, while a
+  // pristine form still closes without a nag (#35).
+  const mayDismiss = (active: boolean) => !(active && fieldsDirty) || window.confirm(t(locale, 'discardUpdateConfirm'));
 
   // Detail popup: the log, with UPDATE revealing the form IN PLACE. Opening a
   // second <dialog> over this one would stack scrims and trap focus in the
   // wrong layer, so the form is a mode of this popup, not another modal (§4b).
   // Opening also writes the hash, so the open popup IS a shareable URL. The
   // OverlayDialog owns the body-scroll lock and the box-based light-dismiss now;
-  // `canClose={() => !adding}` keeps a half-typed note from vanishing to a stray click.
+  // `canClose` (via fieldsDirty) makes every dismissal — × / Escape / backdrop —
+  // confirm before dropping an in-progress edit (#35).
   const openDetail = () => {
     resetForm();
     setAdding(false);
@@ -175,7 +188,7 @@ export default function NeedleGauge({
       <div className={styles.formGroup}>
         <span className={styles.formLabel}>{t(locale, 'updateWhatWhy')}</span>
         <MarkdownNoteEditor name="notes" ariaLabel={t(locale, 'updateWhatWhy')}
-          placeholder={t(locale, 'needleNotePlaceholder')} />
+          placeholder={t(locale, 'needleNotePlaceholder')} onChange={setNoteText} />
         {noteError && <div style={{ color: 'var(--bad)', fontSize: '0.75rem' }}>{t(locale, 'updateNeedsNote')}</div>}
       </div>
     </>
@@ -212,18 +225,24 @@ export default function NeedleGauge({
           dataTestId="needle-detail"
           title={t(locale, 'needleDetailTitle')}
           closeLabel={t(locale, 'close')}
-          canClose={() => !adding}
+          canClose={() => mayDismiss(adding)}
+          // While editing, the form owns its own Cancel/Save — a second dialog-level Close
+          // rail would be a duplicate action AND a silent-discard path, so the footer is
+          // hidden until the edit is resolved (#35). Its border going with it also drops
+          // the popup back to one boundary and reclaims the height a single-entry log needs.
           footer={
-            <>
-              <button type="button" onClick={closeDetail} className={styles.cancelBtn}>
-                {t(locale, 'close')}
-              </button>
-              {editable && !adding && (
-                <button type="button" onClick={startAdding} className={styles.submitBtn}>
-                  {t(locale, 'update')}
+            adding ? undefined : (
+              <>
+                <button type="button" onClick={closeDetail} className={styles.cancelBtn}>
+                  {t(locale, 'close')}
                 </button>
-              )}
-            </>
+                {editable && (
+                  <button type="button" onClick={startAdding} className={styles.submitBtn}>
+                    {t(locale, 'update')}
+                  </button>
+                )}
+              </>
+            )
           }
         >
           {adding && (
@@ -252,6 +271,7 @@ export default function NeedleGauge({
         width="26rem"
         title={t(locale, 'weeklyUpdate')}
         closeLabel={t(locale, 'close')}
+        canClose={() => mayDismiss(updateOpen)}
       >
         <form action={submitUpdate} className={styles.dialogForm}>
           {formFields}
