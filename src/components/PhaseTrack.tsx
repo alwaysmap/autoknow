@@ -18,6 +18,7 @@ import { HILL_PATH, hillCoordinates } from '../lib/geometry';
 import { t, statusKey, Locale } from '../lib/i18n';
 import { isPhaseActive, statusProgress, phaseColor, phaseDetailHash, parsePhaseDetailHash } from '../lib/phase';
 import AnchorHeading from './AnchorHeading';
+import AnchoredPopover from './AnchoredPopover';
 import ConstraintRing from './ConstraintRing';
 import HillHistoryList from './HillHistoryList';
 import type { HillChange } from '../lib/history';
@@ -474,23 +475,10 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
 
   const closeDetails = useCallback(() => { setDetailsId(null); writeHash(null); }, []);
 
-  // Title ⋯ menu: bulk expand/hide plus the one door to structural editing.
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  // Title ⋯ menu: bulk expand/hide plus the one door to structural editing. Placement,
+  // light-dismiss and focus come from AnchoredPopover (#24); each bulk item closes the
+  // panel via the render-prop `close` after acting, since it mutates the diagram behind it.
   const legendRef = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDown = (e: PointerEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
-    window.addEventListener('pointerdown', onDown);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [menuOpen]);
   // "Collapse the diagram" is one state, not two: every card at min AND the track
   // ink put away, leaving the stations as a plain list. Collapsing only the cards
   // left the densest thing on screen — the tracks — untouched, which is why the
@@ -499,7 +487,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   const setAll = (collapse: boolean) => {
     setCollapsed(Object.fromEntries(phases.map((p) => [p.id, collapse])));
     setTracksHidden(collapse);
-    setMenuOpen(false);
   };
   /** How many cards are at standard size — with the tracks, this is what the bulk
    *  items act on, so each can tell whether it still has anything to do. */
@@ -1201,29 +1188,35 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                 <line x1={8} y1={7.4} x2={8} y2={11.2} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" />
               </svg>
             </button>
-            <div className={styles.menuWrap} ref={menuRef}>
-              <button type="button" className={styles.menuBtn} aria-haspopup="menu" aria-expanded={menuOpen}
-                aria-label={t(locale, 'phaseActions')} title={t(locale, 'phaseActions')}
-                onClick={() => setMenuOpen((o) => !o)}>
-                <svg viewBox="0 0 18 18" width={18} height={18} aria-hidden>
-                  <circle cx={9} cy={3.5} r={1.8} fill="currentColor" />
-                  <circle cx={9} cy={9} r={1.8} fill="currentColor" />
-                  <circle cx={9} cy={14.5} r={1.8} fill="currentColor" />
-                </svg>
-              </button>
-              {menuOpen && (
-                <div className={styles.menu} role="menu">
+            <AnchoredPopover
+              variant="menu"
+              panelLabel={t(locale, 'phaseActions')}
+              panelClassName={styles.menu}
+              renderTrigger={(triggerProps) => (
+                <button {...triggerProps} type="button" className={styles.menuBtn}
+                  aria-label={t(locale, 'phaseActions')} title={t(locale, 'phaseActions')}>
+                  <svg viewBox="0 0 18 18" width={18} height={18} aria-hidden>
+                    <circle cx={9} cy={3.5} r={1.8} fill="currentColor" />
+                    <circle cx={9} cy={9} r={1.8} fill="currentColor" />
+                    <circle cx={9} cy={14.5} r={1.8} fill="currentColor" />
+                  </svg>
+                </button>
+              )}
+            >
+              {({ close }) => (
+                <>
                   {/* Each of these is disabled when it would do nothing. Rows default
                       to collapsed, so on a fresh page "Hide all" was a live-looking
                       item that changed not one pixel — and an affordance that does
                       nothing when you click it does not read as "already done", it
-                      reads as broken. */}
+                      reads as broken. Bulk items close the panel so the result is
+                      visible; the tracks toggle stays open so it reads as two-way. */}
                   <button type="button" role="menuitem" className={styles.menuItem}
-                    disabled={fullyExpanded} onClick={() => setAll(false)}>
+                    disabled={fullyExpanded} onClick={() => { setAll(false); close(); }}>
                     {t(locale, 'expandAll')}
                   </button>
                   <button type="button" role="menuitem" className={styles.menuItem}
-                    disabled={fullyCollapsed} onClick={() => setAll(true)}>
+                    disabled={fullyCollapsed} onClick={() => { setAll(true); close(); }}>
                     {t(locale, 'collapseAll')}
                   </button>
                   {/* Track-only toggle: the peer of the "Show" banner, so hiding the
@@ -1235,12 +1228,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     {t(locale, tracksHidden ? 'showTracksAction' : 'hideTracks')}
                   </button>
                   <Link href={`/programs/${projectId}/phases`} role="menuitem" className={styles.menuItem}
-                    onClick={() => setMenuOpen(false)}>
+                    onClick={() => close()}>
                     {t(locale, 'editPhases')}
                   </Link>
-                </div>
+                </>
               )}
-            </div>
+            </AnchoredPopover>
           </>
         }
       >

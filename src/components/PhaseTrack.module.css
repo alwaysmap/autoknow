@@ -346,10 +346,6 @@
    `actions` prop, so AnchorHeading's own `.row` is the flex line (and its
    `.row .heading` already outranks the page's `.historySection h2` margin).
    A wrapper here would put these buttons AFTER the row's trailing graticule. */
-.menuWrap {
-  position: relative;
-  display: inline-flex;
-}
 .menuBtn {
   display: inline-flex;
   align-items: center;
@@ -366,16 +362,9 @@
   color: var(--fg);
   background: var(--surface);
 }
+/* Positioning + chrome come from AnchoredPopover's .panel (#24); the title menu only
+   stacks its rows. */
 .menu {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 20;
-  min-width: 9.375rem;
-  padding: 0.25rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
   display: flex;
   flex-direction: column;
 }

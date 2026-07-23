@@ -63,7 +63,8 @@ test.describe('Admin and Maintenance Operations', () => {
   // Maintenance lives behind the title kebab now — open the menu item (hydration-
   // guarded), then work in its dialog.
   const viaPersonKebab = async (page: import('@playwright/test').Page, label: string) => {
-    const item = page.getByRole('button', { name: label, exact: true });
+    // Kebab items are role=menuitem now that the ⋯ menu is AnchoredPopover (#24).
+    const item = page.getByRole('menuitem', { name: label, exact: true });
     await expect(async () => {
       if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
       await expect(item).toBeVisible({ timeout: 1500 });
@@ -112,7 +113,8 @@ test.describe('Admin and Maintenance Operations', () => {
     await page.goto(`/programs/${project?.id}`);
 
     const viaKebab = async (label: string) => {
-      const item = page.getByRole('button', { name: label, exact: true });
+      // Kebab items are role=menuitem now that the ⋯ menu is AnchoredPopover (#24).
+      const item = page.getByRole('menuitem', { name: label, exact: true });
       await expect(async () => {
         if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
         await expect(item).toBeVisible({ timeout: 1500 });
@@ -145,7 +147,8 @@ test.describe('Admin and Maintenance Operations', () => {
 
     // Header actions live in the ⋯ menu now; open it (hydration-guarded), then act.
     const viaKebab = async (label: string) => {
-      const item = page.getByRole('button', { name: label, exact: true });
+      // Kebab items are role=menuitem now that the ⋯ menu is AnchoredPopover (#24).
+      const item = page.getByRole('menuitem', { name: label, exact: true });
       await expect(async () => {
         if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
         await expect(item).toBeVisible({ timeout: 1500 });
