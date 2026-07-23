@@ -304,6 +304,18 @@
   /* Graticule rules: a hairline made of ticks. Consumed as a background-image,
      so any border it replaces must also set border-color: transparent. */
   --graticule: repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px 0.5625rem);
+
+  /* Graticule GEOMETRY, tokenised so a tightening pass is one edit, not nine (#25).
+     The trailing tick-rule after a heading/title repeated `flex/min-width/height/
+     margin-left` verbatim across five files; CSS modules cannot share a class, but
+     they all read these. --graticule-lead is the SEEN gap — last heading/affordance
+     INK to the first tick, NOT box-to-box: each row nets its own flex gap out of it
+     (`margin-left: calc(--graticule-lead - <row gap>)`), and trailing icon affordances
+     (⋯ ⓘ) are pulled ink-tight, so the value reads identically on page titles,
+     <h2> rows and detail headers. */
+  --graticule-height: 0.375rem;    /* tick-rule thickness */
+  --graticule-min-width: 1.5rem;   /* the floor a shrink-wrapped rule collapses to */
+  --graticule-lead: 0.75rem;       /* ink → first tick; the reader-visible gap */
 }
 
 :root[data-style="instrument"][data-theme="dark"] {

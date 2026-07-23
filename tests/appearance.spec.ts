@@ -166,6 +166,80 @@ test.describe('Appearance: style and theme are independent', () => {
     for (const gap of gaps) expect(Math.abs(gap)).toBeLessThan(1);
   });
 
+  // The LEADING gap: from the last visible INK of a heading/title (or its trailing ⋯/ⓘ
+  // affordance) to the FIRST tick — the invariant #25 was filed for. The declared
+  // --graticule-lead was 12px but the SEEN gap ran to 29px, because it was authored
+  // box-to-box: the flex gap stacked on the margin, an opacity:0 anchor still held ~10px,
+  // and an icon affordance's empty canvas counted as gap. Select graticule rows by
+  // COMPUTED STYLE (an ::after painted with the tick gradient) rather than class, so a
+  // new page cannot opt out by naming its wrapper something else — measure the pixels,
+  // because the declared value was wrong by 2.4x precisely because nobody did.
+  test('the graticule starts ~12px from the ink, not the affordance box (#25)', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('autoknow-style', 'instrument'));
+    await page.goto(`/programs/${seeded.projectId}`); // a title row (⋯) AND <h2>s (plain, ⓘ, ⋯)
+
+    const gaps = await page.evaluate(() => {
+      // right edge of an element's drawn INK — SVG geometry for icons, a Range for text,
+      // so a padded icon button's empty canvas is NOT counted as ink.
+      const inkRight = (el: Element): number => {
+        const svg = el.tagName.toLowerCase() === 'svg' ? el : el.querySelector('svg');
+        if (svg) {
+          let max = -Infinity;
+          svg.querySelectorAll('circle,rect,path,line').forEach((s) => {
+            const b = s.getBoundingClientRect();
+            if (b.width || b.height) max = Math.max(max, b.right);
+          });
+          if (max !== -Infinity) return max;
+        }
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const rects = [...range.getClientRects()];
+        if (rects.length) return Math.max(...rects.map((r) => r.right));
+        return el.getBoundingClientRect().right;
+      };
+      const visible = (el: Element) => {
+        const cs = getComputedStyle(el);
+        return cs.visibility !== 'hidden' && cs.display !== 'none' && parseFloat(cs.opacity) !== 0;
+      };
+      const inFlow = (el: Element) => {
+        const p = getComputedStyle(el).position;
+        return p !== 'absolute' && p !== 'fixed';
+      };
+
+      const out: { label: string; gap: number }[] = [];
+      for (const row of [...document.querySelectorAll<HTMLElement>('*')]) {
+        const after = getComputedStyle(row, '::after');
+        if (!after.backgroundImage.includes('gradient')) continue; // the tick-rule, by its ink
+        const heading = row.querySelector(':scope > h1, :scope > h2');
+        if (!heading) continue;
+        const cs = getComputedStyle(row);
+        const gap = parseFloat(cs.columnGap || cs.gap || '0') || 0;
+        const flexKids = [...row.children].filter(inFlow);
+        if (!flexKids.length) continue;
+        const last = flexKids[flexKids.length - 1];
+        const mr = parseFloat(getComputedStyle(last).marginRight) || 0;
+        // first tick = the ::after's left border edge = last flex item's MARGIN-box right
+        // + the row's flex gap + the ::after's own margin-left.
+        const tickLeft = last.getBoundingClientRect().right + mr + gap + parseFloat(after.marginLeft);
+        const ink = Math.max(...[...row.children].filter(visible).filter(inFlow).map(inkRight));
+        out.push({ label: (heading.textContent || '').slice(0, 16), gap: tickLeft - ink });
+      }
+      return out;
+    });
+
+    // A title row and several <h2> rows, plain and affordance-bearing.
+    expect(gaps.length).toBeGreaterThan(2);
+    for (const { label, gap } of gaps) {
+      // ~12px from the INK on every row type (was 16 on <h2>s, 28–41 on the title). The
+      // ±2 absorbs the whole-pixel rounding of each affordance's ink-tight pull and
+      // cross-browser sub-pixel text metrics; it still fails decisively on the old 16/29.
+      expect(Math.abs(gap - 12), `${label}: ink→tick ${gap.toFixed(1)}px`).toBeLessThan(2);
+    }
+    // And consistent ACROSS row types — the point of the token.
+    const spread = Math.max(...gaps.map((g) => g.gap)) - Math.min(...gaps.map((g) => g.gap));
+    expect(spread).toBeLessThan(2);
+  });
+
   // The schedule is a phase × week STATE GRID (issue #75): state separates by colour
   // + position (on-plan ink, over red, early green, idle amber), with NO hatch/stipple
   // textures and NO full-height buffer bands — the old encoding that was unreadable on
