@@ -28,18 +28,21 @@ interface PersonRow {
   programs: number;
 }
 
-export default function PeopleClient({ people, partners, initialFilters, initialSort }: {
+export default function PeopleClient({ people, partners, initialFilters, initialSort, initialQ = '' }: {
   people: PersonRow[];
   partners: { id: number; name: string }[];
   initialFilters?: Record<string, string[]>;
   initialSort?: TableSort | null;
+  /** Deep-linked key-column (name) filter text (?q=). */
+  initialQ?: string;
 }) {
   const locale = useLocale();
   const [filters, setFilters] = useState<Record<string, string[]>>(initialFilters ?? {});
   const [sort, setSort] = useState<TableSort | null>(initialSort ?? null);
+  const [text, setText] = useState(initialQ);
   const [saving, setSaving] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
-  useTableUrlSync(filters, sort);
+  useTableUrlSync(filters, sort, { q: text || null });
 
   return (
     <PageShell
@@ -141,6 +144,9 @@ export default function PeopleClient({ people, partners, initialFilters, initial
             onSortChange={(key, dir) => setSort({ key, dir })}
             filters={filters}
             onFiltersChange={setFilters}
+            textFilter={text}
+            onTextFilterChange={setText}
+            textFilterPlaceholder={t(locale, 'filterPeoplePlaceholder')}
             pageSize={15}
             emptyStateMessage={t(locale, 'noAssociatedPeople')}
           />

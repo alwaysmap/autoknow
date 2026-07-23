@@ -3,10 +3,11 @@
 import React from 'react';
 import styles from './SearchField.module.css';
 
-// The app's ONE search-field look, for the live-filter boxes that are not a full
-// `UnifiedSearch` — the Programs table filter, the Sources filter. Same height,
-// same near-pill radius, same focus ring as `UnifiedSearch`'s input, so a search
-// box looks like a search box wherever you meet one.
+// The app's ONE filter-box look. Every DataTable's built-in key-column filter renders
+// through this; it is never a full `UnifiedSearch`. It shares UnifiedSearch's height,
+// padding and focus ring but is SQUARER on purpose (0.375rem vs the near-pill 1.25rem):
+// the corner is the tell that this narrows rows already in the page rather than issuing
+// a search — box-vs-pill applied to inputs (design.md §6/§8c).
 //
 // No dial here, deliberately: the Instrument gauge reports a query IN FLIGHT
 // (design.md §8c). These filter rows already in the page — there is no request,

@@ -761,16 +761,7 @@ const STRINGS = {
   colAddedBy: { en: 'Added by', de: 'Hinzugefügt von', ja: '追加者', ko: '추가한 사람' },
   colLastChecked: { en: 'Last checked', de: 'Zuletzt geprüft', ja: '最終確認', ko: '마지막 확인' },
   colRevisions: { en: 'Rev', de: 'Rev', ja: '版', ko: '개정' },
-  filterAllKinds: { en: 'All kinds', de: 'Alle Arten', ja: 'すべての種類', ko: '모든 종류' },
-  filterAllStates: { en: 'All states', de: 'Alle Zustände', ja: 'すべての状態', ko: '모든 상태' },
-  filterEveryone: { en: 'Everyone', de: 'Alle Personen', ja: '全員', ko: '모든 사람' },
   stateFrozen: { en: 'Frozen', de: 'Eingefroren', ja: '凍結', ko: '동결' },
-  searchSourcesPlaceholder: {
-    en: 'Filter by title, URL, program, or partner…',
-    de: 'Nach Titel, URL, Programm oder Partner filtern…',
-    ja: 'タイトル・URL・プログラム・パートナーで絞り込み…',
-    ko: '제목, URL, 프로그램, 파트너로 필터…',
-  },
   sourcesLegend: {
     en: 'Refresh now — re-fetch immediately; content is re-distilled only if its text actually changed. Pause / Resume — stop or restart automatic checks without losing history. Watched / Snapshot — flips whether the source is checked at all: snapshots are indexed once and never re-fetched.',
     de: 'Jetzt aktualisieren — sofort neu abrufen; neu destilliert wird nur bei tatsächlich geändertem Text. Pausieren / Fortsetzen — automatische Prüfungen stoppen bzw. neu starten, ohne Verlauf zu verlieren. Beobachtet / Momentaufnahme — schaltet um, ob die Quelle überhaupt geprüft wird: Momentaufnahmen werden einmal indexiert und nie erneut abgerufen.',
@@ -788,6 +779,13 @@ const STRINGS = {
   filterColumn: { en: 'Filter {c}', de: '{c} filtern', ja: '{c} を絞り込み', ko: '{c} 필터' },
   clearFilter: { en: 'Clear', de: 'Zurücksetzen', ja: 'クリア', ko: '지우기' },
   clearAllFilters: { en: 'Clear filters', de: 'Filter zurücksetzen', ja: 'フィルターをクリア', ko: '필터 지우기' },
+  // Placeholders for the DataTable key-column FILTER box — they read as "filter", never
+  // "search": the box narrows loaded rows, it does not query (design.md §6, #86).
+  filterListPlaceholder: { en: 'Filter…', de: 'Filtern…', ja: '絞り込み…', ko: '필터…' },
+  filterProgramsPlaceholder: { en: 'Filter programs…', de: 'Programme filtern…', ja: 'プログラムを絞り込み…', ko: '프로그램 필터…' },
+  filterPartnersPlaceholder: { en: 'Filter partners…', de: 'Partner filtern…', ja: 'パートナーを絞り込み…', ko: '파트너 필터…' },
+  filterPeoplePlaceholder: { en: 'Filter people…', de: 'Personen filtern…', ja: '人物を絞り込み…', ko: '사람 필터…' },
+  filterSourcesPlaceholder: { en: 'Filter sources…', de: 'Quellen filtern…', ja: 'ソースを絞り込み…', ko: '소스 필터…' },
   moreActions: { en: 'More actions', de: 'Weitere Aktionen', ja: 'その他の操作', ko: '추가 작업' },
   leadPartnerLabel: { en: 'Lead partner (OEM)', de: 'Lead-Partner (OEM)', ja: 'リードパートナー（OEM）', ko: '리드 파트너 (OEM)' },
   // ---- partner CRUD ----
@@ -1113,7 +1111,6 @@ const STRINGS = {
 
   // ---- programs page ----
   searchPrograms: { en: 'Search Programs', de: 'Programme suchen', ja: 'プログラムを検索', ko: '프로그램 검색' },
-  searchByNamePartner: { en: 'Search by name, partner...', de: 'Nach Name, Partner suchen…', ja: '名前・パートナーで検索...', ko: '이름, 파트너로 검색...' },
   partnerType: { en: 'Partner Type', de: 'Partnertyp', ja: 'パートナー種別', ko: '파트너 유형' },
   allTypes: { en: 'All Types', de: 'Alle Typen', ja: 'すべての種別', ko: '모든 유형' },
   typeOnly: { en: '{t} Only', de: 'Nur {t}', ja: '{t}のみ', ko: '{t}만' },

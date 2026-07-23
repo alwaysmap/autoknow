@@ -44,8 +44,9 @@ export default async function PeoplePage(props: { searchParams: Promise<SearchPa
 
   const initialFilters = parseFilterParams(searchParams, ['company', 'role']);
   const initialSort = parseSortParams(searchParams);
+  const initialQ = typeof searchParams.q === 'string' ? searchParams.q : '';
 
   const partners = await prisma.partner.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } });
 
-  return <PeopleClient people={rows} partners={partners} initialFilters={initialFilters} initialSort={initialSort} />;
+  return <PeopleClient people={rows} partners={partners} initialFilters={initialFilters} initialSort={initialSort} initialQ={initialQ} />;
 }

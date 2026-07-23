@@ -3,6 +3,7 @@ import { driveConfigured, serviceAccountEmail } from '../../../lib/googleAuth';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import { getIngestionHealth } from '../../../lib/ingestionHealth';
+import { parseFilterParams, parseSortParams } from '../../../lib/tableUrlState';
 import SourcesClient, { type SourceRow } from './SourcesClient';
 import QuickIngest from '../../../components/QuickIngest';
 import IngestionHealthCard from '../../../components/IngestionHealthCard';
@@ -11,10 +12,13 @@ export const dynamic = 'force-dynamic';
 
 // Manage → Sources: the operator view of every ingested source and its freshness
 // (plan §2.2). The client component handles sorting/filtering/pagination; this page
-// just loads and serializes the rows.
+// loads/serializes the rows and parses the shareable table state from the URL (§6).
 
-export default async function SourcesPage() {
+export default async function SourcesPage(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const locale = await getLocale();
+  const sp = await props.searchParams;
   const health = await getIngestionHealth();
   const raw = await prisma.contextUrl.findMany({
     select: {
@@ -43,6 +47,12 @@ export default async function SourcesPage() {
     entityHref: s.project ? `/programs/${s.project.id}` : s.partner ? `/partners/${s.partner.id}` : null,
     revisions: s._count.revisions,
   }));
+
+  // Shareable table state (design.md §6): funnel columns + sort/dir + q, same as the
+  // other listings. The funnel param names are the column keys.
+  const initialFilters = parseFilterParams(sp, ['kind', 'state', 'addedBy']);
+  const initialSort = parseSortParams(sp);
+  const initialQ = typeof sp.q === 'string' ? sp.q : '';
 
   return (
     <div style={{ padding: '2rem 2.5rem', maxWidth: '67.5rem' }}>
@@ -80,7 +90,15 @@ export default async function SourcesPage() {
       {sources.length === 0 ? (
         <p style={{ color: 'var(--muted, #666)', fontStyle: 'italic' }}>{t(locale, 'nothingHereYet')}</p>
       ) : (
-        <SourcesClient sources={sources} />
+        <SourcesClient
+          // Remount when the URL's params change so the client re-seeds from initial*
+          // once (same rule as programs/partners/page.tsx).
+          key={JSON.stringify(sp, Object.keys(sp).sort())}
+          sources={sources}
+          initialFilters={initialFilters}
+          initialSort={initialSort}
+          initialQ={initialQ}
+        />
       )}
     </div>
   );

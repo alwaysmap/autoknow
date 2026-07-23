@@ -6,7 +6,6 @@ import type { TableSort } from '../../lib/tableUrlState';
 import Link from 'next/link';
 import DateCell from '../../components/DateCell';
 import DataTable from '../../components/DataTable';
-import SearchField from '../../components/SearchField';
 import ClassBox from '../../components/ClassBox';
 import styles from '../ecosystem-summary/EcosystemSummaryClient.module.css';
 import local from './page.module.css';
@@ -107,13 +106,13 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
         : {}),
     ...(initialFilters ?? {}),
   }));
-  const [searchQuery, setSearchQuery] = useState(initialQ);
+  const [text, setText] = useState(initialQ);
   const [sort, setSort] = useState<TableSort | null>(initialTableSort);
-  // Shareable URLs: filters, sort, and the search box round-trip through the query
+  // Shareable URLs: filters, sort, and the filter box round-trip through the query
   // string. The legacy risk-sort deep link keeps its ?sort=risk form until the user
   // picks a column sort of their own.
   useTableUrlSync(filters, sort, {
-    q: searchQuery || null,
+    q: text || null,
     ...(initialSort === 'risk' && !sort ? { sort: 'risk' } : {}),
   });
 
@@ -130,57 +129,37 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
     : v === 'Done' ? ('statusDone' as const)
     : ('statusActive' as const);
 
-  // Base predicates only — everything categorical lives in the column filters.
-  const filteredProjects = initialProjects.filter((proj) => {
-    // Active only (not archived, not done) — deep-linked from the ecosystem stats
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      if (!proj.name.toLowerCase().includes(q) && !proj.partner.name.toLowerCase().includes(q)) return false;
-    }
-    return true;
-  });
+  // The free-text box is now DataTable's own key-column (program name) filter, so no
+  // host-side text predicate remains — categorical slicing lives in the column funnels.
+  // (This narrows the box to program name only; a partner name is reached via the
+  // Partner funnel or its clickable cell — #86.)
+  const projects = [...initialProjects];
 
   // Risk sort (deep-linked): worst health first, then least progressed.
   if (initialSort === 'risk') {
-    filteredProjects.sort(
+    projects.sort(
       (a, b) => healthOrder(b.theNeedle) - healthOrder(a.theNeedle) || a.hillChartProgress - b.hillChartProgress,
     );
   }
 
   // Aggregations for dynamic scorecards
-  const totalMatching = filteredProjects.length;
-  const activeMatching = filteredProjects.filter(p => p.hillChartProgress < 100).length;
+  const totalMatching = projects.length;
+  const activeMatching = projects.filter(p => p.hillChartProgress < 100).length;
   
   // Total in-flight vs total overall projects
   const scorecardRatio = `${activeMatching} / ${totalMatching}`;
 
   // High/Critical risk count
-  const highRiskCount = filteredProjects.filter((p) => {
+  const highRiskCount = projects.filter((p) => {
     return healthOrder(p.theNeedle) >= 1;
   }).length;
 
 
   return (
     <div className={styles.clientWrapper}>
-      {/* One compact search input; every categorical filter lives in its column
+      {/* The one free-text filter (program name) and the "× Clear filters" reset are
+          DataTable's own now (#86); every categorical filter lives in its column
           header (funnel = secondary action; clicking the label sorts). */}
-      <div className={local.searchRow}>
-        <SearchField
-          id="searchField"
-          placeholder={t(locale, 'searchByNamePartner')}
-          value={searchQuery}
-          onChange={setSearchQuery}
-        />
-        {Object.values(filters).some((v) => v && v.length > 0) && (
-          <button
-            type="button"
-            className={local.clearAll}
-            onClick={() => setFilters({})}
-          >
-            ✕ {t(locale, 'clearAllFilters')}
-          </button>
-        )}
-      </div>
 
       {/* Scorecards hidden for now (2026-07-18): count/risk added little over the
           table itself, and the ecosystem page owns the real big numbers. The
@@ -233,9 +212,12 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
               filterLabel: (v) => t(locale, statusKeyOf(v)),
             }
           ]}
-          data={filteredProjects.map((p) => ({ ...p, status: statusOf(p) }))}
+          data={projects.map((p) => ({ ...p, status: statusOf(p) }))}
           filters={filters}
           onFiltersChange={setFilters}
+          textFilter={text}
+          onTextFilterChange={setText}
+          textFilterPlaceholder={t(locale, 'filterProgramsPlaceholder')}
           renderRow={(p: Project) => {
             const matched = p.ownerName ? resolvePerson(people, p.ownerName) : null;
 

@@ -33,21 +33,22 @@ test.describe('usability invariants', () => {
     expect(pillRadius, 'proper-noun pill is fully rounded').toBeGreaterThanOrEqual(100);
   });
 
-  test('every search input shares the one rounded shape', async ({ page }) => {
-    // A search box should look like a search box wherever you meet it — the
-    // Programs filter (SearchField) drifted to a 6px box while the hero was
-    // near-pill. Both must now be clearly rounded.
+  test('a filter box is squared; a true search stays rounded — the corner tells them apart', async ({ page }) => {
+    // Box-vs-pill applied to inputs (design.md §6/§8c, #86, 2026-07-23 user call): the
+    // DataTable filter box narrows rows already in the page, so it is a SQUARED box;
+    // UnifiedSearch issues a request, so it keeps the near-pill. The corner is the tell
+    // — this REVERSES the earlier "both rounded" rule on purpose.
     await page.goto('/programs');
     const filter = page.getByRole('searchbox').first();
     await expect(filter).toBeVisible();
     const filterRadius = await filter.evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius));
-    expect(filterRadius, 'Programs filter is rounded, not the old 6px box').toBeGreaterThanOrEqual(16);
+    expect(filterRadius, 'filter box is squared, not the search near-pill').toBeLessThanOrEqual(8);
 
     await page.goto('/');
     const hero = page.getByRole('searchbox').first();
     await expect(hero).toBeVisible();
     const heroRadius = await hero.evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius));
-    expect(heroRadius, 'hero search is rounded').toBeGreaterThanOrEqual(16);
+    expect(heroRadius, 'hero search stays rounded').toBeGreaterThanOrEqual(16);
   });
 
   test('the CTA dial is HIDDEN in Standard despite carrying its own display class', async ({ page }) => {
