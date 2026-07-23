@@ -1,0 +1,245 @@
+/* Every font-size carries an explicit whole-pixel line-height (design.md §8d / the
+   vertical-rhythm test): 11px→16, 12px→18, 13px→20, 16px→24, 20px→28. */
+.card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+  margin: 0 0 1.25rem;
+  max-width: 47.5rem;
+}
+
+.cardTitle {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 0.625rem;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.75rem;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.statValue {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.statLabel {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.warnValue { color: var(--warn); }
+
+.ranAt {
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  color: var(--muted);
+  margin: 0.5rem 0 0;
+}
+
+.section {
+  margin: 1rem 0 0;
+  padding: 0.875rem 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.sectionTitle {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+/* ---- budget slider ---- */
+.budgetHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin: 0 0 0.375rem;
+}
+
+.help {
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  color: var(--muted);
+  margin: 0 0 0.75rem;
+  max-width: 40rem;
+}
+
+.range {
+  width: 100%;
+  margin: 0.25rem 0;
+  accent-color: var(--fg);
+}
+
+.scale {
+  position: relative;
+  height: 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  margin: 0.125rem 0 1.5rem;
+}
+
+.overZone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  background: var(--warn-soft);
+  border-radius: 0 0.25rem 0.25rem 0;
+}
+
+.fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--fg);
+  opacity: 0.5;
+  border-radius: 0.25rem 0 0 0.25rem;
+}
+
+.fillOver { background: var(--warn); opacity: 0.85; }
+
+.marker {
+  position: absolute;
+  top: -0.1875rem;
+  bottom: -0.1875rem;
+  width: 0.125rem;
+  background: var(--warn);
+}
+
+.markerLabel {
+  position: absolute;
+  top: 0.625rem;
+  transform: translateX(-50%);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  color: var(--warn);
+  white-space: nowrap;
+}
+
+.readout {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  margin: 0 0 0.5rem;
+}
+
+.readout strong { font-variant-numeric: tabular-nums; }
+.safeTag { color: var(--muted); }
+.overTag { color: var(--warn); font-weight: 600; }
+
+.freeTierField {
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  color: var(--muted);
+  margin: 0.5rem 0 0;
+}
+
+.freeTierInput {
+  width: 5rem;
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  padding: 0.125rem 0.375rem;
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  background: var(--bg);
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.875rem 0 0;
+}
+
+.save {
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  padding: 0.3125rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.save:disabled { opacity: 0.5; cursor: default; }
+.saved { font-size: 0.75rem; line-height: 1.125rem; color: var(--muted); }
+.verify {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  color: var(--muted);
+  margin: 0.625rem 0 0;
+  font-style: italic;
+  max-width: 40rem;
+}
+
+/* ---- limits copy ---- */
+.limitsList {
+  margin: 0;
+  padding: 0 0 0 1.125rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--muted);
+}
+
+.limitsList li { margin: 0.25rem 0; }
+.limitsList strong { color: var(--fg); font-weight: 600; }
+
+/* ---- skip list ---- */
+.skipRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  padding: 0.3125rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.skipRow:last-child { border-bottom: none; }
+
+.skipName {
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skipMeta {
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.skipEmpty {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--muted);
+  font-style: italic;
+}

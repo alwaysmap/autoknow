@@ -293,6 +293,73 @@ model SyncCursor {
   updatedAt DateTime @updatedAt
 }
 
+// #38 ingestion health ([ADR: Ingestion health is a serverless signal, not a growing
+// table](adr/2026-07-23-ingestion-health-is-a-serverless-signal-not-a-growing-table.md)):
+// the LATEST cron cycle's report, upserted in place on a fixed key — exactly ONE row,
+// O(1), never O(cycles). The full time-series lives in Cloud Logging, not here; this
+// row is only what the in-app health card reads. Combines the Drive sweep and the web
+// refresh cycle, which run in one cron invocation (api/cron/refresh).
+model IngestionCycleSummary {
+  key   String   @id @default("latest") // singleton — always upserted, never inserted
+  ranAt DateTime @default(now())
+  // Drive sweep (runDriveSync / DriveSyncReport)
+  driveConfigured   Boolean @default(false)
+  sharedSeen        Int     @default(0)
+  discovered        Int     @default(0)
+  refreshed         Int     @default(0)
+  skippedOtherTypes Int     @default(0) // shared but not a Google Doc — reported, not ingested
+  skippedTooDeep    Int     @default(0) // beyond MAX_FOLDER_DEPTH — reported, not ingested
+  driveErrors       Int     @default(0)
+  // Web refresh cycle (runRefreshCycle / CycleReport)
+  due          Int @default(0)
+  checked      Int @default(0)
+  changed      Int @default(0)
+  frozen       Int @default(0)
+  errors       Int @default(0)
+  skippedDrive Int @default(0)
+  // The number the drain alarm watches: work that was due/discoverable this cycle but
+  // exceeded the per-cycle caps and carried to the next. Sustained > 0 across cycles is
+  // the §6 "the simple design stopped fitting" trigger — surfaced as evidence.
+  backlog Int @default(0)
+  // Honest degradation (AGENTS lesson 5): the cycle stopped early on a Gemini quota
+  // error (429 / RESOURCE_EXHAUSTED) rather than burning the rest of the batch.
+  quotaStopped Boolean @default(false)
+}
+
+// #38: a Drive file shared with the app but NOT ingested, and why — so sharing never
+// silently looks like it worked (AGENTS lesson 5). The natural key is the Drive fileId
+// (one row per file); the set is bounded by what is CURRENTLY shared and pruned every
+// sweep (a file that stops being shared, or becomes ingestable, drops out). O(corpus),
+// never O(time) — this is a live picture of "what's shared-but-skipped", not a log.
+model SkippedSource {
+  fileId      String   @id
+  name        String
+  mimeType    String
+  reason      String // unsupported-type | beyond-folder-depth
+  sharedBy    String? // Drive sharingUser email/display, when Drive tells us
+  folderDepth Int? // depth it was discovered at (for beyond-folder-depth)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @updatedAt
+
+  @@index([reason])
+}
+
+// #38: admin-tunable ingestion budget — the single knob that keeps free-tier Gemini
+// usage under control (this deployment runs on the Gemini free tier and must not be
+// billed). The per-cycle ingest caps are DERIVED from dailyReingestBudgetDocs (see
+// lib/ingestBudget), so the daily Gemini request ceiling is bounded by construction —
+// no live meter needed to stay safe. freeTierRequestsPerDay is the reference line the
+// settings slider draws its "you'll exceed the free tier past here" marker against;
+// it defaults conservatively and is meant to be tuned to the project's actual AI Studio
+// quota (ai.google.dev/gemini-api/docs/rate-limits), because Google changes the numbers.
+// Singleton (fixed key), like SummaryPrompt.
+model IngestionSettings {
+  key                     String   @id @default("default")
+  dailyReingestBudgetDocs Int      @default(60) // documents (re)ingested/day; caps derive from this
+  freeTierRequestsPerDay  Int      @default(250) // Gemini free-tier requests/day — VERIFY against your quota
+  updatedAt               DateTime @updatedAt
+}
+
 model Person {
   id               Int                 @id @default(autoincrement())
   name             String

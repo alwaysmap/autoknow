@@ -23,6 +23,7 @@ jest.mock('../src/lib/gemini', () => ({
   }),
   digestToText: (d: { summary: string }) => d.summary,
   embedText: jest.fn(async () => Array(768).fill(0)),
+  isQuotaError: () => false, // the test's 'model exploded' is a plain error, not a 429
 }));
 
 jest.mock('../src/lib/ingest', () => {
@@ -65,7 +66,9 @@ describe('runRefreshCycle failure isolation', () => {
     const bad = await seedWatched('http://example.com/bad');
     const good = await seedWatched('http://example.com/good');
 
-    const report = await runRefreshCycle();
+    // Explicit budget keeps this a pure failure-isolation test — no coupling to the
+    // stored IngestionSettings (that derivation is covered by tests/ingestBudget.test.ts).
+    const report = await runRefreshCycle({ maxRefreshes: 10 });
 
     expect(report.checked).toBe(2);
     expect(report.errors).toBe(1);
@@ -84,7 +87,7 @@ describe('runRefreshCycle failure isolation', () => {
 
   it('a failing source rotates to the back of the lastCheckedAt queue', async () => {
     const bad = await seedWatched('http://example.com/bad');
-    await runRefreshCycle();
+    await runRefreshCycle({ maxRefreshes: 10 });
 
     const broken = await prisma.contextUrl.findUniqueOrThrow({ where: { id: bad.id } });
     // Without this, orderBy lastCheckedAt asc re-selects the same failing source

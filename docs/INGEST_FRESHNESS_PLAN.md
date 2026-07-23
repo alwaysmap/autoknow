@@ -106,8 +106,10 @@ revision → staleness → regeneration chain drops the blocker from Risks.
 ## 6. Scheduling — fixed per-connector cadence, deliberately dumb
 
 Drive every cycle (one delta call covers the corpus), trackers 6h, generic web
-weekly, snapshots/frozen never; per-cycle cap on re-digests (overflow carries,
-oldest first). v1's AIMD adaptive scheduling with per-row `nextCheckAt` was
+weekly, snapshots/frozen never; a per-cycle cap on re-digests (overflow carries,
+oldest first). Since #38 that cap is **derived from an admin-tunable daily re-ingest
+budget** (`lib/ingestBudget`, shared across Drive + web), so daily Gemini spend stays
+under the free tier by construction — see §12. v1's AIMD adaptive scheduling with per-row `nextCheckAt` was
 **killed on review**: the corpus is hundreds of sources, the expensive work is
 already double-gated, and Drive's delta feed makes per-row schedules pointless.
 Don't rebuild adaptive scheduling without new evidence. **This §6 is reaffirmed**
@@ -116,7 +118,10 @@ by [ADR: Ingestion is sized for hundreds of sources; declare the limits, gate th
 which names the one "new evidence" that reverses it: a committed product
 requirement for thousands of watched sources at sub-daily freshness. Absent that,
 §6 holds; with it, adaptive per-row scheduling returns as part of the gated
-rebuild, not piecemeal.
+rebuild, not piecemeal. **Since #38 that "new evidence" is instrumented:** a Cloud
+Monitoring drain alarm on the per-cycle backlog fires when the fixed design stops
+keeping up, so the reversal is triggered by measurement, not a guess (§12; [ADR:
+Ingestion health is a serverless signal, not a growing table](adr/2026-07-23-ingestion-health-is-a-serverless-signal-not-a-growing-table.md)).
 
 ## 7. Re-distill on change; revisions are append-only
 
@@ -136,9 +141,11 @@ mode/sourceRef/contentHash/frozen* fields, `ContextRevision`, `SyncCursor`.)
 ## 9. Failure handling
 
 `403/404` → freeze (`access-revoked`/`deleted`), never retry-loop. Auth-wall
-content → freeze `auth-required`, never hash/digest. Quota/5xx → skip the
-cycle; fixed cadence retries naturally. Invalid digest → keep the previous
-one, log, retry next cycle.
+content → freeze `auth-required`, never hash/digest. Quota (429 /
+`RESOURCE_EXHAUSTED`) → since #38 the cycle **stops early and carries the remainder
+over** (`isQuotaError`), and the stop is surfaced (`quotaStopped`) instead of burning
+the batch on calls that cannot succeed; other 5xx → skip the cycle; fixed cadence
+retries naturally. Invalid digest → keep the previous one, log, retry next cycle.
 
 ## 10–11. Rollout & adversarial-review changelog
 
@@ -146,3 +153,33 @@ one, log, retry next cycle.
 simplifications are in git history. The method is the keeper: the adversarial
 review *deleted* mechanisms — three volatility classes → two modes, AIMD →
 fixed cadence — before a line was built. See AGENTS.md compounding lesson 12.)
+
+## 12. Ingestion health, the free-tier budget, and the drain alarm (#38)
+
+The reports the cron already computes (`DriveSyncReport`, `CycleReport`) were visible
+only in the cron's HTTP response — so a Sheet or a nested folder shared with the app
+looked ingested and was not, and nobody could tell whether ingestion was keeping up. #38
+surfaces them **without adding an always-on cost**, per [ADR: Ingestion health is a
+serverless signal, not a growing table](adr/2026-07-23-ingestion-health-is-a-serverless-signal-not-a-growing-table.md):
+
+- **No silent drops (lesson 5).** Every shared file that is not ingested — an unsupported
+  type, or inside a folder deeper than `MAX_FOLDER_DEPTH` (5; expanded from the old one
+  level) — is recorded in `SkippedSource` (bounded by the currently-shared set, pruned each
+  sweep) and shown in Manage → Sources as *"shared but not indexed"*.
+- **The free-tier budget.** One admin knob — `IngestionSettings.dailyReingestBudgetDocs` —
+  from which the per-cycle cap is **derived** (`lib/ingestBudget`), so daily Gemini spend is
+  bounded by construction. The Manage → Sources slider plots that budget against a
+  configurable free-tier request ceiling and shows where it crosses. This deployment runs on
+  the Gemini free tier; a 429 stops the cycle and carries over (§9).
+- **The health summary is bounded state, never a log.** The cron upserts ONE
+  `IngestionCycleSummary` row (latest cycle + total backlog); the full time-series stays in
+  Cloud Logging. The drain alarm is a Cloud Monitoring alert on a log-based metric over that
+  backlog — the serverless instrument that produces the "new evidence" §6 requires before
+  the throughput rebuild is justified.
+- **Limits stated in-product.** The card names the real limits in plain language — the
+  ~30,000-char distillation cap (`MAX_DOC_CHARS`; *"keep the freshest content up top"*),
+  Google-Docs-only, the followed folder depth, and the cadence lag.
+
+Expanding what TYPES are ingested and the async-throughput worker remain the gated 10K
+program (the scaling ADR), not this section — #38 makes the limits honest, visible, and
+*measured*; it does not lift them.
