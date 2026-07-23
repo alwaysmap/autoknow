@@ -85,9 +85,11 @@
   color: var(--white);
   cursor: pointer;
 }
+/* Disabled with no URL to submit — the shared disabled treatment (#45): the
+   shared dim and cursor not-allowed, so it can't be read as merely "default". */
 .addBtn:disabled {
-  opacity: 0.5;
-  cursor: default;
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
 }
 
 .cancel {

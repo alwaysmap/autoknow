@@ -360,16 +360,14 @@
   cursor: pointer;
   white-space: nowrap;
 }
-.menuItem:hover:not(:disabled) {
+.menuItem:hover {
   background: var(--border);
 }
 
-/* A bulk item that would change nothing says so before it is clicked, rather than
-   swallowing the click and looking broken. */
-.menuItem:disabled {
-  color: var(--muted);
-  cursor: default;
-}
+/* No .menuItem:disabled — the bulk items are idempotent, not disabled (#45): one
+   that would change nothing still runs and closes the panel rather than greying
+   out and swallowing the click. Nothing in any AnchoredPopover menu disables a
+   row, so there is no disabled menu state left to style. */
 
 /* Single-line rows (variants b/c): partners ride in the header. */
 .headPartners {
@@ -1079,10 +1077,12 @@
 .primaryBtn:hover {
   opacity: 0.85;
 }
+/* Both are only ever disabled WHILE a save is in flight, so this is the BUSY
+   treatment, not the disabled one (#45): cursor progress, the shared busy dim. */
 .primaryBtn:disabled,
 .miniBtn:disabled {
-  opacity: 0.5;
-  cursor: default;
+  opacity: var(--busy-opacity);
+  cursor: progress;
 }
 
 /* Phone-friendly: row bodies stack; the header keeps name + status + plan and sheds

@@ -96,9 +96,10 @@
   background-color: var(--crit);
 }
 
+/* Disabled until the confirm box is ticked — the shared disabled treatment (#45):
+   dim the button and set cursor not-allowed, rather than a bespoke grey swap. */
 .dangerBtn:disabled {
-  background-color: var(--border);
-  color: var(--muted);
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
