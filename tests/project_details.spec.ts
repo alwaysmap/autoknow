@@ -91,6 +91,32 @@ test.describe('Project Details and Action Item Operations', () => {
     expect(box.x + box.width).toBeLessThanOrEqual(section.x + section.width);
   });
 
+  // #24: the headline bug was menus opening OFF-SCREEN at phone widths (the ⋯ beside a
+  // heading, the rightmost column filter) — unreachable because the page can't scroll
+  // horizontally (§9). anchoredPosition.test.ts proves the clamp MATH; this proves the
+  // component actually wires it to real geometry at 360px, in a real browser (this file
+  // runs on chromium AND webkit/Safari — the reason CSS anchor positioning was rejected).
+  test('at phone width the ⋯ menu opens fully inside the viewport, not off-screen (#24)', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await page.goto(`/programs/${projectId}`);
+
+    const trigger = page.getByRole('button', { name: 'Phase actions' });
+    const panel = page.getByRole('menu').filter({ has: page.getByRole('menuitem', { name: 'Edit phases →' }) });
+
+    // Hydration-guarded first interaction (the repo's #1 e2e flake source otherwise).
+    await expect(async () => {
+      if (!(await panel.isVisible())) await trigger.click({ timeout: 2000 });
+      await expect(panel).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+
+    // The whole panel is within the 360px viewport — top-layer + clamp, not off the edge.
+    const box = (await panel.boundingBox())!;
+    expect(box).toBeTruthy();
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(360);
+  });
+
   // A schedule row is ONE target covering label, bar and trailing note, and its card
   // must be reachable without a pointer — a hover-only card is a card half the users
   // never see. It also must not cover the label column: the names are what the reader
