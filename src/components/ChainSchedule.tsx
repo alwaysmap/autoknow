@@ -335,6 +335,11 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   // scale ticks and anchors outrank the risers. Centres computed per anchor: y-axis /
   // reserve are end-anchored, now is start-anchored, the rest are centred.
   const laneHalfH = FS_SMALL / 2 + 1;
+  // Half-widths for the collision boxes. The trailing pad is breathing room around each
+  // label so near-misses still count as clashes; it scales loosely with weight — the bold
+  // riser/start values (+4) and the emphasised now marker (+3) claim a touch more room than
+  // the lighter reserve tick (+2). ticks (+2) round v themselves since niceStep hands back
+  // whole days; the free-floating values round here so their measured width matches render.
   const shortHalf = (v: number) => textWidth(t(locale, 'clBufferDaysShort', { d: Math.round(v) })) / 2 + 4;
   const reserveHalf = textWidth(t(locale, 'clBufferGuideline', { d: ledger.guidelineDays })) / 2 + 2;
   const nowHalf = textWidth(t(locale, 'clBufferNow', { d: Math.round(laneEndLevel) })) / 2 + 3;
