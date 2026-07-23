@@ -18,6 +18,23 @@ open only the rows that match what you are about to touch.
 
 ## Rules that repeatedly caught agents here
 
+- **Reach for the existing component before you build a new one.** This app has a
+  deliberate set of shared UI primitives; a fresh near-duplicate silently re-opens
+  the exact bugs the shared one already killed. Scan `src/components/` first — a
+  genuinely reusable primitive announces itself in its header comment ("the ONE …",
+  "the shared grammar/home/look"). The load-bearing ones: **`AnchoredPopover`** (any
+  trigger→anchored panel — menus, filter popups; it flips + clamps so nothing opens
+  off-screen), **`KebabMenu`** (the ⋯ header menu, built on it), **`DataTable`**
+  (sortable, per-column funnel filters, shareable URL state — design.md §6),
+  **`AnchorHeading`** (a deep-linkable `<h2>` with an `actions` slot for its ⋯/ⓘ),
+  **`StatTile`** (the ecosystem-strip figure grammar, §1/§7), **`SearchField`** (the
+  one live-filter box look), **`DateCell`** (ISO + calendar-week-on-hover). That
+  these were worth consolidating is recorded in their own headers: `AnchoredPopover`
+  replaced FOUR hand-rolled popovers (two opened off-screen at ordinary widths),
+  `SearchField` replaced THREE drifted copies of one input, and `initialsOf`/avatars
+  each had two divergent copies. If a primitive is close but not exact, **add a prop
+  — never fork it.** This is AGENTS lesson 7's creation-side twin: the fix for "the
+  same control exists in three hand-rolled variants" is to not author the third.
 - **Entity displays are links; entity inputs are pickers.** People →
   `/people/:id`, partners → `/partners/:id`. A field naming another entity is a
   `<select>` over existing rows + server-side resolution (`requireOwnerEmail` /
