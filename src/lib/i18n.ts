@@ -1434,10 +1434,10 @@ const STRINGS = {
   clSchedule: { en: 'Schedule', de: 'Zeitplan', ja: 'スケジュール', ko: '일정' },
   clKeyTitle: { en: 'How to read the schedule', de: 'So liest du den Zeitplan', ja: 'スケジュールの読み方', ko: '일정 읽는 법' },
   clKeyOnPlan: {
-    en: 'A filled cell is work done, or on plan, that week.',
-    de: 'Eine gefüllte Zelle ist erledigte oder planmäßige Arbeit dieser Woche.',
-    ja: '塗りつぶしのセルは、その週の完了済みまたは計画どおりの作業です。',
-    ko: '채워진 칸은 그 주에 완료했거나 계획대로 진행한 작업입니다.',
+    en: 'A filled cell is on-plan work — soft once done, bold on the phase running now.',
+    de: 'Eine gefüllte Zelle ist planmäßige Arbeit — blass wenn erledigt, kräftig bei der laufenden Phase.',
+    ja: '塗りつぶしのセルは計画どおりの作業。完了済みは淡く、進行中フェーズは濃く表示。',
+    ko: '채워진 칸은 계획대로 진행한 작업 — 완료되면 옅게, 진행 중 단계는 진하게.',
   },
   clKeyOver: {
     en: 'Red: that week ran over the plan.',
