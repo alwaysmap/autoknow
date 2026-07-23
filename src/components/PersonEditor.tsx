@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { movePersonCompany, copyPerson, deletePerson } from '../app/actions/people';
 import { addPhasePerson } from '../app/actions/phasePeople';
 import { t } from '../lib/i18n';
@@ -9,7 +9,7 @@ import dash from './ProjectStatusDashboard.module.css';
 import meta from './ProjectMetaHeader.module.css';
 import admin from './ProjectAdminControls.module.css';
 import KebabMenu from './KebabMenu';
-import { useLightDismiss } from '../lib/useLightDismiss';
+import OverlayDialog from './OverlayDialog';
 
 // Person maintenance behind the title kebab (the app-wide grammar: quiet ⋯ beside
 // the name, dialogs for the work) — replaces the old full-width "Profile
@@ -34,17 +34,13 @@ export default function PersonAdminControls({ personId, personName, partners, pr
   programs: ProgramOption[];
 }) {
   const locale = useLocale();
-  const moveRef = useRef<HTMLDialogElement>(null);
-  const copyRef = useRef<HTMLDialogElement>(null);
-  const deleteRef = useRef<HTMLDialogElement>(null);
-  const assignRef = useRef<HTMLDialogElement>(null);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pickedProgram, setPickedProgram] = useState<number | ''>('');
-  useLightDismiss(moveRef);
-  useLightDismiss(copyRef);
-  useLightDismiss(deleteRef);
-  useLightDismiss(assignRef);
   const programPhases = programs.find((pr) => pr.id === pickedProgram)?.phases ?? [];
 
   // A failed action must surface INSIDE the dialog — a throw would hit the route
@@ -74,26 +70,26 @@ export default function PersonAdminControls({ personId, personName, partners, pr
   return (
     <span className={meta.actions}>
       <KebabMenu ariaLabel={t(locale, 'moreActions')}>
-        <button type="button" data-testid="add-to-program" onClick={() => { setPickedProgram(''); assignRef.current?.showModal(); }}>
+        <button type="button" data-testid="add-to-program" onClick={() => { setPickedProgram(''); setAssignOpen(true); }}>
           {t(locale, 'addToProgram')}
         </button>
-        <button type="button" onClick={() => moveRef.current?.showModal()}>
+        <button type="button" onClick={() => setMoveOpen(true)}>
           {t(locale, 'moveToDifferentCompany')}
         </button>
-        <button type="button" onClick={() => copyRef.current?.showModal()}>
+        <button type="button" onClick={() => setCopyOpen(true)}>
           {t(locale, 'copyPersonProfile')}
         </button>
-        <button type="button" data-testid="delete-person" onClick={() => deleteRef.current?.showModal()}>
+        <button type="button" data-testid="delete-person" onClick={() => setDeleteOpen(true)}>
           {t(locale, 'deleteLabel')}
         </button>
       </KebabMenu>
 
       {/* assign-to-program dialog: program → phase → role. Any login can assign a
           person (incl. themselves, via /me) onto a phase; the program derives. */}
-      <dialog ref={assignRef} closedby="any" className={admin.dialog} aria-labelledby="assignPersonTitle">
-        <div className={admin.dialogHeader}><h3 id="assignPersonTitle">{t(locale, 'addToProgram')}</h3></div>
+      <OverlayDialog open={assignOpen} onClose={() => setAssignOpen(false)} width="30rem"
+        title={t(locale, 'addToProgram')} closeLabel={t(locale, 'close')}>
         <form
-          action={async (fd) => { if (await runAction(fd, addPhasePerson)) assignRef.current?.close(); }}
+          action={async (fd) => { if (await runAction(fd, addPhasePerson)) setAssignOpen(false); }}
           className={dash.dialogForm}
         >
           <input type="hidden" name="personId" value={personId} />
@@ -119,17 +115,17 @@ export default function PersonAdminControls({ personId, personName, partners, pr
             <input id="assignRole" type="text" name="role" placeholder={t(locale, 'roleTitlePlaceholder')} className={dash.textInput} />
           </div>
           <div className={dash.actionRow}>
-            <button type="button" onClick={() => assignRef.current?.close()} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
+            <button type="button" onClick={() => setAssignOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
             <button type="submit" disabled={saving || !pickedProgram} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'save')}</button>
           </div>
         </form>
-      </dialog>
+      </OverlayDialog>
 
       {/* move dialog */}
-      <dialog ref={moveRef} closedby="any" className={admin.dialog} aria-labelledby="movePersonTitle">
-        <div className={admin.dialogHeader}><h3 id="movePersonTitle">{t(locale, 'moveToDifferentCompany')}</h3></div>
+      <OverlayDialog open={moveOpen} onClose={() => setMoveOpen(false)} width="30rem"
+        title={t(locale, 'moveToDifferentCompany')} closeLabel={t(locale, 'close')}>
         <form
-          action={async (fd) => { if (await runAction(fd, movePersonCompany)) moveRef.current?.close(); }}
+          action={async (fd) => { if (await runAction(fd, movePersonCompany)) setMoveOpen(false); }}
           className={dash.dialogForm}
         >
           <input type="hidden" name="personId" value={personId} />
@@ -150,15 +146,15 @@ export default function PersonAdminControls({ personId, personName, partners, pr
             <input id="startDate" type="date" name="startDate" required className={dash.textInput} />
           </div>
           <div className={dash.actionRow}>
-            <button type="button" onClick={() => moveRef.current?.close()} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
+            <button type="button" onClick={() => setMoveOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
             <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'movePartner')}</button>
           </div>
         </form>
-      </dialog>
+      </OverlayDialog>
 
       {/* copy dialog */}
-      <dialog ref={copyRef} closedby="any" className={admin.dialog} aria-labelledby="copyPersonTitle">
-        <div className={admin.dialogHeader}><h3 id="copyPersonTitle">{t(locale, 'copyPersonProfile')}</h3></div>
+      <OverlayDialog open={copyOpen} onClose={() => setCopyOpen(false)} width="30rem"
+        title={t(locale, 'copyPersonProfile')} closeLabel={t(locale, 'close')}>
         <form
           action={async (fd) => { await runAction(fd, copyPerson); }}
           className={dash.dialogForm}
@@ -171,15 +167,15 @@ export default function PersonAdminControls({ personId, personName, partners, pr
             <input id="copyEmail" type="email" name="copyEmail" required placeholder={t(locale, 'copyEmailPlaceholder')} className={dash.textInput} />
           </div>
           <div className={dash.actionRow}>
-            <button type="button" onClick={() => copyRef.current?.close()} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
+            <button type="button" onClick={() => setCopyOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
             <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'copyProfile')}</button>
           </div>
         </form>
-      </dialog>
+      </OverlayDialog>
 
       {/* delete dialog */}
-      <dialog ref={deleteRef} closedby="any" className={admin.dialog} aria-labelledby="deletePersonTitle">
-        <div className={admin.dialogHeader}><h3 id="deletePersonTitle">{t(locale, 'deletePersonProfile')}</h3></div>
+      <OverlayDialog open={deleteOpen} onClose={() => setDeleteOpen(false)} width="30rem"
+        title={t(locale, 'deletePersonProfile')} closeLabel={t(locale, 'close')}>
         <form
           action={async (fd) => { await runAction(fd, deletePerson); }}
           className={dash.dialogForm}
@@ -188,11 +184,11 @@ export default function PersonAdminControls({ personId, personName, partners, pr
           {errorLine}
           <p>{t(locale, 'deleteProfileHelp')} <strong>{personName}</strong></p>
           <div className={dash.actionRow}>
-            <button type="button" onClick={() => deleteRef.current?.close()} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
+            <button type="button" onClick={() => setDeleteOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
             <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'deleteProfileBtn')}</button>
           </div>
         </form>
-      </dialog>
+      </OverlayDialog>
     </span>
   );
 }

@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useTableUrlSync } from '../../lib/useTableUrlSync';
 import type { TableSort } from '../../lib/tableUrlState';
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
 import ClassBox from '../../components/ClassBox';
 import KebabMenu from '../../components/KebabMenu';
+import OverlayDialog from '../../components/OverlayDialog';
 import PageShell from '../../components/PageShell';
 import { createPerson } from '../actions/people';
 import dash from '../../components/ProjectStatusDashboard.module.css';
-import admin from '../../components/ProjectAdminControls.module.css';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 import styles from '../partners/page.module.css';
@@ -38,7 +38,7 @@ export default function PeopleClient({ people, partners, initialFilters, initial
   const [filters, setFilters] = useState<Record<string, string[]>>(initialFilters ?? {});
   const [sort, setSort] = useState<TableSort | null>(initialSort ?? null);
   const [saving, setSaving] = useState(false);
-  const newRef = useRef<HTMLDialogElement>(null);
+  const [newOpen, setNewOpen] = useState(false);
   useTableUrlSync(filters, sort);
 
   return (
@@ -47,7 +47,7 @@ export default function PeopleClient({ people, partners, initialFilters, initial
       maxWidth="62.5rem"
       actions={
         <KebabMenu ariaLabel={t(locale, 'moreActions')}>
-          <button type="button" data-testid="new-person" onClick={() => newRef.current?.showModal()}>
+          <button type="button" data-testid="new-person" onClick={() => setNewOpen(true)}>
             {t(locale, 'newPerson')}
           </button>
         </KebabMenu>
@@ -55,9 +55,8 @@ export default function PeopleClient({ people, partners, initialFilters, initial
     >
       {/* Any login can create a Person; a Person needs no login of their own
           (partner-side contacts are the normal case). */}
-      <dialog ref={newRef} closedby="any" className={admin.dialog} aria-labelledby="newPersonTitle"
-        onClick={(e) => { if (e.target === newRef.current) newRef.current?.close(); }}>
-        <div className={admin.dialogHeader}><h3 id="newPersonTitle">{t(locale, 'newPerson')}</h3></div>
+      <OverlayDialog open={newOpen} onClose={() => setNewOpen(false)} width="30rem"
+        title={t(locale, 'newPerson')} closeLabel={t(locale, 'close')}>
         <form
           action={async (formData) => {
             setSaving(true);
@@ -86,11 +85,11 @@ export default function PeopleClient({ people, partners, initialFilters, initial
             <input id="npRole" type="text" name="role" placeholder={t(locale, 'roleTitlePlaceholder')} className={dash.textInput} />
           </div>
           <div className={dash.actionRow}>
-            <button type="button" onClick={() => newRef.current?.close()} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
+            <button type="button" onClick={() => setNewOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
             <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'save')}</button>
           </div>
         </form>
-      </dialog>
+      </OverlayDialog>
 
       <section className={styles.tableSection}>
         <DataTable

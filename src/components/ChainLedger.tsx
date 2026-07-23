@@ -7,6 +7,7 @@ import { tNodes, joinNodes } from './tNodes';
 import { localDate } from '../lib/dates';
 import { DAY_MS } from '../lib/sop';
 import AnchorHeading from './AnchorHeading';
+import OverlayDialog from './OverlayDialog';
 import ConstraintRing from './ConstraintRing';
 import { ChainSchedule, CARD_W, W } from './ChainSchedule';
 import type { RowCard } from './ChainSchedule';
@@ -48,7 +49,7 @@ const dayShort = (ms: number, locale: Locale) => localDate(new Date(ms), locale,
 export default function ChainLedger({
   projectId, locale, now, ledger, sopDate, volumeFirstYear, owner, ownerPersonId, ownerOtherActive,
 }: ChainLedgerProps) {
-  const legendRef = useRef<HTMLDialogElement>(null);
+  const [legendOpen, setLegendOpen] = useState(false);
   const wrapRef = useRef<HTMLElement>(null);
   const sopMs = sopDate ? +new Date(sopDate) : null;
 
@@ -278,7 +279,7 @@ export default function ChainLedger({
           /* the key lives behind the ⓘ, not on the page (design.md §7) — same
              pattern as the Phases decoder */
           <button type="button" className={styles.infoBtn} title={t(locale, 'clKeyTitle')}
-            aria-label={t(locale, 'clKeyTitle')} onClick={() => legendRef.current?.showModal()}>
+            aria-label={t(locale, 'clKeyTitle')} onClick={() => setLegendOpen(true)}>
             <svg viewBox="0 0 16 16" width={15} height={15} aria-hidden>
               <circle cx={8} cy={8} r={6.6} fill="none" stroke="currentColor" strokeWidth={1.4} />
               <circle cx={8} cy={5} r={1} fill="currentColor" />
@@ -423,9 +424,8 @@ export default function ChainLedger({
       )}
 
       {/* the schedule key, consulted on demand */}
-      <dialog ref={legendRef} className={styles.legendDialog}
-        onClick={(e) => { if (e.target === legendRef.current) legendRef.current?.close(); }}>
-        <h3 className={styles.legendTitle}>{t(locale, 'clKeyTitle')}</h3>
+      <OverlayDialog open={legendOpen} onClose={() => setLegendOpen(false)} width="26rem"
+        title={t(locale, 'clKeyTitle')} closeLabel={t(locale, 'close')}>
         {/* one cell per meaning — the grid separates state by colour + position, no
             textures (issue #75). */}
         <div className={styles.legendRow}>
@@ -479,7 +479,7 @@ export default function ChainLedger({
           </svg>
           {t(locale, 'clKeyBufferLane')}
         </div>
-      </dialog>
+      </OverlayDialog>
 
 
     </section>

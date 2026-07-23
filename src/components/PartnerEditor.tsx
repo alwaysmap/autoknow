@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { createPartner, updatePartner, deletePartner } from '../app/actions/partners';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
@@ -8,7 +8,7 @@ import dash from './ProjectStatusDashboard.module.css';
 import meta from './ProjectMetaHeader.module.css';
 import admin from './ProjectAdminControls.module.css';
 import KebabMenu from './KebabMenu';
-import { useLightDismiss } from '../lib/useLightDismiss';
+import OverlayDialog from './OverlayDialog';
 
 // Partner CRUD surfaces. One shared form (create + edit); the partner page gets the
 // small Edit · Delete links beside the name (same quiet grammar as programs), the
@@ -29,8 +29,6 @@ export interface PartnerRecord {
   internalDetailsUrl: string | null;
   summary: string | null;
 }
-
-// Light-dismiss fallback for browsers without <dialog closedby> support.
 
 function PartnerFormFields({ defaults, types, regions }: { defaults?: PartnerRecord | null; types: Option[]; regions: Option[] }) {
   const locale = useLocale();
@@ -73,10 +71,9 @@ function PartnerFormFields({ defaults, types, regions }: { defaults?: PartnerRec
 /** "New partner" button + create dialog, for the /partners list header. */
 export function NewPartnerButton({ types, regions }: { types: Option[]; regions: Option[] }) {
   const locale = useLocale();
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [newOpen, setNewOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useLightDismiss(dialogRef);
 
   // A failed action must surface INSIDE the dialog — a throw would hit the route
   // error boundary and destroy the user's modal input. Actions return { error };
@@ -103,11 +100,11 @@ export function NewPartnerButton({ types, regions }: { types: Option[]; regions:
   return (
     <>
       <button type="button" className={admin.archiveButton} data-testid="new-partner"
-        onClick={() => dialogRef.current?.showModal()}>
+        onClick={() => setNewOpen(true)}>
         {t(locale, 'newPartner')}
       </button>
-      <dialog ref={dialogRef} closedby="any" className={admin.dialog} aria-labelledby="newPartnerTitle">
-        <div className={admin.dialogHeader}><h3 id="newPartnerTitle">{t(locale, 'newPartner')}</h3></div>
+      <OverlayDialog open={newOpen} onClose={() => setNewOpen(false)} width="30rem"
+        title={t(locale, 'newPartner')} closeLabel={t(locale, 'close')}>
         <form
           action={async (fd) => { await runAction(fd, createPartner); }}
           className={dash.dialogForm}
@@ -115,11 +112,11 @@ export function NewPartnerButton({ types, regions }: { types: Option[]; regions:
           {errorLine}
           <PartnerFormFields types={types} regions={regions} />
           <div className={dash.actionRow}>
-            <button type="button" onClick={() => dialogRef.current?.close()} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
+            <button type="button" onClick={() => setNewOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
             <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'save')}</button>
           </div>
         </form>
-      </dialog>
+      </OverlayDialog>
     </>
   );
 }
@@ -135,13 +132,11 @@ export default function PartnerAdminControls({
   employeeCount: number;
 }) {
   const locale = useLocale();
-  const editRef = useRef<HTMLDialogElement>(null);
-  const deleteRef = useRef<HTMLDialogElement>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmName, setConfirmName] = useState('');
-  useLightDismiss(editRef);
-  useLightDismiss(deleteRef);
 
   // A failed action must surface INSIDE the dialog — a throw would hit the route
   // error boundary and destroy the user's modal input. Actions return { error };
@@ -173,41 +168,41 @@ export default function PartnerAdminControls({
     <span className={meta.actions}>
       <KebabMenu ariaLabel={t(locale, 'moreActions')}>
         <button type="button" title={t(locale, 'editPartnerTitle')}
-          onClick={() => editRef.current?.showModal()}>
+          onClick={() => setEditOpen(true)}>
           {t(locale, 'edit')}
         </button>
         <button type="button" data-testid="delete-partner"
-          onClick={() => { setConfirmName(''); deleteRef.current?.showModal(); }}>
+          onClick={() => { setConfirmName(''); setDeleteOpen(true); }}>
           {t(locale, 'deleteLabel')}
         </button>
       </KebabMenu>
 
       {/* edit dialog */}
-      <dialog ref={editRef} closedby="any" className={admin.dialog} aria-labelledby="editPartnerTitle">
-        <div className={admin.dialogHeader}><h3 id="editPartnerTitle">{t(locale, 'editPartnerTitle')}</h3></div>
+      <OverlayDialog open={editOpen} onClose={() => setEditOpen(false)} width="30rem"
+        title={t(locale, 'editPartnerTitle')} closeLabel={t(locale, 'close')}>
         <form
-          action={async (fd) => { if (await runAction(fd, updatePartner)) editRef.current?.close(); }}
+          action={async (fd) => { if (await runAction(fd, updatePartner)) setEditOpen(false); }}
           className={dash.dialogForm}
         >
           {errorLine}
           <input type="hidden" name="partnerId" value={partner.id} />
           <PartnerFormFields defaults={partner} types={types} regions={regions} />
           <div className={dash.actionRow}>
-            <button type="button" onClick={() => editRef.current?.close()} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
+            <button type="button" onClick={() => setEditOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
             <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'save')}</button>
           </div>
         </form>
-      </dialog>
+      </OverlayDialog>
 
       {/* delete dialog — explains the blockers instead of offering a doomed confirm */}
-      <dialog ref={deleteRef} closedby="any" className={admin.dialog} aria-labelledby="deletePartnerTitle">
-        <div className={admin.dialogHeader}><h3 id="deletePartnerTitle">{t(locale, 'confirmPartnerDeletion')}</h3></div>
+      <OverlayDialog open={deleteOpen} onClose={() => setDeleteOpen(false)} width="30rem"
+        title={t(locale, 'confirmPartnerDeletion')} closeLabel={t(locale, 'close')}>
         {blocked ? (
           <>
             {programCount > 0 && <p className={admin.warningText}>{t(locale, 'partnerHasPrograms', { n: programCount })}</p>}
             {employeeCount > 0 && <p className={admin.warningText}>{t(locale, 'partnerHasPeople', { n: employeeCount })}</p>}
             <div className={dash.actionRow}>
-              <button type="button" onClick={() => deleteRef.current?.close()} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
+              <button type="button" onClick={() => setDeleteOpen(false)} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
             </div>
           </>
         ) : (
@@ -236,7 +231,7 @@ export default function PartnerAdminControls({
                 />
               </div>
               <div className={admin.actionRow}>
-                <button type="button" onClick={() => deleteRef.current?.close()} className={admin.cancelBtn}>{t(locale, 'cancel')}</button>
+                <button type="button" onClick={() => setDeleteOpen(false)} className={admin.cancelBtn}>{t(locale, 'cancel')}</button>
                 <button type="submit" disabled={!isConfirmed} className={admin.dangerBtn}>
                   {t(locale, 'permanentlyDeletePartner')}
                 </button>
@@ -244,7 +239,7 @@ export default function PartnerAdminControls({
             </form>
           </>
         )}
-      </dialog>
+      </OverlayDialog>
     </span>
   );
 }

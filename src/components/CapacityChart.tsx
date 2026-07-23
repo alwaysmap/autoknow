@@ -14,6 +14,7 @@ import {
 } from '../lib/sop';
 import { t, type Locale, type StringKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
+import OverlayDialog from './OverlayDialog';
 import styles from './CapacityChart.module.css';
 
 // Cumulative capacity by product — a CFD-style stacked area chart of product units
@@ -266,16 +267,15 @@ export default function CapacityChart({ programs, now }: { programs: CapacityCha
   // Both the inline and expanded charts re-render on every hover; the series is a
   // pure function of programs+now, so compute it once.
   const { points, excluded } = useMemo(() => buildProductCapacitySeries(programs, now), [programs, now]);
-  const quarterRef = useRef<HTMLDialogElement>(null);
-  const expandRef = useRef<HTMLDialogElement>(null);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
+  const [quarterOpen, setQuarterOpen] = useState(false);
   // The big chart mounts only while its dialog is open — a hidden duplicate would
   // double every sop-dot/testid in the DOM.
   const [expandOpen, setExpandOpen] = useState(false);
 
   const openQuarter = (i: number) => {
     setPickedIdx(i);
-    quarterRef.current?.showModal();
+    setQuarterOpen(true);
   };
   const picked = pickedIdx != null ? points[pickedIdx] : null;
 
@@ -326,7 +326,7 @@ export default function CapacityChart({ programs, now }: { programs: CapacityCha
         <div className={styles.title}>{t(locale, 'capacityTitle')}</div>
         <button type="button" className={styles.expandBtn} title={t(locale, 'capacityExpand')}
           aria-label={t(locale, 'capacityExpand')}
-          onClick={() => { setExpandOpen(true); expandRef.current?.showModal(); }}>
+          onClick={() => setExpandOpen(true)}>
           <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden>
             <path d="M 7 1 H 11 V 5 M 11 1 L 6.6 5.4 M 5 11 H 1 V 7 M 1 11 L 5.4 6.6"
               fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
@@ -340,32 +340,24 @@ export default function CapacityChart({ programs, now }: { programs: CapacityCha
       </div>
 
       {/* the same chart near-fullscreen */}
-      <dialog ref={expandRef} className={styles.expandDialog} onClose={() => setExpandOpen(false)}
-        onClick={(e) => { if (e.target === expandRef.current) expandRef.current?.close(); }}>
+      <OverlayDialog open={expandOpen} onClose={() => setExpandOpen(false)} width="70rem"
+        title={t(locale, 'capacityTitle')} closeLabel={t(locale, 'close')}>
         {expandOpen && (
           <div className={styles.expandBody}>
-            <div className={styles.title}>{t(locale, 'capacityTitle')}</div>
             <ProductAreaChart {...chartProps} w={1380} h={560} big />
             <div className={styles.legend}>
               <span className={styles.note}>{t(locale, 'capacityProductNote')}</span>
             </div>
-            <button type="button" className={styles.dialogClose} onClick={() => expandRef.current?.close()}>
-              {t(locale, 'closeEdit')}
-            </button>
           </div>
         )}
-      </dialog>
+      </OverlayDialog>
 
       {/* the drill-down: which programs ship in the picked quarter */}
-      <dialog
-        ref={quarterRef}
-        className={styles.dialog}
-        data-testid="capacity-dialog"
-        onClick={(e) => { if (e.target === quarterRef.current) quarterRef.current?.close(); }}
-      >
+      <OverlayDialog open={quarterOpen} onClose={() => setQuarterOpen(false)} width="26rem"
+        dataTestId="capacity-dialog"
+        title={picked ? t(locale, 'shippingIn', { q: picked.label }) : undefined} closeLabel={t(locale, 'close')}>
         {picked && (
           <div className={styles.dialogBody}>
-            <h3 className={styles.dialogTitle}>{t(locale, 'shippingIn', { q: picked.label })}</h3>
             {shipping.length === 0 ? (
               <p className={styles.empty}>{t(locale, 'shippingNone')}</p>
             ) : (
@@ -373,7 +365,7 @@ export default function CapacityChart({ programs, now }: { programs: CapacityCha
                 {shipping.map((p) => (
                   <li key={p.id} className={styles.shipRow}>
                     <Link href={`/programs/${p.id}`} className={styles.shipName}
-                      onClick={() => quarterRef.current?.close()}>
+                      onClick={() => setQuarterOpen(false)}>
                       {p.name}
                     </Link>
                     <span className={styles.shipMeta}>
@@ -384,12 +376,9 @@ export default function CapacityChart({ programs, now }: { programs: CapacityCha
                 ))}
               </ul>
             )}
-            <button type="button" className={styles.dialogClose} onClick={() => quarterRef.current?.close()}>
-              {t(locale, 'closeEdit')}
-            </button>
           </div>
         )}
-      </dialog>
+      </OverlayDialog>
     </div>
   );
 }

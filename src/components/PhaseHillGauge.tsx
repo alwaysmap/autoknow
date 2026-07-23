@@ -1,9 +1,10 @@
 'use client';
 
 import ChartLabel from './ChartLabel';
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import styles from './NeedleGauge.module.css';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
+import OverlayDialog from './OverlayDialog';
 import { t, statusKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import { HILL_PATH, hillCoordinates } from '../lib/geometry';
@@ -132,16 +133,15 @@ export default function PhaseHillGauge({
   const color = colorProp ?? phaseColor(phaseId);
   const statusText = strings.statusText ?? hillStatus;
   const axisLabels = { left: strings.figuringItOut, right: strings.makingItHappen };
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState(progress);
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [noteError, setNoteError] = useState(false);
 
-  const open = () => { setDrag(progress); setNoteError(false); dialogRef.current?.showModal(); };
-  const close = () => dialogRef.current?.close();
-  const onBackdrop = (e: React.MouseEvent<HTMLDialogElement>) => { if (e.target === dialogRef.current) dialogRef.current?.close(); };
+  const open = () => { setDrag(progress); setNoteError(false); setDialogOpen(true); };
+  const close = () => setDialogOpen(false);
 
   const fromX = (clientX: number) => {
     if (!svgRef.current) return;
@@ -174,8 +174,8 @@ export default function PhaseHillGauge({
         </div>
       )}
 
-      <dialog ref={dialogRef} className={styles.dialog} onClick={onBackdrop}>
-        <div className={styles.dialogHeader}><h3>{strings.dialogTitle}</h3></div>
+      <OverlayDialog open={dialogOpen} onClose={() => setDialogOpen(false)} width="26rem"
+        title={strings.dialogTitle} closeLabel={t(locale, 'close')}>
         <form
           action={async (formData) => {
             // updatePhaseHill requires a note — gate client-side (hidden input has no
@@ -183,7 +183,7 @@ export default function PhaseHillGauge({
             if (!((formData.get('notes') as string) || '').trim()) { setNoteError(true); return; }
             setNoteError(false);
             setSubmitting(true);
-            try { await updatePhaseHill(formData); dialogRef.current?.close(); }
+            try { await updatePhaseHill(formData); setDialogOpen(false); }
             catch (err) { console.error(err); }
             finally { setSubmitting(false); }
           }}
@@ -234,7 +234,7 @@ export default function PhaseHillGauge({
             <button type="submit" disabled={submitting} className={styles.submitBtn}>{submitting ? strings.saving : strings.save}</button>
           </div>
         </form>
-      </dialog>
+      </OverlayDialog>
     </div>
   );
 }

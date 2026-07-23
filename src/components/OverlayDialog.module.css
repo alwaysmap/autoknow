@@ -1,0 +1,93 @@
+/* The one overlay container's sizing (#34). The whole point: `max-height`, NEVER `height`,
+   so the sheet shrinks to its content (a one-line history is a small card, not a half-empty
+   full-height sheet) and still caps at the viewport in landscape. One width idiom for every
+   dialog; the body is the only scroll region. */
+
+.dialog {
+  width: min(var(--overlay-width, 32rem), calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
+  /* shrink to content, cap at the safe viewport — the fixed `height` this replaces is what
+     left 50% of the history dialog blank, and squeezed the landscape scroll area to 200px. */
+  max-height: calc(100dvh - 2rem);
+  padding: 0; /* the header / body / footer own their padding */
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--white, var(--paper));
+  color: var(--fg);
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.22);
+  /* globals' `* { margin: 0 }` defeats the native <dialog> auto-centering; restore it here.
+     margin:auto on a modal centres in BOTH axes and respects the viewport — unlike
+     transform-centering, which pushes a tall dialog off the top edge. */
+  margin: auto;
+  overflow: hidden; /* the body scrolls, not the dialog */
+}
+
+/* §4b trap 1: scope the flex to [open]. A bare `display: flex` overrides the UA
+   `display: none` for the closed state, leaving an invisible full-size overlay that
+   swallows every click on the page beneath it. */
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* (c) Fixed header — never scrolls away, so the title and × are always reachable. */
+.header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.titleText {
+  font-family: var(--head-font);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+  color: var(--fg);
+}
+
+.close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.375rem;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.close:hover {
+  background: var(--surface);
+  color: var(--fg);
+}
+
+/* (b)(e) The ONE scroll region. min-height:0 lets this flex child actually shrink so its
+   own overflow engages, instead of forcing the dialog taller than the viewport. */
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 1.5rem;
+}
+
+/* (c) Fixed footer — the confirm/cancel actions stay put below the scroll. */
+.footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.625rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border);
+}

@@ -2,7 +2,8 @@
 
 import { sopForecastTone } from '../lib/sop';
 import ClassBox from './ClassBox';
-import React, { useRef, useEffect } from 'react';
+import React, { useState } from 'react';
+import OverlayDialog from './OverlayDialog';
 import Link from 'next/link';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
@@ -75,19 +76,7 @@ export default function ProjectMetaHeader({
   currentPartnerId, partnerOptions, peopleOptions,
 }: ProjectMetaHeaderProps) {
   const locale = useLocale();
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  // Light-dismiss fallback for browsers without <dialog closedby> support.
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (dialog && !('closedBy' in HTMLDialogElement.prototype)) {
-      const onClick = (event: MouseEvent) => {
-        if (event.target === dialog) dialog.close();
-      };
-      dialog.addEventListener('click', onClick);
-      return () => dialog.removeEventListener('click', onClick);
-    }
-  }, []);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // SOP is a month/year target (last day of month assumed) — display month + year.
   const sop = sopDateString
@@ -133,7 +122,7 @@ export default function ProjectMetaHeader({
         <span className={styles.actions}>
           <KebabMenu ariaLabel={t(locale, 'moreActions')}>
             <button type="button" title={t(locale, 'editMetadata')}
-              onClick={() => dialogRef.current?.showModal()}>
+              onClick={() => setSettingsOpen(true)}>
               {t(locale, 'edit')}
             </button>
             {actions}
@@ -166,7 +155,7 @@ export default function ProjectMetaHeader({
         ) : (
           /* owner is REQUIRED — absence is a to-do, not a quiet fact */
           <button type="button" className={styles.ownerMissing} title={t(locale, 'googlerOwner')}
-            onClick={() => dialogRef.current?.showModal()}>
+            onClick={() => setSettingsOpen(true)}>
             {t(locale, 'assignOwner')}
           </button>
         )}
@@ -206,14 +195,12 @@ export default function ProjectMetaHeader({
       </div>
 
       {/* metadata edit dialog (moved from the retired sidebar card) */}
-      <dialog ref={dialogRef} closedby="any" className={dash.dialog} aria-labelledby="settingsDialogTitle">
-        <div className={dash.dialogHeader}>
-          <h3 id="settingsDialogTitle">{t(locale, 'editMetadata')}</h3>
-        </div>
+      <OverlayDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} width="30rem"
+        title={t(locale, 'editMetadata')} closeLabel={t(locale, 'close')}>
         <form
           action={async (formData) => {
             await updateProjectMetrics(formData);
-            dialogRef.current?.close();
+            setSettingsOpen(false);
           }}
           className={dash.dialogForm}
         >
@@ -274,11 +261,11 @@ export default function ProjectMetaHeader({
           </div>
 
           <div className={dash.actionRow}>
-            <button type="button" onClick={() => dialogRef.current?.close()} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
+            <button type="button" onClick={() => setSettingsOpen(false)} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
             <button type="submit" className={dash.submitBtn}>{t(locale, 'saveSettings')}</button>
           </div>
         </form>
-      </dialog>
+      </OverlayDialog>
     </div>
   );
 }
