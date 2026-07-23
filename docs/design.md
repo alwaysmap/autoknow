@@ -391,13 +391,12 @@ combination must work:
      `prefers-reduced-motion` (`usePrefersReducedMotion`) rather than lean on
      `useSettle`'s degrade: a single settle degrades by jumping to its value, but
      a hunt that jumps is a needle flicking between two stops forever.
-  2. **Reveal** — a CSS animation sweeps the schedule's buffer bands out from the
-     chart's left edge on arrival. **CSS, never JS**, and that is a hard rule: a
-     JS reveal gates the data on an effect firing. The first version used an
-     IntersectionObserver, and in an environment where the API exists but never
-     delivers a callback (this app's own preview pane) the chart rendered with no
-     visible bands at all. A CSS animation starts from a state the element
-     already has, so nothing it does can hide a reading.
+  2. **Reveal** — *retired with the buffer bands it swept* (issue #75). It was a
+     CSS animation (never JS — a JS reveal gates the data on an effect firing, and
+     an IntersectionObserver that never fired once left the chart with no visible
+     bands at all). The state grid that replaced the bands renders without a reveal;
+     the principle stands for the next one that needs it — start from a state the
+     element already has, so nothing the motion does can hide a reading.
   3. **Flow** (2026-07-21, user call) — the phase rail drifts a dashed overlay
      down the track LEAVING an in-progress phase. What earns it a third slot: a
      plan is a static picture of something that is actually moving, and nothing on
@@ -434,16 +433,27 @@ combination must work:
   because CSS modules cannot share a class across files and this control had
   drifted into three separate definitions. A filter box gets no dial — see above:
   nothing is in flight, so there is no reading to take.
-* **The buffer bands are TEXTURES in Instrument, not similar washes.** Standard
-  keeps its four translucent hue washes; Instrument paints each meaning as a
-  hatch/stipple (dense crosshatch = spent, single hatch = forecast, dense dots =
-  handed back, sparse dots = room), so the four separate by pattern first and hue
-  only second — which keeps the legend's colour words ("Red: days already lost")
-  honest. Both variants are always in the DOM (`data-std-only` / `data-inst-only`,
-  the symmetric pair); CSS shows one per style, so nothing reads the style in JS.
-  Patterns are `userSpaceOnUse` so a run of bands is one continuous field, and
-  each SVG (chart, and every legend swatch) carries its own pattern ids — no
-  cross-SVG paint references, which are the fragile part.
+* **The Schedule is a phase × week STATE GRID, not textured buffer bands** (issue
+  #75, `ChainSchedule.tsx`). The earlier encoding painted buffer movement as
+  full-height hatch/stipple bands (crosshatch/hatch/dots) across every row; on a
+  complex chain that was method-correct but unreadable — a band belonged to no row,
+  and the multi-directional textures vibrated against each other. It is replaced by
+  a grid of cells, one row per chain phase, one column per ISO week, each cell
+  coloured by that phase's state that week: **state separates by colour + position,
+  never texture** — on-plan ink (`--fg`), over-plan `--bad`, finished-early `--ok`,
+  idle handoff `--warn` (dashed, in the channel between rows), forecast/not-started
+  a dashed `--muted` outline. Transitions are drawn **to the day** (cells clip to
+  the phase's true start/end; idle gaps render to the day, so the chart drives
+  "start the day the baton lands", not "wait until Friday"). A **buffer-on-hand
+  lane** sits below on the same week axis — a stepped line, each step pinned under
+  the phase that moved it and labelled with the buffer in hand there. There is no
+  texture layer and no `data-std-only` / `data-inst-only` pair here any more; the grid
+  reads identically in both styles. The axis always reaches the SOP; a run of ≥ 6
+  **empty** weeks (no phase, no handoff — the buffer tail, or the SOP-overshoot span)
+  COLLAPSES to a marked break (the conventional double-slash) that **states how much
+  time it compresses** — an unmarked break would be a false statement about duration.
+  Collapse keys on emptiness, never on band kind, so the overshoot case (where the
+  interesting span is the loss, not the buffer) collapses the right side.
 * **Lines never cross unexplained.** A subway map and a circuit diagram both owe
   the reader an account of every intersection, and the phase rail owes the same:
   where a branch line must pass over track it is not joining, it draws a HOP — a

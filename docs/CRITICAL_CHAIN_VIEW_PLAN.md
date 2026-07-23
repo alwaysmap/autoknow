@@ -10,6 +10,24 @@ taxonomy (`lib/seed.ts` "chain-ledger showcase"). Still open: the structured
 Gemini prompt evaluation (Q11), forecast snapshot on PhaseState (§7.1), and
 the other deferred questions in §8.
 
+UPDATE (2026-07-23, issue #75): the §4a Schedule was RE-ENCODED. The time-scaled
+Gantt with full-height hatch/stipple buffer bands was method-correct but unreadable
+on a complex chain (a band belonged to no row; the textures vibrated). It is now a
+**phase × week state grid** (`src/components/ChainSchedule.tsx`) — one row per chain
+phase, one column per ISO week, each cell coloured by state (on-plan / over / early /
+idle / forecast), so a COLUMN is a moment in time and reading down it compares every
+phase at once. Transitions are drawn **to the day** (cells clip to true start/end;
+idle handoffs render to the day — the relay-runner "start ASAP" behaviour). A
+**buffer-on-hand lane** sits below on the same axis (the old §4b waterfall's numbers,
+now positioned in time), each inflection labelled with the buffer actually in hand
+there. This also SUPERSEDED the "break the time axis" work (was issue #42): the axis
+now reaches the SOP, and a run of ≥ 6 EMPTY weeks (no phase, no handoff — the buffer
+tail, or the SOP-overshoot span) COLLAPSES to a marked break (the conventional
+double-slash glyph) that states how much time it compresses, keyed on emptiness so
+the overshoot case collapses the right span (design.md §8c / #42's honesty rules).
+The last remaining piece of #75 is an operable zoom/pan focus window (a 2-week view
+you slide left↔right), with the #22 touch-gesture story.
+
 ## 1. Why
 
 AutoKnow exists to support decision making and best use of a limited team — not
