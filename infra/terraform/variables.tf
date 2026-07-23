@@ -77,3 +77,18 @@ variable "chat_group_owner" {
   description = "Initial member + manager of the AutoKnow contributors group."
   default     = "dylan@alwaysmap.com"
 }
+
+# ---- Ingestion drain alarm (issue #38) ----
+# Off by default; the app degrades honestly without it (see monitoring.tf). Enabling it
+# also requires ingestion_alarm_email — a precondition enforces that at plan time.
+variable "enable_ingestion_alarm" {
+  type        = bool
+  description = "Create the ingestion drain alarm (log-based backlog/quota metrics + Cloud Monitoring alert policies + email channel). Off by default; requires ingestion_alarm_email when true."
+  default     = false
+}
+
+variable "ingestion_alarm_email" {
+  type        = string
+  description = "Email address that receives ingestion drain / quota-exhaustion alerts. Required when enable_ingestion_alarm = true. Never a secret; a plain destination address."
+  default     = ""
+}

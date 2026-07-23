@@ -10,6 +10,13 @@ allowed_domain  = "alwaysmap.com"
 # image is set by the deploy step once the first image is pushed:
 # image = "us-central1-docker.pkg.dev/<project>/autoknow/autoknow:<sha>"
 
+# --- Ingestion drain alarm (issue #38) — off by default ---
+# The app runs fine without it (the alarm is pure observability). To activate: set the
+# destination address AND flip the switch, then a human `terraform apply` creates the
+# log-based metrics + Cloud Monitoring alert policies + email channel.
+# enable_ingestion_alarm = true
+# ingestion_alarm_email  = "you@alwaysmap.com"
+
 # --- Populating the external secrets after `terraform apply` (from local .env) ---
 #   for k in gemini-api-key:GEMINI_API_KEY auth-google-id:AUTH_GOOGLE_ID \
 #            auth-google-secret:AUTH_GOOGLE_SECRET google-project-number:GOOGLE_PROJECT_NUMBER; do
