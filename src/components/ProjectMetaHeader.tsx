@@ -1,5 +1,6 @@
 'use client';
 
+import { sopForecastTone } from '../lib/sop';
 import ClassBox from './ClassBox';
 import React, { useRef, useEffect } from 'react';
 import Link from 'next/link';
@@ -48,6 +49,12 @@ interface ProjectMetaHeaderProps {
   currentHillChartProgress: number;
   ownerName: string;
   sopDateString: string; // yyyy-mm-dd or ''
+  /** Schedule forecast, from the same ChainLedger the Critical chain section reads,
+   *  so the header and the ledger cannot disagree (#21). */
+  projectedFinishMs?: number | null; // forecast finish; null = no phases/chain
+  bufferDays?: number | null; // negative = forecast overshoots the SOP
+  guidelineDays?: number; // the 50%-rule reserve: buffer below it reads as at-risk
+  now?: number; // server-stable clock, so "SOP already passed" doesn't hydrate-drift
   volumeFirstYear: number;
   hasGas: boolean;
   hasGbi: boolean;
@@ -63,7 +70,8 @@ interface ProjectMetaHeaderProps {
 
 export default function ProjectMetaHeader({
   projectId, projectName, archivedTag, actions, currentNeedle, currentHillChartProgress,
-  ownerName, sopDateString, volumeFirstYear, hasGas, hasGbi, hasDigitalKey, hasAap, oemPartner, suppliersList,
+  ownerName, sopDateString, projectedFinishMs, bufferDays, guidelineDays, now,
+  volumeFirstYear, hasGas, hasGbi, hasDigitalKey, hasAap, oemPartner, suppliersList,
   currentPartnerId, partnerOptions, peopleOptions,
 }: ProjectMetaHeaderProps) {
   const locale = useLocale();
@@ -92,6 +100,27 @@ export default function ProjectMetaHeader({
     hasDigitalKey && t(locale, 'productDigitalKey'),
     hasAap && 'AAP',
   ].filter(Boolean) as string[];
+
+  // SOP forecast sub-line: the deterministic finish date the ledger already knows,
+  // coloured by the health palette (§8b tokens, text-only §6) — a fact that used to
+  // live only in the AI briefing (#21). Shown ALWAYS when there is a forecast, muted
+  // when on track, so a present line reads as "checked" not "only shows up when bad".
+  //   overshoot + SOP already passed  -> Concerned (--bad)
+  //   overshoot + SOP still ahead      -> Some Risk (--warn)
+  //   positive but below the 50% reserve -> Some Risk (--warn)
+  //   otherwise                        -> muted
+  const forecast = (() => {
+    if (projectedFinishMs == null || !sopDateString) return null; // no chain / no SOP
+    const date = localDate(new Date(projectedFinishMs), locale, { year: 'numeric', month: 'short', day: 'numeric' });
+    const tone = sopForecastTone({
+      bufferDays: bufferDays ?? null,
+      guidelineDays: guidelineDays ?? null,
+      sopMs: Date.parse(`${sopDateString}T00:00:00Z`),
+      now: now ?? Date.parse(`${sopDateString}T00:00:00Z`), // no clock ⇒ can't be "passed"
+    });
+    const color = tone === 'blown' ? 'var(--bad)' : tone === 'atRisk' ? 'var(--warn)' : 'var(--muted)';
+    return { date, color };
+  })();
 
   return (
     <div data-testid="project-meta">
@@ -158,6 +187,11 @@ export default function ProjectMetaHeader({
           <div className={styles.statValue}>
             {sop ?? <span className={styles.statMuted}>{t(locale, 'notSet')}</span>}
           </div>
+          {forecast && (
+            <div className={styles.statForecast} style={{ color: forecast.color }}>
+              {t(locale, 'sopForecast', { d: forecast.date })}
+            </div>
+          )}
         </div>
         <div className={styles.stat}>
           <div className={styles.statLabel}>{t(locale, 'targetVolume')}</div>

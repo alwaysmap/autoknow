@@ -327,6 +327,7 @@ const STRINGS = {
   suppliersLabel: { en: 'Suppliers', de: 'Zulieferer', ja: 'サプライヤー', ko: '공급업체' },
   googlerOwner: { en: 'Googler Owner', de: 'Googler-Verantwortlicher', ja: '担当Googler', ko: '담당 구글러' },
   sopTarget: { en: 'SOP Target', de: 'SOP-Ziel', ja: 'SOP目標', ko: 'SOP 목표' },
+  sopForecast: { en: 'est. {d}', de: 'vorauss. {d}', ja: '予測 {d}', ko: '예상 {d}' },
   sopDate: { en: 'SOP Date', de: 'SOP-Datum', ja: 'SOP日付', ko: 'SOP 날짜' },
   targetVolume: { en: '12M Target Volume', de: '12M-Zielvolumen', ja: '12ヶ月目標台数', ko: '12개월 목표 물량' },
   none: { en: 'None', de: 'Keine', ja: 'なし', ko: '없음' },

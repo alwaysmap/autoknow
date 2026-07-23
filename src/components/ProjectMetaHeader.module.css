@@ -145,6 +145,15 @@
   color: var(--muted);
 }
 
+/* SOP forecast sub-line: colour is set inline from a health token (#21, §8b). */
+.statForecast {
+  font-size: 0.75rem; /* 12px */
+  line-height: 1.125rem; /* 18px — explicit whole pixel (§8d) */
+  font-weight: 500;
+  margin-top: 0.125rem;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Owner is REQUIRED: its absence renders as an amber to-do that opens the edit
    dialog — never a quiet gray fact. Amber = attention (health palette), border
    carries the affordance without adding a filled badge. */
