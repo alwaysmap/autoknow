@@ -281,7 +281,7 @@ export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGrap
                 className={styles.head}
                 onClick={onHeaderClick(p)}
               >
-                <Link href={phaseDetailHref(projectId, p.id)} className={styles.name} style={state === 'collapsed' && p.progress >= 100 ? { color: 'var(--muted)' } : undefined}>
+                <Link href={phaseDetailHref(projectId, p.id)} scroll={false} className={styles.name} style={state === 'collapsed' && p.progress >= 100 ? { color: 'var(--muted)' } : undefined}>
                   {p.name}
                 </Link>
                 <span className={styles.status} style={{ color: hillStatusColor(p.progress) }}>{status}</span>
