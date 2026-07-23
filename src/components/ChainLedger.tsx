@@ -473,7 +473,7 @@ export default function ChainLedger({
         </div>
         <div className={styles.legendRow}>
           <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <rect x={4} y={3} width={10} height={8} rx={2} fill="var(--fg)" fillOpacity={0.92} />
+            <rect x={4} y={3} width={10} height={8} rx={2} fill="var(--fg)" fillOpacity={0.86} />
             <line x1={16} y1={1} x2={16} y2={13} stroke="var(--muted)" strokeWidth={1.5} />
           </svg>
           {t(locale, 'clKeyTick')}

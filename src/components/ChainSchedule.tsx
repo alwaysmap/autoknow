@@ -151,6 +151,10 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   // How far a full-height vertical (today, a break seam, the crosshair) runs: to the
   // lane bottom when the lane is drawn, else just past the grid.
   const vExtentBot = sopMs != null ? laneBot : gridBot + 2;
+  // The crosshair's date caption sits below the line — but with no lane the line stops
+  // ABOVE the month-letter axis, so drop the caption clear of that axis rather than 15px
+  // under the line (where it would land in the same band as the month letters).
+  const crosshairDateY = sopMs != null ? laneBot + 15 : axisY + AXIS_H + 12;
 
   // ---- piecewise time axis: full weeks share the space; empty runs collapse ----
   // A week is OCCUPIED (never collapses) if any phase span or idle handoff touches it,
@@ -243,7 +247,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   const axisMonths = showMonthLetters
     ? months.map((m) => {
         const from = Math.max(m.ms, tMin), to = Math.min(m.next, tMax);
-        return { letter: monthNarrow.format(new Date(m.ms)), cx: (x(from) + x(to)) / 2, span: x(to) - x(from) };
+        return { ms: m.ms, letter: monthNarrow.format(new Date(m.ms)), cx: (x(from) + x(to)) / 2, span: x(to) - x(from) };
       }).filter((o) => o.span >= 12)
     : [];
   const axisLabelY = axisY + 16, axisHalfH = FS_AXIS / 2 + 1;
@@ -405,7 +409,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
         {/* month letters under the grid — only those that clear the break labels above */}
         <line x1={labelW} y1={axisY} x2={W - PAD_R} y2={axisY} stroke="var(--border)" strokeWidth={1} />
         {axisMonths.map((o, i) => (keepMonth[i] ? (
-          <ChartLabel key={`ml${i}`} x={o.cx} y={axisY + 16} textAnchor="middle" fontSize={FS_AXIS} fill="var(--muted)">
+          <ChartLabel key={`ml${o.ms}`} x={o.cx} y={axisY + 16} textAnchor="middle" fontSize={FS_AXIS} fill="var(--muted)">
             {o.letter}
           </ChartLabel>
         ) : null))}
@@ -550,7 +554,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
           <g style={{ pointerEvents: 'none' }}>
             <line x1={crosshairX} y1={TOP - 8} x2={crosshairX} y2={vExtentBot}
               stroke="var(--chain)" strokeWidth={1.25} opacity={0.85} />
-            <ChartLabel x={crosshairX} y={vExtentBot + 15} textAnchor="middle"
+            <ChartLabel x={crosshairX} y={crosshairDateY} textAnchor="middle"
               fontSize={FS_SMALL} fill="var(--chain-ink)">
               {dayShort(hoverMs!, locale)}
             </ChartLabel>
