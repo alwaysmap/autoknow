@@ -212,13 +212,23 @@ export default function PartnersClient({ partners, currentUser, people, relation
                   />
                 </td>
                 <td>
-                  <Link href={`/partners/${p.id}?filter=active`} className={styles.activeProgramsLink}>
-                    {p.activePrograms} {t(locale, 'activeSuffix')}
+                  {/* One measure per cell (§6): the bare count is the value; the header
+                      supplies "Active Programs", and the noun lives in the accessible name. */}
+                  <Link
+                    href={`/partners/${p.id}?filter=active`}
+                    className={styles.activeProgramsLink}
+                    aria-label={t(locale, p.activePrograms === 1 ? 'activeProgramsAriaOne' : 'activeProgramsAria', { n: p.activePrograms })}
+                  >
+                    {p.activePrograms}
                   </Link>
                 </td>
                 <td>
-                  <Link href={`/partners/${p.id}`} className={styles.lifetimeProgramsLink}>
-                    {t(locale, 'lifetimeSuffix', { n: p.lifetimePrograms })}
+                  <Link
+                    href={`/partners/${p.id}`}
+                    className={styles.lifetimeProgramsLink}
+                    aria-label={t(locale, p.lifetimePrograms === 1 ? 'lifetimeProgramsAriaOne' : 'lifetimeProgramsAria', { n: p.lifetimePrograms })}
+                  >
+                    {p.lifetimePrograms}
                   </Link>
                 </td>
                 <td>

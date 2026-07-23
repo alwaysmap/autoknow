@@ -132,7 +132,15 @@ export default function PeopleClient({ people, partners, initialFilters, initial
                   </button>
                 </td>
                 <td>
-                  <Link href={`/people/${p.id}`} className={styles.lifetimeProgramsLink}>{p.programs}</Link>
+                  {/* Bare count (§6, one measure per cell): the noun lives in the
+                      accessible name, never announced as a context-free number. */}
+                  <Link
+                    href={`/people/${p.id}`}
+                    className={styles.lifetimeProgramsLink}
+                    aria-label={t(locale, p.programs === 1 ? 'programsCountAriaOne' : 'programsCountAria', { n: p.programs })}
+                  >
+                    {p.programs}
+                  </Link>
                 </td>
                 <td>
                   <a href={`mailto:${p.email}`} className={styles.telLink}>{p.email}</a>
