@@ -260,6 +260,9 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   const laneEndLevel = laneLevel;
   const laneMax = Math.max(10, laneMaxLevel, ledger.guidelineDays) * 1.12;
   const bufY = (v: number) => laneBot - (Math.max(0, v) / laneMax) * (LANE_H - 10);
+  // y-axis scale values, derived here like laneFlats/laneRisers (aim for ~3 gridlines).
+  const bufTicks: number[] = [];
+  for (let v = 0, step = niceStep(laneMax / 3); v <= laneMax + 0.01; v += step) bufTicks.push(v);
 
   const constraintCx = labelW - (labelW > 40 ? 12 : 6);
 
@@ -386,20 +389,15 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
             </ChartLabel>
             {/* y-axis SCALE: round gridlines + values, so an arbitrary level reads off the
                 axis, not just the labelled inflection points (#83) */}
-            {(() => {
-              const step = niceStep(laneMax / 3);
-              const ticks: number[] = [];
-              for (let v = 0; v <= laneMax + 0.01; v += step) ticks.push(v);
-              return ticks.map((v, i) => (
-                <g key={`yt${i}`}>
-                  <line x1={labelW} y1={bufY(v)} x2={W - PAD_R} y2={bufY(v)}
-                    stroke="var(--border)" strokeWidth={1} opacity={v === 0 ? 1 : 0.4} />
-                  <ChartLabel x={labelW - 4} y={bufY(v) + 3.5} textAnchor="end" fontSize={FS_SMALL} fill="var(--muted)">
-                    {t(locale, 'clBufferDaysShort', { d: v })}
-                  </ChartLabel>
-                </g>
-              ));
-            })()}
+            {bufTicks.map((v, i) => (
+              <g key={`yt${i}`}>
+                <line x1={labelW} y1={bufY(v)} x2={W - PAD_R} y2={bufY(v)}
+                  stroke="var(--border)" strokeWidth={1} opacity={v === 0 ? 1 : 0.4} />
+                <ChartLabel x={labelW - 4} y={bufY(v) + 3.5} textAnchor="end" fontSize={FS_SMALL} fill="var(--muted)">
+                  {t(locale, 'clBufferDaysShort', { d: v })}
+                </ChartLabel>
+              </g>
+            ))}
             {/* the 50%-rule reserve — a distinct dashed marker on that scale */}
             <line x1={labelW} y1={bufY(ledger.guidelineDays)} x2={W - PAD_R} y2={bufY(ledger.guidelineDays)}
               stroke="var(--muted)" strokeWidth={1} strokeDasharray="4 3" opacity={0.9} />

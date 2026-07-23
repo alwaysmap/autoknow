@@ -45,6 +45,8 @@ const jumpToPhase = (id: number) => window.dispatchEvent(new CustomEvent('autokn
 const monthLong = (iso: string, locale: Locale) => localDate(iso, locale, { month: 'long', year: 'numeric' });
 const dayShort = (ms: number, locale: Locale) => localDate(new Date(ms), locale, { month: 'short', day: 'numeric' });
 
+const CARD_GAP = 16; // px between the pointer and the summary card's near edge
+
 
 export default function ChainLedger({
   projectId, locale, now, ledger, sopDate, volumeFirstYear, owner, ownerPersonId, ownerOtherActive,
@@ -78,7 +80,7 @@ export default function ChainLedger({
     let followed = parked;
     if (clientX != null) {
       const px = clientX - wrap.left;
-      followed = px > wrap.width / 2 ? px - 16 - CARD_W : px + 16;
+      followed = px > wrap.width / 2 ? px - CARD_GAP - CARD_W : px + CARD_GAP;
     }
     setRowCard({
       row,
