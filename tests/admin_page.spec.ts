@@ -1,6 +1,16 @@
 import { test, expect } from '@playwright/test';
+import { wipeAll } from './helpers/fixtures';
 
 test.describe('Onboarding and Seeding Controls', () => {
+  // "Seed Core Data" adds reference data but NEVER wipes (src/lib/seed.ts), so the
+  // "Welcome" empty state only appears against a program-less DB. This spec used to
+  // depend on a prior spec leaving one clean — order-luck that held on the dev server
+  // and broke the moment the suite ran against a prod build (or in isolation). Wipe
+  // first so the empty state is genuinely empty, independent of what ran before.
+  test.beforeAll(async () => {
+    await wipeAll();
+  });
+
   test('should support seeding defaults only and show clean onboarding empty states', async ({ page }) => {
     await page.goto('/admin');
     await expect(page.locator('h1')).toContainText('Dev Console');

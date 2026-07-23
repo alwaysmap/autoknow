@@ -17,6 +17,13 @@ const TEST_DB = testDatabaseUrl();
 const PORT = testServerPort();
 const BASE_URL = `http://localhost:${PORT}`;
 
+// Under a PRODUCTION server (below), `requireRouteAuth` is fail-closed when auth is
+// unconfigured: it admits everything only when NODE_ENV !== 'production', and otherwise
+// demands a valid x-admin-token (src/lib/routeAuth.ts). `next dev` satisfied the first
+// branch; a prod build does not, so the suite authenticates the way real admin tooling /
+// integrations do — a shared token, set in the server env and sent on every request.
+const E2E_ADMIN_TOKEN = 'e2e-admin-token';
+
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.spec.ts',
@@ -25,27 +32,45 @@ export default defineConfig({
      must never run concurrently — parallel workers clobber each other's fixtures. */
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  // One local retry: under heavy desktop load the dev server's first-interaction
-  // hydration can lag beyond even generous in-test guards; isolated runs are stable.
-  retries: process.env.CI ? 2 : 1,
+  // Retries are a thin net for genuine transients (a dropped DB connection), NOT a
+  // flake-masker. e2e now runs against a prod build (see webServer), so the dev-server
+  // first-hit compilation lag that once justified 2 CI retries is gone — keep it at 1 so
+  // a real flake fails VISIBLY on the second attempt instead of being retried into a
+  // false green. Was `CI ? 2 : 1`; lowered when the suite moved to the prod build.
+  retries: process.env.CI ? 1 : 0,
   workers: 1,
   reporter: process.env.CI ? 'html' : 'line',
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',
+    // Authorize API/mutation routes on the prod server (see E2E_ADMIN_TOKEN). Harmless on
+    // page navigations; identity still resolves to the stub via the session, so who-am-I
+    // semantics are unchanged — this grants authorization, not a different user.
+    extraHTTPHeaders: { 'x-admin-token': E2E_ADMIN_TOKEN },
   },
   webServer: {
-    command: `npm run dev -- -p ${PORT}`,
+    // Run e2e against a PRODUCTION build (`next build` + `next start`), NOT `next dev`.
+    // Dev compiled each route on first request, so under CI load first-hit compilation
+    // blew page.goto's 30s budget and server-action round-trips lagged past their
+    // assertion timeouts — the whole class of flakes the suite was leaning on `retries`
+    // to hide (webkit /programs/[id]: phase_graph goto timeouts, needle dialog-close and
+    // hill-note reflect races). A prod server precompiles every route and serves fast and
+    // deterministically, so those timings stop depending on runner load.
+    command: `npm run build && npm run start -- -p ${PORT}`,
     url: `${BASE_URL}/login`,
     reuseExistingServer: false,
-    timeout: 120_000,
+    timeout: 300_000, // a cold `next build` is ~1–2 min; generous headroom for a loaded CI runner
     env: {
       DATABASE_URL: TEST_DB,
-      NEXT_DIST_DIR: '.next-test', // keep the dev server on :3000 uncorrupted
-      AUTH_GOOGLE_ID: '',
+      NEXT_DIST_DIR: '.next-test', // build+serve here, keeping the :3000 dev server's .next uncorrupted
+      AUTH_GOOGLE_ID: '', // empty → no providers → stub identity (src/auth.ts)
       AUTH_GOOGLE_SECRET: '',
+      // A prod server THROWS without a secret where dev only warns; set a throwaway one so
+      // the stub-identity path runs cleanly. `authConfigured` keys off the GOOGLE creds
+      // above, so this does NOT enable real auth — every session still resolves to the stub.
+      AUTH_SECRET: 'e2e-stub-identity-only-not-a-real-secret',
       GEMINI_API_KEY: '',
-      ADMIN_TOKEN: '',
+      ADMIN_TOKEN: E2E_ADMIN_TOKEN, // the token the suite presents (see use.extraHTTPHeaders)
       // Deterministic degraded states regardless of the operator's .env.
       CRON_SECRET: '',
       GOOGLE_SERVICE_ACCOUNT_JSON: '',
