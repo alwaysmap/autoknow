@@ -1,7 +1,7 @@
 'use client';
 
 import { subscribeLocationChange } from '../lib/locationHash';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import styles from './NeedleGauge.module.css';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
 import NeedleHistoryList from './NeedleHistoryList';
@@ -57,8 +57,8 @@ export default function NeedleGauge({
   useEffect(() => { detailOpenRef.current = detailOpen; }, [detailOpen]);
 
   const resetForm = () => { setDragProgress(progress); setPickHealth(currentHealth); setNoteError(false); };
-  const open = () => { resetForm(); setUpdateOpen(true); };
-  const close = () => setUpdateOpen(false);
+  const openUpdate = () => { resetForm(); setUpdateOpen(true); };
+  const closeUpdate = () => setUpdateOpen(false);
 
   // Detail popup: the log, with UPDATE revealing the form IN PLACE. Opening a
   // second <dialog> over this one would stack scrims and trap focus in the
@@ -197,7 +197,7 @@ export default function NeedleGauge({
             the resting row states the fact and offers one way in. */}
         {history
           ? <button type="button" onClick={openDetail} className={styles.updateBtn}>{t(locale, 'detail')}</button>
-          : editable && <button type="button" onClick={open} className={styles.updateBtn}>{t(locale, 'update')}</button>}
+          : editable && <button type="button" onClick={openUpdate} className={styles.updateBtn}>{t(locale, 'update')}</button>}
       </div>
 
       {/* Detail: the complete log — graphic, health label, author, timestamp, and
@@ -249,14 +249,14 @@ export default function NeedleGauge({
       <OverlayDialog
         open={updateOpen}
         onClose={() => setUpdateOpen(false)}
-        width="26.25rem"
+        width="26rem"
         title={t(locale, 'weeklyUpdate')}
         closeLabel={t(locale, 'close')}
       >
         <form action={submitUpdate} className={styles.dialogForm}>
           {formFields}
           <div className={styles.actionRow}>
-            <button type="button" onClick={close} disabled={isSubmitting} className={styles.cancelBtn}>{t(locale, 'cancel')}</button>
+            <button type="button" onClick={closeUpdate} disabled={isSubmitting} className={styles.cancelBtn}>{t(locale, 'cancel')}</button>
             <button type="submit" disabled={isSubmitting} className={styles.submitBtn}>{isSubmitting ? t(locale, 'saving') : t(locale, 'save')}</button>
           </div>
         </form>

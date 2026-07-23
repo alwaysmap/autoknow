@@ -1513,7 +1513,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
 
       {/* the key lives behind the ⓘ, not on the page (design.md §7: few titles,
           less chrome) — the rail should be read, the key consulted */}
-      <OverlayDialog open={legendOpen} onClose={() => setLegendOpen(false)} width="23.75rem"
+      <OverlayDialog open={legendOpen} onClose={() => setLegendOpen(false)} width="24rem"
         title={t(locale, 'phaseKeyTitle')} closeLabel={t(locale, 'close')}>
         <div className={styles.legendRow}>
           <svg viewBox="0 0 14 14" className={styles.legendGlyph}><circle cx={7} cy={7} r={5} fill={INK} /></svg>

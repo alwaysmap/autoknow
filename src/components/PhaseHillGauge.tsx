@@ -1,7 +1,7 @@
 'use client';
 
 import ChartLabel from './ChartLabel';
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import styles from './NeedleGauge.module.css';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
 import OverlayDialog from './OverlayDialog';
@@ -174,7 +174,7 @@ export default function PhaseHillGauge({
         </div>
       )}
 
-      <OverlayDialog open={dialogOpen} onClose={() => setDialogOpen(false)} width="26.25rem"
+      <OverlayDialog open={dialogOpen} onClose={() => setDialogOpen(false)} width="26rem"
         title={strings.dialogTitle} closeLabel={t(locale, 'close')}>
         <form
           action={async (formData) => {

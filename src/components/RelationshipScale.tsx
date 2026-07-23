@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
 import OverlayDialog from './OverlayDialog';
 import { t } from '../lib/i18n';
@@ -152,7 +152,7 @@ export default function RelationshipScale({
         <button type="button" onClick={open} className={styles.updateBtn}>{t(locale, 'update')}</button>
       )}
 
-      <OverlayDialog open={dialogOpen} onClose={() => setDialogOpen(false)} width="28.75rem"
+      <OverlayDialog open={dialogOpen} onClose={() => setDialogOpen(false)} width="28rem"
         title={t(locale, 'relUpdateTitle')} closeLabel={t(locale, 'close')}>
         <form
           action={async (formData) => {

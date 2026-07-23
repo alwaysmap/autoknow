@@ -34,7 +34,9 @@ export interface OverlayDialogProps {
   title?: React.ReactNode;
   /** Accessible label for the × button, e.g. t(locale, 'close'). */
   closeLabel?: string;
-  /** Fixed footer (save / cancel / close actions). */
+  /** Fixed footer, rendered OUTSIDE `children`. Good for actions that aren't a form
+   *  submit (a viewer's Close/Update). A `<form>`'s own submit/cancel must stay INSIDE
+   *  the `<form>` in `children`, or a footer button won't submit it. */
   footer?: React.ReactNode;
   /** Accessible name when there is no visible title. */
   ariaLabel?: string;

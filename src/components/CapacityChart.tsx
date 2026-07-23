@@ -353,7 +353,7 @@ export default function CapacityChart({ programs, now }: { programs: CapacityCha
       </OverlayDialog>
 
       {/* the drill-down: which programs ship in the picked quarter */}
-      <OverlayDialog open={quarterOpen} onClose={() => setQuarterOpen(false)} width="26.25rem"
+      <OverlayDialog open={quarterOpen} onClose={() => setQuarterOpen(false)} width="26rem"
         dataTestId="capacity-dialog"
         title={picked ? t(locale, 'shippingIn', { q: picked.label }) : undefined} closeLabel={t(locale, 'close')}>
         {picked && (
