@@ -61,3 +61,4 @@ skill routes between them.
 | 2026-07-22 | [Ingestion is sized for hundreds of sources; declare the limits, gate the 10K rebuild](2026-07-22-ingestion-sized-for-hundreds-gate-the-10k-rebuild.md) | accepted | scaling, ingestion, vectors, freshness, architecture |
 | 2026-07-22 | [Poppable charts: a parameter for humans, a credentialed `/embed` for machines, one shared assembly](2026-07-22-poppable-charts-a-parameter-a-shared-assembly-and-a-token.md) | accepted | ui, charts, urls, auth, embed, kiosk |
 | 2026-07-23 | [Ingestion health is a serverless signal, not a growing table](2026-07-23-ingestion-health-is-a-serverless-signal-not-a-growing-table.md) | accepted | ingestion, infra, cost, observability, scaling |
+| 2026-07-23 | [Converge the hill charts on one drawing, two roles, and the Basecamp snapshot card](2026-07-23-converge-the-hill-charts-on-one-drawing.md) | accepted | ui, charts, hill, components, urls |
