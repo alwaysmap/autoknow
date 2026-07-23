@@ -6,7 +6,6 @@ import RelationshipScale from '../../../components/RelationshipScale';
 import PartnerAdminControls from '../../../components/PartnerEditor';
 import SummaryPanel from '../../../components/SummaryPanel';
 import ActivityFeed from '../../../components/ActivityFeed';
-import UnifiedSearch from '../../../components/UnifiedSearch';
 import QuickIngest from '../../../components/QuickIngest';
 import PartnerProgramRows from '../../../components/PartnerProgramRows';
 import { getPartnerPrograms } from '../../../lib/partnerPrograms';
@@ -205,13 +204,9 @@ export default async function PartnerDetailPage(props: PageProps) {
             <AnchorHeading id="activity" linkLabel={t(locale, 'anchorLink')}>
               {t(locale, 'navActivity')}
             </AnchorHeading>
-            <div style={{ margin: '0.25rem 0 0.875rem' }}>
-              <UnifiedSearch
-                scope={{ kind: 'partner', id: partner.id }}
-                placeholder={t(locale, 'searchThisPartner')}
-                showTypeChips={false}
-              />
-            </div>
+            {/* Activity is filtered by ActivityFeed's own SearchField (over the
+                activity items), not a scoped entity search — #41; consistent with
+                design.md §2b "one search surface, and it is the page you land on". */}
             {/* scoped paste-a-link: this page IS the anchor (plan §5.2) */}
             <div style={{ margin: '0 0 0.75rem' }}>
               <QuickIngest anchorKind="partner" anchorId={partner.id} path={`/partners/${partner.id}`} />

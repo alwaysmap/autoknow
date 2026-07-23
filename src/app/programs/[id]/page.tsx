@@ -10,7 +10,6 @@ import PhaseTrack from '../../../components/PhaseTrack';
 import { isLocale, t, Locale } from '../../../lib/i18n';
 import SummaryPanel from '../../../components/SummaryPanel';
 import ActivityFeed from '../../../components/ActivityFeed';
-import UnifiedSearch from '../../../components/UnifiedSearch';
 import QuickIngest from '../../../components/QuickIngest';
 import { getActivity } from '../../../lib/activity';
 import { getNeedleHistory } from '../../../lib/history';
@@ -415,13 +414,9 @@ export default async function ProjectDetailsPage(props: {
               <AnchorHeading id="activity" linkLabel={t(locale, 'anchorLink')}>
                 {t(locale, 'navActivity')}
               </AnchorHeading>
-              <div style={{ margin: '0.25rem 0 0.875rem' }}>
-                <UnifiedSearch
-                  scope={{ kind: 'project', id: projectId }}
-                  placeholder={t(locale, 'searchThisProgram')}
-                  showTypeChips={false}
-                />
-              </div>
+              {/* Activity is filtered by ActivityFeed's own SearchField (over the
+                  activity items), not a scoped entity search — #41; consistent with
+                  design.md §2b "one search surface, and it is the page you land on". */}
               {/* scoped paste-a-link: this page IS the anchor (plan §5.2) */}
               <div style={{ margin: '0 0 0.75rem' }}>
                 <QuickIngest anchorKind="program" anchorId={projectId} path={`/programs/${projectId}`} />
