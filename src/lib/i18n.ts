@@ -783,6 +783,7 @@ const STRINGS = {
   feedCatCreated: { en: 'Created', de: 'Erstellt', ja: '作成', ko: '생성' },
   noActivityYet: { en: 'No activity yet.', de: 'Noch keine Aktivität.', ja: 'まだアクティビティはありません。', ko: '아직 활동이 없습니다.' },
   noMatchingUpdates: { en: 'No matching updates.', de: 'Keine passenden Updates.', ja: '一致する更新はありません。', ko: '일치하는 업데이트가 없습니다.' },
+  searchActivity: { en: 'Search activity…', de: 'Aktivität durchsuchen…', ja: 'アクティビティを検索…', ko: '활동 검색…' },
   nothingHereYet: { en: 'Nothing here yet.', de: 'Noch nichts vorhanden.', ja: 'まだ何もありません。', ko: '아직 아무것도 없습니다.' },
   removeThisUpdate: { en: 'Remove this update', de: 'Dieses Update entfernen', ja: 'この更新を削除', ko: '이 업데이트 제거' },
 
@@ -1055,12 +1056,6 @@ const STRINGS = {
   lifetimeSuffix: { en: '{n} lifetime', de: '{n} insgesamt', ja: '累計{n}件', ko: '누적 {n}개' },
   noPartnersMatchFilters: { en: 'No ecosystem partners found matching filters.', de: 'Keine Ökosystem-Partner entsprechen den Filtern.', ja: 'フィルターに一致するパートナーが見つかりません。', ko: '필터와 일치하는 에코시스템 파트너가 없습니다.' },
   partnerProfileSuffix: { en: '{t} Partner Profile', de: '{t}-Partnerprofil', ja: '{t}パートナープロフィール', ko: '{t} 파트너 프로필' },
-  searchThisPartner: {
-    en: 'Search this partner — programs, people, context…',
-    de: 'Diesen Partner durchsuchen — Programme, Personen, Kontext…',
-    ja: 'このパートナーを検索 — プログラム・担当者・コンテキスト…',
-    ko: '이 파트너 검색 — 프로그램, 사람, 컨텍스트…',
-  },
   relationshipSummary: { en: 'Relationship Summary', de: 'Beziehungsübersicht', ja: '関係サマリー', ko: '관계 요약' },
   keyDetails: { en: 'Key Details', de: 'Eckdaten', ja: '主要情報', ko: '주요 정보' },
   telephone: { en: 'Telephone', de: 'Telefon', ja: '電話', ko: '전화' },
@@ -1225,12 +1220,6 @@ const STRINGS = {
   backTo: { en: '← Back to {name}', de: '← Zurück zu {name}', ja: '← {name}に戻る', ko: '← {name}(으)로 돌아가기' },
   archivedTag: { en: '[Archived]', de: '[Archiviert]', ja: '[アーカイブ済み]', ko: '[보관됨]' },
   oemColon: { en: 'OEM:', de: 'OEM:', ja: 'OEM:', ko: 'OEM:' },
-  searchThisProgram: {
-    en: 'Search this program — context, people, partner…',
-    de: 'Dieses Programm durchsuchen — Kontext, Personen, Partner…',
-    ja: 'このプログラムを検索 — コンテキスト・担当者・パートナー…',
-    ko: '이 프로그램 검색 — 컨텍스트, 사람, 파트너…',
-  },
   programActivityIntro: {
     en: 'Needle and progress changes, phase updates, and ingested context for this program.',
     de: 'Nadel- und Fortschrittsänderungen, Phasen-Updates und erfasster Kontext dieses Programms.',
