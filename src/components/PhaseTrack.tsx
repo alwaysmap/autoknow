@@ -1226,6 +1226,14 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     disabled={fullyCollapsed} onClick={() => setAll(true)}>
                     {t(locale, 'collapseAll')}
                   </button>
+                  {/* Track-only toggle: the peer of the "Show" banner, so hiding the
+                      dependency lines is a two-way door and is DECOUPLED from card
+                      collapse — "cards open, lines out of the way" is now reachable
+                      (#46). "Collapse all" above still does the bulk of both. */}
+                  <button type="button" role="menuitem" className={styles.menuItem}
+                    onClick={() => setTracksHidden((v) => !v)}>
+                    {t(locale, tracksHidden ? 'showTracksAction' : 'hideTracks')}
+                  </button>
                   <Link href={`/programs/${projectId}/phases`} role="menuitem" className={styles.menuItem}
                     onClick={() => setMenuOpen(false)}>
                     {t(locale, 'editPhases')}

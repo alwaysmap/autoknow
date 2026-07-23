@@ -258,6 +258,8 @@ const STRINGS = {
   // absent dependencies (design.md — a missing line means "no relationship").
   tracksHidden: { en: 'Dependency tracks hidden', de: 'Abhängigkeitsstrecken ausgeblendet', ja: '依存トラックは非表示', ko: '의존성 트랙 숨김' },
   showTracks: { en: 'Show', de: 'Einblenden', ja: '表示', ko: '표시' },
+  hideTracks: { en: 'Hide tracks', de: 'Strecken ausblenden', ja: 'トラックを非表示', ko: '트랙 숨기기' },
+  showTracksAction: { en: 'Show tracks', de: 'Strecken einblenden', ja: 'トラックを表示', ko: '트랙 표시' },
   phaseActions: {
     en: 'Phase actions',
     de: 'Phasen-Aktionen',
