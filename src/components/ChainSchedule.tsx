@@ -29,12 +29,15 @@ import styles from './ChainLedger.module.css';
 const WEEK_MS = 7 * DAY_MS;
 
 // ---- SVG user-space geometry (px here is viewBox coordinate space, design.md §9) ----
-const W = 900, PAD_R = 14, ROW_H = 30, TOP = 30;
-const CELL_H = 18, CELL_GAP = 1.5; // the coloured cell inside each row band
-const LANE_H = 90, LANE_GAP = 26; // buffer-on-hand lane below the grid
-const AXIS_H = 22; // week/month ticks under the grid
-const RING_PAD = 22, TEXT_PAD = 10, CHAR_W = 5.9, WIDE_CHAR_W = 11;
+const W = 900, PAD_R = 14, ROW_H = 34, TOP = 36;
+const CELL_H = 19, CELL_GAP = 1.5; // the coloured cell inside each row band
+const LANE_H = 106, LANE_GAP = 28; // buffer-on-hand lane below the grid
+const AXIS_H = 24; // week/month ticks under the grid
+const RING_PAD = 24, TEXT_PAD = 10, CHAR_W = 6.5, WIDE_CHAR_W = 12;
 const CARD_W = 272;
+// Type sizes (viewBox units — the SVG scales to the column, so these read a touch
+// larger overall than the old 8–11 range that was hard to read, issue #83).
+const FS_ROW = 12, FS_EMPH = 12, FS_AXIS = 11, FS_SMALL = 10;
 // A run of this many empty weeks (no phase, no handoff) collapses to a marked break
 // of BREAK_W instead of donating that many full columns to nothing (issue #75 / #42).
 // 6 weeks so a modest buffer tail stays inline; only a clearly long run collapses.
@@ -42,6 +45,13 @@ const COLLAPSE_MIN_WEEKS = 6, BREAK_W = 26;
 
 const textWidth = (s: string) =>
   [...s].reduce((w, ch) => w + (ch.charCodeAt(0) > 0x2e80 ? WIDE_CHAR_W : CHAR_W), 0);
+
+/** A round-ish step (1/2/5 × 10ⁿ) near `rough`, for a readable y-axis scale. */
+function niceStep(rough: number): number {
+  const p = Math.pow(10, Math.floor(Math.log10(Math.max(1, rough))));
+  const n = rough / p;
+  return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * p;
+}
 
 const dayShort = (ms: number, locale: Locale) => localDate(new Date(ms), locale, { month: 'short', day: 'numeric' });
 const monthLong = (ms: number, locale: Locale) => localDate(new Date(ms), locale, { month: 'long', year: 'numeric' });
@@ -250,6 +260,9 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   const laneEndLevel = laneLevel;
   const laneMax = Math.max(10, laneMaxLevel, ledger.guidelineDays) * 1.12;
   const bufY = (v: number) => laneBot - (Math.max(0, v) / laneMax) * (LANE_H - 10);
+  // y-axis scale values, derived here like laneFlats/laneRisers (aim for ~3 gridlines).
+  const bufTicks: number[] = [];
+  for (let v = 0, step = niceStep(laneMax / 3); v <= laneMax + 0.01; v += step) bufTicks.push(v);
 
   const constraintCx = labelW - (labelW > 40 ? 12 : 6);
 
@@ -274,8 +287,8 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
             <path d={`M ${b.cx - 5} ${axisY + 3} l 4 -8 M ${b.cx - 1} ${axisY + 3} l 4 -8`}
               stroke="var(--muted)" strokeWidth={1.25} fill="none" />
             {/* clamp the label so a break near the right edge can't clip it off-canvas */}
-            <ChartLabel x={Math.min(Math.max(b.cx, labelW + 16), W - PAD_R - 16)} y={axisY + 15}
-              textAnchor="middle" fontSize={9} fill="var(--muted)">
+            <ChartLabel x={Math.min(Math.max(b.cx, labelW + 16), W - PAD_R - 16)} y={axisY + 16}
+              textAnchor="middle" fontSize={FS_AXIS} fill="var(--muted)">
               {t(locale, 'clAxisBreak', { d: b.days })}
             </ChartLabel>
           </g>
@@ -284,13 +297,13 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
         {/* today + SOP verticals span the grid (and the lane) */}
         <line x1={x(now)} y1={TOP - 12} x2={x(now)} y2={sopMs != null ? laneBot : gridBot + 2}
           stroke="var(--muted)" strokeWidth={1} strokeDasharray="3 3" />
-        <ChartLabel x={x(now)} y={TOP - 16} textAnchor="middle" fontSize={10} fill="var(--muted)">
+        <ChartLabel x={x(now)} y={TOP - 18} textAnchor="middle" fontSize={FS_EMPH} fill="var(--muted)">
           {t(locale, 'clTodayLabel', { date: dayShort(now, locale) })}
         </ChartLabel>
         {sopMs != null && (
           <>
             <line x1={x(sopMs)} y1={TOP - 12} x2={x(sopMs)} y2={laneBot} stroke="var(--fg)" strokeWidth={1.5} />
-            <ChartLabel x={Math.min(x(sopMs), W - 8)} y={TOP - 16} textAnchor="end" fontSize={11} fill="var(--fg)">
+            <ChartLabel x={Math.min(x(sopMs), W - 8)} y={TOP - 18} textAnchor="end" fontSize={FS_EMPH} fill="var(--fg)">
               {t(locale, 'clSopLabel', { month: monthLong(sopMs, locale) })}
             </ChartLabel>
           </>
@@ -302,7 +315,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
           const from = Math.max(m.ms, tMin), to = Math.min(m.next, tMax);
           if (x(to) - x(from) < 10) return null;
           return (
-            <ChartLabel key={`ml${m.ms}`} x={(x(from) + x(to)) / 2} y={axisY + 14} textAnchor="middle" fontSize={9} fill="var(--muted)">
+            <ChartLabel key={`ml${m.ms}`} x={(x(from) + x(to)) / 2} y={axisY + 16} textAnchor="middle" fontSize={FS_AXIS} fill="var(--muted)">
               {monthNarrow.format(new Date(m.ms))}
             </ChartLabel>
           );
@@ -317,8 +330,8 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
           return (
             <g key={r.id}>
               {isConstraint && <ConstraintRing cx={constraintCx} cy={y} r={2} />}
-              <ChartLabel x={isConstraint ? labelW - RING_PAD : labelW - TEXT_PAD} y={y + 3.5} textAnchor="end"
-                fontSize={11} fill="var(--fg)" className={styles.rowLabel} onClick={() => onJump(r.id)}>
+              <ChartLabel x={isConstraint ? labelW - RING_PAD : labelW - TEXT_PAD} y={y + 4} textAnchor="end"
+                fontSize={FS_ROW} fill="var(--fg)" className={styles.rowLabel} onClick={() => onJump(r.id)}>
                 {r.name}
               </ChartLabel>
 
@@ -327,8 +340,8 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
                 <>
                   <line x1={x(rows[i - 1].endMs)} y1={y - ROW_H / 2 + 3} x2={x(r.startMs)} y2={y - ROW_H / 2 + 3}
                     stroke="var(--warn)" strokeWidth={2} strokeDasharray="2 2" />
-                  <ChartLabel x={(x(rows[i - 1].endMs) + x(r.startMs)) / 2} y={y - ROW_H / 2} textAnchor="middle"
-                    fontSize={9} fill="var(--warn)">
+                  <ChartLabel x={(x(rows[i - 1].endMs) + x(r.startMs)) / 2} y={y - ROW_H / 2 - 1} textAnchor="middle"
+                    fontSize={FS_SMALL} fill="var(--warn)">
                     {t(locale, 'clIdleDays', { d: r.gapBeforeDays })}
                   </ChartLabel>
                 </>
@@ -370,27 +383,37 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
           <g>
             <rect x={labelW} y={laneTop} width={plotW} height={LANE_H} rx={6}
               fill="var(--surface)" stroke="var(--border)" strokeWidth={1} />
-            <ChartLabel x={labelW - TEXT_PAD} y={laneTop + 13} textAnchor="end" fontSize={10} fill="var(--muted)">
+            {/* title above the lane, leaving the left gutter free for the y-axis scale */}
+            <ChartLabel x={labelW} y={laneTop - 8} textAnchor="start" fontSize={FS_SMALL} fill="var(--muted)">
               {t(locale, 'clBufferLane')}
             </ChartLabel>
-            {/* reference lines: the 50%-rule reserve and zero */}
-            {[0, ledger.guidelineDays].map((v, gi) => (
-              <g key={gi}>
+            {/* y-axis SCALE: round gridlines + values, so an arbitrary level reads off the
+                axis, not just the labelled inflection points (#83) */}
+            {bufTicks.map((v, i) => (
+              <g key={`yt${i}`}>
                 <line x1={labelW} y1={bufY(v)} x2={W - PAD_R} y2={bufY(v)}
-                  stroke="var(--border)" strokeWidth={1} strokeDasharray={gi ? '3 3' : undefined} opacity={gi ? 0.8 : 1} />
-                <ChartLabel x={W - PAD_R - 2} y={bufY(v) - 2} textAnchor="end" fontSize={8} fill="var(--muted)">
-                  {gi ? t(locale, 'clBufferGuideline', { d: v }) : t(locale, 'clBufferDaysShort', { d: 0 })}
+                  stroke="var(--border)" strokeWidth={1} opacity={v === 0 ? 1 : 0.4} />
+                <ChartLabel x={labelW - 4} y={bufY(v) + 3.5} textAnchor="end" fontSize={FS_SMALL} fill="var(--muted)">
+                  {t(locale, 'clBufferDaysShort', { d: v })}
                 </ChartLabel>
               </g>
             ))}
+            {/* the 50%-rule reserve — a distinct dashed marker on that scale */}
+            <line x1={labelW} y1={bufY(ledger.guidelineDays)} x2={W - PAD_R} y2={bufY(ledger.guidelineDays)}
+              stroke="var(--muted)" strokeWidth={1} strokeDasharray="4 3" opacity={0.9} />
+            <ChartLabel x={W - PAD_R - 3} y={bufY(ledger.guidelineDays) - 3} textAnchor="end" fontSize={FS_SMALL}
+              fill="var(--muted)" halo="var(--surface)">
+              {t(locale, 'clBufferGuideline', { d: ledger.guidelineDays })}
+            </ChartLabel>
             {/* flats: the level held over a span */}
             {laneFlats.map((f, i) => (
               <line key={`f${i}`} x1={f.x1} y1={bufY(f.level)} x2={f.x2} y2={bufY(f.level)}
                 stroke="var(--fg)" strokeWidth={2} strokeDasharray={f.projected ? '3 2' : undefined} />
             ))}
             {/* the buffer the program STARTED with — the baseline every later level reads from */}
-            <circle cx={laneStartX} cy={bufY(startBuffer)} r={2.4} fill="var(--fg)" />
-            <ChartLabel x={laneStartX} y={bufY(startBuffer) - 6} textAnchor="middle" fontSize={8} fill="var(--muted)">
+            <circle cx={laneStartX} cy={bufY(startBuffer)} r={2.6} fill="var(--fg)" />
+            <ChartLabel x={laneStartX} y={bufY(startBuffer) - 7} textAnchor="middle" fontSize={FS_SMALL}
+              fill="var(--muted)" halo="var(--surface)">
               {t(locale, 'clBufferDaysShort', { d: startBuffer })}
             </ChartLabel>
             {/* risers: a coloured step at each event, labelled with the buffer IN HAND after it */}
@@ -401,16 +424,17 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
                 <g key={`r${i}`}>
                   <line x1={s.x} y1={bufY(s.from)} x2={s.x} y2={bufY(s.to)} stroke={col} strokeWidth={2.5}
                     strokeDasharray={s.projected ? '3 2' : undefined} />
-                  <circle cx={s.x} cy={bufY(s.to)} r={2.4} fill={col} />
-                  <ChartLabel x={s.x} y={bufY(s.to) + (up ? -6 : 12)} textAnchor="middle" fontSize={8} fill={col}>
+                  <circle cx={s.x} cy={bufY(s.to)} r={2.6} fill={col} />
+                  <ChartLabel x={s.x} y={bufY(s.to) + (up ? -7 : 13)} textAnchor="middle" fontSize={FS_SMALL}
+                    fill={col} halo="var(--surface)">
                     {t(locale, 'clBufferDaysShort', { d: Math.round(s.to) })}
                   </ChartLabel>
                 </g>
               );
             })}
             {/* now: the buffer currently in hand (where the walked line lands) */}
-            <circle cx={x(now)} cy={bufY(laneEndLevel)} r={3} fill="var(--fg)" />
-            <ChartLabel x={x(now) + 6} y={bufY(laneEndLevel) - 6} fontSize={10} fill="var(--fg)">
+            <circle cx={x(now)} cy={bufY(laneEndLevel)} r={3.2} fill="var(--fg)" />
+            <ChartLabel x={x(now) + 6} y={bufY(laneEndLevel) - 7} fontSize={FS_EMPH} fill="var(--fg)" halo="var(--surface)">
               {t(locale, 'clBufferNow', { d: Math.round(laneEndLevel) })}
             </ChartLabel>
           </g>
