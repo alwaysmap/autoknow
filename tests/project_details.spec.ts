@@ -144,6 +144,32 @@ test.describe('Project Details and Action Item Operations', () => {
     await expect(card).toHaveCount(0);
   });
 
+  // #82: pinned only to the pointer's right and clamped, the card parked against the
+  // right edge and sat on top of the cells the reader was pointing at. It now FLIPS to
+  // the pointer's left once past the section midpoint.
+  test('the summary card flips to the pointer\'s left on the right half, clear of the cell (#82)', async ({ page }) => {
+    await page.goto(`/programs/${projectId}`);
+    const rows = page.locator('[class*="rowHit"]');
+    const card = page.getByTestId('chain-row-card');
+
+    await expect(rows.first()).toBeVisible({ timeout: 20000 });
+    await rows.first().scrollIntoViewIfNeeded();
+    const b = (await rows.first().boundingBox())!;
+    const px = b.x + b.width * 0.82; // a point well into the RIGHT half of the chart
+    const py = b.y + b.height / 2;
+
+    // Hydration-guarded first interaction (the repo's #1 e2e flake source otherwise).
+    await expect(async () => {
+      await page.mouse.move(px, py);
+      await expect(card).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+
+    // Flipped left: the card's right edge sits left of the pointer, so it can never
+    // cover the cell the pointer is on.
+    const c = (await card.boundingBox())!;
+    expect(c.x + c.width).toBeLessThanOrEqual(px);
+  });
+
   test('lead partner (OEM) is editable from the program Edit dialog', async ({ page }) => {
     // A second OEM to switch to.
     const bmw = await prisma.partner.create({
