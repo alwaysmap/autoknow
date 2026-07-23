@@ -1152,8 +1152,18 @@ const STRINGS = {
   lifetimePrograms: { en: 'Lifetime Programs', de: 'Programme insgesamt', ja: '累計プログラム', ko: '누적 프로그램' },
   telsHeader: { en: 'Technical Engagement Leads', de: 'Technische Engagement-Leads', ja: 'テクニカルエンゲージメントリード', ko: '기술 참여 리드' },
   filterByType: { en: 'Filter by {t}', de: 'Nach {t} filtern', ja: '{t}で絞り込み', ko: '{t}(으)로 필터링' },
-  activeSuffix: { en: 'active', de: 'aktiv', ja: '件アクティブ', ko: '개 활성' },
-  lifetimeSuffix: { en: '{n} lifetime', de: '{n} insgesamt', ja: '累計{n}件', ko: '누적 {n}개' },
+  // Accessible names for the Partners table count cells (design.md §6, one measure
+  // per cell): the visible cell is the bare number, the noun it counts lives here.
+  // Split singular/plural because EN/DE inflect the noun; JA/KO use counters that do
+  // not, so their two forms are intentionally identical.
+  activeProgramsAriaOne: { en: '{n} active program', de: '{n} aktives Programm', ja: 'アクティブなプログラム{n}件', ko: '활성 프로그램 {n}개' },
+  activeProgramsAria: { en: '{n} active programs', de: '{n} aktive Programme', ja: 'アクティブなプログラム{n}件', ko: '활성 프로그램 {n}개' },
+  lifetimeProgramsAriaOne: { en: '{n} lifetime program', de: '{n} Programm insgesamt', ja: '累計プログラム{n}件', ko: '누적 프로그램 {n}개' },
+  lifetimeProgramsAria: { en: '{n} lifetime programs', de: '{n} Programme insgesamt', ja: '累計プログラム{n}件', ko: '누적 프로그램 {n}개' },
+  // Same rule for the People table's bare "Programs" count cell — the noun lives in
+  // the link's accessible name so it is not announced as a context-free number.
+  programsCountAriaOne: { en: '{n} program', de: '{n} Programm', ja: 'プログラム{n}件', ko: '프로그램 {n}개' },
+  programsCountAria: { en: '{n} programs', de: '{n} Programme', ja: 'プログラム{n}件', ko: '프로그램 {n}개' },
   noPartnersMatchFilters: { en: 'No ecosystem partners found matching filters.', de: 'Keine Ökosystem-Partner entsprechen den Filtern.', ja: 'フィルターに一致するパートナーが見つかりません。', ko: '필터와 일치하는 에코시스템 파트너가 없습니다.' },
   partnerProfileSuffix: { en: '{t} Partner Profile', de: '{t}-Partnerprofil', ja: '{t}パートナープロフィール', ko: '{t} 파트너 프로필' },
   relationshipSummary: { en: 'Relationship Summary', de: 'Beziehungsübersicht', ja: '関係サマリー', ko: '관계 요약' },

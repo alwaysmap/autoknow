@@ -45,7 +45,9 @@ test.describe('Ecosystem Partners Page', () => {
     // Verify Continental AG is in the list
     await expect(page.locator('body')).toContainText('Continental AG');
     await expect(page.locator('body')).toContainText('Supplier');
-    await expect(page.locator('body')).toContainText('1 active');
+    // §6 one measure per cell: the count cell shows the bare number, and the noun it
+    // counts lives in the link's accessible name (singular for 1) — not visible text.
+    await expect(page.getByRole('link', { name: '1 active program' })).toBeVisible();
 
     // Column funnel (design.md §6): filtering Type to OEM hides the supplier.
     await page.getByRole('button', { name: 'Filter Partner Type' }).click();

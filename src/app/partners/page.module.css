@@ -81,6 +81,9 @@
   color: var(--fg);
   text-decoration: none;
   transition: color 0.2s ease;
+  /* Bare counts (§6, one measure per cell): tabular figures so the column reads
+     straight down and single digits never wrap the way "1 lifetime" did. */
+  font-variant-numeric: tabular-nums;
 }
 
 .activeProgramsLink:hover, .lifetimeProgramsLink:hover {
