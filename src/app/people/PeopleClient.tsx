@@ -106,9 +106,9 @@ export default function PeopleClient({ people, partners, initialFilters, initial
             data={people}
             renderRow={(p) => (
               <tr key={p.id}>
-                <td>
+                <th scope="row">
                   <Link href={`/people/${p.id}`} className={styles.tableLink}>{p.name}</Link>
-                </td>
+                </th>
                 <td>
                   {/* Company is a NOUN — a specific partner — so it navigates to
                       its route, never filters (design.md §6, issue #30). No route
@@ -147,7 +147,6 @@ export default function PeopleClient({ people, partners, initialFilters, initial
             textFilter={text}
             onTextFilterChange={setText}
             textFilterPlaceholder={t(locale, 'filterPeoplePlaceholder')}
-            pageSize={15}
             emptyStateMessage={t(locale, 'noAssociatedPeople')}
           />
         </section>

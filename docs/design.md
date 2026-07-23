@@ -203,7 +203,15 @@ tables) so nothing has to be relearned page to page.
   number, a bar — never a face *plus* the number *plus* a word). The redundant
   forms live in the tooltip/accessible name.
 * Implementation home: `src/components/DataTable.tsx` (sort, pagination, column
-  filters) + `DateCell`. New tables must use them rather than re-implementing.
+  filters, the squared key-column filter box) + `DateCell`. New tables must use them
+  rather than re-implementing. The identity column is a **`<th scope="row">` frozen
+  first column** (#29): `position: sticky; left: 0` with an opaque `--bg` so, on a
+  narrow viewport, the name you are reading the row FOR stays put while the rest
+  scrolls sideways in the wrapper (§9) — and the row-header associates each row's
+  cells with its subject for a screen reader. Page size is a **per-user preference**
+  (`ROWS_PER_TABLE`, the #31 registry), read hydration-safe and written by a
+  rows-per-page control in the footer, so the density a reader picks survives reload;
+  an explicit `pageSize` prop is a fixed override for the rare table that wants one.
 
 ---
 

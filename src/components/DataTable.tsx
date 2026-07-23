@@ -1,10 +1,16 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useSyncExternalStore } from 'react';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import AnchoredPopover from './AnchoredPopover';
 import SearchField from './SearchField';
+import {
+  ROWS_PER_TABLE,
+  readLocalPref,
+  subscribePrefChange,
+  writeLocalPref,
+} from '../lib/preferences';
 import styles from './DataTable.module.css';
 
 interface Header {
@@ -34,6 +40,8 @@ interface DataTableProps<T> {
   /** Fires on every user sort change — hosts encode it into the URL (design.md §6:
    *  table state is shareable). */
   onSortChange?: (key: string, order: 'asc' | 'desc') => void;
+  /** Explicit FIXED page size. Omit to use the per-user `ROWS_PER_TABLE` preference (#31)
+   *  and show the rows-per-page control — the normal case for a browsable listing. */
   pageSize?: number;
   emptyStateMessage?: string;
   /** Controlled column filters (key → selected values). Omit for uncontrolled. */
@@ -75,7 +83,7 @@ export default function DataTable<T>({
   defaultSortKey = '',
   defaultSortOrder = 'asc',
   onSortChange,
-  pageSize = 10,
+  pageSize,
   emptyStateMessage,
   filters: controlledFilters,
   onFiltersChange,
@@ -92,6 +100,17 @@ export default function DataTable<T>({
   const [sortKey, setSortKey] = useState<string>(defaultSortKey);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(defaultSortOrder);
   const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // ---- Page size: the per-user ROWS_PER_TABLE preference (#31), read hydration-safe as an
+  // external store (ThemeToggle is the reference; setState-in-effect is a lint error). An
+  // explicit `pageSize` prop is a fixed override that also hides the rows-per-page control. --
+  const prefRows = useSyncExternalStore(
+    subscribePrefChange,
+    () => readLocalPref(ROWS_PER_TABLE),
+    () => ROWS_PER_TABLE.default,
+  );
+  const effectivePageSize = pageSize ?? prefRows;
+  const showPageSizeControl = pageSize === undefined;
 
   // ---- Per-column filters (OR within a column, AND across columns) ----
   const [ownFilters, setOwnFilters] = useState<Record<string, string[]>>(initialFilters ?? {});
@@ -171,7 +190,7 @@ export default function DataTable<T>({
   }, [filteredData, sortKey, sortOrder, sortType]);
 
   // 2. Paginate the sorted data
-  const totalPages = Math.max(1, Math.ceil(sortedData.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(sortedData.length / effectivePageSize));
 
   // Guard current page range for rendering. The Prev/Next handlers below base their
   // next value on activePage (not the stored currentPage), so when the data shrinks
@@ -179,9 +198,9 @@ export default function DataTable<T>({
   const activePage = Math.min(currentPage, totalPages);
 
   const paginatedData = useMemo(() => {
-    const startIndex = (activePage - 1) * pageSize;
-    return sortedData.slice(startIndex, startIndex + pageSize);
-  }, [sortedData, activePage, pageSize]);
+    const startIndex = (activePage - 1) * effectivePageSize;
+    return sortedData.slice(startIndex, startIndex + effectivePageSize);
+  }, [sortedData, activePage, effectivePageSize]);
 
   // 3. Handle sort toggle
   const handleSort = (key: string, sortable?: boolean) => {
@@ -198,8 +217,8 @@ export default function DataTable<T>({
     setCurrentPage(1); // Reset page to 1 on sort change
   };
 
-  const startIndex = (activePage - 1) * pageSize + 1;
-  const endIndex = Math.min(activePage * pageSize, sortedData.length);
+  const startIndex = (activePage - 1) * effectivePageSize + 1;
+  const endIndex = Math.min(activePage * effectivePageSize, sortedData.length);
 
   // ---- Filter bar (text box + one "× Clear filters" for the whole set) ----
   const showTextFilter = onTextFilterChange != null;
@@ -342,8 +361,28 @@ export default function DataTable<T>({
         {/* Pagination Footer */}
         {sortedData.length > 0 && (
           <div className={styles.pagination}>
-            <div className={styles.info}>
-              {t(locale, 'showingResults', { a: startIndex, b: endIndex, c: sortedData.length })}
+            <div className={styles.footerLeft}>
+              <div className={styles.info}>
+                {t(locale, 'showingResults', { a: startIndex, b: endIndex, c: sortedData.length })}
+              </div>
+              {showPageSizeControl && (
+                <label className={styles.pageSizeControl}>
+                  <span>{t(locale, 'rowsPerPage')}</span>
+                  <select
+                    className={styles.pageSizeSelect}
+                    value={effectivePageSize}
+                    aria-label={t(locale, 'rowsPerPage')}
+                    onChange={(e) => {
+                      writeLocalPref(ROWS_PER_TABLE, Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    {(ROWS_PER_TABLE.values ?? []).map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
             <div className={styles.controls}>
               <button

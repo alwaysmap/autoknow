@@ -109,11 +109,11 @@ export default function EcosystemDashboardClient({
           renderRow={(p: Project) => {
             return (
               <tr key={p.id}>
-                <td>
+                <th scope="row">
                   <Link href={`/programs/${p.id}`} className={styles.tableLink}>
                     {p.name}
                   </Link>
-                </td>
+                </th>
                 <td><DateCell value={p.sopDate} fallback={t(locale, 'tbd')} /></td>
                 <td>{t(locale, 'unitsCount', { n: p.volumeFirstYear.toLocaleString(locale) })}</td>
                 <td>
@@ -145,7 +145,6 @@ export default function EcosystemDashboardClient({
             );
           }}
           defaultSortKey="" // pre-sorted by risk, then progress; headers re-sort
-          pageSize={10}
           emptyStateMessage={t(locale, 'noProgramsMatchFilters')}
         />
       </section>

@@ -173,11 +173,11 @@ export default function PartnersClient({ partners, currentUser, people, relation
             data={displayData}
             renderRow={(p) => (
               <tr key={p.id}>
-                <td>
+                <th scope="row">
                   <Link href={`/partners/${p.id}`} className={styles.tableLink}>
                     {p.name}
                   </Link>
-                </td>
+                </th>
                 <td>
                   {p.type ? (
                     <button
@@ -292,7 +292,6 @@ export default function PartnersClient({ partners, currentUser, people, relation
             }
             extrasActive={myPartnersOnly}
             onClearExtras={() => setMyPartnersOnly(false)}
-            pageSize={10}
             emptyStateMessage={t(locale, 'noPartnersMatchFilters')}
           />
         </section>

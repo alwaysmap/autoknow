@@ -137,10 +137,9 @@ export default function SourcesClient({ sources, initialFilters, initialSort, in
       defaultSortKey={initialSort?.key ?? 'createdAt'}
       defaultSortOrder={initialSort?.dir ?? 'desc'}
       onSortChange={(key, dir) => setSort({ key, dir })}
-      pageSize={25}
       renderRow={(s) => (
         <tr key={s.id} data-testid={`source-${s.id}`}>
-          <td style={{ padding: '0.625rem 0.75rem 0.625rem 0', maxWidth: '22.5rem' }}>
+          <th scope="row" style={{ maxWidth: '22.5rem' }}>
             <a href={s.url} target="_blank" rel="noopener noreferrer"
               style={{ fontWeight: 600, color: 'var(--fg, #222)', textDecoration: 'none' }}>
               {s.title || s.url}
@@ -152,7 +151,7 @@ export default function SourcesClient({ sources, initialFilters, initialSort, in
                   : <span style={{ color: 'var(--muted, #888)' }}>{s.entityName}</span>}
               </div>
             )}
-          </td>
+          </th>
           <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--muted, #666)' }}>
             {s.kindLabel}
           </td>

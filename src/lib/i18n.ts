@@ -974,6 +974,7 @@ const STRINGS = {
   prev: { en: 'Prev', de: 'Zurück', ja: '前へ', ko: '이전' },
   next: { en: 'Next', de: 'Weiter', ja: '次へ', ko: '다음' },
   pageOf: { en: 'Page {a} of {b}', de: 'Seite {a} von {b}', ja: '{b}ページ中 {a}ページ', ko: '{b}페이지 중 {a}페이지' },
+  rowsPerPage: { en: 'Rows', de: 'Zeilen', ja: '行数', ko: '행 수' },
 
   // ---- tables: shared headers ----
   programName: { en: 'Program Name', de: 'Programmname', ja: 'プログラム名', ko: '프로그램 이름' },
