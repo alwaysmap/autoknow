@@ -1,0 +1,110 @@
+/* The nav's flexible middle (#28). Brand and controls are pinned by the parent nav's
+   flex layout; this region takes the rest. min-width:0 lets it shrink BELOW its content
+   so the controls never get pushed to a second line, and overflow:hidden clips rather
+   than wraps or scrolls — the never-wrap guarantee, in two declarations. */
+.root {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+}
+
+/* The real, single visible row: links then the ⋯ trigger, one line, no wrap, clipped. */
+.row {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+/* Off-flow copy of every link + the ⋯, measured to decide the collapse point. It is laid
+   out (real widths) but invisible and inert. width:max-content stops the absolutely-
+   positioned box from being capped at the region width — capping would let its no-shrink
+   items overflow a narrower box and, worse, could corrupt the widths we read. */
+.measure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: max-content;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* A nav link: quiet, muted, intrinsic width, never shrinks (so a measured width is the
+   true width and the row clips whole labels rather than squeezing them). Matches the
+   retired .navLink exactly so nothing about the links' look changed. */
+.link {
+  flex: 0 0 auto;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 400;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+.link:hover {
+  color: var(--fg);
+}
+/* The current page stays legible whether it lands inline or in the menu. */
+.link[aria-current='page'] {
+  color: var(--fg);
+}
+
+/* The ⋯ overflow trigger — quiet like the cog and avatar beside it, and ALWAYS visible
+   when there is overflow (never hover-revealed, #22). Sized to the avatar (1.875rem) so
+   it can never make the nav taller than --nav-h; the square is a comfortable tap target. */
+.moreTrigger {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 0.375rem;
+  transition: color 0.2s ease;
+}
+.moreTrigger:hover,
+.moreTrigger[aria-expanded='true'] {
+  color: var(--fg);
+}
+
+/* The overflow menu — an AnchoredPopover panel (#24), so placement, light-dismiss, focus
+   and top-layer rendering are inherited; this only lays the links out as a tap list. */
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  min-width: 9.375rem;
+  padding: 0.25rem;
+}
+.menuItem {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  color: var(--fg);
+  text-decoration: none;
+  font-size: 0.875rem;
+  border-radius: 0.375rem;
+  white-space: nowrap;
+}
+.menuItem:hover {
+  background: var(--surface);
+  color: var(--fg);
+}
+.menuItem[aria-current='page'] {
+  font-weight: 600;
+}
