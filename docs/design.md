@@ -174,6 +174,20 @@ tables) so nothing has to be relearned page to page.
   carries the distinction, so it survives greyscale and colour blindness. Names
   in table cells stay quiet links: the rule says which decoration to use *when
   you decorate*, not that every name must be decorated.
+* **SHAPE marks the kind; BEHAVIOUR follows from it** (2026-07-22, issue #30) —
+  §6 named the shape and left three tables to each guess the behaviour:
+  * A **noun** (one named entity) **navigates** to its RESTful route and never
+    filters. It is a quiet link (not every name must be pilled); a name **with** a
+    route must be clickable (§2, "No Plain-Text Dead Ends"); a name with **no**
+    route is plain text.
+  * A **class** (a shared category, `ClassBox`) **filters its own column** on
+    click and **never navigates**. The click sets that column's filter to the
+    clicked value — it **replaces** the column's selection (a focused drill; the
+    header funnel is the multi-value OR tool, §6 above). A class only belongs in a
+    filterable column — an inert `ClassBox` that does nothing on click is a bug.
+  * Declare the column's kind once and derive both decoration and behaviour, so a
+    call site cannot express the wrong combination (the `DataTable` column-kind
+    version, tracked with #29 — until then the rule is enforced by review).
 * **Result types are BOXED readouts, not coloured words** (`KindBox`, shared by
   the suggestion dropdown and the full result list so they cannot drift). The
   inks are `--kind-*` tokens: the hexes they replace were picked against a light

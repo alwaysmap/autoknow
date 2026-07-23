@@ -5,6 +5,7 @@ import { useTableUrlSync } from '../../lib/useTableUrlSync';
 import type { TableSort } from '../../lib/tableUrlState';
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
+import ClassBox from '../../components/ClassBox';
 import KebabMenu from '../../components/KebabMenu';
 import { createPerson } from '../actions/people';
 import dash from '../../components/ProjectStatusDashboard.module.css';
@@ -106,15 +107,27 @@ export default function PeopleClient({ people, partners, initialFilters, initial
                   <Link href={`/people/${p.id}`} className={styles.tableLink}>{p.name}</Link>
                 </td>
                 <td>
+                  {/* Company is a NOUN — a specific partner — so it navigates to
+                      its route, never filters (design.md §6, issue #30). No route
+                      (no companyId) ⇒ plain text, per "No Plain-Text Dead Ends". */}
+                  {p.companyId ? (
+                    <Link href={`/partners/${p.companyId}`} className={styles.tableLink}>{p.company}</Link>
+                  ) : (
+                    <span className={styles.typeText}>{p.company || '—'}</span>
+                  )}
+                </td>
+                <td>
+                  {/* Role is a CLASS people share — the box filters this column,
+                      never navigates (design.md §6, issue #30). */}
                   <button
-                    onClick={() => setFilters({ ...filters, company: [p.company || '—'] })}
+                    type="button"
+                    onClick={() => setFilters({ ...filters, role: [p.role || '—'] })}
                     className={styles.typeFilterBtn}
-                    title={t(locale, 'filterColumn', { c: t(locale, 'companyLabel') })}
+                    title={t(locale, 'filterColumn', { c: t(locale, 'roleTitle') })}
                   >
-                    <span className={styles.typeText}>{p.company}</span>
+                    <ClassBox className={styles.classInk}>{p.role || '—'}</ClassBox>
                   </button>
                 </td>
-                <td><span className={styles.typeText}>{p.role || '—'}</span></td>
                 <td>
                   <Link href={`/people/${p.id}`} className={styles.lifetimeProgramsLink}>{p.programs}</Link>
                 </td>
