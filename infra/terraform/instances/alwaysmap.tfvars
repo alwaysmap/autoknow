@@ -12,3 +12,8 @@ github_repo           = "alwaysmap/autoknow"
 # Custom domain. alwaysmap.com DNS stays in Squarespace's UI (dvhthomas@gmail.com);
 # the autoknow → ghs.googlehosted.com CNAME is a manual record there.
 custom_domain = "autoknow.alwaysmap.com"
+
+# Ingestion drain alarm (issue #38). Off by default — the app degrades honestly without it.
+# To activate: uncomment BOTH lines (set a real recipient) and human-run `terraform apply`.
+# enable_ingestion_alarm = true
+# ingestion_alarm_email  = "dylan@alwaysmap.com"
