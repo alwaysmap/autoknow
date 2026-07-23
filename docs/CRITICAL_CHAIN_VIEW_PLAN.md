@@ -19,11 +19,14 @@ idle / forecast), so a COLUMN is a moment in time and reading down it compares e
 phase at once. Transitions are drawn **to the day** (cells clip to true start/end;
 idle handoffs render to the day — the relay-runner "start ASAP" behaviour). A
 **buffer-on-hand lane** sits below on the same axis (the old §4b waterfall's numbers,
-now positioned in time). This also SUPERSEDED the "break the time axis" work (was
-issue #42): discrete week columns dissolve the empty-tail problem, and a runaway
-buffer tail is marked at the right edge rather than donating empty columns. Still to
-come on #75: collapsing an arbitrary long empty run with a marked break, and an
-operable zoom/pan focus window.
+now positioned in time), each inflection labelled with the buffer actually in hand
+there. This also SUPERSEDED the "break the time axis" work (was issue #42): the axis
+now reaches the SOP, and a run of ≥ 6 EMPTY weeks (no phase, no handoff — the buffer
+tail, or the SOP-overshoot span) COLLAPSES to a marked break (the conventional
+double-slash glyph) that states how much time it compresses, keyed on emptiness so
+the overshoot case collapses the right span (design.md §8c / #42's honesty rules).
+The last remaining piece of #75 is an operable zoom/pan focus window (a 2-week view
+you slide left↔right), with the #22 touch-gesture story.
 
 ## 1. Why
 

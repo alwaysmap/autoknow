@@ -1430,7 +1430,8 @@ const STRINGS = {
   clTodayLabel: { en: 'today · {date}', de: 'heute · {date}', ja: '今日 · {date}', ko: '오늘 · {date}' },
   // Schedule grid + buffer-lane compact labels (issue #75).
   clIdleDays: { en: '{d}d idle', de: '{d}T Leerlauf', ja: '待機{d}日', ko: '{d}일 대기' },
-  clSopBeyond: { en: 'SOP beyond → {d}d buffer', de: 'SOP später → {d}T Puffer', ja: 'SOPは先 → バッファ{d}日', ko: 'SOP 이후 → 버퍼 {d}일' },
+  // Label under an axis-break glyph: how much empty time the seam compresses.
+  clAxisBreak: { en: '{d} days', de: '{d} Tage', ja: '{d}日', ko: '{d}일' },
   clBufferLane: { en: 'buffer on hand', de: 'Puffer verfügbar', ja: '手元のバッファ', ko: '남은 버퍼' },
   clBufferNow: { en: '{d}d buffer', de: '{d}T Puffer', ja: 'バッファ{d}日', ko: '버퍼 {d}일' },
   clBufferGuideline: { en: '{d}d reserve', de: '{d}T Reserve', ja: '予備{d}日', ko: '예비 {d}일' },

@@ -446,8 +446,14 @@ combination must work:
   the phase's true start/end; idle gaps render to the day, so the chart drives
   "start the day the baton lands", not "wait until Friday"). A **buffer-on-hand
   lane** sits below on the same week axis — a stepped line, each step pinned under
-  the phase that moved it. There is no texture layer and no `data-std-only` /
-  `data-inst-only` pair here any more; the grid reads identically in both styles.
+  the phase that moved it and labelled with the buffer in hand there. There is no
+  texture layer and no `data-std-only` / `data-inst-only` pair here any more; the grid
+  reads identically in both styles. The axis always reaches the SOP; a run of ≥ 6
+  **empty** weeks (no phase, no handoff — the buffer tail, or the SOP-overshoot span)
+  COLLAPSES to a marked break (the conventional double-slash) that **states how much
+  time it compresses** — an unmarked break would be a false statement about duration.
+  Collapse keys on emptiness, never on band kind, so the overshoot case (where the
+  interesting span is the loss, not the buffer) collapses the right side.
 * **Lines never cross unexplained.** A subway map and a circuit diagram both owe
   the reader an account of every intersection, and the phase rail owes the same:
   where a branch line must pass over track it is not joining, it draws a HOP — a
