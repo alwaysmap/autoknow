@@ -9,7 +9,9 @@
   width: 100%;
   max-width: 62rem;
   margin: 0 auto;
-  padding: 2rem 2.5rem 3rem;
+  /* Horizontal gutter from the shared token (#33); the vertical rhythm is landing's own. */
+  padding-block: 2rem 3rem;
+  padding-inline: var(--page-gutter);
 }
 
 /* Vertical room above the hero so the input sits near the optical centre of a
@@ -56,7 +58,8 @@
 
 @media (max-width: 960px) {
   .container {
-    padding: 1.5rem 1.5rem 2.5rem;
+    padding-block: 1.5rem 2.5rem;
+    padding-inline: 1.5rem; /* landing's own tablet step (the token only shrinks at ≤560px) */
   }
 
   .hero {
@@ -66,7 +69,8 @@
 
 @media (max-width: 560px) {
   .container {
-    padding: 1rem 1rem 2rem;
+    padding-block: 1rem 2rem;
+    padding-inline: var(--page-gutter); /* → 1rem; re-assert the token over the tablet step above */
   }
 
   .headline {

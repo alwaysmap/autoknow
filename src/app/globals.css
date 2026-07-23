@@ -7,6 +7,17 @@
      per-breakpoint guess against a bar of unknowable height. */
   --nav-h: 3.5rem;
 
+  /* The page gutter — the horizontal breathing space between the viewport edge and
+     the page's content, shared by the nav AND every page container (#33). Defined
+     ONCE here so "change the gutter" is one edit: before this the value was
+     hand-copied into eight containers and only some shrank on a phone, so content
+     was inset 24px further than the nav brand at 412px (19.4% of the viewport spent
+     on margin). 2.5rem (40px) at desktop; it shrinks to 1rem (16px) at the phone
+     breakpoint below — the nav's proven value — so chrome and content share a left
+     edge at every width. Only the two canonical breakpoints exist (§9); the shrink
+     lives in the ≤560px block after :root, not per-container. */
+  --page-gutter: 2.5rem;
+
   /* Width cap for the compact status visualizations (sidebar needle gauge and
      the per-phase hill gauges on cards). The Phases-section summary hill is
      deliberately uncapped — it spans the full content column. */
@@ -140,6 +151,17 @@
   --mono-font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
   color-scheme: light;
+}
+
+/* Phone (§9's ≤560px breakpoint): the 40px gutter is a desktop luxury. Shrinking the
+   TOKEN — not each container's own media query — is what makes every page (list,
+   dashboard, detail, form) obey in one place, and matches the nav's own phone padding
+   so page content shares the nav brand's left edge. This is the ONLY definition of the
+   phone gutter. */
+@media (max-width: 560px) {
+  :root {
+    --page-gutter: 1rem;
+  }
 }
 
 /* Dark theme. The concrete theme ("light" | "dark") is resolved by the inline
