@@ -9,7 +9,7 @@
 import { readFileSync } from 'node:fs';
 
 const CHART_COMPONENTS = [
-  'ChainLedger',
+  'ChainSchedule', // the critical-chain grid + buffer lane (was inline in ChainLedger, #75)
   'PhaseTrack',
   'PhaseHillGauge',
   'PhaseHillChart',

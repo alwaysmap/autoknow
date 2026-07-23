@@ -1,6 +1,5 @@
 'use client';
 
-import ChartLabel from './ChartLabel';
 import React, { useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, Locale } from '../lib/i18n';
@@ -10,6 +9,8 @@ import { DAY_MS } from '../lib/sop';
 import AnchorHeading from './AnchorHeading';
 import OverlayDialog from './OverlayDialog';
 import ConstraintRing from './ConstraintRing';
+import { ChainSchedule, CARD_W, W } from './ChainSchedule';
+import type { RowCard } from './ChainSchedule';
 import { isForecastOver } from '../lib/chainLedger';
 import type { ChainLedgerResult, ResourceRef, ScheduleRow, Situation, WaterfallRow } from '../lib/chainLedger';
 import styles from './ChainLedger.module.css';
@@ -44,350 +45,6 @@ const jumpToPhase = (id: number) => window.dispatchEvent(new CustomEvent('autokn
 const monthLong = (iso: string, locale: Locale) => localDate(iso, locale, { month: 'long', year: 'numeric' });
 const dayShort = (ms: number, locale: Locale) => localDate(new Date(ms), locale, { month: 'short', day: 'numeric' });
 
-// ---- Schedule SVG geometry ----
-// BOT stacks the bands under the last row, each clear of the one above: the
-// buffer bracket + its label, the single-letter month row, then the quarter row.
-const W = 860, PAD_R = 12, ROW_H = 36, TOP = 26, BOT = 76;
-const BRACKET_LABEL_DY = 18, MONTH_LETTER_DY = 34, QUARTER_DY = 50;
-// Label-column sizing: the gutter fits the LONGEST phase name instead of a fixed
-// width, so short names don't donate a third of the chart to whitespace.
-const RING_PAD = 24, TEXT_PAD = 10, CHAR_W = 5.9, WIDE_CHAR_W = 11;
-// Mirrors .hoverCard's max-width — only used to clamp the card inside the section
-// as it follows the pointer, so an approximate ceiling is enough.
-const CARD_W = 272;
-// One hue per meaning (tokens in globals.css, both themes).
-const BAND_FILL = {
-  loss: 'var(--band-lost)',
-  forecastLoss: 'var(--band-lost-forecast)',
-  gain: 'var(--band-gained)',
-  buffer: 'var(--band-buffer)',
-} as const;
-type BandKind = keyof typeof BAND_FILL;
-
-// Instrument paints the buffer bands as hatch/stipple TEXTURES rather than four
-// similar red/green washes, so the meanings separate by pattern first and hue
-// only second (which keeps the legend's colour words honest). `userSpaceOnUse`
-// ties every band to one texture grid, so a run of bands reads as one continuous
-// field. `id`s are caller-scoped: the chart and each legend swatch keep their
-// patterns in their own SVG, so there are no fragile cross-SVG paint references.
-function bandPattern(kind: BandKind, id: string) {
-  const p = { id, patternUnits: 'userSpaceOnUse' as const };
-  switch (kind) {
-    case 'loss': // dense crosshatch — buffer spent for good, "crossed out"
-      return (
-        <pattern key={id} {...p} width={6} height={6}>
-          <path d="M0 6 6 0 M-1 1 1 -1 M5 7 7 5" stroke="var(--band-ink-loss)" strokeWidth={0.9} opacity={0.7} />
-          <path d="M0 0 6 6 M-1 5 1 7 M5 -1 7 1" stroke="var(--band-ink-loss)" strokeWidth={0.9} opacity={0.7} />
-        </pattern>
-      );
-    case 'forecastLoss': // single diagonal hatch — projected, provisional
-      return (
-        <pattern key={id} {...p} width={6} height={6}>
-          <path d="M0 6 6 0 M-1 1 1 -1 M5 7 7 5" stroke="var(--band-ink-forecast)" strokeWidth={0.9} opacity={0.78} />
-        </pattern>
-      );
-    case 'gain': // dense stipple — days handed back
-      return (
-        <pattern key={id} {...p} width={5} height={5}>
-          <circle cx={2.5} cy={2.5} r={0.9} fill="var(--band-ink-gain)" opacity={0.8} />
-        </pattern>
-      );
-    case 'buffer': { // dense OFFSET stipple (quincunx) — room still open
-      // Corners tile to a grid; the centre dot fills each gap, so the rows read
-      // as staggered rather than a plain square lattice.
-      const dot = (cx: number, cy: number) => (
-        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={0.85} fill="var(--band-ink-buffer)" opacity={0.65} />
-      );
-      return (
-        <pattern key={id} {...p} width={6} height={6}>
-          {dot(0, 0)}{dot(6, 0)}{dot(0, 6)}{dot(6, 6)}{dot(3, 3)}
-        </pattern>
-      );
-    }
-  }
-}
-
-// A legend swatch: the solid wash in Standard, the texture in Instrument, each in
-// its own SVG with a locally-scoped pattern id so nothing references across SVGs.
-function BandSwatch({ kind }: { kind: BandKind }) {
-  const id = `lg-${kind}`;
-  return (
-    <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-      <defs>{bandPattern(kind, id)}</defs>
-      <rect data-std-only x={1} y={1} width={20} height={12} fill={BAND_FILL[kind]} />
-      <rect data-inst-only x={1} y={1} width={20} height={12} fill={`url(#${id})`} />
-    </svg>
-  );
-}
-const textWidth = (s: string) =>
-  [...s].reduce((w, ch) => w + (ch.charCodeAt(0) > 0x2e80 ? WIDE_CHAR_W : CHAR_W), 0);
-
-/** A hovered/focused row plus where its card should sit, in px relative to the section. */
-export interface RowCard { row: ScheduleRow; left: number; top: number }
-
-function ScheduleChart({ ledger, sopMs, now, locale, onRowCard }: {
-  ledger: ChainLedgerResult; sopMs: number | null; now: number; locale: Locale;
-  /** null clears; otherwise the row and the element it was anchored to. */
-  onRowCard: (row: ScheduleRow | null, el: SVGRectElement | null, labelW?: number, clientX?: number) => void;
-}) {
-  const rows = ledger.schedule;
-  if (rows.length === 0) return null;
-  const H = TOP + rows.length * ROW_H + BOT;
-  // constraint rows also carry the ring, so they need the wider pad
-  const labelW = Math.min(220, Math.max(56, Math.ceil(Math.max(
-    ...rows.map((r) => textWidth(r.name) + (ledger.liveConstraintId === r.id ? RING_PAD : TEXT_PAD)),
-  ))));
-  const tMin = Math.min(...rows.map((r) => r.startMs));
-  const tMax = Math.max(sopMs ?? 0, ...rows.map((r) => r.endMs), now) + 7 * DAY_MS;
-  const x = (ms: number) => labelW + ((ms - tMin) / (tMax - tMin)) * (W - labelW - PAD_R);
-  const rowY = (i: number) => TOP + i * ROW_H + ROW_H / 2;
-
-  // Graticule, three levels of granularity but ONE level of labelling: week and
-  // month ticks sit on the axis (unlabelled — they give the eye a scale), while
-  // quarters keep the full-height line and the only text.
-  const axisY = TOP + rows.length * ROW_H + 8;
-  const pxPerDay = (W - labelW - PAD_R) / ((tMax - tMin) / DAY_MS);
-  const showWeeks = pxPerDay * 7 >= 4; // below this they'd read as a smear
-  const showMonths = pxPerDay * 30 >= 8;
-
-  // The `today` and SOP labels share the y=TOP-16 line. When `now` and the SOP
-  // target fall close together — exactly when a program nears its SOP, i.e. when
-  // you most need to read both — their boxes overstrike into mush (#23). A halo
-  // makes that mush opaque, not legible, so detect the overlap and drop the
-  // lower-priority `today` label onto its own line below. textWidth is calibrated
-  // at 11px; the today label is 10px.
-  const todayText = t(locale, 'clTodayLabel', { date: dayShort(now, locale) });
-  const todayHalfW = (textWidth(todayText) * (10 / 11)) / 2;
-  const sopLabelX = sopMs != null ? Math.min(x(sopMs), W - 8) : null;
-  const sopLabelW = sopMs != null
-    ? textWidth(t(locale, 'clSopLabel', { month: monthLong(new Date(sopMs).toISOString(), locale) }))
-    : 0;
-  const labelsCollide = sopLabelX != null
-    && x(now) + todayHalfW > sopLabelX - sopLabelW - 4 // 4px gutter
-    && x(now) - todayHalfW < sopLabelX;
-  const todayY = labelsCollide ? TOP - 3 : TOP - 16; // own line below SOP when they'd clash
-
-  const weeks: number[] = [];
-  if (showWeeks) {
-    const d = new Date(tMin);
-    const dow = d.getUTCDay() || 7; // Sunday → 7, so weeks start Monday (ISO)
-    let ms = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) + ((8 - dow) % 7) * DAY_MS;
-    for (let guard = 0; guard < 400 && ms <= tMax; guard++, ms += 7 * DAY_MS) weeks.push(ms);
-  }
-
-  // Single-letter month labels come from the locale (Intl 'narrow': J F M … in
-  // en/de, 1 2 3 … in ja/ko). UTC-pinned so SSR and hydration agree.
-  const monthNarrow = new Intl.DateTimeFormat(locale, { month: 'narrow', timeZone: 'UTC' });
-  const months: { ms: number; next: number; isQuarter: boolean; label: string; letter: string; onAxis: boolean }[] = [];
-  {
-    const first = new Date(tMin);
-    let my = first.getUTCFullYear();
-    let mm = first.getUTCMonth(); // starts on the month CONTAINING tMin, so the
-    for (let guard = 0; guard < 160; guard++) { // partial first month still gets a letter
-      const ms = Date.UTC(my, mm, 1);
-      if (ms > tMax) break;
-      months.push({
-        ms,
-        next: Date.UTC(mm === 11 ? my + 1 : my, (mm + 1) % 12, 1),
-        isQuarter: mm % 3 === 0,
-        label: `Q${Math.floor(mm / 3) + 1} ’${String(my).slice(2)}`,
-        letter: monthNarrow.format(new Date(ms)),
-        onAxis: ms >= tMin, // a tick before tMin would render left of the axis
-      });
-      mm += 1;
-      if (mm > 11) { mm = 0; my += 1; }
-    }
-  }
-  const quarters = months.filter((m) => m.isQuarter && m.onAxis);
-  const showMonthLetters = pxPerDay * 30 >= 12;
-
-  // Buffer-movement background bands (§4a). Four meanings, four HUES — spent loss
-  // (red) and forecast loss (amber) were previously one hue at two opacities and
-  // could not be told apart; "days gained" (green) and "room still in hand"
-  // (teal) likewise shared a colour.
-  const bands: { x1: number; x2: number; kind: 'loss' | 'forecastLoss' | 'gain' | 'buffer' }[] = [];
-  rows.forEach((r, i) => {
-    if (r.gapBeforeDays >= 1 && i > 0) bands.push({ x1: rows[i - 1].endMs, x2: r.startMs, kind: 'loss' });
-    if (r.kind === 'done' && r.varianceDays >= 1) bands.push({ x1: r.plannedEndMs, x2: r.endMs, kind: 'loss' });
-    if (r.kind === 'done' && r.varianceDays <= -1) bands.push({ x1: r.endMs, x2: r.plannedEndMs, kind: 'gain' });
-    if (isForecastOver(r)) bands.push({ x1: r.plannedEndMs, x2: r.endMs, kind: 'forecastLoss' });
-    if (r.kind === 'active' && r.varianceDays <= -1) bands.push({ x1: r.endMs, x2: r.plannedEndMs, kind: 'gain' });
-  });
-  const lastEnd = rows[rows.length - 1].endMs;
-  if (sopMs != null) bands.push(sopMs >= lastEnd
-    ? { x1: lastEnd, x2: sopMs, kind: 'buffer' }
-    : { x1: sopMs, x2: lastEnd, kind: 'loss' });
-
-  const barLabel = (r: ScheduleRow): { text: string; bad: boolean } | null => {
-    if (r.kind === 'done' && r.varianceDays <= -1) {
-      const d = -r.varianceDays;
-      return { text: t(locale, d === 1 ? 'clOneDayEarly' : 'clDaysEarly', { d }), bad: false };
-    }
-    if (r.kind === 'done' && r.varianceDays >= 1) {
-      const d = r.varianceDays;
-      return { text: t(locale, d === 1 ? 'clOneDayOverPlan' : 'clDaysOverPlan', { d }), bad: true };
-    }
-    if (r.kind === 'active') {
-      const one = r.remainingDays === 1;
-      return isForecastOver(r)
-        ? { text: t(locale, one ? 'clWorkLeftOverOne' : 'clWorkLeftOver', { d: r.remainingDays, o: r.varianceDays }), bad: true }
-        : { text: t(locale, one ? 'clWorkLeftOnPaceOne' : 'clWorkLeftOnPace', { d: r.remainingDays }), bad: false };
-    }
-    return null;
-  };
-
-  return (
-    <div className={styles.chartwrap}>
-      <svg viewBox={`0 0 ${W} ${H}`} className={styles.scheduleSvg} role="img" aria-label={t(locale, 'clSchedule')}>
-        {/* The buffer bands sweep out from their own left edge as the chart
-            arrives — the one place this app animates DATA, because the gesture IS
-            the reading: you watch the buffer get eaten and handed back.
-            Deliberately a CSS animation on the group, not JS: the rects are
-            always at their true width, so nothing in the chain — a missing
-            observer, a paused frame loop, a failed effect — can leave the bands
-            invisible. Worst case the reading simply appears without its sweep. */}
-        <defs>
-          {(['loss', 'forecastLoss', 'gain', 'buffer'] as const).map((k) => bandPattern(k, `sched-${k}`))}
-        </defs>
-        <g className={styles.bands}>
-          {/* Standard: translucent hue washes. Instrument: hatch/stipple, so the
-              four meanings separate by texture rather than by similar shades of
-              red and green. Both are drawn; CSS shows one per style. */}
-          <g data-std-only>
-            {bands.map((b, i) => (
-              <rect key={`band${i}`} x={x(b.x1)} y={TOP - 8} width={Math.max(1.5, x(b.x2) - x(b.x1))}
-                height={rows.length * ROW_H + 16} fill={BAND_FILL[b.kind]} />
-            ))}
-          </g>
-          <g data-inst-only>
-            {bands.map((b, i) => (
-              <rect key={`band${i}`} x={x(b.x1)} y={TOP - 8} width={Math.max(1.5, x(b.x2) - x(b.x1))}
-                height={rows.length * ROW_H + 16} fill={`url(#sched-${b.kind})`} />
-            ))}
-          </g>
-        </g>
-        {/* graticule: week ticks (finest), month ticks, quarter lines + labels */}
-        {weeks.map((ms) => (
-          <line key={`w${ms}`} x1={x(ms)} y1={axisY - 3} x2={x(ms)} y2={axisY}
-            stroke="var(--border)" strokeWidth={1} opacity={0.55} />
-        ))}
-        {showMonths && months.filter((m) => m.onAxis && !m.isQuarter).map((m) => (
-          <line key={`m${m.ms}`} x1={x(m.ms)} y1={axisY - 7} x2={x(m.ms)} y2={axisY}
-            stroke="var(--border)" strokeWidth={1} />
-        ))}
-        <line x1={labelW} y1={axisY} x2={W - PAD_R} y2={axisY} stroke="var(--border)" strokeWidth={1} />
-        {/* one locale-narrow letter per month, centred in the month's visible span */}
-        {showMonthLetters && months.map((m) => {
-          const from = Math.max(m.ms, tMin);
-          const to = Math.min(m.next, tMax);
-          // ja/ko narrow months are "4月"/"10月", not one glyph — measure the real
-          // label so a tight span drops it instead of overlapping its neighbour.
-          if (x(to) - x(from) < Math.max(9, textWidth(m.letter) * (9 / 11) + 3)) return null;
-          return (
-            <ChartLabel key={`ml${m.ms}`} x={(x(from) + x(to)) / 2} y={axisY + MONTH_LETTER_DY}
-              textAnchor="middle" fontSize={9} fill="var(--muted)">
-              {m.letter}
-            </ChartLabel>
-          );
-        })}
-        {quarters.map((q) => (
-          <g key={q.ms}>
-            <line x1={x(q.ms)} y1={TOP - 8} x2={x(q.ms)} y2={axisY} stroke="var(--border)" strokeWidth={1} />
-            <ChartLabel x={x(q.ms)} y={axisY + QUARTER_DY} textAnchor="middle" fontSize={10} fill="var(--muted)">{q.label}</ChartLabel>
-          </g>
-        ))}
-
-        <line x1={x(now)} y1={TOP - 12} x2={x(now)} y2={TOP + rows.length * ROW_H + 8} stroke="var(--muted)" strokeWidth={1} strokeDasharray="3 3" />
-        <ChartLabel x={x(now)} y={todayY} textAnchor="middle" fontSize={10} fill="var(--muted)">
-          {todayText}
-        </ChartLabel>
-
-        {sopMs != null && (
-          <g>
-            <line x1={x(sopMs)} y1={TOP - 12} x2={x(sopMs)} y2={TOP + rows.length * ROW_H + 8} stroke="var(--fg)" strokeWidth={1.5} />
-            <ChartLabel x={Math.min(x(sopMs), W - 8)} y={TOP - 16} textAnchor="end" fontSize={11} fill="var(--fg)">
-              {t(locale, 'clSopLabel', { month: monthLong(new Date(sopMs).toISOString(), locale) })}
-            </ChartLabel>
-          </g>
-        )}
-
-        {rows.map((r, i) => {
-          const y = rowY(i);
-          const label = barLabel(r);
-          const isConstraint = ledger.liveConstraintId === r.id;
-          return (
-            <g key={r.id}>
-              {/* r=2 keeps the ring at the radius 6 this layout has always reserved
-                  (RING_PAD); only its weight changes. */}
-              {isConstraint && <ConstraintRing cx={labelW - 12} cy={y} r={2} />}
-              <ChartLabel x={isConstraint ? labelW - RING_PAD : labelW - TEXT_PAD} y={y + 3.5} textAnchor="end" fontSize={11} fill="var(--fg)"
-                className={styles.rowLabel} onClick={() => jumpToPhase(r.id)}>
-                {r.name}
-              </ChartLabel>
-              {r.kind === 'done' && (
-                <rect x={x(r.startMs)} y={y - 4.5} width={Math.max(2, x(r.endMs) - x(r.startMs))} height={9} rx={2} fill="var(--fg)" />
-              )}
-              {r.kind === 'active' && (
-                <>
-                  <rect x={x(r.startMs)} y={y - 4.5} width={Math.max(2, x(now) - x(r.startMs))} height={9} rx={2} fill="var(--fg)" />
-                  <rect x={x(now)} y={y - 4.5} width={Math.max(2, x(r.endMs) - x(now))} height={9} rx={2}
-                    fill="var(--forecast-fill)" stroke="var(--fg)" strokeWidth={1.25} />
-                </>
-              )}
-              {r.kind === 'notStarted' && (
-                <rect x={x(r.startMs)} y={y - 4.5} width={Math.max(2, x(r.endMs) - x(r.startMs))} height={9} rx={2}
-                  fill="none" stroke="var(--fg)" strokeWidth={1.25} />
-              )}
-              {r.kind !== 'notStarted' && (
-                <line x1={x(r.plannedEndMs)} y1={y - 8.5} x2={x(r.plannedEndMs)} y2={y + 8.5} stroke="var(--muted)" strokeWidth={1.5} />
-              )}
-              {r.gapBeforeDays >= 1 && i > 0 && (
-                <ChartLabel x={x(rows[i - 1].endMs)} y={y - 10} fontSize={10} fill="var(--bad)">
-                  {t(locale, 'clSatIdle', { d: r.gapBeforeDays })}
-                </ChartLabel>
-              )}
-              {/* Last in the row, so it sits over the bar and the labels: the whole
-                  row is ONE target. Keyboard reaches it too — a card only a pointer
-                  can open is a card half the users never see. */}
-              <rect className={styles.rowHit} x={0} y={y - ROW_H / 2} width={W} height={ROW_H}
-                rx={4} tabIndex={0} role="button" aria-label={r.name}
-                onMouseEnter={(e) => onRowCard(r, e.currentTarget, labelW, e.clientX)}
-                onMouseMove={(e) => onRowCard(r, e.currentTarget, labelW, e.clientX)}
-                onMouseLeave={() => onRowCard(null, null)}
-                onFocus={(e) => onRowCard(r, e.currentTarget, labelW)}
-                onBlur={() => onRowCard(null, null)}
-                onClick={() => jumpToPhase(r.id)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jumpToPhase(r.id); } }}
-                data-row-id={r.id} />
-              {label && (() => {
-                // Beside the bar when it fits; otherwise under it (starting at the
-                // bar's own left edge, always clear) — never clipped off-canvas.
-                const right = x(Math.max(r.endMs, r.plannedEndMs)) + 8;
-                const fits = right + textWidth(label.text) * (10 / 11) <= W - 4;
-                return (
-                  <ChartLabel x={fits ? right : x(r.startMs)} y={fits ? y + 3.5 : y + 15} fontSize={10}
-                    fill={label.bad ? 'var(--bad)' : 'var(--muted)'}>
-                    {label.text}
-                  </ChartLabel>
-                );
-              })()}
-            </g>
-          );
-        })}
-
-        {sopMs != null && ledger.bufferDays != null && ledger.bufferDays > 0 && (
-          <g>
-            <path d={`M ${x(lastEnd)} ${TOP + rows.length * ROW_H + 4} L ${x(lastEnd)} ${TOP + rows.length * ROW_H + 8} L ${x(sopMs)} ${TOP + rows.length * ROW_H + 8} L ${x(sopMs)} ${TOP + rows.length * ROW_H + 4}`}
-              fill="none" stroke="var(--ok)" strokeWidth={1.5} />
-            <ChartLabel x={(x(lastEnd) + x(sopMs)) / 2} y={axisY + BRACKET_LABEL_DY} textAnchor="middle" fontSize={10} fill="var(--ok)">
-              {t(locale, 'clDaysOfBuffer', { d: ledger.bufferDays })}
-            </ChartLabel>
-          </g>
-        )}
-      </svg>
-    </div>
-  );
-}
 
 export default function ChainLedger({
   projectId, locale, now, ledger, sopDate, volumeFirstYear, owner, ownerPersonId, ownerOtherActive,
@@ -643,7 +300,7 @@ export default function ChainLedger({
         </p>
       )}
 
-      <ScheduleChart ledger={ledger} sopMs={sopMs} now={now} locale={locale} onRowCard={onRowCard} />
+      <ChainSchedule ledger={ledger} sopMs={sopMs} now={now} locale={locale} onRowCard={onRowCard} onJump={jumpToPhase} />
 
       {/* One phase's whole story against the buffer: when it ran, what it cost or
           handed back, and whether the chain is currently waiting on it. Rendered
@@ -769,22 +426,42 @@ export default function ChainLedger({
       {/* the schedule key, consulted on demand */}
       <OverlayDialog open={legendOpen} onClose={() => setLegendOpen(false)} width="26rem"
         title={t(locale, 'clKeyTitle')} closeLabel={t(locale, 'close')}>
+        {/* one cell per meaning — the grid separates state by colour + position, no
+            textures (issue #75). */}
         <div className={styles.legendRow}>
           <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <rect x={1} y={4.5} width={20} height={5} rx={2} fill="var(--fg)" />
+            <rect x={4} y={2} width={14} height={10} rx={2} fill="var(--fg)" fillOpacity={0.92} />
           </svg>
-          {t(locale, 'clKeySolid')}
+          {t(locale, 'clKeyOnPlan')}
         </div>
         <div className={styles.legendRow}>
           <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <rect x={1.5} y={5} width={19} height={4} rx={2} fill="none" stroke="var(--fg)" strokeWidth={1.25} />
+            <rect x={4} y={2} width={14} height={10} rx={2} fill="var(--bad)" />
           </svg>
-          {t(locale, 'clKeyOutline')}
+          {t(locale, 'clKeyOver')}
         </div>
         <div className={styles.legendRow}>
           <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <rect x={1} y={4.5} width={13} height={5} rx={2} fill="var(--fg)" />
-            <line x1={17} y1={1.5} x2={17} y2={12.5} stroke="var(--muted)" strokeWidth={1.5} />
+            <rect x={4} y={2} width={14} height={10} rx={2} fill="var(--ok)" />
+          </svg>
+          {t(locale, 'clKeyEarly')}
+        </div>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
+            <line x1={3} y1={7} x2={19} y2={7} stroke="var(--warn)" strokeWidth={2} strokeDasharray="2 2" />
+          </svg>
+          {t(locale, 'clKeyIdle')}
+        </div>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
+            <rect x={4} y={2} width={14} height={10} rx={2} fill="none" stroke="var(--muted)" strokeWidth={1.25} strokeDasharray="2 1.5" />
+          </svg>
+          {t(locale, 'clKeyForecast')}
+        </div>
+        <div className={styles.legendRow}>
+          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
+            <rect x={4} y={3} width={10} height={8} rx={2} fill="var(--fg)" fillOpacity={0.92} />
+            <line x1={16} y1={1} x2={16} y2={13} stroke="var(--muted)" strokeWidth={1.5} />
           </svg>
           {t(locale, 'clKeyTick')}
         </div>
@@ -795,20 +472,12 @@ export default function ChainLedger({
           {t(locale, 'clKeyRing')}
         </div>
         <div className={styles.legendRow}>
-          <BandSwatch kind="loss" />
-          {t(locale, 'clKeyRed')}
-        </div>
-        <div className={styles.legendRow}>
-          <BandSwatch kind="forecastLoss" />
-          {t(locale, 'clKeyAmber')}
-        </div>
-        <div className={styles.legendRow}>
-          <BandSwatch kind="gain" />
-          {t(locale, 'clKeyGreen')}
-        </div>
-        <div className={styles.legendRow}>
-          <BandSwatch kind="buffer" />
-          {t(locale, 'clKeyTeal')}
+          <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
+            <path d="M2 5 H9 V10 H14 V7 H20" fill="none" stroke="var(--fg)" strokeWidth={1.5} />
+            <line x1={9} y1={5} x2={9} y2={10} stroke="var(--bad)" strokeWidth={2} />
+            <line x1={14} y1={10} x2={14} y2={7} stroke="var(--ok)" strokeWidth={2} />
+          </svg>
+          {t(locale, 'clKeyBufferLane')}
         </div>
       </OverlayDialog>
 

@@ -166,35 +166,29 @@ test.describe('Appearance: style and theme are independent', () => {
     for (const gap of gaps) expect(Math.abs(gap)).toBeLessThan(1);
   });
 
-  // The schedule buffer bands are solid hue washes in Standard and hatch/stipple
-  // TEXTURES in Instrument, so the four meanings separate by pattern, not by
-  // similar shades. Both variants are always in the DOM; CSS shows one per style.
-  test('buffer bands are washes in Standard, textures in Instrument', async ({ page }) => {
+  // The schedule is a phase × week STATE GRID (issue #75): state separates by colour
+  // + position (on-plan ink, over red, early green, idle amber), with NO hatch/stipple
+  // textures and NO full-height buffer bands — the old encoding that was unreadable on
+  // a complex chain. Verify the re-encoding landed, from the rendered DOM.
+  test('schedule is a textureless state grid, no full-height bands', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
 
     const chart = page.locator('[class*="scheduleSvg"]').first();
     await expect(chart).toBeVisible();
 
-    const read = () => chart.evaluate((svg) => {
-      const shown = (sel: string) => {
-        const g = svg.querySelector(sel);
-        if (!g || getComputedStyle(g).display === 'none') return null;
-        return (g.querySelector('rect') as SVGRectElement | null)?.getAttribute('fill') ?? null;
+    const info = await chart.evaluate((svg) => {
+      const paint = [...svg.querySelectorAll('rect, line, path')]
+        .flatMap((el) => [el.getAttribute('fill') ?? '', el.getAttribute('stroke') ?? '']);
+      return {
+        hasInkCell: paint.some((p) => p.includes('var(--fg)')),        // on-plan state cells
+        hasPatternFill: paint.some((p) => p.startsWith('url(#sched')),  // the removed textures
+        hasBandToken: paint.some((p) => p.includes('var(--band-')),     // the removed washes
       };
-      return { std: shown('[data-std-only]'), inst: shown('[data-inst-only]') };
     });
 
-    // Standard: the solid-wash group shows a translucent hue token; no pattern.
-    await page.evaluate(() => { document.documentElement.dataset.style = 'standard'; });
-    const standard = await read();
-    expect(standard.std).toMatch(/var\(--band-/);
-    expect(standard.inst).toBeNull();
-
-    // Instrument: the pattern group shows, filled by a pattern reference.
-    await page.evaluate(() => { document.documentElement.dataset.style = 'instrument'; });
-    const instrument = await read();
-    expect(instrument.inst).toMatch(/^url\(#sched-/);
-    expect(instrument.std).toBeNull();
+    expect(info.hasInkCell).toBe(true);       // the grid drew state cells
+    expect(info.hasPatternFill).toBe(false);  // hatch/stipple textures are gone
+    expect(info.hasBandToken).toBe(false);    // full-height buffer washes are gone
   });
 
   test('the style picker persists the choice', async ({ page }) => {

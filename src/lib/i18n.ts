@@ -1335,23 +1335,41 @@ const STRINGS = {
   // Schedule chart
   clSchedule: { en: 'Schedule', de: 'Zeitplan', ja: 'スケジュール', ko: '일정' },
   clKeyTitle: { en: 'How to read the schedule', de: 'So liest du den Zeitplan', ja: 'スケジュールの読み方', ko: '일정 읽는 법' },
-  clKeySolid: {
-    en: 'Solid bars are dates that happened.',
-    de: 'Volle Balken sind eingetretene Daten.',
-    ja: '塗りつぶしバーは実績です。',
-    ko: '채워진 막대는 실제 날짜입니다.',
+  clKeyOnPlan: {
+    en: 'A filled cell is work done, or on plan, that week.',
+    de: 'Eine gefüllte Zelle ist erledigte oder planmäßige Arbeit dieser Woche.',
+    ja: '塗りつぶしのセルは、その週の完了済みまたは計画どおりの作業です。',
+    ko: '채워진 칸은 그 주에 완료했거나 계획대로 진행한 작업입니다.',
   },
-  clKeyOutline: {
-    en: 'Outlined bars are the forecast.',
-    de: 'Umrandete Balken sind die Prognose.',
-    ja: '枠線バーは予測です。',
-    ko: '윤곽선 막대는 예측입니다.',
+  clKeyOver: {
+    en: 'Red: that week ran over the plan.',
+    de: 'Rot: diese Woche lag über dem Plan.',
+    ja: '赤: その週は計画を超過しました。',
+    ko: '빨강: 그 주는 계획을 초과했습니다.',
+  },
+  clKeyEarly: {
+    en: 'Green: the phase finished early — days handed back to the buffer.',
+    de: 'Grün: die Phase wurde früher fertig — Tage gehen an den Puffer zurück.',
+    ja: '緑: フェーズが前倒しで完了 — バッファに日数を返却。',
+    ko: '초록: 단계가 일찍 끝나 버퍼에 일수를 반환했습니다.',
+  },
+  clKeyIdle: {
+    en: 'Amber dashes mark idle days between phases — dead air the program pays for.',
+    de: 'Bernsteinfarbene Striche markieren Leerlauftage zwischen Phasen — totes Warten, das das Programm bezahlt.',
+    ja: '琥珀色の破線はフェーズ間の待機日 — プログラムが負担する空白時間です。',
+    ko: '호박색 점선은 단계 사이의 대기 일수 — 프로그램이 부담하는 공백입니다.',
+  },
+  clKeyForecast: {
+    en: 'A dashed outline is forecast, or not-yet-started, work.',
+    de: 'Eine gestrichelte Umrandung ist prognostizierte oder noch nicht begonnene Arbeit.',
+    ja: '破線の枠は予測または未着手の作業です。',
+    ko: '점선 윤곽은 예측이거나 아직 시작하지 않은 작업입니다.',
   },
   clKeyTick: {
-    en: 'The tick on a bar is where the plan said it would end.',
-    de: 'Der Strich markiert das geplante Ende.',
-    ja: '目盛りは計画上の終了点です。',
-    ko: '눈금은 계획된 종료 지점입니다.',
+    en: 'The tick shows where the plan said the phase would end.',
+    de: 'Der Strich markiert das geplante Phasenende.',
+    ja: '目盛りは計画上のフェーズ終了点です。',
+    ko: '눈금은 계획된 단계 종료 지점입니다.',
   },
   clKeyRing: {
     en: 'The ring marks the phase gating the SOP.',
@@ -1359,29 +1377,11 @@ const STRINGS = {
     ja: 'リングはSOPを左右するフェーズを示します。',
     ko: '링은 SOP를 좌우하는 단계를 표시합니다.',
   },
-  clKeyRed: {
-    en: 'Red: days already lost — overruns and idle handoffs.',
-    de: 'Rot: bereits verlorene Tage — Überschreitungen und Leerlauf bei Übergaben.',
-    ja: '赤: すでに失った日数（超過と引き継ぎ待ち）。',
-    ko: '빨강: 이미 잃은 일수 — 초과와 인수인계 대기.',
-  },
-  clKeyAmber: {
-    en: 'Amber: days the forecast expects to lose — not spent yet.',
-    de: 'Bernstein: Tage, die laut Prognose verloren gehen — noch nicht verbraucht.',
-    ja: '琥珀色: 予測上これから失う日数（未確定）。',
-    ko: '호박색: 예측상 앞으로 잃을 일수 — 아직 쓰지 않음.',
-  },
-  clKeyGreen: {
-    en: 'Green: days handed back by finishing early.',
-    de: 'Grün: Tage, die durch frühes Fertigwerden zurückkommen.',
-    ja: '緑: 前倒し完了で取り戻した日数。',
-    ko: '초록: 일찍 끝내 되돌린 일수.',
-  },
-  clKeyTeal: {
-    en: 'Teal: the buffer still in hand before the SOP.',
-    de: 'Petrol: der vor dem SOP verbleibende Puffer.',
-    ja: '青緑: SOP前に残っているバッファ。',
-    ko: '청록: SOP 전에 남아 있는 버퍼.',
+  clKeyBufferLane: {
+    en: 'The lane below tracks buffer on hand: a red step spends it, a green step gives it back.',
+    de: 'Die Spur darunter zeigt den verfügbaren Puffer: eine rote Stufe verbraucht ihn, eine grüne gibt ihn zurück.',
+    ja: '下のレーンは手元のバッファを示します。赤い段差は消費、緑の段差は返却です。',
+    ko: '아래 레인은 남은 버퍼를 나타냅니다. 빨간 계단은 소모, 초록 계단은 반환입니다.',
   },
   clDaysEarly: { en: '{d} days early', de: '{d} Tage früher', ja: '{d}日早く完了', ko: '{d}일 일찍 완료' },
   clOneDayEarly: { en: '1 day early', de: '1 Tag früher', ja: '1日早く完了', ko: '1일 일찍 완료' },
@@ -1428,6 +1428,14 @@ const STRINGS = {
   clDaysOfBuffer: { en: '{d} days of buffer', de: '{d} Tage Puffer', ja: 'バッファ{d}日', ko: '버퍼 {d}일' },
   clSopLabel: { en: 'SOP · end of {month}', de: 'SOP · Ende {month}', ja: 'SOP · {month}末', ko: 'SOP · {month} 말' },
   clTodayLabel: { en: 'today · {date}', de: 'heute · {date}', ja: '今日 · {date}', ko: '오늘 · {date}' },
+  // Schedule grid + buffer-lane compact labels (issue #75).
+  clIdleDays: { en: '{d}d idle', de: '{d}T Leerlauf', ja: '待機{d}日', ko: '{d}일 대기' },
+  // Label under an axis-break glyph: how much empty time the seam compresses.
+  clAxisBreak: { en: '{d} days', de: '{d} Tage', ja: '{d}日', ko: '{d}일' },
+  clBufferLane: { en: 'buffer on hand', de: 'Puffer verfügbar', ja: '手元のバッファ', ko: '남은 버퍼' },
+  clBufferNow: { en: '{d}d buffer', de: '{d}T Puffer', ja: 'バッファ{d}日', ko: '버퍼 {d}일' },
+  clBufferGuideline: { en: '{d}d reserve', de: '{d}T Reserve', ja: '予備{d}日', ko: '예비 {d}일' },
+  clBufferDaysShort: { en: '{d}d', de: '{d}T', ja: '{d}日', ko: '{d}일' },
   // Waterfall
   clWhereBufferWent: { en: 'Where the buffer went', de: 'Wohin der Puffer ging', ja: 'バッファの行方', ko: '버퍼가 쓰인 곳' },
   clCostDays: { en: 'cost {d} days', de: 'kostete {d} Tage', ja: '{d}日を消費', ko: '{d}일 소모' },
