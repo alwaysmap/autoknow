@@ -3,6 +3,7 @@ import { listTemplates } from '../../lib/programTemplates';
 import { createTemplate, cloneTemplate, deleteTemplate } from '../actions/templates';
 import { getLocale } from '../../lib/locale';
 import { t } from '../../lib/i18n';
+import PageShell from '../../components/PageShell';
 import styles from './page.module.css';
 
 // Program template library (PHASE_TEMPLATES_PLAN §6): built-ins are clone-only;
@@ -15,14 +16,15 @@ export default async function TemplatesPage() {
   const templates = await listTemplates();
 
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>{t(locale, 'programTemplates')}</h1>
+    <PageShell
+      title={t(locale, 'programTemplates')}
+      maxWidth="60rem"
+      actions={
         <form action={createTemplate}>
           <button type="submit" className={styles.primaryBtn}>{t(locale, 'newTemplate')}</button>
         </form>
-      </header>
-
+      }
+    >
       <table className={styles.table}>
         <thead>
           <tr>
@@ -57,6 +59,6 @@ export default async function TemplatesPage() {
           ))}
         </tbody>
       </table>
-    </div>
+    </PageShell>
   );
 }

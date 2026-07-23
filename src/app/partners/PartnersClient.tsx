@@ -8,6 +8,7 @@ import DataTable from '../../components/DataTable';
 import ClassBox from '../../components/ClassBox';
 import { NewPartnerButton } from '../../components/PartnerEditor';
 import KebabMenu from '../../components/KebabMenu';
+import PageShell from '../../components/PageShell';
 import { RelationshipCell } from '../../components/RelationshipScale';
 import { parseScore, clampScore, REL_KEY } from '../../lib/relationship';
 import { deriveEmail, normalizeHandle } from '../../lib/auth';
@@ -126,18 +127,18 @@ export default function PartnersClient({ partners, currentUser, people, relation
   }, [filteredPartners, relationship]);
 
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>{t(locale, 'partnersLabel')}</h1>
+    <PageShell
+      title={t(locale, 'partnersLabel')}
+      maxWidth="62.5rem"
+      actions={
         <KebabMenu ariaLabel={t(locale, 'moreActions')}>
           <NewPartnerButton types={types} regions={regions} />
         </KebabMenu>
-      </header>
-
-      <main className={styles.main}>
-        {/* Column filtering lives in the funnels; this slim row carries only the
-            ownership toggle (not a column) and the reset for everything at once. */}
-        <div className={styles.toolbar}>
+      }
+    >
+      {/* Column filtering lives in the funnels; this slim row carries only the
+          ownership toggle (not a column) and the reset for everything at once. */}
+      <div className={styles.toolbar}>
           <label htmlFor="myPartnersCheckbox" className={styles.toolbarToggle}>
             <input
               id="myPartnersCheckbox"
@@ -294,7 +295,6 @@ export default function PartnersClient({ partners, currentUser, people, relation
             emptyStateMessage={t(locale, 'noPartnersMatchFilters')}
           />
         </section>
-      </main>
-    </div>
+    </PageShell>
   );
 }

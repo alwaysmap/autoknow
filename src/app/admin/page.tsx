@@ -2,6 +2,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getLocale } from '../../lib/locale';
 import { t } from '../../lib/i18n';
+import PageShell from '../../components/PageShell';
 import styles from './page.module.css';
 
 export const dynamic = 'force-dynamic';
@@ -52,12 +53,11 @@ async function wipeAllData() {
 export default async function AdminPage() {
   const locale = await getLocale();
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>{t(locale, 'navDevConsole')}</h1>
-        <p className={styles.subtext}>{t(locale, 'adminSubtext')}</p>
-      </header>
-
+    <PageShell
+      title={t(locale, 'navDevConsole')}
+      maxWidth="75rem"
+      subtitle={t(locale, 'adminSubtext')}
+    >
       <div className={styles.grid}>
         <div className={styles.card}>
           <h3>{t(locale, 'onboardingMode')}</h3>
@@ -107,6 +107,6 @@ export default async function AdminPage() {
           <pre className={styles.pre}>{CURL_COMMAND_2}</pre>
         </div>
       </section>
-    </div>
+    </PageShell>
   );
 }
