@@ -207,6 +207,26 @@
   text-decoration: underline;
 }
 
+/* Coarse pointers have no hover state, so the jump affordance (the label links to the
+   phase) would be invisible — show it permanently, quietly. The house answer, lifted
+   from AnchorHeading.module.css ("Coarse pointers have no hover state: show the link
+   permanently, quietly"), so the chart follows the existing convention rather than
+   inventing a second one (issue #22). */
+@media (hover: none) {
+  .rowLabel {
+    text-decoration: underline;
+  }
+}
+
+/* The JUMP target: a transparent rect over the whole label column, so touch gets an
+   adequate tap area for the phase name (the ~12px glyphs alone are well under the
+   guidance). It sits UNDER the visible name, which keeps its own :hover and click —
+   the name carries the affordance, this rect carries the reach (issue #22). */
+.labelHit {
+  fill: transparent;
+  cursor: pointer;
+}
+
 /* ONE hit target per schedule row, spanning the full chart width: the label, the
    bar, the plan tick and the trailing note all belong to the same phase, so they
    answer to the same hover instead of each being its own little target. */

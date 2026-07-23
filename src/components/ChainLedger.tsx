@@ -9,7 +9,7 @@ import { DAY_MS } from '../lib/sop';
 import AnchorHeading from './AnchorHeading';
 import OverlayDialog from './OverlayDialog';
 import ConstraintRing from './ConstraintRing';
-import { ChainSchedule, CARD_W, W } from './ChainSchedule';
+import { ChainSchedule, CARD_W } from './ChainSchedule';
 import type { RowCard } from './ChainSchedule';
 import { isForecastOver } from '../lib/chainLedger';
 import type { ChainLedgerResult, ResourceRef, ScheduleRow, Situation, WaterfallRow } from '../lib/chainLedger';
@@ -55,10 +55,10 @@ export default function ChainLedger({
   const wrapRef = useRef<HTMLElement>(null);
   const sopMs = sopDate ? +new Date(sopDate) : null;
 
-  // Row hover card. Position is measured in the EVENT, not in an effect — the
+  // Row status card. Position is measured in the EVENT, not in an effect — the
   // element's box is what anchors it, and setState-in-effect is a lint error here.
   const [rowCard, setRowCard] = useState<RowCard | null>(null);
-  const onRowCard = (row: ScheduleRow | null, el: SVGRectElement | null, labelW = 0, clientX?: number) => {
+  const onRowCard = (row: ScheduleRow | null, el: SVGRectElement | null, clientX?: number) => {
     if (!row || !el || !wrapRef.current) return setRowCard(null);
     const box = el.getBoundingClientRect();
     const wrap = wrapRef.current.getBoundingClientRect();
@@ -67,10 +67,10 @@ export default function ChainLedger({
     // so the reader can slide it off whatever it happens to be covering. Clamped to
     // the section so it can never hang outside; CARD_W is the max-width the
     // stylesheet gives it, which is all the clamp needs to know.
-    // Without a pointer (keyboard focus) it parks past the label column, which is
-    // the one place guaranteed not to cover the row names.
-    const scale = box.width / W; // the hit rect spans the chart's full W user units
-    const parked = box.left - wrap.left + labelW * scale + 8;
+    // Without a pointer (keyboard focus) it parks just inside the plot. The body hit
+    // rect now STARTS at the label column's right edge — the label is its own jump
+    // target now (issue #22) — so the rect's own left edge already clears the names.
+    const parked = box.left - wrap.left + 8;
     // Follow the pointer, but FLIP to its LEFT once it crosses the section's midpoint
     // (#82). Pinned only to the right and clamped, the card parks against the right
     // edge and sits on top of the very cells the reader is pointing at; opening it to

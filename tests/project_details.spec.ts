@@ -117,10 +117,12 @@ test.describe('Project Details and Action Item Operations', () => {
     expect(box.x + box.width).toBeLessThanOrEqual(360);
   });
 
-  // A schedule row is ONE target covering label, bar and trailing note, and its card
-  // must be reachable without a pointer — a hover-only card is a card half the users
-  // never see. It also must not cover the label column: the names are what the reader
-  // uses to keep their place, so a card that hides them costs more than it gives.
+  // The row BODY carries the status card and the LABEL carries the jump (two targets
+  // since #22), but the card must still be reachable without a pointer — a hover-only
+  // card is a card half the users never see. Focus shows it; it must land clear of the
+  // label column, because the names are what the reader uses to keep their place, so a
+  // card that hides them costs more than it gives. (The touch split — body reveals,
+  // label jumps — is proved in chain_touch.spec.ts, which needs a touch context.)
   test('a critical-chain row offers a keyboard-reachable card, clear of the labels', async ({ page }) => {
     await page.goto(`/programs/${projectId}`);
     const rows = page.locator('[class*="rowHit"]');
