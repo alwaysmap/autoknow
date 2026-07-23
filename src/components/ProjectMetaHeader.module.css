@@ -25,7 +25,10 @@
 
 .strip {
   display: flex;
-  justify-content: space-between;
+  /* Facts left, stats right — but the right anchor is EXPLICIT (`.stats`'
+     margin-left:auto), not `space-between`, which drops a lone wrapped item to
+     flex-start (#48). So the stats stay pinned right whether the row wraps or not. */
+  justify-content: flex-start;
   align-items: flex-end;
   gap: 1rem 2rem;
   flex-wrap: wrap;
@@ -46,8 +49,18 @@
   margin-left: 0.875rem;
 }
 
+/* Products: the label plus one ClassBox per product (§6 — a product is a CLASS the
+   program shares, so a box). A wrapping flex row, NOT a nowrap atom: four products
+   break at chip boundaries instead of forcing the whole strip to a new line (#48). */
 .fact {
-  white-space: nowrap;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.productBox {
+  color: var(--muted);
 }
 
 .factLabel {
@@ -101,6 +114,7 @@
   gap: 2.5rem;
   align-items: flex-end;
   flex-shrink: 0;
+  margin-left: auto; /* pin right, wrapped or not (#48) */
 }
 
 .stat {
