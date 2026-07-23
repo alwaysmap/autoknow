@@ -31,12 +31,26 @@
 
 .logo {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-family: var(--head-font);
   font-weight: 700;
   font-size: 1.125rem;
   color: var(--fg);
   text-decoration: none;
   letter-spacing: 0.02em;
+}
+
+/* The app mark (NavMark): the hill glyph before the wordmark. Sized to sit WITHIN
+   the wordmark's line box (18px × 1.5 = 27px) so the brand link — and thus the nav
+   row — never grows past --nav-h (3.5rem). 1.5rem = 24px, a whole pixel (§8d). It
+   inks itself from .logo's `color: var(--fg)` via the SVG's `stroke="currentColor"`
+   (§8b: no hard-coded colour), so it tracks the nav foreground in both themes/styles. */
+.mark {
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
 .rightSection {
