@@ -9,7 +9,7 @@ import ConstraintRing from './ConstraintRing';
 import { isForecastOver } from '../lib/chainLedger';
 import type { ChainLedgerResult, ScheduleRow } from '../lib/chainLedger';
 import { keepNonOverlapping, dodgeLabels } from '../lib/labelPlacement';
-import { focusWindow, panWindow, zoomWindow, Span } from '../lib/focusWindow';
+import { focusWindow, panWindow, zoomWindow, type Span } from '../lib/focusWindow';
 import styles from './ChainLedger.module.css';
 
 // The Critical Chain "Schedule" instrument (docs/CRITICAL_CHAIN_VIEW_PLAN.md §4a,
@@ -47,6 +47,8 @@ const FS_ROW = 12, FS_EMPH = 12, FS_AXIS = 11, FS_SMALL = 10;
 // of BREAK_W instead of donating that many full columns to nothing (issue #75 / #42).
 // 6 weeks so a modest buffer tail stays inline; only a clearly long run collapses.
 const COLLAPSE_MIN_WEEKS = 6, BREAK_W = 26;
+// Each zoom-in shrinks the focus window to this fraction of its span (zoom-out is the inverse).
+const ZOOM_STEP = 0.6;
 
 const textWidth = (s: string) =>
   [...s].reduce((w, ch) => w + (ch.charCodeAt(0) > 0x2e80 ? WIDE_CHAR_W : CHAR_W), 0);
@@ -260,11 +262,11 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
 
   // Zoom buttons. Centre a zoom on the current view (or, from Fit, on today clamped to data).
   const zoomCenter = focus ? (focus.min + focus.max) / 2 : Math.min(Math.max(now, dataMin), dataMax);
-  const FIT_SPAN = (dataMax - dataMin) / 2; // the first zoom-in from Fit lands at half the chain
+  const fitSpan = (dataMax - dataMin) / 2; // the first zoom-in from Fit lands at half the chain
   const jumpToFit = () => setFocus(null);
   const jumpToTwoWeeks = () => setFocus(focusWindow(zoomCenter, 2 * WEEK_MS, dataMin, dataMax));
-  const zoomIn = () => setFocus(zoomWindow(focus, 0.6, zoomCenter, FIT_SPAN, dataMin, dataMax));
-  const zoomOut = () => setFocus(zoomWindow(focus, 1 / 0.6, zoomCenter, FIT_SPAN, dataMin, dataMax));
+  const zoomIn = () => setFocus(zoomWindow(focus, ZOOM_STEP, zoomCenter, fitSpan, dataMin, dataMax));
+  const zoomOut = () => setFocus(zoomWindow(focus, 1 / ZOOM_STEP, zoomCenter, fitSpan, dataMin, dataMax));
 
   // month boundaries for the axis labels (one letter per month, centred in its span)
   const monthNarrow = new Intl.DateTimeFormat(locale, { month: 'narrow', timeZone: 'UTC' });

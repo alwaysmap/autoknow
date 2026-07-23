@@ -1,7 +1,7 @@
 /** @jest-environment node */
 // The chart's zoom/pan focus window (#75): a window always stays inside the data range,
 // keeps its width while panning, and collapses to Fit (null) once it covers everything.
-import { focusWindow, panWindow, zoomWindow, MIN_SPAN_MS, Span } from '../src/lib/focusWindow';
+import { focusWindow, panWindow, zoomWindow, MIN_SPAN_MS, type Span } from '../src/lib/focusWindow';
 
 const DAY = 24 * 60 * 60 * 1000;
 const DATA_MIN = 0;
