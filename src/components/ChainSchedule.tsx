@@ -242,14 +242,17 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
         return { letter: monthNarrow.format(new Date(m.ms)), cx: (x(from) + x(to)) / 2, span: x(to) - x(from) };
       }).filter((o) => o.span >= 12)
     : [];
+  const axisLabelY = axisY + 16, axisHalfH = FS_AXIS / 2 + 1;
   const axisKeep = keepNonOverlapping([
-    ...breaks.map((b, i) => ({ x: axisBreakLabelX[i], half: textWidth(t(locale, 'clAxisBreak', { d: b.days })) / 2 + 3, priority: 2 })),
-    ...axisMonths.map((o) => ({ x: o.cx, half: textWidth(o.letter) / 2 + 3, priority: 1 })),
+    ...breaks.map((b, i) => ({ x: axisBreakLabelX[i], y: axisLabelY, halfW: textWidth(t(locale, 'clAxisBreak', { d: b.days })) / 2 + 3, halfH: axisHalfH, priority: 2 })),
+    ...axisMonths.map((o) => ({ x: o.cx, y: axisLabelY, halfW: textWidth(o.letter) / 2 + 3, halfH: axisHalfH, priority: 1 })),
   ]);
   // today vs SOP share the top line; if they'd collide, drop `today` a line below SOP.
+  // The SOP label is END-anchored and clamped to W-8, so its box is measured from there.
   const todayHalfW = textWidth(t(locale, 'clTodayLabel', { date: dayShort(now, locale) })) / 2;
+  const sopLabelRight = sopMs != null ? Math.min(x(sopMs), W - 8) : 0;
   const sopLabelW = sopMs != null ? textWidth(t(locale, 'clSopLabel', { month: monthLong(sopMs, locale) })) : 0;
-  const topClash = sopMs != null && x(now) + todayHalfW > x(sopMs) - sopLabelW - 4 && x(now) - todayHalfW < x(sopMs);
+  const topClash = sopMs != null && x(now) + todayHalfW + 4 > sopLabelRight - sopLabelW && x(now) - todayHalfW < sopLabelRight;
   const todayLabelY = topClash ? TOP - 4 : TOP - 18;
 
   // one dominant cell state per (row, week), clipped to the phase's true day extent
@@ -312,17 +315,32 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   // y-axis scale values, derived here like laneFlats/laneRisers (aim for ~3 gridlines).
   const bufTicks: number[] = [];
   for (let v = 0, step = niceStep(laneMax / 3); v <= laneMax + 0.01; v += step) bufTicks.push(v);
-  // Level labels (start, each riser, now) de-collided by x so they never stack into an
-  // unreadable pile when inflections cluster — the y-axis scale still gives the value of
-  // any point whose own label yielded. now wins, then start, then risers.
+  // EVERY lane label — the y-axis scale values, the reserve marker, the start, each
+  // riser, and now — de-collided together in 2D, so nothing stacks (the y-axis scale
+  // still gives the value of any level label that yields). now wins over reserve; the
+  // scale ticks and anchors outrank the risers. Centres computed per anchor: y-axis /
+  // reserve are end-anchored, now is start-anchored, the rest are centred.
+  const laneH2 = FS_SMALL / 2 + 1;
   const shortHalf = (v: number) => textWidth(t(locale, 'clBufferDaysShort', { d: Math.round(v) })) / 2 + 4;
-  const laneKeep = keepNonOverlapping([
-    { x: laneStartX, half: shortHalf(startBuffer ?? 0), priority: 2 },
-    ...laneRisers.map((s) => ({ x: s.x, half: shortHalf(s.to), priority: 1 })),
-    { x: x(now), half: shortHalf(laneEndLevel), priority: 3 },
-  ]);
-  const keepStartLabel = laneKeep[0];
-  const keepNowLabel = laneKeep[laneKeep.length - 1];
+  const reserveHalf = textWidth(t(locale, 'clBufferGuideline', { d: ledger.guidelineDays })) / 2 + 2;
+  const nowHalf = textWidth(t(locale, 'clBufferNow', { d: Math.round(laneEndLevel) })) / 2 + 3;
+  const laneLabels = [
+    ...bufTicks.map((v) => {
+      const hw = textWidth(t(locale, 'clBufferDaysShort', { d: v })) / 2 + 2;
+      return { x: labelW - 4 - hw, y: bufY(v) + 3.5, halfW: hw, halfH: laneH2, priority: 2 };
+    }),
+    { x: W - PAD_R - 3 - reserveHalf, y: bufY(ledger.guidelineDays) - 3, halfW: reserveHalf, halfH: laneH2, priority: 2 },
+    { x: laneStartX, y: bufY(startBuffer ?? 0) - 7, halfW: shortHalf(startBuffer ?? 0), halfH: laneH2, priority: 2 },
+    ...laneRisers.map((s) => ({ x: s.x, y: bufY(s.to) + (s.to >= s.from ? -7 : 13), halfW: shortHalf(s.to), halfH: laneH2, priority: 1 })),
+    { x: x(now) + 6 + nowHalf, y: bufY(laneEndLevel) - 7, halfW: nowHalf, halfH: FS_EMPH / 2 + 1, priority: 3 },
+  ];
+  const laneKeep = keepNonOverlapping(laneLabels);
+  const nTicks = bufTicks.length;
+  const keepTick = (i: number) => laneKeep[i];
+  const keepReserveLabel = laneKeep[nTicks];
+  const keepStartLabel = laneKeep[nTicks + 1];
+  const keepRiser = (i: number) => laneKeep[nTicks + 2 + i];
+  const keepNowLabel = laneKeep[laneLabels.length - 1];
 
   const constraintCx = labelW - (labelW > 40 ? 12 : 6);
 
@@ -455,18 +473,23 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
               <g key={`yt${i}`}>
                 <line x1={labelW} y1={bufY(v)} x2={W - PAD_R} y2={bufY(v)}
                   stroke="var(--border)" strokeWidth={1} opacity={v === 0 ? 1 : 0.4} />
-                <ChartLabel x={labelW - 4} y={bufY(v) + 3.5} textAnchor="end" fontSize={FS_SMALL} fill="var(--muted)">
-                  {t(locale, 'clBufferDaysShort', { d: v })}
-                </ChartLabel>
+                {keepTick(i) && (
+                  <ChartLabel x={labelW - 4} y={bufY(v) + 3.5} textAnchor="end" fontSize={FS_SMALL} fill="var(--muted)">
+                    {t(locale, 'clBufferDaysShort', { d: v })}
+                  </ChartLabel>
+                )}
               </g>
             ))}
-            {/* the 50%-rule reserve — a distinct dashed marker on that scale */}
+            {/* the 50%-rule reserve — a distinct dashed marker on that scale (its LINE
+                always shows; the label yields to the current-buffer label if they'd clash) */}
             <line x1={labelW} y1={bufY(ledger.guidelineDays)} x2={W - PAD_R} y2={bufY(ledger.guidelineDays)}
               stroke="var(--muted)" strokeWidth={1} strokeDasharray="4 3" opacity={0.9} />
-            <ChartLabel x={W - PAD_R - 3} y={bufY(ledger.guidelineDays) - 3} textAnchor="end" fontSize={FS_SMALL}
-              fill="var(--muted)" halo="var(--surface)">
-              {t(locale, 'clBufferGuideline', { d: ledger.guidelineDays })}
-            </ChartLabel>
+            {keepReserveLabel && (
+              <ChartLabel x={W - PAD_R - 3} y={bufY(ledger.guidelineDays) - 3} textAnchor="end" fontSize={FS_SMALL}
+                fill="var(--muted)" halo="var(--surface)">
+                {t(locale, 'clBufferGuideline', { d: ledger.guidelineDays })}
+              </ChartLabel>
+            )}
             {/* flats: the level held over a span */}
             {laneFlats.map((f, i) => (
               <line key={`f${i}`} x1={f.x1} y1={bufY(f.level)} x2={f.x2} y2={bufY(f.level)}
@@ -489,7 +512,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
                   <line x1={s.x} y1={bufY(s.from)} x2={s.x} y2={bufY(s.to)} stroke={col} strokeWidth={2.5}
                     strokeDasharray={s.projected ? '3 2' : undefined} />
                   <circle cx={s.x} cy={bufY(s.to)} r={2.6} fill={col} />
-                  {laneKeep[1 + i] && (
+                  {keepRiser(i) && (
                     <ChartLabel x={s.x} y={bufY(s.to) + (up ? -7 : 13)} textAnchor="middle" fontSize={FS_SMALL}
                       fill={col} halo="var(--surface)">
                       {t(locale, 'clBufferDaysShort', { d: Math.round(s.to) })}
