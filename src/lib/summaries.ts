@@ -5,7 +5,9 @@ import { DEFAULT_SUMMARY_PROMPTS, type SummaryScope } from './summaryPrompts';
 import { computeCriticalChain } from './criticalChain';
 import { parseHealth } from './health';
 import { deriveScore } from './relationship';
-import { hillStatus, phaseDetailHref } from './phase';
+import { hillStatus } from './phase';
+import { personHref, partnerHref, programHref, phaseDetailHref } from './entityHref';
+import { linkify, type EntityLink, type Segment } from './summaryLinkify';
 import { sopOutlook } from './sop';
 import { localDate } from './dates';
 
@@ -32,6 +34,11 @@ export interface SummaryCitation {
 
 export interface SummaryBullet {
   text: string;
+  // The prose split into plain + linked runs (#77): a real noun in `text` (person,
+  // partner, program, phase) becomes a link to its endpoint. Absent ⇒ render `text`
+  // plain — old briefs stored before this feature carry none (same append-only
+  // back-compat as the legacy-citation rewrite below).
+  segments?: Segment[];
   citations: SummaryCitation[];
 }
 
@@ -42,6 +49,7 @@ export interface SummarySection {
 
 export interface SummaryBody {
   sections: SummarySection[];
+  tldrSegments?: Segment[]; // the tldr's linked runs (the tldr column stays plain text)
 }
 
 export interface SummaryView {
@@ -94,8 +102,54 @@ class EvidenceList {
   }
 }
 
+// The real entities in a summary's scope, collected as {name, href} pairs while the
+// evidence is gathered. Two jobs (#73/#77): the generated prose is linkified against
+// these names (linkify()), and the href always comes from OUR resolvers here — a URL is
+// data resolved at this boundary, never a string the model emits (AGENTS lessons 3, 15).
+class EntityRegistry {
+  readonly links: EntityLink[] = [];
+  private seen = new Set<string>();
+  add(name: string | null | undefined, href: string): void {
+    const n = (name ?? '').trim();
+    if (!n) return;
+    const key = `${n.toLowerCase()}|${href}`;
+    if (this.seen.has(key)) return;
+    this.seen.add(key);
+    this.links.push({ name: n, href, external: false });
+  }
+}
+
+// An action's `nextStep` names which SIDE moves next; the prompt's actions rule keys
+// off this to avoid telling a partner employee to "work with the partner" (#73). Pure
+// so it unit-tests without a model or a database.
+export function nextStepPhrase(nextStep: string): string {
+  switch (nextStep) {
+    case 'Partner':
+      return 'the partner acts next';
+    case 'Googler':
+      return 'the Google-side owner acts next';
+    case 'Resolved':
+      return 'resolved';
+    default:
+      return 'next actor undecided';
+  }
+}
+
+/** An action's owner as "Name (Company)" — the affiliation is the signal that tells the
+ *  model which side the person is on (a Qualcomm owner is the partner, not someone who
+ *  "works with" the partner). Prefers the canonical Person; falls back to the free-text
+ *  `assignedTo` when the assignee never resolved to a row. Null when neither exists. */
+export function formatActionOwner(
+  person: { name: string; currentPartner: { name: string } | null } | null | undefined,
+  assignedTo: string | null | undefined,
+): string | null {
+  if (person) return `${person.name}${person.currentPartner ? ` (${person.currentPartner.name})` : ''}`;
+  const free = assignedTo?.trim();
+  return free ? free : null;
+}
+
 /** One program's evidence (chain, needle, hill, actions, ingested digests). */
-async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: EvidenceList) {
+async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: EvidenceList, reg: EntityRegistry) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: {
@@ -106,7 +160,15 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
         include: {
           states: { orderBy: { timestamp: 'desc' }, take: 3 },
           partners: { include: { partner: { select: { name: true } } } },
-          actionItems: { where: { status: 'Pending' } },
+          // Who is on this phase, and in what role — the "why is this person named"
+          // signal (#73). currentPartner is their affiliation (internal vs partner).
+          people: { include: { person: { select: { id: true, name: true, currentPartner: { select: { name: true } } } } } },
+          // Resolve the assignee to the canonical Person so the action carries their
+          // company (assignedTo free text alone can't say which side they're on).
+          actionItems: {
+            where: { status: 'Pending' },
+            include: { assignedToPerson: { select: { id: true, name: true, currentPartner: { select: { name: true } } } } },
+          },
           dependencies: true,
         },
       },
@@ -114,6 +176,29 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
     },
   });
   if (!project) return null;
+
+  // Register the scope's entities so their names in the generated prose become links to
+  // their endpoints (#77). partnerId is a scalar on Project, so no extra select needed.
+  reg.add(project.name, programHref(projectId));
+  reg.add(project.partner.name, partnerHref(project.partnerId));
+
+  // The program's Google-side (internal) owner — the person an "owner works WITH the
+  // partner" action names. ownerName is stored as the canonical email (requireOwnerEmail);
+  // resolve it to a Person for their name + /people link (match name too, defensively).
+  if (project.ownerName) {
+    const owner = await prisma.person.findFirst({
+      where: { OR: [{ email: project.ownerName }, { name: project.ownerName }] },
+      select: { id: true, name: true },
+    });
+    if (owner) {
+      reg.add(owner.name, personHref(owner.id));
+      ev.push(
+        'owner',
+        `internal (Google-side) owner of "${project.name}": ${owner.name}`,
+        { label: owner.name, href: personHref(owner.id), external: false },
+      );
+    }
+  }
 
   // Critical chain + SOP outlook — the on-track story in one record.
   const chain = computeCriticalChain(
@@ -155,22 +240,36 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
     });
 
   for (const phase of project.phases) {
+    reg.add(phase.name, phaseDetailHref(projectId, phase.id));
+    phase.partners.forEach((pp) => reg.add(pp.partner.name, partnerHref(pp.partnerId)));
+    phase.people.forEach((pp) => reg.add(pp.person.name, personHref(pp.personId)));
+
     const partners = phase.partners.map((pp) => `${pp.partner.name}${pp.role ? ` (${pp.role})` : ''}`).join(', ');
+    // People on the phase, each with their company + role — this is the authoritative
+    // "who is here and why" the briefing used to miss entirely.
+    const people = phase.people
+      .map((pp) => {
+        const detail = [pp.person.currentPartner?.name, pp.role].filter(Boolean).join(', ');
+        return `${pp.person.name}${detail ? ` (${detail})` : ''}`;
+      })
+      .join(', ');
     phase.states
       .filter((s, i) => i === 0 || s.timestamp >= windowStart)
       .forEach((s, i) => {
         ev.push(
           'hill',
-          `${i === 0 ? 'CURRENT ' : ''}phase "${phase.name}" (${project.name}) ${proseDay(s.timestamp)}: ${hillStatus(s.hillChartProgress ?? 0)}${s.notes ? ` — ${s.notes}` : ''}${partners && i === 0 ? ` [partners involved: ${partners}]` : ''}`,
+          `${i === 0 ? 'CURRENT ' : ''}phase "${phase.name}" (${project.name}) ${proseDay(s.timestamp)}: ${hillStatus(s.hillChartProgress ?? 0)}${s.notes ? ` — ${s.notes}` : ''}${partners && i === 0 ? ` [partners involved: ${partners}]` : ''}${people && i === 0 ? ` [people involved: ${people}]` : ''}`,
           { label: `${phase.name} · ${fmtDate(s.timestamp)}`, href: phaseDetailHref(projectId, phase.id), external: false },
         );
       });
 
     for (const item of phase.actionItems) {
+      if (item.assignedToPerson) reg.add(item.assignedToPerson.name, personHref(item.assignedToPerson.id));
+      const owner = formatActionOwner(item.assignedToPerson, item.assignedTo);
       ev.push(
         'action',
-        `open action on "${phase.name}" (${project.name}): ${item.description}${item.assignedTo ? ` (owner ${item.assignedTo})` : ''}, next step ${item.nextStep}`,
-        { label: `Action · ${phase.name}`, href: item.linkUrl || `/programs/${projectId}`, external: !!item.linkUrl },
+        `open action on "${phase.name}" (${project.name}): ${item.description}${owner ? ` — owner ${owner}` : ''}; ${nextStepPhrase(item.nextStep)}`,
+        { label: `Action · ${phase.name}`, href: item.linkUrl || programHref(projectId), external: !!item.linkUrl },
       );
     }
   }
@@ -189,7 +288,7 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
 }
 
 /** Partner-scope evidence: the relationship states + a portfolio pass over its programs. */
-async function gatherPartnerEvidence(partnerId: number, windowStart: Date, ev: EvidenceList) {
+async function gatherPartnerEvidence(partnerId: number, windowStart: Date, ev: EvidenceList, reg: EntityRegistry) {
   const partner = await prisma.partner.findUnique({
     where: { id: partnerId },
     include: {
@@ -199,6 +298,7 @@ async function gatherPartnerEvidence(partnerId: number, windowStart: Date, ev: E
     },
   });
   if (!partner) return null;
+  reg.add(partner.name, partnerHref(partnerId));
 
   partner.states
     .filter((s, i) => i < 2 || s.timestamp >= windowStart)
@@ -225,7 +325,7 @@ async function gatherPartnerEvidence(partnerId: number, windowStart: Date, ev: E
   // heavy include-trees when the first few filled the list.
   for (const proj of partner.projects) {
     if (ev.isFull) break;
-    await gatherProgramEvidence(proj.id, windowStart, ev);
+    await gatherProgramEvidence(proj.id, windowStart, ev, reg);
   }
 
   return partner;
@@ -233,7 +333,7 @@ async function gatherPartnerEvidence(partnerId: number, windowStart: Date, ev: E
 
 /** Ecosystem-scope evidence: every active program's chain/current state + recent
  *  cross-program updates and digests, newest first, capped. */
-async function gatherEcosystemEvidence(windowStart: Date, ev: EvidenceList) {
+async function gatherEcosystemEvidence(windowStart: Date, ev: EvidenceList, reg: EntityRegistry) {
   const projects = await prisma.project.findMany({
     where: { isArchived: false },
     orderBy: { id: 'asc' },
@@ -251,6 +351,8 @@ async function gatherEcosystemEvidence(windowStart: Date, ev: EvidenceList) {
 
   // One portfolio record per program: partner, health, SOP outlook, volume, products.
   for (const proj of projects) {
+    reg.add(proj.name, programHref(proj.id));
+    reg.add(proj.partner.name, partnerHref(proj.partnerId));
     const chain = computeCriticalChain(
       proj.phases.map((ph) => ({
         id: ph.id,
@@ -293,6 +395,7 @@ async function gatherEcosystemEvidence(windowStart: Date, ev: EvidenceList) {
     }),
   ]);
   for (const s of recentStates) {
+    reg.add(s.project.name, programHref(s.project.id));
     ev.push(
       'needle',
       `"${s.project.name}" update ${proseDay(s.timestamp)}: health ${parseHealth(s.theNeedle)} — ${s.notes}`,
@@ -357,17 +460,18 @@ export async function createSummary(
   const windowStart = last?.generatedAt ?? new Date(windowEnd.getTime() - WINDOW_DAYS * 24 * 3600 * 1000);
 
   const ev = new EvidenceList();
+  const reg = new EntityRegistry();
   let subject: string;
   if (scope === 'program') {
-    const project = await gatherProgramEvidence(targetId, windowStart, ev);
+    const project = await gatherProgramEvidence(targetId, windowStart, ev, reg);
     if (!project) return null;
     subject = `"${project.name}" (partner: ${project.partner.name})`;
   } else if (scope === 'partner') {
-    const partner = await gatherPartnerEvidence(targetId, windowStart, ev);
+    const partner = await gatherPartnerEvidence(targetId, windowStart, ev, reg);
     if (!partner) return null;
     subject = `"${partner.name}"`;
   } else {
-    const count = await gatherEcosystemEvidence(windowStart, ev);
+    const count = await gatherEcosystemEvidence(windowStart, ev, reg);
     subject = `the AutoKnow ecosystem (${count} active programs)`;
   }
   if (ev.records.length === 0) return null;
@@ -399,18 +503,32 @@ ${ev.records.map((e) => `[${e.id}] (${e.kind}) ${e.text}`).join('\n')}`;
   // Map evidence ids to concrete citations, dropping hallucinated ids; strip any
   // bracketed id references the model wrote into the prose.
   const stripIds = (text: string) => text.replace(/\s*\[[0-9,\s]+\]/g, '').trim();
+  // Linkify a finished line against the scope's entities (#77); undefined when no noun
+  // resolved, so a link-free bullet stores no segments and the renderer falls back to
+  // plain text. The href is always ours — the model contributed a name, never a URL.
+  const links = reg.links;
+  const withLinks = (text: string): Segment[] | undefined => {
+    const segments = linkify(text, links);
+    return segments.some((s) => s.href) ? segments : undefined;
+  };
   const toBullets = (bullets: { text: string; evidence: number[] }[]): SummaryBullet[] =>
-    (bullets ?? []).map((b) => ({
-      text: stripIds(b.text),
-      citations: [...new Set(b.evidence)]
-        .map((id) => ev.records[id]?.citation)
-        .filter((c): c is SummaryCitation => !!c),
-    }));
+    (bullets ?? []).map((b) => {
+      const text = stripIds(b.text);
+      return {
+        text,
+        segments: withLinks(text),
+        citations: [...new Set(b.evidence)]
+          .map((id) => ev.records[id]?.citation)
+          .filter((c): c is SummaryCitation => !!c),
+      };
+    });
 
+  const tldr = stripIds(raw.tldr);
   const body: SummaryBody = {
     sections: SECTION_KEYS.map((key) => ({ key, bullets: toBullets(raw[key]) })).filter(
       (s) => s.bullets.length > 0,
     ),
+    tldrSegments: withLinks(tldr),
   };
 
   const row = await prisma.summary.create({
@@ -421,7 +539,7 @@ ${ev.records.map((e) => `[${e.id}] (${e.kind}) ${e.text}`).join('\n')}`;
       model: SUMMARY_MODEL,
       windowStart,
       windowEnd,
-      tldr: stripIds(raw.tldr),
+      tldr,
       body: JSON.parse(JSON.stringify(body)),
       sourceCounts: ev.counts,
     },
