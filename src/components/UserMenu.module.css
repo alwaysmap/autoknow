@@ -118,3 +118,21 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+
+/* A quiet, left-aligned text button below the preference rows — a reset is a rare,
+   deliberate action, not a primary control competing with the pickers above it. */
+.resetBtn {
+  align-self: flex-start;
+  margin-top: 0.125rem;
+  padding: 0.125rem 0;
+  background: none;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.resetBtn:hover {
+  color: var(--fg);
+  text-decoration: underline;
+}

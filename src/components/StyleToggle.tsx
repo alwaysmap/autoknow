@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from 'react';
 import { useLocale } from './LocaleProvider';
 import { t } from '../lib/i18n';
+import { STYLE, readLocalPref, subscribePrefChange, writeLocalPref, type StylePref } from '../lib/preferences';
 import styles from './ThemeToggle.module.css';
 
 // The second appearance axis: which STYLE family the app wears, independent of
@@ -15,45 +16,28 @@ import styles from './ThemeToggle.module.css';
 // an external store, custom event so same-page writers notify React) — a second
 // preference should not invent a second interaction.
 
-type Style = 'standard' | 'instrument';
-const STORAGE_KEY = 'autoknow-style';
-const STYLE_EVENT = 'autoknow-style-pref';
-
-function subscribe(onChange: () => void) {
-  window.addEventListener('storage', onChange);
-  window.addEventListener(STYLE_EVENT, onChange);
-  return () => {
-    window.removeEventListener('storage', onChange);
-    window.removeEventListener(STYLE_EVENT, onChange);
-  };
-}
-
-// Unlike the theme there is nothing to resolve — the stored value IS the answer,
-// and "instrument" is both the default and the neutral server snapshot — it has to
-// match the inline script in layout.tsx exactly, or the toggle renders the wrong
-// row as current for one frame.
-function read(): Style {
-  return localStorage.getItem(STORAGE_KEY) === 'standard' ? 'standard' : 'instrument';
-}
+// Unlike the theme there is nothing to resolve — the stored value IS the answer. The key
+// and default come from the preferences registry (#31), so the server snapshot below and
+// the inline script in layout.tsx can't drift, which would render the wrong row as current
+// for one frame (§8c).
 
 // Module scope, like ThemeToggle's `apply`: writing to documentElement from
 // inside the component body trips react-hooks/immutability, which is a lint
 // ERROR here.
-function apply(style: Style) {
+function apply(style: StylePref) {
   document.documentElement.dataset.style = style;
 }
 
 export default function StyleToggle() {
   const locale = useLocale();
-  const style = useSyncExternalStore(subscribe, read, () => 'instrument' as Style);
+  const style = useSyncExternalStore(subscribePrefChange, () => readLocalPref(STYLE), () => STYLE.default);
 
-  const choose = (next: Style) => {
-    localStorage.setItem(STORAGE_KEY, next);
+  const choose = (next: StylePref) => {
+    writeLocalPref(STYLE, next); // persists + notifies same-tab subscribers
     apply(next);
-    window.dispatchEvent(new Event(STYLE_EVENT));
   };
 
-  const options: Array<{ value: Style; label: string; icon: React.ReactNode }> = [
+  const options: Array<{ value: StylePref; label: string; icon: React.ReactNode }> = [
     {
       value: 'standard',
       label: t(locale, 'styleStandard'),

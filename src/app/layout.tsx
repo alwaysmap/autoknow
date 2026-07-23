@@ -7,6 +7,7 @@ import { LocaleProvider } from '../components/LocaleProvider';
 import { getCurrentUser } from '../lib/session';
 import { allowedAvatarUrl } from '../lib/avatar';
 import { getLocale } from '../lib/locale';
+import { appearanceBootScript } from '../lib/preferences';
 import { t } from '../lib/i18n';
 import { auth, signIn, signOut, authConfigured } from '../auth';
 import "./globals.css";
@@ -43,13 +44,6 @@ export const viewport = {
   viewportFit: 'cover'
 };
 
-// Resolves BOTH stored appearance preferences to concrete attributes on <html>
-// BEFORE first paint — no flash of the wrong theme or the wrong style. The two
-// are independent: data-theme is light|dark (resolved from light|dark|system),
-// data-style is standard|instrument. Kept tiny and dependency-free; ThemeToggle
-// and StyleToggle take over after hydration.
-const themeInit = `(function(){try{var p=localStorage.getItem('autoknow-theme');var d=p==='dark'||(p!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';var s=localStorage.getItem('autoknow-style');document.documentElement.dataset.style=s==='standard'?'standard':'instrument';}catch(e){}})();`;
-
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -67,7 +61,10 @@ export default async function RootLayout({
     <html lang={locale} data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} ${rubik.variable}`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+        {/* Resolves BOTH stored appearance preferences onto <html> BEFORE first paint —
+            no flash of the wrong theme or style. Derived from the preferences registry so
+            its keys/default can't drift from the toggles (§8c). */}
+        <script dangerouslySetInnerHTML={{ __html: appearanceBootScript() }} />
       </head>
       <body>
         <LocaleProvider locale={locale}>

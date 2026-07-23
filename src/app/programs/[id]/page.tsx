@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation';
-import { cookies } from 'next/headers';
 import { prisma } from '../../../lib/db';
 import styles from './page.module.css';
 import ProjectStatusDashboard from '../../../components/ProjectStatusDashboard';
@@ -7,7 +6,8 @@ import ProjectMetaHeader from '../../../components/ProjectMetaHeader';
 import ProjectAdminControls from '../../../components/ProjectAdminControls';
 import PhaseGraph from '../../../components/PhaseGraph';
 import PhaseTrack from '../../../components/PhaseTrack';
-import { isLocale, t, Locale } from '../../../lib/i18n';
+import { t } from '../../../lib/i18n';
+import { getLocale } from '../../../lib/locale';
 import SummaryPanel from '../../../components/SummaryPanel';
 import ActivityFeed from '../../../components/ActivityFeed';
 import QuickIngest from '../../../components/QuickIngest';
@@ -36,10 +36,9 @@ export default async function ProjectDetailsPage(props: {
   // renders the legacy PhaseGraph for comparison. Locale from ?lang=en|de|ja|ko,
   // sticky via cookie so it survives param-less navigation.
   const sp = await props.searchParams;
-  const cookieStore = await cookies();
   const showTrack = sp.graph !== 'classic';
-  const langValue = typeof sp.lang === 'string' ? sp.lang : cookieStore.get('lang')?.value;
-  const locale: Locale = isLocale(langValue) ? langValue : 'en';
+  // ?lang= wins for deep links; otherwise the namespaced locale cookie (registry, #31).
+  const locale = await getLocale(sp.lang);
 
   if (isNaN(projectId)) {
     return notFound();

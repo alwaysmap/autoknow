@@ -7,6 +7,7 @@ import AnchoredPopover from './AnchoredPopover';
 import ThemeToggle from './ThemeToggle';
 import StyleToggle from './StyleToggle';
 import LocaleSwitcher from './LocaleSwitcher';
+import { resetAllPreferences } from '../lib/preferences';
 import { initialsOf } from '../lib/people';
 import styles from './UserMenu.module.css';
 
@@ -111,6 +112,13 @@ export default function UserMenu({
           <span className={styles.prefLabel}>{t(locale, 'settingsLanguage')}</span>
           <LocaleSwitcher locale={locale} />
         </div>
+        {/* Reset every preference to its app default (#31). A full reload is the simplest
+            correct path: the pre-paint boot script re-applies the default theme/style and
+            the server re-renders with the default locale, so there is nothing to re-derive. */}
+        <button type="button" className={styles.resetBtn}
+          onClick={() => { resetAllPreferences(); window.location.reload(); }}>
+          {t(locale, 'resetPreferences')}
+        </button>
       </div>
       {authConfigured && signedIn && (
         <form action={signOutAction} className={styles.actionRow}>

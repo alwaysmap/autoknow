@@ -3,48 +3,35 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { useLocale } from './LocaleProvider';
 import { t } from '../lib/i18n';
+import { THEME, readLocalPref, subscribePrefChange, writeLocalPref, type ThemePref } from '../lib/preferences';
 import styles from './ThemeToggle.module.css';
 
 // Three-state theme control (light | dark | system). The stored PREFERENCE may be
 // "system"; what lands on <html data-theme> is always the RESOLVED "light"/"dark"
 // (the inline script in layout.tsx does the same before first paint, so this
-// component only has to keep the attribute in sync after interaction).
+// component only has to keep the attribute in sync after interaction). The key,
+// default and validator all come from the preferences registry (#31), so this control
+// and the pre-paint boot script can never drift (§8c).
 
-type Pref = 'light' | 'dark' | 'system';
-const STORAGE_KEY = 'autoknow-theme';
-
-function resolve(pref: Pref): 'light' | 'dark' {
+function resolve(pref: ThemePref): 'light' | 'dark' {
   if (pref !== 'system') return pref;
   // Optional-chained so a runtime without matchMedia falls back to light rather
   // than throwing during render.
   return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light';
 }
 
-function apply(pref: Pref) {
+// Module scope, not the component body: writing to documentElement from render trips
+// react-hooks/immutability, a lint ERROR here.
+function apply(pref: ThemePref) {
   document.documentElement.dataset.theme = resolve(pref);
-}
-
-// localStorage as an external store: the server (and hydration) sees "system",
-// browsers re-render with the stored preference right after — the html attribute
-// itself was already set pre-paint by layout.tsx's inline script, so nothing
-// flashes. The custom event lets same-page writers (choose below) notify React.
-const PREF_EVENT = 'autoknow-theme-pref';
-function subscribePref(onChange: () => void) {
-  window.addEventListener('storage', onChange);
-  window.addEventListener(PREF_EVENT, onChange);
-  return () => {
-    window.removeEventListener('storage', onChange);
-    window.removeEventListener(PREF_EVENT, onChange);
-  };
-}
-function readPref(): Pref {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
 }
 
 export default function ThemeToggle() {
   const locale = useLocale();
-  const pref = useSyncExternalStore(subscribePref, readPref, () => 'system' as Pref);
+  // localStorage as an external store: the server (and hydration) sees the default,
+  // browsers re-read the stored preference right after — the <html> attribute was already
+  // set pre-paint by layout.tsx's inline script, so nothing flashes.
+  const pref = useSyncExternalStore(subscribePrefChange, () => readLocalPref(THEME), () => THEME.default);
   // Follow OS changes live while in system mode.
   useEffect(() => {
     if (pref !== 'system') return;
@@ -55,13 +42,12 @@ export default function ThemeToggle() {
     return () => mq.removeEventListener('change', onChange);
   }, [pref]);
 
-  const choose = (next: Pref) => {
-    localStorage.setItem(STORAGE_KEY, next);
+  const choose = (next: ThemePref) => {
+    writeLocalPref(THEME, next); // persists + notifies same-tab subscribers
     apply(next);
-    window.dispatchEvent(new Event(PREF_EVENT));
   };
 
-  const options: Array<{ value: Pref; label: string; icon: React.ReactNode }> = [
+  const options: Array<{ value: ThemePref; label: string; icon: React.ReactNode }> = [
     {
       value: 'light',
       label: t(locale, 'themeLight'),
