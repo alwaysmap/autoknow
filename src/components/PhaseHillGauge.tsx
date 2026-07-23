@@ -1,5 +1,6 @@
 'use client';
 
+import ChartLabel from './ChartLabel';
 import React, { useRef, useState } from 'react';
 import styles from './NeedleGauge.module.css';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
@@ -88,8 +89,8 @@ export function PhaseHillSvg({
       </circle>
       {labels && (
         <>
-          <text x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{labels.left}</text>
-          <text x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{labels.right}</text>
+          <ChartLabel x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{labels.left}</ChartLabel>
+          <ChartLabel x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{labels.right}</ChartLabel>
         </>
       )}
     </svg>
@@ -205,8 +206,8 @@ export default function PhaseHillGauge({
               <path d={HILL_PATH} fill="none" stroke="var(--border, #d9d5c8)" strokeWidth={2.5} strokeLinecap="round" />
               <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border, #e3e0d6)" strokeDasharray="3 3" />
               <circle cx={dot.x} cy={dot.y} r={6} fill={color} stroke="var(--paper)" strokeWidth={1.6} style={{ transition: dragging ? 'none' : 'cx 0.15s, cy 0.15s' }} />
-              <text x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.left}</text>
-              <text x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.right}</text>
+              <ChartLabel x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.left}</ChartLabel>
+              <ChartLabel x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.right}</ChartLabel>
             </svg>
             <input
               id={`phaseHillProgress-${phaseId}`}

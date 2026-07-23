@@ -1,5 +1,6 @@
 'use client';
 
+import ChartLabel from './ChartLabel';
 import React, { useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, Locale } from '../lib/i18n';
@@ -148,6 +149,23 @@ function ScheduleChart({ ledger, sopMs, now, locale, onRowCard }: {
   const showWeeks = pxPerDay * 7 >= 4; // below this they'd read as a smear
   const showMonths = pxPerDay * 30 >= 8;
 
+  // The `today` and SOP labels share the y=TOP-16 line. When `now` and the SOP
+  // target fall close together — exactly when a program nears its SOP, i.e. when
+  // you most need to read both — their boxes overstrike into mush (#23). A halo
+  // makes that mush opaque, not legible, so detect the overlap and drop the
+  // lower-priority `today` label onto its own line below. textWidth is calibrated
+  // at 11px; the today label is 10px.
+  const todayText = t(locale, 'clTodayLabel', { date: dayShort(now, locale) });
+  const todayHalfW = (textWidth(todayText) * (10 / 11)) / 2;
+  const sopLabelX = sopMs != null ? Math.min(x(sopMs), W - 8) : null;
+  const sopLabelW = sopMs != null
+    ? textWidth(t(locale, 'clSopLabel', { month: monthLong(new Date(sopMs).toISOString(), locale) }))
+    : 0;
+  const labelsCollide = sopLabelX != null
+    && x(now) + todayHalfW > sopLabelX - sopLabelW - 4 // 4px gutter
+    && x(now) - todayHalfW < sopLabelX;
+  const todayY = labelsCollide ? TOP - 3 : TOP - 16; // own line below SOP when they'd clash
+
   const weeks: number[] = [];
   if (showWeeks) {
     const d = new Date(tMin);
@@ -265,30 +283,30 @@ function ScheduleChart({ ledger, sopMs, now, locale, onRowCard }: {
           // label so a tight span drops it instead of overlapping its neighbour.
           if (x(to) - x(from) < Math.max(9, textWidth(m.letter) * (9 / 11) + 3)) return null;
           return (
-            <text key={`ml${m.ms}`} x={(x(from) + x(to)) / 2} y={axisY + MONTH_LETTER_DY}
+            <ChartLabel key={`ml${m.ms}`} x={(x(from) + x(to)) / 2} y={axisY + MONTH_LETTER_DY}
               textAnchor="middle" fontSize={9} fill="var(--muted)">
               {m.letter}
-            </text>
+            </ChartLabel>
           );
         })}
         {quarters.map((q) => (
           <g key={q.ms}>
             <line x1={x(q.ms)} y1={TOP - 8} x2={x(q.ms)} y2={axisY} stroke="var(--border)" strokeWidth={1} />
-            <text x={x(q.ms)} y={axisY + QUARTER_DY} textAnchor="middle" fontSize={10} fill="var(--muted)">{q.label}</text>
+            <ChartLabel x={x(q.ms)} y={axisY + QUARTER_DY} textAnchor="middle" fontSize={10} fill="var(--muted)">{q.label}</ChartLabel>
           </g>
         ))}
 
         <line x1={x(now)} y1={TOP - 12} x2={x(now)} y2={TOP + rows.length * ROW_H + 8} stroke="var(--muted)" strokeWidth={1} strokeDasharray="3 3" />
-        <text x={x(now)} y={TOP - 16} textAnchor="middle" fontSize={10} fill="var(--muted)">
-          {t(locale, 'clTodayLabel', { date: dayShort(now, locale) })}
-        </text>
+        <ChartLabel x={x(now)} y={todayY} textAnchor="middle" fontSize={10} fill="var(--muted)">
+          {todayText}
+        </ChartLabel>
 
         {sopMs != null && (
           <g>
             <line x1={x(sopMs)} y1={TOP - 12} x2={x(sopMs)} y2={TOP + rows.length * ROW_H + 8} stroke="var(--fg)" strokeWidth={1.5} />
-            <text x={Math.min(x(sopMs), W - 8)} y={TOP - 16} textAnchor="end" fontSize={11} fill="var(--fg)">
+            <ChartLabel x={Math.min(x(sopMs), W - 8)} y={TOP - 16} textAnchor="end" fontSize={11} fill="var(--fg)">
               {t(locale, 'clSopLabel', { month: monthLong(new Date(sopMs).toISOString(), locale) })}
-            </text>
+            </ChartLabel>
           </g>
         )}
 
@@ -301,10 +319,10 @@ function ScheduleChart({ ledger, sopMs, now, locale, onRowCard }: {
               {/* r=2 keeps the ring at the radius 6 this layout has always reserved
                   (RING_PAD); only its weight changes. */}
               {isConstraint && <ConstraintRing cx={labelW - 12} cy={y} r={2} />}
-              <text x={isConstraint ? labelW - RING_PAD : labelW - TEXT_PAD} y={y + 3.5} textAnchor="end" fontSize={11} fill="var(--fg)"
+              <ChartLabel x={isConstraint ? labelW - RING_PAD : labelW - TEXT_PAD} y={y + 3.5} textAnchor="end" fontSize={11} fill="var(--fg)"
                 className={styles.rowLabel} onClick={() => jumpToPhase(r.id)}>
                 {r.name}
-              </text>
+              </ChartLabel>
               {r.kind === 'done' && (
                 <rect x={x(r.startMs)} y={y - 4.5} width={Math.max(2, x(r.endMs) - x(r.startMs))} height={9} rx={2} fill="var(--fg)" />
               )}
@@ -323,9 +341,9 @@ function ScheduleChart({ ledger, sopMs, now, locale, onRowCard }: {
                 <line x1={x(r.plannedEndMs)} y1={y - 8.5} x2={x(r.plannedEndMs)} y2={y + 8.5} stroke="var(--muted)" strokeWidth={1.5} />
               )}
               {r.gapBeforeDays >= 1 && i > 0 && (
-                <text x={x(rows[i - 1].endMs)} y={y - 10} fontSize={10} fill="var(--bad)">
+                <ChartLabel x={x(rows[i - 1].endMs)} y={y - 10} fontSize={10} fill="var(--bad)">
                   {t(locale, 'clSatIdle', { d: r.gapBeforeDays })}
-                </text>
+                </ChartLabel>
               )}
               {/* Last in the row, so it sits over the bar and the labels: the whole
                   row is ONE target. Keyboard reaches it too — a card only a pointer
@@ -346,10 +364,10 @@ function ScheduleChart({ ledger, sopMs, now, locale, onRowCard }: {
                 const right = x(Math.max(r.endMs, r.plannedEndMs)) + 8;
                 const fits = right + textWidth(label.text) * (10 / 11) <= W - 4;
                 return (
-                  <text x={fits ? right : x(r.startMs)} y={fits ? y + 3.5 : y + 15} fontSize={10}
+                  <ChartLabel x={fits ? right : x(r.startMs)} y={fits ? y + 3.5 : y + 15} fontSize={10}
                     fill={label.bad ? 'var(--bad)' : 'var(--muted)'}>
                     {label.text}
-                  </text>
+                  </ChartLabel>
                 );
               })()}
             </g>
@@ -360,9 +378,9 @@ function ScheduleChart({ ledger, sopMs, now, locale, onRowCard }: {
           <g>
             <path d={`M ${x(lastEnd)} ${TOP + rows.length * ROW_H + 4} L ${x(lastEnd)} ${TOP + rows.length * ROW_H + 8} L ${x(sopMs)} ${TOP + rows.length * ROW_H + 8} L ${x(sopMs)} ${TOP + rows.length * ROW_H + 4}`}
               fill="none" stroke="var(--ok)" strokeWidth={1.5} />
-            <text x={(x(lastEnd) + x(sopMs)) / 2} y={axisY + BRACKET_LABEL_DY} textAnchor="middle" fontSize={10} fill="var(--ok)">
+            <ChartLabel x={(x(lastEnd) + x(sopMs)) / 2} y={axisY + BRACKET_LABEL_DY} textAnchor="middle" fontSize={10} fill="var(--ok)">
               {t(locale, 'clDaysOfBuffer', { d: ledger.bufferDays })}
-            </text>
+            </ChartLabel>
           </g>
         )}
       </svg>
