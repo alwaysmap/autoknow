@@ -59,3 +59,4 @@ skill routes between them.
 | 2026-07-22 | [Findings get a third home, and the homes are priced by retrieval cost](2026-07-22-findings-get-a-third-home-priced-by-retrieval.md) | accepted | docs, knowledge, agents, context |
 | 2026-07-22 | [Containers own outer spacing; charts fill width and own their height](2026-07-22-containers-own-spacing-charts-own-height.md) | accepted | ui, layout, css, box-model, charts |
 | 2026-07-22 | [Ingestion is sized for hundreds of sources; declare the limits, gate the 10K rebuild](2026-07-22-ingestion-sized-for-hundreds-gate-the-10k-rebuild.md) | accepted | scaling, ingestion, vectors, freshness, architecture |
+| 2026-07-22 | [Poppable charts: a parameter for humans, a credentialed `/embed` for machines, one shared assembly](2026-07-22-poppable-charts-a-parameter-a-shared-assembly-and-a-token.md) | accepted | ui, charts, urls, auth, embed, kiosk |
