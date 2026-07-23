@@ -335,11 +335,11 @@ export default function EcosystemSummaryClient({
             const isEarlyStage = p.hillChartProgress <= 50;
             return (
               <tr key={p.id} className={isEarlyStage ? styles.earlyRow : ''}>
-                <td>
+                <th scope="row">
                   <Link href={`/partners/${p.partner.id}`}>
                     {p.partner.name}
                   </Link>
-                </td>
+                </th>
                 <td>
                   <strong>
                     <Link href={`/programs/${p.id}`} className={styles.link}>
@@ -404,7 +404,6 @@ export default function EcosystemSummaryClient({
             );
           }}
           defaultSortKey="name"
-          pageSize={10}
           emptyStateMessage={t(locale, 'noProgramsMatchFilters')}
         />
       </section>

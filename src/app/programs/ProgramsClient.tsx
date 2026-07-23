@@ -223,11 +223,11 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
 
             return (
               <tr key={p.id}>
-                <td>
+                <th scope="row">
                   <Link href={`/programs/${p.id}`} className={styles.tableLink}>
                     {p.name}
                   </Link>
-                </td>
+                </th>
                 <td>
                   <Link href={`/partners/${p.partner.id}`} className={styles.tableLink}>
                     {p.partner.name}
@@ -322,7 +322,6 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
           defaultSortKey={initialTableSort?.key ?? (initialSort === 'risk' ? '' : 'name')}
           defaultSortOrder={initialTableSort?.dir ?? 'asc'}
           onSortChange={(key, dir) => setSort({ key, dir })}
-          pageSize={10}
           emptyStateMessage={t(locale, 'noProgramsMatchFilters')}
         />
       </section>

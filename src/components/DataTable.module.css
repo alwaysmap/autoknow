@@ -13,6 +13,42 @@
   font-size: 0.875rem;
 }
 
+/* ---- Frozen first (identity) column (#29) ----
+   The wrapper already scrolls sideways (§9); on a narrow viewport the name you are
+   reading the row FOR must not scroll away. `tr > :first-child` anchors column one for
+   both the header cell and every row's first cell — whether that cell is a <td> or the
+   <th scope="row"> row-header — and lets the rest slide under it. The frozen cells need an
+   OPAQUE background (Tufte cells are otherwise transparent) so sliding columns don't bleed
+   through; `var(--bg)` matches the page the transparent rows already show, and beats the
+   global `th { background: transparent !important }`. */
+.table tr > :first-child {
+  position: sticky;
+  left: 0;
+}
+.table thead tr > :first-child {
+  z-index: 3;
+  background-color: var(--bg) !important;
+}
+.table tbody tr > :first-child {
+  z-index: 1;
+  background-color: var(--bg) !important;
+}
+
+/* Row-header cells (<th scope="row"> — the a11y association of a row's cells with its
+   subject, and the structural anchor of the frozen column). The global `th` rule dresses
+   them as column headers (uppercase, muted, bold, a heavy underline); reset them to read
+   as the ordinary identity cell they replaced, and drop the per-cell underline so the row
+   uses the shared row rule like its <td> siblings. */
+.table tbody th[scope='row'] {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  color: inherit;
+  font-size: inherit;
+  text-align: left;
+  border-bottom: none !important;
+}
+
 /* ---- Filter row: the free-text KEY-column filter + the one "× Clear filters" ----
    A COMPACT row hugging the table (rendered above .tableWrapper, so it never scrolls
    with a wide table). Deliberately NOT the §1 "Filter Bar" card — the class name must
@@ -115,10 +151,39 @@
   border-top: 1px solid var(--border);
 }
 
+.footerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  flex-wrap: wrap;
+}
+
 .info {
   font-size: 0.8125rem;
   line-height: 1.25rem;
   color: var(--muted);
+}
+
+/* Rows-per-page control — writes the ROWS_PER_TABLE preference (#31), so the density a user
+   picks survives reload and applies to every table they open. */
+.pageSizeControl {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.pageSizeSelect {
+  font-size: 0.8125rem;
+  line-height: 1.25rem; /* 13px is odd; pin an integer line box (§8d rule 3) */
+  padding: 0.1875rem 0.375rem;
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  background: var(--white);
+  color: var(--fg);
+  cursor: pointer;
 }
 
 .controls {
