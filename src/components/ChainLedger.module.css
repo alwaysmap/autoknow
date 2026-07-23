@@ -351,20 +351,3 @@
   .wfValue { justify-self: start; }
 }
 
-/* Buffer bands sweep out from the chart's left edge on arrival. `both` holds the
-   end state; if animations never run the group simply renders at scale 1, which
-   is its natural state — the data is never gated on the motion. */
-.bands {
-  transform-box: view-box;
-  transform-origin: left center;
-  animation: bandSweep 0.62s cubic-bezier(0.16, 0.84, 0.44, 1) both;
-}
-
-@keyframes bandSweep {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bands { animation: none; }
-}
