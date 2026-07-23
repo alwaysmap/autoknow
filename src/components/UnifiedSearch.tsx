@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ChangeEvent, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import FeedList from './FeedList';
 import type { FeedType, FeedKind, FeedScope, FeedItem } from '../lib/feed';
@@ -73,6 +73,12 @@ export default function UnifiedSearch({
   const [suggesting, setSuggesting] = useState(false);
   const suggestAbort = useRef<AbortController | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
+
+  // Keyboard navigation of the suggestion list (bug: arrow keys did nothing). -1 means
+  // the typed text is "selected"; 0..n-1 highlight a suggestion. `itemRefs` lets Enter
+  // fire the highlighted row's own link, so keyboard and mouse take the exact same path.
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
 
   // What the dial in the field reports: SOMETHING IS IN FLIGHT. Both requests
   // count — while you type it is the suggest, after you commit it is the full
@@ -180,6 +186,58 @@ export default function UnifiedSearch({
 
   const showSuggest = hero && suggestOpen && query.trim().length > 0 && suggest !== null;
 
+  /** Clearing the box restores the empty landing page — no full refresh required. */
+  const resetToLanding = () => {
+    abortRef.current?.abort();
+    suggestAbort.current?.abort();
+    setSuggestOpen(false);
+    setSuggest(null);
+    setHits(null);
+    setActiveIndex(-1);
+    setActive(new Set(availableTypes));
+  };
+
+  const onChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setQuery(value);
+    setActiveIndex(-1); // a fresh keystroke means a fresh list; nothing highlighted yet
+    if (!hero) return;
+    if (value.trim()) setSuggestOpen(true);
+    else resetToLanding();
+  };
+
+  const move = (delta: number) => {
+    const n = suggest?.length ?? 0;
+    if (n === 0) return;
+    const next = Math.min(n - 1, Math.max(-1, activeIndex + delta));
+    setActiveIndex(next);
+    if (next >= 0) itemRefs.current[next]?.scrollIntoView({ block: 'nearest' });
+  };
+
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (!hero) return;
+    if (e.key === 'Escape') { setSuggestOpen(false); setActiveIndex(-1); return; }
+    const count = suggest?.length ?? 0;
+    const open = showSuggest && count > 0;
+    if (e.key === 'ArrowDown') {
+      if (!open) {
+        if (count > 0 && query.trim()) { e.preventDefault(); setSuggestOpen(true); setActiveIndex(0); }
+        return;
+      }
+      e.preventDefault();
+      move(1);
+    } else if (e.key === 'ArrowUp') {
+      if (!open) return;
+      e.preventDefault();
+      move(-1);
+    } else if (e.key === 'Enter' && open && activeIndex >= 0) {
+      // Commit the HIGHLIGHTED suggestion. With nothing highlighted, Enter falls through
+      // to the form's submit, which runs the full search ("see all results").
+      e.preventDefault();
+      itemRefs.current[activeIndex]?.click();
+    }
+  };
+
   return (
     <div className={hero ? styles.hero : undefined}>
       <div className={styles.box} ref={boxRef}>
@@ -194,12 +252,22 @@ export default function UnifiedSearch({
               type="search"
               autoFocus={autoFocus}
               value={query}
-              onChange={(e) => { setQuery(e.target.value); if (hero) setSuggestOpen(true); }}
+              onChange={onChange}
               onFocus={() => { if (hero) setSuggestOpen(true); }}
-              onKeyDown={(e) => { if (e.key === 'Escape') setSuggestOpen(false); }}
+              onKeyDown={onKeyDown}
               placeholder={inputPlaceholder}
               aria-label={inputPlaceholder}
               className={styles.input}
+              // Autocomplete semantics on the searchbox so a screen reader announces
+              // the highlighted row as you arrow through the list. Deliberately NOT
+              // `role="combobox"`: that would drop the input's implicit `searchbox`
+              // role (a11y regression the app tests for), and `aria-activedescendant`
+              // over an owned listbox is a valid searchbox autocomplete on its own.
+              aria-autocomplete={hero ? 'list' : undefined}
+              aria-controls={hero && showSuggest ? 'search-suggest-list' : undefined}
+              aria-activedescendant={
+                hero && showSuggest && activeIndex >= 0 ? `search-suggest-opt-${activeIndex}` : undefined
+              }
             />
             {/* The Instrument style's one graphic, INSIDE the field it reports on.
                 Rendered in both styles and revealed by CSS, like every other
@@ -234,8 +302,8 @@ export default function UnifiedSearch({
               <p className={styles.suggestEmpty}>{t(locale, 'searchNoResults', { q: query })}</p>
             ) : (
               <>
-                <ul className={styles.suggestList}>
-                  {suggest.map((it) => {
+                <ul id="search-suggest-list" role="listbox" className={styles.suggestList}>
+                  {suggest.map((it, idx) => {
                     const meta = `${t(locale, KIND_LABEL[it.kind])}${it.subtitle ? ` · ${it.subtitle}` : ''}`;
                     const body = (
                       <>
@@ -249,12 +317,15 @@ export default function UnifiedSearch({
                     // them together ("BoschPartner · Supplier"). Stated once here and
                     // reused for both link flavours so the two can't drift.
                     const label = `${it.title} — ${meta}`;
+                    const active = idx === activeIndex;
+                    const setRef = (el: HTMLAnchorElement | null) => { itemRefs.current[idx] = el; };
+                    const itemClass = active ? `${styles.suggestItem} ${styles.suggestItemActive}` : styles.suggestItem;
                     return (
-                      <li key={it.id}>
+                      <li key={it.id} role="option" id={`search-suggest-opt-${idx}`} aria-selected={active}>
                         {it.external ? (
-                          <a href={it.href} target="_blank" rel="noopener noreferrer" aria-label={label} className={styles.suggestItem}>{body}</a>
+                          <a ref={setRef} href={it.href} target="_blank" rel="noopener noreferrer" aria-label={label} className={itemClass}>{body}</a>
                         ) : (
-                          <Link href={it.href} aria-label={label} onClick={() => setSuggestOpen(false)} className={styles.suggestItem}>{body}</Link>
+                          <Link ref={setRef} href={it.href} aria-label={label} onClick={() => setSuggestOpen(false)} className={itemClass}>{body}</Link>
                         )}
                       </li>
                     );

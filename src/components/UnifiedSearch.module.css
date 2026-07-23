@@ -197,6 +197,15 @@
   background: var(--surface);
 }
 
+/* The keyboard-highlighted row (arrow-key navigation). Same fill as hover so the two
+   input methods read identically, plus an inset rule so the active row stays legible
+   even while the mouse is hovering a different one. */
+.suggestItemActive,
+.suggestItemActive:hover {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 0.0625rem var(--border);
+}
+
 .suggestTitle {
   font-size: 0.875rem;
 }
