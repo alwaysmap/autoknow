@@ -2,10 +2,10 @@
 // nothing else. Every spec and unit test imports `prisma` from here, never from
 // src/lib/db (which points wherever DATABASE_URL points, i.e. potentially production).
 
-import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { testDatabaseUrl } from './testDatabaseUrl';
+import { createResilientPool } from '../../src/lib/pgPool';
 
 const url = testDatabaseUrl();
 
@@ -15,7 +15,10 @@ if (!new URL(url).pathname.endsWith('_test')) {
   throw new Error(`Test prisma client refused a non-test database: ${new URL(url).pathname}`);
 }
 
-const pool = new Pool({ connectionString: url });
+// Same resilient pool as the app: teardown wipes (fixtures.wipeAll → deleteMany)
+// were among the ops that hit ECONNREFUSED when the CI DB blipped, so the test
+// client must tolerate a brief outage too.
+const pool = createResilientPool({ connectionString: url });
 export const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 /** Full teardown for unit tests — closes the client AND the pg pool so jest exits. */
