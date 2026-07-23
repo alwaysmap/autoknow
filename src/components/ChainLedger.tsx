@@ -8,6 +8,7 @@ import { tNodes, joinNodes } from './tNodes';
 import { localDate } from '../lib/dates';
 import { DAY_MS } from '../lib/sop';
 import AnchorHeading from './AnchorHeading';
+import OverlayDialog from './OverlayDialog';
 import ConstraintRing from './ConstraintRing';
 import { isForecastOver } from '../lib/chainLedger';
 import type { ChainLedgerResult, ResourceRef, ScheduleRow, Situation, WaterfallRow } from '../lib/chainLedger';
@@ -391,7 +392,7 @@ function ScheduleChart({ ledger, sopMs, now, locale, onRowCard }: {
 export default function ChainLedger({
   projectId, locale, now, ledger, sopDate, volumeFirstYear, owner, ownerPersonId, ownerOtherActive,
 }: ChainLedgerProps) {
-  const legendRef = useRef<HTMLDialogElement>(null);
+  const [legendOpen, setLegendOpen] = useState(false);
   const wrapRef = useRef<HTMLElement>(null);
   const sopMs = sopDate ? +new Date(sopDate) : null;
 
@@ -621,7 +622,7 @@ export default function ChainLedger({
           /* the key lives behind the ⓘ, not on the page (design.md §7) — same
              pattern as the Phases decoder */
           <button type="button" className={styles.infoBtn} title={t(locale, 'clKeyTitle')}
-            aria-label={t(locale, 'clKeyTitle')} onClick={() => legendRef.current?.showModal()}>
+            aria-label={t(locale, 'clKeyTitle')} onClick={() => setLegendOpen(true)}>
             <svg viewBox="0 0 16 16" width={15} height={15} aria-hidden>
               <circle cx={8} cy={8} r={6.6} fill="none" stroke="currentColor" strokeWidth={1.4} />
               <circle cx={8} cy={5} r={1} fill="currentColor" />
@@ -766,9 +767,8 @@ export default function ChainLedger({
       )}
 
       {/* the schedule key, consulted on demand */}
-      <dialog ref={legendRef} className={styles.legendDialog}
-        onClick={(e) => { if (e.target === legendRef.current) legendRef.current?.close(); }}>
-        <h3 className={styles.legendTitle}>{t(locale, 'clKeyTitle')}</h3>
+      <OverlayDialog open={legendOpen} onClose={() => setLegendOpen(false)} width="26rem"
+        title={t(locale, 'clKeyTitle')} closeLabel={t(locale, 'close')}>
         <div className={styles.legendRow}>
           <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
             <rect x={1} y={4.5} width={20} height={5} rx={2} fill="var(--fg)" />
@@ -810,7 +810,7 @@ export default function ChainLedger({
           <BandSwatch kind="buffer" />
           {t(locale, 'clKeyTeal')}
         </div>
-      </dialog>
+      </OverlayDialog>
 
 
     </section>

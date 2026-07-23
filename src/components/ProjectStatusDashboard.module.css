@@ -33,32 +33,6 @@
 }
 
 /* Native Dialog overlays (shared by the entity editors) */
-.dialog {
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  width: 30rem;
-  max-width: 90%;
-  background-color: var(--white);
-  box-shadow: 0 0.625rem 1.875rem rgba(0, 0, 0, 0.15);
-  box-sizing: border-box;
-}
-
-.dialog::backdrop {
-  background-color: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-}
-
-.dialogHeader {
-  margin-bottom: 1.25rem;
-}
-
-.dialogHeader h3 {
-  font-size: 1.125rem;
-  font-weight: 700;
-  margin: 0;
-}
-
 .dialogForm {
   display: flex;
   flex-direction: column;

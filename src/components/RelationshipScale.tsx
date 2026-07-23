@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
+import OverlayDialog from './OverlayDialog';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import { updatePartnerRelationship } from '../app/actions/relationship';
@@ -104,14 +105,13 @@ export default function RelationshipScale({
   updatedAt?: string | null;
   editable?: boolean;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const locale = useLocale();
   const [pick, setPick] = useState<RelScore>(score ?? 4);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [noteError, setNoteError] = useState(false);
 
-  const open = () => { setPick(score ?? 4); setNoteError(false); dialogRef.current?.showModal(); };
-  const onBackdrop = (e: React.MouseEvent<HTMLDialogElement>) => { if (e.target === dialogRef.current) dialogRef.current?.close(); };
+  const open = () => { setPick(score ?? 4); setNoteError(false); setDialogOpen(true); };
 
   return (
     <div className={styles.wrapper} data-testid="relationship-scale">
@@ -152,14 +152,14 @@ export default function RelationshipScale({
         <button type="button" onClick={open} className={styles.updateBtn}>{t(locale, 'update')}</button>
       )}
 
-      <dialog ref={dialogRef} className={styles.dialog} onClick={onBackdrop}>
-        <div className={styles.dialogHeader}><h3>{t(locale, 'relUpdateTitle')}</h3></div>
+      <OverlayDialog open={dialogOpen} onClose={() => setDialogOpen(false)} width="28.75rem"
+        title={t(locale, 'relUpdateTitle')} closeLabel={t(locale, 'close')}>
         <form
           action={async (formData) => {
             if (!((formData.get('notes') as string) || '').trim()) { setNoteError(true); return; }
             setNoteError(false);
             setIsSubmitting(true);
-            try { await updatePartnerRelationship(formData); dialogRef.current?.close(); }
+            try { await updatePartnerRelationship(formData); setDialogOpen(false); }
             catch (err) { console.error(err); }
             finally { setIsSubmitting(false); }
           }}
@@ -196,7 +196,7 @@ export default function RelationshipScale({
           </div>
 
           <div className={styles.actionRow}>
-            <button type="button" onClick={() => dialogRef.current?.close()} disabled={isSubmitting} className={styles.cancelBtn}>
+            <button type="button" onClick={() => setDialogOpen(false)} disabled={isSubmitting} className={styles.cancelBtn}>
               {t(locale, 'cancel')}
             </button>
             <button type="submit" disabled={isSubmitting} className={styles.submitBtn}>
@@ -204,7 +204,7 @@ export default function RelationshipScale({
             </button>
           </div>
         </form>
-      </dialog>
+      </OverlayDialog>
     </div>
   );
 }

@@ -110,36 +110,6 @@
 }
 
 /* dialog (matches the app's modal grammar) */
-.dialog {
-  /* the trigger can sit inside right-aligned hosts (the rail's fact values);
-     a modal must not inherit their text-align */
-  text-align: left;
-  border: none;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  background-color: var(--white);
-  box-shadow: 0 0.625rem 2.5rem rgba(0, 0, 0, 0.15);
-  max-width: 28.75rem;
-  width: 90%;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  margin: 0;
-}
-.dialog::backdrop {
-  background-color: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-}
-
-.dialogHeader h3 {
-  font-family: var(--head-font);
-  font-size: 1.125rem;
-  font-weight: 700;
-  margin: 0 0 1rem 0;
-  color: var(--fg);
-}
-
 .dialogForm {
   display: flex;
   flex-direction: column;

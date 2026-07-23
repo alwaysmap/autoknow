@@ -19,6 +19,7 @@ import { t, statusKey, Locale } from '../lib/i18n';
 import { isPhaseActive, statusProgress, phaseColor, phaseDetailHash, parsePhaseDetailHash } from '../lib/phase';
 import AnchorHeading from './AnchorHeading';
 import AnchoredPopover from './AnchoredPopover';
+import OverlayDialog from './OverlayDialog';
 import ConstraintRing from './ConstraintRing';
 import HillHistoryList from './HillHistoryList';
 import type { HillChange } from '../lib/history';
@@ -478,7 +479,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   // Title ⋯ menu: bulk expand/hide plus the one door to structural editing. Placement,
   // light-dismiss and focus come from AnchoredPopover (#24); each bulk item closes the
   // panel via the render-prop `close` after acting, since it mutates the diagram behind it.
-  const legendRef = useRef<HTMLDialogElement>(null);
+  const [legendOpen, setLegendOpen] = useState(false);
   // "Collapse the diagram" is one state, not two: every card at min AND the track
   // ink put away, leaving the stations as a plain list. Collapsing only the cards
   // left the densest thing on screen — the tracks — untouched, which is why the
@@ -1181,7 +1182,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
         actions={
           <>
             <button type="button" className={styles.infoBtn} title={t(locale, 'phaseKeyTitle')}
-              aria-label={t(locale, 'phaseKeyTitle')} onClick={() => legendRef.current?.showModal()}>
+              aria-label={t(locale, 'phaseKeyTitle')} onClick={() => setLegendOpen(true)}>
               <svg viewBox="0 0 16 16" width={15} height={15} aria-hidden>
                 <circle cx={8} cy={8} r={6.6} fill="none" stroke="currentColor" strokeWidth={1.4} />
                 <circle cx={8} cy={5} r={1} fill="currentColor" />
@@ -1512,9 +1513,8 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
 
       {/* the key lives behind the ⓘ, not on the page (design.md §7: few titles,
           less chrome) — the rail should be read, the key consulted */}
-      <dialog ref={legendRef} className={styles.legendDialog}
-        onClick={(e) => { if (e.target === legendRef.current) legendRef.current?.close(); }}>
-        <h3 className={styles.legendTitle}>{t(locale, 'phaseKeyTitle')}</h3>
+      <OverlayDialog open={legendOpen} onClose={() => setLegendOpen(false)} width="23.75rem"
+        title={t(locale, 'phaseKeyTitle')} closeLabel={t(locale, 'close')}>
         <div className={styles.legendRow}>
           <svg viewBox="0 0 14 14" className={styles.legendGlyph}><circle cx={7} cy={7} r={5} fill={INK} /></svg>
           {status(100)}
@@ -1564,7 +1564,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
           </svg>
           {t(locale, 'legendTrace')}
         </div>
-      </dialog>
+      </OverlayDialog>
 
       {detailsOverlay}
     </div>

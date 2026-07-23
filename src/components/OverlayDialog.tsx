@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import styles from './OverlayDialog.module.css';
 
 // THE overlay container for embedded content (#34). Every `<dialog>` in the app sized and
@@ -38,6 +38,8 @@ export interface OverlayDialogProps {
   footer?: React.ReactNode;
   /** Accessible name when there is no visible title. */
   ariaLabel?: string;
+  /** Forwarded to the <dialog> (e2e hooks, e.g. "needle-detail"). */
+  dataTestId?: string;
   /** Return false to BLOCK a backdrop/Escape dismiss (e.g. a half-typed note). The × and an
    *  explicit onClose still close it; this only guards the light-dismiss paths. */
   canClose?: () => boolean;
@@ -54,11 +56,13 @@ export default function OverlayDialog({
   closeLabel,
   footer,
   ariaLabel,
+  dataTestId,
   canClose,
   className,
   children,
 }: OverlayDialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
   // React state drives the native modal.
   useEffect(() => {
@@ -114,12 +118,14 @@ export default function OverlayDialog({
       ref={ref}
       className={`${styles.dialog} ${className ?? ''}`}
       style={{ ['--overlay-width' as unknown as string]: width }}
-      aria-label={title ? undefined : ariaLabel}
+      data-testid={dataTestId}
+      aria-labelledby={title != null ? titleId : undefined}
+      aria-label={title == null ? ariaLabel : undefined}
       onClick={onBackdropClick}
     >
       {title != null ? (
         <header className={styles.header}>
-          <div className={styles.titleText}>{title}</div>
+          <div className={styles.titleText} id={titleId}>{title}</div>
           <button
             type="button"
             className={styles.close}

@@ -82,44 +82,6 @@
   background-color: var(--p-50);
 }
 
-/* The detail popup covers most of the viewport: it holds the complete log plus
-   the update form, and a cramped box would make the history the thing you
-   scroll past rather than the thing you read. */
-.historyDialog {
-  border: none;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  background-color: var(--white);
-  box-shadow: 0 0.625rem 2.5rem rgba(0, 0, 0, 0.15);
-  width: min(56rem, 92vw);
-  max-width: none;
-  height: min(85vh, 56rem);
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 10000;
-  color: var(--fg);
-}
-
-/* The flex column ONLY when open: a bare `display: flex` on the dialog overrides
-   the UA's `display: none` for closed dialogs, leaving a full-size invisible
-   overlay parked over the page that swallows every click behind it. */
-.historyDialog[open] {
-  display: flex;
-  flex-direction: column;
-}
-
-.historyDialog::backdrop {
-  background-color: rgba(0, 0, 0, 0.4);
-}
-
-.historyScroll {
-  flex: 1;
-  min-height: 0; /* lets the log scroll inside the flex column, not overflow it */
-  overflow-y: auto;
-}
-
 /* UPDATE reveals the form above the log, inside this same popup. Separated by a
    rule so it reads as a distinct mode, not another list entry. */
 .inlineForm {
@@ -139,11 +101,6 @@
   padding-top: 0;
 }
 
-.historyDialog .actionRow {
-  flex-shrink: 0;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
-}
 
 .fullHistoryLink {
   margin-right: auto;
@@ -159,35 +116,6 @@
 }
 
 /* Modal Dialog */
-.dialog {
-  border: none;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  background-color: var(--white);
-  box-shadow: 0 0.625rem 2.5rem rgba(0, 0, 0, 0.15);
-  max-width: 26.25rem;
-  width: 90%;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 10000;
-  outline: none;
-}
-
-.dialog::backdrop {
-  background-color: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-}
-
-.dialogHeader h3 {
-  font-family: var(--head-font);
-  font-size: 1.125rem;
-  font-weight: 700;
-  margin: 0 0 1rem 0;
-  color: var(--fg);
-}
-
 .dialogForm {
   display: flex;
   flex-direction: column;

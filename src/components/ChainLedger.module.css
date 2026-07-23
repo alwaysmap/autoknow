@@ -37,32 +37,6 @@
   background: var(--surface);
 }
 
-.legendDialog {
-  border: none;
-  border-radius: 0.75rem;
-  padding: 1.25rem 1.5rem;
-  background-color: var(--white, var(--paper));
-  box-shadow: 0 0.625rem 2.5rem rgba(0, 0, 0, 0.15);
-  max-width: 26rem;
-  width: 90%;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: var(--fg);
-}
-
-.legendDialog::backdrop {
-  background-color: rgba(0, 0, 0, 0.4);
-}
-
-.legendTitle {
-  font-family: var(--head-font);
-  font-size: 0.875rem;
-  font-weight: 700;
-  margin: 0 0 0.75rem;
-}
-
 .legendRow {
   display: flex;
   align-items: center;

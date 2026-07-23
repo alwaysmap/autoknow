@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { archiveProject, deleteProject, setProjectLifecycle } from '../app/programs/[id]/actions';
+import OverlayDialog from './OverlayDialog';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import styles from './ProjectAdminControls.module.css';
@@ -21,33 +22,11 @@ export default function ProjectAdminControls({
 }: ProjectAdminControlsProps) {
   const locale = useLocale();
   const [confirmName, setConfirmName] = useState('');
-  const deleteDialogRef = useRef<HTMLDialogElement>(null);
-
-  // Setup light dismiss fallback for browsers without closedby support (like Safari)
-  useEffect(() => {
-    const dialog = deleteDialogRef.current;
-    if (dialog && !('closedBy' in HTMLDialogElement.prototype)) {
-      const handleDismiss = (event: MouseEvent) => {
-        if (event.target !== dialog) return;
-        const rect = dialog.getBoundingClientRect();
-        const isDialogContent = (
-          rect.top <= event.clientY &&
-          event.clientY <= rect.top + rect.height &&
-          rect.left <= event.clientX &&
-          event.clientX <= rect.left + rect.width
-        );
-        if (!isDialogContent) {
-          dialog.close();
-        }
-      };
-      dialog.addEventListener('click', handleDismiss);
-      return () => dialog.removeEventListener('click', handleDismiss);
-    }
-  }, []);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const openDeleteDialog = () => {
     setConfirmName('');
-    deleteDialogRef.current?.showModal();
+    setDeleteOpen(true);
   };
 
   const isConfirmed = confirmName.trim() === projectName;
@@ -97,11 +76,8 @@ export default function ProjectAdminControls({
       </button>
 
       {/* Delete Confirmation Dialog */}
-      <dialog ref={deleteDialogRef} closedby="any" className={styles.dialog} aria-labelledby="deleteDialogTitle">
-        <div className={styles.dialogHeader}>
-          <h3 id="deleteDialogTitle">{t(locale, 'confirmProjectDeletion')}</h3>
-        </div>
-
+      <OverlayDialog open={deleteOpen} onClose={() => setDeleteOpen(false)} width="30rem"
+        title={t(locale, 'confirmProjectDeletion')} closeLabel={t(locale, 'close')}>
         <p className={styles.warningText}>
           {t(locale, 'deleteWarning')} <strong>{t(locale, 'cannotBeUndone')}</strong>
         </p>
@@ -132,7 +108,7 @@ export default function ProjectAdminControls({
           </div>
 
           <div className={styles.actionRow}>
-            <button type="button" onClick={() => deleteDialogRef.current?.close()} className={styles.cancelBtn}>
+            <button type="button" onClick={() => setDeleteOpen(false)} className={styles.cancelBtn}>
               {t(locale, 'cancel')}
             </button>
             <button
@@ -144,7 +120,7 @@ export default function ProjectAdminControls({
             </button>
           </div>
         </form>
-      </dialog>
+      </OverlayDialog>
     </div>
   );
 }
