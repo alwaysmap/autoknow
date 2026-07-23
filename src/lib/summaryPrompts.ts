@@ -37,7 +37,7 @@ const SECTIONS = `Sections:
 - progress: what actually moved — shipped, unblocked, advanced. Direction of travel, in words.
 - risks: what could miss or is already missing — SOP slips, stalls, blockers, resource strain. State it plainly and say why it matters.
 - themes: patterns across the evidence (a blocker recurring across programs, a partner behavior, a systemic gap). Only if a real pattern exists.
-- actions: the specific decisions or unblocks leadership should make next; name the owner when the evidence names one.`;
+- actions: the concrete next decisions or unblocks, each naming WHO must act and WHY. Every action's evidence carries two signals — the owner's affiliation (their company, in parentheses after their name) and a "next step" saying which side moves next. Honor both. A partner-side owner acts FOR their own company: name the person and their company, and never tell them to "work with the partner" or "drive the partner" — they ARE the partner. A Google-side item is the program's internal owner's to drive. When the real move is cross-company, frame it as the program's Google-side owner working WITH the named partner contact — never the partner working with itself.`;
 
 const build = (role: string, audience: string) =>
   `${role}\n\n${audience}\n\n${VOICE}\n\n${CONTRACT}\n\n${SECTIONS}`;

@@ -98,6 +98,19 @@
   break-inside: avoid;
 }
 
+/* Real nouns in the prose link to their endpoint (#77). Quiet blue links (design.md
+   §6): colour is the affordance, weight stays 400, underline on hover only. Distinct
+   from the citation superscripts, which are tiny numerals lifted above the line. */
+.entityLink {
+  color: var(--link);
+  text-decoration: none;
+  font-weight: 400;
+}
+.entityLink:hover {
+  color: var(--link-hover);
+  text-decoration: underline;
+}
+
 .citations {
   margin-left: 0.3125rem;
   white-space: nowrap;

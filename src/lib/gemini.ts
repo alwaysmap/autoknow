@@ -167,7 +167,7 @@ CANDIDATES: ${JSON.stringify(candidates)}`;
 
 export interface SummaryEvidence {
   id: number; // index into the evidence list, for citations
-  kind: 'needle' | 'hill' | 'context' | 'action' | 'chain' | 'relationship' | 'portfolio';
+  kind: 'needle' | 'hill' | 'context' | 'action' | 'chain' | 'relationship' | 'portfolio' | 'owner';
   text: string; // one-line rendering of the record
 }
 

@@ -39,3 +39,72 @@ describe('SummaryPanel with no evidence', () => {
     expect(screen.getByText(/GEMINI_API_KEY/)).toBeInTheDocument();
   });
 });
+
+describe('SummaryPanel entity links (#77)', () => {
+  const stored = {
+    id: 1,
+    scope: 'program' as const,
+    targetId: 4,
+    generatedAt: new Date().toISOString(),
+    trigger: 'manual',
+    model: 'test',
+    tldr: 'Sarah Jenkins owns the fix.',
+    sourceCount: 1,
+    stale: false,
+    body: {
+      // The tldr and a bullet both carry segments — a linked run wraps the noun in its
+      // endpoint; the href is the server's, never one the model wrote.
+      tldrSegments: [
+        { text: 'Sarah Jenkins', href: '/people/5', external: false },
+        { text: ' owns the fix.' },
+      ],
+      sections: [
+        {
+          key: 'actions' as const,
+          bullets: [
+            {
+              text: 'Sarah Jenkins (Qualcomm) debugs the audio HAL freeze.',
+              segments: [
+                { text: 'Sarah Jenkins', href: '/people/5', external: false },
+                { text: ' (' },
+                { text: 'Qualcomm', href: '/partners/9', external: false },
+                { text: ') debugs the audio HAL freeze.' },
+              ],
+              citations: [],
+            },
+          ],
+        },
+      ],
+    },
+  };
+
+  it('renders segment links to the person and partner endpoints, no model-authored URL', () => {
+    render(
+      <LocaleProvider locale="en">
+        <SummaryPanel scope="program" targetId={4} path="/programs/4" summary={stored} configured />
+      </LocaleProvider>,
+    );
+    // The noun in the tldr AND in the bullet link to /people/5 (first-mention each).
+    const personLinks = screen.getAllByRole('link', { name: 'Sarah Jenkins' });
+    expect(personLinks).toHaveLength(2);
+    personLinks.forEach((a) => expect(a).toHaveAttribute('href', '/people/5'));
+    // The partner noun links to its own endpoint.
+    expect(screen.getByRole('link', { name: 'Qualcomm' })).toHaveAttribute('href', '/partners/9');
+    // The surrounding prose is preserved.
+    expect(screen.getByText(/debugs the audio HAL freeze/)).toBeInTheDocument();
+  });
+
+  it('falls back to plain text for a bullet with no segments (old stored briefs)', () => {
+    const legacy = {
+      ...stored,
+      body: { sections: [{ key: 'risks' as const, bullets: [{ text: 'No links here.', citations: [] }] }] },
+    };
+    render(
+      <LocaleProvider locale="en">
+        <SummaryPanel scope="program" targetId={4} path="/programs/4" summary={legacy} configured />
+      </LocaleProvider>,
+    );
+    expect(screen.getByText('No links here.')).toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+});

@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useTransition } from 'react';
 import { regenerateSummary } from '../app/actions/summaries';
 import type { SummaryView, SectionKey } from '../lib/summaries';
+import type { Segment } from '../lib/summaryLinkify';
 import type { SummaryScope } from '../lib/summaryPrompts';
 import { t, type StringKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
@@ -27,6 +28,28 @@ function GeminiSpark({ size = 14 }: { size?: number }) {
     <svg viewBox="0 0 12 12" width={size} height={size} aria-hidden>
       <path d="M 6 0.5 Q 6.9 4.4 11.5 6 Q 6.9 7.6 6 11.5 Q 5.1 7.6 0.5 6 Q 5.1 4.4 6 0.5 Z" fill="currentColor" />
     </svg>
+  );
+}
+
+// Render briefing prose with its real nouns linked (#77). The links are DATA the
+// server resolved (segments carry an href from our own routes, never a model-authored
+// URL), so this only reads them — no dangerouslySetInnerHTML over model text. Absent
+// segments (old briefs, or a link-free line) ⇒ the plain string.
+function renderProse(text: string, segments: Segment[] | undefined): React.ReactNode {
+  if (!segments || segments.length === 0) return text;
+  return segments.map((s, i) =>
+    s.href ? (
+      <a
+        key={i}
+        href={s.href}
+        className={styles.entityLink}
+        {...(s.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+      >
+        {s.text}
+      </a>
+    ) : (
+      <React.Fragment key={i}>{s.text}</React.Fragment>
+    ),
   );
 }
 
@@ -135,7 +158,7 @@ export default function SummaryPanel({
         onRefresh={configured ? regenerate : undefined}
       />
 
-      <p className={styles.tldr}>{summary.tldr}</p>
+      <p className={styles.tldr}>{renderProse(summary.tldr, summary.body.tldrSegments)}</p>
 
       <div className={styles.grid}>
         {ordered.map((section) => (
@@ -144,7 +167,7 @@ export default function SummaryPanel({
             <ul className={styles.bullets}>
               {section.bullets.map((b, i) => (
                 <li key={i} className={styles.bullet}>
-                  {b.text}
+                  {renderProse(b.text, b.segments)}
                   {b.citations.length > 0 && (
                     <span className={styles.citations}>
                       {b.citations.map((c, j) => (
