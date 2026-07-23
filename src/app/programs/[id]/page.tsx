@@ -339,6 +339,10 @@ export default async function ProjectDetailsPage(props: {
           currentHillChartProgress={project.hillChartProgress}
           ownerName={project.ownerName || ''}
           sopDateString={sopDateString}
+          projectedFinishMs={ledger.projectedFinishMs}
+          bufferDays={ledger.bufferDays}
+          guidelineDays={ledger.guidelineDays}
+          now={now}
           volumeFirstYear={project.volumeFirstYear}
           hasGas={project.hasGas}
           hasGbi={project.hasGbi}

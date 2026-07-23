@@ -30,6 +30,29 @@ export interface SopOutlook {
   onTrack: boolean;
 }
 
+/** The health tone of a program's forecast finish against its SOP (#21), from the
+ *  ledger's own numbers so the header and the Critical chain section never disagree.
+ *  A MISSED SOP is worse than a forecast miss, which is what the two bad tones say:
+ *    - overshoot (buffer < 0) and the SOP date has already passed → 'blown'  (Concerned)
+ *    - overshoot and the SOP is still ahead                        → 'atRisk' (Some Risk)
+ *    - a POSITIVE buffer below the 50%-rule reserve                → 'atRisk' (near the line)
+ *    - otherwise                                                   → 'onTrack'
+ */
+export type SopForecastTone = 'onTrack' | 'atRisk' | 'blown';
+export function sopForecastTone(args: {
+  bufferDays: number | null;
+  guidelineDays: number | null;
+  sopMs: number | null;
+  now: number;
+}): SopForecastTone {
+  const { bufferDays, guidelineDays, sopMs, now } = args;
+  if (bufferDays != null && bufferDays < 0) {
+    return sopMs != null && Number.isFinite(sopMs) && sopMs < now ? 'blown' : 'atRisk';
+  }
+  if (bufferDays != null && guidelineDays != null && bufferDays < guidelineDays) return 'atRisk';
+  return 'onTrack';
+}
+
 /** The on-track signal: does now + remaining chain weeks land on or before the SOP? */
 export function sopOutlook(remainingChainDays: number, sopDate: Date | string, now: number): SopOutlook {
   const sop = typeof sopDate === 'string' ? new Date(sopDate) : sopDate;
