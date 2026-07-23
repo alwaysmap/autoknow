@@ -222,7 +222,7 @@ export default function EcosystemSummaryClient({
           {/* Draggable boundary mini hill chart preview */}
           <div className={styles.miniHillContainer}>
             <svg ref={svgRef} className={styles.miniHillChart} viewBox="0 0 100 40">
-              <path d="M 5 35 Q 50 8 95 35" fill="none" stroke="#e0e0e0" strokeWidth="2.5" />
+              <path d="M 5 35 Q 50 8 95 35" fill="none" stroke="var(--border)" strokeWidth="2.5" />
               {miniHighlightPath && (
                 <path d={miniHighlightPath} fill="none" stroke="var(--p-600)" strokeWidth="3.5" strokeLinecap="round" />
               )}
