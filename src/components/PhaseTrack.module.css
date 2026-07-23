@@ -339,6 +339,14 @@
   color: var(--fg);
   background: var(--surface);
 }
+
+/* Instrument only: the ⋯ is the LAST affordance on the Phases heading (the ⓘ sits
+   before it and keeps its box), so its empty right box pushed the graticule ~12px past
+   the declared lead. Pull it ink-tight so --graticule-lead reads from the dots (#25,
+   box≠ink). Standard has no trailing graticule, so scope it out. */
+:global(:root[data-style='instrument']) .menuBtn {
+  margin-right: -0.75rem; /* 0.3125rem padding + the ⋯ icon's empty canvas, whole px */
+}
 /* Positioning + chrome come from AnchoredPopover's .panel (#24); the title menu only
    stacks its rows. */
 .menu {

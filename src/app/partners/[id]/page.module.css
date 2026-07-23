@@ -16,7 +16,9 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 1rem;
+  /* the graticule reads this back so its lead nets to the token (#25). */
+  --gr-gap: 1rem;
+  gap: var(--gr-gap);
 }
 
 .header h1 {
@@ -247,14 +249,18 @@
 
 :global(:root[data-style='instrument']) .header::after {
   content: '';
-  flex: 1 1 1.5rem;
-  min-width: 1.5rem;
+  flex: 1 1 var(--graticule-min-width);
+  min-width: var(--graticule-min-width);
   /* Baseline, not centre: rests the graticule on the heading's text
      baseline so it sits identically across headings of any size or row
      height (a pseudo-element's synthesized baseline is its bottom edge). */
   align-self: baseline;
-  height: 0.375rem;
-  margin-left: 0.75rem;
+  height: var(--graticule-height);
+  /* seen lead = --graticule-lead, netting the header's flex gap (#25). NOTE: this
+     ::after trails the whole identity BLOCK, not the h1 line — the block-trailing +
+     baseline-float case the issue flagged for a separate pass; the lead is tokenised
+     here, the structural move is not in scope. */
+  margin-left: calc(var(--graticule-lead) - var(--gr-gap));
   background-image: var(--graticule);
   background-repeat: repeat-x;
 }

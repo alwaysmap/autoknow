@@ -10,7 +10,11 @@
 .row {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  /* --gr-gap is the row's own flex gap (heading ↔ affordances). The graticule reads
+     it back (calc below) so its leading nets out to --graticule-lead whatever this is,
+     and the # anchor cancels one copy of it — see .anchor (#25). */
+  --gr-gap: 0.25rem;
+  gap: var(--gr-gap);
   margin-bottom: 0.5rem;
   /* Full width even when the row is itself a flex ITEM: shrink-wrapped, the
      trailing graticule had only the leftover 40px to fill, so one heading's rule
@@ -44,8 +48,19 @@
   line-height: 1.75rem;
 }
 
+/* The # sits BESIDE the heading but must not push the trailing graticule right by a
+   glyph nobody can see (#25): it was `opacity: 0` yet still held ~10px of layout, so
+   every <h2>'s rule started ~16px from the ink instead of the declared ~12px. Zero-
+   width + overflow keeps it out of the width budget while the glyph still paints and
+   stays clickable; the negative margin cancels the one flex gap in front of it, so the
+   row lays out as if the anchor were absent. opacity (not visibility/display) still does
+   the reveal, so hover NEVER reflows the row — the property that made opacity the right
+   choice is preserved, only its footprint is removed. */
 .anchor {
-  margin-left: 0.125rem;
+  width: 0;
+  overflow: visible;
+  white-space: nowrap;
+  margin-left: calc(-1 * var(--gr-gap));
   color: var(--muted);
   font-weight: 400;
   text-decoration: none;
@@ -79,10 +94,12 @@
    long heading simply gets a shorter rule. */
 :global(:root[data-style='instrument']) .row::after {
   content: '';
-  flex: 1 1 1.5rem;
-  min-width: 1.5rem;
-  height: 0.375rem;
-  margin-left: 0.75rem;
+  flex: 1 1 var(--graticule-min-width);
+  min-width: var(--graticule-min-width);
+  height: var(--graticule-height);
+  /* --graticule-lead is measured from the INK; subtract the flex gap the row already
+     puts in front of this pseudo so the SEEN lead is the token, not token + gap (#25). */
+  margin-left: calc(var(--graticule-lead) - var(--gr-gap));
   /* Baseline, not the row's centre: a pseudo-element's synthesized baseline is
      its bottom edge, so this rests the graticule on the heading's text baseline
      — identical across every heading regardless of size or row height. */
