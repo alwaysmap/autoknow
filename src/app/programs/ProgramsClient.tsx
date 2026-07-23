@@ -251,12 +251,20 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
                     {p.partner.name}
                   </Link>
                 </td>
-                {/* Region is a CLASS the program shares with others, so it takes
-                    the box treatment — same as the Partners table (design.md §6). */}
                 <td>
-                  <ClassBox className={local.classInk}>
-                    {p.partner.region || t(locale, 'otherLabel')}
-                  </ClassBox>
+                  {/* Region is a CLASS the program shares with others: the box is
+                      the signal, and clicking it filters this column — never
+                      navigates (design.md §6, issue #30). Matches the Partners table. */}
+                  <button
+                    type="button"
+                    onClick={() => setFilters((f) => ({ ...f, 'partner.region': [p.partner.region || t(locale, 'otherLabel')] }))}
+                    className={local.classFilterBtn}
+                    title={t(locale, 'filterColumn', { c: t(locale, 'googleRegion') })}
+                  >
+                    <ClassBox className={local.classInk}>
+                      {p.partner.region || t(locale, 'otherLabel')}
+                    </ClassBox>
+                  </button>
                 </td>
                 <td>
                   {(() => {
