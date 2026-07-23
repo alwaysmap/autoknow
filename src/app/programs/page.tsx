@@ -5,6 +5,7 @@ import { sopBufferCategory } from '../../lib/sop';
 import { getLocale } from '../../lib/locale';
 import { t } from '../../lib/i18n';
 import ProgramsClient from './ProgramsClient';
+import PageShell from '../../components/PageShell';
 import { parseFilterParams, parseSortParams } from '../../lib/tableUrlState';
 
 export const dynamic = 'force-dynamic';
@@ -122,31 +123,23 @@ export default async function ProgramsPage(props: {
   const partnerTypes = await prisma.partnerType.findMany({ select: { name: true } });
 
   return (
-    <div style={{ padding: '0 2.5rem', minHeight: '100vh', backgroundColor: 'var(--white)' }}>
-      <header style={{ borderBottom: '1px solid var(--border)', padding: '0.875rem 0 0.625rem' }}>
-        <h1 style={{ fontFamily: 'var(--head-font)', fontSize: '1.5rem', fontWeight: 600, margin: '0', color: 'var(--fg)' }}>
-          {t(locale, 'navPrograms')}
-        </h1>
-      </header>
-
-      <main style={{ padding: '2rem 0' }}>
-        <ProgramsClient
-          // Remount when the URL's params change: the client seeds its filter/sort
-          // state from initial* once, so same-route navigation (e.g. clicking the
-          // header "Programs" link while filtered) must not leave stale view state.
-          key={JSON.stringify(sp, Object.keys(sp).sort())}
-      initialFilters={initialFilters}
-      initialTableSort={initialTableSort}
-      initialQ={initialQ}
-      initialProjects={serializedProjects}
-          people={people}
-          regions={regions.map(r => r.name)}
-          partnerTypes={partnerTypes.map(t => t.name)}
-          initialMinRisk={initialMinRisk}
-          initialSort={initialSort}
-          initialActiveOnly={initialActiveOnly}
-        />
-      </main>
-    </div>
+    <PageShell title={t(locale, 'navPrograms')}>
+      <ProgramsClient
+        // Remount when the URL's params change: the client seeds its filter/sort
+        // state from initial* once, so same-route navigation (e.g. clicking the
+        // header "Programs" link while filtered) must not leave stale view state.
+        key={JSON.stringify(sp, Object.keys(sp).sort())}
+        initialFilters={initialFilters}
+        initialTableSort={initialTableSort}
+        initialQ={initialQ}
+        initialProjects={serializedProjects}
+        people={people}
+        regions={regions.map(r => r.name)}
+        partnerTypes={partnerTypes.map(t => t.name)}
+        initialMinRisk={initialMinRisk}
+        initialSort={initialSort}
+        initialActiveOnly={initialActiveOnly}
+      />
+    </PageShell>
   );
 }

@@ -12,6 +12,7 @@ import { t } from '../../lib/i18n';
 import EcosystemDashboardClient from './EcosystemDashboardClient';
 import styles from './page.module.css';
 import AnchorHeading from '../../components/AnchorHeading';
+import PageShell from '../../components/PageShell';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,13 +37,8 @@ export default async function Home() {
   const activeCount = serializedProjects.filter((p) => !p.isArchived && p.hillChartProgress < 100).length;
 
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>{t(locale, 'ecosystemDashboard')}</h1>
-      </header>
-
-      <main className={styles.main}>
-        {/* the leadership strip, in reading order: how much work is in flight, how
+    <PageShell title={t(locale, 'ecosystemDashboard')} maxWidth="68.75rem">
+      {/* the leadership strip, in reading order: how much work is in flight, how
             much of it is slipping its SOP, and how healthy the partner book carrying
             it is — the three questions the capacity chart below then answers in time */}
         <section className={styles.statStrip}>
@@ -101,7 +97,6 @@ export default async function Home() {
             busiest={busiest}
           />
         )}
-      </main>
-    </div>
+    </PageShell>
   );
 }

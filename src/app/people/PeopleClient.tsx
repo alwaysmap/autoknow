@@ -7,6 +7,7 @@ import Link from 'next/link';
 import DataTable from '../../components/DataTable';
 import ClassBox from '../../components/ClassBox';
 import KebabMenu from '../../components/KebabMenu';
+import PageShell from '../../components/PageShell';
 import { createPerson } from '../actions/people';
 import dash from '../../components/ProjectStatusDashboard.module.css';
 import admin from '../../components/ProjectAdminControls.module.css';
@@ -41,16 +42,17 @@ export default function PeopleClient({ people, partners, initialFilters, initial
   useTableUrlSync(filters, sort);
 
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>{t(locale, 'peopleLabel')}</h1>
+    <PageShell
+      title={t(locale, 'peopleLabel')}
+      maxWidth="62.5rem"
+      actions={
         <KebabMenu ariaLabel={t(locale, 'moreActions')}>
           <button type="button" data-testid="new-person" onClick={() => newRef.current?.showModal()}>
             {t(locale, 'newPerson')}
           </button>
         </KebabMenu>
-      </header>
-
+      }
+    >
       {/* Any login can create a Person; a Person needs no login of their own
           (partner-side contacts are the normal case). */}
       <dialog ref={newRef} closedby="any" className={admin.dialog} aria-labelledby="newPersonTitle"
@@ -90,9 +92,8 @@ export default function PeopleClient({ people, partners, initialFilters, initial
         </form>
       </dialog>
 
-      <main className={styles.main}>
-        <section className={styles.tableSection}>
-          <DataTable
+      <section className={styles.tableSection}>
+        <DataTable
             headers={[
               { key: 'name', label: t(locale, 'nameLabel') },
               { key: 'company', label: t(locale, 'companyLabel'), filterable: true, filterValue: (row) => (row as PersonRow).company || '—' },
@@ -145,7 +146,6 @@ export default function PeopleClient({ people, partners, initialFilters, initial
             emptyStateMessage={t(locale, 'noAssociatedPeople')}
           />
         </section>
-      </main>
-    </div>
+    </PageShell>
   );
 }

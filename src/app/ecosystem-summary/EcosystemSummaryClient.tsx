@@ -11,6 +11,7 @@ import { resolvePerson } from '../../lib/people';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 import AnchorHeading from '../../components/AnchorHeading';
+import PageShell from '../../components/PageShell';
 
 interface Project {
   id: number;
@@ -154,8 +155,8 @@ export default function EcosystemSummaryClient({
   const rightHandleY = 35 - Math.sin((Math.PI * maxProgress) / 100) * 26;
 
   return (
-    <div className={styles.clientWrapper}>
-      <h1 className={styles.pageTitle}>{t(locale, 'ecosystemSummary')}</h1>
+    <PageShell title={t(locale, 'ecosystemSummary')}>
+      <div className={styles.clientWrapper}>
       {/* Search & Filter Widgets Panel */}
       <section className={styles.filterSection}>
         <div className={styles.filterGroup}>
@@ -408,6 +409,7 @@ export default function EcosystemSummaryClient({
         />
       </section>
 
-    </div>
+      </div>
+    </PageShell>
   );
 }

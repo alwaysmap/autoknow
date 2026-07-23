@@ -478,14 +478,6 @@
 }
 
 
-.pageTitle {
-  font-family: var(--head-font);
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--fg);
-  margin: 0 0 1.25rem;
-}
-
 /* Latest needle-update text in the risk table: one elided line, full text on hover. */
 .noteClamp {
   display: inline-block;
