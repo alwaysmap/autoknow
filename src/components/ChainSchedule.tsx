@@ -329,12 +329,11 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   // y-axis scale values, derived here like laneFlats/laneRisers (aim for ~3 gridlines).
   const bufTicks: number[] = [];
   for (let v = 0, step = niceStep(laneMax / 3); v <= laneMax + 0.01; v += step) bufTicks.push(v);
-  // Lane labels split by strategy. The ANCHORS — y-axis scale values, the reserve marker,
-  // the start, and now — de-collide by HIDING a loser (a hidden tick is still readable from
-  // the scale; now outranks reserve). The RISERS never hide: a step is a real buffer move,
-  // so they FAN OUT in y around the surviving anchors instead (user call, [[chain-buffer-
-  // lane-keep-steps]]). Centres per anchor: y-axis / reserve end-anchored, now start-
-  // anchored, the rest centred.
+  // Lane labels split by strategy (design.md §8c). The ANCHORS — y-axis scale values, the
+  // reserve marker, the start, and now — de-collide by HIDING a loser (a hidden tick is
+  // still readable from the scale; now outranks reserve). The RISERS never hide: a step is
+  // a real buffer move, so they FAN OUT in y around the surviving anchors instead (user
+  // call). Centres per anchor: y-axis / reserve end-anchored, now start-anchored, rest centred.
   const laneHalfH = FS_SMALL / 2 + 1;
   // Half-widths for the collision boxes. The trailing pad is breathing room around each
   // label so near-misses still count as clashes; it scales loosely with weight — the bold
@@ -354,13 +353,12 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   const startLabel = { x: laneStartX, y: bufY(startBuffer ?? 0) - 7, halfW: shortHalf(startBuffer ?? 0), halfH: laneHalfH, priority: 2 };
   const riserLabels = laneRisers.map((s) => ({ x: s.x, y: bufY(s.to) + (s.to >= s.from ? -7 : 13), halfW: shortHalf(s.to), halfH: laneHalfH, priority: 1 }));
   const nowLabel = { x: x(now) + 6 + nowHalf, y: bufY(laneEndLevel) - 7, halfW: nowHalf, halfH: FS_EMPH / 2 + 1, priority: 3 };
+  // Order is [ ...ticks, reserve, start, now ]; slice ticks back by length and destructure
+  // the three singletons, so no hand-counted offset can drift out of step with the array.
   const anchorLabels = [...tickLabels, reserveLabel, startLabel, nowLabel];
   const anchorKeep = keepNonOverlapping(anchorLabels);
-  const nTicks = tickLabels.length;
-  const keepTicks = anchorKeep.slice(0, nTicks);
-  const keepReserveLabel = anchorKeep[nTicks];
-  const keepStartLabel = anchorKeep[nTicks + 1];
-  const keepNowLabel = anchorKeep[nTicks + 2];
+  const keepTicks = anchorKeep.slice(0, tickLabels.length);
+  const [keepReserveLabel, keepStartLabel, keepNowLabel] = anchorKeep.slice(tickLabels.length);
   // Fan the riser labels out in y around whichever anchors survived — never hide one. The
   // band is the lane plot plus a little below its floor, where a level-0 loss label sits.
   const keptAnchors = anchorLabels.filter((_, i) => anchorKeep[i]);

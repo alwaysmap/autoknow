@@ -4,17 +4,19 @@
 // and the buffer lane (y-axis values / reserve / start / risers / now). This locks it.
 import { keepNonOverlapping, dodgeLabels, PlacedLabel } from '../src/lib/labelPlacement';
 
-/** No two KEPT labels' boxes may overlap in BOTH axes — the property that matters. */
-function noKeptOverlap(labels: PlacedLabel[], keep: boolean[]): boolean {
-  const kept = labels.filter((_, i) => keep[i]);
-  for (let i = 0; i < kept.length; i++) {
-    for (let j = i + 1; j < kept.length; j++) {
-      const a = kept[i], b = kept[j];
-      if (Math.abs(a.x - b.x) < a.halfW + b.halfW && Math.abs(a.y - b.y) < a.halfH + b.halfH) return false;
-    }
-  }
+/** Two boxes overlap when they intersect in BOTH axes — the property that matters. Mirrors
+ *  the (unexported) predicate in labelPlacement; both suites below check against it. */
+const boxesOverlap = (a: PlacedLabel, b: PlacedLabel): boolean =>
+  Math.abs(a.x - b.x) < a.halfW + b.halfW && Math.abs(a.y - b.y) < a.halfH + b.halfH;
+/** No two boxes in the set overlap. */
+function noPairOverlap(boxes: PlacedLabel[]): boolean {
+  for (let i = 0; i < boxes.length; i++)
+    for (let j = i + 1; j < boxes.length; j++)
+      if (boxesOverlap(boxes[i], boxes[j])) return false;
   return true;
 }
+const noKeptOverlap = (labels: PlacedLabel[], keep: boolean[]): boolean =>
+  noPairOverlap(labels.filter((_, i) => keep[i]));
 const L = (x: number, y: number, halfW: number, priority: number): PlacedLabel => ({ x, y, halfW, halfH: 6, priority });
 
 describe('keepNonOverlapping — 2D, labels never overlap, priority wins the slot', () => {
@@ -62,15 +64,6 @@ describe('keepNonOverlapping — 2D, labels never overlap, priority wins the slo
 
 /** For dodge: reconstruct each movable at its returned y. */
 const at = (l: PlacedLabel, y: number): PlacedLabel => ({ ...l, y });
-const boxesOverlap = (a: PlacedLabel, b: PlacedLabel): boolean =>
-  Math.abs(a.x - b.x) < a.halfW + b.halfW && Math.abs(a.y - b.y) < a.halfH + b.halfH;
-/** No two boxes in the set overlap (all are kept, so this must hold across the whole set). */
-function noPairOverlap(boxes: PlacedLabel[]): boolean {
-  for (let i = 0; i < boxes.length; i++)
-    for (let j = i + 1; j < boxes.length; j++)
-      if (boxesOverlap(boxes[i], boxes[j])) return false;
-  return true;
-}
 
 describe('dodgeLabels — keeps EVERY label, fans them out in y, clear of the fixed set', () => {
   const bounds = { top: 0, bottom: 120 }; // with halfH 6, a returned y stays in [6, 114]
