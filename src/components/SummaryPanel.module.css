@@ -158,9 +158,11 @@
   color: var(--fg);
   background: var(--surface);
 }
+/* Pending = a regenerate request is in flight: this is the BUSY state (#45), so
+   the cursor is progress, not default. The pulse is its own richer busy cue. */
 .geminiBtn[data-pending] {
   animation: sparkPulse 1.2s ease-in-out infinite;
-  cursor: default;
+  cursor: progress;
 }
 @keyframes sparkPulse {
   0%, 100% { opacity: 0.35; }

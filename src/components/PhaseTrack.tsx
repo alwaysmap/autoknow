@@ -485,15 +485,16 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   // left the densest thing on screen — the tracks — untouched, which is why the
   // bulk item read as doing nothing on a rail that already opens collapsed.
   const [tracksHidden, setTracksHidden] = useState(false);
+  // Expand and Collapse are IDEMPOTENT, never disabled (#45): each always runs and
+  // always closes the panel, so a click on the one with nothing left to do still
+  // lands the same visible response as any other item — the menu closes — instead
+  // of sitting inert and reading as a broken button. No `fullyExpanded/Collapsed`
+  // gate: the diagram's own state is already on screen, so "already collapsed" is a
+  // fact the reader can see, not one a greyed-out row has to whisper.
   const setAll = (collapse: boolean) => {
     setCollapsed(Object.fromEntries(phases.map((p) => [p.id, collapse])));
     setTracksHidden(collapse);
   };
-  /** How many cards are at standard size — with the tracks, this is what the bulk
-   *  items act on, so each can tell whether it still has anything to do. */
-  const openCount = phases.filter((p) => !isCollapsed(p)).length;
-  const fullyExpanded = openCount === phases.length && !tracksHidden;
-  const fullyCollapsed = openCount === 0 && tracksHidden;
 
   // Jump-and-flash (station clicks, chain links, dependency chips).
   const [flashId, setFlashId] = useState<number | null>(null);
@@ -1206,18 +1207,22 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
             >
               {({ close }) => (
                 <>
-                  {/* Each of these is disabled when it would do nothing. Rows default
-                      to collapsed, so on a fresh page "Hide all" was a live-looking
-                      item that changed not one pixel — and an affordance that does
-                      nothing when you click it does not read as "already done", it
-                      reads as broken. Bulk items close the panel so the result is
-                      visible; the tracks toggle stays open so it reads as two-way. */}
+                  {/* Expand / Collapse are IDEMPOTENT, not disabled (#45). Disabling
+                      whichever would change nothing left a grey row one shade off a
+                      live one on the dark menu, and clicking it did nothing at all —
+                      it did not even close the panel. On a rail that opens collapsed,
+                      that dead row was the FIRST thing a reader reached for ("Collapse
+                      diagram"), every time. Enabled-and-closing makes every activation
+                      land the same visible response — the panel closes — whether or not
+                      the diagram had anything left to change. Both close the panel so
+                      the result is visible; the tracks toggle below stays open so it
+                      reads as a two-way switch. */}
                   <button type="button" role="menuitem" className={styles.menuItem}
-                    disabled={fullyExpanded} onClick={() => { setAll(false); close(); }}>
+                    onClick={() => { setAll(false); close(); }}>
                     {t(locale, 'expandAll')}
                   </button>
                   <button type="button" role="menuitem" className={styles.menuItem}
-                    disabled={fullyCollapsed} onClick={() => { setAll(true); close(); }}>
+                    onClick={() => { setAll(true); close(); }}>
                     {t(locale, 'collapseAll')}
                   </button>
                   {/* Track-only toggle: the peer of the "Show" banner, so hiding the

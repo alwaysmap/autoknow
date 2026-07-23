@@ -12,6 +12,17 @@
      deliberately uncapped — it spans the full content column. */
   --status-viz-w: 16.25rem;
 
+  /* Two interaction states that must never wear each other's cue (#45). A control
+     that CAN'T act — a precondition is unmet — is DISABLED: dim it and set
+     `cursor: not-allowed`. A control that is mid-request is BUSY: dim it a little
+     less and set `cursor: progress`. The CURSOR is the tell (`default` says
+     neither, so it is wrong for both); the dim is one shared value so every
+     `:disabled` block reads the same instead of drifting to its own opacity — the
+     sweep behind #45 found the same state styled five different ways. Theme-
+     independent, so stated once here and never restated per theme. */
+  --disabled-opacity: 0.5;
+  --busy-opacity: 0.7;
+
   /* Structural emphasis — critical chain, constraint evidence, END phase, editor
      selection. Deliberately NOT amber: amber/red/green are the health palette, and
      "constraint" is a structural fact, not a risk verdict. */

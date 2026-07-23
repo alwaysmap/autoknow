@@ -151,7 +151,9 @@ test.describe('PhaseTrack rail', () => {
   // Collapsing the DIAGRAM is one state: every card at min and the dependency track
   // ink put away, stations left standing. Collapsing only the cards left the densest
   // thing on screen untouched, and on a rail that already opens with collapsed cards
-  // it changed nothing at all — a live-looking item that swallows the click.
+  // it changed nothing at all. The bulk items are now idempotent, not disabled (#45):
+  // even the one with nothing left to do still closes the panel, so it can never read
+  // as a dead click.
   test('collapsing the diagram puts the tracks away and says so', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
     const menu = page.getByRole('button', { name: 'Phase actions' });
@@ -180,11 +182,17 @@ test.describe('PhaseTrack rail', () => {
     // means "no dependency", which would be a lie.
     await expect(page.getByText('Dependency tracks hidden')).toBeVisible();
 
-    // Now the pair swaps, and the way back restores the tracks.
+    // Idempotent, not a disabled pair (#45): reopen and BOTH rows are still live —
+    // neither greys out. Clicking Collapse again, with nothing left to collapse, does
+    // not sit inert: it closes the panel (the visible response) and leaves the tracks
+    // hidden, so the click can never read as dead.
     await menu.click();
-    await expect(collapse).toBeDisabled();
+    await expect(collapse).toBeEnabled();
     await expect(expand).toBeEnabled();
-    await page.keyboard.press('Escape');
+    await collapse.click();
+    await expect(expand).toBeHidden(); // the panel closed on activation
+    await expect(page.getByText('Dependency tracks hidden')).toBeVisible();
+    // The way back restores the tracks.
     await page.getByRole('button', { name: 'Show' }).click();
     await expect(tracks).toHaveCount(drawn);
     await expect(page.getByText('Dependency tracks hidden')).toHaveCount(0);

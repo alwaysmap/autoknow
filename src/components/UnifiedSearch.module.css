@@ -55,9 +55,11 @@
   border-color: var(--muted);
 }
 
+/* The scoped-search submit is disabled only WHILE the query is in flight — the
+   shared busy treatment (#45): cursor progress, the shared busy dim. */
 .button:disabled {
   cursor: progress;
-  opacity: 0.7;
+  opacity: var(--busy-opacity);
 }
 
 /* Hero: the one place in the app where a control is deliberately oversized.
