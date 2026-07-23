@@ -288,7 +288,6 @@ const STRINGS = {
   navMe: { en: 'Me', de: 'Ich', ja: 'マイページ', ko: '내 정보' },
   navMore: { en: 'More', de: 'Mehr', ja: 'その他', ko: '더 보기' },
   navActivity: { en: 'Activity', de: 'Aktivität', ja: 'アクティビティ', ko: '활동' },
-  navIngest: { en: 'Ingest', de: 'Erfassen', ja: '取り込み', ko: '수집' },
   navTemplates: { en: 'Templates', de: 'Vorlagen', ja: 'テンプレート', ko: '템플릿' },
   navDevConsole: { en: 'Dev Console', de: 'Dev-Konsole', ja: '開発コンソール', ko: '개발 콘솔' },
   signIn: { en: 'Sign in', de: 'Anmelden', ja: 'ログイン', ko: '로그인' },
@@ -567,12 +566,6 @@ const STRINGS = {
     ja: 'カードDAGエディタでフェーズテンプレートを作成。ビルトインの複製も。',
     ko: '카드 DAG 편집기에서 단계 템플릿 작성, 기본 제공 템플릿 복제.',
   },
-  manageIngestDesc: {
-    en: 'Feed documents, chats, and email into programs and partners.',
-    de: 'Dokumente, Chats und E-Mails in Programme und Partner einspeisen.',
-    ja: 'ドキュメント・チャット・メールをプログラムやパートナーに取り込み。',
-    ko: '문서, 채팅, 이메일을 프로그램과 파트너로 수집.',
-  },
   manageAdminDesc: {
     en: 'Seeding, reindexing, and other developer controls.',
     de: 'Seeding, Reindexierung und weitere Entwickler-Steuerungen.',
@@ -618,7 +611,7 @@ const STRINGS = {
   relNotePlaceholder: { en: 'e.g. Exec sponsor changed; weekly syncs re-established.', de: 'z. B. Sponsorwechsel; wöchentliche Syncs wieder etabliert.', ja: '例: 役員スポンサーが交代。週次同期を再開。', ko: '예: 임원 스폰서 변경, 주간 동기화 재개.' },
 
   // ---- quick ingest + source freshness ----
-  addLink: { en: '+ Add link', de: '+ Link hinzufügen', ja: '+ リンクを追加', ko: '+ 링크 추가' },
+  addLink: { en: '+ Watch a source', de: '+ Quelle beobachten', ja: '+ ソースを監視', ko: '+ 소스 감시' },
   qiPlaceholder: { en: 'Paste a link — Doc, bug, CR, web page…', de: 'Link einfügen — Doc, Bug, CR, Webseite…', ja: 'リンクを貼り付け — Doc、バグ、CR、ウェブページ…', ko: '링크 붙여넣기 — 문서, 버그, CR, 웹페이지…' },
   chipWatched: { en: 'Watched', de: 'Beobachtet', ja: '監視中', ko: '감시 중' },
   chipSnapshot: { en: 'Snapshot', de: 'Momentaufnahme', ja: 'スナップショット', ko: '스냅샷' },
@@ -628,7 +621,7 @@ const STRINGS = {
   kindWeb: { en: 'web page', de: 'Webseite', ja: 'ウェブページ', ko: '웹페이지' },
   qiSaved: { en: 'Saved — {t}', de: 'Gespeichert — {t}', ja: '保存済み — {t}', ko: '저장됨 — {t}' },
   qiAttached: { en: 'linked to {n}', de: 'verknüpft mit {n}', ja: '{n} に関連付け', ko: '{n}에 연결됨' },
-  qiDuplicate: { en: 'Already tracked — this link is in the system.', de: 'Bereits erfasst — dieser Link ist im System.', ja: '追跡済み — このリンクは登録されています。', ko: '이미 추적 중 — 이 링크는 시스템에 있습니다.' },
+  qiDuplicate: { en: 'Already watching — this link is in the system.', de: 'Wird bereits beobachtet — dieser Link ist im System.', ja: '既に監視中 — このリンクは登録されています。', ko: '이미 감시 중 — 이 링크는 시스템에 있습니다.' },
   frozenLabel: { en: 'frozen — {r}', de: 'eingefroren — {r}', ja: '凍結 — {r}', ko: '동결 — {r}' },
   frzResolved: { en: 'resolved', de: 'gelöst', ja: '解決済み', ko: '해결됨' },
   frzAccess: { en: 'access revoked', de: 'Zugriff entzogen', ja: 'アクセス取消', ko: '접근 취소됨' },
@@ -757,7 +750,7 @@ const STRINGS = {
   sourceUpdated: { en: 'Updated: {t}', de: 'Aktualisiert: {t}', ja: '更新: {t}', ko: '업데이트: {t}' },
   colSource: { en: 'Source', de: 'Quelle', ja: 'ソース', ko: '소스' },
   colKind: { en: 'Kind', de: 'Art', ja: '種類', ko: '종류' },
-  colTracking: { en: 'Tracking', de: 'Tracking', ja: 'トラッキング', ko: '추적' },
+  colTracking: { en: 'Watch', de: 'Beobachtung', ja: '監視', ko: '감시' },
   colAddedBy: { en: 'Added by', de: 'Hinzugefügt von', ja: '追加者', ko: '추가한 사람' },
   colLastChecked: { en: 'Last checked', de: 'Zuletzt geprüft', ja: '最終確認', ko: '마지막 확인' },
   colRevisions: { en: 'Rev', de: 'Rev', ja: '版', ko: '개정' },
@@ -770,10 +763,10 @@ const STRINGS = {
   },
   neverChecked: { en: 'never', de: 'nie', ja: '未確認', ko: '없음' },
   manageSourcesDesc: {
-    en: 'Every ingested source, its tracking mode, and its freshness — refresh, pause, or change tracking.',
-    de: 'Jede erfasste Quelle, ihr Tracking-Modus und ihre Aktualität — aktualisieren, pausieren oder Modus ändern.',
-    ja: '取り込んだ全ソースとそのトラッキングモード・鮮度 — 更新・一時停止・モード変更ができます。',
-    ko: '수집된 모든 소스와 추적 모드, 최신성 — 새로고침, 일시중지, 모드 변경이 가능합니다.',
+    en: 'Every ingested source, its watch mode, and its freshness — refresh, pause, or switch between watched and snapshot.',
+    de: 'Jede erfasste Quelle, ihr Beobachtungsmodus und ihre Aktualität — aktualisieren, pausieren oder zwischen beobachtet und Momentaufnahme wechseln.',
+    ja: '取り込んだ全ソースとその監視モード・鮮度 — 更新・一時停止・監視とスナップショットの切り替えができます。',
+    ko: '수집된 모든 소스와 감시 모드, 최신성 — 새로고침, 일시중지, 감시와 스냅샷 전환이 가능합니다.',
   },
 
   filterColumn: { en: 'Filter {c}', de: '{c} filtern', ja: '{c} を絞り込み', ko: '{c} 필터' },
@@ -1242,13 +1235,6 @@ const STRINGS = {
     ko: 'AutoKnow 전체 검색 — 파트너, 프로그램, 사람, 컨텍스트…',
   },
   recentActivity: { en: 'Recent activity', de: 'Neueste Aktivität', ja: '最近のアクティビティ', ko: '최근 활동' },
-  ingestContext: { en: 'Ingest context', de: 'Kontext erfassen', ja: 'コンテキストを取り込む', ko: '컨텍스트 수집' },
-  ingestIntro: {
-    en: 'Paste a Google Doc link (e.g. partner meeting notes). Gemini distills it into a searchable digest and attaches it to the right program or partner.',
-    de: 'Google-Doc-Link einfügen (z. B. Partner-Meeting-Notizen). Gemini erstellt daraus eine durchsuchbare Zusammenfassung und ordnet sie dem richtigen Programm oder Partner zu.',
-    ja: 'Googleドキュメントのリンク（例: パートナー会議メモ）を貼り付けてください。Geminiが検索可能なダイジェストに要約し、適切なプログラムやパートナーに紐付けます。',
-    ko: 'Google 문서 링크(예: 파트너 회의록)를 붙여넣으세요. Gemini가 검색 가능한 요약으로 정리해 적절한 프로그램이나 파트너에 연결합니다.',
-  },
   loginIntro: {
     en: 'Android Automotive partner & program intelligence. Sign in with your Google Workspace account to continue.',
     de: 'Android Automotive Partner- & Programm-Intelligenz. Mit deinem Google Workspace-Konto anmelden, um fortzufahren.',
