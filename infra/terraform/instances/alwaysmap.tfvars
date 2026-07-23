@@ -13,7 +13,7 @@ github_repo           = "alwaysmap/autoknow"
 # the autoknow → ghs.googlehosted.com CNAME is a manual record there.
 custom_domain = "autoknow.alwaysmap.com"
 
-# Ingestion drain alarm (issue #38). Off by default — the app degrades honestly without it.
-# To activate: uncomment BOTH lines (set a real recipient) and human-run `terraform apply`.
-# enable_ingestion_alarm = true
-# ingestion_alarm_email  = "dylan@alwaysmap.com"
+# Ingestion drain alarm (issue #38). Activated for this instance; alerts go to the ops
+# identity below. Change the recipient before applying if you want them elsewhere.
+enable_ingestion_alarm = true
+ingestion_alarm_email  = "dylan@alwaysmap.com"
