@@ -4,10 +4,14 @@
 // constant-time.
 jest.mock('server-only', () => ({}));
 jest.mock('../src/lib/refresh', () => ({
-  runRefreshCycle: jest.fn(async () => ({ due: 0, checked: 0, changed: 0, frozen: 0, errors: 0, skippedDrive: 0 })),
+  runRefreshCycle: jest.fn(async () => ({ due: 0, checked: 0, changed: 0, frozen: 0, errors: 0, skippedDrive: 0, backlog: 0, quotaStopped: false })),
 }));
-jest.mock('../src/lib/driveSync', () => ({ runDriveSync: jest.fn(async () => ({ ok: true })) }));
+jest.mock('../src/lib/driveSync', () => ({ runDriveSync: jest.fn(async () => ({ spent: 0, backlog: 0, quotaStopped: false })) }));
 jest.mock('../src/lib/summaries', () => ({ runSummaryCycle: jest.fn(async () => ({ generated: 0 })) }));
+jest.mock('../src/lib/ingestionSettings', () => ({
+  getIngestionSettings: jest.fn(async () => ({ dailyReingestBudgetDocs: 60, freeTierRequestsPerDay: 250 })),
+}));
+jest.mock('../src/lib/ingestionHealth', () => ({ recordCycle: jest.fn(async () => {}) }));
 
 import { NextRequest } from 'next/server';
 import { secretsEqual } from '../src/lib/api';

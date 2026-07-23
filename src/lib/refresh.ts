@@ -1,11 +1,13 @@
 import 'server-only';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { summarizeDocument, digestToText, embedText } from './gemini';
+import { summarizeDocument, digestToText, embedText, isQuotaError } from './gemini';
 import { fetchWebUrl, hashContent } from './ingest';
 import { parseGoogleDocId, fetchGoogleDocText } from './google-docs';
 import { driveConfigured, getServiceAccountToken } from './googleAuth';
 import { inferSource } from './sources';
+import { getIngestionSettings } from './ingestionSettings';
+import { perCycleBudget } from './ingestBudget';
 
 // Refresh a watched source (docs/INGEST_FRESHNESS_PLAN.md §4, §6, §7): Gate 1 (did
 // the source say it changed — conditional GET / version), Gate 2 (did the TEXT
@@ -146,7 +148,6 @@ export async function refreshSource(
 // ---- Worker cycle (plan §6): fixed per-connector cadence, capped re-digests -------
 
 const CADENCE_HOURS: Record<string, number> = { tracker: 6, web: 24 * 7 };
-const MAX_REFRESHES_PER_CYCLE = 10;
 
 export interface CycleReport {
   due: number;
@@ -155,9 +156,13 @@ export interface CycleReport {
   frozen: number;
   errors: number;
   skippedDrive: number;
+  /** due − checked: web sources that were due but did not fit the budget (carried over). */
+  backlog: number;
+  /** The cycle stopped early on a Gemini quota (429) error (AGENTS lesson 5). */
+  quotaStopped: boolean;
 }
 
-export async function runRefreshCycle(): Promise<CycleReport> {
+export async function runRefreshCycle(opts?: { maxRefreshes?: number }): Promise<CycleReport> {
   const candidates = await prisma.contextUrl.findMany({
     where: { mode: 'watched', frozenAt: null },
     select: { id: true, url: true, sourceRef: true, lastCheckedAt: true },
@@ -174,23 +179,36 @@ export async function runRefreshCycle(): Promise<CycleReport> {
   });
   const skippedDrive = candidates.filter((c) => c.sourceRef?.startsWith('drive:')).length;
 
-  const report: CycleReport = { due: due.length, checked: 0, changed: 0, frozen: 0, errors: 0, skippedDrive };
-  for (const c of due.slice(0, MAX_REFRESHES_PER_CYCLE)) {
+  // #38: the per-cycle cap is the admin's daily budget spread over the cycles, not a
+  // hard-coded 10 — so daily Gemini spend stays under the free tier (lib/ingestBudget).
+  // Capping CHECKS is safely conservative: a source only spends Gemini if it changed, so
+  // Gemini calls ≤ checked ≤ budget. The cron passes the budget left after the Drive sweep.
+  const budget =
+    opts?.maxRefreshes ?? perCycleBudget((await getIngestionSettings()).dailyReingestBudgetDocs);
+
+  const report: CycleReport = {
+    due: due.length, checked: 0, changed: 0, frozen: 0, errors: 0, skippedDrive,
+    backlog: Math.max(0, due.length - Math.max(0, budget)), quotaStopped: false,
+  };
+  for (const c of due.slice(0, Math.max(0, budget))) {
     // One broken source must not abort the cycle: everything a source can hit —
     // fetch, distillation, embedding, its own writes — stays inside this try.
     let outcome: RefreshOutcome;
     try {
       outcome = await refreshSource(c.id);
     } catch (e) {
+      if (isQuotaError(e)) { report.quotaStopped = true; break; } // out of free-tier quota — carry over
       console.error(`refresh: source ${c.id} (${c.url}) failed:`, e);
       outcome = { ok: false, error: (e as Error).message };
     }
+    // A quota error surfaced by refreshSource itself (it swallows its errors into a string).
+    if (!outcome.ok && isQuotaError(outcome.error)) { report.quotaStopped = true; break; }
     report.checked++;
     if (!outcome.ok) {
       report.errors++;
       // Rotate the failing source to the back of the lastCheckedAt queue. Without
       // this, orderBy lastCheckedAt asc re-selects the same failing sources every
-      // cycle until MAX_REFRESHES_PER_CYCLE of them starve all healthy ones forever.
+      // cycle until the budget's worth of them starve all healthy ones forever.
       await prisma.contextUrl
         .update({ where: { id: c.id }, data: { lastCheckedAt: new Date() } })
         .catch(() => {});

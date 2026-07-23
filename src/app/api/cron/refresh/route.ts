@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runRefreshCycle } from '../../../../lib/refresh';
 import { runDriveSync } from '../../../../lib/driveSync';
 import { runSummaryCycle } from '../../../../lib/summaries';
+import { getIngestionSettings } from '../../../../lib/ingestionSettings';
+import { perCycleBudget } from '../../../../lib/ingestBudget';
+import { recordCycle } from '../../../../lib/ingestionHealth';
 import { secretsEqual, serverError } from '../../../../lib/api';
 
 export const dynamic = 'force-dynamic';
@@ -27,9 +30,16 @@ export async function GET(req: NextRequest) {
   // Drive first (discovery + metadata-gate refreshes), then the generic refresh
   // cycle, then summaries — so freshly ingested/refreshed content lands in the same
   // cycle's summaries instead of waiting an hour.
+  //
+  // #38: one daily Gemini budget (the admin's setting) is spread over the cycles and
+  // SHARED across Drive + web — Drive spends first, web gets what's left — so total daily
+  // spend stays under the free tier by construction. recordCycle then logs the reports to
+  // Cloud Logging (the drain alarm's source) and upserts the bounded health summary.
   try {
-    const drive = await runDriveSync();
-    const report = await runRefreshCycle();
+    const budget = perCycleBudget((await getIngestionSettings()).dailyReingestBudgetDocs);
+    const drive = await runDriveSync({ maxIngests: budget });
+    const report = await runRefreshCycle({ maxRefreshes: Math.max(0, budget - drive.spent) });
+    await recordCycle(drive, report);
     const summaries = await runSummaryCycle();
     return NextResponse.json({ ...report, drive, summaries });
   } catch (error) {

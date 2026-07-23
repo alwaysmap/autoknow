@@ -11,6 +11,20 @@ const apiKey = process.env.GEMINI_API_KEY;
 export const geminiConfigured = !!apiKey;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
+// Free-tier quota exhaustion (#38): the API answers over-limit calls with HTTP 429 /
+// RESOURCE_EXHAUSTED. This deployment runs on the free tier, so a busy cycle can hit it
+// — and once hit, every further call this cycle will too. Callers detect it and STOP the
+// cycle early, carrying the rest over (honest degradation, AGENTS lesson 5), rather than
+// burning the batch on calls that cannot succeed. Detection is deliberately broad: a
+// false positive only costs an early stop + carryover, which is harmless.
+export function isQuotaError(e: unknown): boolean {
+  const status = (e as { status?: number; code?: number } | null)?.status
+    ?? (e as { status?: number; code?: number } | null)?.code;
+  if (status === 429) return true;
+  const msg = e instanceof Error ? e.message : String(e ?? '');
+  return /\b429\b|RESOURCE_EXHAUSTED|\bquota\b|rate.?limit/i.test(msg);
+}
+
 // The stable alias tracks the current flash model — pinned ids rot (gemini-2.5-flash
 // began 404ing for new API keys mid-2026).
 export const SUMMARY_MODEL = 'gemini-flash-latest';
@@ -19,7 +33,11 @@ export const SUMMARY_MODEL = 'gemini-flash-latest';
 // pgvector column. Cosine distance (<=>) is scale-invariant, so reduced dims are fine.
 const EMBED_MODEL = 'gemini-embedding-001';
 const EMBED_DIMS = 768;
-const MAX_DOC_CHARS = 30000;
+// The distillation input cap: only the first MAX_DOC_CHARS of a document reach Gemini.
+// Exported so #38's Manage → Sources limits copy states the real number (≈10 pages) — a
+// limit the user can plan around ("keep freshest content up top") beats one they infer
+// from a missing search result.
+export const MAX_DOC_CHARS = 30000;
 
 export interface DocDigest {
   summary: string;

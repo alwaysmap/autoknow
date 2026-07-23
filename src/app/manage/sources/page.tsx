@@ -2,8 +2,10 @@ import { prisma } from '../../../lib/db';
 import { driveConfigured, serviceAccountEmail } from '../../../lib/googleAuth';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
+import { getIngestionHealth } from '../../../lib/ingestionHealth';
 import SourcesClient, { type SourceRow } from './SourcesClient';
 import QuickIngest from '../../../components/QuickIngest';
+import IngestionHealthCard from '../../../components/IngestionHealthCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +15,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function SourcesPage() {
   const locale = await getLocale();
+  const health = await getIngestionHealth();
   const raw = await prisma.contextUrl.findMany({
     select: {
       id: true, url: true, title: true, type: true, mode: true, sourceRef: true,
@@ -64,6 +67,10 @@ export default async function SourcesPage() {
           )
         )}
       </header>
+
+      {/* #38: ingestion health — backlog, the free-tier budget knob, the standing limits,
+          and every shared-but-not-indexed file. */}
+      <IngestionHealthCard locale={locale} health={health} />
 
       {/* unscoped paste — the global classifier places it (the retired /ingest page's job) */}
       <div style={{ margin: '0 0 0.875rem' }}>
