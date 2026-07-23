@@ -1,26 +1,6 @@
 
-/* Compact search row — the categorical filters live in the column headers. */
-.searchRow {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-}
-
-.clearAll {
-  background: none;
-  border: none;
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.375rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--muted);
-  cursor: pointer;
-}
-.clearAll:hover {
-  color: var(--fg);
-  background: var(--surface);
-}
+/* The free-text filter box and "× Clear filters" reset live in DataTable's own bar
+   now (#86); the categorical filters live in the column headers. */
 
 /* Grouping columns carry no identity colour — the BOX is the signal. */
 .classInk {

@@ -61,16 +61,20 @@ interface PartnersClientProps {
   initialFilters?: Record<string, string[]>;
   initialSort?: TableSort | null;
   initialMine?: boolean;
+  /** Deep-linked key-column (partner name) filter text (?q=). */
+  initialQ?: string;
 }
 
-export default function PartnersClient({ partners, currentUser, people, relationship, types, regions, initialFilters, initialSort, initialMine = false }: PartnersClientProps) {
+export default function PartnersClient({ partners, currentUser, people, relationship, types, regions, initialFilters, initialSort, initialMine = false, initialQ = '' }: PartnersClientProps) {
   const locale = useLocale();
   // Column filters are controlled here so type/region cell clicks can set them.
   const [filters, setFilters] = useState<Record<string, string[]>>(initialFilters ?? {});
   const [myPartnersOnly, setMyPartnersOnly] = useState<boolean>(initialMine);
+  const [text, setText] = useState(initialQ);
   const [sort, setSort] = useState<TableSort | null>(initialSort ?? null);
-  // every filter/sort choice is shareable — the URL mirrors the view
-  useTableUrlSync(filters, sort, { mine: myPartnersOnly ? '1' : null });
+  // every filter/sort choice is shareable — the URL mirrors the view (filters, sort,
+  // the ownership toggle, and the key-column filter text)
+  useTableUrlSync(filters, sort, { mine: myPartnersOnly ? '1' : null, q: text || null });
 
   // Derive the current user's canonical email/handle once for filtering.
   const userEmail = useMemo(() => deriveEmail(currentUser), [currentUser]);
@@ -136,30 +140,9 @@ export default function PartnersClient({ partners, currentUser, people, relation
         </KebabMenu>
       }
     >
-      {/* Column filtering lives in the funnels; this slim row carries only the
-          ownership toggle (not a column) and the reset for everything at once. */}
-      <div className={styles.toolbar}>
-          <label htmlFor="myPartnersCheckbox" className={styles.toolbarToggle}>
-            <input
-              id="myPartnersCheckbox"
-              type="checkbox"
-              checked={myPartnersOnly}
-              onChange={(e) => setMyPartnersOnly(e.target.checked)}
-            />
-            {t(locale, 'myPartners')}
-          </label>
-          {(myPartnersOnly || Object.values(filters).some((v) => v && v.length > 0)) && (
-            <button
-              type="button"
-              className={styles.clearAll}
-              onClick={() => { setFilters({}); setMyPartnersOnly(false); }}
-            >
-              ✕ {t(locale, 'clearAllFilters')}
-            </button>
-          )}
-        </div>
-
-        {/* Partners table list */}
+        {/* Partners table list. The key-column filter box, the "My partners" scope
+            toggle, and the one "× Clear filters" reset all live in DataTable's own
+            filter bar now (#86) — the toggle rides in via filterBarExtras. */}
         <section className={styles.tableSection}>
           <DataTable
             headers={[
@@ -291,6 +274,24 @@ export default function PartnersClient({ partners, currentUser, people, relation
             onSortChange={(key, dir) => setSort({ key, dir })}
             filters={filters}
             onFiltersChange={setFilters}
+            textFilter={text}
+            onTextFilterChange={setText}
+            textFilterPlaceholder={t(locale, 'filterPartnersPlaceholder')}
+            // "My partners" is a scope switch, not a column — it rides in the filter
+            // bar and the one reset clears it alongside the funnels and the text.
+            filterBarExtras={
+              <label htmlFor="myPartnersCheckbox" className={styles.toolbarToggle}>
+                <input
+                  id="myPartnersCheckbox"
+                  type="checkbox"
+                  checked={myPartnersOnly}
+                  onChange={(e) => setMyPartnersOnly(e.target.checked)}
+                />
+                {t(locale, 'myPartners')}
+              </label>
+            }
+            extrasActive={myPartnersOnly}
+            onClearExtras={() => setMyPartnersOnly(false)}
             pageSize={10}
             emptyStateMessage={t(locale, 'noPartnersMatchFilters')}
           />

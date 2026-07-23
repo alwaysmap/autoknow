@@ -1,6 +1,9 @@
-/* Matches `UnifiedSearch`'s base `.input` exactly — same size, same near-pill
-   radius, same focus ring. If one of the two changes, change both; they are the
-   same control wearing different plumbing. */
+/* Shares `UnifiedSearch`'s size, padding and focus ring — but NOT its radius. The
+   ROUNDING carries the search-vs-filter distinction the way box-vs-pill carries
+   class-vs-noun (design.md §6): a near-pill (1.25rem) is a real SEARCH that issues a
+   request (UnifiedSearch); this squared box (0.375rem) is a FILTER over rows already
+   in the page. Same shape family, deliberately different corner — keep size/padding/
+   focus in sync with UnifiedSearch, but the radius stays square here on purpose. */
 
 .field {
   width: 17.5rem;
@@ -9,7 +12,7 @@
   font-size: 0.875rem;
   padding: 0.625rem 1rem;
   border: 1px solid var(--border);
-  border-radius: 1.25rem;
+  border-radius: 0.375rem;
   background: var(--white);
   color: var(--fg);
 }

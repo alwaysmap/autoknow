@@ -163,10 +163,14 @@ tables) so nothing has to be relearned page to page.
   three-line funnel icon beside the label opens a checklist of that column's
   distinct values. Selections within a column are OR-ed ("Concerned" *and* "On
   Track"), columns are AND-ed together. An active funnel shows an accent color and
-  a count. No standalone filter bars — a single compact free-text search input is
-  the only filter allowed outside the table, and page-level deep links
-  (`?minRisk=…`, `?filter=active`) initialize column filters rather than adding
-  widgets.
+  a count. No standalone filter bars: the ONE free-text control a listing gets is
+  `DataTable`'s own, on the **KEY (first) column** — a case-insensitive substring
+  over the rows already loaded, which is a **filter, not a search** (client-side,
+  no request), so it is **squared, not the search near-pill** (its corner
+  is the tell — box-vs-pill applied to inputs) and it is a member of the same
+  **"× Clear filters"** set as the funnels, which resets all of them in one action
+  (#86). Page-level deep links (`?minRisk=…`, `?filter=active`, `?q=`) initialize
+  that state rather than adding widgets.
 * **BOX vs PILL is a rule, not a per-table choice** (2026-07-20, user call):
   a **box** (squared corners, `ClassBox`) marks a CLASS the thing shares with
   others — Partner Type, Region, a result's kind. A **pill** (fully rounded)
@@ -426,13 +430,15 @@ combination must work:
   and the point of these is to be scannable at rest), and animating dialogs open
   (the `<dialog>` top-layer/focus behaviour is correct now and not worth risking
   for a flourish).
-* **Every search bar gets the rounding**, not just the hero, and every one that
-  issues a REQUEST gets the dial. Live-filter boxes that are not a full
-  `UnifiedSearch` (the Programs table, Sources) use `SearchField`, which matches
-  `UnifiedSearch`'s input exactly. Both are COMPONENTS, not shared classes,
-  because CSS modules cannot share a class across files and this control had
-  drifted into three separate definitions. A filter box gets no dial — see above:
-  nothing is in flight, so there is no reading to take.
+* **A REQUEST gets the near-pill rounding and the dial; a FILTER gets neither.**
+  `UnifiedSearch` issues a query, so it is the rounded (1.25rem) bar with the dial at
+  its trailing edge. The built-in `DataTable` filter box (`SearchField`) narrows rows
+  already in the page, so it is **squared (0.375rem)** and dial-less — the corner is
+  what tells a filter from a search (box-vs-pill, §6; #86). `SearchField` still shares
+  UnifiedSearch's height, padding and focus ring (keep those in sync) — only the radius
+  diverges, and on purpose. Both are COMPONENTS, not shared classes, because CSS modules
+  cannot share a class across files and this control had drifted into three separate
+  definitions.
 * **The Schedule is a phase × week STATE GRID, not textured buffer bands** (issue
   #75, `ChainSchedule.tsx`). The earlier encoding painted buffer movement as
   full-height hatch/stipple bands (crosshatch/hatch/dots) across every row; on a

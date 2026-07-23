@@ -54,6 +54,7 @@ export default async function PartnersPage(props: { searchParams: Promise<Search
   const initialFilters = parseFilterParams(searchParams, ['type', 'region', 'relationship']);
   const initialSort = parseSortParams(searchParams);
   const initialMine = searchParams.mine === '1';
+  const initialQ = typeof searchParams.q === 'string' ? searchParams.q : '';
 
   return (
     <PartnersClient
@@ -64,6 +65,7 @@ export default async function PartnersPage(props: { searchParams: Promise<Search
       initialFilters={initialFilters}
       initialSort={initialSort}
       initialMine={initialMine}
+      initialQ={initialQ}
       currentUser={user}
       people={people}
       relationship={relationship}

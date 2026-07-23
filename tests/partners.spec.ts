@@ -63,6 +63,28 @@ test.describe('Ecosystem Partners Page', () => {
     await expect(page.locator('body')).toContainText('Continental AG');
   });
 
+  test('the key-column filter box narrows by name, is a shareable URL, and joins the one reset (#86)', async ({ page }) => {
+    await page.goto('/partners');
+    const filter = page.getByRole('searchbox');
+    await expect(filter).toBeVisible();
+
+    // Typing narrows on the KEY column (partner name) over rows already loaded — a
+    // FILTER, not a search (design.md §6). First interaction after load is
+    // hydration-guarded: an unguarded first fill fires before React binds onChange.
+    await expect(async () => {
+      await filter.fill('bmw');
+      await expect(page.locator('body')).not.toContainText('Continental AG', { timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+    await expect(page.locator('body')).toContainText('BMW Group');
+    await expect(page).toHaveURL(/[?&]q=bmw/); // the filtered view is shareable
+
+    // The one "× Clear filters" reset clears the box (and the whole set) in one action.
+    await page.getByRole('button', { name: 'Clear filters' }).click();
+    await expect(filter).toHaveValue('');
+    await expect(page.locator('body')).toContainText('Continental AG');
+    await expect(page).toHaveURL(/\/partners$/);
+  });
+
   test('deep links preselect column filters (?type=)', async ({ page }) => {
     // The partner page's identity line links here; OEM-only hides the supplier.
     await page.goto('/partners?type=OEM');

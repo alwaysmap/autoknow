@@ -4,15 +4,18 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import DataTable from '../../../components/DataTable';
 import DateCell from '../../../components/DateCell';
+import { useTableUrlSync } from '../../../lib/useTableUrlSync';
+import type { TableSort } from '../../../lib/tableUrlState';
 import { refreshSourceAction, toggleSourcePause, toggleSourceMode } from '../../actions/context';
 import { inferSource } from '../../../lib/sources';
 import { t, type StringKey } from '../../../lib/i18n';
 import { useLocale } from '../../../components/LocaleProvider';
-import SearchField from '../../../components/SearchField';
 
-// Manage → Sources at operator scale (thousands of rows eventually): sortable
-// columns via DataTable, client-side filters for kind / tracking state / who added
-// it, plus free-text. The legend spells out exactly what each action does.
+// Manage → Sources at operator scale (thousands of rows eventually). Same table
+// grammar as every other listing now (#87): kind / tracking state / added-by are
+// in-header funnel columns (not bespoke <select> bars), the free-text box is
+// DataTable's own key-column filter, and every choice round-trips through the URL.
+// The legend spells out exactly what each action does.
 
 export interface SourceRow {
   id: number;
@@ -71,157 +74,135 @@ const btn: React.CSSProperties = {
   cursor: 'pointer',
 };
 
-const select: React.CSSProperties = {
-  fontSize: '0.75rem',
-  padding: '0.25rem 0.5rem',
-  border: '1px solid var(--border, #ddd)',
-  borderRadius: '0.375rem',
-  background: 'var(--white, #fff)',
-  color: 'var(--fg, #222)',
+// Tracking-state → localized funnel label (canonical token stays in the URL).
+const STATE_KEY: Record<StateId, StringKey> = {
+  watched: 'chipWatched',
+  snapshot: 'chipSnapshot',
+  frozen: 'stateFrozen',
 };
 
-export default function SourcesClient({ sources }: { sources: SourceRow[] }) {
+export default function SourcesClient({ sources, initialFilters, initialSort, initialQ = '' }: {
+  sources: SourceRow[];
+  initialFilters?: Record<string, string[]>;
+  initialSort?: TableSort | null;
+  /** Deep-linked key-column (title/url) filter text (?q=). */
+  initialQ?: string;
+}) {
   const locale = useLocale();
-  const [text, setText] = useState('');
-  const [kind, setKind] = useState<'all' | KindId>('all');
-  const [state, setState] = useState<'all' | StateId>('all');
-  const [person, setPerson] = useState('all');
+  // Column funnels (kind / tracking state / added-by) and the key-column filter text,
+  // controlled here so every choice round-trips through the URL like the other listings.
+  const [filters, setFilters] = useState<Record<string, string[]>>(initialFilters ?? {});
+  const [sort, setSort] = useState<TableSort | null>(initialSort ?? null);
+  const [text, setText] = useState(initialQ);
+  useTableUrlSync(filters, sort, { q: text || null });
 
-  const people = useMemo(
-    () => [...new Set(sources.map((s) => s.addedBy).filter(Boolean))].sort() as string[],
-    [sources],
+  // Rows carry canonical kind/state tokens for the funnels (locale-stable URL values,
+  // lesson 3) alongside display-ready labels and the title sort key. DataTable does the
+  // filtering now — funnels + key-column text — so there is no host-side predicate.
+  const rows = useMemo(
+    () =>
+      sources.map((s) => {
+        const kind = kindOf(s);
+        return {
+          ...s,
+          kind,
+          state: stateOf(s),
+          kindLabel: t(locale, KIND_KEY[kind]),
+          stateLabel: s.frozenReason
+            ? t(locale, 'frozenLabel', { r: t(locale, FROZEN_KEY[s.frozenReason] ?? 'stateFrozen') })
+            : t(locale, s.mode === 'watched' ? 'chipWatched' : 'chipSnapshot'),
+          titleSort: (s.title || s.url).toLowerCase(),
+        };
+      }),
+    [sources, locale],
   );
 
-  const rows = useMemo(() => {
-    const q = text.trim().toLowerCase();
-    return sources
-      .filter((s) => {
-        if (kind !== 'all' && kindOf(s) !== kind) return false;
-        if (state !== 'all' && stateOf(s) !== state) return false;
-        if (person !== 'all' && s.addedBy !== person) return false;
-        if (q && ![s.title, s.url, s.entityName, s.addedBy].some((v) => v?.toLowerCase().includes(q))) return false;
-        return true;
-      })
-      .map((s) => ({
-        ...s,
-        // Sortable, display-ready derivations.
-        kindLabel: t(locale, KIND_KEY[kindOf(s)]),
-        stateLabel: s.frozenReason
-          ? t(locale, 'frozenLabel', { r: t(locale, FROZEN_KEY[s.frozenReason] ?? 'stateFrozen') })
-          : t(locale, s.mode === 'watched' ? 'chipWatched' : 'chipSnapshot'),
-        titleSort: (s.title || s.url).toLowerCase(),
-      }));
-  }, [sources, text, kind, state, person, locale]);
-
   return (
-    <>
-      {/* filters: free text + the three facets that matter at scale */}
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', margin: '0 0 0.875rem' }}>
-        <SearchField
-          value={text}
-          onChange={setText}
-          placeholder={t(locale, 'searchSourcesPlaceholder')}
-        />
-        <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} style={select} aria-label={t(locale, 'colKind')}>
-          <option value="all">{t(locale, 'filterAllKinds')}</option>
-          {(Object.keys(KIND_KEY) as KindId[]).map((k) => (
-            <option key={k} value={k}>{t(locale, KIND_KEY[k])}</option>
-          ))}
-        </select>
-        <select value={state} onChange={(e) => setState(e.target.value as typeof state)} style={select} aria-label={t(locale, 'colTracking')}>
-          <option value="all">{t(locale, 'filterAllStates')}</option>
-          <option value="watched">{t(locale, 'chipWatched')}</option>
-          <option value="snapshot">{t(locale, 'chipSnapshot')}</option>
-          <option value="frozen">{t(locale, 'stateFrozen')}</option>
-        </select>
-        <select value={person} onChange={(e) => setPerson(e.target.value)} style={select} aria-label={t(locale, 'colAddedBy')}>
-          <option value="all">{t(locale, 'filterEveryone')}</option>
-          {people.map((p) => (
-            <option key={p} value={p}>{p}</option>
-          ))}
-        </select>
-      </div>
-
-      <DataTable
-        headers={[
-          { key: 'titleSort', label: t(locale, 'colSource') },
-          { key: 'kindLabel', label: t(locale, 'colKind') },
-          { key: 'stateLabel', label: t(locale, 'colTracking') },
-          { key: 'addedBy', label: t(locale, 'colAddedBy') },
-          { key: 'lastCheckedAt', label: t(locale, 'colLastChecked') },
-          { key: 'revisions', label: t(locale, 'colRevisions') },
-          { key: 'actions', label: '', sortable: false },
-        ]}
-        data={rows}
-        defaultSortKey="createdAt"
-        defaultSortOrder="desc"
-        pageSize={25}
-        renderRow={(s) => (
-          <tr key={s.id} data-testid={`source-${s.id}`}>
-            <td style={{ padding: '0.625rem 0.75rem 0.625rem 0', maxWidth: '22.5rem' }}>
-              <a href={s.url} target="_blank" rel="noopener noreferrer"
-                style={{ fontWeight: 600, color: 'var(--fg, #222)', textDecoration: 'none' }}>
-                {s.title || s.url}
-              </a>
-              {s.entityName && (
-                <div style={{ fontSize: '0.75rem', marginTop: '0.125rem' }}>
-                  {s.entityHref
-                    ? <Link href={s.entityHref} style={{ color: 'var(--muted, #888)' }}>{s.entityName}</Link>
-                    : <span style={{ color: 'var(--muted, #888)' }}>{s.entityName}</span>}
-                </div>
-              )}
-            </td>
-            <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--muted, #666)' }}>
-              {s.kindLabel}
-            </td>
-            <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap' }}>
-              <span style={{
-                fontSize: '0.6875rem', fontWeight: 700, padding: '0.125rem 0.5625rem', borderRadius: '62.4375rem',
-                border: '1px solid',
-                borderColor: !s.frozenReason && s.mode === 'watched' ? 'var(--chain-soft, #c9b9e6)' : 'var(--border, #ddd)',
-                color: !s.frozenReason && s.mode === 'watched' ? 'var(--chain-ink, #5a4488)' : 'var(--muted, #888)',
-              }}>
-                {s.stateLabel}
-              </span>
-            </td>
-            <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--muted, #666)' }}>
-              {s.addedBy || '—'}
-            </td>
-            <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--muted, #666)' }}>
-              {!s.frozenReason && s.mode === 'watched'
-                ? <DateCell value={s.lastCheckedAt} fallback={t(locale, 'neverChecked')} />
-                : '—'}
-            </td>
-            <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--muted, #666)', fontVariantNumeric: 'tabular-nums' }}>
-              {s.revisions}
-            </td>
-            <td style={{ padding: '0.625rem 0', whiteSpace: 'nowrap', textAlign: 'right' }}>
-              <div style={{ display: 'inline-flex', gap: '0.375rem' }}>
-                {s.mode === 'watched' && (
-                  <>
-                    <form action={refreshSourceAction} style={{ display: 'inline' }}>
-                      <input type="hidden" name="id" value={s.id} />
-                      <button type="submit" style={btn} title={t(locale, 'sourcesLegend')}>{t(locale, 'refreshNow')}</button>
-                    </form>
-                    <form action={toggleSourcePause} style={{ display: 'inline' }}>
-                      <input type="hidden" name="id" value={s.id} />
-                      <button type="submit" style={btn} title={t(locale, 'sourcesLegend')}>
-                        {s.frozenReason === 'user-paused' ? t(locale, 'resumeLabel') : t(locale, 'pauseLabel')}
-                      </button>
-                    </form>
-                  </>
-                )}
-                <form action={toggleSourceMode} style={{ display: 'inline' }}>
-                  <input type="hidden" name="id" value={s.id} />
-                  <button type="submit" style={btn} title={t(locale, 'sourcesLegend')}>
-                    {t(locale, s.mode === 'watched' ? 'chipSnapshot' : 'chipWatched')}
-                  </button>
-                </form>
+    <DataTable
+      headers={[
+        { key: 'titleSort', label: t(locale, 'colSource') },
+        { key: 'kind', label: t(locale, 'colKind'), filterable: true, filterLabel: (v) => t(locale, KIND_KEY[v as KindId]) },
+        { key: 'state', label: t(locale, 'colTracking'), filterable: true, filterLabel: (v) => t(locale, STATE_KEY[v as StateId]) },
+        { key: 'addedBy', label: t(locale, 'colAddedBy'), filterable: true, filterValue: (row) => (row as SourceRow).addedBy || '—' },
+        { key: 'lastCheckedAt', label: t(locale, 'colLastChecked') },
+        { key: 'revisions', label: t(locale, 'colRevisions') },
+        { key: 'actions', label: '', sortable: false },
+      ]}
+      data={rows}
+      filters={filters}
+      onFiltersChange={setFilters}
+      textFilter={text}
+      onTextFilterChange={setText}
+      textFilterPlaceholder={t(locale, 'filterSourcesPlaceholder')}
+      defaultSortKey={initialSort?.key ?? 'createdAt'}
+      defaultSortOrder={initialSort?.dir ?? 'desc'}
+      onSortChange={(key, dir) => setSort({ key, dir })}
+      pageSize={25}
+      renderRow={(s) => (
+        <tr key={s.id} data-testid={`source-${s.id}`}>
+          <td style={{ padding: '0.625rem 0.75rem 0.625rem 0', maxWidth: '22.5rem' }}>
+            <a href={s.url} target="_blank" rel="noopener noreferrer"
+              style={{ fontWeight: 600, color: 'var(--fg, #222)', textDecoration: 'none' }}>
+              {s.title || s.url}
+            </a>
+            {s.entityName && (
+              <div style={{ fontSize: '0.75rem', marginTop: '0.125rem' }}>
+                {s.entityHref
+                  ? <Link href={s.entityHref} style={{ color: 'var(--muted, #888)' }}>{s.entityName}</Link>
+                  : <span style={{ color: 'var(--muted, #888)' }}>{s.entityName}</span>}
               </div>
-            </td>
-          </tr>
-        )}
-      />
-    </>
+            )}
+          </td>
+          <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--muted, #666)' }}>
+            {s.kindLabel}
+          </td>
+          <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap' }}>
+            <span style={{
+              fontSize: '0.6875rem', fontWeight: 700, padding: '0.125rem 0.5625rem', borderRadius: '62.4375rem',
+              border: '1px solid',
+              borderColor: !s.frozenReason && s.mode === 'watched' ? 'var(--chain-soft, #c9b9e6)' : 'var(--border, #ddd)',
+              color: !s.frozenReason && s.mode === 'watched' ? 'var(--chain-ink, #5a4488)' : 'var(--muted, #888)',
+            }}>
+              {s.stateLabel}
+            </span>
+          </td>
+          <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--muted, #666)' }}>
+            {s.addedBy || '—'}
+          </td>
+          <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--muted, #666)' }}>
+            {!s.frozenReason && s.mode === 'watched'
+              ? <DateCell value={s.lastCheckedAt} fallback={t(locale, 'neverChecked')} />
+              : '—'}
+          </td>
+          <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--muted, #666)', fontVariantNumeric: 'tabular-nums' }}>
+            {s.revisions}
+          </td>
+          <td style={{ padding: '0.625rem 0', whiteSpace: 'nowrap', textAlign: 'right' }}>
+            <div style={{ display: 'inline-flex', gap: '0.375rem' }}>
+              {s.mode === 'watched' && (
+                <>
+                  <form action={refreshSourceAction} style={{ display: 'inline' }}>
+                    <input type="hidden" name="id" value={s.id} />
+                    <button type="submit" style={btn} title={t(locale, 'sourcesLegend')}>{t(locale, 'refreshNow')}</button>
+                  </form>
+                  <form action={toggleSourcePause} style={{ display: 'inline' }}>
+                    <input type="hidden" name="id" value={s.id} />
+                    <button type="submit" style={btn} title={t(locale, 'sourcesLegend')}>
+                      {s.frozenReason === 'user-paused' ? t(locale, 'resumeLabel') : t(locale, 'pauseLabel')}
+                    </button>
+                  </form>
+                </>
+              )}
+              <form action={toggleSourceMode} style={{ display: 'inline' }}>
+                <input type="hidden" name="id" value={s.id} />
+                <button type="submit" style={btn} title={t(locale, 'sourcesLegend')}>
+                  {t(locale, s.mode === 'watched' ? 'chipSnapshot' : 'chipWatched')}
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      )}
+    />
   );
 }
