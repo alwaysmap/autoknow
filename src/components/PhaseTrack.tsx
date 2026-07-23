@@ -1,5 +1,6 @@
 'use client';
 
+import { subscribeLocationChange } from '../lib/locationHash';
 import ChartLabel from './ChartLabel';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -757,8 +758,9 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
       if (target) openDetails(target);
     };
     openFromHash();
-    window.addEventListener('hashchange', openFromHash);
-    return () => window.removeEventListener('hashchange', openFromHash);
+    // Next <Link> navigates via pushState, which does not fire `hashchange`
+    // (#40) — subscribe to both so a same-page feed/graph link opens the popover.
+    return subscribeLocationChange(openFromHash);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phases]);
   const startedRef = useRef<HTMLInputElement>(null);

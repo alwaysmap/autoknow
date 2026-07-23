@@ -1,5 +1,6 @@
 'use client';
 
+import { subscribeLocationChange } from '../lib/locationHash';
 import React, { useEffect, useRef, useState } from 'react';
 import styles from './NeedleGauge.module.css';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
@@ -117,8 +118,9 @@ export default function NeedleGauge({
       }
     };
     openIfHashed();
-    window.addEventListener('hashchange', openIfHashed);
-    return () => window.removeEventListener('hashchange', openIfHashed);
+    // Next <Link> navigates via pushState, which does not fire `hashchange`
+    // (#40) — subscribe to both so a same-page feed link opens the log.
+    return subscribeLocationChange(openIfHashed);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [history]);
 
