@@ -1,5 +1,6 @@
 'use client';
 
+import ClassBox from './ClassBox';
 import React, { useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { t } from '../lib/i18n';
@@ -143,7 +144,9 @@ export default function ProjectMetaHeader({
         {products.length > 0 && (
           <span className={styles.fact}>
             <span className={styles.factLabel}>{t(locale, 'productsLabel')}</span>
-            {products.join(' · ')}
+            {products.map((p) => (
+              <ClassBox key={p} className={styles.productBox}>{p}</ClassBox>
+            ))}
           </span>
         )}
       </div>
