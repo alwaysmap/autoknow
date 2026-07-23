@@ -7,10 +7,10 @@ import { t, type StringKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import styles from './QuickIngest.module.css';
 
-// Scoped "paste a link" (plan §5.2): the host page provides the anchor, inference
+// Scoped "watch a source" (plan §5.2): the host page provides the anchor, inference
 // provides the tracking mode as a visible two-state chip (never a required
 // question), and the result reports where the link landed. Collapsed to a quiet
-// "+ Add link" so it costs no chrome until used.
+// "+ Watch a source" opener so it costs no chrome until used.
 
 const KIND_KEY: Record<SourceKind, StringKey> = {
   drive: 'kindDrive',

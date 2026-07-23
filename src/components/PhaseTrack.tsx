@@ -21,6 +21,7 @@ import AnchorHeading from './AnchorHeading';
 import AnchoredPopover from './AnchoredPopover';
 import OverlayDialog from './OverlayDialog';
 import ConstraintRing from './ConstraintRing';
+import QuickIngest from './QuickIngest';
 import HillHistoryList from './HillHistoryList';
 import type { HillChange } from '../lib/history';
 import { updatePhaseHill, setPhaseStarted, getPhaseLog, type PhaseLogEntry } from '../app/actions/hill';
@@ -1159,6 +1160,20 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                   </span>
                 </div>
 
+                </div>
+
+                {/* Watch a source scoped to THIS phase (#49): the classifier already
+                    sets ContextUrl.phaseId, but only a human choosing the phase makes
+                    it deliberate — a bug or CR link most naturally belongs to a phase.
+                    anchorKind=program + phaseId is what the action needs to honour the
+                    phase (context.ts). Collapsed by default, no chrome at rest. */}
+                <div className={styles.watchSection}>
+                  <QuickIngest
+                    anchorKind="program"
+                    anchorId={projectId}
+                    phaseId={p.id}
+                    path={`/programs/${projectId}`}
+                  />
                 </div>
               </div>
             </div>

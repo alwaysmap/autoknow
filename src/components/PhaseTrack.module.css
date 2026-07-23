@@ -1224,6 +1224,16 @@
   padding-right: 0.25rem; /* room for the scrollbar, not a box */
 }
 
+/* The quiet "+ Watch a source" opener sits at the foot of the About pane (#49):
+   one hairline separates it from the involvement grid above, same as that grid is
+   separated from the prose (design.md §7 separation hierarchy — one mechanism per
+   boundary). The opener stays collapsed at rest, so this block adds no chrome. */
+.watchSection {
+  border-top: 1px solid var(--border);
+  margin-top: 0.75rem;
+  padding-top: 0.625rem;
+}
+
 /* About-pane meta: ONE grammar for every row (design.md §7) — small-caps label
    left, value right, on one line; whitespace between rows, a single hairline
    between the prose block above and this grid. */
