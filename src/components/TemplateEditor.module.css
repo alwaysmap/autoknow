@@ -4,14 +4,17 @@
 .container {
   max-width: 60rem;
   margin: 0 auto;
-  padding: 2rem 2.5rem;
+  /* Horizontal gutter from the shared token (#33); the vertical rhythm is the editor's own. */
+  padding: 2rem var(--page-gutter);
   font-family: var(--body-font);
   color: var(--fg);
 }
 
-@media (max-width: 700px) {
+/* Phone (§9's ≤560px, migrated from a stray 700px): tighter vertical rhythm; the
+   horizontal gutter shrinks via --page-gutter in globals.css. */
+@media (max-width: 560px) {
   .container {
-    padding: 1.5rem 1rem;
+    padding-block: 1.5rem;
   }
 }
 

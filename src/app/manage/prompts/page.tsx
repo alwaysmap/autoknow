@@ -17,7 +17,7 @@ export default async function SummaryPromptsPage() {
   const overrideBy = new Map(overrides.map((o) => [o.scope, o.prompt]));
 
   return (
-    <div style={{ padding: '2rem 2.5rem', maxWidth: '53.75rem' }}>
+    <div style={{ padding: '2rem var(--page-gutter)', maxWidth: '53.75rem' }}>
       <header style={{ marginBottom: '1.25rem' }}>
         <div style={{ marginBottom: '0.5rem', fontSize: '0.8125rem' }}>
           <Link href="/manage" style={{ color: 'var(--muted, #666)' }}>← {t(locale, 'navManage')}</Link>

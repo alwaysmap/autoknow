@@ -5,7 +5,7 @@
 
 .shell {
   min-height: 100vh;
-  padding: 0 2.5rem; /* page gutter (§9); tightened at phone widths below */
+  padding: 0 var(--page-gutter); /* shared page gutter (#33) — shrinks on a phone via the token */
   background: var(--white, var(--paper));
   color: var(--fg);
   font-family: var(--body-font);
@@ -70,11 +70,4 @@
   margin-left: calc(var(--graticule-lead) - var(--gr-gap));
   background-image: var(--graticule);
   background-repeat: repeat-x;
-}
-
-/* Phone widths (§9): tighten the gutter so the content keeps its measure. */
-@media (max-width: 560px) {
-  .shell {
-    padding: 0 1rem;
-  }
 }

@@ -4,7 +4,7 @@
 .container {
   min-height: 100vh;
   color: var(--fg);
-  padding: 0 2.5rem;
+  padding: 0 var(--page-gutter); /* shared page gutter (#33) — shrinks on a phone via the token */
   font-family: var(--body-font);
 }
 
