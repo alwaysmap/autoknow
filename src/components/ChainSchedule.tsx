@@ -8,7 +8,7 @@ import { DAY_MS } from '../lib/sop';
 import ConstraintRing from './ConstraintRing';
 import { isForecastOver } from '../lib/chainLedger';
 import type { ChainLedgerResult, ScheduleRow } from '../lib/chainLedger';
-import { keepNonOverlapping } from '../lib/labelPlacement';
+import { keepNonOverlapping, dodgeLabels } from '../lib/labelPlacement';
 import styles from './ChainLedger.module.css';
 
 // The Critical Chain "Schedule" instrument (docs/CRITICAL_CHAIN_VIEW_PLAN.md §4a,
@@ -329,11 +329,11 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   // y-axis scale values, derived here like laneFlats/laneRisers (aim for ~3 gridlines).
   const bufTicks: number[] = [];
   for (let v = 0, step = niceStep(laneMax / 3); v <= laneMax + 0.01; v += step) bufTicks.push(v);
-  // EVERY lane label — the y-axis scale values, the reserve marker, the start, each
-  // riser, and now — de-collided together in 2D, so nothing stacks (the y-axis scale
-  // still gives the value of any level label that yields). now wins over reserve; the
-  // scale ticks and anchors outrank the risers. Centres computed per anchor: y-axis /
-  // reserve are end-anchored, now is start-anchored, the rest are centred.
+  // Lane labels split by strategy (design.md §8c). The ANCHORS — y-axis scale values, the
+  // reserve marker, the start, and now — de-collide by HIDING a loser (a hidden tick is
+  // still readable from the scale; now outranks reserve). The RISERS never hide: a step is
+  // a real buffer move, so they FAN OUT in y around the surviving anchors instead (user
+  // call). Centres per anchor: y-axis / reserve end-anchored, now start-anchored, rest centred.
   const laneHalfH = FS_SMALL / 2 + 1;
   // Half-widths for the collision boxes. The trailing pad is breathing room around each
   // label so near-misses still count as clashes; it scales loosely with weight — the bold
@@ -353,13 +353,16 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   const startLabel = { x: laneStartX, y: bufY(startBuffer ?? 0) - 7, halfW: shortHalf(startBuffer ?? 0), halfH: laneHalfH, priority: 2 };
   const riserLabels = laneRisers.map((s) => ({ x: s.x, y: bufY(s.to) + (s.to >= s.from ? -7 : 13), halfW: shortHalf(s.to), halfH: laneHalfH, priority: 1 }));
   const nowLabel = { x: x(now) + 6 + nowHalf, y: bufY(laneEndLevel) - 7, halfW: nowHalf, halfH: FS_EMPH / 2 + 1, priority: 3 };
-  const laneKeep = keepNonOverlapping([...tickLabels, reserveLabel, startLabel, ...riserLabels, nowLabel]);
-  const reserveAt = tickLabels.length, startAt = reserveAt + 1, risersAt = startAt + 1, nowAt = risersAt + riserLabels.length;
-  const keepTicks = laneKeep.slice(0, reserveAt);
-  const keepReserveLabel = laneKeep[reserveAt];
-  const keepStartLabel = laneKeep[startAt];
-  const keepRisers = laneKeep.slice(risersAt, nowAt);
-  const keepNowLabel = laneKeep[nowAt];
+  // Order is [ ...ticks, reserve, start, now ]; slice ticks back by length and destructure
+  // the three singletons, so no hand-counted offset can drift out of step with the array.
+  const anchorLabels = [...tickLabels, reserveLabel, startLabel, nowLabel];
+  const anchorKeep = keepNonOverlapping(anchorLabels);
+  const keepTicks = anchorKeep.slice(0, tickLabels.length);
+  const [keepReserveLabel, keepStartLabel, keepNowLabel] = anchorKeep.slice(tickLabels.length);
+  // Fan the riser labels out in y around whichever anchors survived — never hide one. The
+  // band is the lane plot plus a little below its floor, where a level-0 loss label sits.
+  const keptAnchors = anchorLabels.filter((_, i) => anchorKeep[i]);
+  const riserLabelY = dodgeLabels(keptAnchors, riserLabels, { top: laneTop + 2, bottom: laneBot + 16 });
 
   const constraintCx = labelW - (labelW > 40 ? 12 : 6);
 
@@ -522,21 +525,28 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
                 {t(locale, 'clBufferDaysShort', { d: startBuffer })}
               </ChartLabel>
             )}
-            {/* risers: a coloured step at each event, labelled with the buffer IN HAND after it */}
+            {/* risers: a coloured step at each event, labelled with the buffer IN HAND after
+                it. Every label is kept (a step is a real move) and fanned out in y; when a
+                label ends up pushed well off its dot — a busy same-week cluster — a hair
+                leader ties it back so you still know which step it names. */}
             {laneRisers.map((s, i) => {
               const col = s.kind === 'gain' ? 'var(--ok)' : s.kind === 'forecast' ? 'var(--warn)' : 'var(--bad)';
-              const up = s.to >= s.from;
+              const dotY = bufY(s.to);
+              const labelY = riserLabelY[i];
+              const gap = Math.abs(labelY - dotY);
               return (
                 <g key={`r${i}`}>
-                  <line x1={s.x} y1={bufY(s.from)} x2={s.x} y2={bufY(s.to)} stroke={col} strokeWidth={2.5}
+                  <line x1={s.x} y1={bufY(s.from)} x2={s.x} y2={dotY} stroke={col} strokeWidth={2.5}
                     strokeDasharray={s.projected ? '3 2' : undefined} />
-                  <circle cx={s.x} cy={bufY(s.to)} r={2.6} fill={col} />
-                  {keepRisers[i] && (
-                    <ChartLabel x={s.x} y={bufY(s.to) + (up ? -7 : 13)} textAnchor="middle" fontSize={FS_SMALL}
-                      fill={col} halo="var(--surface)">
-                      {t(locale, 'clBufferDaysShort', { d: Math.round(s.to) })}
-                    </ChartLabel>
+                  <circle cx={s.x} cy={dotY} r={2.6} fill={col} />
+                  {gap > 16 && (
+                    <line x1={s.x} y1={dotY} x2={s.x} y2={labelY + (labelY > dotY ? -laneHalfH : laneHalfH)}
+                      stroke={col} strokeWidth={0.75} opacity={0.5} />
                   )}
+                  <ChartLabel x={s.x} y={labelY} textAnchor="middle" fontSize={FS_SMALL}
+                    fill={col} halo="var(--surface)">
+                    {t(locale, 'clBufferDaysShort', { d: Math.round(s.to) })}
+                  </ChartLabel>
                 </g>
               );
             })}
