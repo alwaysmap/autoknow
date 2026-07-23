@@ -25,6 +25,14 @@ on:
 permissions:
   contents: read
 
+# One in-flight CI run per PR branch: a fresh push cancels the previous run's jobs
+# instead of letting a now-stale run burn ~6-30 min of runner minutes to completion.
+# github.head_ref is the PR's source branch (set on pull_request events); the
+# github.ref fallback keeps the group well-defined if a non-PR trigger is ever added.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   migrations-lint:
     name: migrations-lint
