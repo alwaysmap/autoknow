@@ -9,6 +9,7 @@ import ConstraintRing from './ConstraintRing';
 import { isForecastOver } from '../lib/chainLedger';
 import type { ChainLedgerResult, ScheduleRow } from '../lib/chainLedger';
 import { keepNonOverlapping, dodgeLabels } from '../lib/labelPlacement';
+import { focusWindow, panWindow, zoomWindow, type Span } from '../lib/focusWindow';
 import styles from './ChainLedger.module.css';
 
 // The Critical Chain "Schedule" instrument (docs/CRITICAL_CHAIN_VIEW_PLAN.md §4a,
@@ -46,6 +47,8 @@ const FS_ROW = 12, FS_EMPH = 12, FS_AXIS = 11, FS_SMALL = 10;
 // of BREAK_W instead of donating that many full columns to nothing (issue #75 / #42).
 // 6 weeks so a modest buffer tail stays inline; only a clearly long run collapses.
 const COLLAPSE_MIN_WEEKS = 6, BREAK_W = 26;
+// Each zoom-in shrinks the focus window to this fraction of its span (zoom-out is the inverse).
+const ZOOM_STEP = 0.6;
 
 const textWidth = (s: string) =>
   [...s].reduce((w, ch) => w + (ch.charCodeAt(0) > 0x2e80 ? WIDE_CHAR_W : CHAR_W), 0);
@@ -123,16 +126,28 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   // read one date down both at once (#75). Hooks stay above the early return.
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverMs, setHoverMs] = useState<number | null>(null);
+  // Focus window (#75): null = Fit (the whole chain). When set, the x-axis narrows to this
+  // date range so day-level detail is legible; the user sizes it (Fit / 2-week / zoom ±) and
+  // drags to slide it. Held here because it drives the same x() the whole instrument reads.
+  const [focus, setFocus] = useState<Span | null>(null);
+  const drag = useRef<{ clientX: number; from: Span } | null>(null); // an in-flight pan gesture
+  const didPan = useRef(false); // a pan just moved the view → swallow the click it would fire
   const rows = ledger.schedule;
   if (rows.length === 0) return null;
 
   const lastEnd = rows[rows.length - 1].endMs;
-  // The axis always reaches the SOP; a long run of EMPTY weeks (the buffer tail, or a
-  // stretch nothing lands on) is COLLAPSED to a marked break rather than donating that
-  // many columns to nothing (issue #75, superseding #42's "break the linear axis").
+  // The DATA extent always reaches the SOP; a long run of EMPTY weeks (the buffer tail, or a
+  // stretch nothing lands on) is COLLAPSED to a marked break rather than donating that many
+  // columns to nothing (issue #75, superseding #42's "break the linear axis").
   const firstStartMs = Math.min(...rows.map((r) => r.startMs));
-  const tMin = weekFloor(firstStartMs);
-  const tMax = weekCeil(Math.max(sopMs ?? 0, lastEnd, now));
+  const dataMin = weekFloor(firstStartMs);
+  const dataMax = weekCeil(Math.max(sopMs ?? 0, lastEnd, now));
+  // The RENDERED axis is the focus window snapped to whole weeks (the grid is week-based), or
+  // the full data extent in Fit. Everything downstream — weeks, occupied, x, msAtX — reads
+  // tMin/tMax, so narrowing them here zooms the whole instrument (grid + lane) from one place.
+  const tMin = focus ? Math.max(dataMin, weekFloor(focus.min)) : dataMin;
+  const tMax = focus ? Math.min(dataMax, weekCeil(focus.max)) : dataMax;
+  const inView = (ms: number) => ms >= tMin && ms <= tMax;
   const nWeeks = Math.max(1, Math.round((tMax - tMin) / WEEK_MS));
   const weeks: number[] = [];
   for (let k = 0; k < nWeeks; k++) weeks.push(tMin + k * WEEK_MS);
@@ -218,13 +233,40 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
     const wStart = tMin + k * WEEK_MS;
     return collapsed[k] ? wStart : wStart + ((px - weekX0[k]) / (weekX1[k] - weekX0[k])) * WEEK_MS;
   };
-  // Pointer clientX → hovered date, via the SVG's rendered box → viewBox units.
+  // Pointer clientX → hovered date, via the SVG's rendered box → viewBox units. Suppressed
+  // mid-pan: a drag is scrubbing the view, not scanning a date.
   const trackPointer = (clientX: number) => {
+    if (drag.current) return;
     const r = svgRef.current?.getBoundingClientRect();
     if (!r) return;
     const px = Math.max(labelW, Math.min(W - PAD_R, ((clientX - r.left) / r.width) * W));
     setHoverMs(msAtX(px));
   };
+
+  // ---- zoom / pan (#75) ----
+  // Pan drags the focus window under the pointer; only meaningful once zoomed in. Panning
+  // maps client-px moved → viewBox px → ms across the CURRENT view span, applied from the
+  // window at gesture start so it never drifts. A move past a few px marks the gesture a pan
+  // (so the trailing click doesn't fire onJump) and drops the crosshair.
+  const panBy = (clientX: number) => {
+    const d = drag.current;
+    const r = svgRef.current?.getBoundingClientRect();
+    if (!d || !r) return;
+    const dxPx = ((clientX - d.clientX) / r.width) * W;
+    if (Math.abs(dxPx) > 2) { didPan.current = true; setHoverMs(null); }
+    const dxMs = -(dxPx / plotW) * (d.from.max - d.from.min); // content follows the mouse
+    setFocus(panWindow(d.from, dxMs, dataMin, dataMax));
+  };
+  const startPan = (clientX: number) => { if (focus) { drag.current = { clientX, from: focus }; didPan.current = false; } };
+  const endPan = () => { drag.current = null; };
+
+  // Zoom buttons. Centre a zoom on the current view (or, from Fit, on today clamped to data).
+  const zoomCenter = focus ? (focus.min + focus.max) / 2 : Math.min(Math.max(now, dataMin), dataMax);
+  const fitSpan = (dataMax - dataMin) / 2; // the first zoom-in from Fit lands at half the chain
+  const jumpToFit = () => setFocus(null);
+  const jumpToTwoWeeks = () => setFocus(focusWindow(zoomCenter, 2 * WEEK_MS, dataMin, dataMax));
+  const zoomIn = () => setFocus(zoomWindow(focus, ZOOM_STEP, zoomCenter, fitSpan, dataMin, dataMax));
+  const zoomOut = () => setFocus(zoomWindow(focus, 1 / ZOOM_STEP, zoomCenter, fitSpan, dataMin, dataMax));
 
   // month boundaries for the axis labels (one letter per month, centred in its span)
   const monthNarrow = new Intl.DateTimeFormat(locale, { month: 'narrow', timeZone: 'UTC' });
@@ -310,14 +352,14 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   const laneClampX = (ms: number) => Math.max(labelW, Math.min(W - PAD_R, x(ms)));
   const laneStartX = laneClampX(firstStartMs);
   const laneFlats: { x1: number; x2: number; level: number; projected: boolean }[] = [];
-  const laneRisers: { x: number; from: number; to: number; kind: LaneEvent['kind']; projected: boolean }[] = [];
+  const laneRisers: { x: number; atMs: number; from: number; to: number; kind: LaneEvent['kind']; projected: boolean }[] = [];
   let laneLevel = startBuffer ?? 0; // the running buffer; its final value is the level at `now`
   let laneMaxLevel = laneLevel;
   let lanePx = laneStartX;
   for (const e of laneEvents) {
     const ex = laneClampX(e.atMs);
     laneFlats.push({ x1: lanePx, x2: ex, level: laneLevel, projected: e.projected });
-    laneRisers.push({ x: ex, from: laneLevel, to: laneLevel + e.deltaDays, kind: e.kind, projected: e.projected });
+    laneRisers.push({ x: ex, atMs: e.atMs, from: laneLevel, to: laneLevel + e.deltaDays, kind: e.kind, projected: e.projected });
     laneLevel += e.deltaDays;
     laneMaxLevel = Math.max(laneMaxLevel, laneLevel);
     lanePx = ex;
@@ -351,7 +393,10 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   });
   const reserveLabel = { x: W - PAD_R - 3 - reserveHalf, y: bufY(ledger.guidelineDays) - 3, halfW: reserveHalf, halfH: laneHalfH, priority: 2 };
   const startLabel = { x: laneStartX, y: bufY(startBuffer ?? 0) - 7, halfW: shortHalf(startBuffer ?? 0), halfH: laneHalfH, priority: 2 };
-  const riserLabels = laneRisers.map((s) => ({ x: s.x, y: bufY(s.to) + (s.to >= s.from ? -7 : 13), halfW: shortHalf(s.to), halfH: laneHalfH, priority: 1 }));
+  // The walk above levels over ALL events (so a flat entering the view carries the right
+  // level), but only risers whose event falls inside the focus window are drawn or labelled.
+  const visibleRisers = laneRisers.filter((s) => inView(s.atMs));
+  const riserLabels = visibleRisers.map((s) => ({ x: s.x, y: bufY(s.to) + (s.to >= s.from ? -7 : 13), halfW: shortHalf(s.to), halfH: laneHalfH, priority: 1 }));
   const nowLabel = { x: x(now) + 6 + nowHalf, y: bufY(laneEndLevel) - 7, halfW: nowHalf, halfH: FS_EMPH / 2 + 1, priority: 3 };
   // Order is [ ...ticks, reserve, start, now ]; slice ticks back by length and destructure
   // the three singletons, so no hand-counted offset can drift out of step with the array.
@@ -370,8 +415,26 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
 
   return (
     <div className={styles.chartwrap}>
+      {/* zoom / pan controls: Fit (whole chain) · 2-week focus · zoom out/in. When zoomed,
+          drag the chart to slide the window. */}
+      <div className={styles.zoomBar} role="group" aria-label={t(locale, 'clZoomLabel')}>
+        <button type="button" className={styles.zoomBtn} aria-pressed={focus == null} onClick={jumpToFit}>
+          {t(locale, 'clZoomFit')}
+        </button>
+        <button type="button" className={styles.zoomBtn} onClick={jumpToTwoWeeks}>
+          {t(locale, 'clZoomTwoWeeks')}
+        </button>
+        <button type="button" className={styles.zoomBtn} onClick={zoomOut} disabled={focus == null}
+          aria-label={t(locale, 'clZoomOut')}>−</button>
+        <button type="button" className={styles.zoomBtn} onClick={zoomIn} aria-label={t(locale, 'clZoomIn')}>+</button>
+      </div>
+      <div className={styles.scheduleScroll}>
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className={styles.scheduleSvg} role="img"
-        aria-label={t(locale, 'clSchedule')} onMouseLeave={() => setHoverMs(null)}>
+        aria-label={t(locale, 'clSchedule')} data-pannable={focus != null}
+        onMouseLeave={() => { setHoverMs(null); endPan(); }}
+        onMouseDown={(e) => startPan(e.clientX)}
+        onMouseMove={(e) => { if (drag.current) panBy(e.clientX); }}
+        onMouseUp={endPan}>
         {/* faint week gridlines — the column structure you scan down (none inside a
             collapsed run; the break glyph marks that discontinuity instead) */}
         {weeks.map((wk, k) => (collapsed[k] ? null : (
@@ -399,13 +462,18 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
           </g>
         ))}
 
-        {/* today + SOP verticals span the grid (and the lane) */}
-        <line x1={x(now)} y1={TOP - 12} x2={x(now)} y2={vExtentBot}
-          stroke="var(--muted)" strokeWidth={1} strokeDasharray="3 3" />
-        <ChartLabel x={x(now)} y={todayLabelY} textAnchor="middle" fontSize={FS_EMPH} fill="var(--muted)">
-          {t(locale, 'clTodayLabel', { date: dayShort(now, locale) })}
-        </ChartLabel>
-        {sopMs != null && (
+        {/* today + SOP verticals span the grid (and the lane) — hidden when a zoom has
+            scrolled their date out of the focus window (an edge-clamped line would lie). */}
+        {inView(now) && (
+          <>
+            <line x1={x(now)} y1={TOP - 12} x2={x(now)} y2={vExtentBot}
+              stroke="var(--muted)" strokeWidth={1} strokeDasharray="3 3" />
+            <ChartLabel x={x(now)} y={todayLabelY} textAnchor="middle" fontSize={FS_EMPH} fill="var(--muted)">
+              {t(locale, 'clTodayLabel', { date: dayShort(now, locale) })}
+            </ChartLabel>
+          </>
+        )}
+        {sopMs != null && inView(sopMs) && (
           <>
             <line x1={x(sopMs)} y1={TOP - 12} x2={x(sopMs)} y2={laneBot} stroke="var(--fg)" strokeWidth={1.5} />
             <ChartLabel x={Math.min(x(sopMs), W - 8)} y={TOP - 18} textAnchor="end" fontSize={FS_EMPH} fill="var(--fg)">
@@ -436,8 +504,9 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
                 {r.name}
               </ChartLabel>
 
-              {/* idle handoff, drawn TO THE DAY in the channel above this row */}
-              {r.gapBeforeDays >= 1 && i > 0 && (
+              {/* idle handoff, drawn TO THE DAY in the channel above this row (only when the
+                  gap overlaps the focus window) */}
+              {r.gapBeforeDays >= 1 && i > 0 && rows[i - 1].endMs < tMax && r.startMs > tMin && (
                 <>
                   <line x1={x(rows[i - 1].endMs)} y1={y - ROW_H / 2 + 3} x2={x(r.startMs)} y2={y - ROW_H / 2 + 3}
                     stroke="var(--warn)" strokeWidth={2} strokeDasharray="2 2" />
@@ -459,7 +528,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
               })}
 
               {/* plan tick — where the plan said this phase would end (day-accurate) */}
-              {r.kind !== 'notStarted' && x(r.plannedEndMs) >= labelW && x(r.plannedEndMs) <= W - PAD_R && (
+              {r.kind !== 'notStarted' && inView(r.plannedEndMs) && (
                 <line x1={x(r.plannedEndMs)} y1={cyTop - 2} x2={x(r.plannedEndMs)} y2={cyTop + CELL_H + 2}
                   stroke="var(--muted)" strokeWidth={1.25} />
               )}
@@ -468,12 +537,12 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
                   and also drives the shared date crosshair (#75) */}
               <rect className={styles.rowHit} x={0} y={y - ROW_H / 2} width={W} height={ROW_H} rx={4}
                 tabIndex={0} role="button" aria-label={r.name}
-                onMouseEnter={(e) => { onRowCard(r, e.currentTarget, labelW, e.clientX); trackPointer(e.clientX); }}
-                onMouseMove={(e) => { onRowCard(r, e.currentTarget, labelW, e.clientX); trackPointer(e.clientX); }}
+                onMouseEnter={(e) => { if (drag.current) return; onRowCard(r, e.currentTarget, labelW, e.clientX); trackPointer(e.clientX); }}
+                onMouseMove={(e) => { if (drag.current) return; onRowCard(r, e.currentTarget, labelW, e.clientX); trackPointer(e.clientX); }}
                 onMouseLeave={() => onRowCard(null, null)}
                 onFocus={(e) => onRowCard(r, e.currentTarget, labelW)}
                 onBlur={() => onRowCard(null, null)}
-                onClick={() => onJump(r.id)}
+                onClick={() => { if (didPan.current) { didPan.current = false; return; } onJump(r.id); }}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onJump(r.id); } }}
                 data-row-id={r.id} />
             </g>
@@ -518,18 +587,22 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
                 stroke="var(--fg)" strokeWidth={2} strokeDasharray={f.projected ? '3 2' : undefined} />
             ))}
             {/* the buffer the program STARTED with — the baseline every later level reads from */}
-            <circle cx={laneStartX} cy={bufY(startBuffer)} r={2.6} fill="var(--fg)" />
-            {keepStartLabel && (
-              <ChartLabel x={laneStartX} y={bufY(startBuffer) - 7} textAnchor="middle" fontSize={FS_SMALL}
-                fill="var(--muted)" halo="var(--surface)">
-                {t(locale, 'clBufferDaysShort', { d: startBuffer })}
-              </ChartLabel>
+            {inView(firstStartMs) && (
+              <>
+                <circle cx={laneStartX} cy={bufY(startBuffer)} r={2.6} fill="var(--fg)" />
+                {keepStartLabel && (
+                  <ChartLabel x={laneStartX} y={bufY(startBuffer) - 7} textAnchor="middle" fontSize={FS_SMALL}
+                    fill="var(--muted)" halo="var(--surface)">
+                    {t(locale, 'clBufferDaysShort', { d: startBuffer })}
+                  </ChartLabel>
+                )}
+              </>
             )}
             {/* risers: a coloured step at each event, labelled with the buffer IN HAND after
                 it. Every label is kept (a step is a real move) and fanned out in y; when a
                 label ends up pushed well off its dot — a busy same-week cluster — a hair
                 leader ties it back so you still know which step it names. */}
-            {laneRisers.map((s, i) => {
+            {visibleRisers.map((s, i) => {
               const col = s.kind === 'gain' ? 'var(--ok)' : s.kind === 'forecast' ? 'var(--warn)' : 'var(--bad)';
               const dotY = bufY(s.to);
               const labelY = riserLabelY[i];
@@ -551,11 +624,15 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
               );
             })}
             {/* now: the buffer currently in hand (where the walked line lands) */}
-            <circle cx={x(now)} cy={bufY(laneEndLevel)} r={3.2} fill="var(--fg)" />
-            {keepNowLabel && (
-              <ChartLabel x={x(now) + 6} y={bufY(laneEndLevel) - 7} fontSize={FS_EMPH} fill="var(--fg)" halo="var(--surface)">
-                {t(locale, 'clBufferNow', { d: Math.round(laneEndLevel) })}
-              </ChartLabel>
+            {inView(now) && (
+              <>
+                <circle cx={x(now)} cy={bufY(laneEndLevel)} r={3.2} fill="var(--fg)" />
+                {keepNowLabel && (
+                  <ChartLabel x={x(now) + 6} y={bufY(laneEndLevel) - 7} fontSize={FS_EMPH} fill="var(--fg)" halo="var(--surface)">
+                    {t(locale, 'clBufferNow', { d: Math.round(laneEndLevel) })}
+                  </ChartLabel>
+                )}
+              </>
             )}
             {/* transparent overlay so hovering the lane also drives the crosshair */}
             <rect x={labelW} y={laneTop} width={plotW} height={LANE_H} fill="transparent"
@@ -576,6 +653,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
           </g>
         )}
       </svg>
+      </div>
     </div>
   );
 }

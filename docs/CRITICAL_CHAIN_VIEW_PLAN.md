@@ -25,8 +25,15 @@ now reaches the SOP, and a run of ≥ 6 EMPTY weeks (no phase, no handoff — th
 tail, or the SOP-overshoot span) COLLAPSES to a marked break (the conventional
 double-slash glyph) that states how much time it compresses, keyed on emptiness so
 the overshoot case collapses the right span (design.md §8c / #42's honesty rules).
-The last remaining piece of #75 is an operable zoom/pan focus window (a 2-week view
-you slide left↔right), with the #22 touch-gesture story.
+
+Two follow-ons completed #75's readability arc. (1) The buffer lane now KEEPS every
+per-phase step when several move the buffer in one week and FANS their labels out in y
+(`dodgeLabels` in `src/lib/labelPlacement.ts`) rather than hiding the losers — a hidden
+step hides a real move. (2) An operable **zoom/pan focus window**: the x-axis narrows to
+a date range (Fit / 2-week / zoom ±, `src/lib/focusWindow.ts`) that the user slides by
+dragging the chart, so day-level detail in a busy fortnight is legible; markers and
+risers outside the window are dropped rather than edge-clamped. Still open from #75's
+neighbours: the #22 touch-gesture story (the pan is mouse-only for now).
 
 ## 1. Why
 

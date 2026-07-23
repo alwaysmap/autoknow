@@ -170,6 +170,34 @@ test.describe('Project Details and Action Item Operations', () => {
     expect(c.x + c.width).toBeLessThanOrEqual(px);
   });
 
+  // #75: the schedule can be zoomed to a focus window and slid. Zoom-in (from Fit it seeds a
+  // window at half the chain, so it always produces one) makes the chart pannable and enables
+  // zoom-out; Fit restores the whole chain and disables panning. Span-independent, so it holds
+  // for any seeded chain.
+  test('the schedule zooms into a focus window and Fit restores it (#75)', async ({ page }) => {
+    await page.goto(`/programs/${projectId}`);
+    const svg = page.locator('svg[class*="scheduleSvg"]');
+    const zoomIn = page.getByRole('button', { name: 'Zoom in' });
+    const zoomOut = page.getByRole('button', { name: 'Zoom out' });
+    const fit = page.getByRole('button', { name: 'Fit', exact: true });
+
+    // Fit is the resting state: not pannable, zoom-out disabled.
+    await expect(svg).toHaveAttribute('data-pannable', 'false', { timeout: 20000 });
+    await expect(zoomOut).toBeDisabled();
+
+    // Hydration-guarded first interaction (the repo's #1 e2e flake source otherwise).
+    await expect(async () => {
+      await zoomIn.click();
+      await expect(svg).toHaveAttribute('data-pannable', 'true', { timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+    await expect(zoomOut).toBeEnabled();
+
+    // Fit returns to the whole chain and switches panning back off.
+    await fit.click();
+    await expect(svg).toHaveAttribute('data-pannable', 'false');
+    await expect(zoomOut).toBeDisabled();
+  });
+
   test('lead partner (OEM) is editable from the program Edit dialog', async ({ page }) => {
     // A second OEM to switch to.
     const bmw = await prisma.partner.create({
