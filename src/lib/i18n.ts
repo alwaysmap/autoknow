@@ -1432,6 +1432,11 @@ const STRINGS = {
   },
   // Schedule chart
   clSchedule: { en: 'Schedule', de: 'Zeitplan', ja: 'スケジュール', ko: '일정' },
+  clZoomLabel: { en: 'Zoom the timeline', de: 'Zeitachse zoomen', ja: 'タイムラインをズーム', ko: '타임라인 확대' },
+  clZoomFit: { en: 'Fit', de: 'Alles', ja: '全体', ko: '전체' },
+  clZoomTwoWeeks: { en: '2 wk', de: '2 Wo', ja: '2週', ko: '2주' },
+  clZoomIn: { en: 'Zoom in', de: 'Vergrößern', ja: '拡大', ko: '확대' },
+  clZoomOut: { en: 'Zoom out', de: 'Verkleinern', ja: '縮小', ko: '축소' },
   clKeyTitle: { en: 'How to read the schedule', de: 'So liest du den Zeitplan', ja: 'スケジュールの読み方', ko: '일정 읽는 법' },
   clKeyOnPlan: {
     en: 'A filled cell is on-plan work — soft once done, bold on the phase running now.',
