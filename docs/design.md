@@ -446,7 +446,10 @@ combination must work:
   the phase's true start/end; idle gaps render to the day, so the chart drives
   "start the day the baton lands", not "wait until Friday"). A **buffer-on-hand
   lane** sits below on the same week axis — a stepped line, each step pinned under
-  the phase that moved it and labelled with the buffer in hand there. There is no
+  the phase that moved it and labelled with the buffer in hand there. Every step is
+  labelled — where several phases move the buffer in the same week the labels FAN OUT
+  in y rather than any being dropped (a hidden step hides a real buffer move); only the
+  redundant anchors (a y-axis tick still read from the scale) may yield. There is no
   texture layer and no `data-std-only` / `data-inst-only` pair here any more; the grid
   reads identically in both styles. The axis always reaches the SOP; a run of ≥ 6
   **empty** weeks (no phase, no handoff — the buffer tail, or the SOP-overshoot span)
