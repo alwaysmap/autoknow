@@ -100,6 +100,56 @@ test.describe('Search Results Page (Text + pgvector)', () => {
     await expect(page.getByRole('link', { name: 'Bosch', exact: true })).toBeVisible();
   });
 
+  test('UI: the suggestion list is navigable with the arrow keys, and Enter opens the highlighted row', async ({ page }) => {
+    await page.goto('/');
+
+    const box = page.getByRole('searchbox');
+    const suggest = page.getByTestId('search-suggest');
+    await expect(async () => {
+      await box.fill('ford');
+      await expect(suggest).toBeVisible({ timeout: 2000 });
+    }).toPass();
+
+    const options = suggest.getByRole('option');
+    // Down highlights the top row (the exact-match partner); the searchbox points at it.
+    await box.press('ArrowDown');
+    await expect(options.nth(0)).toHaveAttribute('aria-selected', 'true');
+    await expect(box).toHaveAttribute('aria-activedescendant', 'search-suggest-opt-0');
+
+    // Down again moves the highlight; the previous row is no longer selected.
+    await box.press('ArrowDown');
+    await expect(options.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect(options.nth(0)).toHaveAttribute('aria-selected', 'false');
+
+    // Up brings it back to the top row, and Enter follows that row's own link.
+    await box.press('ArrowUp');
+    await expect(options.nth(0)).toHaveAttribute('aria-selected', 'true');
+    await box.press('Enter');
+    await expect(page).toHaveURL(new RegExp(`/partners/${fordId}$`));
+  });
+
+  test('UI: clearing the search box returns to the landing page without a full refresh', async ({ page }) => {
+    await page.goto('/');
+
+    const box = page.getByRole('searchbox');
+    const suggest = page.getByTestId('search-suggest');
+    await expect(async () => {
+      await box.fill('bosch');
+      await expect(suggest).toBeVisible({ timeout: 2000 });
+    }).toPass();
+
+    // Commit to the full results view (the state the user gets stuck in).
+    await suggest.getByRole('button').click();
+    const count = page.getByText(/results? across the ecosystem/);
+    await expect(count).toBeVisible();
+
+    // Emptying the box tears the results down in place — the default landing page is back.
+    await box.fill('');
+    await expect(count).toHaveCount(0);
+    await expect(suggest).toHaveCount(0);
+    await expect(box).toHaveValue('');
+  });
+
   test('UI: shared /search?q= links still land on the search experience', async ({ page }) => {
     await page.goto('/search?q=bosch');
 
@@ -107,12 +157,22 @@ test.describe('Search Results Page (Text + pgvector)', () => {
     await expect(page.getByRole('link', { name: 'Bosch', exact: true })).toBeVisible();
   });
 
-  test('API: ranking survives a full reindex (semantic blend does not bury exact matches)', async ({ request }) => {
+  test('API: a reindex does not let unrelated records leak into a specific-name search', async ({ request }) => {
+    // Reindex embeds every row. With Gemini unconfigured (the test env), those vectors
+    // are the deterministic fallback — an all-positive pedestal that sits ~0.75 from
+    // EVERY query, which once floated unrelated brands in above the lexical ranking.
+    // A name search must still return only records that name actually hits.
     const reindex = await request.post('/api/admin/reindex');
     expect(reindex.ok()).toBeTruthy();
 
     const res = await request.get('/api/search?q=bosch');
     const { items } = await res.json();
+    const titles = items.map((i: { title: string }) => i.title);
+
     expect(items[0]).toMatchObject({ kind: 'partner', title: 'Bosch' });
+    // Ford (partner) and its program share nothing with "bosch"; the pedestal used to
+    // carry them in on a ~0.75 semantic score.
+    expect(titles).not.toContain('Ford');
+    expect(titles).not.toContain('Ford Evos AAOS Bring-up');
   });
 });

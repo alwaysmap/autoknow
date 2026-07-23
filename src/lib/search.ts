@@ -1,7 +1,7 @@
 import 'server-only';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { embedText } from './gemini';
+import { embedText, geminiConfigured } from './gemini';
 import { FEED_TYPES, type FeedType, type FeedScope, type FeedItem } from './feed';
 
 // Unified search over everything in AutoKnow. Every searchable thing is tagged with
@@ -146,7 +146,41 @@ function semSql(embedding: Prisma.Sql, v: Prisma.Sql): Prisma.Sql {
                          ELSE GREATEST(0.0, 1.0 - (${embedding} <=> ${v}))::float8 END`;
 }
 
-function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope): Prisma.Sql {
+// ---- Result-quality gating (why "Honda" surfaced under a "Volvo" search) ----
+// A SEMANTIC-ONLY hit — one the query's own words touch nowhere, matched purely by
+// embedding proximity — is the only source of that noise: a lexical hit contains the
+// query text, so it is never an unrelated brand. So the floors below gate ONLY
+// semantic-only rows; a lexical row is always kept, and searching a common word still
+// returns every record that literally contains it.
+//   - SEM_MIN     absolute floor: under it a semantic match is too weak to show at all.
+//   - REL_FACTOR  relative floor (× the top score): when a strong match exists (an
+//     exact name is 1.0) everything far beneath it reads as noise and drops; when the
+//     whole set is weak-but-even (a descriptive query with no lexical anchor) the floor
+//     sinks with the top score and recall is preserved.
+// Deliberately conservative — tune against real query telemetry, not upward by guess.
+const SEM_MIN = 0.4;
+const REL_FACTOR = 0.65;
+
+// The deterministic dev/test fallback embedding (lib/embedding-fallback) is an
+// all-positive vector, so EVERY record sits ~0.75 cosine from EVERY query regardless
+// of text — a uniform pedestal, not signal. When Gemini is unconfigured we therefore
+// switch the semantic channel off entirely rather than threshold that pedestal, which
+// would otherwise bury the lexical ranking under unrelated rows.
+function blend(
+  lex: Prisma.Sql,
+  embedding: Prisma.Sql,
+  v: Prisma.Sql,
+  semantic: boolean,
+): { score: Prisma.Sql; eligible: Prisma.Sql } {
+  if (!semantic) return { score: lex, eligible: Prisma.sql`${lex} > 0` };
+  const sem = semSql(embedding, v);
+  return {
+    score: Prisma.sql`GREATEST(${lex}, ${sem})`,
+    eligible: Prisma.sql`(${embedding} IS NOT NULL OR ${lex} > 0)`,
+  };
+}
+
+function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope, semantic: boolean): Prisma.Sql {
   const v = Prisma.sql`${vec}::vector`;
   const partnerId = scope.kind === 'partner' ? scope.id : undefined;
   const projectId = scope.kind === 'project' ? scope.id : undefined;
@@ -160,12 +194,12 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope): Pr
             ? Prisma.sql`p.id = (SELECT "partnerId" FROM "Project" WHERE id = ${projectId})`
             : Prisma.sql`TRUE`;
       const lex = lexSql(q, Prisma.sql`p.name`, [Prisma.sql`pt.name`, Prisma.sql`p.summary`]);
-      const sem = semSql(Prisma.sql`p.embedding`, v);
+      const { score, eligible } = blend(lex, Prisma.sql`p.embedding`, v, semantic);
       return Prisma.sql`
         SELECT 'partner' AS type, p.id, p.name AS title, COALESCE(pt.name, 'Partner') AS subtitle,
-               ('/partners/' || p.id) AS url, FALSE AS external, GREATEST(${lex}, ${sem}) AS score
+               ('/partners/' || p.id) AS url, FALSE AS external, ${score} AS score, (${lex} > 0) AS "lexHit"
         FROM "Partner" p LEFT JOIN "PartnerType" pt ON pt.id = p."typeId"
-        WHERE (p.embedding IS NOT NULL OR ${lex} > 0) AND ${where}`;
+        WHERE ${eligible} AND ${where}`;
     }
     case 'program': {
       const where =
@@ -175,12 +209,12 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope): Pr
             ? Prisma.sql`pr."partnerId" = ${partnerId}`
             : Prisma.sql`TRUE`;
       const lex = lexSql(q, Prisma.sql`pr.name`, [Prisma.sql`pr."ownerName"`, Prisma.sql`pa.name`]);
-      const sem = semSql(Prisma.sql`pr.embedding`, v);
+      const { score, eligible } = blend(lex, Prisma.sql`pr.embedding`, v, semantic);
       return Prisma.sql`
         SELECT 'program' AS type, pr.id, pr.name AS title, COALESCE(pa.name, 'Program') AS subtitle,
-               ('/programs/' || pr.id) AS url, FALSE AS external, GREATEST(${lex}, ${sem}) AS score
+               ('/programs/' || pr.id) AS url, FALSE AS external, ${score} AS score, (${lex} > 0) AS "lexHit"
         FROM "Project" pr LEFT JOIN "Partner" pa ON pa.id = pr."partnerId"
-        WHERE (pr.embedding IS NOT NULL OR ${lex} > 0) AND ${where}`;
+        WHERE ${eligible} AND ${where}`;
     }
     case 'person': {
       const where =
@@ -190,12 +224,12 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope): Pr
             ? Prisma.sql`FALSE`
             : Prisma.sql`TRUE`;
       const lex = lexSql(q, Prisma.sql`pe.name`, [Prisma.sql`pe.email`, Prisma.sql`pe.notes`]);
-      const sem = semSql(Prisma.sql`pe.embedding`, v);
+      const { score, eligible } = blend(lex, Prisma.sql`pe.embedding`, v, semantic);
       return Prisma.sql`
         SELECT 'person' AS type, pe.id, pe.name AS title, pe.email AS subtitle,
-               ('/people/' || pe.id) AS url, FALSE AS external, GREATEST(${lex}, ${sem}) AS score
+               ('/people/' || pe.id) AS url, FALSE AS external, ${score} AS score, (${lex} > 0) AS "lexHit"
         FROM "Person" pe
-        WHERE (pe.embedding IS NOT NULL OR ${lex} > 0) AND ${where}`;
+        WHERE ${eligible} AND ${where}`;
     }
     case 'context': {
       const where =
@@ -205,12 +239,12 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope): Pr
             ? Prisma.sql`(c."projectId" = ${projectId} OR c."phaseId" IN (SELECT id FROM "Phase" WHERE "projectId" = ${projectId}))`
             : Prisma.sql`TRUE`;
       const lex = lexSql(q, Prisma.sql`COALESCE(c.title, '')`, [Prisma.sql`c."ingestedText"`]);
-      const sem = semSql(Prisma.sql`c.embedding`, v);
+      const { score, eligible } = blend(lex, Prisma.sql`c.embedding`, v, semantic);
       return Prisma.sql`
         SELECT 'context' AS type, c.id, COALESCE(c.title, 'Untitled') AS title, c.type AS subtitle,
-               c.url AS url, TRUE AS external, GREATEST(${lex}, ${sem}) AS score
+               c.url AS url, TRUE AS external, ${score} AS score, (${lex} > 0) AS "lexHit"
         FROM "ContextUrl" c
-        WHERE (c.embedding IS NOT NULL OR ${lex} > 0) AND ${where}`;
+        WHERE ${eligible} AND ${where}`;
     }
   }
 }
@@ -240,23 +274,32 @@ export async function unifiedSearch(
   const types = opts.types?.length ? opts.types : FEED_TYPES;
   const limit = opts.limit ?? 20;
   const scope = opts.scope ?? { kind: 'ecosystem' };
+  // Real embeddings only: the dev/test fallback is a uniform pedestal, not signal.
+  const semantic = geminiConfigured;
 
   try {
     const q = query.trim();
-    const vec = `[${(await embedQuery(q)).join(',')}]`;
-    const branches = types.map((t) => branchSql(t, q, vec, scope));
+    // Skip the Gemini round-trip entirely when the vector channel is off.
+    const vec = semantic ? `[${(await embedQuery(q)).join(',')}]` : '';
+    const branches = types.map((t) => branchSql(t, q, vec, scope, semantic));
     const unioned = Prisma.join(branches, ' UNION ALL ');
 
     const rows = await prisma.$queryRaw<
-      { type: FeedType; id: number; title: string; subtitle: string | null; url: string; external: boolean; score: number }[]
+      { type: FeedType; id: number; title: string; subtitle: string | null; url: string; external: boolean; score: number; lexHit: boolean }[]
     >(Prisma.sql`
-      SELECT type, id, title, subtitle, url, external, score
+      SELECT type, id, title, subtitle, url, external, score, "lexHit"
       FROM ( ${unioned} ) AS hits
       ORDER BY score DESC, title ASC
       LIMIT ${limit}
     `);
 
-    return rows.map((r) => ({
+    // Drop semantic-only noise: a row the query's own words never hit must clear the
+    // higher of the absolute and top-relative floors. Lexical hits are always kept.
+    const top = rows[0]?.score ?? 0;
+    const semFloor = Math.max(SEM_MIN, top * REL_FACTOR);
+    const kept = rows.filter((r) => r.lexHit || r.score >= semFloor);
+
+    return kept.map((r) => ({
       id: `${r.type}-${r.id}`,
       kind: r.type,
       title: r.title,
