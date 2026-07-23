@@ -1,5 +1,6 @@
 'use client';
 
+import ChartLabel from './ChartLabel';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Markdown from './Markdown';
@@ -936,8 +937,8 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                   })}
                   <circle cx={dot.x} cy={dot.y} r={6} fill="var(--p-500)" stroke="var(--paper)" strokeWidth={1.6}
                     style={{ transition: dragging ? 'none' : 'cx 0.15s, cy 0.15s' }} />
-                  <text x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted)">{t(locale, 'figuringItOut')}</text>
-                  <text x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted)">{t(locale, 'makingItHappen')}</text>
+                  <ChartLabel x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted)">{t(locale, 'figuringItOut')}</ChartLabel>
+                  <ChartLabel x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted)">{t(locale, 'makingItHappen')}</ChartLabel>
                 </svg>
                 {/* off-screen range input keeps E2E drivable without visual noise
                     (design.md §3) — present only while editing, like the ball */}

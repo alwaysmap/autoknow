@@ -1,5 +1,6 @@
 'use client';
 
+import ChartLabel from './ChartLabel';
 import React, { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -169,8 +170,8 @@ function ProductAreaChart({
         {/* y guides: 0 and max only — the figures carry the scale */}
         <line x1={PAD_L} y1={y(0)} x2={w - PAD_R} y2={y(0)} stroke="var(--border)" strokeWidth={1} />
         <line x1={PAD_L} y1={y(maxY)} x2={w - PAD_R} y2={y(maxY)} stroke="var(--border)" strokeWidth={0.6} strokeDasharray="2 4" />
-        <text x={PAD_L - 8} y={y(0) + 4} textAnchor="end" fontSize={fs(11)} fill="var(--muted)">0</text>
-        <text x={PAD_L - 8} y={y(maxY) + 4} textAnchor="end" fontSize={fs(11)} fill="var(--muted)">{fmtUnits(maxY)}</text>
+        <ChartLabel x={PAD_L - 8} y={y(0) + 4} textAnchor="end" fontSize={fs(11)} fill="var(--muted)">0</ChartLabel>
+        <ChartLabel x={PAD_L - 8} y={y(maxY) + 4} textAnchor="end" fontSize={fs(11)} fill="var(--muted)">{fmtUnits(maxY)}</ChartLabel>
 
         {/* stacked product bands, AAOS at the base */}
         {activeBands.map((k) => (
@@ -196,18 +197,18 @@ function ProductAreaChart({
 
         {/* direct band labels at the right edge: code + final count */}
         {ordered.map(({ k, midY, value }) => (
-          <text key={`lbl${k}`} x={w - PAD_R + 10} y={midY + fs(3.5)} fontSize={fs(11)}
+          <ChartLabel key={`lbl${k}`} x={w - PAD_R + 10} y={midY + fs(3.5)} fontSize={fs(11)}
             fontWeight={k === 'aaos' ? 600 : 400} fill={k === 'aaos' ? INK : 'var(--fg)'}>
             {BAND_CODE[k]} {fmtUnits(value)}
             <title>{t(locale, BAND_NAME_KEY[k])}</title>
-          </text>
+          </ChartLabel>
         ))}
 
         {points.map((p, i) =>
           i % tickEvery === 0 || i === points.length - 1 ? (
-            <text key={p.ms} x={x(i)} y={h - fs(9)} textAnchor="middle" fontSize={fs(10)} fill="var(--muted)">
+            <ChartLabel key={p.ms} x={x(i)} y={h - fs(9)} textAnchor="middle" fontSize={fs(10)} fill="var(--muted)">
               {p.label}
-            </text>
+            </ChartLabel>
           ) : null,
         )}
 

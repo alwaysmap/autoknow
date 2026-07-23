@@ -1,5 +1,6 @@
 'use client';
 
+import ChartLabel from './ChartLabel';
 import { layoutHill, type HillStatus } from '../lib/hillLayout';
 import { phaseColor } from '../lib/phase';
 import { t, statusKey, type StringKey } from '../lib/i18n';
@@ -97,7 +98,7 @@ export default function PhaseHillChart({ phases, wide = false }: { phases: Phase
       {/* Labels first, dots on top: where a long name has nowhere to go but across a
           stack, the coins stay whole and the text tucks behind them. */}
       {layout.labels.map((l) => (
-        <text
+        <ChartLabel
           key={l.key}
           x={l.x}
           y={l.y}
@@ -105,13 +106,10 @@ export default function PhaseHillChart({ phases, wide = false }: { phases: Phase
           fontSize={8}
           fontWeight={l.kind === 'group' ? 500 : 600}
           fill={l.kind === 'group' ? 'var(--muted)' : 'var(--fg)'}
-          stroke="var(--white)"
-          strokeWidth={2.5}
-          paintOrder="stroke"
           data-testid={`hill-label-${l.anchorId}`}
         >
           {l.text}
-        </text>
+        </ChartLabel>
       ))}
       {layout.dots.map((d) => {
         // Every dot is a deeplink that slides the phase card into view and flashes it.
@@ -134,8 +132,8 @@ export default function PhaseHillChart({ phases, wide = false }: { phases: Phase
           </g>
         );
       })}
-      <text x={50 * sx} y={99} textAnchor="middle" fontSize={axisFs} fill="var(--muted)">{axisLabels.left}</text>
-      <text x={150 * sx} y={99} textAnchor="middle" fontSize={axisFs} fill="var(--muted)">{axisLabels.right}</text>
+      <ChartLabel x={50 * sx} y={99} textAnchor="middle" fontSize={axisFs} fill="var(--muted)">{axisLabels.left}</ChartLabel>
+      <ChartLabel x={150 * sx} y={99} textAnchor="middle" fontSize={axisFs} fill="var(--muted)">{axisLabels.right}</ChartLabel>
     </svg>
   );
 }

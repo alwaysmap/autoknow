@@ -1,5 +1,6 @@
 'use client';
 
+import ChartLabel from './ChartLabel';
 import React, { useMemo } from 'react';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
@@ -73,15 +74,15 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
         {xTicks.map(tick => (
           <g key={tick}>
             <line x1={xScale(tick)} y1={height - marginBottom} x2={xScale(tick)} y2={height - marginBottom + 5} className={styles.axisLine} />
-            <text x={xScale(tick)} y={height - marginBottom + 20} textAnchor="middle" className={styles.axisLabel}>{t(locale, 'daysShort', { n: tick })}</text>
+            <ChartLabel x={xScale(tick)} y={height - marginBottom + 20} textAnchor="middle" className={styles.axisLabel}>{t(locale, 'daysShort', { n: tick })}</ChartLabel>
           </g>
         ))}
 
         {/* Y Axis Labels (Phases) */}
         {phaseNames.map((name, i) => (
-          <text key={name} x={marginLeft - 15} y={yScale(i)} textAnchor="end" dominantBaseline="middle" className={styles.axisLabel}>
+          <ChartLabel key={name} x={marginLeft - 15} y={yScale(i)} textAnchor="end" dominantBaseline="middle" className={styles.axisLabel}>
             {name}
-          </text>
+          </ChartLabel>
         ))}
 
         {/* Grid lines (horizontal per phase) */}
@@ -107,11 +108,11 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
             <g key={`stats-${name}`}>
               {/* P50 Line */}
               <line x1={xScale(phaseStats.p50)} y1={y - 20} x2={xScale(phaseStats.p50)} y2={y + 20} className={styles.percentileLine} />
-              <text x={xScale(phaseStats.p50)} y={y - 22} textAnchor="middle" className={styles.percentileLabel}>P50</text>
+              <ChartLabel x={xScale(phaseStats.p50)} y={y - 22} textAnchor="middle" className={styles.percentileLabel}>P50</ChartLabel>
               
               {/* P85 Line */}
               <line x1={xScale(phaseStats.p85)} y1={y - 20} x2={xScale(phaseStats.p85)} y2={y + 20} className={styles.percentileLine} stroke="var(--t-500)" />
-              <text x={xScale(phaseStats.p85)} y={y - 22} textAnchor="middle" className={styles.percentileLabel} fill="var(--t-600)">P85</text>
+              <ChartLabel x={xScale(phaseStats.p85)} y={y - 22} textAnchor="middle" className={styles.percentileLabel} fill="var(--t-600)">P85</ChartLabel>
             </g>
           );
         })}
