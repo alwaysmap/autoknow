@@ -553,6 +553,7 @@ const STRINGS = {
     ko: '작성 및 관리 — AutoKnow를 구성하지만 일상적인 프로그램 열람은 아닌 항목들.',
   },
   settingsLanguage: { en: 'Language', de: 'Sprache', ja: '言語', ko: '언어' },
+  resetPreferences: { en: 'Reset to defaults', de: 'Auf Standard zurücksetzen', ja: 'デフォルトに戻す', ko: '기본값으로 재설정' },
   settingsLanguageDesc: {
     en: 'The display language for the whole app (stored as a cookie).',
     de: 'Die Anzeigesprache für die gesamte App (als Cookie gespeichert).',
