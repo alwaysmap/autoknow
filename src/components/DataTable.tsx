@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
+import AnchoredPopover from './AnchoredPopover';
 import styles from './DataTable.module.css';
 
 interface Header {
@@ -72,35 +73,10 @@ export default function DataTable<T>({
     if (!controlledFilters) setOwnFilters(next);
     setCurrentPage(1);
   };
-  const [openFilterKey, setOpenFilterKey] = useState<string | null>(null);
-  const filterPopRef = useRef<HTMLDivElement>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  // Right-align the popup when a left-aligned one would poke past the wrapper's
-  // right edge — the wrapper's overflow-x would crop it (rightmost columns).
-  const [popFlipped, setPopFlipped] = useState(false);
-  useLayoutEffect(() => {
-    if (!openFilterKey) return;
-    const pop = filterPopRef.current;
-    const anchor = pop?.parentElement; // .filterWrap
-    const wrap = wrapperRef.current;
-    if (!pop || !anchor || !wrap) return;
-    // Width is alignment-independent, so this measurement is idempotent even when
-    // the popup is currently rendered flipped from a previous open.
-    setPopFlipped(anchor.getBoundingClientRect().left + pop.offsetWidth > wrap.getBoundingClientRect().right);
-  }, [openFilterKey]);
-  useEffect(() => {
-    if (!openFilterKey) return;
-    const onDown = (e: PointerEvent) => {
-      if (!filterPopRef.current?.contains(e.target as Node)) setOpenFilterKey(null);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenFilterKey(null); };
-    window.addEventListener('pointerdown', onDown);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [openFilterKey]);
+  // The per-column filter popovers are AnchoredPopover instances now (#24): it owns
+  // placement (top-layer, so no overflow-x crop of the rightmost column — the bug the
+  // old hand-rolled flip only half-fixed), light-dismiss, and — via `popover="auto"` —
+  // one-open-at-a-time for free, so the single-open `openFilterKey` state is gone.
 
   const filterValueOf = (h: Header, row: T): string =>
     h.filterValue ? h.filterValue(row) : String(valueAt(row, h.key) ?? '');
@@ -190,7 +166,7 @@ export default function DataTable<T>({
   const endIndex = Math.min(activePage * pageSize, sortedData.length);
 
   return (
-    <div className={styles.tableWrapper} ref={wrapperRef}>
+    <div className={styles.tableWrapper}>
       <table className={styles.table}>
         <thead>
           <tr>
@@ -217,55 +193,57 @@ export default function DataTable<T>({
                     )}
                     {h.filterable && (
                       <span className={styles.filterWrap}>
-                        <button
-                          type="button"
-                          className={`${styles.filterBtn} ${(filters[h.key]?.length ?? 0) > 0 ? styles.filterActive : ''}`}
-                          aria-label={t(locale, 'filterColumn', { c: h.label })}
-                          aria-expanded={openFilterKey === h.key}
-                          data-testid={`filter-${h.key}`}
-                          onClick={(e) => { e.stopPropagation(); setOpenFilterKey(openFilterKey === h.key ? null : h.key); }}
+                        <AnchoredPopover
+                          variant="panel"
+                          panelLabel={t(locale, 'filterColumn', { c: h.label })}
+                          panelClassName={styles.filterPop}
+                          renderTrigger={(triggerProps) => (
+                            <button
+                              {...triggerProps}
+                              type="button"
+                              className={`${styles.filterBtn} ${(filters[h.key]?.length ?? 0) > 0 ? styles.filterActive : ''}`}
+                              aria-label={t(locale, 'filterColumn', { c: h.label })}
+                              data-testid={`filter-${h.key}`}
+                              // popoverTarget (in triggerProps) toggles the panel; stop the
+                              // click bubbling so it never reaches the header's sort control
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {/* the standard three-line funnel */}
+                              <svg viewBox="0 0 12 12" width={11} height={11} aria-hidden>
+                                <line x1={1} y1={2.5} x2={11} y2={2.5} stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
+                                <line x1={3} y1={6} x2={9} y2={6} stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
+                                <line x1={5} y1={9.5} x2={7} y2={9.5} stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
+                              </svg>
+                              {(filters[h.key]?.length ?? 0) > 0 && <span className={styles.filterCount}>{filters[h.key].length}</span>}
+                            </button>
+                          )}
                         >
-                          {/* the standard three-line funnel */}
-                          <svg viewBox="0 0 12 12" width={11} height={11} aria-hidden>
-                            <line x1={1} y1={2.5} x2={11} y2={2.5} stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
-                            <line x1={3} y1={6} x2={9} y2={6} stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
-                            <line x1={5} y1={9.5} x2={7} y2={9.5} stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
-                          </svg>
-                          {(filters[h.key]?.length ?? 0) > 0 && <span className={styles.filterCount}>{filters[h.key].length}</span>}
-                        </button>
-                        {openFilterKey === h.key && (
-                          <div
-                            className={`${styles.filterPop} ${popFlipped ? styles.filterPopRight : ''}`}
-                            ref={filterPopRef}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {optionsFor(h).map((v) => {
-                              const checked = filters[h.key]?.includes(v) ?? false;
-                              return (
-                                <label key={v || '(empty)'} className={styles.filterOption}>
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() => {
-                                      const cur = filters[h.key] ?? [];
-                                      setFilters({ ...filters, [h.key]: checked ? cur.filter((x) => x !== v) : [...cur, v] });
-                                    }}
-                                  />
-                                  <span>{v ? (h.filterLabel ? h.filterLabel(v) : v) : '—'}</span>
-                                </label>
-                              );
-                            })}
-                            {(filters[h.key]?.length ?? 0) > 0 && (
-                              <button
-                                type="button"
-                                className={styles.filterClear}
-                                onClick={() => setFilters({ ...filters, [h.key]: [] })}
-                              >
-                                {t(locale, 'clearFilter')}
-                              </button>
-                            )}
-                          </div>
-                        )}
+                          {optionsFor(h).map((v) => {
+                            const checked = filters[h.key]?.includes(v) ?? false;
+                            return (
+                              <label key={v || '(empty)'} className={styles.filterOption}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => {
+                                    const cur = filters[h.key] ?? [];
+                                    setFilters({ ...filters, [h.key]: checked ? cur.filter((x) => x !== v) : [...cur, v] });
+                                  }}
+                                />
+                                <span>{v ? (h.filterLabel ? h.filterLabel(v) : v) : '—'}</span>
+                              </label>
+                            );
+                          })}
+                          {(filters[h.key]?.length ?? 0) > 0 && (
+                            <button
+                              type="button"
+                              className={styles.filterClear}
+                              onClick={() => setFilters({ ...filters, [h.key]: [] })}
+                            >
+                              {t(locale, 'clearFilter')}
+                            </button>
+                          )}
+                        </AnchoredPopover>
                       </span>
                     )}
                   </div>

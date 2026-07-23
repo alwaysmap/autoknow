@@ -130,7 +130,8 @@ test.describe('Project Details and Action Item Operations', () => {
     const dialog = page.locator('dialog[open]');
     await expect(async () => {
       if (!(await dialog.isVisible())) {
-        const item = page.getByTestId('project-meta').getByRole('button', { name: 'Edit', exact: true });
+        // Kebab items are role=menuitem now that the ⋯ menu is AnchoredPopover (#24).
+        const item = page.getByTestId('project-meta').getByRole('menuitem', { name: 'Edit', exact: true });
         if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
         await item.click({ timeout: 2000 });
       }

@@ -367,6 +367,18 @@ combination must work:
   far right — divorced from the title they act on, and with no room for a
   left-anchored popup, which then opens off the container's edge. Enforced by
   `tests/project_details.spec.ts` "the Phases affordances sit against the title".
+* **One anchored-menu control, and it can no longer open off-screen (#24).** Every
+  "a ⋯/funnel/avatar trigger opens a panel anchored to it" surface is `AnchoredPopover`
+  — the kebab menu, the phase-track title menu, the user/settings card, the DataTable
+  column filter all route through it. It renders the panel in the TOP LAYER (the
+  `popover` attribute, so it clears every `overflow` clip and needs no z-index) and
+  places it with the pure, unit-tested positioner in `lib/anchoredPosition.ts`, which
+  FLIPS above when the bottom would overflow and CLAMPS into the viewport — so the
+  off-the-edge symptom above is now defended in depth, not just avoided by careful
+  authoring. Do not hand-roll a fifth: a new anchored menu is a new `AnchoredPopover`
+  (`variant='menu'` for an action list, `variant='panel'` for a card/checklist). MODAL
+  overlays are the OTHER family — native `<dialog closedby="any">`, not this — and stay
+  separate (§4b, and the #34 overlay container).
 * **Motion is ONE idea, not a collection of effects: an instrument settles.**
   A reading sweeps from its stop to its value once, quickly, easing out. There
   are exactly two implementations and adding a third needs a reason:

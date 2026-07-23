@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
+import AnchoredPopover from './AnchoredPopover';
 import ThemeToggle from './ThemeToggle';
 import StyleToggle from './StyleToggle';
 import LocaleSwitcher from './LocaleSwitcher';
@@ -10,8 +11,11 @@ import { initialsOf } from '../lib/people';
 import styles from './UserMenu.module.css';
 
 // Google-style session affordance: a circle with the user's initials, nothing else in
-// the bar. Clicking opens a small card with the name, email, and the sign-out action.
-// When auth is configured but no session exists, the whole thing is a Sign in button.
+// the bar. Clicking opens a small card with the name, email, personal settings, and the
+// sign-out action. When auth is configured but no session exists, the whole thing is a
+// Sign in button. Placement, light-dismiss and focus come from AnchoredPopover (#24);
+// this is a `panel` (a labelled settings card with native tab order), NOT a `menu` —
+// wrapping a form + toggles in role=menu was the a11y bug that shared control removes.
 //
 // The card shows a HUMAN NAME ('Dylan Thomas'), never the '@handle': the handle is a
 // lookup key, and the initials read off the name (first + last) — so a card showing
@@ -39,8 +43,6 @@ export default function UserMenu({
   signOutAction?: () => Promise<void>;
 }) {
   const locale = useLocale();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
   // Last-resort fallback only: CurrentUser.name is always populated (lib/auth derives
   // one from the handle when the provider gives none), so this is belt-and-braces.
   const fullName = name.trim() || email.split('@')[0];
@@ -64,22 +66,6 @@ export default function UserMenu({
       initials
     );
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('pointerdown', onDown);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
   // Auth on, nobody signed in: the affordance IS the sign-in.
   if (authConfigured && !signedIn) {
     return (
@@ -90,45 +76,47 @@ export default function UserMenu({
   }
 
   return (
-    <div className={styles.wrap} ref={ref}>
-      <button
-        type="button"
-        className={styles.avatar}
-        aria-label={fullName ? `${fullName} (${email})` : email}
-        aria-expanded={open}
-        data-testid="user-menu"
-        onClick={() => setOpen((v) => !v)}
-      >
-        {face}
-      </button>
-      {open && (
-        <div className={styles.pop}>
-          <div className={styles.popAvatar}>{face}</div>
-          <div className={styles.name}>{fullName}</div>
-          <div className={styles.email}>{email}</div>
-          {/* Personal settings — they follow the person, not the deployment, so they
-              live here rather than in the nav or Manage. */}
-          <div className={styles.prefs}>
-            <div className={styles.prefRow}>
-              <span className={styles.prefLabel}>{t(locale, 'styleLabel')}</span>
-              <StyleToggle />
-            </div>
-            <div className={styles.prefRow}>
-              <span className={styles.prefLabel}>{t(locale, 'themeLabel')}</span>
-              <ThemeToggle />
-            </div>
-            <div className={styles.prefRow}>
-              <span className={styles.prefLabel}>{t(locale, 'settingsLanguage')}</span>
-              <LocaleSwitcher locale={locale} />
-            </div>
-          </div>
-          {authConfigured && signedIn && (
-            <form action={signOutAction} className={styles.actionRow}>
-              <button type="submit" className={styles.signOutBtn}>{t(locale, 'signOut')}</button>
-            </form>
-          )}
-        </div>
+    <AnchoredPopover
+      variant="panel"
+      align="end"
+      panelLabel={fullName || email}
+      panelClassName={styles.pop}
+      renderTrigger={(triggerProps) => (
+        <button
+          {...triggerProps}
+          type="button"
+          className={styles.avatar}
+          aria-label={fullName ? `${fullName} (${email})` : email}
+          data-testid="user-menu"
+        >
+          {face}
+        </button>
       )}
-    </div>
+    >
+      <div className={styles.popAvatar}>{face}</div>
+      <div className={styles.name}>{fullName}</div>
+      <div className={styles.email}>{email}</div>
+      {/* Personal settings — they follow the person, not the deployment, so they
+          live here rather than in the nav or Manage. */}
+      <div className={styles.prefs}>
+        <div className={styles.prefRow}>
+          <span className={styles.prefLabel}>{t(locale, 'styleLabel')}</span>
+          <StyleToggle />
+        </div>
+        <div className={styles.prefRow}>
+          <span className={styles.prefLabel}>{t(locale, 'themeLabel')}</span>
+          <ThemeToggle />
+        </div>
+        <div className={styles.prefRow}>
+          <span className={styles.prefLabel}>{t(locale, 'settingsLanguage')}</span>
+          <LocaleSwitcher locale={locale} />
+        </div>
+      </div>
+      {authConfigured && signedIn && (
+        <form action={signOutAction} className={styles.actionRow}>
+          <button type="submit" className={styles.signOutBtn}>{t(locale, 'signOut')}</button>
+        </form>
+      )}
+    </AnchoredPopover>
   );
 }

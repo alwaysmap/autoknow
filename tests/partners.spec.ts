@@ -102,7 +102,8 @@ test.describe('Ecosystem Partners Page', () => {
     const editDialog = page.locator('dialog[open]');
     await expect(async () => {
       if (!(await editDialog.isVisible())) {
-        const item = page.getByRole('button', { name: 'Edit', exact: true });
+        // Kebab items are role=menuitem now that the ⋯ menu is AnchoredPopover (#24).
+        const item = page.getByRole('menuitem', { name: 'Edit', exact: true });
         if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
         await item.click({ timeout: 2000 });
       }
