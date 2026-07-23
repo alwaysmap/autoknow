@@ -1,4 +1,5 @@
 import UserMenu from '../components/UserMenu';
+import NavLinks from '../components/NavLinks';
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Rubik } from "next/font/google";
 import Link from 'next/link';
@@ -69,28 +70,22 @@ export default async function RootLayout({
       <body>
         <LocaleProvider locale={locale}>
         <nav className={styles.navBar}>
-          <div className={styles.leftSection}>
-            <Link href="/" className={styles.logo}>
-              AutoKnow
-            </Link>
-            <div className={styles.navLinks}>
-              <Link href="/ecosystem" className={styles.navLink}>
-                {t(locale, 'navEcosystem')}
-              </Link>
-              <Link href="/programs" className={styles.navLink}>
-                {t(locale, 'navPrograms')}
-              </Link>
-              <Link href="/partners" className={styles.navLink}>
-                {t(locale, 'navPartners')}
-              </Link>
-              <Link href="/people" className={styles.navLink}>
-                {t(locale, 'peopleLabel')}
-              </Link>
-              <Link href="/me" className={styles.navLink}>
-                {t(locale, 'navMe')}
-              </Link>
-            </div>
-          </div>
+          <Link href="/" className={styles.logo}>
+            AutoKnow
+          </Link>
+          {/* The flexible middle: as many links as fit on one row, the rest in a ⋯ menu.
+              Labels are localized here (server) and MEASURED client-side (#28), so the
+              collapse point is right per locale rather than assumed from English widths. */}
+          <NavLinks
+            moreLabel={t(locale, 'navMore')}
+            items={[
+              { href: '/ecosystem', label: t(locale, 'navEcosystem') },
+              { href: '/programs', label: t(locale, 'navPrograms') },
+              { href: '/partners', label: t(locale, 'navPartners') },
+              { href: '/people', label: t(locale, 'peopleLabel') },
+              { href: '/me', label: t(locale, 'navMe') },
+            ]}
+          />
           <div className={styles.rightSection}>
             <SwCleanup />
             <Link href="/manage" className={styles.settingsCog} aria-label={t(locale, 'navManage')} title={t(locale, 'navManage')}>

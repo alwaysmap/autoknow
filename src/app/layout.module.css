@@ -3,8 +3,13 @@
   border-bottom: 1px solid var(--border);
   padding: 0.75rem 2.5rem;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  /* Brand (auto) | links (flex:1, the collapsing middle) | controls (auto). The middle
+     grows to fill and shrinks to nothing, so the brand stays pinned left and the controls
+     pinned right — and the bar is ALWAYS one row (#28), which is what makes --nav-h a
+     single knowable value again. No flex-wrap anywhere: a wrapping nav has no knowable
+     height, and the whole app offsets by --nav-h. */
+  gap: 1.5rem;
   /* Pinned to the top so it stays visible on long, scrollable pages (the partner
      briefing's sticky rail used to be the only thing pinned, leaving no nav "up
      top" once you scrolled). Sits above page content, including sticky sidebars. */
@@ -24,13 +29,8 @@
   background-size: 100% 1px;
 }
 
-.leftSection {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-}
-
 .logo {
+  flex: 0 0 auto;
   font-family: var(--head-font);
   font-weight: 700;
   font-size: 1.125rem;
@@ -39,25 +39,8 @@
   letter-spacing: 0.02em;
 }
 
-.navLinks {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.navLink {
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 0.875rem;
-  font-weight: 400;
-  transition: color 0.2s ease;
-}
-
-.navLink:hover {
-  color: var(--fg);
-}
-
 .rightSection {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 1.25rem;
@@ -88,24 +71,16 @@
   color: var(--fg);
 }
 
-/* Tablet/phone: the nav bar wraps instead of forcing a horizontal scroll. */
-@media (max-width: 960px) {
+/* Phone: tighter horizontal padding and a smaller brand↔links↔controls gap so the
+   links region keeps as much room as possible — the nav still NEVER wraps (the links
+   collapse into the ⋯ menu instead), it just has more space to place them. */
+@media (max-width: 560px) {
   .navBar {
-    flex-wrap: wrap;
-    padding: 0.625rem 1rem;
-    gap: 0.625rem 1rem;
-  }
-  .leftSection {
+    padding: 0.75rem 1rem;
     gap: 1rem;
-    flex-wrap: wrap;
-  }
-  .navLinks {
-    flex-wrap: wrap;
-    gap: 0.5rem 0.875rem;
   }
   .rightSection {
-    flex-wrap: wrap;
-    gap: 0.625rem;
+    gap: 1rem;
   }
 }
 

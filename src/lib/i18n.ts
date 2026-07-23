@@ -286,6 +286,7 @@ const STRINGS = {
   navPrograms: { en: 'Programs', de: 'Programme', ja: 'プログラム', ko: '프로그램' },
   navPartners: { en: 'Partners', de: 'Partner', ja: 'パートナー', ko: '파트너' },
   navMe: { en: 'Me', de: 'Ich', ja: 'マイページ', ko: '내 정보' },
+  navMore: { en: 'More', de: 'Mehr', ja: 'その他', ko: '더 보기' },
   navActivity: { en: 'Activity', de: 'Aktivität', ja: 'アクティビティ', ko: '활동' },
   navIngest: { en: 'Ingest', de: 'Erfassen', ja: '取り込み', ko: '수집' },
   navTemplates: { en: 'Templates', de: 'Vorlagen', ja: 'テンプレート', ko: '템플릿' },

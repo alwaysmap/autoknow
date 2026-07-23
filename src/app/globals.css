@@ -2,7 +2,9 @@
   --hue: 142; /* WhatsApp-style green — locked */
 
   /* Height of the pinned nav bar — sticky page rails offset by this so they sit
-     below it, never under it. Bumped where the nav wraps to two rows (≤960px). */
+     below it, never under it. The nav is ALWAYS one row (#28: links collapse into a
+     ⋯ menu, never wrapping), so this is one correct value at every width — not a
+     per-breakpoint guess against a bar of unknowable height. */
   --nav-h: 3.5rem;
 
   /* Width cap for the compact status visualizations (sidebar needle gauge and
@@ -357,14 +359,6 @@
   display: none;
 }
 
-/* The nav wraps to a taller two-row layout on narrow screens — sticky rails offset
-   by --nav-h track that so they still clear it. */
-@media (max-width: 960px) {
-  :root {
-    --nav-h: 6rem;
-  }
-}
-
 html {
   accent-color: var(--p-500);
   background: var(--white);
@@ -372,7 +366,7 @@ html {
   /* Anchor + scroll-into-view targets clear the sticky nav (--nav-h) instead of
      hiding beneath it. On the scroll root (the document scrolls on <html>), so it
      covers EVERY in-page scroll — phase headings, section anchors, chain jumps — in
-     one place, and stays in sync when --nav-h grows on the two-row mobile nav. */
+     one place. --nav-h is one value at every width now (#28), so this offset is too. */
   scroll-padding-top: calc(var(--nav-h) + 0.75rem);
 }
 
