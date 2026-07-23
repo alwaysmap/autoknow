@@ -1,5 +1,6 @@
 import UserMenu from '../components/UserMenu';
 import NavLinks from '../components/NavLinks';
+import NavMark from '../components/NavMark';
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Rubik } from "next/font/google";
 import Link from 'next/link';
@@ -71,6 +72,7 @@ export default async function RootLayout({
         <LocaleProvider locale={locale}>
         <nav className={styles.navBar}>
           <Link href="/" className={styles.logo}>
+            <NavMark className={styles.mark} />
             AutoKnow
           </Link>
           {/* The flexible middle: as many links as fit on one row, the rest in a ⋯ menu.
