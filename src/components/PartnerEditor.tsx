@@ -97,12 +97,15 @@ export function NewPartnerButton({ types, regions }: { types: Option[]; regions:
   };
   const errorLine = error && <p role="alert" className={admin.warningText}>{error}</p>;
 
+  // Self-contained ⋯ menu with the dialog as a SIBLING of the KebabMenu, never a child
+  // (KebabMenu.module.css explains why a nested dialog gets corrupted by the row rules).
   return (
     <>
-      <button type="button" className={admin.archiveButton} data-testid="new-partner"
-        onClick={() => setNewOpen(true)}>
-        {t(locale, 'newPartner')}
-      </button>
+      <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+        <button type="button" data-testid="new-partner" onClick={() => setNewOpen(true)}>
+          {t(locale, 'newPartner')}
+        </button>
+      </KebabMenu>
       <OverlayDialog open={newOpen} onClose={() => setNewOpen(false)} width="30rem"
         title={t(locale, 'newPartner')} closeLabel={t(locale, 'close')}>
         <form
