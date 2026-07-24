@@ -434,13 +434,21 @@ fix is an explicit replan, not a silent repaint.
 ### (b) Buffer waterfall — who took it, who gave it back
 
 The instrument for attribution, and the "summarized on a phase level" ask. A small
-Tufte-style waterfall (or signed bar list — decide in UI iteration): one row per
-non-zero contributor, sorted by |impact|:
+Tufte-style waterfall: one row per non-zero contributor, sorted by |impact|:
 
-- `HW bring-up ▮▮▮ +9d over plan` (loss)
-- `Kickoff ▮ −3d early` (gain)
-- `handoff: SW integration → Cert ▮▮ 6d idle` (loss)
+- `HW bring-up +9d over plan` (loss)
+- `Kickoff −3d early` (gain)
+- `handoff: SW integration → Cert 6d idle` (loss)
 - net line = ΔB over the selected window.
+
+The "or signed bar list — decide in UI iteration" this section used to carry is
+**decided: no bar** (2026-07-24 user call). The magnitude bar shipped first, sized
+0.55rem/day and clamped at 12rem; because it sat in the value column under
+`white-space: nowrap` that clamp became a hard min-content floor which starved the
+label track and wrapped long phase names (at a 440px column: label 138px vs the
+319px it gets without). The signed number alone carries the magnitude, which is
+also what design.md §6 "one measure per cell" asks for; gain/loss stays legible as
+red/green ink on the text.
 
 Each row cites its evidence (planned vs actual dates) on hover and jumps to the
 phase on click. Windowed: since program start by default, "last 4 weeks" toggle.

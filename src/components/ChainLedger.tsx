@@ -401,16 +401,16 @@ export default function ChainLedger({
                         </button>
                       )}
                   </span>
-                  {/* bar and number as ONE right-anchored unit, so the number lands at
-                      the column edge and the numbers line up down the list. */}
-                  <span className={styles.wfValue}>
-                    <span className={`${styles.bar} ${w.gain ? styles.barGain : styles.barLoss} ${w.kind === 'unattributed' ? styles.barFaint : ''}`}
-                      style={{ width: `${Math.min(12, Math.max(0.5, w.days * 0.55))}rem` }} />
-                    <span className={`${styles.num} ${w.gain ? styles.gainText : styles.lossText}`}>
-                      {w.days === 1
-                        ? t(locale, w.gain ? 'clGaveBackOneDay' : 'clCostOneDay')
-                        : t(locale, w.gain ? 'clGaveBackDays' : 'clCostDays', { d: w.days })}
-                    </span>
+                  {/* The gain/loss stated in words, right-anchored so the day counts
+                      line up down the list. The magnitude bar that used to sit here was
+                      removed (2026-07-24 user call): at 0.55rem/day a long loss clamped to a 12rem
+                      slab that starved the label column and wrapped long phase names —
+                      and the number already carries the magnitude (§6, one measure per
+                      cell). Colour (red loss / green gain) survives on the text. */}
+                  <span className={`${styles.wfValue} ${w.gain ? styles.gainText : styles.lossText}`}>
+                    {w.days === 1
+                      ? t(locale, w.gain ? 'clGaveBackOneDay' : 'clCostOneDay')
+                      : t(locale, w.gain ? 'clGaveBackDays' : 'clCostDays', { d: w.days })}
                   </span>
                   {ev.length > 0 && <span className={styles.evidence}>{joinNodes(ev, ' · ')}</span>}
                 </React.Fragment>
