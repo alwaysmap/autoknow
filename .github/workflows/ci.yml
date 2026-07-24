@@ -65,8 +65,14 @@ jobs:
           POSTGRES_DB: autoknow
         ports:
           - 5432:5432
+        # `-h localhost` forces the health check over TCP. Without it, pg_isready
+        # checks the Unix socket, which the official image's first-boot init phase
+        # opens BEFORE the real server binds TCP on the mapped port — so the socket
+        # check can mark the container "healthy" while a host-side connection to
+        # :5432 still gets ECONNREFUSED. The truth-bearing gate is the host-side
+        # "Wait for Postgres" step below; this just stops the signal from lying.
         options: >-
-          --health-cmd="pg_isready -U postgres"
+          --health-cmd="pg_isready -h localhost -U postgres"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=10
@@ -90,6 +96,9 @@ jobs:
       - run: npm run db:generate
       - run: npm run typecheck
       - run: npm run lint
+      # Prove the DB is reachable over TCP from the runner before jest's DB suites
+      # connect — see the composite action for the why.
+      - uses: ./.github/actions/wait-for-postgres
       - run: npm run test
       # The deploy pipeline builds in Docker AFTER merge — catch build breaks here,
       # before they can turn into a red post-merge deploy. Same dummy-DB pattern as
@@ -118,8 +127,14 @@ jobs:
           POSTGRES_DB: autoknow
         ports:
           - 5432:5432
+        # `-h localhost` forces the health check over TCP. Without it, pg_isready
+        # checks the Unix socket, which the official image's first-boot init phase
+        # opens BEFORE the real server binds TCP on the mapped port — so the socket
+        # check can mark the container "healthy" while a host-side connection to
+        # :5432 still gets ECONNREFUSED. The truth-bearing gate is the host-side
+        # "Wait for Postgres" step below; this just stops the signal from lying.
         options: >-
-          --health-cmd="pg_isready -U postgres"
+          --health-cmd="pg_isready -h localhost -U postgres"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=10
@@ -143,6 +158,9 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium webkit
+      # global-setup connects to the DB the instant `npm run test:e2e` starts, so
+      # prove the mapped port is reachable first — same gate as the quality job.
+      - uses: ./.github/actions/wait-for-postgres
       - run: npm run test:e2e
 
   image:

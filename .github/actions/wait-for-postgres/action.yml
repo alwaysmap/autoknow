@@ -1,0 +1,39 @@
+name: Wait for Postgres (TCP, host side)
+description: >-
+  Block until Postgres accepts a real TCP connection through the mapped port —
+  the exact path the app/tests use. The service container's own health check
+  verifies the server is up; this verifies it is reachable from the RUNNER,
+  closing the socket-healthy-but-TCP-refused window (knowledge note
+  db-service-container-econnrefused-needs-connect-retry). Kept in one place so
+  the quality and e2e jobs cannot drift (AGENTS lesson 7).
+inputs:
+  host:
+    description: Host the runner connects through (the mapped port's host).
+    default: 127.0.0.1
+  port:
+    description: Mapped Postgres port on the runner.
+    default: '5432'
+  user:
+    description: Postgres user.
+    default: postgres
+  password:
+    description: Postgres password (sent via PGPASSWORD to the probe).
+    default: postgres
+  database:
+    description: Database to run the readiness SELECT against.
+    default: autoknow
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PGPASSWORD: ${{ inputs.password }}
+      run: |
+        for i in $(seq 1 30); do
+          if pg_isready -h "${{ inputs.host }}" -p "${{ inputs.port }}" -U "${{ inputs.user }}" >/dev/null 2>&1 \
+             && psql -h "${{ inputs.host }}" -p "${{ inputs.port }}" -U "${{ inputs.user }}" -d "${{ inputs.database }}" -c 'select 1' >/dev/null 2>&1; then
+            echo "Postgres reachable over TCP (attempt $i)."; exit 0
+          fi
+          echo "Postgres not reachable yet (attempt $i); retrying in 2s..."; sleep 2
+        done
+        echo "Postgres never became reachable over TCP." >&2; exit 1
