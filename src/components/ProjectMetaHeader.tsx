@@ -69,6 +69,26 @@ interface ProjectMetaHeaderProps {
   peopleOptions?: PersonOption[];
 }
 
+/** One right-aligned figure: an uppercase label over a large value, sharing the
+ *  muted "Not set" fallback when the value is absent (null), plus an optional
+ *  footer sub-line (the SOP forecast). DRYs the two adjacent stat blocks. */
+function Stat({ label, value, footer }: {
+  label: string;
+  value: React.ReactNode; // null renders the shared muted fallback
+  footer?: React.ReactNode;
+}) {
+  const locale = useLocale();
+  return (
+    <div className={styles.stat}>
+      <div className={styles.statLabel}>{label}</div>
+      <div className={styles.statValue}>
+        {value ?? <span className={styles.statMuted}>{t(locale, 'notSet')}</span>}
+      </div>
+      {footer}
+    </div>
+  );
+}
+
 export default function ProjectMetaHeader({
   projectId, projectName, archivedTag, actions, currentNeedle, currentHillChartProgress,
   ownerName, sopDateString, projectedFinishMs, bufferDays, guidelineDays, now,
@@ -173,25 +193,19 @@ export default function ProjectMetaHeader({
           sits right-most because it carries the extra forecast line (#21) — pinning the
           sometimes-taller column to the edge reads as more balanced. */}
       <div className={styles.stats}>
-        <div className={styles.stat}>
-          <div className={styles.statLabel}>{t(locale, 'targetVolume')}</div>
-          <div className={styles.statValue}>
-            {volumeFirstYear > 0
-              ? volumeFirstYear.toLocaleString(locale)
-              : <span className={styles.statMuted}>{t(locale, 'notSet')}</span>}
-          </div>
-        </div>
-        <div className={styles.stat}>
-          <div className={styles.statLabel}>{t(locale, 'sopTarget')}</div>
-          <div className={styles.statValue}>
-            {sop ?? <span className={styles.statMuted}>{t(locale, 'notSet')}</span>}
-          </div>
-          {forecast && (
+        <Stat
+          label={t(locale, 'targetVolume')}
+          value={volumeFirstYear > 0 ? volumeFirstYear.toLocaleString(locale) : null}
+        />
+        <Stat
+          label={t(locale, 'sopTarget')}
+          value={sop}
+          footer={forecast && (
             <div className={styles.statForecast} style={{ color: forecast.color }}>
               {t(locale, 'sopForecast', { d: forecast.date })}
             </div>
           )}
-        </div>
+        />
       </div>
 
       </div>
