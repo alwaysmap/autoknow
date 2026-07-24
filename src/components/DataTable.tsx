@@ -41,8 +41,19 @@ interface DataTableProps<T> {
    *  table state is shareable). */
   onSortChange?: (key: string, order: 'asc' | 'desc') => void;
   /** Explicit FIXED page size. Omit to use the per-user `ROWS_PER_TABLE` preference (#31)
-   *  and show the rows-per-page control — the normal case for a browsable listing. */
+   *  — the normal case for a browsable listing. Sets the page size and NOTHING else: it
+   *  used to double as "hide the rows-per-page control", which is why `PhaseTable` reached
+   *  for `pageSize={rows.length}` to say something the prop could not say (#125). */
   pageSize?: number;
+  /** `false` declares a table that is NEVER paged: every row renders and the footer is
+   *  gone IN FULL — no "Showing a–b of c", no Prev/Next, no rows-per-page control.
+   *
+   *  Declared, not derived (#125 decision B). A browsable listing that omits this keeps
+   *  its footer even on a single page, so the ROWS_PER_TABLE control stays discoverable
+   *  on small datasets; the residual inert Prev/Next there is accepted, deliberately.
+   *  Use it for a fixed short panel — a top-N strip is always N records — where a pager
+   *  that can never act is ink that means nothing. */
+  paginate?: boolean;
   emptyStateMessage?: string;
   /** Controlled column filters (key → selected values). Omit for uncontrolled. */
   filters?: Record<string, string[]>;
@@ -94,6 +105,7 @@ export default function DataTable<T>({
   filterBarExtras,
   extrasActive = false,
   onClearExtras,
+  paginate = true,
 }: DataTableProps<T>) {
   const locale = useLocale();
   const emptyMessage = emptyStateMessage ?? t(locale, 'noResultsFound');
@@ -109,8 +121,10 @@ export default function DataTable<T>({
     () => readLocalPref(ROWS_PER_TABLE),
     () => ROWS_PER_TABLE.default,
   );
-  const effectivePageSize = pageSize ?? prefRows;
-  const showPageSizeControl = pageSize === undefined;
+  // An unpaged table renders every row: the page size is the row count, so no slice
+  // ever drops one even if a stale currentPage survives a data change.
+  const effectivePageSize = paginate ? (pageSize ?? prefRows) : Math.max(data.length, 1);
+  const showPageSizeControl = paginate && pageSize === undefined;
 
   // ---- Per-column filters (OR within a column, AND across columns) ----
   const [ownFilters, setOwnFilters] = useState<Record<string, string[]>>(initialFilters ?? {});
@@ -358,8 +372,9 @@ export default function DataTable<T>({
           </tbody>
         </table>
 
-        {/* Pagination Footer */}
-        {sortedData.length > 0 && (
+        {/* Pagination Footer — suppressed IN FULL by `paginate={false}`; a partial hide
+            (count kept, buttons dropped) is the bug that prop exists to fix. */}
+        {paginate && sortedData.length > 0 && (
           <div className={styles.pagination}>
             <div className={styles.footerLeft}>
               <div className={styles.info}>
