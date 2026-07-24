@@ -5,6 +5,7 @@
 // than the old one level, and that the per-cycle budget bounds Gemini spend.
 import { testDatabaseUrl } from './helpers/testDatabaseUrl';
 import { prisma, disconnectTestDb } from './helpers/db';
+import { wipeAll } from './helpers/fixtures';
 
 process.env.DATABASE_URL = testDatabaseUrl();
 
@@ -68,8 +69,11 @@ beforeAll(async () => { ({ runDriveSync } = await import('../src/lib/driveSync')
 beforeEach(async () => {
   tree = baseTree();
   ingestContent.mockClear();
-  await prisma.skippedSource.deleteMany();
-  await prisma.contextUrl.deleteMany();
+  // Clean slate via the canonical FK-safe wipeAll() rather than a targeted delete: this
+  // suite shares the one per-worktree *_test DB (AGENTS lesson 9) with suites that leave
+  // contextUrl rows carrying contextRevision children, so a hand-rolled contextUrl.deleteMany()
+  // trips ContextRevision_contextUrlId_fkey. wipeAll() deletes children before parents.
+  await wipeAll();
 });
 
 afterAll(async () => { await disconnectTestDb(); });

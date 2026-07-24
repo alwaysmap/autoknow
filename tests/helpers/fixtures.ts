@@ -4,6 +4,10 @@ import { prisma } from './db';
 
 /** Wipe the TEST database in FK-safe order. */
 export async function wipeAll() {
+  // SkippedSource has no FKs, but it IS shared-DB state, so a complete clean slate must
+  // clear it. Keep this line: omitting it is what pushed driveSync.test.ts to hand-roll its
+  // own wipe and lose the FK-safe child→parent ordering below (AGENTS lesson 9 flake).
+  await prisma.skippedSource.deleteMany();
   await prisma.actionItem.deleteMany();
   await prisma.contextRevision.deleteMany();
   await prisma.syncCursor.deleteMany();
