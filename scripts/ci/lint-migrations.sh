@@ -13,6 +13,7 @@
 #   BASE_REF=origin/main scripts/ci/lint-migrations.sh   # files added vs a base ref
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+. scripts/ci/lib.sh
 
 # Data-loss / rewrite statements. Adding a column, table, index, or a nullable/defaulted
 # column is NOT here — those are safe and need no opt-in.
@@ -20,8 +21,8 @@ DESTRUCTIVE='DROP TABLE|DROP COLUMN|DROP SCHEMA|TRUNCATE|ALTER COLUMN [^;]*SET D
 
 files=("$@")
 if [ "${#files[@]}" -eq 0 ]; then
-  base="${BASE_REF:-origin/main}"
-  mapfile -t files < <(git diff --name-only --diff-filter=A "$base"...HEAD -- 'prisma/migrations/**/migration.sql' 2>/dev/null || true)
+  base="$(require_base_ref)"
+  mapfile -t files < <(git diff --name-only --diff-filter=A "$base"...HEAD -- 'prisma/migrations/**/migration.sql')
 fi
 
 if [ "${#files[@]}" -eq 0 ]; then

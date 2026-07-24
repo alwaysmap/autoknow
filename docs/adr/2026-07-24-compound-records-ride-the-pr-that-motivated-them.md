@@ -54,13 +54,19 @@ so `adrNaming` / `knowledgeNotes` / `agentsLessons` run against the new files an
 "compound after CI is green" is a **loop, not a step** — merge on the second
 green. Every substantive PR pays one line, and `none — <reason>` is a few seconds
 when there is nothing; that friction is the point, because the judgement is what
-was being skipped. Docs-, CI- and skill-only PRs are deliberately outside the
-filter. `docs/adr/` and `docs/knowledge/` should now grow in step with `src/`
-rather than in retrospective bursts.
+was being skipped. The filter is `src/**` and `prisma/**` only, so docs-, CI-,
+test-, script- and skill-only PRs are deliberately exempt — including the PR that
+introduced this gate. `docs/adr/` and `docs/knowledge/` should now grow in step
+with `src/` rather than in retrospective bursts.
 
 **Receipts.** Issue #131 (which states the three-place sweep and the acceptance
 bar). Guard: `scripts/ci/lint-compound.sh`; hook:
 `scripts/hooks/compound-merge-gate.sh`; proof it fails and passes:
-`tests/lintCompound.test.ts`, eight cases over real disposable git repos —
-written instead of the issue's "throwaway PR both ways", which proves the gate
-once rather than on every run.
+`tests/lintCompound.test.ts`, 23 cases over real disposable git repos — written
+instead of the issue's "throwaway PR both ways", which proves the gate once
+rather than on every run. Review of that first draft found the gate reading
+`git log <base>...HEAD`, whose symmetric difference scans the base side too, so
+one merged PR's declaration would have failed the next PR — a bug this gate would
+have made near-universal within days, and the reason `require_base_ref` and the
+two-dot range now live in `scripts/ci/lib.sh` and were swept across all three
+`lint-*.sh` gates (AGENTS lesson 7).

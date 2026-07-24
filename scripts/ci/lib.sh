@@ -4,6 +4,23 @@ set -euo pipefail
 
 CSP_VERSION="${CSP_VERSION:-v2.15.2}"
 
+# Echo the diff base ($BASE_REF, default origin/main), or fail loudly.
+#
+# Every lint-*.sh gate reads `git diff <base>...HEAD`. If the base does not
+# resolve — `origin/${{ github.base_ref }}` becomes a bare `origin/` on any
+# trigger other than `pull_request` — git errors, the file list comes back empty,
+# and the gate PASSES with a reassuring "nothing to check". A gate that green-
+# lights when its own input is missing is the failure mode these gates exist to
+# prevent (AGENTS lesson 2), so resolve once, up front, and refuse otherwise.
+require_base_ref() {
+  local base="${BASE_REF:-origin/main}"
+  if ! git rev-parse --verify -q "$base" >/dev/null 2>&1; then
+    echo "::error::BASE_REF '$base' does not resolve — refusing to pass on an empty diff." >&2
+    return 1
+  fi
+  printf '%s' "$base"
+}
+
 # Detect platform for the Cloud SQL Auth Proxy download.
 csp_platform() {
   local os arch

@@ -21,8 +21,10 @@ command -v jq >/dev/null 2>&1 || exit 0
 
 cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)"
 [ -n "$cmd" ] || exit 0
-# `gh … pr merge` at a command-segment boundary, so `echo "gh pr merge"` and
-# `gh pr merge-queue-status` do not trip it.
+# A bare `gh pr merge` at a command-segment boundary, so `echo "gh pr merge"` and
+# `gh pr merge-queue status` do not trip it. Forms with anything between `gh` and
+# `pr` (`gh -R owner/repo pr merge`, `PAGER=cat gh pr merge`) are MISSED — that
+# direction is fail-open, and CI still catches them.
 printf '%s' "$cmd" | grep -qE '(^|[;&|])[[:space:]]*gh[[:space:]]+pr[[:space:]]+merge([[:space:]]|$|[;&|])' || exit 0
 
 cwd="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)"
@@ -33,7 +35,13 @@ gate="$(git rev-parse --show-toplevel 2>/dev/null)/scripts/ci/lint-compound.sh"
 base="${BASE_REF:-origin/main}"
 git rev-parse --verify -q "$base" >/dev/null 2>&1 || exit 0
 
-output="$(BASE_REF="$base" "$gate" 2>&1)" && exit 0
+# Block ONLY on the gate's own verdict (exit 1). Any other status means the gate
+# itself broke — not found, `mapfile` missing on bash 3.2, a syntax error — and
+# blocking then would turn a broken script into a wall across every `gh pr merge`
+# in every clone. That is the outcome this file's fail-open design exists to
+# avoid, so it must not sneak back in through the one branch that denies.
+output="$(BASE_REF="$base" "$gate" 2>&1)"; status=$?
+[ "$status" -eq 1 ] || exit 0
 
 cat >&2 <<EOF
 BLOCKED: this branch has no valid \`compound:\` declaration, so CI would reject
