@@ -5,7 +5,6 @@ import { useTableUrlSync } from '../../lib/useTableUrlSync';
 import type { TableSort } from '../../lib/tableUrlState';
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
-import ClassBox from '../../components/ClassBox';
 import KebabMenu from '../../components/KebabMenu';
 import OverlayDialog from '../../components/OverlayDialog';
 import PageShell from '../../components/PageShell';
@@ -120,16 +119,12 @@ export default function PeopleClient({ people, partners, initialFilters, initial
                   )}
                 </td>
                 <td>
-                  {/* Role is a CLASS people share — the box filters this column,
-                      never navigates (design.md §6, issue #30). */}
-                  <button
-                    type="button"
-                    onClick={() => setFilters({ ...filters, role: [p.role || '—'] })}
-                    className={styles.typeFilterBtn}
-                    title={t(locale, 'filterColumn', { c: t(locale, 'roleTitle') })}
-                  >
-                    <ClassBox className={styles.classInk}>{p.role || '—'}</ClassBox>
-                  </button>
+                  {/* Role is a person's job title — FREEFORM text, not a class
+                      people share, so it is plain muted text with no box and no
+                      click-to-filter, matching the Company fallback above and the
+                      detail page (design.md §6, box-vs-freeform). The column
+                      header funnel still filters this column. */}
+                  <span className={styles.typeText}>{p.role || '—'}</span>
                 </td>
                 <td>
                   {/* Bare count (§6, one measure per cell): the noun lives in the
