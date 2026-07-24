@@ -6,7 +6,7 @@ import Link from 'next/link';
 import DataTable from '../../components/DataTable';
 import styles from './EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../../lib/needle';
-import { sopOutlook } from '../../lib/sop';
+import SopOutlookCell from '../../components/SopOutlookCell';
 import type { LiveConstraint } from '../../lib/dashboardData';
 import { HEALTHS, HEALTH_KEY, healthKey, healthColor, healthOrder } from '../../lib/health';
 import { resolvePerson } from '../../lib/people';
@@ -49,6 +49,8 @@ interface Person {
 
 interface EcosystemSummaryClientProps {
   liveConstraints: LiveConstraint[];
+  /** Snapshotted server-side so SSR and hydration agree (see the page). */
+  now: number;
   initialProjects: Project[];
   people: Person[];
 }
@@ -56,13 +58,10 @@ interface EcosystemSummaryClientProps {
 export default function EcosystemSummaryClient({
   initialProjects,
   people,
-  liveConstraints
+  liveConstraints,
+  now
 }: EcosystemSummaryClientProps) {
   const locale = useLocale();
-  // Snapshot "now" once per render so SSR and hydration agree on the outlook — the
-  // same rule /ecosystem and /programs follow.
-  // eslint-disable-next-line react-hooks/purity
-  const now = Date.now();
   const [minRiskVal, setMinRiskVal] = useState(0); // 0=Low, 1=Medium, 2=High, 3=Critical
   const [selectedOwner, setSelectedOwner] = useState('All');
   const [minProgress, setMinProgress] = useState(0);
@@ -292,20 +291,22 @@ export default function EcosystemSummaryClient({
         ) : (
           <div className={styles.diagnosisGrid}>
             {liveConstraints.map((c) => {
-              const many = c.programs.length > 1;
+              // Gating more than one live SOP is what makes a phase *primary*; a phase
+              // gating one is still genuinely on a chain, just not the leverage point.
+              const isPrimary = c.programs.length > 1;
               return (
               <div
                 key={c.phaseName}
-                className={many ? `${styles.diagnosisItem} ${styles.constraintHighlight}` : styles.diagnosisItem}
+                className={isPrimary ? `${styles.diagnosisItem} ${styles.constraintHighlight}` : styles.diagnosisItem}
               >
                 <span className={styles.phaseLabel}>{c.phaseName}</span>
-                <span className={styles.durationVal}>
-                  {many
-                    ? t(locale, 'gatingProgramsCount', { n: c.programs.length })
-                    : t(locale, 'gatingProgramCount')}
+                <span className={styles.constraintCount}>
+                  {isPrimary
+                    ? t(locale, 'gatingNPrograms', { n: c.programs.length })
+                    : t(locale, 'gatingOneProgram')}
                 </span>
-                <span className={many ? styles.badgeDanger : styles.badgeWarn}>
-                  {t(locale, many ? 'primaryConstraint' : 'onCriticalChain')}
+                <span className={isPrimary ? styles.badgeDanger : styles.badgeWarn}>
+                  {t(locale, isPrimary ? 'primaryConstraint' : 'onCriticalChain')}
                 </span>
                 <span className={styles.constraintPrograms}>
                   {c.programs.map((prog, n) => (
@@ -400,18 +401,13 @@ export default function EcosystemSummaryClient({
                   </div>
                 </td>
                 <td>
-                  {/* Outlook from the REAL critical chain vs the SOP target. The Monte
-                      Carlo placeholder this replaces drew normal(12,4) per phase seeded
-                      by project id — blind to the plan, so two programs with the same
-                      phase COUNT scored identically, and this column was sortable (#129). */}
-                  {(() => {
-                    if (!p.sopDate) return <span className={styles.finishedText}>{t(locale, 'tbd')}</span>;
-                    if (p.hillChartProgress >= 100) return <span className={styles.finishedText}>{t(locale, 'finishedLabel')}</span>;
-                    const { bufferDays, onTrack } = sopOutlook(p.chainRemainingDays, p.sopDate, now);
-                    return onTrack
-                      ? <span className={styles.finishedText}>{t(locale, 'slackWeeks', { n: Math.floor(bufferDays / 7) })}</span>
-                      : <span className={styles.forecastText}>{t(locale, 'lateByWeeks', { n: Math.ceil(-bufferDays / 7) })}</span>;
-                  })()}
+                  <SopOutlookCell
+                    chainRemainingDays={p.chainRemainingDays}
+                    sopDate={p.sopDate}
+                    hillChartProgress={p.hillChartProgress}
+                    now={now}
+                    locale={locale}
+                  />
                 </td>
               </tr>
             );

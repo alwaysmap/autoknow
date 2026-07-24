@@ -1,0 +1,21 @@
+/* Three states, three names — the classes these replace were one `.finishedText`
+   carrying "Finished", "≈9w buffer" AND "TBD", so a reader could not tell from the
+   class which one a row was showing, and "no SOP set" is not a good-news state. */
+
+.ok {
+  color: var(--ok);
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.late {
+  color: var(--warn);
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+/* No SOP date: absence of a reading, not a verdict — muted, never the ok/warn ink. */
+.unknown {
+  color: var(--muted);
+  font-size: 0.75rem;
+}

@@ -2,6 +2,7 @@ import { prisma } from './db';
 import { percentile } from './stats';
 import { computeCriticalChain } from './criticalChain';
 import { deriveScore } from './relationship';
+import { deriveProgramStatus } from './lifecycle';
 import { buildBusiestResources, type BusiestRow } from './chainLedger';
 import { getProgramLedgers } from './chainLedgerData';
 import type { CycleTimeData, CycleTimeStats } from '../components/CycleTimeScatterPlot';
@@ -45,7 +46,7 @@ export interface DashboardPerson {
 /**
  * A phase that is ON a live critical chain right now — i.e. actually gating an SOP,
  * which is NOT the same claim as "the phase that historically takes longest"
- * (ADR forecasts-come-from-the-real-chain-never-a-synthetic-model). The measure is
+ * (ADR forecasts-derive-from-the-real-chain-never-a-synthetic-model). The measure is
  * how many live programs it is gating; there is no duration here, because the
  * duration of a phase NAME across programs is a different question again.
  */
@@ -119,7 +120,10 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
     const constraintPhase = chain.constraintId
       ? proj.phases.find((p) => p.id === chain.constraintId)
       : undefined;
-    if (constraintPhase && !proj.isArchived && proj.lifecycle === 'active') {
+    // `lib/lifecycle` owns "is this program live" — inlining the predicate is exactly
+    // how it drifts per call site (it also classes progress >= 100 as Done, which the
+    // inline version called live).
+    if (constraintPhase && deriveProgramStatus(proj) === 'Active') {
       constraintHits.push({ phaseName: constraintPhase.name, program: { id: proj.id, name: proj.name } });
     }
 
@@ -154,10 +158,13 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
 
   // Group by phase NAME: the same phase recurs across programs under one name, and
   // "Compliance Testing is gating four SOPs" is the portfolio-level fact. Most-blocking
-  // first; ties keep insertion order, which is project id, so the list is stable.
+  // first. Ties fall back to the project query's order, which is unspecified — the
+  // grouping is a set, so the display does not depend on it.
   const byPhaseName = new Map<string, { id: number; name: string }[]>();
   for (const hit of constraintHits) {
-    byPhaseName.set(hit.phaseName, [...(byPhaseName.get(hit.phaseName) ?? []), hit.program]);
+    const seen = byPhaseName.get(hit.phaseName);
+    if (seen) seen.push(hit.program);
+    else byPhaseName.set(hit.phaseName, [hit.program]);
   }
   const liveConstraints: LiveConstraint[] = [...byPhaseName.entries()]
     .map(([phaseName, programs]) => ({ phaseName, programs }))

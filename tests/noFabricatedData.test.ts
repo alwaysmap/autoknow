@@ -16,8 +16,11 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-// Names that only exist as seeded/demo data. A real component receives these as props.
-// Deliberately narrow: every entry is a value a component must never assert for itself.
+// Domain nouns that appeared in the fabricated panel — partner/program names from
+// `src/lib/seed.ts` and phase names from `src/lib/builtinTemplates.ts`. NOT "everything
+// in the seed": every entry is a value a rendered component must receive as data and
+// must never assert for itself. When the seed gains a partner worth guarding, add it
+// here — entries are literal text and are escaped before matching.
 const SEED_ENTITIES = [
   'Ford', 'Bosch', 'Evos', 'VHAL', 'Audio HAL', 'BSP & Power-on',
   'Compliance Testing', 'Car Service Integration', 'Ultifi', 'Ioniq',
@@ -32,6 +35,9 @@ const ROOTS = ['src/app', 'src/components'];
 // The /admin exemption is per-FILE, so a genuine fabrication added to that page would
 // not be caught. Accepted: it is an internal ops page whose job is showing API examples.
 const EXEMPT = /builtinTemplates|i18n\.ts|app\/admin\/page\.tsx/;
+
+/** Entries are literal text, so anything regex-special in them must be escaped. */
+const escapeForRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const sourceFiles = (dir: string): string[] => {
   const out: string[] = [];
@@ -59,7 +65,8 @@ describe('no seed entity name is hard-coded into a rendered surface (#129)', () 
         const body = code(file);
         for (const name of SEED_ENTITIES) {
           // Quoted or as JSX text — both are the component asserting the value itself.
-          if (new RegExp(`['"\`>][^'"\`<>]*\\b${name.replace(/[&]/g, '\\$&')}\\b`).test(body)) {
+          // \b at each end so "Ford" does not trip on "Bradford".
+          if (new RegExp(`['"\`>][^'"\`<>]*\\b${escapeForRegex(name)}\\b`).test(body)) {
             hits.push(`${file} → "${name}"`);
           }
         }

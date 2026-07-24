@@ -88,12 +88,10 @@ export function relationshipMix(scores: (string | number | null | undefined)[]):
 /**
  * Score for a state row: the stored score, else one derived from legacy health.
  *
- * Takes a row, never `null`. It used to accept one and answer `3` — a mid-scale
- * reading indistinguishable from a partner deliberately rated 3, for a partner that
- * has no reading at all (#129). Every caller already guarded (`state ? deriveScore(state)
- * : null`), so that branch was a fabrication waiting for the first caller who forgot;
- * the type now makes it unrepresentable. `relationshipMix` in this file is the model —
- * it returns `unrated` separately, because no reading yet is not a health class.
+ * Takes a row, NEVER `null` — a partner with no reading has no score, and answering a
+ * mid-scale 3 made it indistinguishable from one deliberately rated 3 (#129). Callers
+ * pass `state ? deriveScore(state) : null`. `relationshipMix` below is the model: it
+ * returns `unrated` separately, because no reading yet is not a health class.
  */
 export function deriveScore(state: { relationshipScore?: number | null; theNeedle?: string | null }): RelScore {
   const stored = parseScore(state.relationshipScore);

@@ -195,7 +195,7 @@ export function sopBufferCategory(p: SopBufferProgram, now: number): SopBufferCa
  * How many active programs are projected to blow their SOP date — the per-ecosystem
  * tally of sopBufferCategory, so the leadership tile's count and the /programs
  * ?sopOutlook=late filter can never drift apart. Same signal the at-risk table's
- * Forecast column renders per row (sopOutlook).
+ * "SOP outlook" column renders per row, via SopOutlookCell (sopOutlook).
  */
 export function sopBufferRisk(programs: SopBufferProgram[], now: number): SopBufferRisk {
   let late = 0;
