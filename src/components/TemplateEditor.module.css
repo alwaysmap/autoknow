@@ -149,6 +149,31 @@
   font-weight: 600;
 }
 
+/* Live-editor rows: the phase name is a quiet button that selects the node in the
+   diagram (the table mirrors the draft). Reset the UA chrome the `*` rule leaves
+   behind (border/background), keep the name's weight, show a pointer cursor, and
+   reveal an underline on hover so it reads as actionable without a colour that would
+   look like a nav link (design.md §6 — this selects a node, it does not navigate). */
+.phaseNameBtn {
+  font-weight: 600;
+  color: var(--fg);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.phaseNameBtn:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+/* The selected node is ringed in --chain on the canvas; the live editor adds this to
+   its row's name button so the selection echoes that ink (the table is DataTable's now,
+   so this can't hang off a descendant of a local .table rule). */
+.phaseNameBtnSelected {
+  color: var(--chain);
+}
+
 .endTag {
   font-size: 0.625rem;
   font-weight: 700;

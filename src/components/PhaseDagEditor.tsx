@@ -2,6 +2,7 @@
 
 import React, { useMemo, useRef, useState, useTransition } from 'react';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
+import PhaseTable, { PhaseTableRow } from './PhaseTable';
 import { validateTemplateDag } from '../lib/templateDag';
 import { deriveEndPhase } from '../lib/programDag';
 import { computeDagLayout } from '../lib/dagLayout';
@@ -235,6 +236,24 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
     });
   })();
 
+  // Rows for the live datatable below the canvas, ordered by the diagram's top→bottom
+  // flow (layout y, then x) so the list reads in the same order as the drawing. What
+  // the table IS — a live mirror of the draft, two views of one thing — is on PhaseTable.
+  const tableRows: PhaseTableRow[] = [...draft]
+    .sort((a, b) => {
+      const pa = layout.pos.get(a.id), pb = layout.pos.get(b.id);
+      if (!pa || !pb) return 0;
+      return pa.y - pb.y || pa.x - pb.x;
+    })
+    .map((d) => ({
+      id: d.id,
+      name: d.name,
+      isEndPhase: d.id === endId,
+      weeks: d.weeks,
+      dependsOnNames: d.dependsOn.map((up) => byId.get(up)?.name ?? ''),
+      leadRole: d.leadRole,
+    }));
+
   return (
     <div>
       <div className={chrome.tableHead}>
@@ -437,6 +456,8 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
           </div>
         )}
       </div>
+
+      <PhaseTable rows={tableRows} showLead={!!templateFields} selectedId={selectedId} onSelect={setSelectedId} />
     </div>
   );
 }

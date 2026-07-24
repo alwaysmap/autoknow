@@ -8,7 +8,7 @@ import MarkdownNoteEditor from './MarkdownNoteEditor';
 import { LEAD_ROLES } from '../lib/builtinTemplates';
 import { updateTemplateMeta, cloneTemplate, saveTemplatePhases } from '../app/actions/templates';
 import PhaseDagEditor, { DagEditorNode } from './PhaseDagEditor';
-import DataTable from './DataTable';
+import PhaseTable from './PhaseTable';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import styles from './TemplateEditor.module.css';
@@ -122,33 +122,18 @@ export default function TemplateEditor({ template, phases }: TemplateEditorProps
           <div className={styles.templateDesc}><Markdown>{template.description}</Markdown></div>
         )}
         <DagPreview phases={phases} />
-        {/* The built-in phase list is the shared DataTable now (#112): frozen pear
-            identity column, one type grammar, sortable headers. A template is a short
-            fixed set, so pin the page size to the row count — all phases on one page,
-            no rows-per-page control — and keep the phases' authored (sortOrder) order as
-            the resting sort. */}
-        <DataTable
-          headers={[
-            { key: 'name', label: t(locale, 'phaseLabel') },
-            { key: 'leadRole', label: t(locale, 'leadLabel') },
-            { key: 'durationWeeks', label: t(locale, 'weeksLabel'), sortType: 'number' },
-            { key: 'dependsOn', label: t(locale, 'dependsOn'), sortable: false },
-          ]}
-          data={sorted}
-          pageSize={Math.max(sorted.length, 1)}
-          renderRow={(p: EditorPhase) => (
-            <tr key={p.id} data-testid="phase-template-row">
-              <th scope="row">
-                <span className={styles.phaseName}>{p.name}</span>
-                {p.isEndPhase && <span className={styles.endTag}>{t(locale, 'endTag')}</span>}
-              </th>
-              <td className={styles.muted}>{p.leadRole ?? '—'}</td>
-              <td className={styles.numeric}>{t(locale, 'weeksUnit', { n: p.durationWeeks })}</td>
-              <td className={styles.muted}>
-                {p.dependsOn.map((d) => byId.get(d)?.name).filter(Boolean).join(', ') || '—'}
-              </td>
-            </tr>
-          )}
+        {/* Built-in view: the read-only shared PhaseTable (see PhaseTable for the
+            shared-DataTable rationale). */}
+        <PhaseTable
+          showLead
+          rows={sorted.map((p) => ({
+            id: p.id,
+            name: p.name,
+            isEndPhase: p.isEndPhase,
+            weeks: p.durationWeeks,
+            dependsOnNames: p.dependsOn.map((d) => byId.get(d)?.name ?? ''),
+            leadRole: p.leadRole,
+          }))}
         />
       </div>
     );
