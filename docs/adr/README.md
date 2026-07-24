@@ -62,3 +62,4 @@ skill routes between them.
 | 2026-07-22 | [Poppable charts: a parameter for humans, a credentialed `/embed` for machines, one shared assembly](2026-07-22-poppable-charts-a-parameter-a-shared-assembly-and-a-token.md) | accepted | ui, charts, urls, auth, embed, kiosk |
 | 2026-07-23 | [Ingestion health is a serverless signal, not a growing table](2026-07-23-ingestion-health-is-a-serverless-signal-not-a-growing-table.md) | accepted | ingestion, infra, cost, observability, scaling |
 | 2026-07-23 | [Converge the hill charts on one drawing, two roles, and the Basecamp snapshot card](2026-07-23-converge-the-hill-charts-on-one-drawing.md) | accepted | ui, charts, hill, components, urls |
+| 2026-07-24 | [Compound records ride the PR that motivated them, and CI blocks the merge until the judgement is declared](2026-07-24-compound-records-ride-the-pr-that-motivated-them.md) | accepted | docs, knowledge, ci, agents, process |
