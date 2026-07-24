@@ -142,46 +142,44 @@ export default async function PartnerDetailPage(props: PageProps) {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <div>
-          <div className={styles.titleRow}>
-            <h1>{partner.name}</h1>
-            <PartnerAdminControls
-              partner={{
-                id: partner.id,
-                name: partner.name,
-                typeId: partner.typeId,
-                regionId: partner.regionId,
-                website: partner.website,
-                internalDetailsUrl: partner.internalDetailsUrl,
-                summary: partner.summary,
-              }}
-              types={types}
-              regions={regions}
-              programCount={ownedCount}
-              employeeCount={employeeCount}
-            />
-          </div>
-          {/* Classification is navigation (design.md §2/§6): type and region jump to
-              the partner list pre-filtered to that slice. */}
-          <div className={styles.partnerType}>
-            <Link
-              href={`/partners?type=${encodeURIComponent(partner.type?.name ?? '')}`}
-              className={styles.identLink}
-            >
-              {t(locale, 'partnerProfileSuffix', { t: partner.type?.name ?? '' })}
-            </Link>
-            {partner.region && (
-              <>
-                <span className={styles.identSep}>·</span>
-                <Link
-                  href={`/partners?region=${encodeURIComponent(partner.region.name)}`}
-                  className={styles.identLink}
-                >
-                  {partner.region.name}
-                </Link>
-              </>
-            )}
-          </div>
+        <div className={styles.titleRow}>
+          <h1>{partner.name}</h1>
+          <PartnerAdminControls
+            partner={{
+              id: partner.id,
+              name: partner.name,
+              typeId: partner.typeId,
+              regionId: partner.regionId,
+              website: partner.website,
+              internalDetailsUrl: partner.internalDetailsUrl,
+              summary: partner.summary,
+            }}
+            types={types}
+            regions={regions}
+            programCount={ownedCount}
+            employeeCount={employeeCount}
+          />
+        </div>
+        {/* Classification is navigation (design.md §2/§6): type and region jump to
+            the partner list pre-filtered to that slice. */}
+        <div className={styles.partnerType}>
+          <Link
+            href={`/partners?type=${encodeURIComponent(partner.type?.name ?? '')}`}
+            className={styles.identLink}
+          >
+            {t(locale, 'partnerProfileSuffix', { t: partner.type?.name ?? '' })}
+          </Link>
+          {partner.region && (
+            <>
+              <span className={styles.identSep}>·</span>
+              <Link
+                href={`/partners?region=${encodeURIComponent(partner.region.name)}`}
+                className={styles.identLink}
+              >
+                {partner.region.name}
+              </Link>
+            </>
+          )}
         </div>
       </header>
 
