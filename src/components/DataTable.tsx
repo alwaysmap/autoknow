@@ -41,8 +41,25 @@ interface DataTableProps<T> {
    *  table state is shareable). */
   onSortChange?: (key: string, order: 'asc' | 'desc') => void;
   /** Explicit FIXED page size. Omit to use the per-user `ROWS_PER_TABLE` preference (#31)
-   *  and show the rows-per-page control — the normal case for a browsable listing. */
+   *  — the normal case for a browsable listing. It also hides the rows-per-page control,
+   *  and that coupling is deliberate: a fixed size overrides the preference, so the
+   *  control would be a select that cannot change anything.
+   *
+   *  What #125 changed is that this is no longer the only way to say "do not page this
+   *  table" — see `paginate`. `PhaseTable` passes `pageSize={Math.max(rows.length, 1)}`
+   *  for that reason today and moves to `paginate={false}` at step 2. */
   pageSize?: number;
+  /** `false` declares a table that is NEVER paged: every row renders and the footer is
+   *  gone IN FULL — no "Showing {a}-{b} of {c} results", no Prev/Next, no rows-per-page
+   *  control.
+   *
+   *  Declared, not derived (#125 decision B), and it HAS to be. A table is fixed-size
+   *  because its data source caps it — a `LIMIT`, a `MAX_ROWS` top-N — and that cap lives
+   *  at the call site, not in the rows. Five rows here might be a strip that will never
+   *  exceed eight, or a listing that happens to hold five today and five hundred next
+   *  month; the data looks identical either way, so no inspection of it can tell them
+   *  apart. Only the caller who wrote the cap knows. */
+  paginate?: boolean;
   emptyStateMessage?: string;
   /** Controlled column filters (key → selected values). Omit for uncontrolled. */
   filters?: Record<string, string[]>;
@@ -94,6 +111,7 @@ export default function DataTable<T>({
   filterBarExtras,
   extrasActive = false,
   onClearExtras,
+  paginate = true,
 }: DataTableProps<T>) {
   const locale = useLocale();
   const emptyMessage = emptyStateMessage ?? t(locale, 'noResultsFound');
@@ -102,15 +120,21 @@ export default function DataTable<T>({
   const [currentPage, setCurrentPage] = useState<number>(1);
 
   // ---- Page size: the per-user ROWS_PER_TABLE preference (#31), read hydration-safe as an
-  // external store (ThemeToggle is the reference; setState-in-effect is a lint error). An
-  // explicit `pageSize` prop is a fixed override that also hides the rows-per-page control. --
+  // external store (ThemeToggle is the reference; setState-in-effect is a lint error).
+  // `pageSize` overrides it — see the prop's own doc. ----
   const prefRows = useSyncExternalStore(
     subscribePrefChange,
     () => readLocalPref(ROWS_PER_TABLE),
     () => ROWS_PER_TABLE.default,
   );
-  const effectivePageSize = pageSize ?? prefRows;
-  const showPageSizeControl = pageSize === undefined;
+  // Page size is a SETTING; the record count is a VARIABLE that arrives with the data. For
+  // an unpaged table the two collapse — the page is however many records the capped source
+  // returned — so read it off `data` rather than trying to anticipate the cap. `data` is
+  // the PRE-filter array while the slice below runs over `sortedData`: safe, because
+  // filtering and sorting never grow the set (and `filteredData` is not in scope yet).
+  // The `1` keeps `totalPages` finite when there are no rows at all.
+  const effectivePageSize = paginate ? (pageSize ?? prefRows) : Math.max(data.length, 1);
+  const showPageSizeControl = paginate && pageSize === undefined;
 
   // ---- Per-column filters (OR within a column, AND across columns) ----
   const [ownFilters, setOwnFilters] = useState<Record<string, string[]>>(initialFilters ?? {});
@@ -358,8 +382,9 @@ export default function DataTable<T>({
           </tbody>
         </table>
 
-        {/* Pagination Footer */}
-        {sortedData.length > 0 && (
+        {/* Pagination Footer — suppressed IN FULL by `paginate={false}`; a partial hide
+            (count kept, buttons dropped) is the bug that prop exists to fix. */}
+        {paginate && sortedData.length > 0 && (
           <div className={styles.pagination}>
             <div className={styles.footerLeft}>
               <div className={styles.info}>
