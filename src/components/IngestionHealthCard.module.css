@@ -51,10 +51,11 @@
   margin: 0.5rem 0 0;
 }
 
+/* Each subsection is headed by its own <h3>, so it gets no border-top: the
+   heading is the separator (design.md §7 rule 3). The old margin + padding are
+   merged into one gap that names the boundary with space, not a stacked rule. */
 .section {
-  margin: 1rem 0 0;
-  padding: 0.875rem 0 0;
-  border-top: 1px solid var(--border);
+  margin: 1.875rem 0 0;
 }
 
 .sectionTitle {

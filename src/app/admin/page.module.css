@@ -71,11 +71,11 @@
   background-color: var(--bad);
 }
 
-/* Webhook Simulation Help Section styling */
+/* The help section is headed (its <h2>), so it gets no rule above it — the
+   heading separates it from the action-card grid (design.md §7 rule 3). One
+   generous margin carries the boundary in place of the old margin+rule+padding. */
 .helpSection {
   margin-top: 3.5rem;
-  border-top: 1px solid var(--border);
-  padding-top: 2.5rem;
 }
 
 .helpSection h2 {

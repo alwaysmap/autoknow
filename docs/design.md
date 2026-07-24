@@ -239,7 +239,9 @@ stopping on empty space? Rules:
      both.
   4. *Page level*: the title hairline is the only full-width rule.
   If two horizontal lines are ever visible with nothing between them, one of
-  these levels is being double-applied.
+  these levels is being double-applied. Rule 3 is enforced by
+  `tests/separation-hierarchy.test.ts` — a headed block that also declares a
+  `border-top` fails CI (the page-title `border-bottom` of rule 4 is exempt).
 * **Few titles**: a sidebar gets at most one heading; groups of facts flow in one
   list rather than one titled section each. If a heading merely restates what the
   content obviously is, delete it.

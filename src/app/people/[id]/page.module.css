@@ -100,10 +100,10 @@
   min-width: 0;
   margin-top: 0.875rem;
 }
+/* A headed block gets no border-top: the <h2> is the separator (design.md §7
+   rule 3). The old margin-top + padding-top are merged into one gap. */
 .colMain > .section + .section {
-  margin-top: 1.625rem;
-  border-top: 1px solid var(--border);
-  padding-top: 1.125rem;
+  margin-top: 2.75rem;
 }
 
 .section h2 {
