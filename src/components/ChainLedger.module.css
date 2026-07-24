@@ -194,11 +194,6 @@
   cursor: default;
 }
 
-.zoomBtn:focus-visible {
-  outline: 2px solid var(--fg);
-  outline-offset: 1px;
-}
-
 .rowLabel {
   cursor: pointer;
 }
@@ -238,16 +233,19 @@
   fill: var(--surface);
   fill-opacity: 0.55;
 }
-/* Suppress the UA ring on BOTH, then draw our own only for :focus-visible. Without
-   the plain :focus rule the browser's default outline (a 5px amber halo in Chrome)
-   paints across the whole chart width whenever the row takes focus from a click. */
+/* focus-ring-exception: this row is a full-chart-width SVG hit rect, so ANY outline
+   on it — the UA's 5px amber halo, or the app's ring from globals.css — paints a box
+   across the entire chart. The indicator is a stroke on the rect itself instead, in
+   the same --focus-ring ink, which traces the row rather than boxing the chart. The
+   plain :focus rule is what kills the UA ring on a click-focus (:focus-visible alone
+   would not match), and it outranks the global rule for the same reason. */
 .rowHit:focus {
   outline: none;
 }
 .rowHit:focus-visible {
   fill: var(--surface);
   fill-opacity: 0.55;
-  stroke: var(--link);
+  stroke: var(--focus-ring);
   stroke-width: 1.5;
 }
 

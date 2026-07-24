@@ -38,8 +38,10 @@
   box-shadow: inset 1px 0 0 var(--bg);
 }
 
-.seg:hover,
-.seg:focus-visible {
+/* Hover only — the focus ring comes from globals.css, already inward for the same
+   reason this one is: `.bar` clips (overflow:hidden), so an outward ring on a
+   segment would lose its outer edges. */
+.seg:hover {
   outline: 2px solid var(--fg);
   outline-offset: -2px;
 }

@@ -93,6 +93,25 @@ test.describe('colour contrast holds in every style × theme', () => {
     });
   }
 
+  // The ring is drawn INSIDE the focused control (#123), so its ground is whatever
+  // that control sits on — a menu row on the panel's --white, the same row hovered
+  // on --surface, a page control on --bg. It must clear the 3:1 NON-TEXT floor on
+  // all of them: aliasing --p-500 looked fine on --paper and came in at 2.74:1 on
+  // --surface, which is a ring you cannot see on the row you are hovering.
+  test('the focus ring clears 3:1 on every ground it can land on', async ({ page }) => {
+    await page.goto('/');
+    const failures: string[] = [];
+    for (const { style, theme } of COMBOS) {
+      const t = await resolveTokens(page, style, theme, ['--focus-ring', '--bg', '--paper', '--white', '--surface']);
+      const ringL = luminance(t['--focus-ring']);
+      for (const g of ['--bg', '--paper', '--white', '--surface']) {
+        const r = ratio(ringL, luminance(t[g]));
+        if (r < 3) failures.push(`${style}/${theme}: ring on ${g}: ${r.toFixed(2)} (${t['--focus-ring']})`);
+      }
+    }
+    expect(failures, failures.join('\n')).toEqual([]);
+  });
+
   test('the gauge face stays light in dark themes so the coloured sweep reads', async ({ page }) => {
     await page.goto('/');
     for (const { style } of COMBOS.filter((c) => c.theme === 'dark')) {

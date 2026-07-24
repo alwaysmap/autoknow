@@ -162,9 +162,9 @@
   color: inherit;
   cursor: pointer;
 }
+/* The ring itself is the app's one :focus-visible rule (globals.css); this only
+   rounds its corners to match the other header affordances. */
 .sortButton:focus-visible {
-  outline: 2px solid var(--chain, var(--info));
-  outline-offset: 2px;
   border-radius: 0.125rem;
 }
 
