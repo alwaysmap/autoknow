@@ -11,7 +11,8 @@ import OverlayDialog from './OverlayDialog';
 import ConstraintRing from './ConstraintRing';
 import { ChainSchedule, CARD_W } from './ChainSchedule';
 import type { RowCard } from './ChainSchedule';
-import { isForecastOver } from '../lib/chainLedger';
+import { isForecastOver, isSevereOverrun } from '../lib/chainLedger';
+import { phasesEditHref } from '../lib/phase';
 import type { ChainLedgerResult, ResourceRef, ScheduleRow, Situation, WaterfallRow } from '../lib/chainLedger';
 import styles from './ChainLedger.module.css';
 
@@ -126,16 +127,61 @@ export default function ChainLedger({
 
   const nextSteps: React.ReactNode[] = [];
 
+  // ---- overruns lead the list. A phase past its OWN estimate is where the plan
+  // and the work have parted company, and until now the ledger only reported that
+  // as history in "Where the buffer went" — nothing ever asked anyone to act on it,
+  // so a phase could double its estimate under a heading reading "Nothing needs to
+  // change today". It is also the least disruptive thing to act on (the heading's
+  // promised order): root-causing a phase beats moving people between programs,
+  // which beats moving the SOP.
+  // Live phases get a bullet each — there are rarely more than two; finished ones
+  // collapse into ONE re-planning bullet, since five bullets each ending "and
+  // re-estimate" is one recommendation printed five times.
+  // Phases with no estimated duration are skipped: with nothing to be a percentage
+  // OF, every sentence here would be a false statement about lateness (the mutation
+  // boundary requires a positive duration, so this is legacy data only).
+  const liveOverruns = ledger.situations
+    .filter((s): s is Extract<Situation, { type: 'forecastOverrun' }> => s.type === 'forecastOverrun' && s.plannedDays > 0)
+    .sort((a, b) => b.overPct - a.overPct || b.days - a.days);
+  const sunkOverruns = ledger.situations
+    .filter((s): s is Extract<Situation, { type: 'sunkOverrun' }> => s.type === 'sunkOverrun' && s.plannedDays > 0)
+    .sort((a, b) => b.overPct - a.overPct || b.days - a.days);
+  // Re-planning is the second half of every overrun sentence, so the group carries
+  // the way to do it — the phase editor, where estimated durations live. ONE link,
+  // on the last overrun bullet: repeated on every bullet it stops reading as an
+  // affordance and starts reading as punctuation.
+  const overrunSteps: React.ReactNode[] = liveOverruns.map((o) =>
+    tNodes(locale, isSevereOverrun(o) ? 'clOverrunSevere' : 'clOverrunActive', {
+      phase: phaseBtn(o.phaseId), pct: o.overPct, d: o.days, p: o.plannedDays, r: o.remainingDays,
+    }));
+  if (sunkOverruns.length > 0) {
+    overrunSteps.push(sunkOverruns.length === 1
+      ? tNodes(locale, 'clOverrunSunkOne', {
+          phases: phaseBtn(sunkOverruns[0].phaseId), d: sunkOverruns[0].days, pct: sunkOverruns[0].overPct,
+        })
+      : tNodes(locale, 'clOverrunSunk', {
+          phases: joinNodes(sunkOverruns.map((s) =>
+            tNodes(locale, 'clOverrunSunkItem', { phase: phaseBtn(s.phaseId), pct: s.overPct }))),
+        }));
+  }
+  const lastOverrun = overrunSteps.length - 1;
+  overrunSteps.forEach((step, i) => nextSteps.push(
+    i < lastOverrun ? step : (
+      <>
+        {step}{' '}
+        <Link href={phasesEditHref(projectId)} className={styles.entityLink}>{t(locale, 'editPhases')}</Link>
+      </>
+    ),
+  ));
+
   // who the chain is waiting on, and whose slack can move. When the NEXT phase is
   // also the oversubscribed one, its staffing clause rides on this bullet rather
   // than repeating the same person-and-phase as a second bullet.
   const upNextCoveredHere = upNext != null && oversub.some((o) => o.phaseId === upNext.toId);
-  // Only a phase that is actually past its plan can be called overrunning.
-  const overrunning = new Set(
-    ledger.situations
-      .filter((s) => s.type === 'sunkOverrun' || s.type === 'forecastOverrun')
-      .map((s) => (s as Extract<Situation, { type: 'forecastOverrun' }>).phaseId),
-  );
+  // Only a phase that is actually past its plan can be called overrunning — the
+  // same two lists the overrun bullets above are built from, so a bullet and an
+  // oversubscription opener can never disagree about which phases are over.
+  const overrunning = new Set([...liveOverruns, ...sunkOverruns].map((s) => s.phaseId));
   for (const o of oversub) {
     const carriesUpNext = upNext != null && upNextCoveredHere && o.phaseId === upNext.toId;
     const n = o.moves.length + o.tight.length;
@@ -431,7 +477,7 @@ export default function ChainLedger({
       {ledger.rebaselineSuggested && (
         <p className={styles.rebaseline}>
           {t(locale, 'clRebaseline')}{' '}
-          <Link href={`/programs/${projectId}/phases`}>{t(locale, 'editPhases')}</Link>
+          <Link href={phasesEditHref(projectId)}>{t(locale, 'editPhases')}</Link>
         </p>
       )}
 

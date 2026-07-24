@@ -16,7 +16,7 @@ import { deriveEndPhase } from '../lib/programDag';
 import { validateTemplateDag } from '../lib/templateDag';
 import { HILL_PATH, hillCoordinates } from '../lib/geometry';
 import { t, statusKey, Locale } from '../lib/i18n';
-import { isPhaseActive, statusProgress, phaseColor, phaseDetailHash, parsePhaseDetailHash } from '../lib/phase';
+import { isPhaseActive, statusProgress, phaseColor, phaseDetailHash, parsePhaseDetailHash, phasesEditHref } from '../lib/phase';
 import AnchorHeading from './AnchorHeading';
 import AnchoredPopover from './AnchoredPopover';
 import OverlayDialog from './OverlayDialog';
@@ -1062,7 +1062,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                 ) : (
                   <p className={styles.noGoal}>
                     {t(locale, 'noGoalYet')}{' '}
-                    <Link href={`/programs/${projectId}/phases`}>{t(locale, 'editPhases')}</Link>
+                    <Link href={phasesEditHref(projectId)}>{t(locale, 'editPhases')}</Link>
                   </p>
                 )}
                 {p.googleFocus && (
@@ -1248,7 +1248,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     onClick={() => setTracksHidden((v) => !v)}>
                     {t(locale, tracksHidden ? 'showTracksAction' : 'hideTracks')}
                   </button>
-                  <Link href={`/programs/${projectId}/phases`} role="menuitem" className={styles.menuItem}
+                  <Link href={phasesEditHref(projectId)} role="menuitem" className={styles.menuItem}
                     onClick={() => close()}>
                     {t(locale, 'editPhases')}
                   </Link>
