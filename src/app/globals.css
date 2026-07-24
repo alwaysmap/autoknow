@@ -72,11 +72,19 @@
   --p-700: hsla(var(--hue), 70%, 20%, 1);
   --p-900: hsla(var(--hue), 80%, 10%, 1);
 
+  --s-100: hsla(calc(var(--hue) + 60), 36%, 90%, 1);
+  --s-500: hsla(calc(var(--hue) + 60), 44%, 56%, 1);
+  --s-700: hsla(calc(var(--hue) + 60), 50%, 34%, 1);
+
+  --t-100: hsla(calc(var(--hue) - 60), 30%, 90%, 1);
+  --t-500: hsla(calc(var(--hue) - 60), 32%, 54%, 1);
+  --t-700: hsla(calc(var(--hue) - 60), 38%, 32%, 1);
+
   /* THE focus ring's ink (#123). Before it there was no app-wide rule: seven
-     components hand-rolled a ring in four different colours (--p-500, --chain,
-     --fg, --link) and everything else — the ⋯ menu included — got the browser's
-     own, blue on macOS and a 5px amber halo elsewhere, a colour in nobody's
-     palette and different on every machine.
+     hand-rolled rings across six components, in four different colours (--p-500,
+     --chain, --fg, --link), and everything else — the ⋯ menu included — got the
+     browser's own, blue on macOS and a 5px amber halo elsewhere, a colour in
+     nobody's palette and different on every machine.
      Its own lightness, NOT an alias of --p-500: measured on the live page, p-500
      rings came in at 2.74–2.98:1 on --surface/--bg in both LIGHT styles — under the
      3:1 floor a non-text indicator has to clear (the ThemeToggle ring it replaces
@@ -85,14 +93,6 @@
      restate it lifted, below. --hue is per-style, so one declaration serves both
      light styles. Re-measure with tests/contrast.spec.ts if you touch it. */
   --focus-ring: hsla(var(--hue), 60%, 30%, 1);
-
-  --s-100: hsla(calc(var(--hue) + 60), 36%, 90%, 1);
-  --s-500: hsla(calc(var(--hue) + 60), 44%, 56%, 1);
-  --s-700: hsla(calc(var(--hue) + 60), 50%, 34%, 1);
-
-  --t-100: hsla(calc(var(--hue) - 60), 30%, 90%, 1);
-  --t-500: hsla(calc(var(--hue) - 60), 32%, 54%, 1);
-  --t-700: hsla(calc(var(--hue) - 60), 38%, 32%, 1);
 
   /* Neutrals — near-neutral off-white, only a whisper of warmth so status
      colors (amber "Some Risk", red "Concerned") read clearly against it */
@@ -203,13 +203,6 @@
   --p-700: hsla(var(--hue), 50%, 74%, 1);
   --p-900: hsla(var(--hue), 60%, 88%, 1);
 
-  /* The ring, lifted for a dark ground — same reason every other dark ink is
-     restated rather than reused. Serves BOTH dark styles: --hue is per-style and
-     the Instrument block declares no ring of its own, so this stays the winning
-     declaration there. 5.72:1 standard, 6.92:1 Instrument (worst ground
-     --surface). */
-  --focus-ring: hsla(var(--hue), 60%, 56%, 1);
-
   --s-100: hsla(calc(var(--hue) + 60), 22%, 25%, 1);
   --s-500: hsla(calc(var(--hue) + 60), 36%, 56%, 1);
   --s-700: hsla(calc(var(--hue) + 60), 44%, 72%, 1);
@@ -217,6 +210,13 @@
   --t-100: hsla(calc(var(--hue) - 60), 20%, 25%, 1);
   --t-500: hsla(calc(var(--hue) - 60), 28%, 56%, 1);
   --t-700: hsla(calc(var(--hue) - 60), 34%, 72%, 1);
+
+  /* The ring, lifted for a dark ground — same reason every other dark ink is
+     restated rather than reused. Serves BOTH dark styles: --hue is per-style and
+     the Instrument block declares no ring of its own, so this stays the winning
+     declaration there. 5.72:1 standard, 6.92:1 Instrument (worst ground
+     --surface). */
+  --focus-ring: hsla(var(--hue), 60%, 56%, 1);
 
   /* Warm, not black (2026-07-20, user call — "make it less intensely dark",
      adjusted toward dvhthomas/pearish-theme). Two moves: hue 220 → ~30, so the

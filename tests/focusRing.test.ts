@@ -8,7 +8,9 @@
 //      clipped by any ancestor `overflow`, and a container cannot be relied on to
 //      reserve room for it — the panel left 4px and the ring wanted more. A focus
 //      rule with a POSITIVE `outline-offset` puts the ring back outside the box and
-//      re-opens the defect, so it fails here.
+//      re-opens the defect, so it fails here. A NON-focus outline may sit outside
+//      (ProgramPhaseEditor's `.nodeEnd` ring means "derived end phase", and nothing
+//      clips it); the selector is what separates the two.
 //   2. NOBODY SILENTLY DELETES A RING. `outline: none` on a focusable control makes
 //      keyboard focus invisible (WCAG 2.4.7); three filter buttons shipped that way.
 //      A rule that genuinely must suppress it says so with a `focus-ring-exception:`
@@ -17,23 +19,17 @@
 // Both checks read CSS text rather than a rendered page on purpose: they are about
 // what is AUTHORED. That the ring then renders unclipped is a separate claim, proved
 // by screenshot (AGENTS lesson 18), not by counting declarations.
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { blankComments, cssFiles } from './helpers/css';
 
 const SRC = 'src';
 const GLOBALS = 'src/app/globals.css';
 const MARKER = 'focus-ring-exception:';
 
-function cssFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-    const p = join(dir, e.name);
-    if (e.isDirectory()) return cssFiles(p);
-    return e.name.endsWith('.css') ? [p] : [];
-  });
-}
-
 /** The rule a declaration at `at` sits in: its block body, plus the selector and any
- *  comment directly above it (everything since the previous rule closed). */
+ *  comment directly above it (everything since the previous rule closed). Both parts
+ *  are read from the RAW source — the selector decides whether a rule is about focus,
+ *  and the exception marker lives in exactly the comment that blanking would erase. */
 function enclosingRule(css: string, at: number): { head: string; body: string } {
   const open = css.lastIndexOf('{', at);
   const prevClose = css.lastIndexOf('}', open);
@@ -44,15 +40,17 @@ function enclosingRule(css: string, at: number): { head: string; body: string } 
   };
 }
 
-function scan(re: RegExp, keep: (m: RegExpExecArray, rule: { head: string; body: string }) => boolean): string[] {
+/** `file:line` for every declaration matching `re` that `isViolation` rejects. The
+ *  scan runs over a comment-blanked copy so prose never matches, while offsets still
+ *  point at the real line. */
+function offenders(re: RegExp, isViolation: (m: RegExpExecArray, rule: { head: string; body: string }) => boolean): string[] {
   const out: string[] = [];
   for (const file of cssFiles(SRC)) {
-    const css = readFileSync(file, 'utf8');
-    for (let m = re.exec(css); m; m = re.exec(css)) {
-      const rule = enclosingRule(css, m.index);
-      if (!keep(m, rule)) continue;
-      const line = css.slice(0, m.index).split('\n').length;
-      out.push(`${file}:${line}`);
+    const raw = readFileSync(file, 'utf8');
+    const code = blankComments(raw);
+    for (let m = re.exec(code); m; m = re.exec(code)) {
+      if (!isViolation(m, enclosingRule(raw, m.index))) continue;
+      out.push(`${file}:${raw.slice(0, m.index).split('\n').length}`);
     }
   }
   return out.sort();
@@ -70,7 +68,7 @@ describe('the focus ring is authored, inward, and never silently deleted (#123)'
   });
 
   it('lets no focus rule push its ring OUTSIDE the border box, where overflow clips it', () => {
-    const outward = scan(/outline-offset\s*:\s*([^;]+);/g, (m, rule) => {
+    const outward = offenders(/outline-offset\s*:\s*([^;]+);/g, (m, rule) => {
       if (!rule.head.includes(':focus')) return false; // semantic rings may sit outside
       const v = m[1].trim();
       return !v.startsWith('-') && !/^0\w*$/.test(v);
@@ -79,7 +77,7 @@ describe('the focus ring is authored, inward, and never silently deleted (#123)'
   });
 
   it('lets no rule suppress the ring without a stated reason', () => {
-    const silent = scan(/outline\s*:\s*(none|0)\s*;/g, (_m, rule) =>
+    const silent = offenders(/outline\s*:\s*(none|0)\s*;/g, (_m, rule) =>
       !rule.body.includes(MARKER) && !rule.head.includes(MARKER),
     );
     expect(silent).toEqual([]);

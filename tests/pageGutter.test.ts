@@ -17,8 +17,8 @@
 // is a uniform safe-area inset around a centred box, not a left edge shared with the nav.
 // The set only grows with a documented reason; a page meant to share the nav's left edge
 // is never exempt.
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { cssFiles, stripComments } from './helpers/css';
 
 const GLOBALS = 'src/app/globals.css';
 const ROOTS = ['src/app', 'src/components'];
@@ -29,17 +29,7 @@ const EXEMPT: ReadonlySet<string> = new Set([
 ]);
 
 /** All `.module.css` files under a directory tree. */
-function moduleCssFiles(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const p = join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...moduleCssFiles(p));
-    else if (entry.name.endsWith('.module.css')) out.push(p);
-  }
-  return out;
-}
-
-const stripComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '');
+const moduleCssFiles = (dir: string): string[] => cssFiles(dir).filter((f) => f.endsWith('.module.css'));
 
 /** Innermost `selector { body }` rules — matches a bare rule and the rule INSIDE a
  *  media query alike (the page-root rules here are flat, never nested further). */

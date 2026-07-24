@@ -161,10 +161,9 @@
   font: inherit;
   color: inherit;
   cursor: pointer;
-}
-/* The ring itself is the app's one :focus-visible rule (globals.css); this only
-   rounds its corners to match the other header affordances. */
-.sortButton:focus-visible {
+  /* The button has no background or border of its own, so this radius is only ever
+     visible as the corners of the focus ring (globals.css) — a hair of rounding on
+     a box drawn tight around a label, not a shape the button itself shows. */
   border-radius: 0.125rem;
 }
 

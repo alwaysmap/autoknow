@@ -12,8 +12,9 @@
   /* This clips: it cut three sides off the focus ring of the row the menu focuses on
      open, leaving the fourth lying across the menu as a stray line (#123). The panel
      keeps the overflow — it is what the max-height above is for — and the ring is
-     drawn INSIDE its row instead (globals.css). Do not give a descendant here a
-     positive `outline-offset`; tests/focusRing.test.ts fails if you do. */
+     drawn INSIDE its row instead (globals.css). Do not let a `:focus` rule on
+     anything that can render in this panel use a positive `outline-offset` —
+     tests/focusRing.test.ts rejects it. */
   overflow: auto;
   padding: 0.25rem;
   background: var(--white, var(--paper));
