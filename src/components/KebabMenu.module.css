@@ -3,21 +3,12 @@
    only the ⋯ button and how children (buttons, forms with buttons) are normalized into
    uniform rows — so callers still need no menu-specific variants.
 
-   THE ROW RULES BELOW MATCH DESCENDANTS, so they used to reach INTO a `<dialog>` nested in
-   the panel and restyle it as a menu row — width forced to 100%, its buttons stacked
-   full-width and stripped of their skins. This file asked callers to render the dialog as
-   a SIBLING of KebabMenu instead, and that prose contract failed exactly as a prose
-   contract does: ProjectAdminControls nested one, and the delete-program dialog shipped
-   with a chromeless stacked footer whose Cancel only appeared on hover (#132). Prose can't
-   gate anything (AGENTS lesson 2), so every row rule now carries
-   `:where(:not(dialog *))` — a nested dialog is structurally out of reach, and
-   `:where()` adds no specificity, so real menu rows still override callers' skins exactly
-   as before. `tests/kebabMenuDialogIsolation.test.ts` pins it.
-
-   Rendering the dialog as a sibling is still the better shape where the caller owns both
-   (PartnerEditor, PersonEditor, New{Partner,Person}Button all do) — it keeps the dialog
-   alive independently of the menu's light-dismiss. It is no longer load-bearing for
-   STYLING, which is what silently broke. */
+   THE ROW RULES BELOW MATCH DESCENDANTS, so every one carries `:where(:not(dialog *))`:
+   without it they reach into a `<dialog>` nested in the panel and restyle it as a menu row
+   (#132). `:where()` adds no specificity, so real rows still override callers' skins
+   exactly as before. `tests/kebabMenuDialogIsolation.test.ts` fails if a rule is added
+   unguarded; the incident and the mechanism are in
+   docs/knowledge/menu-row-normalizer-restyles-nested-dialogs.md. */
 
 .trigger {
   display: inline-flex;

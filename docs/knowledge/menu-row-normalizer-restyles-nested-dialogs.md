@@ -4,14 +4,14 @@ status: current
 updated: 2026-07-24
 applies_to:
   - src/components/KebabMenu.module.css
-  - src/components/OverlayDialog.tsx
-  - src/components/*AdminControls.tsx
+  - rendering an OverlayDialog from inside a KebabMenu or other popover panel
+  - adding descendant selectors to a container module that normalizes its children
 symptoms:
   - dialog buttons render full-width, stacked, left-aligned, with no border or fill
   - a button only looks like a button on hover
   - a dialog header title wraps into a narrow column while its × takes a wide box
   - an element has the right module class, the rule is in the served CSS, and none of it applies
-verified_by: 'tests/kebabMenuDialogIsolation.test.ts; #132; PR #136'
+verified_by: 'tests/kebabMenuDialogIsolation.test.ts; issue #132'
 ---
 
 # A container that normalizes children with descendant selectors also restyles a `<dialog>` nested inside it
@@ -33,17 +33,21 @@ so it survives every test that does not *look*. The tell that isolates it fast:
 sibling elements the normalizer has no selector for keep their styling. In #132
 the `<input>` next to the buttons rendered its `var(--border)` border perfectly,
 which ruled out a missing-token or unloaded-stylesheet explanation and pointed
-straight at a descendant selector.
+straight at a descendant selector. Two sibling notes cover the same shape of
+surprise from other causes — a global
+[`[class*="foo"]` substring selector](global-class-substring-selector-catches-module-classes.md)
+and [a global `[data-*]` rule winning a `display` fight](css-module-loses-display-to-global-attribute-rule.md).
 
 **What to do.** Guard every rule that descends from the container with
 `:where(:not(dialog *))` — `:where()` contributes no specificity, so genuine
 rows still override callers' skins exactly as before, while anything inside a
-dialog is out of reach. `.menu > *` takes `:where(:not(dialog))`.
+dialog is out of reach. `.menu > *` takes the shorter `:where(:not(dialog))`,
+because a child combinator can only ever match the `<dialog>` element itself,
+never something inside it.
 `tests/kebabMenuDialogIsolation.test.ts` fails if a new rule is added unguarded.
 Rendering the dialog as a sibling of the menu is still the better shape where one
-component owns both (`PartnerEditor`, `PersonEditor`, `NewPersonButton` all do):
-it keeps the dialog alive independently of the menu's light-dismiss. It is simply
-no longer what holds the *styling* together.
+component owns both — it keeps the dialog alive independently of the menu's
+light-dismiss — but it is no longer what holds the *styling* together.
 
 **How we found out.** `KebabMenu.module.css` had carried a comment for months
 saying a dialog "must be rendered as a SIBLING of KebabMenu, never a child",

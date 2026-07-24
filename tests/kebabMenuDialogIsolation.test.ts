@@ -1,42 +1,36 @@
 /** @jest-environment node */
-// KebabMenu normalizes its children into uniform rows with DESCENDANT selectors
-// (`.menu button`, `.menu div`, …). Those reach into a `<dialog>` nested in the
-// panel and restyle it as a menu row: `.menu button` (0,1,1) outranks a caller's
-// own `.cancelBtn` (0,1,0), so the button loses its border and fill, and
-// `.menu div` flips the footer's `justify-content: flex-end` row into a stretched
-// column. That shipped as #132 — a delete-confirmation dialog whose Cancel was
-// invisible until hovered, in the one dialog whose entire job is to slow someone
-// down before an irreversible delete.
+// Ratchet: KebabMenu's row rules must not be able to reach into a `<dialog>`
+// nested in the panel. They did, and the delete-confirmation dialog shipped with
+// a Cancel button invisible until hovered (#132).
 //
-// The stylesheet had WARNED about this in a comment ("render the dialog as a
-// SIBLING, never a child") and the warning did not hold, because prose gates
-// nothing (AGENTS lesson 2). The guard is `:where(:not(dialog *))` on every row
-// rule — `:where()` contributes no specificity, so real menu rows still override
-// callers' skins exactly as before, while a nested dialog is out of reach.
-//
-// This test exists because the failure is INVISIBLE to every other check: the
-// markup is correct, the classes are present, the CSS module resolves, and
-// nothing errors. Only the cascade is wrong, and only on screen.
+// A ratchet rather than a comment because the comment is what failed: this file
+// used to carry the rule as prose and a caller broke it anyway (AGENTS lesson 2).
+// The incident, the mechanism, and how to recognise the next one:
+// docs/knowledge/menu-row-normalizer-restyles-nested-dialogs.md.
 
 import { readFileSync } from 'node:fs';
+import { stripComments } from './helpers/css';
 
 const FILE = 'src/components/KebabMenu.module.css';
+// A PREFIX, deliberately: it matches the descendant guard `:where(:not(dialog *))`
+// and the child-combinator variant `:where(:not(dialog))` alike.
 const GUARD = ':where(:not(dialog';
+// Any selector that reaches THROUGH .menu, wherever `.menu` sits in it — a rule
+// written `:global(...) .menu button` reaches just as far as `.menu button`, and
+// this file already uses that `:global(...)` wrapper form elsewhere.
+const REACHES_THROUGH_MENU = /\.menu[\s>]/;
 
-/** Every selector in the file, one per entry, comments stripped. */
-const selectors = (): string[] => {
-  const css = readFileSync(FILE, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-  return [...css.matchAll(/([^{}]+)\{/g)]
+const selectors = (): string[] =>
+  [...stripComments(readFileSync(FILE, 'utf8')).matchAll(/([^{}]+)\{/g)]
     .flatMap((m) => m[1].split(','))
     .map((s) => s.trim())
     .filter(Boolean);
-};
 
 describe('KebabMenu row rules cannot reach into a nested <dialog> (#132)', () => {
-  it('guards every rule that descends from .menu', () => {
-    // `.menu` alone styles the panel itself and needs no guard; anything that
-    // reaches THROUGH it (descendant or child) can land inside a dialog.
-    const reaching = selectors().filter((s) => /^\.menu[\s>]/.test(s));
+  it('guards every rule that reaches through .menu', () => {
+    // `.menu` on its own styles the panel and needs no guard; anything that
+    // reaches through it can land inside a dialog.
+    const reaching = selectors().filter((s) => REACHES_THROUGH_MENU.test(s));
     expect(reaching.length).toBeGreaterThan(0); // the rules still exist to guard
 
     const unguarded = reaching.filter((s) => !s.includes(GUARD));
@@ -44,9 +38,11 @@ describe('KebabMenu row rules cannot reach into a nested <dialog> (#132)', () =>
   });
 
   it('keeps the guard specificity-free, so menu rows still beat callers’ skins', () => {
-    // `:is(:not(…))` or a bare `:not(…)` would ADD specificity and silently change
-    // which rule wins elsewhere. The point of `:where()` is that it adds none.
-    const bare = selectors().filter((s) => /^\.menu[\s>]/.test(s) && /(?<!:where\():not\(dialog/.test(s));
+    // A bare `:not(…)` or an `:is(:not(…))` wrapper ADDS specificity, silently
+    // changing which rule wins elsewhere. Only `:where()` adds none.
+    const bare = selectors().filter(
+      (s) => REACHES_THROUGH_MENU.test(s) && /(?<!:where\():not\(dialog/.test(s),
+    );
     expect(bare).toEqual([]);
   });
 });
