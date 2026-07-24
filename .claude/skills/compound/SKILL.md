@@ -1,9 +1,9 @@
 ---
 name: compound
-description: Capture what a session learned or decided as compounding knowledge — decisions as ADRs in docs/adr/, findings as notes in docs/knowledge/, always-on rules as AGENTS.md one-liners. Invoke at the end of a working session, after an incident, or whenever a real decision was made ("/compound", "capture what we learned").
+description: Capture what a change learned or decided as compounding knowledge — decisions as ADRs in docs/adr/, findings as notes in docs/knowledge/, always-on rules as AGENTS.md one-liners. Invoke BEFORE MERGING any PR that touches src/** or prisma/** — CI (ci:lint-compound) blocks the merge until a commit message declares `compound: <path>` or `compound: none — <reason>`. Also invoke after an incident or whenever a real decision was made ("/compound", "capture what we learned").
 ---
 
-# Compound the session's knowledge
+# Compound what this change taught us
 
 The goal is that the next person — agent or human — moves **faster, with more
 confidence, and reworks less**. That only happens if what you record is
@@ -164,6 +164,21 @@ Keep it under 60 lines. Past a screen it is a document, and documents rot.
   honesty, contiguous lesson numbering, and that every ADR path, knowledge path,
   and `AGENTS lesson N` cited anywhere in the repo resolves.
 - Validate every other relative link you wrote resolves.
-- Commit with a message that itself meets the bar (diagnosis + evidence).
+- **Commit onto the PR branch, before the merge — never onto `main` afterwards.**
+  A record that lands later is an orphan docs-only commit divorced from the change
+  that motivated it, which is the whole reason this trigger moved (ADR
+  `compound-records-ride-the-pr-that-motivated-them`). Message meets the bar
+  itself (diagnosis + evidence), and carries the declaration line
+  `scripts/ci/lint-compound.sh` requires:
+
+  ```
+  compound: docs/adr/YYYY-MM-DD-slug.md
+  compound: none — pure refactor, no new knowledge
+  ```
+
+  A named path must be in the PR's own diff. `none` must carry a reason.
+- **Expect CI to go green twice.** The records you just pushed re-trigger it, and
+  `adrNaming` / `knowledgeNotes` / `agentsLessons` then run against the new files —
+  records are gated like code. Merge on the *second* green, not the first.
 - Tell the user what was recorded **and where**, what was augmented, and —
   explicitly — what you judged NOT worth recording and why.

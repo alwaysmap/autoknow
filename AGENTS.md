@@ -27,7 +27,7 @@ the distilled rules and points at the exact doc sections that matter:
 | `infra-terraform` | touching `infra/terraform/**`, secrets, env vars, domains |
 | `gcp-debug` | checking/debugging the live deployment: deploys, logs, cron, Chat |
 | `qa` | running quality gates; before declaring any change done |
-| `compound` | end of a session / after an incident or real decision — record it as compounding knowledge (decisions → `docs/adr/`, findings → `docs/knowledge/`, always-on rules → here) |
+| `compound` | **before merging** any PR touching `src/**` or `prisma/**`, and after an incident or real decision — record it (decisions → `docs/adr/`, findings → `docs/knowledge/`, always-on rules → here). CI blocks the merge until you declare |
 
 Deep docs live in `docs/` (OPERATIONS, CHANGE_PLAYBOOK, DEPLOYMENT_GCP,
 design.md, plan docs). Read the specific section a skill points you at, not the

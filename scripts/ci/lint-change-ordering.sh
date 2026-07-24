@@ -11,9 +11,10 @@
 # Usage: BASE_REF=origin/main scripts/ci/lint-change-ordering.sh
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+. scripts/ci/lib.sh
 
-base="${BASE_REF:-origin/main}"
-mapfile -t changed < <(git diff --name-only "$base"...HEAD 2>/dev/null || true)
+base="$(resolve_base_ref)"
+mapfile -t changed < <(git diff --name-only "$base"...HEAD)
 
 infra=(); app=()
 for f in "${changed[@]}"; do
@@ -28,7 +29,7 @@ if [ "${#infra[@]}" -eq 0 ] || [ "${#app[@]}" -eq 0 ]; then
   exit 0
 fi
 
-if git log --format=%B "$base"...HEAD | grep -iEq '^[[:space:]]*allow-mixed-infra:'; then
+if [ -n "$(commit_message_lines "$base" allow-mixed-infra)" ]; then
   echo "change-ordering: mixed infra+app change, but 'allow-mixed-infra:' opt-in present in a commit message. OK."
   exit 0
 fi

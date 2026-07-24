@@ -2,7 +2,9 @@ name: CI
 
 # Pull-request gates. Make these required status checks (branch protection) so nothing
 # corrupting can reach main. Four jobs:
-#   migrations-lint — blocks destructive migrations without a reviewed opt-in tag.
+#   migrations-lint — the cheap git-history gates, sharing one `fetch-depth: 0` checkout:
+#                     destructive migrations without a reviewed opt-in tag, mixed
+#                     infra+app PRs, and substantive PRs with no `compound:` declaration.
 #   quality         — typecheck, lint, jest (unit+DB), and a prod build. Added after
 #                     PR #15 merged green while breaking e2e: merges auto-deploy, so
 #                     drift main-ward must be caught pre-merge.
@@ -37,18 +39,20 @@ jobs:
   migrations-lint:
     name: migrations-lint
     runs-on: ubuntu-latest
+    # Every gate below diffs the branch against the PR's base; each refuses to run
+    # rather than pass on an empty diff if this does not resolve (scripts/ci/lib.sh).
+    env:
+      BASE_REF: origin/${{ github.base_ref }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # need history to diff new migrations vs the base branch
       - name: Block destructive migrations without opt-in
-        env:
-          BASE_REF: origin/${{ github.base_ref }}
         run: npm run ci:lint-migrations
       - name: Block mixed infra+app PRs (deploy-ordering rule)
-        env:
-          BASE_REF: origin/${{ github.base_ref }}
         run: npm run ci:lint-ordering
+      - name: Require a compound declaration on substantive PRs
+        run: npm run ci:lint-compound
 
   quality:
     name: quality (typecheck · lint · jest · build)

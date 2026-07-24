@@ -28,6 +28,7 @@
     "db:test:clean": "ts-node scripts/db/clean-test-dbs.ts",
     "ci:lint-migrations": "scripts/ci/lint-migrations.sh",
     "ci:lint-ordering": "scripts/ci/lint-change-ordering.sh",
+    "ci:lint-compound": "scripts/ci/lint-compound.sh",
     "ci:migrate": "scripts/ci/migrate.sh",
     "ci:deploy": "scripts/ci/build-and-deploy.sh",
     "ci:harden-db": "scripts/db/harden.sh"
