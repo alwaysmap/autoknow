@@ -107,7 +107,9 @@ test.describe('Ecosystem Partners Page', () => {
     await expect(async () => {
       if (!(await dialog.isVisible())) {
         const item = page.getByTestId('new-partner');
-        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+        // The header kebab specifically: the partner page now also has ⋯ menus in its
+      // Programs section and People card, so an unscoped kebab-menu is ambiguous.
+      if (!(await item.isVisible())) await page.locator('header').getByTestId('kebab-menu').click({ timeout: 2000 });
         await item.click({ timeout: 2000 });
       }
       await expect(dialog).toBeVisible({ timeout: 1500 });
@@ -128,7 +130,9 @@ test.describe('Ecosystem Partners Page', () => {
       if (!(await editDialog.isVisible())) {
         // Kebab items are role=menuitem now that the ⋯ menu is AnchoredPopover (#24).
         const item = page.getByRole('menuitem', { name: 'Edit', exact: true });
-        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+        // The header kebab specifically: the partner page now also has ⋯ menus in its
+      // Programs section and People card, so an unscoped kebab-menu is ambiguous.
+      if (!(await item.isVisible())) await page.locator('header').getByTestId('kebab-menu').click({ timeout: 2000 });
         await item.click({ timeout: 2000 });
       }
       await expect(editDialog).toBeVisible({ timeout: 1500 });
@@ -143,7 +147,9 @@ test.describe('Ecosystem Partners Page', () => {
     await expect(async () => {
       if (!(await delDialog.isVisible())) {
         const item = page.getByTestId('delete-partner');
-        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+        // The header kebab specifically: the partner page now also has ⋯ menus in its
+      // Programs section and People card, so an unscoped kebab-menu is ambiguous.
+      if (!(await item.isVisible())) await page.locator('header').getByTestId('kebab-menu').click({ timeout: 2000 });
         await item.click({ timeout: 2000 });
       }
       await expect(delDialog).toBeVisible({ timeout: 1500 });
@@ -164,7 +170,9 @@ test.describe('Ecosystem Partners Page', () => {
     await expect(async () => {
       if (!(await dialog.isVisible())) {
         const item = page.getByTestId('delete-partner');
-        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+        // The header kebab specifically: the partner page now also has ⋯ menus in its
+      // Programs section and People card, so an unscoped kebab-menu is ambiguous.
+      if (!(await item.isVisible())) await page.locator('header').getByTestId('kebab-menu').click({ timeout: 2000 });
         await item.click({ timeout: 2000 });
       }
       await expect(dialog).toBeVisible({ timeout: 1500 });

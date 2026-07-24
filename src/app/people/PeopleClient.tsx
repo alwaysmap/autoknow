@@ -5,11 +5,8 @@ import { useTableUrlSync } from '../../lib/useTableUrlSync';
 import type { TableSort } from '../../lib/tableUrlState';
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
-import KebabMenu from '../../components/KebabMenu';
-import OverlayDialog from '../../components/OverlayDialog';
 import PageShell from '../../components/PageShell';
-import { createPerson } from '../actions/people';
-import dash from '../../components/ProjectStatusDashboard.module.css';
+import { NewPersonButton } from '../../components/PersonEditor';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 import styles from '../partners/page.module.css';
@@ -39,60 +36,14 @@ export default function PeopleClient({ people, partners, initialFilters, initial
   const [filters, setFilters] = useState<Record<string, string[]>>(initialFilters ?? {});
   const [sort, setSort] = useState<TableSort | null>(initialSort ?? null);
   const [text, setText] = useState(initialQ);
-  const [saving, setSaving] = useState(false);
-  const [newOpen, setNewOpen] = useState(false);
   useTableUrlSync(filters, sort, { q: text || null });
 
   return (
     <PageShell
       title={t(locale, 'peopleLabel')}
       maxWidth="62.5rem"
-      actions={
-        <KebabMenu ariaLabel={t(locale, 'moreActions')}>
-          <button type="button" data-testid="new-person" onClick={() => setNewOpen(true)}>
-            {t(locale, 'newPerson')}
-          </button>
-        </KebabMenu>
-      }
+      actions={<NewPersonButton partners={partners} />}
     >
-      {/* Any login can create a Person; a Person needs no login of their own
-          (partner-side contacts are the normal case). */}
-      <OverlayDialog open={newOpen} onClose={() => setNewOpen(false)} width="30rem"
-        title={t(locale, 'newPerson')} closeLabel={t(locale, 'close')}>
-        <form
-          action={async (formData) => {
-            setSaving(true);
-            // createPerson redirects to the new profile on success.
-            try { await createPerson(formData); } finally { setSaving(false); }
-          }}
-          className={dash.dialogForm}
-        >
-          <div className={dash.textInputGroup}>
-            <label htmlFor="npName" className={dash.formLabel}>{t(locale, 'nameLabel')}</label>
-            <input id="npName" type="text" name="name" required className={dash.textInput} />
-          </div>
-          <div className={dash.textInputGroup}>
-            <label htmlFor="npEmail" className={dash.formLabel}>{t(locale, 'emailHeader')}</label>
-            <input id="npEmail" type="email" name="email" required className={dash.textInput} />
-          </div>
-          <div className={dash.textInputGroup}>
-            <label htmlFor="npPartner" className={dash.formLabel}>{t(locale, 'newOrganization')}</label>
-            <select id="npPartner" name="partnerId" required className={dash.textInput} defaultValue="">
-              <option value="">{t(locale, 'selectPartner')}</option>
-              {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-          <div className={dash.textInputGroup}>
-            <label htmlFor="npRole" className={dash.formLabel}>{t(locale, 'roleTitle')}</label>
-            <input id="npRole" type="text" name="role" placeholder={t(locale, 'roleTitlePlaceholder')} className={dash.textInput} />
-          </div>
-          <div className={dash.actionRow}>
-            <button type="button" onClick={() => setNewOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
-            <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'save')}</button>
-          </div>
-        </form>
-      </OverlayDialog>
-
       <section className={styles.tableSection}>
         <DataTable
             headers={[

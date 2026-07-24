@@ -7,7 +7,6 @@ import Link from 'next/link';
 import DataTable from '../../components/DataTable';
 import ClassBox from '../../components/ClassBox';
 import { NewPartnerButton } from '../../components/PartnerEditor';
-import KebabMenu from '../../components/KebabMenu';
 import PageShell from '../../components/PageShell';
 import { RelationshipCell } from '../../components/RelationshipScale';
 import { parseScore, clampScore, REL_KEY } from '../../lib/relationship';
@@ -134,11 +133,7 @@ export default function PartnersClient({ partners, currentUser, people, relation
     <PageShell
       title={t(locale, 'partnersLabel')}
       maxWidth="62.5rem"
-      actions={
-        <KebabMenu ariaLabel={t(locale, 'moreActions')}>
-          <NewPartnerButton types={types} regions={regions} />
-        </KebabMenu>
-      }
+      actions={<NewPartnerButton types={types} regions={regions} />}
     >
         {/* Partners table list. The key-column filter box, the "My partners" scope
             toggle, and the one "× Clear filters" reset all live in DataTable's own

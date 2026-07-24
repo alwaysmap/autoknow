@@ -133,6 +133,20 @@
   margin: 0 0 0.625rem 0;
 }
 
+/* The People card's heading shares its row with a ⋯ create menu. The row carries the
+   card's title-to-content spacing so the h3 can drop its own bottom margin — a
+   margin-bottom on a flex item offsets the line and would float the label above the
+   kebab. The affordance clusters right of the title (design.md §8c), not far-right. */
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.625rem;
+}
+.cardHeader h3 {
+  margin: 0;
+}
+
 /* The human-written one-liner about the partner (edit dialog), NOT the AI briefing. */
 .summaryText {
   font-size: 0.8125rem;

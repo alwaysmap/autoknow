@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { movePersonCompany, copyPerson, deletePerson } from '../app/actions/people';
+import { createPerson, movePersonCompany, copyPerson, deletePerson } from '../app/actions/people';
 import { addPhasePerson } from '../app/actions/phasePeople';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
@@ -190,5 +190,74 @@ export default function PersonAdminControls({ personId, personName, partners, pr
         </form>
       </OverlayDialog>
     </span>
+  );
+}
+
+/** "New person" ⋯ menu + create dialog, self-contained (own KebabMenu, like the
+ *  PersonAdminControls/PartnerAdminControls above) and shared by the /people list header
+ *  and the partner page's People card — so the two never drift into hand-rolled variants.
+ *  The create action lives in app/actions/people.ts precisely so this client dialog can
+ *  call it. `defaultPartnerId` pre-selects the organization: a partner page passes its own
+ *  id so the new contact lands on THAT partner — the same "create from context" the
+ *  Programs section uses (a program's partner is pre-filled from /programs/new?partnerId=).
+ *
+ *  The dialog is a SIBLING of the KebabMenu, never a child: a `<dialog>` nested inside the
+ *  menu panel is styled by the menu's row rules (`.menu > *`, `.menu button` — the
+ *  full-width-row grammar), which corrupts the form. Keeping it outside is the pattern
+ *  every other kebab+dialog here already follows. */
+export function NewPersonButton({ partners, defaultPartnerId }: {
+  partners: Option[];
+  defaultPartnerId?: number;
+}) {
+  const locale = useLocale();
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  return (
+    <>
+      {/* Any login can create a Person; a Person needs no login of their own
+          (partner-side contacts are the normal case). */}
+      <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+        <button type="button" data-testid="new-person" onClick={() => setOpen(true)}>
+          {t(locale, 'newPerson')}
+        </button>
+      </KebabMenu>
+      <OverlayDialog open={open} onClose={() => setOpen(false)} width="30rem"
+        title={t(locale, 'newPerson')} closeLabel={t(locale, 'close')}>
+        <form
+          action={async (formData) => {
+            setSaving(true);
+            // createPerson redirects to the new profile on success.
+            try { await createPerson(formData); } finally { setSaving(false); }
+          }}
+          className={dash.dialogForm}
+        >
+          <div className={dash.textInputGroup}>
+            <label htmlFor="npName" className={dash.formLabel}>{t(locale, 'nameLabel')}</label>
+            <input id="npName" type="text" name="name" required className={dash.textInput} />
+          </div>
+          <div className={dash.textInputGroup}>
+            <label htmlFor="npEmail" className={dash.formLabel}>{t(locale, 'emailHeader')}</label>
+            <input id="npEmail" type="email" name="email" required className={dash.textInput} />
+          </div>
+          <div className={dash.textInputGroup}>
+            <label htmlFor="npPartner" className={dash.formLabel}>{t(locale, 'newOrganization')}</label>
+            <select id="npPartner" name="partnerId" required className={dash.textInput}
+              defaultValue={defaultPartnerId ?? ''}>
+              <option value="">{t(locale, 'selectPartner')}</option>
+              {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className={dash.textInputGroup}>
+            <label htmlFor="npRole" className={dash.formLabel}>{t(locale, 'roleTitle')}</label>
+            <input id="npRole" type="text" name="role" placeholder={t(locale, 'roleTitlePlaceholder')} className={dash.textInput} />
+          </div>
+          <div className={dash.actionRow}>
+            <button type="button" onClick={() => setOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
+            <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'save')}</button>
+          </div>
+        </form>
+      </OverlayDialog>
+    </>
   );
 }

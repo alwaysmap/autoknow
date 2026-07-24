@@ -17,6 +17,7 @@ import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import AnchorHeading from '../../../components/AnchorHeading';
 import KebabMenu from '../../../components/KebabMenu';
+import { NewPersonButton } from '../../../components/PersonEditor';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,7 +92,7 @@ export default async function PartnerDetailPage(props: PageProps) {
 
   // Latest relationship state, plus what the edit/delete affordances need to be
   // honest about.
-  const [recentStates, types, regions, employeeCount] = await Promise.all([
+  const [recentStates, types, regions, employeeCount, allPartners] = await Promise.all([
     // Two newest — the header card shows the prior score alongside the current one.
     prisma.partnerState.findMany({
       where: { partnerId: partner.id },
@@ -101,6 +102,8 @@ export default async function PartnerDetailPage(props: PageProps) {
     prisma.partnerType.findMany({ orderBy: { name: 'asc' } }),
     prisma.region.findMany({ orderBy: { name: 'asc' } }),
     prisma.person.count({ where: { currentPartnerId: partner.id } }),
+    // Organizations for the "New person" picker — pre-selected to THIS partner.
+    prisma.partner.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
   ]);
   const latestState = recentStates[0] ?? null;
   const priorState = recentStates[1] ?? null;
@@ -247,7 +250,13 @@ export default async function PartnerDetailPage(props: PageProps) {
           </div>
 
           <div className={styles.sidebarCard}>
-            <h3>{t(locale, 'peopleLabel')}</h3>
+            {/* Create-from-context: the ⋯ opens the shared New-person dialog with THIS
+                partner pre-selected — the People-card analog of the Programs section's
+                "Create Program" (both live on this partner's page). */}
+            <div className={styles.cardHeader}>
+              <h3>{t(locale, 'peopleLabel')}</h3>
+              <NewPersonButton partners={allPartners} defaultPartnerId={partner.id} />
+            </div>
             {googleTeam.length === 0 && partner.personAffiliations.length === 0 ? (
               <p className={styles.empty}>{t(locale, 'noAssociatedPeople')}</p>
             ) : (
