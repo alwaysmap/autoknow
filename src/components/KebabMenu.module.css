@@ -3,11 +3,17 @@
    only the ⋯ button and how children (buttons, forms with buttons) are normalized into
    uniform rows — so callers still need no menu-specific variants.
 
-   THE ROW RULES BELOW MATCH DESCENDANTS, so every one carries `:where(:not(dialog *))`:
-   without it they reach into a `<dialog>` nested in the panel and restyle it as a menu row
-   (#132). `:where()` adds no specificity, so real rows still override callers' skins
+   THE ROW RULES BELOW REACH THROUGH `.menu`, so without a guard they land inside a
+   `<dialog>` nested in the panel and restyle it as a menu row (#132). Every one is
+   therefore guarded, and the SHAPE follows the combinator:
+
+     descendant (`.menu button`)  ->  :where(:not(dialog *))   exclude what's inside a dialog
+     child      (`.menu > *`)     ->  :where(:not(dialog))     exclude the dialog itself
+
+   Using the descendant form on a child rule guards nothing — a dialog is not a descendant
+   of itself. `:where()` adds no specificity, so real rows still override callers' skins
    exactly as before. `tests/kebabMenuDialogIsolation.test.ts` fails if a rule is added
-   unguarded; the incident and the mechanism are in
+   unguarded OR guarded with the wrong shape; the incident and the mechanism are in
    docs/knowledge/menu-row-normalizer-restyles-nested-dialogs.md. */
 
 .trigger {

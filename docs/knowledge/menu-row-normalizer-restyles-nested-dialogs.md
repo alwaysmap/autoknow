@@ -44,7 +44,8 @@ rows still override callers' skins exactly as before, while anything inside a
 dialog is out of reach. `.menu > *` takes the shorter `:where(:not(dialog))`,
 because a child combinator can only ever match the `<dialog>` element itself,
 never something inside it.
-`tests/kebabMenuDialogIsolation.test.ts` fails if a new rule is added unguarded.
+`tests/kebabMenuDialogIsolation.test.ts` fails if a rule is added unguarded, or
+guarded with the wrong shape for its combinator.
 Rendering the dialog as a sibling of the menu is still the better shape where one
 component owns both — it keeps the dialog alive independently of the menu's
 light-dismiss — but it is no longer what holds the *styling* together.
