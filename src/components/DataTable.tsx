@@ -45,7 +45,9 @@ interface DataTableProps<T> {
    *  fixed size overrides the preference, so the control would be a select that cannot
    *  change anything.
    *
-   *  See `paginate` for the not-paged case. */
+   *  No caller sets it today — see `paginate` for the not-paged case, which is what the
+   *  short fixed tables actually needed (#125). Kept as a public knob for a genuinely
+   *  paged listing that wants a size other than the user's preference. */
   pageSize?: number;
   /** `false` declares a table that is NEVER paged: every row renders and the footer is
    *  gone IN FULL — no "Showing {a}-{b} of {c} results", no Prev/Next, no rows-per-page
