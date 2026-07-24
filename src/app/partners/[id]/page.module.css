@@ -76,10 +76,11 @@
   flex-direction: column;
   min-width: 0;
 }
+/* A headed block gets no border-top: the <h2> is the separator, heading +
+   spacing does the work (design.md §7 rule 3). The old rule's margin-top +
+   padding-top are merged into one gap so no padding orphans the removed rule. */
 .colMain > .projectsSection + .projectsSection {
-  margin-top: 1.625rem;
-  border-top: 1px solid var(--border);
-  padding-top: 1.125rem;
+  margin-top: 2.75rem;
 }
 
 .projectsSection h2 {
@@ -115,8 +116,10 @@
 .sidebarCard {
   padding: 0 0 0.25rem;
 }
+/* The People card is headed (its <h3>), so it too gets no rule above it — the
+   heading separates it from the relationship/facts card (design.md §7 rule 3).
+   The card gap (the sidebar's flex `gap`) plus this padding carry the boundary. */
 .sidebarCard + .sidebarCard {
-  border-top: 1px solid var(--border);
   padding-top: 0.875rem;
 }
 

@@ -733,11 +733,12 @@
   outline: none;
 }
 
-/* History Timeline Log Styling */
+/* Every content-column section (chain, phases, activity) is headed by its own
+   <h2>/AnchorHeading, so none carries a border-top: the heading is the separator
+   (design.md §7 rule 3). The old margin-top + padding-top are merged into one
+   gap, which sits on top of the content column's own `gap` between sections. */
 .historySection {
-  margin-top: 1.625rem;
-  border-top: 1px solid var(--border);
-  padding-top: 1.125rem;
+  margin-top: 2.75rem;
 }
 
 .historySection h2 {
