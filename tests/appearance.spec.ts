@@ -131,12 +131,14 @@ test.describe('Appearance: style and theme are independent', () => {
   // different offset in rows of different height.
   test('heading graticules sit ON the text baseline in every style-instrument heading', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('autoknow-style', 'instrument'));
-    await page.goto(`/programs/${seeded.projectId}`);
 
     // The real invariant is the GAP, not the align-self value: `align-self:
-    // baseline` on the graticule silently floated it ~15px high when its row was
-    // align-items:center (no sibling baseline to share). So measure the pixels.
-    const gaps = await page.evaluate(() => {
+    // baseline` on the graticule silently floats it high when the ::after trails a
+    // multi-line BLOCK instead of the title LINE — ~15px on a section h2 whose row is
+    // align-items:center, and again on the partner/person detail headers, whose tick
+    // used to hang off the whole identity block (title + subtitle) rather than the h1.
+    // So measure the pixels, on every page shape that renders a page-title graticule.
+    const measureGaps = () => page.evaluate(() => {
       const rows = [
         document.querySelector('[class*="titleRow"]'),
         ...document.querySelectorAll('[class*="AnchorHeading"][class*="row"]'),
@@ -161,9 +163,21 @@ test.describe('Appearance: style and theme are independent', () => {
       }).filter((g): g is number => g !== null);
     });
 
-    expect(gaps.length).toBeGreaterThan(1); // a title AND some h2s
-    // Every graticule's bottom lands on the heading baseline (sub-pixel tolerance).
-    for (const gap of gaps) expect(Math.abs(gap)).toBeLessThan(1);
+    // Three header shapes: the program page (ProjectMetaHeader), the partner page
+    // (a title LINE + a classification subtitle below it) and the person page (an
+    // avatar beside a title LINE + identity meta). The last two hand-roll their
+    // header, and both hung the tick off the whole block until this was fixed.
+    for (const url of [
+      `/programs/${seeded.projectId}`,
+      `/partners/${seeded.oemId}`,
+      `/people/${seeded.personId}`,
+    ]) {
+      await page.goto(url);
+      const gaps = await measureGaps();
+      expect(gaps.length, `${url}: a title AND some h2s carry the graticule`).toBeGreaterThan(1);
+      // Every graticule's bottom lands on the heading baseline (sub-pixel tolerance).
+      for (const gap of gaps) expect(Math.abs(gap), `${url}: graticule off the baseline`).toBeLessThan(1);
+    }
   });
 
   // The LEADING gap: from the last visible INK of a heading/title (or its trailing ⋯/ⓘ

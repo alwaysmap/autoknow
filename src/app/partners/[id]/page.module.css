@@ -10,15 +10,13 @@
   font-family: var(--body-font);
 }
 
+/* §7: the page header is a stacked block — one title LINE, then the subtitle
+   below it — not a flex row wrapping both. The graticule (below) trails the
+   title LINE, so the title must be its own row for the tick-rule to rest on the
+   h1 baseline rather than float against the two-line identity block. */
 .header {
   border-bottom: 1px solid var(--border);
   padding: 0.875rem 0 0.75rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  /* the graticule reads this back so its lead nets to the token (#25). */
-  --gr-gap: 1rem;
-  gap: var(--gr-gap);
 }
 
 .header h1 {
@@ -28,11 +26,16 @@
   margin: 0;
 }
 
-/* name + its kebab admin menu, program-page grammar */
+/* The title LINE: name + its kebab admin menu, then the graticule to the end of
+   the line (§8c). width:100% so the tick-rule spans the column; baseline so it
+   rests on the h1's text baseline whatever the kebab's height. */
 .titleRow {
   display: flex;
   align-items: baseline;
-  gap: 0.25rem;
+  width: 100%;
+  /* the graticule reads this back so its lead nets to the token (#25). */
+  --gr-gap: 0.25rem;
+  gap: var(--gr-gap);
 }
 
 .partnerType {
@@ -250,7 +253,7 @@
   border-bottom-color: transparent;
 }
 
-:global(:root[data-style='instrument']) .header::after {
+:global(:root[data-style='instrument']) .titleRow::after {
   content: '';
   flex: 1 1 var(--graticule-min-width);
   min-width: var(--graticule-min-width);
@@ -259,10 +262,8 @@
      height (a pseudo-element's synthesized baseline is its bottom edge). */
   align-self: baseline;
   height: var(--graticule-height);
-  /* seen lead = --graticule-lead, netting the header's flex gap (#25). NOTE: this
-     ::after trails the whole identity BLOCK, not the h1 line — the block-trailing +
-     baseline-float case the issue flagged for a separate pass; the lead is tokenised
-     here, the structural move is not in scope. */
+  /* seen lead = --graticule-lead from the ⋯ menu's INK (KebabMenu pulls it
+     ink-tight in Instrument), netting the title row's flex gap out (#25). */
   margin-left: calc(var(--graticule-lead) - var(--gr-gap));
   background-image: var(--graticule);
   background-repeat: repeat-x;

@@ -13,9 +13,7 @@
   padding: 0.875rem 0 0.75rem;
   display: flex;
   align-items: center;
-  /* the graticule reads this back so its lead nets to the token (#25). */
-  --gr-gap: 0.875rem;
-  gap: var(--gr-gap);
+  gap: 0.875rem; /* avatar ↔ identity column */
 }
 
 .avatar {
@@ -34,7 +32,10 @@
   flex-shrink: 0;
 }
 
+/* Fills the row beside the avatar so the title's graticule (below) can reach the
+   end of the line. */
 .profileInfo {
+  flex: 1;
   min-width: 0;
 }
 
@@ -45,10 +46,17 @@
   margin: 0;
 }
 
+/* The title LINE: name + its kebab admin menu, then the graticule to the end of
+   the line (§8c). width:100% so the tick-rule spans the column; baseline so it
+   rests on the h1's text baseline rather than floating against the avatar+meta
+   block beside it. */
 .titleRow {
   display: flex;
   align-items: baseline;
-  gap: 0.25rem;
+  width: 100%;
+  /* the graticule reads this back so its lead nets to the token (#25). */
+  --gr-gap: 0.25rem;
+  gap: var(--gr-gap);
 }
 
 .identLine {
@@ -220,7 +228,7 @@
   border-bottom-color: transparent;
 }
 
-:global(:root[data-style='instrument']) .header::after {
+:global(:root[data-style='instrument']) .titleRow::after {
   content: '';
   flex: 1 1 var(--graticule-min-width);
   min-width: var(--graticule-min-width);
@@ -229,10 +237,8 @@
      height (a pseudo-element's synthesized baseline is its bottom edge). */
   align-self: baseline;
   height: var(--graticule-height);
-  /* seen lead = --graticule-lead, netting the header's flex gap (#25). NOTE: like the
-     partner header, this ::after trails the avatar+name+meta BLOCK, not the h1 line —
-     the block-trailing + baseline-float case flagged for a separate pass; lead is
-     tokenised here, the structural move is not in scope. */
+  /* seen lead = --graticule-lead from the ⋯ menu's INK (KebabMenu pulls it
+     ink-tight in Instrument), netting the title row's flex gap out (#25). */
   margin-left: calc(var(--graticule-lead) - var(--gr-gap));
   background-image: var(--graticule);
   background-repeat: repeat-x;
