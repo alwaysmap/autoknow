@@ -1,7 +1,14 @@
 /* Quiet ⋯ trigger + the menu-row grammar, matching PhaseTrack's title menu. The panel's
    placement, chrome and light-dismiss now come from AnchoredPopover (#24); this file owns
    only the ⋯ button and how children (buttons, forms with buttons) are normalized into
-   uniform rows — so callers still need no menu-specific variants. */
+   uniform rows — so callers still need no menu-specific variants.
+
+   THE ROW RULES BELOW MATCH DESCENDANTS. A caller that pairs a menu item with a modal
+   must therefore render its `<dialog>` as a SIBLING of KebabMenu, never a child: a dialog
+   nested in the panel is styled as a menu row too (width forced to 100%, its buttons
+   stacked full-width), and which of the tied width rules wins is CSS-load-order-dependent
+   — correct on one page, broken on another. Every kebab+dialog here (PartnerAdminControls,
+   PersonAdminControls, New{Partner,Person}Button) keeps the dialog outside the menu. */
 
 .trigger {
   display: inline-flex;

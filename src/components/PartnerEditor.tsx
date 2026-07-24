@@ -97,12 +97,8 @@ export function NewPartnerButton({ types, regions }: { types: Option[]; regions:
   };
   const errorLine = error && <p role="alert" className={admin.warningText}>{error}</p>;
 
-  // Self-contained ⋯ menu + dialog: the dialog is a SIBLING of the KebabMenu, never a
-  // child. A `<dialog>` nested inside the menu panel is caught by the menu's row rules
-  // (`.menu > *`, `.menu button`), which corrupt the form's width and buttons — and which
-  // of the tied rules wins is CSS source-order-dependent, so it renders correctly on one
-  // page and broken on another. Keeping the dialog outside the menu is the pattern every
-  // other kebab+dialog here follows (PartnerAdminControls above, PersonAdminControls).
+  // Self-contained ⋯ menu with the dialog as a SIBLING of the KebabMenu, never a child
+  // (KebabMenu.module.css explains why a nested dialog gets corrupted by the row rules).
   return (
     <>
       <KebabMenu ariaLabel={t(locale, 'moreActions')}>

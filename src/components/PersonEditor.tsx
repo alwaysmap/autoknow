@@ -201,10 +201,8 @@ export default function PersonAdminControls({ personId, personName, partners, pr
  *  id so the new contact lands on THAT partner — the same "create from context" the
  *  Programs section uses (a program's partner is pre-filled from /programs/new?partnerId=).
  *
- *  The dialog is a SIBLING of the KebabMenu, never a child: a `<dialog>` nested inside the
- *  menu panel is styled by the menu's row rules (`.menu > *`, `.menu button` — the
- *  full-width-row grammar), which corrupts the form. Keeping it outside is the pattern
- *  every other kebab+dialog here already follows. */
+ *  The dialog is a SIBLING of the KebabMenu, never a child (KebabMenu.module.css explains
+ *  why a nested dialog gets corrupted by the menu's row rules). */
 export function NewPersonButton({ partners, defaultPartnerId }: {
   partners: Option[];
   defaultPartnerId?: number;

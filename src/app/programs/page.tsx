@@ -128,7 +128,7 @@ export default async function ProgramsPage(props: {
     <PageShell
       title={t(locale, 'navPrograms')}
       actions={
-        // The list had no create affordance (#—): a ⋯ menu beside the title, matching
+        // The list had no create affordance: a ⋯ menu beside the title, matching
         // /partners and /people. The item is a real link to the existing full-page
         // create flow (template DAG + phase graph) — "everything is a URL" (design.md).
         <KebabMenu ariaLabel={t(locale, 'moreActions')}>
