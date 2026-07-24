@@ -1415,10 +1415,10 @@ const STRINGS = {
   },
   // Overruns against a phase's OWN estimate. "Where the buffer went" has always
   // reported these as history; nothing ever asked anyone to DO something about
-  // them. The measure is a PERCENTAGE of the estimate, not days: 5 days over a
-  // 10-day phase and 5 days over a 200-day one are different programs, and the
-  // ledger reported both as "5 days".
-  clOverrunFocus: {
+  // them. The measure is a percentage rather than days — see SEVERE_OVERRUN_PCT
+  // in lib/chainLedger for why, and for the threshold that picks clOverrunSevere
+  // over clOverrunActive.
+  clOverrunSevere: {
     en: '{phase} is {pct}% past its {p}-day estimate, with {r} days of work still left. Exploit the constraint: root-cause the overrun and clear what is holding the phase up, or re-estimate it if the plan was optimistic.',
     de: '{phase} liegt {pct} % über der {p}-Tage-Schätzung, bei {r} Tagen Restarbeit. Den Engpass ausschöpfen: Ursache der Überschreitung finden und die Blockade beseitigen — oder die Phase neu schätzen, falls der Plan zu optimistisch war.',
     ja: '{phase}は{p}日の見積もりを{pct}%超過し、残作業は{r}日です。制約を徹底活用しましょう — 超過の原因を突き止めて滞りを解消するか、計画が楽観的だったなら見積もりを修正してください。',

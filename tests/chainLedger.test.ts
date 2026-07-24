@@ -4,6 +4,7 @@ import {
   isForecastOver,
   FORECAST_NOISE_DAYS,
   SEVERE_OVERRUN_PCT,
+  isSevereOverrun,
   type LedgerPhaseInput,
   type ChainLedgerInput,
 } from '../src/lib/chainLedger';
@@ -298,8 +299,8 @@ describe('overrun severity and the immediate focus', () => {
       now: day(30),
     });
     // P1: elapsed 30 + rem 20 − 40 = 10 → 25%. P2: 30 + 28 − 40 = 18 → 45%.
-    expect(r.immediateFocus).toMatchObject({
-      phaseId: 2, phaseName: 'P2', days: 18, overPct: 45, plannedDays: 40, count: 2,
+    expect(r.immediateFocus).toEqual({
+      phaseId: 2, phaseName: 'P2', overPct: 45, remainingDays: 28, count: 2,
     });
     expect(r.bufferDays).toBeGreaterThan(0);
     expect(r.register).toBe('act');               // a healthy buffer does not silence it
@@ -330,8 +331,10 @@ describe('overrun severity and the immediate focus', () => {
     expect(r.immediateFocus).toBeNull();
   });
 
-  it('reports the threshold it applies', () => {
+  it('exposes the one predicate both the bullet copy and the flag choose from', () => {
     expect(SEVERE_OVERRUN_PCT).toBe(10);
+    expect(isSevereOverrun({ overPct: 9 })).toBe(false);
+    expect(isSevereOverrun({ overPct: 10 })).toBe(true);   // at the threshold, not past it
   });
 });
 

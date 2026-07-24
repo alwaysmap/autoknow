@@ -95,18 +95,18 @@ export type Situation =
 export type Register = 'none' | 'plan' | 'act';
 
 /**
- * The one phase a program should drop everything for: still running, and far
- * enough past its OWN estimate that the estimate is no longer describing it.
+ * The one phase a program should drop everything for: still running, and past its
+ * OWN estimate by SEVERE_OVERRUN_PCT or more. Deliberately only what the header
+ * line renders — anything more is a hand copy of the forecastOverrun packet, free
+ * to drift from it field by field, and `situations` already carries the original.
  * `count` is how many phases qualify, so the flag can say "and 1 other" rather
  * than naming only the worst and implying it is alone.
  */
 export interface ImmediateFocus {
   phaseId: number;
   phaseName: string;
-  days: number; // days past the estimate
-  overPct: number; // those days as a share of the estimate
+  overPct: number; // days past the estimate, as a share of the estimate
   remainingDays: number;
-  plannedDays: number;
   count: number; // phases at or over SEVERE_OVERRUN_PCT, this one included
 }
 
@@ -124,7 +124,7 @@ export interface ChainLedgerResult {
   trend: { atMs: number; bufferDays: number }[];
   waterfall: WaterfallRow[];
   situations: Situation[];
-  /** The worst live overrun once it passes SEVERE_OVERRUN_PCT; null below that. */
+  /** The worst live overrun at or over SEVERE_OVERRUN_PCT; null below that. */
   immediateFocus: ImmediateFocus | null;
   register: Register;
 }
@@ -147,16 +147,26 @@ export const isForecastOver = (r: Pick<ScheduleRow, 'kind' | 'varianceDays'>): b
   r.kind === 'active' && r.varianceDays >= FORECAST_NOISE_DAYS;
 
 /**
- * Past its estimate by this share of the estimate, a running phase stops being a
- * line item and becomes the program's constraint: at +10% the estimate is still
- * roughly describing the work, and beyond it, it isn't. Days alone can't carry
- * this call — 5 days over a 10-day phase is a different program than 5 days over
- * a 200-day one, and the ledger reported both as "5 days".
+ * At or past this share of its own estimate, a running phase stops being a line
+ * item and becomes the program's constraint: below it the estimate is still
+ * roughly describing the work, and at it, it isn't. Days alone can't carry this
+ * call — 5 days over a 10-day phase is a different program than 5 days over a
+ * 200-day one, and the ledger reported both as "5 days".
  */
 export const SEVERE_OVERRUN_PCT = 10;
 
-/** Days past the estimate as a share of it. A phase with no estimate has no
- *  percentage — there is nothing for the overrun to be a share OF. */
+/** Is this overrun past the point of being a line item? Exported for the same
+ *  reason as isForecastOver: the bullet copy and the program-level flag choose
+ *  from ONE predicate, so they can never disagree about which phases are severe. */
+export const isSevereOverrun = (s: Pick<Extract<Situation, { type: 'forecastOverrun' }>, 'overPct'>): boolean =>
+  s.overPct >= SEVERE_OVERRUN_PCT;
+
+/** Days past the estimate as a share of it. A phase with NO estimate has no
+ *  percentage — there is nothing for the overrun to be a share OF — and this
+ *  returns 0 for it, which is indistinguishable from "exactly on estimate". So
+ *  callers that render a percentage must exclude those phases themselves; see the
+ *  `plannedDays > 0` filters in ChainLedger.tsx. (The mutation boundary demands a
+ *  positive duration, so a zero here is legacy data.) */
 const overPctOf = (overDays: number, plannedDays: number): number =>
   plannedDays > 0 ? round((overDays * 100) / plannedDays) : 0;
 
@@ -355,22 +365,20 @@ export function computeChainLedger(input: ChainLedgerInput): ChainLedgerResult {
 
   // ---- the immediate focus: a RUNNING phase whose estimate no longer describes it ----
   // Only active phases qualify. A finished overrun is history — it earns a re-plan of
-  // what is still ahead (a next step), not an all-hands — whereas a phase that is
-  // half again as long as planned AND still going is the constraint today, however
-  // much buffer the program happens to be sitting on. Sorted worst-first so the flag
-  // names the phase to walk into, and carries the count so it never implies the
-  // named one is alone.
+  // what is still ahead (a next step), not an all-hands — whereas a phase already
+  // SEVERE_OVERRUN_PCT past what we said, and still going, is the constraint today,
+  // however much buffer the program happens to be sitting on. Sorted worst-first so
+  // the flag names the phase to walk into, and carries the count so it never implies
+  // the named one is alone.
   const severe = situations
     .filter((s): s is Extract<Situation, { type: 'forecastOverrun' }> =>
-      s.type === 'forecastOverrun' && s.overPct >= SEVERE_OVERRUN_PCT)
+      s.type === 'forecastOverrun' && isSevereOverrun(s))
     .sort((a, b) => b.overPct - a.overPct || b.days - a.days);
   const immediateFocus: ImmediateFocus | null = severe.length === 0 ? null : {
     phaseId: severe[0].phaseId,
     phaseName: byId.get(severe[0].phaseId)!.name,
-    days: severe[0].days,
     overPct: severe[0].overPct,
     remainingDays: severe[0].remainingDays,
-    plannedDays: severe[0].plannedDays,
     count: severe.length,
   };
 
@@ -393,7 +401,7 @@ export function computeChainLedger(input: ChainLedgerInput): ChainLedgerResult {
   // Judgment register: intervene when the SOP is overshot or a running phase has left
   // its estimate behind; keep a plan ready when the reserve is thinner than the 50%
   // guideline or a week+ of buffer went in four weeks. The overrun test does not need
-  // a SOP — "this phase is taking half again as long as we said" is judgeable against
+  // a SOP — "this phase is already 10%+ past what we said" is judgeable against
   // the phase's own estimate — and it outranks a healthy buffer, because a buffer only
   // says the damage hasn't reached the SOP YET.
   const register: Register =

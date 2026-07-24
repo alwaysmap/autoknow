@@ -11,7 +11,8 @@ import OverlayDialog from './OverlayDialog';
 import ConstraintRing from './ConstraintRing';
 import { ChainSchedule, CARD_W } from './ChainSchedule';
 import type { RowCard } from './ChainSchedule';
-import { isForecastOver, SEVERE_OVERRUN_PCT } from '../lib/chainLedger';
+import { isForecastOver, isSevereOverrun } from '../lib/chainLedger';
+import { phasesEditHref } from '../lib/phase';
 import type { ChainLedgerResult, ResourceRef, ScheduleRow, Situation, WaterfallRow } from '../lib/chainLedger';
 import styles from './ChainLedger.module.css';
 
@@ -150,7 +151,7 @@ export default function ChainLedger({
   // on the last overrun bullet: repeated on every bullet it stops reading as an
   // affordance and starts reading as punctuation.
   const overrunSteps: React.ReactNode[] = liveOverruns.map((o) =>
-    tNodes(locale, o.overPct >= SEVERE_OVERRUN_PCT ? 'clOverrunFocus' : 'clOverrunActive', {
+    tNodes(locale, isSevereOverrun(o) ? 'clOverrunSevere' : 'clOverrunActive', {
       phase: phaseBtn(o.phaseId), pct: o.overPct, d: o.days, p: o.plannedDays, r: o.remainingDays,
     }));
   if (sunkOverruns.length > 0) {
@@ -163,19 +164,15 @@ export default function ChainLedger({
             tNodes(locale, 'clOverrunSunkItem', { phase: phaseBtn(s.phaseId), pct: s.overPct }))),
         }));
   }
-  for (const [i, step] of overrunSteps.entries()) {
-    nextSteps.push(
+  const lastOverrun = overrunSteps.length - 1;
+  overrunSteps.forEach((step, i) => nextSteps.push(
+    i < lastOverrun ? step : (
       <>
-        {step}
-        {i === overrunSteps.length - 1 && (
-          <>
-            {' '}
-            <Link href={`/programs/${projectId}/phases`} className={styles.entityLink}>{t(locale, 'editPhases')}</Link>
-          </>
-        )}
-      </>,
-    );
-  }
+        {step}{' '}
+        <Link href={phasesEditHref(projectId)} className={styles.entityLink}>{t(locale, 'editPhases')}</Link>
+      </>
+    ),
+  ));
 
   // who the chain is waiting on, and whose slack can move. When the NEXT phase is
   // also the oversubscribed one, its staffing clause rides on this bullet rather
@@ -480,7 +477,7 @@ export default function ChainLedger({
       {ledger.rebaselineSuggested && (
         <p className={styles.rebaseline}>
           {t(locale, 'clRebaseline')}{' '}
-          <Link href={`/programs/${projectId}/phases`}>{t(locale, 'editPhases')}</Link>
+          <Link href={phasesEditHref(projectId)}>{t(locale, 'editPhases')}</Link>
         </p>
       )}
 

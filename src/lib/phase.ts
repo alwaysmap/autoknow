@@ -87,6 +87,12 @@ export const phaseDetailHash = (phaseId: number): string => `phase-${phaseId}-de
 export const phaseDetailHref = (projectId: number, phaseId: number): string =>
   `/programs/${projectId}#${phaseDetailHash(phaseId)}`;
 
+/** Where a phase's plan is EDITED — durations, dependencies, add/remove. Distinct
+ *  from phaseDetailHref, which opens one phase's record to READ. Owned here for the
+ *  same reason as the rest of this family: it was hand-built at four call sites, and
+ *  a URL in this app is data as well as code (AGENTS lesson 15). */
+export const phasesEditHref = (projectId: number): string => `/programs/${projectId}/phases`;
+
 /** Phase id out of a `#phase-:id-detail` fragment (with or without the `#`), or null. */
 export const parsePhaseDetailHash = (hash: string): number | null => {
   const m = /^#?phase-(\d+)-detail$/.exec(hash);

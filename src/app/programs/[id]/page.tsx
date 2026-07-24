@@ -286,6 +286,12 @@ export default async function ProjectDetailsPage(props: {
   // mention links like every other person on the page (design.md §2).
   const ownerPerson = resolvePerson(allPeople, project.ownerName);
 
+  // The program-level overrun flag (rendered in the header below). `count` includes
+  // the named phase, so the copy's subject — how many OTHERS are also over — is
+  // named once here rather than re-derived at each of its three uses.
+  const focus = ledger.immediateFocus;
+  const otherOverruns = focus ? focus.count - 1 : 0;
+
   // Identify the OEM for the project (heuristic name match; see lib/associations).
   const matchedOem = findPartnerInText(oems, project.name);
   const oemPartner = matchedOem || (project.partner.type?.name === 'OEM' ? project.partner : null);
@@ -362,23 +368,16 @@ export default async function ProjectDetailsPage(props: {
             and every chart, rather than after scrolling into the chain section —
             where it previously appeared only as history in "Where the buffer went".
             One line, no box: label · fact · reaction (design.md §1, §7). */}
-        {ledger.immediateFocus && (
+        {focus && (
           <p className={styles.focus} data-testid="program-focus">
             <span className={styles.focusLabel}>{t(locale, 'clFocusLabel')}</span>
             {tNodes(locale, 'clFocusPhase', {
-              phase: (
-                <Link href={phaseDetailHref(projectId, ledger.immediateFocus.phaseId)}>
-                  {ledger.immediateFocus.phaseName}
-                </Link>
-              ),
-              pct: ledger.immediateFocus.overPct,
-              r: ledger.immediateFocus.remainingDays,
+              phase: <Link href={phaseDetailHref(projectId, focus.phaseId)}>{focus.phaseName}</Link>,
+              pct: focus.overPct,
+              r: focus.remainingDays,
             })}{' '}
-            {ledger.immediateFocus.count > 1 && (
-              <>
-                {t(locale, ledger.immediateFocus.count === 2 ? 'clFocusAlsoOne' : 'clFocusAlso',
-                  { n: ledger.immediateFocus.count - 1 })}{' '}
-              </>
+            {otherOverruns > 0 && (
+              <>{t(locale, otherOverruns === 1 ? 'clFocusAlsoOne' : 'clFocusAlso', { n: otherOverruns })}{' '}</>
             )}
             {t(locale, 'clFocusExploit')}
           </p>
