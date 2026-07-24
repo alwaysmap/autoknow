@@ -3,12 +3,21 @@
    only the ⋯ button and how children (buttons, forms with buttons) are normalized into
    uniform rows — so callers still need no menu-specific variants.
 
-   THE ROW RULES BELOW MATCH DESCENDANTS. A caller that pairs a menu item with a modal
-   must therefore render its `<dialog>` as a SIBLING of KebabMenu, never a child: a dialog
-   nested in the panel is styled as a menu row too (width forced to 100%, its buttons
-   stacked full-width), and which of the tied width rules wins is CSS-load-order-dependent
-   — correct on one page, broken on another. Every kebab+dialog here (PartnerAdminControls,
-   PersonAdminControls, New{Partner,Person}Button) keeps the dialog outside the menu. */
+   THE ROW RULES BELOW MATCH DESCENDANTS, so they used to reach INTO a `<dialog>` nested in
+   the panel and restyle it as a menu row — width forced to 100%, its buttons stacked
+   full-width and stripped of their skins. This file asked callers to render the dialog as
+   a SIBLING of KebabMenu instead, and that prose contract failed exactly as a prose
+   contract does: ProjectAdminControls nested one, and the delete-program dialog shipped
+   with a chromeless stacked footer whose Cancel only appeared on hover (#132). Prose can't
+   gate anything (AGENTS lesson 2), so every row rule now carries
+   `:where(:not(dialog *))` — a nested dialog is structurally out of reach, and
+   `:where()` adds no specificity, so real menu rows still override callers' skins exactly
+   as before. `tests/kebabMenuDialogIsolation.test.ts` pins it.
+
+   Rendering the dialog as a sibling is still the better shape where the caller owns both
+   (PartnerEditor, PersonEditor, New{Partner,Person}Button all do) — it keeps the dialog
+   alive independently of the menu's light-dismiss. It is no longer load-bearing for
+   STYLING, which is what silently broke. */
 
 .trigger {
   display: inline-flex;
@@ -47,7 +56,7 @@
   flex-direction: column;
 }
 
-.menu form {
+.menu form:where(:not(dialog *)) {
   display: block;
   width: 100%;
 }
@@ -55,8 +64,8 @@
 /* Normalize every child action into a menu row (overrides callers' button skins).
    Links (a `<Link>` that navigates to a create/edit route, e.g. programs → /programs/new)
    render as the same row as a button — a menu item may act OR navigate. */
-.menu button,
-.menu a {
+.menu button:where(:not(dialog *)),
+.menu a:where(:not(dialog *)) {
   display: block;
   width: 100%;
   padding: 0.375rem 0.625rem;
@@ -73,18 +82,19 @@
   color: var(--fg);
   cursor: pointer;
 }
-.menu button:hover,
-.menu a:hover {
+.menu button:where(:not(dialog *)):hover,
+.menu a:where(:not(dialog *)):hover {
   background: var(--surface);
   color: var(--fg);
   border: none;
 }
 
-/* Nested wrappers (e.g. admin-control groups) must stack as full-width rows. */
-.menu > * {
+/* Nested wrappers (e.g. admin-control groups) must stack as full-width rows. A `<dialog>`
+   sized by OverlayDialog is not a row and must keep its own width. */
+.menu > *:where(:not(dialog)) {
   width: 100%;
 }
-.menu div {
+.menu div:where(:not(dialog *)) {
   display: flex;
   flex-direction: column;
   align-items: stretch;
