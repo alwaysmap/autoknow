@@ -11,7 +11,7 @@ import styles from './TemplateEditor.module.css';
 // live card-DAG canvas, the editable one) and the program phase editor. It is a thin
 // wrapper over the shared DataTable (#112 moved the phase list onto DataTable; this
 // centralises the columns + row so every surface renders the identical table): frozen
-// pear identity column, one type grammar, sortable headers, all rows on one page.
+// pear identity column, one type grammar, sortable headers, never paged.
 // Columns: Phase (+ derived End tag), optional Lead, Weeks, upstream Depends-on names.
 // A read-only caller omits `onSelect` and gets plain names; the live editor passes it,
 // so a row click selects that node in the diagram — the table and the canvas are two
@@ -45,8 +45,9 @@ export default function PhaseTable({ rows, showLead = false, selectedId = null, 
         { key: 'dependsOn', label: t(locale, 'dependsOn'), sortable: false },
       ]}
       data={rows}
-      // A phase set is a short fixed list: all rows on one page, no rows-per-page control.
-      pageSize={Math.max(rows.length, 1)}
+      // A phase set is a short fixed list — the program's own phases, capped by the plan,
+      // never a page of a larger set (#125).
+      paginate={false}
       renderRow={(r: PhaseTableRow) => {
         const label = r.name || t(locale, 'unnamed');
         const selected = onSelect ? r.id === selectedId : undefined;

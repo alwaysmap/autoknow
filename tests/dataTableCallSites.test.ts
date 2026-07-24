@@ -14,11 +14,9 @@
 // sequencing.
 
 import { readFileSync } from 'node:fs';
-import { sourceFiles } from './helpers/css';
+import { tsxFiles } from './helpers/sourceFiles';
 
 const ROOTS = ['src/app', 'src/components'];
-
-const tsxFiles = (dir: string): string[] => sourceFiles(dir).filter((f) => f.endsWith('.tsx'));
 
 /**
  * Each `<DataTable …>` OPENING TAG in a file, as raw text.

@@ -40,14 +40,14 @@ interface DataTableProps<T> {
   /** Fires on every user sort change — hosts encode it into the URL (design.md §6:
    *  table state is shareable). */
   onSortChange?: (key: string, order: 'asc' | 'desc') => void;
-  /** Explicit FIXED page size. Omit to use the per-user `ROWS_PER_TABLE` preference (#31)
-   *  — the normal case for a browsable listing. It also hides the rows-per-page control,
-   *  and that coupling is deliberate: a fixed size overrides the preference, so the
-   *  control would be a select that cannot change anything.
+  /** Explicit FIXED page size. Omit to use the per-user `ROWS_PER_TABLE` preference (#31).
+   *  SETTING it also hides the rows-per-page control, and that coupling is deliberate: a
+   *  fixed size overrides the preference, so the control would be a select that cannot
+   *  change anything.
    *
-   *  What #125 changed is that this is no longer the only way to say "do not page this
-   *  table" — see `paginate`. `PhaseTable` passes `pageSize={Math.max(rows.length, 1)}`
-   *  for that reason today and moves to `paginate={false}` at step 2. */
+   *  No caller sets it today — see `paginate` for the not-paged case, which is what the
+   *  short fixed tables actually needed (#125). Kept as a public knob for a genuinely
+   *  paged listing that wants a size other than the user's preference. */
   pageSize?: number;
   /** `false` declares a table that is NEVER paged: every row renders and the footer is
    *  gone IN FULL — no "Showing {a}-{b} of {c} results", no Prev/Next, no rows-per-page
@@ -57,8 +57,8 @@ interface DataTableProps<T> {
    *  because its data source caps it — a `LIMIT`, a `MAX_ROWS` top-N — and that cap lives
    *  at the call site, not in the rows. Five rows here might be a strip that will never
    *  exceed eight, or a listing that happens to hold five today and five hundred next
-   *  month; the data looks identical either way, so no inspection of it can tell them
-   *  apart. Only the caller who wrote the cap knows. */
+   *  month; the data looks identical either way, so only the caller who wrote the cap
+   *  can tell them apart. */
   paginate?: boolean;
   emptyStateMessage?: string;
   /** Controlled column filters (key → selected values). Omit for uncontrolled. */

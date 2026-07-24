@@ -35,14 +35,3 @@ export const stripComments = (css: string): string => css.replace(/\/\*[\s\S]*?\
 export const blankComments = (css: string): string =>
   css.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '));
 
-/** Every `.ts`/`.tsx` file under a directory tree, depth-first. The source-scan
- *  ratchets over COMPONENT code (not stylesheets) all needed this walker and each
- *  hand-rolled it; same reasoning as `cssFiles` above. Callers narrow further
- *  (e.g. to `.tsx`, or past an exemption list) themselves. */
-export function sourceFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) return sourceFiles(full);
-    return /\.tsx?$/.test(full) ? [full] : [];
-  });
-}

@@ -14,7 +14,7 @@
 // disguise, which is the one that actually happened, twice.
 
 import { readFileSync } from 'node:fs';
-import { sourceFiles } from './helpers/css';
+import { sourceFiles } from './helpers/sourceFiles';
 
 // Domain nouns that appeared in the fabricated panel — partner/program names from
 // `src/lib/seed.ts` and phase names from `src/lib/builtinTemplates.ts`. NOT "everything
