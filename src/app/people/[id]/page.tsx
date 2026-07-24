@@ -7,8 +7,8 @@ import { phaseColor, phaseDetailHref } from '../../../lib/phase';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
-import { localDate } from '../../../lib/dates';
 import AnchorHeading from '../../../components/AnchorHeading';
+import PersonHistoryTable from './PersonHistoryTable';
 
 export const dynamic = 'force-dynamic';
 
@@ -176,21 +176,17 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
                 return <p className={styles.empty}>{t(locale, 'noPriorCompanies', { c: person.currentPartner.name })}</p>;
               }
               return (
-              <div className={styles.rows}>
-                {prior.map((aff) => {
-                  const startStr = localDate(aff.startDate, locale, { year: 'numeric', month: 'short' });
-                  const endStr = aff.endDate
-                    ? localDate(aff.endDate, locale, { year: 'numeric', month: 'short' })
-                    : t(locale, 'present');
-                  return (
-                    <div key={aff.id} className={styles.row}>
-                      <span className={styles.rowDates}>{startStr} – {endStr}</span>
-                      <Link href={`/partners/${aff.partnerId}`} className={styles.rowCompany}>{aff.partner.name}</Link>
-                      <span className={styles.rowRole}>{aff.role}</span>
-                    </div>
-                  );
-                })}
-              </div>
+                <PersonHistoryTable
+                  locale={locale}
+                  rows={prior.map((aff) => ({
+                    id: aff.id,
+                    partnerId: aff.partnerId,
+                    partnerName: aff.partner.name,
+                    role: aff.role,
+                    startDate: aff.startDate.toISOString(),
+                    endDate: aff.endDate ? aff.endDate.toISOString() : null,
+                  }))}
+                />
               );
             })()}
           </section>

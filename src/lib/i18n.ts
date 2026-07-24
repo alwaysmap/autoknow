@@ -1109,6 +1109,8 @@ const STRINGS = {
   phaseKeyTitle: { en: 'How to read this', de: 'Lesehilfe', ja: 'この図の読み方', ko: '읽는 방법' },
   nameLabel: { en: 'Name', de: 'Name', ja: '名前', ko: '이름' },
   companyLabel: { en: 'Company', de: 'Unternehmen', ja: '会社', ko: '회사' },
+  fromLabel: { en: 'From', de: 'Von', ja: '開始', ko: '시작' },
+  toLabel: { en: 'To', de: 'Bis', ja: '終了', ko: '종료' },
   emailHeader: { en: 'Email', de: 'E-Mail', ja: 'メール', ko: '이메일' },
   historyLabel: { en: 'History', de: 'Historie', ja: '経歴', ko: '이력' },
   newPerson: { en: 'New person', de: 'Neue Person', ja: '担当者を追加', ko: '새 인물' },
