@@ -7,7 +7,7 @@
 //
 // Before this, the footer's only condition was a non-zero row count, and `pageSize`
 // doubled as "hide the rows-per-page control". That is why `PhaseTable` passed
-// `pageSize={rows.length}` — reaching for the only prop that came close — and still
+// `pageSize={Math.max(rows.length, 1)}` — reaching for the only prop that came close — and still
 // painted "Showing 1-5 of 5 results" with a Prev/Next pair disabled on arrival and
 // could never be anything else.
 

@@ -7,20 +7,12 @@
 // in whichever locale someone was writing that day.
 import fs from 'node:fs';
 import path from 'node:path';
+import { tsxFiles } from './helpers/sourceFiles';
 
 const SRC = path.join(__dirname, '..', 'src');
 
 /** Trailing colon / hyphen / en- / em-dash, with or without trailing space. */
 const TRAILING = /[:\-–—]\s*$/;
-
-function walk(dir: string, out: string[] = []): string[] {
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    const p = path.join(dir, e.name);
-    if (e.isDirectory()) walk(p, out);
-    else if (p.endsWith('.tsx')) out.push(p);
-  }
-  return out;
-}
 
 /** Every localized string's EN value, keyed by its i18n key. */
 function englishByKey(): Record<string, string> {
@@ -33,7 +25,7 @@ function englishByKey(): Record<string, string> {
 /** The contents of every <h1>…<h6> and <AnchorHeading> in the component tree. */
 function headingContents(): { file: string; line: number; inner: string }[] {
   const found: { file: string; line: number; inner: string }[] = [];
-  for (const file of walk(SRC)) {
+  for (const file of tsxFiles(SRC)) {
     const txt = fs.readFileSync(file, 'utf8');
     // [\s\S] rather than `.` with the dotAll flag: headings span lines, and the
     // repo's TS target predates that flag.

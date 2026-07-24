@@ -4,17 +4,9 @@
 // anywhere else is exactly the divergence this consolidated (10 sizing rules, 6 close
 // mechanisms, one `height:` that left the history dialog half-empty). This fails if a new
 // one sneaks in, so the next modal can't start from scratch (AGENTS lesson 2).
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-
-function tsxFiles(dir: string, out: string[] = []): string[] {
-  for (const name of readdirSync(dir)) {
-    const p = join(dir, name);
-    if (statSync(p).isDirectory()) tsxFiles(p, out);
-    else if (p.endsWith('.tsx')) out.push(p);
-  }
-  return out;
-}
+import { tsxFiles } from './helpers/sourceFiles';
 
 const FILES = tsxFiles(join(process.cwd(), 'src'));
 const isContainer = (f: string) => f.endsWith('OverlayDialog.tsx');
