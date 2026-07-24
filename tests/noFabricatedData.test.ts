@@ -13,8 +13,8 @@
 // It does NOT try to detect fabrication in general (undecidable). It catches this one
 // disguise, which is the one that actually happened, twice.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { sourceFiles } from './helpers/css';
 
 // Domain nouns that appeared in the fabricated panel — partner/program names from
 // `src/lib/seed.ts` and phase names from `src/lib/builtinTemplates.ts`. NOT "everything
@@ -39,15 +39,7 @@ const EXEMPT = /builtinTemplates|i18n\.ts|app\/admin\/page\.tsx/;
 /** Entries are literal text, so anything regex-special in them must be escaped. */
 const escapeForRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const sourceFiles = (dir: string): string[] => {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) out.push(...sourceFiles(full));
-    else if (/\.tsx?$/.test(full) && !EXEMPT.test(full)) out.push(full);
-  }
-  return out;
-};
+const scannedFiles = (dir: string): string[] => sourceFiles(dir).filter((f) => !EXEMPT.test(f));
 
 /** Source with comments and import lines removed — those may name anything. */
 const code = (file: string): string =>
@@ -61,7 +53,7 @@ describe('no seed entity name is hard-coded into a rendered surface (#129)', () 
   it('finds none in src/app or src/components', () => {
     const hits: string[] = [];
     for (const root of ROOTS) {
-      for (const file of sourceFiles(root)) {
+      for (const file of scannedFiles(root)) {
         const body = code(file);
         for (const name of SEED_ENTITIES) {
           // Quoted or as JSX text — both are the component asserting the value itself.

@@ -9,7 +9,7 @@ applies_to:
 symptoms:
   - a new source-scan test passes immediately and keeps passing when you plant a violation
   - a guard over component props never fires
-verified_by: 'tests/dataTableCallSites.test.ts (mutation-checked by planting the forbidden prop combination); #125'
+verified_by: 'tests/dataTableCallSites.test.ts (mutation-checked by planting the forbidden prop as the LAST prop of a call site); #125'
 ---
 
 # A lazy regex over a JSX opening tag stops at the first arrow function
@@ -27,19 +27,9 @@ proves it if the violation lands in the part of the tag the regex actually
 reached — plant it as the *first* prop and the guard fires, plant it later and it
 does not. That makes a half-broken guard look mutation-tested.
 
-**What to do.** For anything reading component props, walk the source:
-
-```ts
-for (const m of src.matchAll(/<DataTable\b/g)) {
-  let depth = 0;
-  for (let i = m.index!; i < src.length; i++) {
-    const c = src[i];
-    if (c === '{') depth++;
-    else if (c === '}') depth--;
-    else if (c === '>' && depth === 0) { out.push(src.slice(m.index!, i + 1)); break; }
-  }
-}
-```
+**What to do.** For anything reading component props, walk the source and track `{}`
+depth, ending the tag at a `>` seen at depth 0 — `tests/dataTableCallSites.test.ts`
+is the reference implementation.
 
 Then **mutation-check by planting the violation in the LAST prop position**, not
 the first — that is the case the naive regex misses, so it is the only plant that

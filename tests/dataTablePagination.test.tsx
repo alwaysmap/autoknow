@@ -8,7 +8,7 @@
 // Before this, the footer's only condition was a non-zero row count, and `pageSize`
 // doubled as "hide the rows-per-page control". That is why `PhaseTable` passed
 // `pageSize={rows.length}` — reaching for the only prop that came close — and still
-// painted "Showing 1–5 of 5" with a Prev/Next pair that was disabled on arrival and
+// painted "Showing 1-5 of 5 results" with a Prev/Next pair disabled on arrival and
 // could never be anything else.
 
 import React from 'react';
@@ -20,7 +20,7 @@ import DataTable from '../src/components/DataTable';
 type Row = { id: number; name: string };
 const rows: Row[] = Array.from({ length: 5 }, (_, i) => ({ id: i + 1, name: `Row ${i + 1}` }));
 
-const table = (props: { paginate?: boolean; pageSize?: number }) =>
+const renderTable = (props: { paginate?: boolean; pageSize?: number }) =>
   render(
     <LocaleProvider locale="en">
       <DataTable
@@ -47,7 +47,7 @@ const footer = () => ({
 
 describe('DataTable pagination chrome (#125)', () => {
   it('renders every row and NO footer at all when paginate={false}', () => {
-    table({ paginate: false });
+    renderTable({ paginate: false });
 
     for (const r of rows) expect(screen.getByText(r.name)).toBeInTheDocument();
 
@@ -61,7 +61,7 @@ describe('DataTable pagination chrome (#125)', () => {
   it('keeps the full footer by default, even when the data fits one page', () => {
     // Declared, not derived: a browsable listing that omits `paginate` keeps its footer
     // on a single page so the ROWS_PER_TABLE control stays discoverable.
-    table({});
+    renderTable({});
 
     const f = footer();
     expect(f.count).toBeInTheDocument();
@@ -70,13 +70,15 @@ describe('DataTable pagination chrome (#125)', () => {
     expect(f.rowsPerPage).toBeInTheDocument();
   });
 
-  it('lets pageSize set the page size WITHOUT hiding the rows-per-page control', () => {
-    // The old coupling is what sent PhaseTable looking for `paginate`. `pageSize` fixes
-    // the size; suppressing chrome is now `paginate`'s job alone.
-    table({ pageSize: 2 });
+  it('honours pageSize, keeping the footer but not the rows-per-page control', () => {
+    // The control stays coupled to `pageSize` ON PURPOSE: a fixed size overrides the
+    // ROWS_PER_TABLE preference, so the select could not change anything. What #125
+    // changed is that `pageSize` is no longer the only way to say "do not page me".
+    renderTable({ pageSize: 2 });
 
     expect(screen.getByText('Row 1')).toBeInTheDocument();
     expect(screen.queryByText('Row 3')).toBeNull(); // page size honoured
     expect(footer().count).toBeInTheDocument();
+    expect(footer().rowsPerPage).toBeNull();
   });
 });
