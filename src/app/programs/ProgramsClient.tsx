@@ -59,14 +59,6 @@ interface Project {
       hillChartProgress: number | null;
     }[];
   }[];
-  forecast: {
-    remainingPhases: number;
-    sim: {
-      p50: number;
-      p85: number;
-      p95: number;
-    };
-  };
 }
 
 interface Person {

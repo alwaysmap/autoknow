@@ -1,8 +1,8 @@
 /** @jest-environment node */
 // Dashboard loader: cycle times must come from state history without materializing
-// the whole append-only PhaseState table, forecast inputs must derive from progress
-// (the stored status string is legacy and never authoritative), and archived
-// projects stay out of the cycle-time scatter.
+// the whole append-only PhaseState table, archived projects stay out of the
+// cycle-time scatter, and the live-constraint rollup reports phases that are
+// ACTUALLY on a critical chain — never a synthetic stand-in (#129).
 import { testDatabaseUrl } from './helpers/testDatabaseUrl';
 import { prisma, disconnectTestDb } from './helpers/db';
 import { seedProgram, SeededProgram } from './helpers/fixtures';
@@ -63,12 +63,23 @@ afterAll(async () => {
 });
 
 describe('getEcosystemDashboardData', () => {
-  it('derives unstarted phases from progress, not the legacy status string', async () => {
+  it('reports live constraints as real phases of live programs, most-blocking first', async () => {
+    // The panel this feeds used to be five phase names typed into JSX (#129). The
+    // property that makes it honest is that every name here came out of the DB, on a
+    // program that is actually live — so assert provenance, not a fixed list.
     const data = await getEcosystemDashboardData();
-    const program = data.serializedProjects.find((p) => p.id === seeded.projectId)!;
-    // certification (progress 0, status 'Not Started') + the legacy phase
-    // (progress 0, status 'Active WIP') are both unstarted.
-    expect(program.forecast.remainingPhases).toBe(2);
+    const liveIds = new Set(
+      data.serializedProjects.filter((p) => !p.isArchived && p.lifecycle === 'active').map((p) => p.id),
+    );
+    const phaseNames = new Set((await prisma.phase.findMany({ select: { name: true } })).map((p) => p.name));
+
+    for (const c of data.liveConstraints) {
+      expect(phaseNames.has(c.phaseName)).toBe(true);
+      expect(c.programs.length).toBeGreaterThan(0);
+      for (const prog of c.programs) expect(liveIds.has(prog.id)).toBe(true);
+    }
+    const counts = data.liveConstraints.map((c) => c.programs.length);
+    expect([...counts].sort((a, b) => b - a)).toEqual(counts);
   });
 
   it('computes cycle times from first-in-flight to first-complete', async () => {

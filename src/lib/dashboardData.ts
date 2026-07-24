@@ -1,8 +1,8 @@
 import { prisma } from './db';
-import { runMonteCarlo } from './forecast';
 import { percentile } from './stats';
 import { computeCriticalChain } from './criticalChain';
 import { deriveScore } from './relationship';
+import { deriveProgramStatus } from './lifecycle';
 import { buildBusiestResources, type BusiestRow } from './chainLedger';
 import { getProgramLedgers } from './chainLedgerData';
 import type { CycleTimeData, CycleTimeStats } from '../components/CycleTimeScatterPlot';
@@ -35,7 +35,6 @@ export interface DashboardProject {
     name: string;
     states: { status: string; theNeedle: string | null; hillChartProgress: number | null }[];
   }[];
-  forecast: { remainingPhases: number; sim: { p50: number; p85: number; p95: number } };
 }
 
 export interface DashboardPerson {
@@ -44,14 +43,27 @@ export interface DashboardPerson {
   email: string;
 }
 
+/**
+ * A phase that is ON a live critical chain right now — i.e. actually gating an SOP,
+ * which is NOT the same claim as "the phase that historically takes longest"
+ * (ADR forecasts-derive-from-the-real-chain-never-a-synthetic-model). The measure is
+ * how many live programs it is gating; there is no duration here, because the
+ * duration of a phase NAME across programs is a different question again.
+ */
+export interface LiveConstraint {
+  phaseName: string;
+  programs: { id: number; name: string }[];
+}
+
 export interface EcosystemDashboardData {
   serializedProjects: DashboardProject[];
-  p85LeadTime: number;
   people: DashboardPerson[];
   cycleTimeData: CycleTimeData[];
   cycleTimeStats: Record<string, CycleTimeStats>;
   /** Cross-portfolio constraint resources (docs/CRITICAL_CHAIN_VIEW_PLAN.md §4c). */
   busiest: BusiestRow[];
+  /** Which PHASES sit on a live critical chain right now, most-blocking first (#129). */
+  liveConstraints: LiveConstraint[];
 }
 
 /**
@@ -90,14 +102,10 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
     },
   });
 
-  const serializedProjects: DashboardProject[] = projects.map((proj) => {
-    // Unstarted = the dot never left zero. Derived from progress — the stored status
-    // string is legacy and never authoritative (see lib/phase.hillStatus).
-    const unstartedCount = proj.phases.filter(
-      (p) => (p.states[0]?.hillChartProgress ?? 0) <= 0,
-    ).length;
-    const sim = runMonteCarlo(unstartedCount, proj.id);
+  // Filled by the map below: one entry per live program that HAS a constraint.
+  const constraintHits: { phaseName: string; program: { id: number; name: string } }[] = [];
 
+  const serializedProjects: DashboardProject[] = projects.map((proj) => {
     // Remaining chain work (days) — notional phase weeks against the SOP target.
     const chain = computeCriticalChain(
       proj.phases.map((p) => ({
@@ -108,6 +116,16 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
         parentIds: p.dependencies.map((d) => d.dependsOnPhaseId),
       })),
     );
+
+    const constraintPhase = chain.constraintId
+      ? proj.phases.find((p) => p.id === chain.constraintId)
+      : undefined;
+    // `lib/lifecycle` owns "is this program live" — inlining the predicate is exactly
+    // how it drifts per call site (it also classes progress >= 100 as Done, which the
+    // inline version called live).
+    if (constraintPhase && deriveProgramStatus(proj) === 'Active') {
+      constraintHits.push({ phaseName: constraintPhase.name, program: { id: proj.id, name: proj.name } });
+    }
 
     return {
       id: proj.id,
@@ -135,9 +153,22 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
           hillChartProgress: s.hillChartProgress,
         })),
       })),
-      forecast: { remainingPhases: unstartedCount, sim },
     };
   });
+
+  // Group by phase NAME: the same phase recurs across programs under one name, and
+  // "Compliance Testing is gating four SOPs" is the portfolio-level fact. Most-blocking
+  // first. Ties fall back to the project query's order, which is unspecified — the
+  // grouping is a set, so the display does not depend on it.
+  const byPhaseName = new Map<string, { id: number; name: string }[]>();
+  for (const hit of constraintHits) {
+    const seen = byPhaseName.get(hit.phaseName);
+    if (seen) seen.push(hit.program);
+    else byPhaseName.set(hit.phaseName, [hit.program]);
+  }
+  const liveConstraints: LiveConstraint[] = [...byPhaseName.entries()]
+    .map(([phaseName, programs]) => ({ phaseName, programs }))
+    .sort((a, b) => b.programs.length - a.programs.length);
 
   const people = await prisma.person.findMany({
     select: { id: true, name: true, email: true },
@@ -194,10 +225,6 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
     }
   }
 
-  // p85 lead time: 85th percentile of elapsed days across active (unfinished) WIP phases.
-  const activeWipDurations = cycleTimeData.filter((ct) => !ct.isFinished).map((ct) => ct.cycleTimeDays);
-  const p85LeadTime = activeWipDurations.length > 0 ? Math.round(percentile(activeWipDurations, 0.85)) : 14;
-
   // Busiest people and partners: full chain ledgers per live program (buffer +
   // four-week trend from the state-history replay), aggregated per resource.
   const bundles = await getProgramLedgers(Date.now());
@@ -214,5 +241,5 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
     })),
   );
 
-  return { serializedProjects, p85LeadTime, people, cycleTimeData, cycleTimeStats, busiest };
+  return { serializedProjects, liveConstraints, people, cycleTimeData, cycleTimeStats, busiest };
 }

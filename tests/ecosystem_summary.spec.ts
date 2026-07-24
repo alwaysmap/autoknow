@@ -95,10 +95,20 @@ test.describe('Ecosystem Summary Page (Deterministic + AI)', () => {
     await page.fill('input[id="maxProgressSlider"]', '50');
     await expect(page.locator('body')).toContainText('Waymo Generation 6 AAOS');
 
-    // 6. Check Flow Constraint Diagnosis
+    // 6. Flow Constraint Diagnosis reports the LIVE critical chain (#129).
+    //
+    // This block used to assert 'Compliance Testing (Phase 3.1)' and '54 days' — the
+    // five literals typed into the panel's JSX. The test passed for exactly the reason
+    // the panel was broken: both the page and the assertion had the answer hard-coded,
+    // so no amount of e2e could notice the data was never consulted. Assert the SHAPE
+    // instead: a phase this seeded program actually has, the program it gates, and the
+    // badge — all of which move when the data moves.
     await expect(page.locator('body')).toContainText('Flow Constraint Diagnosis');
-    await expect(page.locator('body')).toContainText('Compliance Testing (Phase 3.1)');
-    await expect(page.locator('body')).toContainText('54 days');
+    const diagnosis = page.locator('section', { hasText: 'Flow Constraint Diagnosis' }).first();
+    await expect(diagnosis).toContainText('On a critical chain');
+    await expect(diagnosis).toContainText('gating 1 program');
+    // The only live program in this fixture, so it must be the one being gated.
+    await expect(diagnosis).toContainText('Waymo Generation 6 AAOS');
 
     // 7. The program table names the program; the ingested digest itself lives in
     // the feeds now (the pseudo-synthesis block is retired).

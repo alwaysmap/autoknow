@@ -35,7 +35,10 @@ export async function updatePhaseHill(formData: FormData) {
       phaseId,
       status,
       // Health lives on the program needle; carry the phase's last value for continuity.
-      theNeedle: latest?.theNeedle ?? 'On Track',
+      // No prior value stays NULL — the column is nullable, and defaulting to 'On Track'
+      // PERSISTED a health judgement nobody made (#129). A continuity carry has nothing
+      // to carry on the first update, and that is not the same as "healthy".
+      theNeedle: latest?.theNeedle ?? null,
       hillChartProgress: progress,
       notes,
       source,

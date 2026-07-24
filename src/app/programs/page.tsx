@@ -1,5 +1,4 @@
 import { prisma } from '../../lib/db';
-import { runMonteCarlo } from '../../lib/forecast';
 import { computeCriticalChain } from '../../lib/criticalChain';
 import { sopBufferCategory } from '../../lib/sop';
 import { getLocale } from '../../lib/locale';
@@ -52,14 +51,8 @@ export default async function ProgramsPage(props: {
   const now = Date.now();
 
   const serializedProjects = projects.map(proj => {
-    const unstartedCount = proj.phases.filter(p =>
-      p.states[0]?.status === 'Not Started' || !p.states[0]
-    ).length;
-    const sim = runMonteCarlo(unstartedCount, proj.id);
-
-    // Deterministic critical-chain buffer (NOT the Monte Carlo sim): remaining chain
-    // days vs the SOP target is THE on-track signal, and it drives the SOP-outlook
-    // column + the ecosystem "SOP at risk" tile's deep link.
+    // Remaining chain days vs the SOP target is THE on-track signal, and it drives the
+    // SOP-outlook column + the ecosystem "SOP at risk" tile's deep link.
     const chain = computeCriticalChain(
       proj.phases.map((p) => ({
         id: p.id,
@@ -106,10 +99,6 @@ export default async function ProgramsPage(props: {
           hillChartProgress: s.hillChartProgress
         }))
       })),
-      forecast: {
-        remainingPhases: unstartedCount,
-        sim
-      }
     };
   });
 

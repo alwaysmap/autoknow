@@ -63,3 +63,4 @@ skill routes between them.
 | 2026-07-23 | [Ingestion health is a serverless signal, not a growing table](2026-07-23-ingestion-health-is-a-serverless-signal-not-a-growing-table.md) | accepted | ingestion, infra, cost, observability, scaling |
 | 2026-07-23 | [Converge the hill charts on one drawing, two roles, and the Basecamp snapshot card](2026-07-23-converge-the-hill-charts-on-one-drawing.md) | accepted | ui, charts, hill, components, urls |
 | 2026-07-24 | [Compound records ride the PR that motivated them, and CI blocks the merge until the judgement is declared](2026-07-24-compound-records-ride-the-pr-that-motivated-them.md) | accepted | docs, knowledge, ci, agents, process |
+| 2026-07-24 | [A forecast on screen derives from the real plan; a synthetic model is deleted, not kept beside it](2026-07-24-forecasts-derive-from-the-real-chain-never-a-synthetic-model.md) | accepted | forecast, ui, data-integrity, charts, critical-chain |

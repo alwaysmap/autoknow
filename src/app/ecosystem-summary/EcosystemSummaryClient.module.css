@@ -245,16 +245,6 @@
   color: var(--muted);
 }
 
-.forecastText {
-  color: var(--muted);
-  font-weight: 500;
-}
-
-.finishedText {
-  color: var(--ok);
-  font-weight: 600;
-}
-
 /* Badges styling */
 .badge {
   display: inline-block;
@@ -388,6 +378,11 @@
 
 .diagnosisItem {
   display: flex;
+  /* Wrap: the row carries phase / count / badge on one line and the programs it gates
+     on the next (#129). Without this the 100%-basis program list squeezes its siblings
+     instead of moving below them. */
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 0.5rem;
@@ -398,6 +393,25 @@
 
 .diagnosisItem:last-child {
   border-bottom: none;
+}
+
+/* The honest empty state: no phase is on a critical chain right now. A panel headed
+   "diagnosis" must be able to say "nothing to report" rather than show a plausible
+   default (#129). */
+.diagnosisEmpty {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--muted);
+  padding: 0.75rem 0.5rem;
+  margin: 0;
+}
+
+/* Which programs this phase is gating — the receipt for the count beside it. */
+.constraintPrograms {
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  color: var(--muted);
+  flex-basis: 100%;
 }
 
 .constraintHighlight {
@@ -412,7 +426,13 @@
   color: var(--fg);
 }
 
-.durationVal {
+/* "nothing here" in a table cell — an absent value, never a good-news state.
+   (Also used by /ecosystem, which imports this module.) */
+.emptyCell {
+  color: var(--muted);
+}
+
+.constraintCount {
   font-size: 0.875rem;
   font-weight: 700;
   color: var(--fg);
@@ -433,17 +453,6 @@
   background-color: var(--warn-soft);
   color: var(--warn);
   border: 1px solid rgba(176, 96, 0, 0.3);
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 0.125rem 0.5rem;
-  border-radius: 0.25rem;
-}
-
-.badgeInfo {
-  background-color: var(--info-soft);
-  color: var(--p-600);
-  border: 1px solid rgba(66, 133, 244, 0.3);
   font-size: 0.625rem;
   font-weight: 700;
   text-transform: uppercase;

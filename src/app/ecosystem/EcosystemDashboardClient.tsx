@@ -7,7 +7,7 @@ import DataTable from '../../components/DataTable';
 import styles from '../ecosystem-summary/EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../../lib/needle';
 import { NeedleGaugeSvg } from '../../components/NeedleGaugeSvg';
-import { sopOutlook } from '../../lib/sop';
+import SopOutlookCell from '../../components/SopOutlookCell';
 import { deriveProgramStatus, visibleInLists } from '../../lib/lifecycle';
 import { healthKey, healthOrder } from '../../lib/health';
 import { t } from '../../lib/i18n';
@@ -41,14 +41,6 @@ interface Project {
       hillChartProgress: number | null;
     }[];
   }[];
-  forecast: {
-    remainingPhases: number;
-    sim: {
-      p50: number;
-      p85: number;
-      p95: number;
-    };
-  };
 }
 
 interface EcosystemDashboardClientProps {
@@ -102,7 +94,7 @@ export default function EcosystemDashboardClient({
             { key: 'sopDate', label: t(locale, 'targetSopHeader') },
             { key: 'volumeFirstYear', label: t(locale, 'targetVolume') },
             { key: 'theNeedle', label: t(locale, 'healthLabel') },
-            { key: 'forecast', label: t(locale, 'forecastLabel') },
+            { key: 'chainRemainingDays', label: t(locale, 'sopOutlookHeader') },
             { key: 'latestNote', label: t(locale, 'latestUpdate'), sortable: false }
           ]}
           data={filteredProjects}
@@ -124,22 +116,18 @@ export default function EcosystemDashboardClient({
                   </div>
                 </td>
                 <td>
-                  {/* Outlook from the REAL critical chain vs the SOP target — the
-                      Monte Carlo placeholder (normal(12,4) per phase, blind to actual
-                      plans) said "+16 days likely" on nearly every row. */}
-                  {(() => {
-                    if (!p.sopDate) return <span className={styles.finishedText}>{t(locale, 'tbd')}</span>;
-                    if (p.hillChartProgress >= 100) return <span className={styles.finishedText}>{t(locale, 'finishedLabel')}</span>;
-                    const { bufferDays, onTrack } = sopOutlook(p.chainRemainingDays, p.sopDate, now);
-                    return onTrack
-                      ? <span style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>{t(locale, 'slackWeeks', { n: Math.floor(bufferDays / 7) })}</span>
-                      : <span className={styles.forecastText} style={{ color: 'var(--warn)' }}>{t(locale, 'lateByWeeks', { n: Math.ceil(-bufferDays / 7) })}</span>;
-                  })()}
+                  <SopOutlookCell
+                    chainRemainingDays={p.chainRemainingDays}
+                    sopDate={p.sopDate}
+                    hillChartProgress={p.hillChartProgress}
+                    now={now}
+                    locale={locale}
+                  />
                 </td>
                 <td>
                   {p.latestNote
                     ? <span className={styles.noteClamp} title={p.latestNote}>{p.latestNote}</span>
-                    : <span className={styles.finishedText}>—</span>}
+                    : <span className={styles.emptyCell}>—</span>}
                 </td>
               </tr>
             );

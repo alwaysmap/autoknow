@@ -820,7 +820,6 @@ const STRINGS = {
   ownerLabel: { en: 'Owner', de: 'Verantwortlich', ja: 'オーナー', ko: '담당자' },
   teamLabel: { en: 'Team', de: 'Team', ja: 'チーム', ko: '팀' },
   progressLabel: { en: 'Progress', de: 'Fortschritt', ja: '進捗', ko: '진행률' },
-  forecastLabel: { en: 'Forecast', de: 'Prognose', ja: '予測', ko: '예측' },
   needleLabel: { en: 'Needle', de: 'Nadel', ja: 'ニードル', ko: '니들' },
   searchHeading: { en: 'Search', de: 'Suche', ja: '検索', ko: '검색' },
 
@@ -866,7 +865,6 @@ const STRINGS = {
   deleteLabel: { en: 'Delete', de: 'Löschen', ja: '削除', ko: '삭제' },
   saveBtn: { en: 'Save', de: 'Speichern', ja: '保存', ko: '저장' },
   daysShort: { en: '{n}d', de: '{n} T.', ja: '{n}日', ko: '{n}일' },
-  daysCount: { en: '{n} days', de: '{n} Tage', ja: '{n}日', ko: '{n}일' },
   unitsCount: { en: '{n} units', de: '{n} Einheiten', ja: '{n}台', ko: '{n}대' },
   bySource: { en: 'by {name}', de: 'von {name}', ja: '{name}による', ko: '{name} 작성' },
 
@@ -992,7 +990,6 @@ const STRINGS = {
   priority: { en: 'Priority', de: 'Priorität', ja: '優先度', ko: '우선순위' },
   substantiveBlocker: { en: 'Substantive Blocker', de: 'Wesentlicher Blocker', ja: '重大なブロッカー', ko: '주요 블로커' },
   filterHealthTitle: { en: 'Filter health: {h}', de: 'Nach Status filtern: {h}', ja: '健全性で絞り込み: {h}', ko: '상태 필터: {h}' },
-  daysLikely: { en: '+{n} days likely', de: 'voraussichtlich +{n} Tage', ja: '推定 +{n}日', ko: '약 +{n}일 예상' },
   noProgramsMatchFilters: { en: 'No programs match current filters.', de: 'Keine Programme entsprechen den Filtern.', ja: '現在のフィルターに一致するプログラムはありません。', ko: '현재 필터와 일치하는 프로그램이 없습니다.' },
 
   // ---- template library + editor ----
@@ -1075,7 +1072,6 @@ const STRINGS = {
   programsInRange: { en: 'Programs in Range', de: 'Programme im Bereich', ja: '範囲内のプログラム', ko: '범위 내 프로그램' },
   matchingProgressFilters: { en: 'Matching progress filters', de: 'Passend zu Fortschrittsfiltern', ja: '進捗フィルターに一致', ko: '진행률 필터와 일치' },
   deterministicLeadTime: { en: 'Deterministic Lead Time', de: 'Deterministische Durchlaufzeit', ja: '決定論的リードタイム', ko: '결정론적 리드 타임' },
-  p85Days: { en: 'p85 {n}d', de: 'p85 {n} T.', ja: 'p85 {n}日', ko: 'p85 {n}일' },
   wipCompletionCycle: { en: 'WIP completion cycle', de: 'WIP-Abschlusszyklus', ja: 'WIP完了サイクル', ko: 'WIP 완료 주기' },
   attentionLeaders: { en: 'Attention Leaders:', de: 'Achtung, Führungskräfte:', ja: 'リーダーの皆さまへ:', ko: '리더 주목:' },
   flaggedPrograms: {
@@ -1089,18 +1085,17 @@ const STRINGS = {
   noneMatch: { en: '— none match —', de: '— keine Treffer —', ja: '— 該当なし —', ko: '— 일치 없음 —' },
   filterProgressRange: { en: 'Filter progress range by dragging the handles', de: 'Fortschrittsbereich durch Ziehen der Griffe filtern', ja: 'ハンドルをドラッグして進捗範囲を絞り込み', ko: '핸들을 드래그해 진행률 범위 필터링' },
   withinSelectedRange: { en: 'Within selected progress range', de: 'Im gewählten Fortschrittsbereich', ja: '選択した進捗範囲内', ko: '선택한 진행률 범위 내' },
-  leadTimeP85: { en: 'Lead Time (p85)', de: 'Durchlaufzeit (p85)', ja: 'リードタイム（p85）', ko: '리드 타임 (p85)' },
   averagePhaseDuration: { en: 'Average phase duration', de: 'Durchschnittliche Phasendauer', ja: '平均フェーズ期間', ko: '평균 단계 기간' },
-  flowConstraintDiagnosis: { en: 'Flow Constraint Diagnosis (Typical Phase Timeframes)', de: 'Fluss-Engpass-Diagnose (typische Phasendauern)', ja: 'フロー制約診断（標準的なフェーズ期間）', ko: '흐름 제약 진단 (일반적인 단계 기간)' },
-  flowConstraintSub: { en: 'Identifying the longest stages & bottleneck constraints to flow', de: 'Identifiziert die längsten Phasen & Engpässe im Fluss', ja: '最も長いステージとフローのボトルネックを特定', ko: '가장 긴 단계와 흐름의 병목 제약 식별' },
-  slowestPrimaryConstraint: { en: 'Slowest (Primary Constraint)', de: 'Langsamste (Haupt-Engpass)', ja: '最長（主要制約）', ko: '최장 (주요 제약)' },
-  secondaryBottleneck: { en: 'Secondary Bottleneck', de: 'Sekundärer Engpass', ja: '二次ボトルネック', ko: '2차 병목' },
-  normalFlow: { en: 'Normal Flow', de: 'Normaler Fluss', ja: '通常フロー', ko: '정상 흐름' },
-  fastTrack: { en: 'Fast Track', de: 'Schnellspur', ja: 'ファストトラック', ko: '고속 트랙' },
+  flowConstraintDiagnosis: { en: 'Flow Constraint Diagnosis', de: 'Fluss-Engpass-Diagnose', ja: 'フロー制約診断', ko: '흐름 제약 진단' },
+  flowConstraintSub: { en: 'Phases on a critical chain right now — what is gating an SOP today', de: 'Phasen, die derzeit auf einer kritischen Kette liegen — was heute einen SOP blockiert', ja: '現在クリティカルチェーン上にあるフェーズ — 今SOPを律速しているもの', ko: '현재 크리티컬 체인에 있는 단계 — 지금 SOP를 막고 있는 것' },
+  primaryConstraint: { en: 'Primary constraint', de: 'Haupt-Engpass', ja: '主要制約', ko: '주요 제약' },
+  onCriticalChain: { en: 'On a critical chain', de: 'Auf einer kritischen Kette', ja: 'クリティカルチェーン上', ko: '크리티컬 체인에 있음' },
+  gatingOneProgram: { en: 'gating 1 program', de: 'blockiert 1 Programm', ja: '1件のプログラムを律速', ko: '1개 프로그램을 제약' },
+  gatingNPrograms: { en: 'gating {n} programs', de: 'blockiert {n} Programme', ja: '{n}件のプログラムを律速', ko: '{n}개 프로그램을 제약' },
+  noLiveConstraints: { en: 'No phase is on a critical chain right now.', de: 'Derzeit liegt keine Phase auf einer kritischen Kette.', ja: '現在クリティカルチェーン上のフェーズはありません。', ko: '현재 크리티컬 체인에 있는 단계가 없습니다.' },
   programLifecycleLaunches: { en: 'Program Lifecycle & Launches', de: 'Programmlebenszyklus & Starts', ja: 'プログラムのライフサイクルとローンチ', ko: '프로그램 라이프사이클 및 출시' },
   volume12m: { en: '12M Volume', de: '12M-Volumen', ja: '12ヶ月台数', ko: '12개월 물량' },
   hillChartHeader: { en: 'Hill Chart', de: 'Hügeldiagramm', ja: 'ヒルチャート', ko: '힐 차트' },
-  completionForecastP85: { en: 'Completion Forecast (p85)', de: 'Abschlussprognose (p85)', ja: '完了予測（p85）', ko: '완료 예측 (p85)' },
   earlyStage: { en: 'Early Stage', de: 'Frühphase', ja: '初期段階', ko: '초기 단계' },
 
   // ---- programs page ----
