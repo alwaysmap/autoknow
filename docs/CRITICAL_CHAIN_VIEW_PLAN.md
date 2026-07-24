@@ -184,9 +184,12 @@ Element by element against AutoKnow's data and structures:
 - `PhaseTrack.tsx` `pace()` — per-phase "took 5w vs 3w planned" / "over plan"
   chips. **This is already, implicitly, per-phase buffer loss/gain.** Same gap:
   computed for a chip, never aggregated.
-- `lib/forecast.ts` — Monte Carlo, but over a phase *count* with a fixed
-  normal(12,4) — it ignores the actual DAG and forecasts. Not a building block for
-  this view; potentially a successor once the ledger exists (see §8).
+- `lib/forecast.ts` — **DELETED 2026-07-24 (#129).** Was a Monte Carlo over a phase
+  *count* with a fixed normal(12,4), ignoring the actual DAG and forecasts. It reached
+  screen twice under two different labels; the second time it was a sortable column. The
+  SOP outlook now derives from the real chain (`sop.sopOutlook` over
+  `criticalChain.remainingDays`). See ADR
+  `forecasts-derive-from-the-real-chain-never-a-synthetic-model`.
 
 ### Existing surfaces
 
@@ -651,8 +654,9 @@ portfolio-level notice.
    between a projection and a forecast. The linear hill-derived number ("≈42
    days left → ~20 over plan") is a point projection; where it matters — the
    active chain phase, the SOP outlook — a forecast should carry a stated,
-   real basis. NOT the current `forecast.ts` (phase-count × synthetic
-   normal(12,4) — no basis; retire it).
+   real basis. NOT the old `forecast.ts` (phase-count × synthetic
+   normal(12,4) — no basis). It was retired in #129; see the ADR
+   `forecasts-derive-from-the-real-chain-never-a-synthetic-model`.
 
    **Second re-scope (2026-07-20): the variance pool is not "this org's own
    work."** Phase execution is a partnership effort, so variance is conditional

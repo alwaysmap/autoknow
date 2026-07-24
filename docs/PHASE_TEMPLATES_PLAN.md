@@ -38,7 +38,8 @@ single lead partner, no convergence validation, and the AAOS template is a 5-pha
    converge there. **P15 Post-launch sustaining is NOT a DAG node**; it is a post-SOP
    lifecycle note on the template (keeps the "exactly one sink" rule clean).
 2. **Duration:** templates store **weeks**; on instantiation convert `durationWeeks × 7`
-   → `Phase.forecastedDuration` (days) so `forecast.ts` / `criticalChain.ts` are untouched.
+   → `Phase.forecastedDuration` (days) so `criticalChain.ts` is untouched. (`forecast.ts` was
+   deleted in #129.)
 3. **Lead partner:** templates store a **role** (`leadRole`, reusable across OEMs); on
    instantiation map to a concrete `Phase.leadPartnerId` where unambiguous, else leave for
    the user. `PhasePartner` still holds the broader "who's involved" set.

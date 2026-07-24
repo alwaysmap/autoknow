@@ -85,9 +85,17 @@ export function relationshipMix(scores: (string | number | null | undefined)[]):
   return { buckets, rated, unrated };
 }
 
-/** Score for a state row: the stored score, else one derived from legacy health. */
-export function deriveScore(state: { relationshipScore?: number | null; theNeedle?: string | null } | null | undefined): RelScore {
-  if (!state) return 3;
+/**
+ * Score for a state row: the stored score, else one derived from legacy health.
+ *
+ * Takes a row, never `null`. It used to accept one and answer `3` — a mid-scale
+ * reading indistinguishable from a partner deliberately rated 3, for a partner that
+ * has no reading at all (#129). Every caller already guarded (`state ? deriveScore(state)
+ * : null`), so that branch was a fabrication waiting for the first caller who forgot;
+ * the type now makes it unrepresentable. `relationshipMix` in this file is the model —
+ * it returns `unrated` separately, because no reading yet is not a health class.
+ */
+export function deriveScore(state: { relationshipScore?: number | null; theNeedle?: string | null }): RelScore {
   const stored = parseScore(state.relationshipScore);
   if (stored !== null) return stored;
   const h = parseHealth(state.theNeedle);

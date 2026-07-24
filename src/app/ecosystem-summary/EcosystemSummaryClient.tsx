@@ -6,6 +6,8 @@ import Link from 'next/link';
 import DataTable from '../../components/DataTable';
 import styles from './EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../../lib/needle';
+import { sopOutlook } from '../../lib/sop';
+import type { LiveConstraint } from '../../lib/dashboardData';
 import { HEALTHS, HEALTH_KEY, healthKey, healthColor, healthOrder } from '../../lib/health';
 import { resolvePerson } from '../../lib/people';
 import { t } from '../../lib/i18n';
@@ -22,6 +24,8 @@ interface Project {
   sopDate: string | null;
   ownerName: string | null;
   volumeFirstYear: number;
+  /** Remaining days along the REAL critical chain — the on-track signal vs SOP. */
+  chainRemainingDays: number;
   partner: {
     id: number;
     name: string;
@@ -35,14 +39,6 @@ interface Project {
       hillChartProgress: number | null;
     }[];
   }[];
-  forecast: {
-    remainingPhases: number;
-    sim: {
-      p50: number;
-      p85: number;
-      p95: number;
-    };
-  };
 }
 
 interface Person {
@@ -52,15 +48,21 @@ interface Person {
 }
 
 interface EcosystemSummaryClientProps {
+  liveConstraints: LiveConstraint[];
   initialProjects: Project[];
   people: Person[];
 }
 
 export default function EcosystemSummaryClient({
   initialProjects,
-  people
+  people,
+  liveConstraints
 }: EcosystemSummaryClientProps) {
   const locale = useLocale();
+  // Snapshot "now" once per render so SSR and hydration agree on the outlook — the
+  // same rule /ecosystem and /programs follow.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
   const [minRiskVal, setMinRiskVal] = useState(0); // 0=Low, 1=Medium, 2=High, 3=Critical
   const [selectedOwner, setSelectedOwner] = useState('All');
   const [minProgress, setMinProgress] = useState(0);
@@ -285,33 +287,39 @@ export default function EcosystemSummaryClient({
           <h3>{t(locale, 'flowConstraintDiagnosis')}</h3>
           <span className={styles.diagnosisSub}>{t(locale, 'flowConstraintSub')}</span>
         </div>
-        <div className={styles.diagnosisGrid}>
-          <div className={`${styles.diagnosisItem} ${styles.constraintHighlight}`}>
-            <span className={styles.phaseLabel}>Compliance Testing (Phase 3.1)</span>
-            <span className={styles.durationVal}>{t(locale, 'daysCount', { n: 54 })}</span>
-            <span className={styles.badgeDanger}>{t(locale, 'slowestPrimaryConstraint')}</span>
+        {liveConstraints.length === 0 ? (
+          <p className={styles.diagnosisEmpty}>{t(locale, 'noLiveConstraints')}</p>
+        ) : (
+          <div className={styles.diagnosisGrid}>
+            {liveConstraints.map((c) => {
+              const many = c.programs.length > 1;
+              return (
+              <div
+                key={c.phaseName}
+                className={many ? `${styles.diagnosisItem} ${styles.constraintHighlight}` : styles.diagnosisItem}
+              >
+                <span className={styles.phaseLabel}>{c.phaseName}</span>
+                <span className={styles.durationVal}>
+                  {many
+                    ? t(locale, 'gatingProgramsCount', { n: c.programs.length })
+                    : t(locale, 'gatingProgramCount')}
+                </span>
+                <span className={many ? styles.badgeDanger : styles.badgeWarn}>
+                  {t(locale, many ? 'primaryConstraint' : 'onCriticalChain')}
+                </span>
+                <span className={styles.constraintPrograms}>
+                  {c.programs.map((prog, n) => (
+                    <span key={prog.id}>
+                      {n > 0 && ', '}
+                      <Link href={`/programs/${prog.id}`}>{prog.name}</Link>
+                    </span>
+                  ))}
+                </span>
+              </div>
+              );
+            })}
           </div>
-          <div className={styles.diagnosisItem}>
-            <span className={styles.phaseLabel}>Audio HAL Integration</span>
-            <span className={styles.durationVal}>{t(locale, 'daysCount', { n: 45 })}</span>
-            <span className={styles.badgeWarn}>{t(locale, 'secondaryBottleneck')}</span>
-          </div>
-          <div className={styles.diagnosisItem}>
-            <span className={styles.phaseLabel}>Car Service Integration</span>
-            <span className={styles.durationVal}>{t(locale, 'daysCount', { n: 35 })}</span>
-            <span className={styles.badgeInfo}>{t(locale, 'normalFlow')}</span>
-          </div>
-          <div className={styles.diagnosisItem}>
-            <span className={styles.phaseLabel}>VHAL Integration</span>
-            <span className={styles.durationVal}>{t(locale, 'daysCount', { n: 30 })}</span>
-            <span className={styles.badgeInfo}>{t(locale, 'normalFlow')}</span>
-          </div>
-          <div className={styles.diagnosisItem}>
-            <span className={styles.phaseLabel}>BSP &amp; Power-on</span>
-            <span className={styles.durationVal}>{t(locale, 'daysCount', { n: 14 })}</span>
-            <span className={styles.badgeInfo}>{t(locale, 'fastTrack')}</span>
-          </div>
-        </div>
+        )}
       </section>
 
       {/* Active Implementation Pipelines */}
@@ -328,7 +336,7 @@ export default function EcosystemSummaryClient({
             { key: 'volumeFirstYear', label: t(locale, 'volume12m') },
             { key: 'theNeedle', label: t(locale, 'healthLabel') },
             { key: 'hillChartProgress', label: t(locale, 'hillChartHeader') },
-            { key: 'forecast.sim.p85', label: t(locale, 'completionForecastP85') }
+            { key: 'chainRemainingDays', label: t(locale, 'sopOutlookHeader') }
           ]}
           data={filteredProjects}
           renderRow={(p: Project) => {
@@ -392,13 +400,18 @@ export default function EcosystemSummaryClient({
                   </div>
                 </td>
                 <td>
-                  {p.forecast.remainingPhases > 0 ? (
-                    <span className={styles.forecastText}>
-                      {t(locale, 'daysLikely', { n: p.forecast.sim.p85 })}
-                    </span>
-                  ) : (
-                    <span className={styles.finishedText}>{t(locale, 'finishedLabel')}</span>
-                  )}
+                  {/* Outlook from the REAL critical chain vs the SOP target. The Monte
+                      Carlo placeholder this replaces drew normal(12,4) per phase seeded
+                      by project id — blind to the plan, so two programs with the same
+                      phase COUNT scored identically, and this column was sortable (#129). */}
+                  {(() => {
+                    if (!p.sopDate) return <span className={styles.finishedText}>{t(locale, 'tbd')}</span>;
+                    if (p.hillChartProgress >= 100) return <span className={styles.finishedText}>{t(locale, 'finishedLabel')}</span>;
+                    const { bufferDays, onTrack } = sopOutlook(p.chainRemainingDays, p.sopDate, now);
+                    return onTrack
+                      ? <span className={styles.finishedText}>{t(locale, 'slackWeeks', { n: Math.floor(bufferDays / 7) })}</span>
+                      : <span className={styles.forecastText}>{t(locale, 'lateByWeeks', { n: Math.ceil(-bufferDays / 7) })}</span>;
+                  })()}
                 </td>
               </tr>
             );

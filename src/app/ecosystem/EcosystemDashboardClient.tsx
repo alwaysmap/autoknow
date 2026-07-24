@@ -41,14 +41,6 @@ interface Project {
       hillChartProgress: number | null;
     }[];
   }[];
-  forecast: {
-    remainingPhases: number;
-    sim: {
-      p50: number;
-      p85: number;
-      p95: number;
-    };
-  };
 }
 
 interface EcosystemDashboardClientProps {
@@ -102,7 +94,7 @@ export default function EcosystemDashboardClient({
             { key: 'sopDate', label: t(locale, 'targetSopHeader') },
             { key: 'volumeFirstYear', label: t(locale, 'targetVolume') },
             { key: 'theNeedle', label: t(locale, 'healthLabel') },
-            { key: 'forecast', label: t(locale, 'forecastLabel') },
+            { key: 'chainRemainingDays', label: t(locale, 'sopOutlookHeader') },
             { key: 'latestNote', label: t(locale, 'latestUpdate'), sortable: false }
           ]}
           data={filteredProjects}
