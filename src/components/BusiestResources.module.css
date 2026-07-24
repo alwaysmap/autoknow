@@ -16,27 +16,6 @@
   margin: 0 0 0.625rem;
 }
 
-.table {
-  border-collapse: collapse;
-  width: 100%;
-  max-width: 58rem;
-}
-
-.table th,
-.table td {
-  text-align: left;
-  padding: 0.5rem 1rem 0.5rem 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
-  vertical-align: top;
-}
-
-.table th {
-  color: var(--muted);
-  font-weight: 500;
-}
-
 .hasConsider td {
   border-bottom: none;
 }

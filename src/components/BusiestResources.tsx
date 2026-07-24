@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { t, Locale } from '../lib/i18n';
 import { tNodes, joinNodes } from './tNodes';
 import AnchorHeading from './AnchorHeading';
+import DataTable from './DataTable';
 import type { BusiestRow, BusiestProgramRef } from '../lib/chainLedger';
 import styles from './BusiestResources.module.css';
 
@@ -12,6 +13,16 @@ import styles from './BusiestResources.module.css';
 // §4c/§4d) — the cross-portfolio decision surface. Each row ends with a computed
 // "Consider:" line built from the row's own facts; a row with nothing to suggest
 // says so and gets none.
+//
+// Renders through the shared DataTable (#125): this was the app's last hand-rolled
+// `<table>`, so the §6 grammar had to be re-derived here and drifted. A record is one
+// or TWO `<tr>`s — the optional "Consider:" line is a full-width second row — which
+// `renderRow` supports because it returns a ReactNode, and which is why paging would
+// count rows rather than records. It never pages: MAX_ROWS caps the set at the call
+// site, so `paginate={false}` (see the prop's own doc for why that is declared here
+// and not derived).
+//
+// What #140 may change: the CONTENT of these columns, not the frame.
 
 interface BusiestResourcesProps {
   locale: Locale;
@@ -62,22 +73,25 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
         {t(locale, 'clBusiest')}
       </AnchorHeading>
       <p className={styles.intro}>{t(locale, 'clBusiestIntro')}</p>
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th>{t(locale, 'clWho')}</th>
-            <th>{t(locale, 'clGatingSop')}</th>
-            <th>{t(locale, 'clAlsoActiveIn')}</th>
-            <th>{t(locale, 'clBufferChange')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((r) => {
+      <DataTable
+        headers={[
+          { key: 'name', label: t(locale, 'clWho') },
+          // Sorting a cell that holds a LIST of programs would order rows by an
+          // arbitrary member of that list; the rows already arrive ranked by exposure.
+          { key: 'constraintIn', label: t(locale, 'clGatingSop'), sortable: false },
+          { key: 'alsoActiveIn', label: t(locale, 'clAlsoActiveIn'), sortable: false },
+          { key: 'exposure', label: t(locale, 'clBufferChange'), sortable: false },
+        ]}
+        data={visible}
+        paginate={false}
+        // Empty: keep the exposure order buildBusiestResources already applied.
+        defaultSortKey=""
+        renderRow={(r: BusiestRow) => {
             const consider = considerLine(r);
             return (
               <React.Fragment key={`${r.kind}${r.id}`}>
                 <tr className={consider ? styles.hasConsider : undefined}>
-                  <td><Link href={href(r)}>{r.name}</Link></td>
+                  <th scope="row"><Link href={href(r)}>{r.name}</Link></th>
                   <td>
                     {r.constraintIn.length === 0
                       ? <span className={styles.muted}>—</span>
@@ -130,10 +144,9 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
                   </tr>
                 )}
               </React.Fragment>
-            );
-          })}
-        </tbody>
-      </table>
+          );
+        }}
+      />
       <p className={styles.legend}>{t(locale, 'clBusiestLegend')}</p>
     </section>
   );
