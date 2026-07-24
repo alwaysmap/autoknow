@@ -1,8 +1,9 @@
-// Shared readers for the CSS-text ratchets (pageGutter, focusRing,
-// separation-hierarchy, vertical-rhythm). Each walks the stylesheets and has to
-// decide what counts as code rather than commentary; four hand-rolled copies of
-// the comment handling had accumulated (AGENTS lesson 7), so it lives here and
-// every ratchet now imports it.
+// Shared readers for the CSS-text ratchets that strip comments. Each walks the
+// stylesheets and has to decide what counts as code rather than commentary; four
+// hand-rolled copies of the comment handling had accumulated (AGENTS lesson 7),
+// so it lives here instead. Deliberately not listing the callers: a roll-call
+// nothing pins is a roll-call that goes stale, which is the same trap this file
+// exists to close.
 //
 // Two things deliberately stay local. Rule PARSING: each ratchet needs a
 // different cut — all rules (pageGutter), the rule at an offset (focusRing),
