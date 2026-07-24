@@ -80,8 +80,8 @@
   --t-500: hsla(calc(var(--hue) - 60), 32%, 54%, 1);
   --t-700: hsla(calc(var(--hue) - 60), 38%, 32%, 1);
 
-  /* THE focus ring's ink (#123). Before it there was no app-wide rule: seven
-     hand-rolled rings across six components, in four different colours (--p-500,
+  /* THE focus ring's ink (#123). Before it there was no app-wide rule: six
+     components hand-rolled seven rings in four different colours (--p-500,
      --chain, --fg, --link), and everything else — the ⋯ menu included — got the
      browser's own, blue on macOS and a 5px amber halo elsewhere, a colour in
      nobody's palette and different on every machine.

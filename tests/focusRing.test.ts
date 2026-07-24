@@ -26,11 +26,14 @@ const SRC = 'src';
 const GLOBALS = 'src/app/globals.css';
 const MARKER = 'focus-ring-exception:';
 
+/** A rule split into its selector-plus-preceding-comment (`head`) and its body. */
+type Rule = { head: string; body: string };
+
 /** The rule a declaration at `at` sits in: its block body, plus the selector and any
  *  comment directly above it (everything since the previous rule closed). Both parts
  *  are read from the RAW source — the selector decides whether a rule is about focus,
  *  and the exception marker lives in exactly the comment that blanking would erase. */
-function enclosingRule(css: string, at: number): { head: string; body: string } {
+function enclosingRule(css: string, at: number): Rule {
   const open = css.lastIndexOf('{', at);
   const prevClose = css.lastIndexOf('}', open);
   const close = css.indexOf('}', at);
@@ -43,14 +46,15 @@ function enclosingRule(css: string, at: number): { head: string; body: string } 
 /** `file:line` for every declaration matching `re` that `isViolation` rejects. The
  *  scan runs over a comment-blanked copy so prose never matches, while offsets still
  *  point at the real line. */
-function offenders(re: RegExp, isViolation: (m: RegExpExecArray, rule: { head: string; body: string }) => boolean): string[] {
+function offenders(re: RegExp, isViolation: (m: RegExpExecArray, rule: Rule) => boolean): string[] {
   const out: string[] = [];
   for (const file of cssFiles(SRC)) {
     const raw = readFileSync(file, 'utf8');
     const code = blankComments(raw);
     for (let m = re.exec(code); m; m = re.exec(code)) {
       if (!isViolation(m, enclosingRule(raw, m.index))) continue;
-      out.push(`${file}:${raw.slice(0, m.index).split('\n').length}`);
+      const line = raw.slice(0, m.index).split('\n').length;
+      out.push(`${file}:${line}`);
     }
   }
   return out.sort();

@@ -161,9 +161,8 @@
   font: inherit;
   color: inherit;
   cursor: pointer;
-  /* The button has no background or border of its own, so this radius is only ever
-     visible as the corners of the focus ring (globals.css) — a hair of rounding on
-     a box drawn tight around a label, not a shape the button itself shows. */
+  /* Chrome is stripped above, so this radius is only ever visible as the corners
+     of the focus ring (globals.css). */
   border-radius: 0.125rem;
 }
 

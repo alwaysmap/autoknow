@@ -238,7 +238,7 @@
    across the entire chart. The indicator is a stroke on the rect itself instead, in
    the same --focus-ring ink, which traces the row rather than boxing the chart. The
    plain :focus rule is what kills the UA ring on a click-focus (:focus-visible alone
-   would not match one). As a class + pseudo-class it is also 0-2-0 against the global
+   would not match). As a class + pseudo-class it is also 0-2-0 against the global
    rule's 0-1-0, so the row never picks up the app ring either. */
 .rowHit:focus {
   outline: none;

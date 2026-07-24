@@ -1,10 +1,15 @@
-// Shared readers for the CSS-text ratchets (pageGutter, focusRing, …). Each of
-// those tests walks the stylesheets and has to decide what counts as code rather
-// than commentary; three hand-rolled copies of that had already accumulated
-// (AGENTS lesson 7), so the walking and the comment handling live here. Rule
-// PARSING deliberately does not: each ratchet needs a different cut (all rules,
-// the rule at an offset, every brace block with its line) and one accessor
-// serving all three would fit none of them.
+// Shared readers for the CSS-text ratchets (pageGutter, focusRing,
+// separation-hierarchy, vertical-rhythm). Each walks the stylesheets and has to
+// decide what counts as code rather than commentary; four hand-rolled copies of
+// the comment handling had accumulated (AGENTS lesson 7), so it lives here and
+// every ratchet now imports it.
+//
+// Two things deliberately stay local. Rule PARSING: each ratchet needs a
+// different cut — all rules (pageGutter), the rule at an offset (focusRing),
+// every brace block with its line (vertical-rhythm) — and one accessor serving
+// all three would fit none. And WALKING, for the two that use `globSync`: a
+// library call is not a hand-rolled duplicate, so only the readdir-based walkers
+// merged into `cssFiles`.
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
