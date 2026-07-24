@@ -119,7 +119,7 @@ function phaseSpans(r: ScheduleRow, now: number): { kind: CellKind; a: number; b
 
 export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }: {
   ledger: ChainLedgerResult; sopMs: number | null; now: number; locale: Locale;
-  onRowCard: (row: ScheduleRow | null, el: SVGRectElement | null, labelW?: number, clientX?: number) => void;
+  onRowCard: (row: ScheduleRow | null, el: SVGRectElement | null, clientX?: number) => void;
   onJump: (phaseId: number) => void;
 }) {
   // A hover crosshair synchronised across the grid AND the buffer lane, so the eye can
@@ -431,7 +431,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
       <div className={styles.scheduleScroll}>
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className={styles.scheduleSvg} role="img"
         aria-label={t(locale, 'clSchedule')} data-pannable={focus != null}
-        onMouseLeave={() => { setHoverMs(null); endPan(); }}
+        onMouseLeave={() => { setHoverMs(null); endPan(); onRowCard(null, null); }}
         onMouseDown={(e) => startPan(e.clientX)}
         onMouseMove={(e) => { if (drag.current) panBy(e.clientX); }}
         onMouseUp={endPan}>
@@ -499,6 +499,15 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
           return (
             <g key={r.id}>
               {isConstraint && <ConstraintRing cx={constraintCx} cy={y} r={2} />}
+              {/* The LABEL is the JUMP target (issue #22). A transparent rect over the WHOLE
+                  label column gives touch an adequate tap area — the ~12px glyphs alone are
+                  well under the touch-target guidance (design.md §9) — while the visible name
+                  carries the affordance. It is painted UNDER the text so the name keeps its own
+                  :hover underline and click; both jump, so neither handler is dead. rowHit below
+                  now starts AFTER labelW, so it no longer swallows these: the label's jump is
+                  reachable on every device, mouse included (it was buried before). */}
+              <rect className={styles.labelHit} x={0} y={y - ROW_H / 2} width={labelW} height={ROW_H}
+                aria-hidden onClick={() => onJump(r.id)} />
               <ChartLabel x={isConstraint ? labelW - RING_PAD : labelW - TEXT_PAD} y={y + 4} textAnchor="end"
                 fontSize={FS_ROW} fill="var(--fg)" className={styles.rowLabel} onClick={() => onJump(r.id)}>
                 {r.name}
@@ -533,16 +542,22 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
                   stroke="var(--muted)" strokeWidth={1.25} />
               )}
 
-              {/* ONE hit target per row — the whole band answers to one hover (design.md),
-                  and also drives the shared date crosshair (#75) */}
-              <rect className={styles.rowHit} x={0} y={y - ROW_H / 2} width={W} height={ROW_H} rx={4}
+              {/* The row BODY reveals the status card — NEVER the jump (issue #22). It starts
+                  at labelW, so it no longer covers the label (the jump target above); the plot
+                  band answers to one hover and drives the shared date crosshair (#75). On MOUSE,
+                  hover shows the card. On TOUCH there is no hover, so a tap's synthesized
+                  mouseenter shows it AND the click reveals it too (idempotent — some engines skip
+                  the enter on a second tap of the same row); crucially the click does NOT
+                  navigate, so the card survives to be read and dismissed. KEYBOARD keeps two
+                  DISTINCT actions: focus shows the card, Enter/Space jumps. */}
+              <rect className={styles.rowHit} x={labelW} y={y - ROW_H / 2} width={W - labelW} height={ROW_H} rx={4}
                 tabIndex={0} role="button" aria-label={r.name}
-                onMouseEnter={(e) => { if (drag.current) return; onRowCard(r, e.currentTarget, labelW, e.clientX); trackPointer(e.clientX); }}
-                onMouseMove={(e) => { if (drag.current) return; onRowCard(r, e.currentTarget, labelW, e.clientX); trackPointer(e.clientX); }}
+                onMouseEnter={(e) => { if (drag.current) return; onRowCard(r, e.currentTarget, e.clientX); trackPointer(e.clientX); }}
+                onMouseMove={(e) => { if (drag.current) return; onRowCard(r, e.currentTarget, e.clientX); trackPointer(e.clientX); }}
                 onMouseLeave={() => onRowCard(null, null)}
-                onFocus={(e) => onRowCard(r, e.currentTarget, labelW)}
+                onFocus={(e) => onRowCard(r, e.currentTarget)}
                 onBlur={() => onRowCard(null, null)}
-                onClick={() => { if (didPan.current) { didPan.current = false; return; } onJump(r.id); }}
+                onClick={(e) => { if (didPan.current) { didPan.current = false; return; } onRowCard(r, e.currentTarget, e.clientX); trackPointer(e.clientX); }}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onJump(r.id); } }}
                 data-row-id={r.id} />
             </g>
