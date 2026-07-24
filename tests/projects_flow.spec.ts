@@ -46,6 +46,42 @@ test.describe('Projects and Partners Flow', () => {
     await prisma.$disconnect();
   });
 
+  test('the programs list kebab links to the create flow', async ({ page }) => {
+    await page.goto('/programs');
+
+    // Hydration-guarded first interaction (the suite's #1 flake source): open the
+    // ⋯ menu and click "Create Program", which is a real link to /programs/new.
+    const item = page.getByTestId('new-program');
+    await expect(async () => {
+      if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+      await item.click({ timeout: 2000 });
+      await page.waitForURL(/\/programs\/new$/, { timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+
+    // Landed on the full-page create form (name + template picker present).
+    await expect(page.locator('input[name="name"]')).toBeVisible();
+    await expect(page.locator('select[name="template"]')).toBeVisible();
+  });
+
+  test('the partner page Programs section creates a program pre-selecting that partner', async ({ page }) => {
+    await page.goto(`/partners/${fordId}`);
+
+    // The ⋯ lives in the Programs SECTION heading — scope to that section, since the
+    // partner NAME carries its own Edit/Delete ⋯ (two kebabs on this page).
+    const programsKebab = page
+      .locator('section', { has: page.locator('h2#programs') })
+      .getByTestId('kebab-menu');
+    const item = page.getByTestId('new-program');
+    await expect(async () => {
+      if (!(await item.isVisible())) await programsKebab.click({ timeout: 2000 });
+      await item.click({ timeout: 2000 });
+      await page.waitForURL(new RegExp(`/programs/new\\?partnerId=${fordId}$`), { timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+
+    // The deep link pre-selects THIS partner in the create form.
+    await expect(page.locator('select[name="partnerId"]')).toHaveValue(String(fordId));
+  });
+
   test('creates a project from the DB-backed 15-phase AAOS template', async ({ page }) => {
     await page.goto('/programs/new');
 

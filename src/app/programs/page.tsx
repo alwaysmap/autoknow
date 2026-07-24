@@ -4,8 +4,10 @@ import { computeCriticalChain } from '../../lib/criticalChain';
 import { sopBufferCategory } from '../../lib/sop';
 import { getLocale } from '../../lib/locale';
 import { t } from '../../lib/i18n';
+import Link from 'next/link';
 import ProgramsClient from './ProgramsClient';
 import PageShell from '../../components/PageShell';
+import KebabMenu from '../../components/KebabMenu';
 import { parseFilterParams, parseSortParams } from '../../lib/tableUrlState';
 
 export const dynamic = 'force-dynamic';
@@ -123,7 +125,17 @@ export default async function ProgramsPage(props: {
   const partnerTypes = await prisma.partnerType.findMany({ select: { name: true } });
 
   return (
-    <PageShell title={t(locale, 'navPrograms')}>
+    <PageShell
+      title={t(locale, 'navPrograms')}
+      actions={
+        // The list had no create affordance (#—): a ⋯ menu beside the title, matching
+        // /partners and /people. The item is a real link to the existing full-page
+        // create flow (template DAG + phase graph) — "everything is a URL" (design.md).
+        <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+          <Link href="/programs/new" data-testid="new-program">{t(locale, 'createProject')}</Link>
+        </KebabMenu>
+      }
+    >
       <ProgramsClient
         // Remount when the URL's params change: the client seeds its filter/sort
         // state from initial* once, so same-route navigation (e.g. clicking the

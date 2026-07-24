@@ -16,6 +16,7 @@ import { deriveScore } from '../../../lib/relationship';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import AnchorHeading from '../../../components/AnchorHeading';
+import KebabMenu from '../../../components/KebabMenu';
 
 export const dynamic = 'force-dynamic';
 
@@ -194,7 +195,21 @@ export default async function PartnerDetailPage(props: PageProps) {
           </section>
 
           <section className={styles.projectsSection}>
-            <AnchorHeading id="programs" linkLabel={t(locale, 'anchorLink')}>
+            {/* The create affordance rides INSIDE the heading via `actions` (§8c: a
+                sibling would land past the graticule) — a ⋯ menu linking to the
+                shared /programs/new flow, pre-selecting THIS partner. Mirrors the
+                programs list header (src/app/programs/page.tsx). */}
+            <AnchorHeading
+              id="programs"
+              linkLabel={t(locale, 'anchorLink')}
+              actions={
+                <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+                  <Link href={`/programs/new?partnerId=${partner.id}`} data-testid="new-program">
+                    {t(locale, 'createProject')}
+                  </Link>
+                </KebabMenu>
+              }
+            >
               {t(locale, 'navPrograms')}
             </AnchorHeading>
             <PartnerProgramRows programs={programs} locale={locale} />

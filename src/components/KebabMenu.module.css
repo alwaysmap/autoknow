@@ -45,8 +45,11 @@
   width: 100%;
 }
 
-/* Normalize every child action into a menu row (overrides callers' button skins). */
-.menu button {
+/* Normalize every child action into a menu row (overrides callers' button skins).
+   Links (a `<Link>` that navigates to a create/edit route, e.g. programs → /programs/new)
+   render as the same row as a button — a menu item may act OR navigate. */
+.menu button,
+.menu a {
   display: block;
   width: 100%;
   padding: 0.375rem 0.625rem;
@@ -63,7 +66,8 @@
   color: var(--fg);
   cursor: pointer;
 }
-.menu button:hover {
+.menu button:hover,
+.menu a:hover {
   background: var(--surface);
   color: var(--fg);
   border: none;

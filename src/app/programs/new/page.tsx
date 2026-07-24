@@ -143,12 +143,22 @@ async function createProject(formData: FormData) {
   redirect(`/programs/${project.id}`);
 }
 
-export default async function NewProjectPage() {
+export default async function NewProjectPage(props: {
+  // ?partnerId= pre-selects the partner — set when the flow is entered from a
+  // partner's own page (its Programs section), so the OEM is already filled in.
+  searchParams: Promise<{ partnerId?: string }>;
+}) {
   const locale = await getLocale();
+  const { partnerId: partnerIdParam } = await props.searchParams;
   const partners = await prisma.partner.findMany({
     orderBy: { name: 'asc' },
     include: { type: true }
   });
+  // Only honour the deep link when it names a real partner; anything else falls
+  // back to the "Select a partner…" placeholder rather than a dangling value.
+  const preselectedPartnerId = partners.some((p) => String(p.id) === partnerIdParam)
+    ? partnerIdParam
+    : '';
   // Owner is picked from existing people, never typed freeform.
   const people = await prisma.person.findMany({
     select: { id: true, name: true, email: true },
@@ -178,7 +188,7 @@ export default async function NewProjectPage() {
 
           <div className={styles.field}>
             <label htmlFor="partnerId">{t(locale, 'partnerOemSupplier')}</label>
-            <select id="partnerId" name="partnerId" required>
+            <select id="partnerId" name="partnerId" required defaultValue={preselectedPartnerId}>
               <option value="">{t(locale, 'selectAPartner')}</option>
               {partners.map(p => (
                 <option key={p.id} value={p.id}>
