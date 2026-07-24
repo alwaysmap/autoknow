@@ -14,15 +14,11 @@ import styles from './BusiestResources.module.css';
 // "Consider:" line built from the row's own facts; a row with nothing to suggest
 // says so and gets none.
 //
-// Renders through the shared DataTable (#125): this was the app's last hand-rolled
-// `<table>`, so the §6 grammar had to be re-derived here and drifted. A record is one
-// or TWO `<tr>`s — the optional "Consider:" line is a full-width second row — which
-// `renderRow` supports because it returns a ReactNode, and which is why paging would
-// count rows rather than records. It never pages: MAX_ROWS caps the set at the call
-// site, so `paginate={false}` (see the prop's own doc for why that is declared here
-// and not derived).
-//
-// What #140 may change: the CONTENT of these columns, not the frame.
+// Renders through the shared DataTable (#125). A record is one or TWO rows — the
+// optional "Consider:" line is a full-width second one — which `renderRow` supports
+// because it returns a ReactNode, and which is why paging here would count rows rather
+// than records. It never pages anyway: MAX_ROWS caps the set at this call site, which
+// is what `paginate={false}` is for.
 
 interface BusiestResourcesProps {
   locale: Locale;
@@ -87,63 +83,63 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
         // Empty: keep the exposure order buildBusiestResources already applied.
         defaultSortKey=""
         renderRow={(r: BusiestRow) => {
-            const consider = considerLine(r);
-            return (
-              <React.Fragment key={`${r.kind}${r.id}`}>
-                <tr className={consider ? styles.hasConsider : undefined}>
-                  <th scope="row"><Link href={href(r)}>{r.name}</Link></th>
-                  <td>
-                    {r.constraintIn.length === 0
-                      ? <span className={styles.muted}>—</span>
-                      : r.constraintIn.map((p, i) => (
-                        <span key={p.programId}>
-                          {i > 0 && ', '}
-                          <Link href={`/programs/${p.programId}`}>{p.programName}</Link>
-                        </span>
-                      ))}
-                  </td>
-                  <td>
-                    {r.alsoActiveIn.length === 0
-                      ? <span className={styles.muted}>—</span>
-                      : (
-                        <>
-                          {r.alsoActiveIn.slice(0, 2).map((p, i) => (
-                            <span key={p.programId}>
-                              {i > 0 && ', '}
-                              <Link href={`/programs/${p.programId}`}>{p.programName}</Link>
-                            </span>
-                          ))}
-                          {r.alsoActiveIn.length > 2 && (
-                            <span className={styles.muted}> · {t(locale, 'clNMore', { n: r.alsoActiveIn.length - 2 })}</span>
-                          )}
-                        </>
-                      )}
-                  </td>
-                  <td className={styles.num}>
-                    {r.constraintIn.length === 0
-                      ? <span className={styles.muted}>{t(locale, 'clNoChangeCell')}</span>
-                      : r.constraintIn.map((p) => (
-                        <div key={p.programId}>
-                          {(p.fourWeekDeltaDays ?? 0) < 0
-                            ? <span className={styles.loss}>{t(locale, 'clLostDays', { name: p.programName, d: -(p.fourWeekDeltaDays ?? 0) })}</span>
-                            : <span className={styles.muted}>{p.programName}: {t(locale, 'clNoChangeCell')}</span>}
-                          {p.volumeFirstYear > 0 && (
-                            <span className={styles.muted}>
-                              {' · '}
-                              {t(locale, 'clUnitsIn', { units: p.volumeFirstYear.toLocaleString(locale), year: sopYear(p) })}
-                              {p.products.length > 0 ? ` · ${p.products.join(', ')}` : ''}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                  </td>
+          const consider = considerLine(r);
+          return (
+            <React.Fragment key={`${r.kind}${r.id}`}>
+              <tr className={consider ? styles.hasConsider : undefined}>
+                <th scope="row"><Link href={href(r)}>{r.name}</Link></th>
+                <td>
+                  {r.constraintIn.length === 0
+                    ? <span className={styles.muted}>—</span>
+                    : r.constraintIn.map((p, i) => (
+                      <span key={p.programId}>
+                        {i > 0 && ', '}
+                        <Link href={`/programs/${p.programId}`}>{p.programName}</Link>
+                      </span>
+                    ))}
+                </td>
+                <td>
+                  {r.alsoActiveIn.length === 0
+                    ? <span className={styles.muted}>—</span>
+                    : (
+                      <>
+                        {r.alsoActiveIn.slice(0, 2).map((p, i) => (
+                          <span key={p.programId}>
+                            {i > 0 && ', '}
+                            <Link href={`/programs/${p.programId}`}>{p.programName}</Link>
+                          </span>
+                        ))}
+                        {r.alsoActiveIn.length > 2 && (
+                          <span className={styles.muted}> · {t(locale, 'clNMore', { n: r.alsoActiveIn.length - 2 })}</span>
+                        )}
+                      </>
+                    )}
+                </td>
+                <td className={styles.num}>
+                  {r.constraintIn.length === 0
+                    ? <span className={styles.muted}>{t(locale, 'clNoChangeCell')}</span>
+                    : r.constraintIn.map((p) => (
+                      <div key={p.programId}>
+                        {(p.fourWeekDeltaDays ?? 0) < 0
+                          ? <span className={styles.loss}>{t(locale, 'clLostDays', { name: p.programName, d: -(p.fourWeekDeltaDays ?? 0) })}</span>
+                          : <span className={styles.muted}>{p.programName}: {t(locale, 'clNoChangeCell')}</span>}
+                        {p.volumeFirstYear > 0 && (
+                          <span className={styles.muted}>
+                            {' · '}
+                            {t(locale, 'clUnitsIn', { units: p.volumeFirstYear.toLocaleString(locale), year: sopYear(p) })}
+                            {p.products.length > 0 ? ` · ${p.products.join(', ')}` : ''}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                </td>
+              </tr>
+              {consider && (
+                <tr className={styles.consider}>
+                  <td colSpan={4}>{consider}</td>
                 </tr>
-                {consider && (
-                  <tr className={styles.consider}>
-                    <td colSpan={4}>{consider}</td>
-                  </tr>
-                )}
-              </React.Fragment>
+              )}
+            </React.Fragment>
           );
         }}
       />

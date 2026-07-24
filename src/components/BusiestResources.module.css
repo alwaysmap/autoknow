@@ -1,5 +1,6 @@
-/* Busiest people and partners — the table grammar (design.md §6): thin horizontal
-   rules only, quiet links, muted secondary facts, semantic color as text. */
+/* Busiest people and partners. The table grammar itself now comes from DataTable
+   (#125); what stays here is what this component still owns — the two-row record, and
+   the muted/semantic text inside its cells (design.md §6: semantic color as text). */
 
 .wrapper {
   margin: 1.25rem 0 0;
@@ -16,7 +17,11 @@
   margin: 0 0 0.625rem;
 }
 
-.hasConsider td {
+/* A record is two rows — its facts, then its "Consider:" line — so no rule between
+   them; the hairline belongs after the PAIR. Targets the `tr`, because the border is
+   globals' `tr { border-bottom }`: the old `.hasConsider td` reached a per-cell rule
+   this component used to own and DataTable does not have. */
+.hasConsider {
   border-bottom: none;
 }
 
