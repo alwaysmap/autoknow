@@ -3,6 +3,7 @@ import {
   buildBusiestResources,
   isForecastOver,
   FORECAST_NOISE_DAYS,
+  SEVERE_OVERRUN_PCT,
   type LedgerPhaseInput,
   type ChainLedgerInput,
 } from '../src/lib/chainLedger';
@@ -125,12 +126,14 @@ describe('schedule rows, cascade, and buffer', () => {
     expect(r.usedDays).toBe(5);
   });
 
-  it('handles a missing SOP: no buffer, no overshoot, register none', () => {
+  it('handles a missing SOP: no buffer, no overshoot', () => {
     const r = computeChainLedger({ ...input, sopDate: null });
     expect(r.bufferDays).toBeNull();
     expect(r.usedDays).toBeNull();
-    expect(r.register).toBe('none');
     expect(r.situations.find((s) => s.type === 'sopOvershoot')).toBeUndefined();
+    // The register still speaks: no SOP kills the BUFFER judgment, but B is 18%
+    // past its own estimate, and that comparison needs no SOP.
+    expect(r.register).toBe('act');
   });
 });
 
@@ -270,6 +273,68 @@ describe('situation detection', () => {
   });
 });
 
+describe('overrun severity and the immediate focus', () => {
+  it('sizes every overrun against its own estimate, not in bare days', () => {
+    // Both phases are 6 days over. On a 10-day estimate that is a different program
+    // than on a 200-day one, and the ledger used to report both as "6 days".
+    const r = computeChainLedger({
+      phases: [
+        phase(1, 10, 100, [], iso(0), iso(16)),   // done, +6 on 10 → 60%
+        phase(2, 200, 50, [1], iso(16)),          // active: elapsed 106 + rem 100 − 200 = 6 → 3%
+      ],
+      sopDate: iso(400),
+      now: day(122),
+    });
+    const sunk = r.situations.find((s) => s.type === 'sunkOverrun')!;
+    expect(sunk).toMatchObject({ days: 6, plannedDays: 10, overPct: 60 });
+    const live = r.situations.find((s) => s.type === 'forecastOverrun')!;
+    expect(live).toMatchObject({ days: 6, plannedDays: 200, overPct: 3 });
+  });
+
+  it('raises a live phase past the threshold to the immediate focus', () => {
+    const r = computeChainLedger({
+      phases: [phase(1, 40, 50, [], iso(0)), phase(2, 40, 30, [1], iso(0))],
+      sopDate: iso(400),                          // buffer is enormous and irrelevant
+      now: day(30),
+    });
+    // P1: elapsed 30 + rem 20 − 40 = 10 → 25%. P2: 30 + 28 − 40 = 18 → 45%.
+    expect(r.immediateFocus).toMatchObject({
+      phaseId: 2, phaseName: 'P2', days: 18, overPct: 45, plannedDays: 40, count: 2,
+    });
+    expect(r.bufferDays).toBeGreaterThan(0);
+    expect(r.register).toBe('act');               // a healthy buffer does not silence it
+  });
+
+  it('leaves a small live overrun off the immediate focus', () => {
+    // elapsed 105 + rem 100 = 205 vs 200 planned → 5 days, 3% — real, but a line
+    // item rather than a reason to stop the program.
+    const r = computeChainLedger({
+      phases: [phase(1, 200, 50, [], iso(0))],
+      sopDate: iso(400),
+      now: day(105),
+    });
+    expect(r.situations.find((s) => s.type === 'forecastOverrun')).toMatchObject({ days: 5, overPct: 3 });
+    expect(r.immediateFocus).toBeNull();
+    expect(r.register).toBe('none');
+  });
+
+  it('never raises a FINISHED overrun to the immediate focus', () => {
+    // 100% over its estimate, but done: that time is spent, so it earns a re-plan,
+    // not an all-hands. Nothing left to exploit.
+    const r = computeChainLedger({
+      phases: [phase(1, 20, 100, [], iso(0), iso(40))],
+      sopDate: iso(400),
+      now: day(45),
+    });
+    expect(r.situations.find((s) => s.type === 'sunkOverrun')).toMatchObject({ days: 20, overPct: 100 });
+    expect(r.immediateFocus).toBeNull();
+  });
+
+  it('reports the threshold it applies', () => {
+    expect(SEVERE_OVERRUN_PCT).toBe(10);
+  });
+});
+
 describe('trend replay and register', () => {
   const input: ChainLedgerInput = {
     phases: [
@@ -295,11 +360,35 @@ describe('trend replay and register', () => {
     expect(r.bufferDays).toBe(29);
   });
 
-  it('computes the four-week delta and escalates the register on sustained loss', () => {
+  it('computes the four-week delta', () => {
     const r = computeChainLedger(input);
     // at day 28: A done@20, B unstarted → starts at 28, ends 58 → buffer 42
     expect(r.fourWeekDeltaDays).toBe(29 - 42);
-    expect(r.register).toBe('plan');             // lost ≥ 7 days in 4 weeks
+    // The four-week loss alone would read 'plan', but B is also 37% past its own
+    // 30-day estimate, and a live overrun outranks a still-positive buffer.
+    expect(r.register).toBe('act');
+  });
+
+  it('escalates to plan (not act) when only the four-week loss is bad', () => {
+    // Same shape with the loss coming from IDLE time instead of an overrun: A
+    // finishes exactly on plan, then nothing starts for 26 days.
+    const r = computeChainLedger({
+      phases: [
+        phase(1, 30, 100, [], iso(0), iso(30)),
+        phase(2, 30, 0, [1]),
+      ],
+      sopDate: iso(120),
+      now: day(56),
+      states: [
+        { phaseId: 1, at: iso(0), progress: 10 },
+        { phaseId: 1, at: iso(15), progress: 50 },
+        { phaseId: 1, at: iso(30), progress: 100 },
+      ],
+    });
+    expect(r.immediateFocus).toBeNull();
+    expect(r.bufferDays).toBe(34);               // B cascades to now → ends day 86
+    expect(r.fourWeekDeltaDays).toBe(34 - 47);   // at day 28 A was still running
+    expect(r.register).toBe('plan');
   });
 
   it('stays quiet without states: no trend, no delta', () => {

@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import styles from './page.module.css';
 import ProjectStatusDashboard from '../../../components/ProjectStatusDashboard';
@@ -17,7 +18,8 @@ import { getSummary } from '../../../lib/summaries';
 import { geminiConfigured } from '../../../lib/gemini';
 import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
 import { resolvePerson } from '../../../lib/people';
-import { effectiveStartedAt } from '../../../lib/phase';
+import { effectiveStartedAt, phaseDetailHref } from '../../../lib/phase';
+import { tNodes } from '../../../components/tNodes';
 import ChainLedger from '../../../components/ChainLedger';
 import AnchorHeading from '../../../components/AnchorHeading';
 import { computeChainLedger, type LedgerResourceInput, type StateTuple } from '../../../lib/chainLedger';
@@ -353,6 +355,34 @@ export default async function ProjectDetailsPage(props: {
           oemPartner={oemPartner ? { id: oemPartner.id, name: oemPartner.name } : null}
           suppliersList={supplierList.map((sp) => ({ id: sp.id, name: sp.name }))}
         />
+
+        {/* Immediate focus (2026-07-24, user call). A phase far enough past its OWN
+            estimate is the constraint TODAY, whatever the buffer says, so the fact
+            is raised to program level: it is read before the needle, the briefing
+            and every chart, rather than after scrolling into the chain section —
+            where it previously appeared only as history in "Where the buffer went".
+            One line, no box: label · fact · reaction (design.md §1, §7). */}
+        {ledger.immediateFocus && (
+          <p className={styles.focus} data-testid="program-focus">
+            <span className={styles.focusLabel}>{t(locale, 'clFocusLabel')}</span>
+            {tNodes(locale, 'clFocusPhase', {
+              phase: (
+                <Link href={phaseDetailHref(projectId, ledger.immediateFocus.phaseId)}>
+                  {ledger.immediateFocus.phaseName}
+                </Link>
+              ),
+              pct: ledger.immediateFocus.overPct,
+              r: ledger.immediateFocus.remainingDays,
+            })}{' '}
+            {ledger.immediateFocus.count > 1 && (
+              <>
+                {t(locale, ledger.immediateFocus.count === 2 ? 'clFocusAlsoOne' : 'clFocusAlso',
+                  { n: ledger.immediateFocus.count - 1 })}{' '}
+              </>
+            )}
+            {t(locale, 'clFocusExploit')}
+          </p>
+        )}
       </header>
 
       <main className={styles.main}>

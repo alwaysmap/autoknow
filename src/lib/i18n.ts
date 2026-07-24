@@ -1413,6 +1413,69 @@ const STRINGS = {
     ja: '{from}→{to}の引き継ぎを今のうちに合意し、開始可能日に即着手できるようにしましょう。',
     ko: '{from} → {to} 인수인계를 지금 합의해 시작 가능한 날 바로 착수하게 하세요.',
   },
+  // Overruns against a phase's OWN estimate. "Where the buffer went" has always
+  // reported these as history; nothing ever asked anyone to DO something about
+  // them. The measure is a PERCENTAGE of the estimate, not days: 5 days over a
+  // 10-day phase and 5 days over a 200-day one are different programs, and the
+  // ledger reported both as "5 days".
+  clOverrunFocus: {
+    en: '{phase} is {pct}% past its {p}-day estimate, with {r} days of work still left. Exploit the constraint: root-cause the overrun and clear what is holding the phase up, or re-estimate it if the plan was optimistic.',
+    de: '{phase} liegt {pct} % über der {p}-Tage-Schätzung, bei {r} Tagen Restarbeit. Den Engpass ausschöpfen: Ursache der Überschreitung finden und die Blockade beseitigen — oder die Phase neu schätzen, falls der Plan zu optimistisch war.',
+    ja: '{phase}は{p}日の見積もりを{pct}%超過し、残作業は{r}日です。制約を徹底活用しましょう — 超過の原因を突き止めて滞りを解消するか、計画が楽観的だったなら見積もりを修正してください。',
+    ko: '{phase}은(는) {p}일 견적을 {pct}% 초과했고 남은 작업은 {r}일입니다. 제약을 최대한 활용하세요 — 초과의 근본 원인을 찾아 막고 있는 것을 해결하거나, 계획이 낙관적이었다면 다시 견적하세요.',
+  },
+  clOverrunActive: {
+    en: '{phase} is tracking {d} days ({pct}%) past its {p}-day estimate. Find the cause while it is still small — clear it, or re-estimate the phase.',
+    de: '{phase} läuft {d} Tage ({pct} %) über die {p}-Tage-Schätzung. Die Ursache finden, solange sie klein ist — beseitigen oder die Phase neu schätzen.',
+    ja: '{phase}は{p}日の見積もりを{d}日（{pct}%）超過して推移しています。小さいうちに原因を特定し、解消するか見積もりを修正しましょう。',
+    ko: '{phase}은(는) {p}일 견적보다 {d}일({pct}%) 초과해 진행 중입니다. 작을 때 원인을 찾아 해결하거나 단계를 다시 견적하세요.',
+  },
+  clOverrunSunkOne: {
+    en: '{phases} finished {d} days ({pct}%) past its estimate. That time is spent — what it leaves open is whether the estimates still ahead are optimistic too.',
+    de: '{phases} endete {d} Tage ({pct} %) über der Schätzung. Diese Zeit ist verbraucht — offen bleibt, ob auch die noch bevorstehenden Schätzungen zu optimistisch sind.',
+    ja: '{phases}は見積もりを{d}日（{pct}%）超過して完了しました。その時間は戻りません — 残るのは、この先の見積もりも楽観的ではないかという問いです。',
+    ko: '{phases}은(는) 견적을 {d}일({pct}%) 초과해 완료됐습니다. 그 시간은 이미 쓰였고, 남는 질문은 앞으로의 견적도 낙관적이지 않은가입니다.',
+  },
+  clOverrunSunk: {
+    en: 'Finished phases ran past their estimates: {phases}. Repeated overruns are an estimating problem rather than bad luck — re-estimate the phases still ahead.',
+    de: 'Abgeschlossene Phasen liefen über ihre Schätzungen: {phases}. Wiederholte Überschreitungen sind ein Schätzproblem, kein Pech — die noch bevorstehenden Phasen neu schätzen.',
+    ja: '完了フェーズが見積もりを超過しました: {phases}。繰り返す超過は不運ではなく見積もりの問題です — この先のフェーズを見積もり直しましょう。',
+    ko: '완료된 단계들이 견적을 넘겼습니다: {phases}. 반복되는 초과는 운이 아니라 견적의 문제입니다 — 앞으로의 단계를 다시 견적하세요.',
+  },
+  clOverrunSunkItem: {
+    en: '{phase} (+{pct}%)', de: '{phase} (+{pct} %)', ja: '{phase}（+{pct}%）', ko: '{phase}(+{pct}%)',
+  },
+  // The same fact raised to PROGRAM level — the header line, above the fold, where
+  // it is read before anyone scrolls into the chain section. Label + one-line fact
+  // + the reaction (design.md §7), so the sentence still reads if the label is
+  // scanned past.
+  clFocusLabel: {
+    en: 'Immediate focus', de: 'Sofortiger Fokus', ja: '最優先事項', ko: '즉시 집중',
+  },
+  clFocusPhase: {
+    en: '{phase} is {pct}% past its estimate with {r} days of work still left.',
+    de: '{phase} liegt {pct} % über der Schätzung, bei {r} Tagen Restarbeit.',
+    ja: '{phase}は見積もりを{pct}%超過し、残作業は{r}日です。',
+    ko: '{phase}은(는) 견적을 {pct}% 초과했고 남은 작업은 {r}일입니다.',
+  },
+  clFocusAlsoOne: {
+    en: '1 other phase is past its estimate too.',
+    de: '1 weitere Phase liegt ebenfalls über ihrer Schätzung.',
+    ja: '他に1件のフェーズも見積もりを超過しています。',
+    ko: '다른 단계 1개도 견적을 초과했습니다.',
+  },
+  clFocusAlso: {
+    en: '{n} other phases are past their estimates too.',
+    de: '{n} weitere Phasen liegen ebenfalls über ihren Schätzungen.',
+    ja: '他に{n}件のフェーズも見積もりを超過しています。',
+    ko: '다른 단계 {n}개도 견적을 초과했습니다.',
+  },
+  clFocusExploit: {
+    en: 'Exploit the constraint: clear what is holding it up before starting anything new.',
+    de: 'Den Engpass ausschöpfen: die Blockade beseitigen, bevor Neues begonnen wird.',
+    ja: '制約を徹底活用しましょう — 新しい作業を始める前に、滞りを解消してください。',
+    ko: '제약을 최대한 활용하세요 — 새 작업을 시작하기 전에 막고 있는 것을 해결하세요.',
+  },
   clLeverDeclare: {
     en: 'Declare the program Concerned and propose moving SOP to {month}',
     de: 'Das Programm auf „Concerned“ setzen und eine SOP-Verschiebung auf {month} vorschlagen',

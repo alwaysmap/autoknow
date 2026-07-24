@@ -35,6 +35,23 @@ dragging the chart, so day-level detail in a busy fortnight is legible; markers 
 risers outside the window are dropped rather than edge-clamped. Still open from #75's
 neighbours: the #22 touch-gesture story (the pan is mouse-only for now).
 
+UPDATE (2026-07-24, user call): **an overrun against a phase's own estimate is now a
+LEVER, and past a threshold it is the program's headline.** The taxonomy always
+detected `sunkOverrun` / `forecastOverrun`, but only §4b spent them — the response
+ladder never composed a reaction from either, so a phase could pass double its
+estimate under a judgment sentence reading "Nothing needs to change today". Three
+changes: (1) every overrun packet now carries `overPct` — days as a share of the
+estimate, because 5 days over a 10-day phase and 5 over a 200-day one were both
+reported as "5 days"; (2) the ladder's rungs lead with root-cause-or-re-estimate
+bullets (live phases one each, finished ones collapsed into one re-planning bullet
+with a link to the phase editor), placed FIRST since fixing a phase is less
+disruptive than moving people or moving the SOP; (3) a RUNNING phase at or past
+`SEVERE_OVERRUN_PCT` (10%) becomes `ledger.immediateFocus`, which forces the `act`
+register — a buffer only says the damage hasn't reached the SOP yet — and renders a
+program-level line in the page header ("Immediate focus — … Exploit the constraint"),
+above the needle and the chain section. Finished overruns never take that flag: that
+time is spent, so they earn a re-plan, not an all-hands.
+
 ## 1. Why
 
 AutoKnow exists to support decision making and best use of a limited team — not
