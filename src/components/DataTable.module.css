@@ -161,10 +161,8 @@
   font: inherit;
   color: inherit;
   cursor: pointer;
-}
-.sortButton:focus-visible {
-  outline: 2px solid var(--chain, var(--info));
-  outline-offset: 2px;
+  /* Chrome is stripped above, so this radius is only ever visible as the corners
+     of the focus ring (globals.css). */
   border-radius: 0.125rem;
 }
 

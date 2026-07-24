@@ -20,8 +20,3 @@
 .field::placeholder {
   color: var(--muted);
 }
-
-.field:focus-visible {
-  outline: 2px solid var(--link);
-  outline-offset: 1px;
-}

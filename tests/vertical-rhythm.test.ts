@@ -1,5 +1,6 @@
 import { readFileSync } from 'fs';
 import { globSync } from 'glob';
+import { stripComments } from './helpers/css';
 
 // Enforce the vertical rhythm in software rather than in prose (AGENTS lesson 2).
 // Every rule here was a real defect found by measuring the rendered page on
@@ -109,8 +110,7 @@ describe('vertical rhythm', () => {
     const EXEMPT = /^(border(?!-radius)[a-z-]*|outline[a-z-]*|stroke[a-z-]*|box-shadow|background-size|backdrop-filter|text-decoration-thickness|--graticule)$/;
     const offenders: string[] = [];
     for (const file of CSS) {
-      const text = readFileSync(file, 'utf8')
-        .replace(/\/\*[\s\S]*?\*\//g, '')
+      const text = stripComments(readFileSync(file, 'utf8'))
         .replace(/@media[^{]*/g, ''); // breakpoints are px by convention (§9)
       for (const m of text.matchAll(/([a-z-]+)\s*:((?:[^;{}]|\([^)]*\))*)/g)) {
         const [, prop, value] = m;

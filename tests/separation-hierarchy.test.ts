@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { globSync } from 'glob';
 import { dirname, resolve } from 'path';
+import { blankComments } from './helpers/css';
 
 // design.md §7, "Separation hierarchy — one mechanism per boundary, never stacked":
 //
@@ -75,9 +76,9 @@ describe('separation hierarchy (design.md §7 rule 3)', () => {
 
     for (const file of MODULES) {
       const raw = readFileSync(file, 'utf8');
-      // Blank out comments but keep every newline, so `css` line numbers still
-      // match the file (a reported offender must point at the real line).
-      const css = raw.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '));
+      // Comments blanked, newlines kept, so `css` line numbers still match the
+      // file — a reported offender must point at the real line.
+      const css = blankComments(raw);
 
       // A class is "headed" one of two ways, both computed once per module:
       //   (a) the CSS styles a heading descendant of it — `.section h2 { … }`;

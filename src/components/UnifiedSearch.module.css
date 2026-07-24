@@ -29,11 +29,6 @@
   color: var(--fg);
 }
 
-.input:focus-visible {
-  outline: 2px solid var(--link);
-  outline-offset: 1px;
-}
-
 .button {
   /* inline-flex so a leading glyph sits ON the label's line; a default
      inline-block button lets a display:block SVG break to its own line. */

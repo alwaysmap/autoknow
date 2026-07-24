@@ -80,6 +80,20 @@
   --t-500: hsla(calc(var(--hue) - 60), 32%, 54%, 1);
   --t-700: hsla(calc(var(--hue) - 60), 38%, 32%, 1);
 
+  /* THE focus ring's ink (#123). Before it there was no app-wide rule: six
+     components hand-rolled seven rings in four different colours (--p-500,
+     --chain, --fg, --link), and everything else — the ⋯ menu included — got the
+     browser's own, blue on macOS and a 5px amber halo elsewhere, a colour in
+     nobody's palette and different on every machine.
+     Its own lightness, NOT an alias of --p-500: measured on the live page, p-500
+     rings came in at 2.74–2.98:1 on --surface/--bg in both LIGHT styles — under the
+     3:1 floor a non-text indicator has to clear (the ThemeToggle ring it replaces
+     had exactly that weakness). 30% clears it on every ground in both light styles
+     (4.53:1 standard, 4.01:1 Instrument, worst ground --surface); the dark themes
+     restate it lifted, below. --hue is per-style, so one declaration serves both
+     light styles. Re-measure with tests/contrast.spec.ts if you touch it. */
+  --focus-ring: hsla(var(--hue), 60%, 30%, 1);
+
   /* Neutrals — near-neutral off-white, only a whisper of warmth so status
      colors (amber "Some Risk", red "Concerned") read clearly against it */
   --bg:      hsl(45, 8%, 96%);
@@ -197,6 +211,13 @@
   --t-500: hsla(calc(var(--hue) - 60), 28%, 56%, 1);
   --t-700: hsla(calc(var(--hue) - 60), 34%, 72%, 1);
 
+  /* The ring, lifted for a dark ground — same reason every other dark ink is
+     restated rather than reused. Serves BOTH dark styles: --hue is per-style and
+     the Instrument block declares no ring of its own, so this stays the winning
+     declaration there. 5.72:1 standard, 6.92:1 Instrument (worst ground
+     --surface). */
+  --focus-ring: hsla(var(--hue), 60%, 56%, 1);
+
   /* Warm, not black (2026-07-20, user call — "make it less intensely dark",
      adjusted toward dvhthomas/pearish-theme). Two moves: hue 220 → ~30, so the
      field is roast brown rather than blue-black, and every step lifted ~5 points
@@ -270,9 +291,10 @@
   --hue: 76; /* pear, not the standard style's 142 */
 
   /* Pear sits lighter than the brand green at the same HSL lightness, so the one
-     ramp step used as a NON-TEXT indicator (accent-color, focus rings) has to be
-     darkened by hand to clear 3:1 on this ground — 36% gives 3.25:1, where the
-     inherited 40% gave 2.67:1. Every other step stays on --hue. */
+     ramp step used as a NON-TEXT indicator (accent-color) has to be darkened by
+     hand to clear 3:1 on this ground — 36% gives 3.25:1, where the inherited 40%
+     gave 2.67:1. Every other step stays on --hue. The focus ring no longer rides
+     this step: it is --focus-ring, which needs a darker value still (#123). */
   --p-500: hsla(var(--hue), 60%, 36%, 1);
 
   --bg:      hsl(38, 22%, 96%);
@@ -452,6 +474,21 @@ select,
 textarea {
   font-family: inherit;
   font-size: inherit;
+}
+
+/* THE focus ring — one rule for the whole app, drawn INSIDE the element (#123).
+   Inward is not a style preference, it is what makes the ring unclippable: an
+   outline painted outside the border box is clipped by ANY ancestor `overflow`,
+   and the ⋯ popover panel (AnchoredPopover, overflow:auto for its max-height)
+   leaves a focused menu row 4px of clearance — enough to cut three of the ring's
+   four sides and leave the fourth lying across the menu as an orphaned line.
+   Drawn inward, no container has to reserve room, so no future scroll box can
+   half-erase it. Deleting a ring instead is not an option (WCAG 2.4.7): a control
+   that takes focus says so. Components override the COLOUR only — never the
+   offset, or clipping comes back. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 
 * {

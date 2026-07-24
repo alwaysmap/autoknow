@@ -24,7 +24,6 @@
   border-radius: 0.25rem;
   background-color: var(--white);
   color: var(--fg);
-  outline: none;
   font-family: inherit;
   transition: border-color 0.15s ease;
 }
