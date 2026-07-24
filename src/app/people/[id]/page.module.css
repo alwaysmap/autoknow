@@ -127,7 +127,7 @@
   font-style: italic;
 }
 
-/* Company / program rows: whitespace-separated one-liners. */
+/* Program rows: whitespace-separated one-liners. */
 .rows {
   display: flex;
   flex-direction: column;

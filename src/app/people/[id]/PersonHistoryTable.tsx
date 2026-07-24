@@ -5,10 +5,8 @@ import DataTable from '../../../components/DataTable';
 import DateCell from '../../../components/DateCell';
 import { t, Locale } from '../../../lib/i18n';
 
-// The person's prior companies, as a table (#125). It was a CSS-grid pseudo-table —
-// repeated 3-cell rows of dates / company / role — so it carried none of the §6
-// grammar: no `<th scope="row">`, no sortable headers, and a localized month-year
-// range ("Jan 2020 – Mar 2022") where §6 asks for ISO dates through DateCell.
+// The person's prior companies, on the shared DataTable and design.md §6's grammar
+// (#125).
 //
 // A CLIENT component because DataTable takes `renderRow`, and a function prop cannot
 // cross a Server Component boundary — the person page is `async`. Every other
@@ -17,12 +15,12 @@ import { t, Locale } from '../../../lib/i18n';
 // Never paged: a person's employment history is however many rows the record holds,
 // capped by their life, not a page of a larger set.
 
-export interface PersonHistoryRow {
+interface PersonHistoryRow {
   id: number;
   partnerId: number;
   partnerName: string;
   role: string;
-  /** ISO; the sort key too, so the column sorts on the real instant. */
+  /** ISO — also this table's `defaultSortKey`. */
   startDate: string;
   /** ISO, or null while they are still there. */
   endDate: string | null;
@@ -33,7 +31,7 @@ export default function PersonHistoryTable({ rows, locale }: { rows: PersonHisto
     <DataTable
       headers={[
         { key: 'partnerName', label: t(locale, 'companyLabel') },
-        { key: 'role', label: t(locale, 'roleLabel') },
+        { key: 'role', label: t(locale, 'roleTitle') },
         { key: 'startDate', label: t(locale, 'fromLabel'), sortType: 'date' },
         { key: 'endDate', label: t(locale, 'toLabel'), sortType: 'date' },
       ]}
