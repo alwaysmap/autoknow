@@ -133,32 +133,16 @@
   margin: 0.875rem 0 0.375rem;
 }
 
+/* The built-in phase table moved to the shared DataTable (#112); its dead hand-rolled
+   .table rules went with it. .tableHead STAYS — PhaseDagEditor (embedded by
+   ProgramPhaseEditor) imports this module (as `chrome`) and uses it for its button row. The
+   cell-content classes below (.phaseName, .endTag, .muted, .numeric) dress cells inside
+   DataTable's renderRow. */
+
 .tableHead {
   display: flex;
   justify-content: flex-end;
   padding: 0.5rem 0 0.125rem;
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.table th {
-  text-align: left;
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-  padding: 0.75rem 1.125rem 0.375rem 0;
-}
-
-.table td {
-  padding: 0.875rem 1.125rem 0.875rem 0;
-  border-bottom: 1px solid var(--border);
-  vertical-align: baseline;
-  font-size: 0.875rem;
 }
 
 .phaseName {
