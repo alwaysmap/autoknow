@@ -110,11 +110,15 @@
   opacity: 0.75;
 }
 
-/* Key numbers: large figures, small-caps labels. */
+/* Key numbers: large figures, small-caps labels. The columns TOP-align, not flex-end:
+   a column may carry more sub-lines than its neighbour (the SOP column adds the #21
+   forecast line under its figure), and bottom-alignment would then misalign the figure
+   tops. Top-align keeps the figure tops level; any extra sub-line hangs below its own
+   figure. */
 .stats {
   display: flex;
   gap: 2.5rem;
-  align-items: flex-end;
+  align-items: flex-start;
   flex-shrink: 0;
   margin-left: auto; /* pin right, wrapped or not (#48) */
 }

@@ -169,8 +169,18 @@ export default function ProjectMetaHeader({
         )}
       </div>
 
-      {/* the two figures worth scanning: when, and how big */}
+      {/* The two figures worth scanning: how big, then when. Volume leads; SOP TARGET
+          sits right-most because it carries the extra forecast line (#21) — pinning the
+          sometimes-taller column to the edge reads as more balanced. */}
       <div className={styles.stats}>
+        <div className={styles.stat}>
+          <div className={styles.statLabel}>{t(locale, 'targetVolume')}</div>
+          <div className={styles.statValue}>
+            {volumeFirstYear > 0
+              ? volumeFirstYear.toLocaleString(locale)
+              : <span className={styles.statMuted}>{t(locale, 'notSet')}</span>}
+          </div>
+        </div>
         <div className={styles.stat}>
           <div className={styles.statLabel}>{t(locale, 'sopTarget')}</div>
           <div className={styles.statValue}>
@@ -181,14 +191,6 @@ export default function ProjectMetaHeader({
               {t(locale, 'sopForecast', { d: forecast.date })}
             </div>
           )}
-        </div>
-        <div className={styles.stat}>
-          <div className={styles.statLabel}>{t(locale, 'targetVolume')}</div>
-          <div className={styles.statValue}>
-            {volumeFirstYear > 0
-              ? volumeFirstYear.toLocaleString(locale)
-              : <span className={styles.statMuted}>{t(locale, 'notSet')}</span>}
-          </div>
         </div>
       </div>
 
