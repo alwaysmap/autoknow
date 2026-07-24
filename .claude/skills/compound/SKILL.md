@@ -3,7 +3,7 @@ name: compound
 description: Capture what a change learned or decided as compounding knowledge — decisions as ADRs in docs/adr/, findings as notes in docs/knowledge/, always-on rules as AGENTS.md one-liners. Invoke BEFORE MERGING any PR that touches src/** or prisma/** — CI (ci:lint-compound) blocks the merge until a commit message declares `compound: <path>` or `compound: none — <reason>`. Also invoke after an incident or whenever a real decision was made ("/compound", "capture what we learned").
 ---
 
-# Compound the session's knowledge
+# Compound what this change taught us
 
 The goal is that the next person — agent or human — moves **faster, with more
 confidence, and reworks less**. That only happens if what you record is

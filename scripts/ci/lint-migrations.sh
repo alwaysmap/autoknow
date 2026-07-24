@@ -21,7 +21,7 @@ DESTRUCTIVE='DROP TABLE|DROP COLUMN|DROP SCHEMA|TRUNCATE|ALTER COLUMN [^;]*SET D
 
 files=("$@")
 if [ "${#files[@]}" -eq 0 ]; then
-  base="$(require_base_ref)"
+  base="$(resolve_base_ref)"
   mapfile -t files < <(git diff --name-only --diff-filter=A "$base"...HEAD -- 'prisma/migrations/**/migration.sql')
 fi
 

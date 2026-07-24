@@ -17,20 +17,22 @@ import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, chmodSync, rmSync 
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 
-const GATE = resolve('scripts/ci/lint-compound.sh');
-const LIB = resolve('scripts/ci/lib.sh');
-const HOOK = resolve('scripts/hooks/compound-merge-gate.sh');
+// Paths inside the disposable repo, and the real files copied in to fill them.
+const GATE = 'scripts/ci/lint-compound.sh';
+const HOOK = 'scripts/hooks/compound-merge-gate.sh';
+const COPIED = [GATE, HOOK, 'scripts/ci/lib.sh'].map((p) => [p, resolve(p)] as const);
 
 // The harness must not inherit a contributor's global git config: `commit.gpgsign`
 // or a `core.hooksPath` would break every case for reasons unrelated to the gate.
 const GIT_ENV = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null' };
 
 type Result = { code: number; out: string };
+type Harness = { repo: string; run: (script: string, env?: Record<string, string>, stdin?: string) => Result };
 type Case = {
   /** Files the branch adds, path → contents. Only src/** and prisma/** are substantive. */
   files?: Record<string, string>;
   /** Commit messages on the branch; the first carries `files`, the rest are empty commits. */
-  messages: string[];
+  messages: [string, ...string[]];
   /** Messages committed onto `main` AFTER the branch forked — the diverged-base case. */
   onBaseSinceFork?: string[];
 };
@@ -40,8 +42,8 @@ const write = (repo: string, path: string, body: string) => {
   writeFileSync(join(repo, path), body);
 };
 
-/** Build the repo described by `c` and return the gate's verdict, plus the repo path. */
-const build = (c: Case): { repo: string; run: (script: string, env?: Record<string, string>, stdin?: string) => Result } => {
+/** Build the repo described by `c`; returns its path and a runner for scripts inside it. */
+const build = (c: Case): Harness => {
   const repo = mkdtempSync(join(tmpdir(), 'lint-compound-'));
   const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', env: GIT_ENV });
 
@@ -56,15 +58,13 @@ const build = (c: Case): { repo: string; run: (script: string, env?: Record<stri
   // The harness's copies of the scripts ride in the diff too. They are under
   // scripts/**, so they never trip the src/**|prisma/** filter — the cases stay
   // decided by `files` alone.
-  for (const src of [GATE, LIB]) {
-    mkdirSync(join(repo, 'scripts', 'ci'), { recursive: true });
-    copyFileSync(src, join(repo, 'scripts', 'ci', src.split('/').pop()!));
+  for (const [inRepo, real] of COPIED) {
+    mkdirSync(join(repo, dirname(inRepo)), { recursive: true });
+    copyFileSync(real, join(repo, inRepo));
   }
-  mkdirSync(join(repo, 'scripts', 'hooks'), { recursive: true });
-  copyFileSync(HOOK, join(repo, 'scripts', 'hooks', 'compound-merge-gate.sh'));
   for (const [path, body] of Object.entries(c.files ?? {})) write(repo, path, body);
   git('add', '-A');
-  git('commit', '-qm', c.messages[0] ?? 'change');
+  git('commit', '-qm', c.messages[0]);
   for (const extra of c.messages.slice(1)) git('commit', '-q', '--allow-empty', '-m', extra);
 
   // Commits that landed on the base after this branch forked. `git log base..HEAD`
@@ -93,17 +93,23 @@ const build = (c: Case): { repo: string; run: (script: string, env?: Record<stri
   return { repo, run };
 };
 
-const gate = (c: Case): Result => {
-  const { repo, run } = build(c);
+/** Build, hand the harness to `fn`, and always delete the repo afterwards. */
+const withRepo = <T,>(c: Case, fn: (h: Harness) => T): T => {
+  const h = build(c);
   try {
-    return run('scripts/ci/lint-compound.sh');
+    return fn(h);
   } finally {
-    rmSync(repo, { recursive: true, force: true });
+    rmSync(h.repo, { recursive: true, force: true });
   }
 };
 
+const gate = (c: Case): Result => withRepo(c, ({ run }) => run(GATE));
+
+const hook = (c: Case, command: string): Result =>
+  withRepo(c, ({ repo, run }) => run(HOOK, {}, JSON.stringify({ tool_input: { command }, cwd: repo })));
+
 const SRC = { 'src/lib/thing.ts': 'export const a = 1;\n' };
-const ok = (messages: string[], files = SRC) => expect(gate({ files, messages }).code).toBe(0);
+const ok = (messages: [string, ...string[]], files = SRC) => expect(gate({ files, messages }).code).toBe(0);
 
 describe('lint-compound: the pre-merge compound gate', () => {
   it('passes a PR that touches no app code — a docs-only change has nothing to declare', () => {
@@ -138,14 +144,15 @@ describe('lint-compound: the pre-merge compound gate', () => {
 
     it('is case-insensitive on the key', () => ok(['feat: x\n\nCompound: NONE — shouted, but a judgement']));
 
-    it.each([['bare', 'compound: none'], ['punctuation only', 'compound: none.'], ['dash only', 'compound: none —']])(
-      'FAILS a %s declaration — that is a keystroke, not a judgement',
-      (_label, line) => {
-        const { code, out } = gate({ files: SRC, messages: [`feat: x\n\n${line}`] });
-        expect(code).toBe(1);
-        expect(out).toMatch(/must say WHY/);
-      },
-    );
+    it.each([
+      ['bare', 'compound: none'],
+      ['punctuation only', 'compound: none.'],
+      ['dash only', 'compound: none —'],
+    ])('FAILS a %s declaration — that is a keystroke, not a judgement', (_label, line) => {
+      const { code, out } = gate({ files: SRC, messages: [`feat: x\n\n${line}`] });
+      expect(code).toBe(1);
+      expect(out).toMatch(/must say WHY/);
+    });
   });
 
   describe('a named record must ship in the same diff', () => {
@@ -170,75 +177,55 @@ describe('lint-compound: the pre-merge compound gate', () => {
     });
   });
 
-  it("ignores declarations that landed on the base after this branch forked", () => {
+  it('ignores declarations that landed on the base after this branch forked', () => {
     // `git log base...HEAD` (three dots) reads the base side too, so a merged PR's
     // record — absent from THIS diff — would fail this PR. Two dots is the fix, and
     // this is the case that pins it: without `onBaseSinceFork` the bug is invisible.
-    ok(['feat: x\n\ncompound: none — nothing learned'], SRC);
-    const diverged = gate({
-      files: SRC,
-      messages: ['feat: x\n\ncompound: none — nothing learned'],
-      onBaseSinceFork: ['other PR\n\ncompound: docs/adr/YYYY-MM-DD-someone-elses.md'],
-    });
-    expect(diverged.code).toBe(0);
+    expect(
+      gate({
+        files: SRC,
+        messages: ['feat: x\n\ncompound: none — nothing learned'],
+        onBaseSinceFork: ['other PR\n\ncompound: docs/adr/YYYY-MM-DD-someone-elses.md'],
+      }).code,
+    ).toBe(0);
   });
 
   it('FAILS loudly when BASE_REF does not resolve, rather than passing on an empty diff', () => {
-    const { repo, run } = build({ files: SRC, messages: ['feat: x'] });
-    try {
-      const { code, out } = run('scripts/ci/lint-compound.sh', { BASE_REF: 'origin/' });
-      expect(code).toBe(1);
-      expect(out).toMatch(/does not resolve/);
-    } finally {
-      rmSync(repo, { recursive: true, force: true });
-    }
+    const { code, out } = withRepo({ files: SRC, messages: ['feat: x'] }, ({ run }) =>
+      run(GATE, { BASE_REF: 'origin/' }),
+    );
+    expect(code).toBe(1);
+    expect(out).toMatch(/does not resolve/);
   });
 });
 
 describe('compound-merge-gate: the local PreToolUse hook', () => {
-  const stdin = (repo: string, command: string) => JSON.stringify({ tool_input: { command }, cwd: repo });
+  const MERGE = 'gh pr merge 1 --squash';
+  const undeclared: Case = { files: SRC, messages: ['feat: x'] };
 
   it('passes through a command that is not `gh pr merge`', () => {
-    const { repo, run } = build({ files: SRC, messages: ['feat: x'] });
-    try {
-      expect(run('scripts/hooks/compound-merge-gate.sh', {}, stdin(repo, 'ls -la')).code).toBe(0);
-    } finally {
-      rmSync(repo, { recursive: true, force: true });
-    }
+    expect(hook(undeclared, 'ls -la').code).toBe(0);
   });
 
   it('DENIES `gh pr merge` with exit 2 when the branch has no declaration', () => {
-    const { repo, run } = build({ files: SRC, messages: ['feat: x'] });
-    try {
-      const { code, out } = run('scripts/hooks/compound-merge-gate.sh', {}, stdin(repo, 'gh pr merge 1 --squash'));
-      expect(code).toBe(2);
-      expect(out).toMatch(/compound: none — /);
-    } finally {
-      rmSync(repo, { recursive: true, force: true });
-    }
+    const { code, out } = hook(undeclared, MERGE);
+    expect(code).toBe(2);
+    expect(out).toMatch(/compound: none — /);
   });
 
   it('allows the merge once the branch declares', () => {
-    const { repo, run } = build({ files: SRC, messages: ['feat: x\n\ncompound: none — nothing learned'] });
-    try {
-      expect(run('scripts/hooks/compound-merge-gate.sh', {}, stdin(repo, 'gh pr merge 1 --squash')).code).toBe(0);
-    } finally {
-      rmSync(repo, { recursive: true, force: true });
-    }
+    expect(hook({ files: SRC, messages: ['feat: x\n\ncompound: none — nothing learned'] }, MERGE).code).toBe(0);
   });
 
   it('FAILS OPEN when the gate script itself is broken, rather than walling off every merge', () => {
     // The realistic break is bash 3.2 (stock macOS /bin/bash), where `mapfile` does
     // not exist and the gate exits 127. Blocking on that would put a wall across
     // `gh pr merge` in every clone — far worse than a missed prompt.
-    const { repo, run } = build({ files: SRC, messages: ['feat: x'] });
-    try {
-      const broken = join(repo, 'scripts', 'ci', 'lint-compound.sh');
-      writeFileSync(broken, '#!/usr/bin/env bash\nexit 127\n');
-      chmodSync(broken, 0o755);
-      expect(run('scripts/hooks/compound-merge-gate.sh', {}, stdin(repo, 'gh pr merge 1 --squash')).code).toBe(0);
-    } finally {
-      rmSync(repo, { recursive: true, force: true });
-    }
+    const { code } = withRepo(undeclared, ({ repo, run }) => {
+      writeFileSync(join(repo, GATE), '#!/usr/bin/env bash\nexit 127\n');
+      chmodSync(join(repo, GATE), 0o755);
+      return run(HOOK, {}, JSON.stringify({ tool_input: { command: MERGE }, cwd: repo }));
+    });
+    expect(code).toBe(0);
   });
 });

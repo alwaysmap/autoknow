@@ -4,21 +4,38 @@ set -euo pipefail
 
 CSP_VERSION="${CSP_VERSION:-v2.15.2}"
 
+# --- shared by the lint-*.sh PR gates ----------------------------------------
+
 # Echo the diff base ($BASE_REF, default origin/main), or fail loudly.
 #
-# Every lint-*.sh gate reads `git diff <base>...HEAD`. If the base does not
-# resolve — `origin/${{ github.base_ref }}` becomes a bare `origin/` on any
-# trigger other than `pull_request` — git errors, the file list comes back empty,
-# and the gate PASSES with a reassuring "nothing to check". A gate that green-
-# lights when its own input is missing is the failure mode these gates exist to
-# prevent (AGENTS lesson 2), so resolve once, up front, and refuse otherwise.
-require_base_ref() {
+# Every gate reads `git diff <base>...HEAD`. If the base does not resolve —
+# `origin/${{ github.base_ref }}` becomes a bare `origin/` on any trigger other
+# than `pull_request` — git errors, the file list comes back empty, and the gate
+# PASSES with a reassuring "nothing to check". A gate that green-lights when its
+# own input is missing is the failure mode these gates exist to prevent (AGENTS
+# lesson 2), so resolve once, up front, and refuse otherwise.
+resolve_base_ref() {
   local base="${BASE_REF:-origin/main}"
   if ! git rev-parse --verify -q "$base" >/dev/null 2>&1; then
     echo "::error::BASE_REF '$base' does not resolve — refusing to pass on an empty diff." >&2
     return 1
   fi
   printf '%s' "$base"
+}
+
+# Echo every commit-message line on THIS branch that opens with `<key>:` — the
+# carrier for the gates' declarations (`allow-mixed-infra:`, `compound:`). A
+# commit message is the carrier because it needs no `gh` API call, survives
+# squash-merge, and stays visible in review.
+#
+# `$base..HEAD` — two dots. THREE would be the symmetric difference, which also
+# scans everything merged to the base since this branch forked, so another PR's
+# declaration would answer for this one. The mistake is easy precisely because
+# `git diff <base>...HEAD` above IS correct (changes since the merge base): the
+# two forms do not mean the same thing for `log` as they do for `diff`.
+commit_message_lines() {
+  local base="$1" key="$2"
+  git log --format=%B "$base..HEAD" | grep -iE "^[[:space:]]*${key}:" || true
 }
 
 # Detect platform for the Cloud SQL Auth Proxy download.

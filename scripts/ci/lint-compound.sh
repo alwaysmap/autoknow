@@ -2,27 +2,18 @@
 # Require every substantive PR to declare, in a commit message, what it compounded
 # — a record that ships in this diff, or an explicit "nothing, because…".
 # Rationale, rejected alternatives and the three-place prose sweep this replaces:
-# ADR compound-records-ride-the-pr-that-motivated-them.
+# ADR compound-records-ride-the-pr-that-motivated-them. Modelled on
+# lint-change-ordering.sh, whose `allow-mixed-infra:` opt-in has the same shape.
 #
-# A commit-message line is the carrier (not a PR-body field) because it needs no
-# `gh` API call here, survives squash-merge, and matches the `allow-mixed-infra:`
-# precedent in lint-change-ordering.sh, which this script is modelled on.
-#
-# Accepted forms — one of these in any commit message on the branch:
-#
-#   compound: docs/adr/YYYY-MM-DD-slug.md
-#   compound: docs/knowledge/a.md, AGENTS.md      # comma- or space-separated
-#   compound: none — pure refactor, no new knowledge
-#
-# A named path must actually appear in the diff, or the line is a rubber stamp;
-# `none` must carry a reason, or it is a keystroke rather than a judgement.
+# The accepted grammar is stated once, in print_accepted_forms() below — that is
+# the message contributors actually read when this fails.
 #
 # Usage: BASE_REF=origin/main scripts/ci/lint-compound.sh
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 . scripts/ci/lib.sh
 
-base="$(require_base_ref)"
+base="$(resolve_base_ref)"
 mapfile -t changed < <(git diff --name-only "$base"...HEAD)
 
 # "Substantive" is app code, deliberately narrow: docs, CI, tests and skills are
@@ -45,31 +36,27 @@ if [ "${#substantive[@]}" -eq 0 ]; then
   exit 0
 fi
 
-forms() {
+print_accepted_forms() {
   cat >&2 <<'EOF'
-Put ONE of these lines in any commit message on this branch. It carries paths and
-nothing else — no trailing prose, no backticks, no parentheses:
+Put ONE of these lines in any commit message on this branch:
 
   compound: docs/adr/YYYY-MM-DD-slug.md     a record that SHIPS IN THIS DIFF —
                                             an ADR, a knowledge note, or AGENTS.md
+  compound: docs/knowledge/a.md, AGENTS.md  several, comma- or space-separated
   compound: none — <why there is nothing worth recording>
 
-Run the `compound` skill to make the call. Amend or add a commit; do not merge
-around it.
+The path form carries paths and nothing else: no trailing prose, no backticks,
+no parentheses. Run the `compound` skill to make the call, then amend or add a
+commit; do not merge around it.
 EOF
 }
 
-# `$base..HEAD` — two dots. THREE dots here would be the symmetric difference and
-# would scan every commit merged to the base since this branch forked, so another
-# PR's `compound:` line naming another PR's record would fail this one. (git's two
-# forms do not mean the same thing for `log` as they do for `diff`, where `...`
-# above is correct: changes since the merge base.)
-mapfile -t lines < <(git log --format=%B "$base..HEAD" | grep -iE '^[[:space:]]*compound:')
+mapfile -t lines < <(commit_message_lines "$base" compound)
 
 if [ "${#lines[@]}" -eq 0 ]; then
   echo "::error::This PR changes src/** or prisma/** but no commit message carries a 'compound:' line. Records ride the PR that motivated them."
-  printf '  substantive: %s\n' "${substantive[@]}" >&2
-  forms
+  printf '  substantive: %s\n' "${substantive[@]}"
+  print_accepted_forms
   echo "compound: FAILED — no declaration." >&2
   exit 1
 fi
@@ -85,11 +72,10 @@ for line in "${lines[@]}"; do
     continue
   fi
 
-  # `none` plus a reason. The separator may be an em dash, en dash, hyphen or
-  # colon; the bracket class is a set of BYTES, not characters, which is why the
-  # multi-byte dashes need only their bytes covered rather than the literal
-  # characters — sed here is not locale-aware about them.
   if printf '%s' "$value" | grep -qiE '^none([^[:alnum:]]|$)'; then
+    # Strip `none` and a separator — em dash, en dash, hyphen, colon, or nothing
+    # but space. sed matches these bytewise, so the multi-byte dashes are covered
+    # byte by byte rather than as characters.
     reason="$(printf '%s' "$value" | sed -E 's/^[Nn][Oo][Nn][Ee]//; s/^[[:space:]]*[—–:-]*[[:space:]]*//')"
     # At least one alphanumeric: `none.` and `none —` are keystrokes, not reasons.
     if printf '%s' "$reason" | grep -q '[[:alnum:]]'; then
@@ -118,7 +104,7 @@ for line in "${lines[@]}"; do
 done
 
 if [ "$failed" -ne 0 ]; then
-  forms
+  print_accepted_forms
   echo "compound: FAILED — declaration present but invalid." >&2
   exit 1
 fi

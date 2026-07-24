@@ -13,7 +13,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 . scripts/ci/lib.sh
 
-base="$(require_base_ref)"
+base="$(resolve_base_ref)"
 mapfile -t changed < <(git diff --name-only "$base"...HEAD)
 
 infra=(); app=()
@@ -29,11 +29,7 @@ if [ "${#infra[@]}" -eq 0 ] || [ "${#app[@]}" -eq 0 ]; then
   exit 0
 fi
 
-# `$base..HEAD` — two dots. Three would be the symmetric difference, scanning
-# commits merged to the base since this branch forked, so ANOTHER PR's opt-in
-# would silently excuse this one. (`git diff ...` above is correct: changes since
-# the merge base. The two forms do not mean the same thing for `log`.)
-if git log --format=%B "$base..HEAD" | grep -iEq '^[[:space:]]*allow-mixed-infra:'; then
+if [ -n "$(commit_message_lines "$base" allow-mixed-infra)" ]; then
   echo "change-ordering: mixed infra+app change, but 'allow-mixed-infra:' opt-in present in a commit message. OK."
   exit 0
 fi
