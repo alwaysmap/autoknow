@@ -69,22 +69,19 @@ export default function EcosystemSummaryClient({
   initialTableSort = null
 }: EcosystemSummaryClientProps) {
   const locale = useLocale();
-  // Filtering is the shared table grammar now (#95): Health and Owner are in-header
-  // funnels like every other listing, and the state round-trips through the URL. The
-  // panel this replaces was a health-floor slider, an owner <select>, and a draggable
-  // mini hill chart for a progress band — the last bespoke filter surface in the app.
-  // The progress band was RETIRED rather than converged: a funnel is a checklist of
-  // distinct values and cannot express "between 20% and 60%", and the band did not earn
-  // a one-off control. Progress stays a sortable column.
+  // Filtering is the shared table grammar (#95): Health and Owner are in-header funnels,
+  // and the state round-trips through the URL like every other listing.
   const [filters, setFilters] = useState<Record<string, string[]>>(initialFilters ?? {});
   const [sort, setSort] = useState<TableSort | null>(initialTableSort);
   useTableUrlSync(filters, sort);
 
-  // DataTable owns the filtering; this stays the unfiltered set it filters from.
-  const filteredProjects = initialProjects;
-
-  // Calculate high level dashboard aggregations
-  const criticalCount = filteredProjects.filter(p => healthOrder(p.theNeedle) >= 1).length;
+  // The leaders banner counts the WHOLE portfolio, not the filtered view. It used to
+  // track the bespoke panel, because that panel filtered before render; DataTable now
+  // filters internally and does not report its result, so the count could only follow
+  // the funnels if the component reached back in. A portfolio-level alert that changes
+  // as you narrow a table was arguably the wrong reading anyway — but this IS a
+  // behaviour change, so it is stated rather than hidden behind a filtered-looking name.
+  const criticalCount = initialProjects.filter(p => healthOrder(p.theNeedle) >= 1).length;
 
   return (
     <PageShell title={t(locale, 'ecosystemSummary')}>
@@ -174,7 +171,7 @@ export default function EcosystemSummaryClient({
             { key: 'hillChartProgress', label: t(locale, 'hillChartHeader') },
             { key: 'chainRemainingDays', label: t(locale, 'sopOutlookHeader') }
           ]}
-          data={filteredProjects}
+          data={initialProjects}
           filters={filters}
           onFiltersChange={setFilters}
           onSortChange={(key, dir) => setSort({ key, dir })}

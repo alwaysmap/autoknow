@@ -3,7 +3,7 @@
 // correctly — in the style of headings.test.ts and componentRootMargins.test.ts. An
 // enforced rule needs no memory (AGENTS lesson 2).
 //
-// Two rules:
+// Three rules:
 //
 // 1. A table declared unpaged (`paginate={false}`) must not also take a free-text filter.
 //    `paginate={false}` says "this is a fixed short panel" — a top-N strip is always N
@@ -85,16 +85,16 @@ describe('the shared-table convention (#125)', () => {
     expect(raw).toEqual([]);
   });
 
+  it("still sees DataTable's own <table> — proves the scan can find one at all", () => {
+    // Without this, deleting DataTable's own table (or breaking `code()`) would leave the
+    // guard above passing vacuously, which is this file's documented failure mode.
+    expect(/<table[\s>]/.test(code(DATA_TABLE))).toBe(true);
+  });
+
   it('finds no hand-rolled <select> in a DataTable host', () => {
     const bad = ROOTS.flatMap((r) => tsxFiles(r))
       .filter((f) => callSites(f).length > 0)
       .filter((f) => /<select[\s>]/.test(code(f)));
     expect(bad).toEqual([]);
-  });
-
-  it("still sees DataTable's own <table> — proves the scan can find one at all", () => {
-    // Without this, deleting DataTable's own table (or breaking `code()`) would leave the
-    // guard above passing vacuously, which is this file's documented failure mode.
-    expect(/<table[\s>]/.test(code(DATA_TABLE))).toBe(true);
   });
 });

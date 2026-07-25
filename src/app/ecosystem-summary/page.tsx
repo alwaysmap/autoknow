@@ -19,6 +19,10 @@ export default async function EcosystemSummaryPage(
 
   return (
     <EcosystemSummaryClient
+      // Remount when the URL's params change: the client seeds its filter/sort state
+      // from initial* once, so same-route navigation (clicking the header link while
+      // filtered) must not leave stale view state. Same reason as /programs.
+      key={JSON.stringify(sp, Object.keys(sp).sort())}
       initialProjects={serializedProjects}
       people={people}
       liveConstraints={liveConstraints}
