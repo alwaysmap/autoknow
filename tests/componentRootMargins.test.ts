@@ -21,7 +21,6 @@ const DIR = 'src/components';
 
 // Verified non-`.wrapper` component roots (the outermost returned element's class).
 const NON_WRAPPER_ROOTS: Record<string, string> = {
-  DataTable: 'tableWrapper', // <div className={styles.tableWrapper} ref={wrapperRef}>
   AnchorHeading: 'row', //       <div className={styles.row}>
   SummaryToolbar: 'bar', //      <div className={styles.bar}>
 };
@@ -31,7 +30,6 @@ const ALLOWLIST: readonly string[] = [
   'AnchorHeading.row', //         margin-bottom: 0.5rem   (shared heading)
   'BusiestResources.wrapper', //  margin: 1.25rem 0 0
   'ChainLedger.wrapper', //       margin: 0 0 1rem
-  'DataTable.tableWrapper', //    margin-top: 1rem        (shared table)
   'SummaryToolbar.bar', //        margin-bottom: 0.375rem
 ];
 
@@ -48,7 +46,11 @@ function ruleBlock(css: string, cls: string): string | null {
  *  sibling-spacing axis). `margin: 0 auto` (centring) and `margin: 0` (reset) do not
  *  count; horizontal-only margins are out of scope. */
 function setsOuterMargin(block: string): boolean {
-  for (const line of block.split('\n')) {
+  // Strip whole block comments first: these rules are heavily commented and the house style
+  // QUOTES declarations in prose (`.tableWrapper { margin-top: 1rem }`), which a per-line
+  // split at `/*` would read as live code on any continuation line.
+  const uncommented = block.replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const line of uncommented.split('\n')) {
     const code = line.split('/*')[0];
     const m = /\bmargin(-top|-bottom)?\s*:\s*([^;]+);/.exec(code);
     if (!m) continue;

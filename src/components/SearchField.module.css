@@ -1,16 +1,20 @@
-/* Shares `UnifiedSearch`'s size, padding and focus ring — but NOT its radius. The
-   ROUNDING carries the search-vs-filter distinction the way box-vs-pill carries
-   class-vs-noun (design.md §6): a near-pill (1.25rem) is a real SEARCH that issues a
-   request (UnifiedSearch); this squared box (0.375rem) is a FILTER over rows already
-   in the page. Same shape family, deliberately different corner — keep size/padding/
-   focus in sync with UnifiedSearch, but the radius stays square here on purpose. */
+/* Shares `UnifiedSearch`'s type and focus ring — but NOT its radius, and (since #158) not
+   its height. The ROUNDING carries the search-vs-filter distinction the way box-vs-pill
+   carries class-vs-noun (design.md §6): a near-pill (1.25rem) is a real SEARCH that issues
+   a request (UnifiedSearch); this squared box (0.375rem) is a FILTER over rows already in
+   the page. The HEIGHT now says the same thing a second way: a search is the page's
+   primary affordance and is sized like one; a filter is the control strip of the list it
+   filters (a DataTable, or ActivityFeed), and a 43px box for 14px type made it a floating
+   cluster above that list rather than part of it. Vertical padding is 6px (35px tall,
+   matching a table's own footer buttons); the 1rem horizontal padding stays — the box was
+   never too wide. */
 
 .field {
   width: 17.5rem;
   max-width: 100%;
   font: inherit;
   font-size: 0.875rem;
-  padding: 0.625rem 1rem;
+  padding: 0.375rem 1rem;
   border: 1px solid var(--border);
   border-radius: 0.375rem;
   background: var(--white);

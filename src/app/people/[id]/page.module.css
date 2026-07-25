@@ -133,11 +133,12 @@
   gap: 0.375rem;
 }
 
+/* Host owns the gap above the DataTable (#158, see DataTable.module.css .wrapper); §7 step. */
 .sectionIntro {
   color: var(--muted);
   font-size: 0.8125rem;
   line-height: 1.25rem;
-  margin: 0 0 0.625rem;
+  margin: 0 0 0.875rem;
 }
 
 .empty {

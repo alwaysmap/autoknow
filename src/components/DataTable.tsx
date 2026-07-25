@@ -260,7 +260,9 @@ export default function DataTable<T>({
   };
 
   return (
-    <>
+    // A real root, not a fragment (#158) — the root owns the strip→table gap, the host
+    // owns the space above it; see `DataTable.module.css .wrapper`.
+    <div className={styles.wrapper}>
       {showBar && (
         <div className={styles.filterRow}>
           {showTextFilter && (
@@ -431,6 +433,6 @@ export default function DataTable<T>({
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }
