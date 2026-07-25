@@ -512,6 +512,10 @@ a:hover {
 }
 
 /* Edward Tufte Minimalist Data-Ink & Breathable Table styling globally */
+/* NOTE: this `margin` and the `th, td` padding below are the two biggest numbers in any
+   table's spacing, and neither appears in a component's CSS module — so a module-level
+   audit returns the wrong total (#158). DataTable resets the margin deliberately.
+   docs/knowledge/table-spacing-comes-from-globals-not-the-module.md */
 table {
   width: 100%;
   border-collapse: collapse;

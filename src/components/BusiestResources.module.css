@@ -10,11 +10,12 @@
   margin: 0 0 0.25rem;
 }
 
+/* Host owns the gap above the DataTable (#158, see DataTable.module.css .wrapper); §7 step. */
 .intro {
   color: var(--muted);
   font-size: 0.8125rem;
   line-height: 1.25rem;
-  margin: 0 0 0.625rem;
+  margin: 0 0 0.875rem;
 }
 
 /* A record is two rows — its facts, then its "Consider:" line — so no rule between

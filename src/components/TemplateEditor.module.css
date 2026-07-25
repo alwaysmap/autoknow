@@ -130,7 +130,9 @@
   width: 100%;
   height: auto;
   overflow: visible;
-  margin: 0.875rem 0 0.375rem;
+  /* Host owns the gap above the DataTable (#158, see DataTable.module.css .wrapper); §7 step.
+     The 0.375rem that used to top up DataTable's own margin is now the whole gap. */
+  margin: 0.875rem 0;
 }
 
 /* The built-in phase table moved to the shared DataTable (#112); its dead hand-rolled

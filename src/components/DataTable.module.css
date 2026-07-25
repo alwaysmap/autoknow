@@ -1,20 +1,26 @@
+/* THE ROOT (#158). DataTable used to render a fragment, so it had no box of its own and
+   reached OUT with margins to place itself — `.tableWrapper { margin-top: 1rem }` (the
+   ADR-`containers-own-spacing-charts-own-height` violation this retires from
+   `tests/componentRootMargins.test.ts`'s allowlist) plus a `.filterRow + .tableWrapper`
+   override for the filter case (#112). With a real root the ownership is clean: the HOST
+   owns the space above this box, and this box owns the one space inside it — filter bar
+   → table. Nothing here sets an outer margin. */
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  /* The bar is this table's control strip, not a separate §1 filter-bar card: 6px here
+     plus the cell's own 14px top padding reads as one strip. */
+  gap: 0.375rem;
+  /* Flex children default to min-width:auto, which would let the table push this box wider
+     than its column and defeat .tableWrapper's overflow-x. */
+  min-width: 0;
+}
+
 .tableWrapper {
   width: 100%;
   overflow-x: auto;
-  margin-top: 1rem;
   background-color: transparent;
   border-radius: 0.375rem;
-}
-
-/* Hug the table to its own filter bar (#112). The bar is this table's control strip, not a
-   separate §1 filter-bar card, so the 1rem that spaces a bare table from the page heading
-   reads as detachment when a bar sits between them — worse once a scope toggle
-   ("My partners"/"My programs") widens it into a floating cluster. The bar renders as the
-   tableWrapper's immediate previous sibling ONLY when shown, so this adjacency tightens the
-   filter→table gap without touching heading→table on a filter-less table (the wrapper's
-   margin-top is the only gap between them — overriding it here is enough). */
-.filterRow + .tableWrapper {
-  margin-top: 0.5rem;
 }
 
 .table {
@@ -22,6 +28,10 @@
   border-collapse: collapse;
   text-align: left;
   font-size: 0.875rem;
+  /* Reset globals.css `table { margin: 1.5rem 0 }`; .tableWrapper is a BFC (overflow-x) so
+     it cannot collapse out. A reset, not outer spacing (ADR box-model ownership). Why
+     nobody sees it: docs/knowledge/table-spacing-comes-from-globals-not-the-module.md */
+  margin: 0;
 }
 
 /* ---- Frozen first (identity) column (#29, tinted #112) ----
@@ -99,8 +109,12 @@
   background: var(--surface);
 }
 
+/* NO `padding` here on purpose (#158). Cell padding is globals.css's
+   `th, td { padding: 0.875rem 1.125rem !important }`, shared by every table in the app.
+   This rule used to declare `padding: 0.75rem 1rem`, which never applied — an author
+   `!important` beats it — and cost a reader a wrong measurement: the header's real top
+   padding is 14px, not 12. See #158. */
 .th {
-  padding: 0.75rem 1rem;
   font-weight: 600;
   color: var(--muted);
   border-bottom: 2px solid var(--border);

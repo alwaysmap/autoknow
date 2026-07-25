@@ -9,10 +9,14 @@
   max-width: 40rem;
 }
 
+/* Host owns the gap above the DataTable (#158, see DataTable.module.css .wrapper); §7 step.
+   Consumed by PhaseDagEditor.tsx, not ProgramPhaseEditor. Without this the table butted
+   straight against the canvas (0px) — the regression the #158 host sweep caught. */
 .wrap {
   display: flex;
   align-items: flex-start;
   gap: 1.25rem;
+  margin-bottom: 0.875rem;
 }
 
 .canvasWrap {

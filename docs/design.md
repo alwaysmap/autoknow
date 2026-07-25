@@ -444,11 +444,13 @@ combination must work:
   `UnifiedSearch` issues a query, so it is the rounded (1.25rem) bar with the dial at
   its trailing edge. The built-in `DataTable` filter box (`SearchField`) narrows rows
   already in the page, so it is **squared (0.375rem)** and dial-less — the corner is
-  what tells a filter from a search (box-vs-pill, §6; #86). `SearchField` still shares
-  UnifiedSearch's height, padding and focus ring (keep those in sync) — only the radius
-  diverges, and on purpose. Both are COMPONENTS, not shared classes, because CSS modules
-  cannot share a class across files and this control had drifted into three separate
-  definitions.
+  what tells a filter from a search (box-vs-pill, §6; #86). `SearchField` shares
+  UnifiedSearch's type and focus ring (keep those in sync); the radius and, since #158,
+  the HEIGHT diverge on purpose — a search is the page's primary affordance and is sized
+  like one, while a filter belongs to the control strip of the list it filters, so it takes
+  the compact 0.375rem vertical padding that matches a table's own footer controls. Both
+  are COMPONENTS, not shared classes, because CSS modules cannot share a class across files
+  and this control had drifted into three separate definitions.
 * **The Schedule is a phase × week STATE GRID, not textured buffer bands** (issue
   #75, `ChainSchedule.tsx`). The earlier encoding painted buffer movement as
   full-height hatch/stipple bands (crosshatch/hatch/dots) across every row; on a
