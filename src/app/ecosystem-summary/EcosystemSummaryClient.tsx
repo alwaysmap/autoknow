@@ -289,37 +289,50 @@ export default function EcosystemSummaryClient({
         {liveConstraints.length === 0 ? (
           <p className={styles.diagnosisEmpty}>{t(locale, 'noLiveConstraints')}</p>
         ) : (
-          <div className={styles.diagnosisGrid}>
-            {liveConstraints.map((c) => {
+          <DataTable
+            headers={[
+              { key: 'phaseName', label: t(locale, 'phaseLabel') },
+              // Neither sorts: both derive from the same count, so two sort controls
+              // would do one job, and the rows already arrive most-blocking first. The
+              // `status` names no field on LiveConstraint: with `sortable: false` and no
+              // funnel the key is React identity only. It becomes a live row path the
+              // moment someone makes this column sortable or filterable — change it then.
+              { key: 'programs', label: t(locale, 'clGatingSop'), sortable: false },
+              { key: 'status', label: t(locale, 'statusLabel'), sortable: false },
+            ]}
+            data={liveConstraints}
+            paginate={false}
+            // Empty: keep the most-blocking-first order dashboardData already applied.
+            defaultSortKey=""
+            renderRow={(c: LiveConstraint) => {
               // Gating more than one live SOP is what makes a phase *primary*; a phase
               // gating one is still genuinely on a chain, just not the leverage point.
               const isPrimary = c.programs.length > 1;
               return (
-              <div
-                key={c.phaseName}
-                className={isPrimary ? `${styles.diagnosisItem} ${styles.constraintHighlight}` : styles.diagnosisItem}
-              >
-                <span className={styles.phaseLabel}>{c.phaseName}</span>
-                <span className={styles.constraintCount}>
-                  {isPrimary
-                    ? t(locale, 'gatingNPrograms', { n: c.programs.length })
-                    : t(locale, 'gatingOneProgram')}
-                </span>
-                <span className={isPrimary ? styles.badgeDanger : styles.badgeWarn}>
-                  {t(locale, isPrimary ? 'primaryConstraint' : 'onCriticalChain')}
-                </span>
-                <span className={styles.constraintPrograms}>
-                  {c.programs.map((prog, n) => (
-                    <span key={prog.id}>
-                      {n > 0 && ', '}
-                      <Link href={`/programs/${prog.id}`}>{prog.name}</Link>
+                <tr key={c.phaseName} className={isPrimary ? styles.constraintHighlight : undefined}>
+                  <th scope="row">{c.phaseName}</th>
+                  <td>
+                    {isPrimary
+                      ? t(locale, 'gatingNPrograms', { n: c.programs.length })
+                      : t(locale, 'gatingOneProgram')}
+                    <div className={styles.constraintPrograms}>
+                      {c.programs.map((prog, i) => (
+                        <span key={prog.id}>
+                          {i > 0 && ', '}
+                          <Link href={`/programs/${prog.id}`}>{prog.name}</Link>
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td>
+                    <span className={isPrimary ? styles.badgeDanger : styles.badgeWarn}>
+                      {t(locale, isPrimary ? 'primaryConstraint' : 'onCriticalChain')}
                     </span>
-                  ))}
-                </span>
-              </div>
+                  </td>
+                </tr>
               );
-            })}
-          </div>
+            }}
+          />
         )}
       </section>
 
