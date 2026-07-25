@@ -2,21 +2,32 @@
 // Source-scan guard on how `DataTable` is CALLED, in the style of headings.test.ts and
 // componentRootMargins.test.ts. An enforced rule needs no memory (AGENTS lesson 2).
 //
-// The rule: a table declared unpaged (`paginate={false}`) must not also take a free-text
-// filter. `paginate={false}` says "this is a fixed short panel" — a top-N strip is always
-// N records — and a filter box over five rows is the same class of noise as a pager that
-// can never act (#125, and #86's rule that the box belongs to browsable listings).
-// Nothing violates this today; the guard exists so the next conversion cannot introduce it.
+// Two rules:
 //
-// NOT here yet: the companion guard failing a raw `<table>` outside DataTable.tsx. It
-// cannot land until BusiestResources is converted (#125 Track A step 3) — a guard merged
-// red is a guard someone disables — so it ships with that change, by the issue's own
-// sequencing.
+// 1. A table declared unpaged (`paginate={false}`) must not also take a free-text filter.
+//    `paginate={false}` says "this is a fixed short panel" — a top-N strip is always N
+//    records — and a filter box over five rows is the same class of noise as a pager that
+//    can never act (#125, and #86's rule that the box belongs to browsable listings).
+//
+// 2. No raw `<table>` outside DataTable itself. design.md §6 asks new tables to use the
+//    shared component rather than re-implement it; every hand-rolled one re-derived the
+//    grammar (ISO DateCell, `<th scope="row">`, sortable headers) and drifted. This guard
+//    could only land AFTER the last of them was converted (#125 Track A steps 1-4) — a
+//    guard merged red is a guard someone disables.
 
 import { readFileSync } from 'node:fs';
 import { tsxFiles } from './helpers/sourceFiles';
 
 const ROOTS = ['src/app', 'src/components'];
+/** The one component allowed to render a `<table>` — everything else goes through it. */
+const CONTAINER = 'src/components/DataTable.tsx';
+
+/** Source with comments stripped: a comment ABOUT `<table>` is not a `<table>`, and one
+ *  explaining a conversion is exactly what a naive grep trips on. */
+const code = (file: string): string =>
+  readFileSync(file, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
 
 /**
  * Each `<DataTable …>` OPENING TAG in a file, as raw text.
@@ -66,5 +77,18 @@ describe('DataTable call sites (#125)', () => {
   it('still finds call sites at all — catches the roots moving or the component being renamed', () => {
     const total = ROOTS.flatMap((r) => tsxFiles(r)).flatMap(callSites).length;
     expect(total).toBeGreaterThan(0);
+  });
+
+  it('renders no raw <table> outside DataTable', () => {
+    const raw = ROOTS.flatMap((r) => tsxFiles(r))
+      .filter((f) => f !== CONTAINER)
+      .filter((f) => /<table[\s>]/.test(code(f)));
+    expect(raw).toEqual([]);
+  });
+
+  it('still sees the one <table> that IS allowed — proves the scan can find one at all', () => {
+    // Without this, deleting DataTable's own table (or breaking `code()`) would leave the
+    // guard above passing vacuously, which is this file's documented failure mode.
+    expect(/<table[\s>]/.test(code(CONTAINER))).toBe(true);
   });
 });
