@@ -97,7 +97,6 @@
   max-width: 7.5rem;
 }
 
-
 /* Scorecards metrics dashboard */
 .scorecards {
   display: grid;
@@ -371,30 +370,6 @@
   color: var(--muted);
 }
 
-.diagnosisGrid {
-  display: flex;
-  flex-direction: column;
-}
-
-.diagnosisItem {
-  display: flex;
-  /* Wrap: the row carries phase / count / badge on one line and the programs it gates
-     on the next (#129). Without this the 100%-basis program list squeezes its siblings
-     instead of moving below them. */
-  flex-wrap: wrap;
-  gap: 0.25rem 0.75rem;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 0.5rem;
-  background-color: transparent;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
-}
-
-.diagnosisItem:last-child {
-  border-bottom: none;
-}
-
 /* The honest empty state: no phase is on a critical chain right now. A panel headed
    "diagnosis" must be able to say "nothing to report" rather than show a plausible
    default (#129). */
@@ -406,36 +381,27 @@
   margin: 0;
 }
 
-/* Which programs this phase is gating — the receipt for the count beside it. */
+/* Which programs this phase is gating — the receipt under the count in the same cell.
+   `display: block` rather than the old `flex-basis: 100%`: it used to be a flex child of
+   the grid row this panel was built from, and inside a table cell that did nothing. */
 .constraintPrograms {
+  display: block;
   font-size: 0.75rem;
   line-height: 1.125rem;
   color: var(--muted);
-  flex-basis: 100%;
 }
 
+/* The primary constraint's row. `border-left` on a `tr` renders because DataTable's
+   table is `border-collapse: collapse`; the old `padding-left` beside it did NOT — a
+   `tr` takes no padding — so the cells carry their own. */
 .constraintHighlight {
   border-left: 3px solid var(--t-500);
-  padding-left: 0.75rem;
-}
-
-.phaseLabel {
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
-  font-weight: 600;
-  color: var(--fg);
 }
 
 /* "nothing here" in a table cell — an absent value, never a good-news state.
    (Also used by /ecosystem, which imports this module.) */
 .emptyCell {
   color: var(--muted);
-}
-
-.constraintCount {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--fg);
 }
 
 .badgeDanger {
@@ -447,6 +413,9 @@
   text-transform: uppercase;
   padding: 0.125rem 0.5rem;
   border-radius: 0.25rem;
+  /* A class label is one token: in the grid this was always one line, and the
+     narrower table column broke it mid-phrase ("ON A CRITICAL / CHAIN"). */
+  white-space: nowrap;
 }
 
 .badgeWarn {
@@ -458,6 +427,9 @@
   text-transform: uppercase;
   padding: 0.125rem 0.5rem;
   border-radius: 0.25rem;
+  /* A class label is one token: in the grid this was always one line, and the
+     narrower table column broke it mid-phrase ("ON A CRITICAL / CHAIN"). */
+  white-space: nowrap;
 }
 
 .ownerLink {
@@ -483,7 +455,6 @@
 .badgeFilterBtn:hover {
   opacity: 0.8;
 }
-
 
 /* Latest needle-update text in the risk table: one elided line, full text on hover. */
 .noteClamp {
