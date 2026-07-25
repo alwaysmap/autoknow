@@ -17,7 +17,11 @@ cd "$(dirname "$0")/../.."
 
 # Data-loss / rewrite statements. Adding a column, table, index, or a nullable/defaulted
 # column is NOT here — those are safe and need no opt-in.
-DESTRUCTIVE='DROP TABLE|DROP COLUMN|DROP SCHEMA|TRUNCATE|ALTER COLUMN [^;]*SET DATA TYPE|ALTER COLUMN [^;]*SET NOT NULL|DROP DATABASE'
+# \b-anchored: without the word boundaries these match inside IDENTIFIERS, not just
+# statements — a column literally named "truncated" tripped the TRUNCATE rule (#56), which
+# is the worst kind of guard failure because the honest fix looks like adding an
+# `-- allow-destructive` tag to a migration that destroys nothing.
+DESTRUCTIVE='\bDROP[[:space:]]+TABLE\b|\bDROP[[:space:]]+COLUMN\b|\bDROP[[:space:]]+SCHEMA\b|\bTRUNCATE\b|\bALTER[[:space:]]+COLUMN\b[^;]*\bSET[[:space:]]+DATA[[:space:]]+TYPE\b|\bALTER[[:space:]]+COLUMN\b[^;]*\bSET[[:space:]]+NOT[[:space:]]+NULL\b|\bDROP[[:space:]]+DATABASE\b'
 
 files=("$@")
 if [ "${#files[@]}" -eq 0 ]; then

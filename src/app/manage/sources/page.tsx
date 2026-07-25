@@ -25,6 +25,7 @@ export default async function SourcesPage(props: {
     select: {
       id: true, url: true, title: true, type: true, mode: true, sourceRef: true,
       sourceStatus: true, addedBy: true, lastCheckedAt: true, createdAt: true, frozenReason: true,
+      truncated: true,
       project: { select: { id: true, name: true } },
       partner: { select: { id: true, name: true } },
       _count: { select: { revisions: true } },
@@ -51,6 +52,7 @@ export default async function SourcesPage(props: {
     lastCheckedAt: s.lastCheckedAt?.toISOString() ?? null,
     createdAt: s.createdAt.toISOString(),
     frozenReason: s.frozenReason,
+    truncated: s.truncated,
     entityName: s.project?.name ?? s.partner?.name ?? null,
     entityHref: s.project ? `/programs/${s.project.id}` : s.partner ? `/partners/${s.partner.id}` : null,
     revisions: s._count.revisions,

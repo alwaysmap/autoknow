@@ -104,6 +104,9 @@ export interface IngestionHealth {
     quotaStopped: boolean;
   } | null;
   skipped: SkippedSourceView[];
+  /** Indexed sources whose text ran past MAX_DOC_CHARS, so their tail is not searchable
+   *  (#56). A count, not rows — the rows are the Sources table on the same page. */
+  truncated: number;
   budget: { dailyReingestBudgetDocs: number; freeTierRequestsPerDay: number };
   gauge: BudgetGauge;
 }
@@ -111,9 +114,10 @@ export interface IngestionHealth {
 /** Everything Manage → Sources needs to render the health card, skip list, and budget
  *  slider — bounded reads only (one summary row + the currently-skipped set). */
 export async function getIngestionHealth(): Promise<IngestionHealth> {
-  const [summary, skippedRows, settings] = await Promise.all([
+  const [summary, skippedRows, truncated, settings] = await Promise.all([
     prisma.ingestionCycleSummary.findUnique({ where: { key: SUMMARY_KEY } }),
     prisma.skippedSource.findMany({ orderBy: [{ reason: 'asc' }, { name: 'asc' }] }),
+    prisma.contextUrl.count({ where: { truncated: true } }),
     getIngestionSettings(),
   ]);
 
@@ -144,6 +148,7 @@ export async function getIngestionHealth(): Promise<IngestionHealth> {
       folderDepth: r.folderDepth,
       firstSeenAt: r.firstSeenAt,
     })),
+    truncated,
     budget: settings,
     gauge: budgetGauge(settings.dailyReingestBudgetDocs, settings.freeTierRequestsPerDay),
   };

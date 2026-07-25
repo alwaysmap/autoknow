@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { summarizeDocument, digestToText, embedText, isQuotaError } from './gemini';
 import { fetchWebUrl, hashContent } from './ingest';
+import { isSourceRejected, isTruncated } from './ingestLimits';
 import { parseGoogleDocId, fetchGoogleDocText } from './google-docs';
 import { driveConfigured, getServiceAccountToken } from './googleAuth';
 import { inferSource, LEGACY_TYPE_BY_KIND } from './sources';
@@ -89,6 +90,9 @@ export async function refreshSource(
     try {
       text = await fetchGoogleDocText(docId, token);
     } catch (e) {
+      // A typed media refusal is NOT an access problem: the file is still there and still
+      // shared, it just isn't text. Freezing it as access-revoked would blame the sharer.
+      if (isSourceRejected(e)) return { ok: false, error: e.message };
       const msg = (e as Error).message;
       if (/\b404\b/.test(msg)) return freeze(row.id, 'deleted');
       if (/\b40[13]\b/.test(msg)) return freeze(row.id, 'access-revoked');
@@ -149,6 +153,9 @@ export async function refreshSource(
         contentHash: hash,
         sourceVersion,
         sourceStatus: digest.sourceStatus,
+        // Re-evaluated every revision: a document that grew past the 30K distillation cap
+        // becomes lossy, and one that was trimmed back below it stops being lossy (#56).
+        truncated: isTruncated(text!),
         lastCheckedAt: now,
         lastChangedAt: now,
         // A manual refresh on a frozen row that finds live content unfreezes it —

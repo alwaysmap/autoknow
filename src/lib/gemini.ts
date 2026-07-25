@@ -33,11 +33,13 @@ export const SUMMARY_MODEL = 'gemini-flash-latest';
 // pgvector column. Cosine distance (<=>) is scale-invariant, so reduced dims are fine.
 const EMBED_MODEL = 'gemini-embedding-001';
 const EMBED_DIMS = 768;
-// The distillation input cap: only the first MAX_DOC_CHARS of a document reach Gemini.
+// The distillation input cap. Declared in ./ingestLimits (the client renders it and this
+// module is server-only) and re-exported here for the callers that already import it.
 // Exported so #38's Manage → Sources limits copy states the real number (≈10 pages) — a
 // limit the user can plan around ("keep freshest content up top") beats one they infer
 // from a missing search result.
-export const MAX_DOC_CHARS = 30000;
+export { MAX_DOC_CHARS } from './ingestLimits';
+import { MAX_DOC_CHARS } from './ingestLimits';
 
 export interface DocDigest {
   summary: string;
