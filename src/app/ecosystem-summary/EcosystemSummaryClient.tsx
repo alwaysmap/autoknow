@@ -294,8 +294,9 @@ export default function EcosystemSummaryClient({
               { key: 'phaseName', label: t(locale, 'phaseLabel') },
               // Neither sorts: both derive from the same count, so two sort controls
               // would do one job, and the rows already arrive most-blocking first. The
-              // keys are React identity only here — `status` names no field on
-              // LiveConstraint, and must still differ from its neighbour's.
+              // `status` names no field on LiveConstraint: with `sortable: false` and no
+              // funnel the key is React identity only. It becomes a live row path the
+              // moment someone makes this column sortable or filterable — change it then.
               { key: 'programs', label: t(locale, 'clGatingSop'), sortable: false },
               { key: 'status', label: t(locale, 'statusLabel'), sortable: false },
             ]}
@@ -314,14 +315,14 @@ export default function EcosystemSummaryClient({
                     {isPrimary
                       ? t(locale, 'gatingNPrograms', { n: c.programs.length })
                       : t(locale, 'gatingOneProgram')}
-                    <span className={styles.constraintPrograms}>
-                      {c.programs.map((prog, n) => (
+                    <div className={styles.constraintPrograms}>
+                      {c.programs.map((prog, i) => (
                         <span key={prog.id}>
-                          {n > 0 && ', '}
+                          {i > 0 && ', '}
                           <Link href={`/programs/${prog.id}`}>{prog.name}</Link>
                         </span>
                       ))}
-                    </span>
+                    </div>
                   </td>
                   <td>
                     <span className={isPrimary ? styles.badgeDanger : styles.badgeWarn}>

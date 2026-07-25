@@ -373,19 +373,18 @@
 /* The honest empty state: no phase is on a critical chain right now. A panel headed
    "diagnosis" must be able to say "nothing to report" rather than show a plausible
    default (#129). */
+/* Stands in for the table's rows, so it lines up with a DataTable CELL — the old value
+   here was copied from `.diagnosisItem`, which this change deleted. */
 .diagnosisEmpty {
   font-size: 0.8125rem;
   line-height: 1.25rem;
   color: var(--muted);
-  padding: 0.75rem 0.5rem;
+  padding: 0.875rem 1.125rem;
   margin: 0;
 }
 
-/* Which programs this phase is gating — the receipt under the count in the same cell.
-   `display: block` rather than the old `flex-basis: 100%`: it used to be a flex child of
-   the grid row this panel was built from, and inside a table cell that did nothing. */
+/* The program list sits on its own line under the count, in the same cell. */
 .constraintPrograms {
-  display: block;
   font-size: 0.75rem;
   line-height: 1.125rem;
   color: var(--muted);
@@ -413,8 +412,8 @@
   text-transform: uppercase;
   padding: 0.125rem 0.5rem;
   border-radius: 0.25rem;
-  /* A class label is one token: in the grid this was always one line, and the
-     narrower table column broke it mid-phrase ("ON A CRITICAL / CHAIN"). */
+  /* A class label is one token; the Status column is narrow enough to break it
+     mid-phrase ("ON A CRITICAL / CHAIN") without this. */
   white-space: nowrap;
 }
 
@@ -427,9 +426,7 @@
   text-transform: uppercase;
   padding: 0.125rem 0.5rem;
   border-radius: 0.25rem;
-  /* A class label is one token: in the grid this was always one line, and the
-     narrower table column broke it mid-phrase ("ON A CRITICAL / CHAIN"). */
-  white-space: nowrap;
+  white-space: nowrap; /* same reason as .badgeDanger */
 }
 
 .ownerLink {
