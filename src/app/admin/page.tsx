@@ -7,7 +7,13 @@ import styles from './page.module.css';
 
 export const dynamic = 'force-dynamic';
 
-const CURL_COMMAND_1 = `curl -X POST http://localhost:3000/api/integrations/chat \\
+// One origin line, then the same command everywhere: these used to hard-code
+// http://localhost:3000, which is the one environment where the endpoint's auth is a
+// no-op — so the copy-pasted command was never exercised where it could fail (#157).
+const ORIGIN_LINE = `ORIGIN=https://autoknow.alwaysmap.com   # local dev: http://localhost:3000`;
+
+const CURL_COMMAND_1 = `${ORIGIN_LINE}
+curl -X POST "$ORIGIN/api/integrations/chat" \\
   -H "Content-Type: application/json" \\
   -H "x-admin-token: $ADMIN_TOKEN" \\
   -d '{
@@ -15,7 +21,8 @@ const CURL_COMMAND_1 = `curl -X POST http://localhost:3000/api/integrations/chat
     "message": "@autoknow status update for \\"Ford Evos AAOS Bring-up\\": BSP & power-on is green. Audio HAL integration is blocked due to delayed codec samples from supplier."
   }'`;
 
-const CURL_COMMAND_2 = `curl -X POST http://localhost:3000/api/integrations/chat \\
+const CURL_COMMAND_2 = `${ORIGIN_LINE}
+curl -X POST "$ORIGIN/api/integrations/chat" \\
   -H "Content-Type: application/json" \\
   -H "x-admin-token: $ADMIN_TOKEN" \\
   -d '{

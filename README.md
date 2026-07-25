@@ -151,13 +151,15 @@ The `/ecosystem-summary` page provides a unified deterministic + AI-driven synth
 - **AI Status Synthesis**: Unified briefing summarizing active program blockers (e.g. supplier board delays) ingested from program notes.
 
 **Ingesting Status Updates via Chat Webhook:**
-You can post a project briefing from Google Chat to the integration endpoint `/api/integrations/chat`. On a deployment with auth configured, pass `x-admin-token` (the route requires a session or a valid admin token — it is never open):
+You can post a project briefing from Google Chat to the integration endpoint `/api/integrations/chat`. On a deployment with auth configured, pass `x-admin-token` (the route requires a session or a valid admin token — it is never open). The same command works against the deployed app and a local dev server; only the origin changes:
 ```bash
-curl -X POST http://localhost:3000/api/integrations/chat \
+ORIGIN=https://autoknow.alwaysmap.com   # local dev: http://localhost:3000
+curl -X POST "$ORIGIN/api/integrations/chat" \
   -H "Content-Type: application/json" \
   -H "x-admin-token: $ADMIN_TOKEN" \
   -d '{"message": "@autoknow status update for \"Waymo Generation 6 AAOS\": BSP is green. Audio HAL integration is blocked due to codec samples from supplier."}'
 ```
+Where auth is configured the token is checked **twice** — the perimeter validates the value before the handler runs, and the route re-checks it timing-safely. Locally, auth is unconfigured and the header is not needed. What each status code means, and why a local success proves nothing about production: [docs/knowledge/machine-endpoint-needs-exemption-and-credential.md](docs/knowledge/machine-endpoint-needs-exemption-and-credential.md).
 This automatically parses the target program and records the status through the ingest pipeline (digest, embedding, revision history) for RAG-driven synthesis.
 
 ### 5. Database Management

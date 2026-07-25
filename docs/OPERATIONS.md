@@ -429,10 +429,20 @@ Scopes for the Chat paths, for reference:
   @-popup — typed plain "@autoknow" text posts silently and delivers nothing.
 
 There is also an existing plain-webhook endpoint `POST /api/integrations/chat`
-(see README) that accepts pasted chat text today, independent of the Chat app. It
-is NOT open — it requires a signed-in session or the `x-admin-token` header — and
-it stores briefings through the normal ingest pipeline (digest, embedding,
-revision history). The former `/ingest` page is retired — pasting links lives in
+that accepts pasted chat text today, independent of the Chat app. It is NOT open —
+it requires a signed-in session or the `x-admin-token` header — and it stores
+briefings through the normal ingest pipeline (digest, embedding, revision history).
+**The command is in [README](../README.md#ingesting-status-updates-via-chat-webhook);
+probe the deployed origin, not `localhost`** — the perimeter gate does not exist
+locally, so a local success proves nothing about production. Reading the result:
+
+| Code | Meaning |
+|---|---|
+| `200` | Ingested. |
+| `403` | Wrong or absent `ADMIN_TOKEN`, rejected at the perimeter before the handler. |
+| `307` → `/login` | The gate lost its exemption for this path — the #157 regression. See `acceptsAdminToken` in `src/proxy.ts` and [the knowledge note](knowledge/machine-endpoint-needs-exemption-and-credential.md). |
+
+The former `/ingest` page is retired — pasting links lives in
 the **+ Add link** control on program/partner pages (scoped) and Manage → Sources
 (unscoped).
 
