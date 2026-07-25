@@ -7,6 +7,7 @@ import Link from 'next/link';
 import DateCell from '../../components/DateCell';
 import DataTable from '../../components/DataTable';
 import ClassBox from '../../components/ClassBox';
+import PersonCell, { personFilterLabel } from '../../components/PersonCell';
 import styles from '../ecosystem-summary/EcosystemSummaryClient.module.css';
 import local from './page.module.css';
 import { formatNeedleValue } from '../../lib/needle';
@@ -184,7 +185,10 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
               key: 'partner.region', label: t(locale, 'googleRegion'), filterable: true,
               filterValue: (row) => (row as Project).partner.region || t(locale, 'otherLabel'),
             },
-            { key: 'ownerName', label: t(locale, 'programOwner'), filterable: true },
+            {
+              key: 'ownerName', label: t(locale, 'programOwner'), filterable: true,
+              filterLabel: personFilterLabel(people),
+            },
             { key: 'sopDate', label: t(locale, 'targetSopHeader') },
             {
               key: 'sopOutlook', label: t(locale, 'sopOutlookHeader'), filterable: true,
@@ -241,16 +245,9 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
                   </button>
                 </td>
                 <td>
-                  {(() => {
-                    if (matched) {
-                      return (
-                        <Link href={`/people/${matched.id}`} className={styles.ownerLink}>
-                          {p.ownerName}
-                        </Link>
-                      );
-                    }
-                    return p.ownerName;
-                  })()}
+                  {/* An owner reads by NAME (#153) — the stored LDAP email is a storage
+                      format. `matched` is resolved above so the row can compute it once. */}
+                  <PersonCell person={matched} value={p.ownerName} />
                 </td>
                 <td><DateCell value={p.sopDate} fallback={t(locale, 'tbd')} /></td>
                 <td>

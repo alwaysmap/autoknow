@@ -20,6 +20,8 @@ import AnchorHeading from './AnchorHeading';
 import AnchoredPopover from './AnchoredPopover';
 import OverlayDialog from './OverlayDialog';
 import ConstraintRing from './ConstraintRing';
+import PersonCell from './PersonCell';
+import { partnerHref } from '../lib/entityHref';
 import QuickIngest from './QuickIngest';
 import HillHistoryList from './HillHistoryList';
 import type { HillChange } from '../lib/history';
@@ -108,6 +110,12 @@ export interface PhaseTrackRow extends PhaseGraphRow {
   description: string | null; // markdown, copied from the template, per-project editable
   googleFocus: string | null; // markdown — what Googlers/TSC focus on
 }
+
+/** A pill on a phase row: a partner (has its own route) or a person (PersonCell owns
+ *  the route). Discriminated so neither branch can reach for the other's field. */
+type InvolvedPill =
+  | { kind: 'partner'; key: string; href: string; name: string; cls: string; load: number }
+  | { kind: 'person'; key: string; personId: number; name: string; cls: string; load: number };
 
 interface PhaseTrackProps {
   projectId: number;
@@ -1128,7 +1136,9 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                   <span className={styles.chipCell}>
                   {p.people.map((pp) => (
                     <span key={pp.linkId} className={styles.partnerChip}>
-                      <Link href={`/people/${pp.personId}`} className={styles.partnerLink}>{pp.name}</Link>
+                      {/* A person, through the one person cell (#153) — the chip's own
+                          ink, but the name/route rule lives in one place. */}
+                      <PersonCell person={{ id: pp.personId, name: pp.name }} className={styles.partnerLink} />
                       {pp.role && <span className={styles.partnerRole}>{pp.role}</span>}
                       <form action={removePhasePerson} className={styles.inlineForm}>
                         <input type="hidden" name="id" value={pp.linkId} />
@@ -1427,13 +1437,23 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
           const open = !isCollapsed(p);
           // Who's involved, as company-typed pills (partners then their people). The
           // pill colour carries the type, so no role text rides along on the rail.
-          const involved = [
-            ...p.partners.map((pp) => ({
-              key: `pa${pp.linkId}`, href: `/partners/${pp.partnerId}`, name: pp.name,
+          // `personId` is the discriminant: a PERSON pill routes through the shared
+          // PersonCell (#153) so there is one rule for a person's name and route
+          // app-wide; a PARTNER pill keeps its own link. Same pill ink either way.
+          // A discriminated union, not two nullable fields: a partner ALWAYS has an href
+          // and a person NEVER does (PersonCell builds the route, so exactly one place
+          // knows a person's URL). Modelling it as `href: string | null` forced a
+          // `?? '#'` at the call site — a link to nowhere, in the component whose new
+          // rule is that there are none.
+          const involved: InvolvedPill[] = [
+            ...p.partners.map((pp): InvolvedPill => ({
+              kind: 'partner',
+              key: `pa${pp.linkId}`, href: partnerHref(pp.partnerId), name: pp.name,
               cls: pillClass(pp.type ?? null, pp.name), load: pp.otherActive ?? 0,
             })),
-            ...p.people.map((pp) => ({
-              key: `pe${pp.linkId}`, href: `/people/${pp.personId}`, name: pp.name,
+            ...p.people.map((pp): InvolvedPill => ({
+              kind: 'person',
+              key: `pe${pp.linkId}`, personId: pp.personId, name: pp.name,
               cls: pillClass(pp.companyType, pp.company, true), load: pp.otherActive ?? 0,
             })),
           ];
@@ -1510,13 +1530,26 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     {/* who's involved: quiet company-typed pills; +n = active elsewhere */}
                     {involved.length > 0 && (
                       <div className={styles.pillRow}>
-                        {involved.map((it) => (
-                          <Link key={it.key} href={it.href} className={`${styles.pill} ${it.cls}`}
-                            title={it.load > 0 ? t(locale, 'contendedTitle', { name: it.name, n: it.load }) : undefined}>
-                            {it.name}
-                            {it.load > 0 && <span className={styles.pillLoad}>+{it.load}</span>}
-                          </Link>
-                        ))}
+                        {involved.map((it) => {
+                          const load = it.load > 0
+                            ? <span className={styles.pillLoad}>+{it.load}</span>
+                            : null;
+                          const title = it.load > 0
+                            ? t(locale, 'contendedTitle', { name: it.name, n: it.load })
+                            : undefined;
+                          const cls = `${styles.pill} ${it.cls}`;
+                          return it.kind === 'person' ? (
+                            <PersonCell key={it.key} person={{ id: it.personId, name: it.name }}
+                              className={cls} title={title}>
+                              {load}
+                            </PersonCell>
+                          ) : (
+                            <Link key={it.key} href={it.href} className={cls} title={title}>
+                              {it.name}
+                              {load}
+                            </Link>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

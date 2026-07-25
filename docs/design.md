@@ -25,7 +25,18 @@ To maximize readability and ensure a clean, distraction-free environment:
   `#` link is a SIBLING of the heading, never a child — nested, its text joins
   the heading's accessible name.
 Every entity displayed in a dashboard view or detail card must serve as an active navigation affordance:
-* **Hyperlinked Names**: Partner names, OEM names, Supplier lists, and owner LDAP emails must always be links leading to their respective detail pages (e.g. `/partners/[id]`, `/people/[ldap]`).
+* **Hyperlinked Names**: Partner names, OEM names, Supplier lists and program owners must
+  always be links leading to their respective detail pages (`/partners/[id]`,
+  `/people/[id]`). **A person is written by NAME, never by their LDAP email**
+  (2026-07-25, issue #153 — this line used to say "owner LDAP emails", which sanctioned
+  the label the app actually shipped: `/partners` printed
+  `marcusw@google.com, dylan@google.com` in one column and `Marcus Webb` in the next).
+  The affordance is unchanged; only the visible text moved from the storage format to
+  the reading format. An email is a person's ADDRESS, not their name, so it appears only
+  where the address is the point — `/people`'s Email column, which is a `mailto:`.
+  One implementation: **`PersonCell`** (`src/components/PersonCell.tsx`) owns the name,
+  the route (via `personHref`) and the plain-text fallback, so a call site cannot get
+  half of it right. Enforced by `tests/dataTableConvention.test.ts`.
 * **Interactive Cells**: Count fields (e.g. "Active Programs") must link to pre-filtered lists (e.g., `/partners/[id]?filter=active`). Phase names must link to that phase's record — `/programs/[id]#phase-[phaseId]-detail`, the DETAILS popover (§5).
 * **No Plain-Text Dead Ends**: Sighted users must never be presented with static, non-clickable entity names when a corresponding detail route is available in the application.
 
@@ -150,15 +161,31 @@ tables) so nothing has to be relearned page to page.
   signal, so painting navigation green made every link read as a status. The
   green ramp (`--p-600`) stays for semantic positives — pace chips, saved
   ticks — and for solid button fills.
-* **Dates are ISO** (`yyyy-mm-dd`, tabular-nums, via the shared `DateCell`), which
-  sorts lexicographically = chronologically; hover reveals the ISO calendar week
-  ("W29"). Never locale-formatted dates in table cells — they misalign and
-  mis-sort. **But ISO is a TABLE format, not a prose one**: both reasons it earns
-  its place — lexical sort and tabular-nums alignment — vanish inside a sentence,
-  so dates in narrative text (AI briefings, status notes, any running prose) read
-  the way a person says them — "August 2027", "end of March" — at the coarsest
-  truthful altitude. The boundary is the cell edge; ISO on the wrong side of it
-  reads as a machine wrote it (issue #20).
+* **A date cell carries the machine form and the reading form at once** (2026-07-25,
+  issue #153 — this replaces "dates are ISO … never locale-formatted dates in table
+  cells"). Via the shared `DateCell`, one `<time>` element holds both: `dateTime` stays
+  ISO (`2018-06-01`) for assistive tech, copy-paste and anything parsing the DOM, while
+  the VISIBLE text is locale-short — **`Jun 1, 2018`**, `day: 'numeric'` and never
+  `'2-digit'`, so it reads `Jun 1`, not `Jun 01`. Hover still reveals the ISO calendar
+  week ("W22").
+
+  The old rule forbade this for two reasons; **exactly one of them survived**, and it is
+  worth stating which, so the next person does not re-derive the wrong one:
+  * *Mis-sort* — **no longer true.** `DataTable` sorts the ROW VALUE, not the rendered
+    node, and the server ships full ISO strings. The visible text was never what ordered
+    the column; ISO-as-label was buying a property the table already had.
+  * *Misalign* — **still partly true.** `Jun 1` and `Sep 30` differ in day-field width,
+    so the digits no longer form one straight column edge. `tabular-nums` and
+    `white-space: nowrap` stay (they still align digits WITHIN a field), and we accept
+    the residual ragged edge: a reader parses "Aug 12, 2027" at a glance and has to
+    decode "2027-08-12", and legibility beats a flush right edge in a column nobody
+    reads as a ruler.
+
+  **ISO is a TABLE format, not a prose one** — unchanged, and now the cell side has moved
+  toward the prose side rather than away from it. Dates in narrative text (AI briefings,
+  status notes, any running prose) read the way a person says them — "August 2027", "end
+  of March" — at the coarsest truthful altitude. The boundary is still the cell edge, and
+  `tests/summaryProseDates.test.ts` still guards the prose side (issue #20).
 * **Header click sorts. Filtering is a secondary, per-column action**: a small
   three-line funnel icon beside the label opens a checklist of that column's
   distinct values. Selections within a column are OR-ed ("Concerned" *and* "On
@@ -177,7 +204,13 @@ tables) so nothing has to be relearned page to page.
   marks a PROPER NOUN, one specific named entity — "Bosch", a person. The SHAPE
   carries the distinction, so it survives greyscale and colour blindness. Names
   in table cells stay quiet links: the rule says which decoration to use *when
-  you decorate*, not that every name must be decorated.
+  you decorate*, not that every name must be decorated. **Settled for people by
+  screenshot** (2026-07-25, issue #153): `/partners`' TEL column holds 2–3 people, and
+  pilling them was tried side by side against comma-separated quiet links. The pills
+  lose: they widen both person columns until the second name clips, they add a row of
+  outlined objects beside the Partner-Type and Region boxes already there, and they make
+  the row's own subject — the partner name in the frozen first column — the quietest
+  thing on the row. People in cells are `PersonCell`'s quiet links.
 * **SHAPE marks the kind; BEHAVIOUR follows from it** (2026-07-22, issue #30) —
   §6 named the shape and left three tables to each guess the behaviour:
   * A **noun** (one named entity) **navigates** to its RESTful route and never
@@ -203,8 +236,12 @@ tables) so nothing has to be relearned page to page.
   number, a bar — never a face *plus* the number *plus* a word). The redundant
   forms live in the tooltip/accessible name.
 * Implementation home: `src/components/DataTable.tsx` (sort, pagination, column
-  filters, the squared key-column filter box) + `DateCell`. New tables must use them
-  rather than re-implementing. The identity column is a **`<th scope="row">` frozen
+  filters, the squared key-column filter box) + `DateCell` + `PersonCell`. New tables
+  must use them rather than re-implementing — `tests/dataTableConvention.test.ts` fails a
+  `DataTable` host that renders its own date or builds its own person route. A funnel
+  over a person column keeps the STORED string as its value (a locale-stable shareable
+  token) and reads the name only in `filterLabel`, so the header and the cells agree
+  without the URL changing meaning. The identity column is a **`<th scope="row">` frozen
   first column** (#29): `position: sticky; left: 0` with an opaque `--bg` so, on a
   narrow viewport, the name you are reading the row FOR stays put while the rest
   scrolls sideways in the wrapper (§9) — and the row-header associates each row's

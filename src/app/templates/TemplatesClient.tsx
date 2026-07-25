@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
+import PersonCell, { personFilterLabel } from '../../components/PersonCell';
 import { cloneTemplate, deleteTemplate } from '../actions/templates';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
@@ -18,12 +19,20 @@ export interface TemplateRow {
   description: string | null;
   isBuiltIn: boolean;
   createdBy: string | null;
+  /** `createdBy` joined to a Person server-side (#153); null when nothing matched. */
+  createdByPerson: { id: number; name: string } | null;
   phaseCount: number;
 }
 
 export default function TemplatesClient({ templates }: { templates: TemplateRow[] }) {
   const locale = useLocale();
   const originOf = (row: TemplateRow) => (row.isBuiltIn ? '__builtin__' : row.createdBy || '—');
+  // Funnel row → the creator's name; the VALUE stays the stored token so a shared
+  // ?origin= URL keeps naming the same origin (#153).
+  const nameByCreator = new Map(
+    templates.filter((tpl) => tpl.createdBy && tpl.createdByPerson)
+      .map((tpl) => [tpl.createdBy as string, (tpl.createdByPerson as { name: string }).name]),
+  );
 
   return (
     <DataTable
@@ -35,7 +44,8 @@ export default function TemplatesClient({ templates }: { templates: TemplateRow[
           label: t(locale, 'origin'),
           filterable: true,
           filterValue: (row) => originOf(row as TemplateRow),
-          filterLabel: (v) => (v === '__builtin__' ? t(locale, 'builtIn') : v),
+          filterLabel: (v) =>
+            v === '__builtin__' ? t(locale, 'builtIn') : personFilterLabel(nameByCreator)(v),
         },
         { key: 'actions', label: '', sortable: false },
       ]}
@@ -50,7 +60,11 @@ export default function TemplatesClient({ templates }: { templates: TemplateRow[
             {tpl.description && <div className={styles.desc}>{tpl.description.split('\n')[0]}</div>}
           </th>
           <td className={styles.count}>{tpl.phaseCount}</td>
-          <td>{tpl.isBuiltIn ? <span className={styles.builtinTag}>{t(locale, 'builtIn')}</span> : <span className={styles.by}>{tpl.createdBy}</span>}</td>
+          <td>
+            {tpl.isBuiltIn
+              ? <span className={styles.builtinTag}>{t(locale, 'builtIn')}</span>
+              : <span className={styles.by}><PersonCell person={tpl.createdByPerson} value={tpl.createdBy} /></span>}
+          </td>
           <td className={styles.actions}>
             <form action={cloneTemplate} className={styles.inlineForm}>
               <input type="hidden" name="id" value={tpl.id} />

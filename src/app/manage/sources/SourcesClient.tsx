@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import DataTable from '../../../components/DataTable';
 import DateCell from '../../../components/DateCell';
+import PersonCell, { personFilterLabel } from '../../../components/PersonCell';
 import { useTableUrlSync } from '../../../lib/useTableUrlSync';
 import type { TableSort } from '../../../lib/tableUrlState';
 import { refreshSourceAction, toggleSourcePause, toggleSourceMode } from '../../actions/context';
@@ -26,6 +27,8 @@ export interface SourceRow {
   sourceRef: string | null;
   sourceStatus: string | null;
   addedBy: string | null;
+  /** `addedBy` joined to a Person server-side (#153); null when nothing matched. */
+  addedByPerson: { id: number; name: string } | null;
   lastCheckedAt: string | null; // ISO
   createdAt: string; // ISO
   frozenReason: string | null;
@@ -117,13 +120,25 @@ export default function SourcesClient({ sources, initialFilters, initialSort, in
     [sources, locale],
   );
 
+  // Stored addedBy token → the person's name, for the funnel's labels (the cells get the
+  // person off the row itself).
+  const nameByAddedBy = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of sources) if (s.addedBy && s.addedByPerson) m.set(s.addedBy, s.addedByPerson.name);
+    return m;
+  }, [sources]);
+
   return (
     <DataTable
       headers={[
         { key: 'titleSort', label: t(locale, 'colSource') },
         { key: 'kind', label: t(locale, 'colKind'), filterable: true, filterLabel: (v) => t(locale, KIND_KEY[v as KindId]) },
         { key: 'state', label: t(locale, 'colTracking'), filterable: true, filterLabel: (v) => t(locale, STATE_KEY[v as StateId]) },
-        { key: 'addedBy', label: t(locale, 'colAddedBy'), filterable: true, filterValue: (row) => (row as SourceRow).addedBy || '—' },
+        {
+          key: 'addedBy', label: t(locale, 'colAddedBy'), filterable: true,
+          filterValue: (row) => (row as SourceRow).addedBy || '—',
+          filterLabel: personFilterLabel(nameByAddedBy),
+        },
         { key: 'lastCheckedAt', label: t(locale, 'colLastChecked') },
         { key: 'revisions', label: t(locale, 'colRevisions') },
         { key: 'actions', label: '', sortable: false },
@@ -166,7 +181,7 @@ export default function SourcesClient({ sources, initialFilters, initialSort, in
             </span>
           </td>
           <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--muted, #666)' }}>
-            {s.addedBy || '—'}
+            <PersonCell person={s.addedByPerson} value={s.addedBy} />
           </td>
           <td style={{ padding: '0.625rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--muted, #666)' }}>
             {!s.frozenReason && s.mode === 'watched'

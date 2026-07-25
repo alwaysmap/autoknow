@@ -10,8 +10,8 @@ import { NewPartnerButton } from '../../components/PartnerEditor';
 import PageShell from '../../components/PageShell';
 import { RelationshipCell } from '../../components/RelationshipScale';
 import { parseScore, clampScore, REL_KEY } from '../../lib/relationship';
+import { PersonList } from '../../components/PersonCell';
 import { deriveEmail, normalizeHandle } from '../../lib/auth';
-import { resolvePerson } from '../../lib/people';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 import styles from './page.module.css';
@@ -226,50 +226,17 @@ export default function PartnersClient({ partners, currentUser, people, relation
                     {p.lifetimePrograms}
                   </Link>
                 </td>
+                {/* Both person columns render through the SAME cell now (#153). They
+                    used to disagree with each other one column apart: TELs printed the
+                    raw email, Team printed the name. */}
                 <td>
                   <div className={styles.telList}>
-                    {p.tels.length === 0 ? (
-                      <span className={styles.empty}>{t(locale, 'none')}</span>
-                    ) : (
-                      p.tels.map((tel: string, idx: number) => {
-                        const matched = resolvePerson(people, tel);
-                        return (
-                          <span key={tel}>
-                            {idx > 0 && ', '}
-                            {matched ? (
-                              <Link href={`/people/${matched.id}`} className={styles.telLink}>
-                                {tel}
-                              </Link>
-                            ) : (
-                              tel
-                            )}
-                          </span>
-                        );
-                      })
-                    )}
+                    <PersonList values={p.tels} people={people} emptyLabel={t(locale, 'none')} />
                   </div>
                 </td>
                 <td>
                   <div className={styles.telList}>
-                    {p.team.length === 0 ? (
-                      <span className={styles.empty}>{t(locale, 'none')}</span>
-                    ) : (
-                      p.team.map((email: string, idx: number) => {
-                        const matched = resolvePerson(people, email);
-                        return (
-                          <span key={email}>
-                            {idx > 0 && ', '}
-                            {matched ? (
-                              <Link href={`/people/${matched.id}`} className={styles.telLink}>
-                                {matched.name}
-                              </Link>
-                            ) : (
-                              email.split('@')[0]
-                            )}
-                          </span>
-                        );
-                      })
-                    )}
+                    <PersonList values={p.team} people={people} emptyLabel={t(locale, 'none')} />
                   </div>
                 </td>
               </tr>

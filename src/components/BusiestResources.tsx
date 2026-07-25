@@ -6,6 +6,8 @@ import { t, Locale } from '../lib/i18n';
 import { tNodes, joinNodes } from './tNodes';
 import AnchorHeading from './AnchorHeading';
 import DataTable from './DataTable';
+import PersonCell from './PersonCell';
+import { partnerHref } from '../lib/entityHref';
 import type { BusiestRow, BusiestProgramRef } from '../lib/chainLedger';
 import styles from './BusiestResources.module.css';
 
@@ -27,7 +29,17 @@ interface BusiestResourcesProps {
 
 const MAX_ROWS = 8;
 
-const href = (row: BusiestRow) => (row.kind === 'partner' ? `/partners/${row.id}` : `/people/${row.id}`);
+/**
+ * A busiest-resource row is a partner OR a person, so its identity cell is the one place
+ * in this table where the person rule applies (#153): a person goes through PersonCell —
+ * which owns the name, the route, and the plain-text fallback — and a partner keeps its
+ * own link. One helper so the `<th>` and the "consider" sentence below it can never
+ * disagree about how the same resource is written.
+ */
+const RowLink = ({ row }: { row: BusiestRow }) =>
+  row.kind === 'partner'
+    ? <Link href={partnerHref(row.id)}>{row.name}</Link>
+    : <PersonCell person={{ id: row.id, name: row.name }} />;
 const sopYear = (p: BusiestProgramRef) => (p.sopDate ? `’${p.sopDate.slice(2, 4)}` : '');
 
 export default function BusiestResources({ locale, rows }: BusiestResourcesProps) {
@@ -42,7 +54,7 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
   // localized sentences.
   const progLink = (p: BusiestProgramRef) => <Link href={`/programs/${p.programId}`}>{p.programName}</Link>;
   const considerLine = (r: BusiestRow): React.ReactNode | null => {
-    const rowLink = <Link href={href(r)}>{r.name}</Link>;
+    const rowLink = <RowLink row={r} />;
     if (r.kind === 'person' && r.movable.length > 0) {
       const programs = joinNodes(r.movable.map((p) =>
         tNodes(locale, 'clProgWithBuffer', { name: progLink(p), d: p.bufferDays ?? 0 })));
@@ -87,7 +99,7 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
           return (
             <React.Fragment key={`${r.kind}${r.id}`}>
               <tr className={consider ? styles.hasConsider : undefined}>
-                <th scope="row"><Link href={href(r)}>{r.name}</Link></th>
+                <th scope="row"><RowLink row={r} /></th>
                 <td>
                   {r.constraintIn.length === 0
                     ? <span className={styles.muted}>—</span>

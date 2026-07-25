@@ -3,6 +3,7 @@ import { driveConfigured, serviceAccountEmail } from '../../../lib/googleAuth';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import { getIngestionHealth } from '../../../lib/ingestionHealth';
+import { resolvePeople } from '../../../lib/personDirectory';
 import { parseFilterParams, parseSortParams } from '../../../lib/tableUrlState';
 import SourcesClient, { type SourceRow } from './SourcesClient';
 import QuickIngest from '../../../components/QuickIngest';
@@ -31,6 +32,12 @@ export default async function SourcesPage(props: {
     orderBy: { createdAt: 'desc' },
   });
 
+  // `addedBy` is a bare string (schema: no Person relation), so the join happens here
+  // and the row carries the resolved person alongside the raw token (#153). Unmatched
+  // values — a departed employee, or the literal 'drive-share' — resolve to nothing and
+  // render as plain text.
+  const addedByPeople = await resolvePeople(raw.map((s) => s.addedBy));
+
   const sources: SourceRow[] = raw.map((s) => ({
     id: s.id,
     url: s.url,
@@ -40,6 +47,7 @@ export default async function SourcesPage(props: {
     sourceRef: s.sourceRef,
     sourceStatus: s.sourceStatus,
     addedBy: s.addedBy,
+    addedByPerson: (s.addedBy && addedByPeople[s.addedBy]) || null,
     lastCheckedAt: s.lastCheckedAt?.toISOString() ?? null,
     createdAt: s.createdAt.toISOString(),
     frozenReason: s.frozenReason,
