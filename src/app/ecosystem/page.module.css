@@ -218,14 +218,3 @@
   background-color: var(--surface);
 }
 
-
-/* The leadership stat tiles — work in flight, SOP at risk, partner-book health.
-   Auto-fit grid so 1-3 tiles wrap cleanly. (Ported from main's dashboard when the
-   dashboard moved here from /.) */
-.statStrip {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: 1.75rem 3rem;
-  align-items: start;
-  margin-bottom: 1.875rem;
-}

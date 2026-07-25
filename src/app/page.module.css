@@ -3,8 +3,8 @@
 
 /* `width: 100%` is load-bearing: globals.css makes <body> a flex COLUMN, and an
    auto cross-axis margin on a flex item overrides stretch and shrink-wraps it to
-   its content — the measure would then be set by whichever locale's lede is
-   longest. Filling first, then capping, keeps it identical in all four. */
+   its content — the measure would then be set by whichever locale's longest string
+   happens to be. Filling first, then capping, keeps it identical in all four. */
 .container {
   width: 100%;
   max-width: 62rem;
@@ -18,22 +18,6 @@
    laptop viewport rather than jammed under the nav. */
 .hero {
   padding: 3.5rem 0 2.5rem;
-}
-
-.headline {
-  font-family: var(--head-font);
-  font-size: 2rem;
-  font-weight: 600;
-  line-height: 2.375rem;
-  margin: 0 0 0.5rem;
-}
-
-.lede {
-  font-size: 0.9375rem;
-  line-height: 1.6;
-  color: var(--muted);
-  max-width: 44rem;
-  margin: 0 0 1.5rem;
 }
 
 .browse {
@@ -73,7 +57,4 @@
     padding-inline: var(--page-gutter); /* → 1rem; re-assert the token over the tablet step above */
   }
 
-  .headline {
-    font-size: 1.5rem;
-  }
 }
