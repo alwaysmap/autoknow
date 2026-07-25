@@ -599,6 +599,10 @@ component can be dropped into any layout unchanged and a chart sizes predictably
   itself. Height is author-set in `rem` (which also lands it on a whole pixel —
   this is the resolution of the fractional-height source §8d used to defer).
   `aspect-ratio` height is rejected (it re-introduces a fractional height and makes
-  a wide chart tall on a phone). Measuring for pointer math, popup placement or
+  a wide chart tall on a phone). **A `viewBox` drawing takes a rem `max-height`
+  rather than a fixed `height`** (#154): a fixed height letterboxes it at every width
+  below the cap — ~160px of dead space at 360px — whereas a max-height leaves the
+  drawing filling its column when it is small and only caps the scale at the wide end,
+  which is where a fluid viewBox magnifies its own type past legibility. Measuring for pointer math, popup placement or
   scroll anchoring is unrelated and unaffected — the rule bans measuring to
   **size**, not measuring at all.

@@ -76,16 +76,21 @@ export function PhaseHillSvg({
         strokeWidth={9}
         strokeLinecap="round"
       />
+      {/* Hairlines carry `non-scaling-stroke` here for the same reason as the wide
+          summary hill (PhaseHillChart, #154): this gauge renders at --status-viz-w in
+          a phase row but much narrower in a feed teaser, and a tick authored at 1 unit
+          goes sub-pixel there. The pair stays one drawing. */}
+      {/* non-scaling-stroke is NOT inherited — hence the repeat on every child. */}
       <g data-inst-only stroke="var(--border)" strokeWidth={1} strokeLinecap="round">
-        <line x1={10} y1={84} x2={190} y2={84} strokeOpacity={0.55} />
+        <line x1={10} y1={84} x2={190} y2={84} strokeOpacity={0.55} vectorEffect="non-scaling-stroke" />
         {[10, 55, 100, 145, 190].map((x) => (
-          <line key={x} x1={x} y1={84} x2={x} y2={x === 100 ? 78 : 80.5} />
+          <line key={x} x1={x} y1={84} x2={x} y2={x === 100 ? 78 : 80.5} vectorEffect="non-scaling-stroke" />
         ))}
       </g>
       <path d={HILL_PATH} fill="none" stroke="var(--border, #d9d5c8)" strokeWidth={2.5} strokeLinecap="round" />
-      <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border, #e3e0d6)" strokeDasharray="3 3" />
+      <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border, #e3e0d6)" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
       {prev && <circle cx={prev.x} cy={prev.y} r={4.5} fill="var(--paper)" stroke={color} strokeWidth={2} />}
-      <circle cx={cur.x} cy={cur.y} r={6} fill={color} stroke="var(--paper)" strokeWidth={1.6}>
+      <circle cx={cur.x} cy={cur.y} r={6} fill={color} stroke="var(--paper)" strokeWidth={1.6} vectorEffect="non-scaling-stroke">
         {label && <title>{label}</title>}
       </circle>
       {labels && (
@@ -204,8 +209,8 @@ export default function PhaseHillGauge({
               onPointerUp={(e) => { if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); setDragging(false); }}
             >
               <path d={HILL_PATH} fill="none" stroke="var(--border, #d9d5c8)" strokeWidth={2.5} strokeLinecap="round" />
-              <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border, #e3e0d6)" strokeDasharray="3 3" />
-              <circle cx={dot.x} cy={dot.y} r={6} fill={color} stroke="var(--paper)" strokeWidth={1.6} style={{ transition: dragging ? 'none' : 'cx 0.15s, cy 0.15s' }} />
+              <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border, #e3e0d6)" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+              <circle cx={dot.x} cy={dot.y} r={6} fill={color} stroke="var(--paper)" strokeWidth={1.6} vectorEffect="non-scaling-stroke" style={{ transition: dragging ? 'none' : 'cx 0.15s, cy 0.15s' }} />
               <ChartLabel x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.left}</ChartLabel>
               <ChartLabel x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{axisLabels.right}</ChartLabel>
             </svg>
