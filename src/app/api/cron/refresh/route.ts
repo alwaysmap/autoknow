@@ -6,6 +6,7 @@ import { getIngestionSettings } from '../../../../lib/ingestionSettings';
 import { perCycleBudget } from '../../../../lib/ingestBudget';
 import { recordCycle } from '../../../../lib/ingestionHealth';
 import { secretsEqual, serverError } from '../../../../lib/api';
+import { withSingleFlight, REFRESH_LOCK_KEY } from '../../../../lib/singleFlight';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,12 +37,21 @@ export async function GET(req: NextRequest) {
   // spend stays under the free tier by construction. recordCycle then logs the reports to
   // Cloud Logging (the drain alarm's source) and upserts the bounded health summary.
   try {
-    const budget = perCycleBudget((await getIngestionSettings()).dailyReingestBudgetDocs);
-    const drive = await runDriveSync({ maxIngests: budget });
-    const report = await runRefreshCycle({ maxRefreshes: Math.max(0, budget - drive.spent) });
-    await recordCycle(drive, report);
-    const summaries = await runSummaryCycle();
-    return NextResponse.json({ ...report, drive, summaries });
+    // Single-flight (#57): an overlapping tick acquires nothing and skips, so two
+    // instances never double-spend the budget. Why it can't go through `prisma`:
+    // lib/singleFlight.
+    const result = await withSingleFlight(REFRESH_LOCK_KEY, async () => {
+      const budget = perCycleBudget((await getIngestionSettings()).dailyReingestBudgetDocs);
+      const drive = await runDriveSync({ maxIngests: budget });
+      const report = await runRefreshCycle({ maxRefreshes: Math.max(0, budget - drive.spent) });
+      await recordCycle(drive, report);
+      const summaries = await runSummaryCycle();
+      return { ...report, drive, summaries };
+    });
+    // 200, not an error: a skipped tick is the guard working, and a non-2xx would make
+    // Cloud Scheduler retry — which is the very thing that produces the overlap.
+    if (!result.ran) return NextResponse.json({ skipped: true, reason: 'already-running' });
+    return NextResponse.json(result.value);
   } catch (error) {
     return serverError(error, 'GET /api/cron/refresh');
   }
