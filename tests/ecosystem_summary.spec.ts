@@ -78,22 +78,20 @@ test.describe('Ecosystem Summary Page (Deterministic + AI)', () => {
     // 2. The scorecard strip is retired — no big-number cards.
     await expect(page.locator('body')).not.toContainText('Programs in Flight');
 
-    // 3. Test filter by Googler Owner
-    await page.selectOption('select[id="ownerSelect"]', 'Dylan');
+    // 3-5. Filtering is the shared table grammar now (#95). The bespoke panel this
+    // replaces had an owner <select>, a health-floor slider and a draggable progress
+    // band; the first two became in-header funnels and the third was retired. Drive the
+    // funnels the way the other listings' specs do, and assert the URL — being
+    // shareable is half the point of the change (design.md §2).
+    await page.getByRole('button', { name: /^filter owner$/i }).click();
+    await page.getByRole('checkbox', { name: 'Dylan' }).check();
     await expect(page.locator('body')).toContainText('Waymo Generation 6 AAOS');
+    await expect(page).toHaveURL(/ownerName=Dylan/);
 
-    // 4. Test risk floor slider
-    // Set risk floor to "Critical" (value "3"), which should hide our "High" risk program
-    await page.fill('input[id="riskSlider"]', '3');
-    await expect(page.locator('body')).toContainText('No programs match current filters.');
-
-    // Reset risk floor to "Low" (value "0")
-    await page.fill('input[id="riskSlider"]', '0');
+    // Clearing everything restores the unfiltered list AND empties the query string.
+    await page.getByRole('button', { name: /clear filters/i }).click();
     await expect(page.locator('body')).toContainText('Waymo Generation 6 AAOS');
-
-    // 5. Test progress range filter
-    await page.fill('input[id="maxProgressSlider"]', '50');
-    await expect(page.locator('body')).toContainText('Waymo Generation 6 AAOS');
+    await expect(page).not.toHaveURL(/ownerName=/);
 
     // 6. Flow Constraint Diagnosis reports the LIVE critical chain (#129).
     //

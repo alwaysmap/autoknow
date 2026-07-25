@@ -13,6 +13,12 @@
 // 2. No raw `<table>` outside DataTable itself. design.md §6 asks new tables to use the
 //    shared component rather than re-implement it; every hand-rolled one re-derived the
 //    grammar (ISO DateCell, `<th scope="row">`, sortable headers) and drifted.
+//
+// 3. No hand-rolled `<select>` filter in a DataTable host. Discrete filtering is the
+//    in-header funnel; a bespoke select beside the table is a second grammar whose state
+//    escapes the URL, which is what #87 fixed on /manage/sources and #95 on
+//    /ecosystem-summary. Carried in from #87, where it could not land: the last
+//    offender was #95's own subject, so the guard would have merged red.
 
 import { readFileSync } from 'node:fs';
 import { tsxFiles, stripComments } from './helpers/sourceFiles';
@@ -77,6 +83,13 @@ describe('the shared-table convention (#125)', () => {
       .filter((f) => f !== DATA_TABLE)
       .filter((f) => /<table[\s>]/.test(code(f)));
     expect(raw).toEqual([]);
+  });
+
+  it('finds no hand-rolled <select> in a DataTable host', () => {
+    const bad = ROOTS.flatMap((r) => tsxFiles(r))
+      .filter((f) => callSites(f).length > 0)
+      .filter((f) => /<select[\s>]/.test(code(f)));
+    expect(bad).toEqual([]);
   });
 
   it("still sees DataTable's own <table> — proves the scan can find one at all", () => {
