@@ -7,7 +7,7 @@ import DateCell from '../../../components/DateCell';
 import { useTableUrlSync } from '../../../lib/useTableUrlSync';
 import type { TableSort } from '../../../lib/tableUrlState';
 import { refreshSourceAction, toggleSourcePause, toggleSourceMode } from '../../actions/context';
-import { inferSource } from '../../../lib/sources';
+import { inferSource, LEGACY_TYPE_BY_KIND } from '../../../lib/sources';
 import { t, type StringKey } from '../../../lib/i18n';
 import { useLocale } from '../../../components/LocaleProvider';
 
@@ -21,7 +21,7 @@ export interface SourceRow {
   id: number;
   url: string;
   title: string | null;
-  type: string; // legacy 'Doc' | 'Chat' | 'Gerrit'
+  type: string; // a LegacyType in practice, but the column is a free String in the DB
   mode: string;
   sourceRef: string | null;
   sourceStatus: string | null;
@@ -52,10 +52,10 @@ const KIND_KEY: Record<KindId, StringKey> = {
 
 function kindOf(row: SourceRow): KindId {
   if (row.sourceRef?.startsWith('drive:')) return 'drive';
-  if (row.type === 'Chat') return 'chat';
+  if (row.type === LEGACY_TYPE_BY_KIND.chat) return 'chat';
   const inferred = inferSource(row.url).kind;
   if (inferred === 'drive' || inferred === 'chat' || inferred === 'tracker') return inferred;
-  if (row.type === 'Gerrit') return 'tracker';
+  if (row.type === LEGACY_TYPE_BY_KIND.tracker) return 'tracker';
   return 'web';
 }
 

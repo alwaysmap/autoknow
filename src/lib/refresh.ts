@@ -5,7 +5,7 @@ import { summarizeDocument, digestToText, embedText, isQuotaError } from './gemi
 import { fetchWebUrl, hashContent } from './ingest';
 import { parseGoogleDocId, fetchGoogleDocText } from './google-docs';
 import { driveConfigured, getServiceAccountToken } from './googleAuth';
-import { inferSource } from './sources';
+import { inferSource, LEGACY_TYPE_BY_KIND } from './sources';
 import { getIngestionSettings } from './ingestionSettings';
 import { perCycleBudget } from './ingestBudget';
 
@@ -147,7 +147,55 @@ export async function refreshSource(
 
 // ---- Worker cycle (plan §6): fixed per-connector cadence, capped re-digests -------
 
+// Two cadence classes, and only two — trackers move fast, everything else does not.
+// The `?? CADENCE_HOURS.web` fallback at the call site is what makes chat/drive/text
+// land on the slow one. tests/refreshCycle.test.ts ratchets this to two keys, because
+// dueWhere() below can only express two: a third class needs a column that can tell it
+// apart, and adding one here would silently schedule it as web (#58).
 const CADENCE_HOURS: Record<string, number> = { tracker: 6, web: 24 * 7 };
+
+const DRIVE_REF_PREFIX = 'drive:';
+
+/** Watched and not frozen — the set the cron is allowed to touch at all. */
+const WATCHED_ACTIVE = { mode: 'watched', frozenAt: null } satisfies Prisma.ContextUrlWhereInput;
+
+/**
+ * Drive rows are swept by runDriveSync with the service-account token, not here.
+ * Spelled as an OR with null because `NOT (sourceRef LIKE …)` is NULL — and so EXCLUDES
+ * the row — when sourceRef is null, where the JS filter it replaced included it.
+ */
+const NOT_DRIVE_MANAGED = {
+  OR: [{ sourceRef: null }, { NOT: { sourceRef: { startsWith: DRIVE_REF_PREFIX } } }],
+} satisfies Prisma.ContextUrlWhereInput;
+
+/**
+ * The due-source predicate, in SQL rather than in JS over the whole table (#58) — see
+ * docs/adr/2026-07-22-ingestion-sized-for-hundreds-gate-the-10k-rebuild.md rec 2.
+ *
+ * WHY IT KEYS OFF `type` AND NOT `inferSource(url).kind`: the cadence class has to be
+ * something Postgres can filter and index. `kind` is computed in JS from the URL by a set
+ * of host+path regexes, so pushing it into SQL would mean either a second copy of those
+ * regexes in another language, or a new materialized column. Neither is needed —
+ * `type` ALREADY stores the classification made at ingest, and `LEGACY_TYPE_BY_KIND`
+ * makes `type = 'Gerrit'` exactly `kind === 'tracker'`. Every other value maps to the web
+ * cadence, which is the same fallback the JS filter used.
+ *
+ * The one behavioural difference, stated rather than hidden: cadence now follows the
+ * classification recorded when the source was ingested, not one re-derived from its URL
+ * on every tick. If `inferSource`'s tracker rules change, existing rows keep their
+ * recorded class — the same way `mode` and `sourceRef` already do.
+ */
+function dueWhere(nowMs: number): Prisma.ContextUrlWhereInput {
+  const cutoff = (hours: number) => new Date(nowMs - hours * 3600_000);
+  const pastItsCadence = {
+    OR: [
+      { lastCheckedAt: null }, // never checked — the JS filter read this as epoch 0
+      { type: LEGACY_TYPE_BY_KIND.tracker, lastCheckedAt: { lte: cutoff(CADENCE_HOURS.tracker) } },
+      { type: { not: LEGACY_TYPE_BY_KIND.tracker }, lastCheckedAt: { lte: cutoff(CADENCE_HOURS.web) } },
+    ],
+  };
+  return { ...WATCHED_ACTIVE, AND: [NOT_DRIVE_MANAGED, pastItsCadence] };
+}
 
 export interface CycleReport {
   due: number;
@@ -163,22 +211,6 @@ export interface CycleReport {
 }
 
 export async function runRefreshCycle(opts?: { maxRefreshes?: number }): Promise<CycleReport> {
-  const candidates = await prisma.contextUrl.findMany({
-    where: { mode: 'watched', frozenAt: null },
-    select: { id: true, url: true, sourceRef: true, lastCheckedAt: true },
-    orderBy: { lastCheckedAt: 'asc' },
-  });
-
-  const now = Date.now();
-  const due = candidates.filter((c) => {
-    if (c.sourceRef?.startsWith('drive:')) return false; // needs the service account (slice 3)
-    const kind = inferSource(c.url).kind;
-    const cadenceH = CADENCE_HOURS[kind] ?? CADENCE_HOURS.web;
-    const last = c.lastCheckedAt?.getTime() ?? 0;
-    return now - last >= cadenceH * 3600_000;
-  });
-  const skippedDrive = candidates.filter((c) => c.sourceRef?.startsWith('drive:')).length;
-
   // #38: the per-cycle cap is the admin's daily budget spread over the cycles, not a
   // hard-coded 10 — so daily Gemini spend stays under the free tier (lib/ingestBudget).
   // Capping CHECKS is safely conservative: a source only spends Gemini if it changed, so
@@ -186,11 +218,27 @@ export async function runRefreshCycle(opts?: { maxRefreshes?: number }): Promise
   const budget =
     opts?.maxRefreshes ?? perCycleBudget((await getIngestionSettings()).dailyReingestBudgetDocs);
 
+  const where = dueWhere(Date.now());
+  // `due` and `skippedDrive` are report figures nobody iterates, so they stay counts —
+  // the rows never come back over the wire.
+  const [due, skippedDrive, page] = await Promise.all([
+    prisma.contextUrl.count({ where }),
+    prisma.contextUrl.count({
+      where: { ...WATCHED_ACTIVE, sourceRef: { startsWith: DRIVE_REF_PREFIX } },
+    }),
+    prisma.contextUrl.findMany({
+      where,
+      select: { id: true, url: true },
+      orderBy: { lastCheckedAt: 'asc' }, // oldest first — the same queue discipline as before
+      take: Math.max(0, budget),
+    }),
+  ]);
+
   const report: CycleReport = {
-    due: due.length, checked: 0, changed: 0, frozen: 0, errors: 0, skippedDrive,
-    backlog: Math.max(0, due.length - Math.max(0, budget)), quotaStopped: false,
+    due, checked: 0, changed: 0, frozen: 0, errors: 0, skippedDrive,
+    backlog: Math.max(0, due - Math.max(0, budget)), quotaStopped: false,
   };
-  for (const c of due.slice(0, Math.max(0, budget))) {
+  for (const c of page) {
     // One broken source must not abort the cycle: everything a source can hit —
     // fetch, distillation, embedding, its own writes — stays inside this try.
     let outcome: RefreshOutcome;

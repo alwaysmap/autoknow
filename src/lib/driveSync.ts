@@ -206,8 +206,11 @@ export async function runDriveSync(opts?: { maxIngests?: number }): Promise<Driv
   report.skippedOtherTypes = skips.filter((s) => s.reason === 'unsupported-type').length;
   report.skippedTooDeep = skips.filter((s) => s.reason === 'beyond-folder-depth').length;
 
+  // Only the rows this sweep can act on (#58): sourceRef is unique and the `in` list is
+  // the sweep's own size, so this is a bounded index scan rather than every drive: row.
+  const refs = docs.map((d) => `drive:${d.id}`);
   const tracked = await prisma.contextUrl.findMany({
-    where: { sourceRef: { startsWith: 'drive:' } },
+    where: { sourceRef: { in: refs } },
     select: { id: true, sourceRef: true, sourceVersion: true, lastChangedAt: true, mode: true, frozenReason: true },
   });
   const byRef = new Map(tracked.map((t) => [t.sourceRef!, t]));

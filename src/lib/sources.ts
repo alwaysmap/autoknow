@@ -6,6 +6,27 @@
 export type SourceKind = 'drive' | 'chat' | 'tracker' | 'web' | 'text';
 export type TrackingMode = 'snapshot' | 'watched';
 
+/** The three values `ContextUrl.type` has ever held. A real type, so the vocabulary is
+ *  declared once instead of re-spelled as prose in the schema and at every reader. */
+export type LegacyType = 'Doc' | 'Chat' | 'Gerrit';
+
+/**
+ * `ContextUrl.type` — the kind as RECORDED AT INGEST. Deliberately lossy: drive/web/text
+ * all read 'Doc', because the column predates the five-kind split and its readers recover
+ * those three from the URL.
+ *
+ * This mapping has ONE home; do not re-spell it. Two hand-written copies — one producing
+ * the value, one interpreting it — is how the cadence silently stops matching the
+ * classification, and the refresh worker now SELECTS on this column (#58).
+ */
+export const LEGACY_TYPE_BY_KIND: Record<SourceKind, LegacyType> = {
+  chat: 'Chat',
+  tracker: 'Gerrit',
+  drive: 'Doc',
+  web: 'Doc',
+  text: 'Doc',
+};
+
 export interface SourceInfo {
   kind: SourceKind;
   mode: TrackingMode; // inferred default; user-correctable via the chip
