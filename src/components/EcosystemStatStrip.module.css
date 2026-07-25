@@ -1,0 +1,7 @@
+.strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1.75rem 3rem;
+  align-items: start;
+  margin-bottom: 1.875rem;
+}

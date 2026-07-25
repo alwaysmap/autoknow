@@ -824,18 +824,6 @@ const STRINGS = {
   searchHeading: { en: 'Search', de: 'Suche', ja: '検索', ko: '검색' },
 
   // ---- landing page (/) ----
-  landingHeadline: {
-    en: 'What do you need to know?',
-    de: 'Was möchten Sie wissen?',
-    ja: '何を知りたいですか？',
-    ko: '무엇을 알고 싶으신가요?',
-  },
-  landingLede: {
-    en: 'Search every partner, program, and person — and every document, note, and update gathered about them.',
-    de: 'Durchsuchen Sie alle Partner, Programme und Personen – und jedes Dokument, jede Notiz und jede Aktualisierung dazu.',
-    ja: 'すべてのパートナー・プログラム・担当者、そしてそれらについて集められた資料・メモ・更新を検索します。',
-    ko: '모든 파트너, 프로그램, 사람 — 그리고 그에 대해 수집된 모든 문서, 메모, 업데이트를 검색합니다.',
-  },
   landingLatest: {
     en: 'Latest updates',
     de: 'Neueste Aktualisierungen',
@@ -1260,10 +1248,10 @@ const STRINGS = {
     ko: '파트너, 프로그램, 사람, 수집된 컨텍스트를 아우르는 시맨틱 검색. 칩으로 유형을 포함하거나 제외하세요.',
   },
   searchEverythingPlaceholder: {
-    en: 'Search partners, programs, people, context…',
-    de: 'Partner, Programme, Personen, Kontext suchen…',
-    ja: 'パートナー・プログラム・担当者・コンテキストを検索…',
-    ko: '파트너, 프로그램, 사람, 컨텍스트 검색…',
+    en: 'Search activities, programs, partners, and people…',
+    de: 'Aktivitäten, Programme, Partner und Personen suchen…',
+    ja: 'アクティビティ・プログラム・パートナー・担当者を検索…',
+    ko: '활동, 프로그램, 파트너, 사람 검색…',
   },
 
   // ---- admin (dev console) ----

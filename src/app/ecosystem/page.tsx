@@ -1,7 +1,5 @@
 import Link from 'next/link';
-import EcosystemStats from '../../components/EcosystemStats';
-import SopRiskStat from '../../components/SopRiskStat';
-import RelationshipMix from '../../components/RelationshipMix';
+import EcosystemStatStrip from '../../components/EcosystemStatStrip';
 import SummaryPanel from '../../components/SummaryPanel';
 import { getSummary } from '../../lib/summaries';
 import { geminiConfigured } from '../../lib/gemini';
@@ -34,18 +32,11 @@ export default async function Home() {
   // false positive here.
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
-  const activeCount = serializedProjects.filter((p) => !p.isArchived && p.hillChartProgress < 100).length;
 
   return (
     <PageShell title={t(locale, 'ecosystemDashboard')} maxWidth="68.75rem">
-      {/* the leadership strip, in reading order: how much work is in flight, how
-            much of it is slipping its SOP, and how healthy the partner book carrying
-            it is — the three questions the capacity chart below then answers in time */}
-        <section className={styles.statStrip}>
-          <EcosystemStats activeCount={activeCount} allTimeCount={serializedProjects.length} />
-          <SopRiskStat now={now} programs={serializedProjects} />
-          <RelationshipMix scores={relationshipScores} />
-        </section>
+        {/* answered in time by the capacity chart below */}
+        <EcosystemStatStrip programs={serializedProjects} relationshipScores={relationshipScores} now={now} />
 
         {/* the capacity picture gets the full page width — it's the chart leadership
             actually reads, and hover needs room */}
