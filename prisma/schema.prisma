@@ -263,7 +263,10 @@ model ContextUrl {
   frozenReason  String?   // resolved | access-revoked | deleted | auth-required | user-paused
   revisions     ContextRevision[]
 
-  @@index([mode, frozenAt])
+  // The cron's due-source query: filter on (mode, frozenAt), order by lastCheckedAt,
+  // LIMIT the budget (#58). Extending the pair with lastCheckedAt lets Postgres serve the
+  // whole statement from the index instead of sorting every watched row to take ten.
+  @@index([mode, frozenAt, lastCheckedAt])
   @@index([projectId])
   @@index([partnerId])
   @@index([phaseId])

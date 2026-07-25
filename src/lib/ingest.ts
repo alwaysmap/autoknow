@@ -20,6 +20,7 @@ import {
   htmlToText,
   isForbiddenHost,
   looksLikeAuthWall,
+  LEGACY_TYPE_BY_KIND,
   type SourceInfo,
   type TrackingMode,
 } from './sources';
@@ -141,7 +142,7 @@ export async function ingestContent(opts: IngestContentOptions): Promise<IngestR
   const vectorStr = `[${(await embedText(digestText)).join(',')}]`;
   const hash = hashContent(opts.text);
   const now = new Date();
-  const legacyType = opts.source.kind === 'chat' ? 'Chat' : opts.source.kind === 'tracker' ? 'Gerrit' : 'Doc';
+  const legacyType = LEGACY_TYPE_BY_KIND[opts.source.kind];
 
   // Row + initial revision commit together (a source with no revision history reads
   // as broken), and the sourceRef unique constraint is the dedupe of record: two
