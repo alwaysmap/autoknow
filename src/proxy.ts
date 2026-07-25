@@ -13,6 +13,15 @@ import { auth, authConfigured } from './auth';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+// Called by curl/relays with an admin token (README, docs/OPERATIONS.md, /admin).
+const INTEGRATION_CHAT = '/api/integrations/chat';
+
+/** Paths whose machine credential is ADMIN_TOKEN in `x-admin-token`, and which the
+ *  proxy therefore validates itself rather than exempting outright. */
+function acceptsAdminToken(pathname: string): boolean {
+  return pathname.startsWith('/api/admin') || pathname === INTEGRATION_CHAT;
+}
+
 // Fixed-window per-IP rate limiter. In-memory is correct here: single-instance
 // deployment, and the proxy is defense-in-depth (the expensive routes also carry
 // their own auth). Applied only when auth is configured, so dev/e2e seeding is
@@ -36,7 +45,8 @@ function limitFor(pathname: string, method: string): number | null {
   // Gemini-invoking regeneration is the cost-amplification target.
   if (pathname.startsWith('/api/summaries') && method === 'POST') return 10;
   if (pathname.startsWith('/api/auth')) return 30;
-  if (pathname.startsWith('/api/chat')) return 60;
+  // Same Gemini-backed work per message (digest + embedding) as the Chat app.
+  if (pathname.startsWith('/api/chat') || pathname === INTEGRATION_CHAT) return 60;
   return MUTATING.has(method) ? 120 : 300;
 }
 
@@ -70,10 +80,13 @@ export default authConfigured
         }
       }
 
-      // Admin requests: the proxy validates the token VALUE itself, so a future
-      // /api/admin/* route that forgets its own check is still not internet-exposed.
-      // (Routes still re-validate with a timing-safe compare — this gate is coarse.)
-      if (pathname.startsWith('/api/admin') && req.headers.get('x-admin-token') !== null) {
+      // Token-bearing requests: the proxy validates the token VALUE itself, so a
+      // future admin/integration route that forgets its own check is still not
+      // internet-exposed. (Routes still re-validate with a timing-safe compare —
+      // this gate is coarse.) A machine caller can never hold a session, so without
+      // this branch a valid token still fell through to the /login redirect below
+      // and the endpoint was unreachable in prod — #157, AGENTS lesson 4.
+      if (acceptsAdminToken(pathname) && req.headers.get('x-admin-token') !== null) {
         const token = process.env.ADMIN_TOKEN;
         if (!token || req.headers.get('x-admin-token') !== token) {
           return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
