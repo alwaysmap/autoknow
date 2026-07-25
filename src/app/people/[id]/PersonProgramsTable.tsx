@@ -13,21 +13,21 @@ import styles from './page.module.css';
 //
 // Never paged: one person's involvement, capped by their record.
 //
-// TWO columns, not three. The TEL mark stays inside the identity cell rather than
-// becoming a column of its own: it is an untranslated acronym badge qualifying the
-// program name (it has no i18n key anywhere — the old markup wrote the literal), and
-// a column would be blank on most rows. This step converts the FRAME; what the
-// columns say is not being redesigned here.
-//
-// Phases is neither sortable nor filterable: it holds a LIST, so sorting would order
-// rows by an arbitrary member of it, and a funnel over a handful of rows is the same
-// noise as a pager that cannot act.
+// The Role column carries HOW this person is attached to the program, which is the
+// thing the chips could not say: TEL ownership, and any per-phase role. Both come
+// from the DB (`Project.ownerName` and `PhasePerson.role`); neither is inferred.
 
-interface PersonProgramRow {
+export interface PersonProgramRow {
   id: number;
   name: string;
   /** True when this person is the program's TEL. */
   tel: boolean;
+  /** Distinct `PhasePerson.role` values held in this program. Often empty — the field
+   *  is nullable and most rows do not set it. */
+  roles: string[];
+  /** TEL + roles as one string: what the Role column SORTS on, since a column cannot
+   *  sort on a badge plus an array. Built server-side so SSR and client agree. */
+  roleSummary: string;
   phases: { id: number; name: string; role: string | null }[];
 }
 
@@ -36,6 +36,8 @@ export default function PersonProgramsTable({ rows, locale }: { rows: PersonProg
     <DataTable
       headers={[
         { key: 'name', label: t(locale, 'programLabel') },
+        { key: 'roleSummary', label: t(locale, 'roleHeader') },
+        // A LIST of chips: sorting would order rows by an arbitrary member of it.
         { key: 'phases', label: t(locale, 'phasesCard'), sortable: false },
       ]}
       data={rows}
@@ -45,8 +47,15 @@ export default function PersonProgramsTable({ rows, locale }: { rows: PersonProg
         <tr key={r.id}>
           <th scope="row">
             <Link href={`/programs/${r.id}`}>{r.name}</Link>
-            {r.tel && <span className={styles.telMark}>TEL</span>}
           </th>
+          <td>
+            <span className={styles.roleCell}>
+              {/* The acronym stays visible; `telRole` carries its expansion, so the
+                  string is configurable rather than a literal in the markup. */}
+              {r.tel && <span className={styles.telMark} title={t(locale, 'telRole')}>TEL</span>}
+              {r.roles.length > 0 && <span className={styles.phaseRole}>{r.roles.join(', ')}</span>}
+            </span>
+          </td>
           <td>
             <span className={styles.phaseChips}>
               {r.phases.map((ph) => (
@@ -58,7 +67,6 @@ export default function PersonProgramsTable({ rows, locale }: { rows: PersonProg
                 >
                   <span className={styles.phaseDot} style={{ background: phaseColor(ph.id) }} />
                   {ph.name}
-                  {ph.role && <span className={styles.phaseRole}>{ph.role}</span>}
                 </Link>
               ))}
             </span>

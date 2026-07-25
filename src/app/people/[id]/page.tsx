@@ -8,7 +8,7 @@ import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
 import AnchorHeading from '../../../components/AnchorHeading';
 import PersonHistoryTable from './PersonHistoryTable';
-import PersonProgramsTable from './PersonProgramsTable';
+import PersonProgramsTable, { type PersonProgramRow } from './PersonProgramsTable';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,15 +74,10 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
 
   // Programs worked on: TEL ownership + phase-level involvement; phases reached via
   // assigned action items fill in history the involvement table doesn't cover.
-  interface ProgramRow {
-    id: number;
-    name: string;
-    tel: boolean;
-    phases: { id: number; name: string; role: string | null }[];
-  }
-  const programs = new Map<number, ProgramRow>();
+  const programs = new Map<number, PersonProgramRow>();
   const rowFor = (project: { id: number; name: string }) => {
-    const row = programs.get(project.id) ?? { id: project.id, name: project.name, tel: false, phases: [] };
+    const row = programs.get(project.id)
+      ?? { id: project.id, name: project.name, tel: false, roles: [], roleSummary: '', phases: [] };
     programs.set(project.id, row);
     return row;
   };
@@ -92,6 +87,9 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
     if (!row.phases.some((ph) => ph.id === inv.phase.id)) {
       row.phases.push({ id: inv.phase.id, name: inv.phase.name, role: inv.role });
     }
+    // `PhasePerson.role` is nullable and repeats across a program's phases; the Role
+    // column wants the distinct set, not one per phase.
+    if (inv.role && !row.roles.includes(inv.role)) row.roles.push(inv.role);
   }
   for (const a of person.actionItems) {
     const row = rowFor(a.phase.project);
@@ -99,7 +97,14 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
       row.phases.push({ id: a.phase.id, name: a.phase.name, role: null });
     }
   }
-  const programRows = [...programs.values()].sort((a, b) => a.name.localeCompare(b.name));
+  // Unsorted: PersonProgramsTable owns the order (defaultSortKey="name"), and it sorts
+  // during render, so the server HTML is already in that order.
+  const programRows = [...programs.values()].map((r) => ({
+    ...r,
+    // The Role column's sort key. 'TEL' unlocalized on purpose: this is a sort value,
+    // never rendered — the cell renders the badge and `telRole` carries the expansion.
+    roleSummary: [r.tel ? 'TEL' : '', ...r.roles].filter(Boolean).join(', '),
+  }));
 
   return (
     <div className={styles.container}>
@@ -139,6 +144,7 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
             <AnchorHeading id="programs" linkLabel={t(locale, 'anchorLink')}>
               {t(locale, 'navPrograms')}
             </AnchorHeading>
+            <p className={styles.sectionIntro}>{t(locale, 'personProgramsIntro')}</p>
             {programRows.length === 0 ? (
               <p className={styles.empty}>{t(locale, 'noPartnerPrograms')}</p>
             ) : (
