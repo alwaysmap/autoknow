@@ -18,6 +18,8 @@
 >   DB role (playbook "Enforcement").
 > - **Custom domain:** implemented via `google_cloud_run_domain_mapping` (§10).
 > - **Terraform:** lives in `infra/terraform/` with per-instance tfvars.
+> - **Single-flight:** shipped in #57 as `src/lib/singleFlight.ts` — NOT §2's
+>   `$queryRaw` sketch, which survives only as a marked-wrong example.
 >
 > Day-2 operations (verify what's serving, redeploy, roll back): OPERATIONS §9.
 
@@ -115,15 +117,22 @@ to an honest empty state.
 
 **One change this design needs for Cloud Run: single-flight.** On a laptop, launchd ran
 one instance so ticks never overlapped. On Cloud Run (autoscaling, Scheduler retries) a
-slow tick could overlap the next. Wrap the cron handler in a Postgres advisory lock so
-overlaps no-op:
+slow tick could overlap the next.
+
+**SHIPPED in #57 — and NOT in the shape this section originally sketched.** The sketch
+below is kept only because it is the obvious implementation and it is wrong; see
+[`src/lib/singleFlight.ts`](src/lib/singleFlight.ts) for the as-built version.
 
 ```ts
-// at the top of GET /api/cron/refresh, after auth
+// ❌ DO NOT COPY — the sketch this section carried before #57.
 const [{ locked }] = await prisma.$queryRaw<{locked: boolean}[]>`SELECT pg_try_advisory_lock(4771) AS locked`;
 if (!locked) return NextResponse.json({ skipped: 'already running' }, { status: 200 });
 try { /* drive → refresh → summaries */ } finally { await prisma.$queryRaw`SELECT pg_advisory_unlock(4771)`; }
 ```
+
+It is wrong because `$queryRaw` unlocks on a different pooled connection than the one
+that took the lock, so the lock leaks and every later tick no-ops — full diagnosis in
+[`src/lib/singleFlight.ts`](../src/lib/singleFlight.ts).
 
 Set the Cloud Run request timeout to ~300s; the per-cycle caps (10 refreshes + ~10
 Gemini calls) keep a tick well under that. If the corpus outgrows a single request,
@@ -426,7 +435,7 @@ Small, mostly mechanical — none block the design:
    `next.config.ts`, `npm ci --omit=dev`, copy `.next/standalone` + `.next/static` +
    `public`, run as non-root on `node:22-slim` (or distroless). ~150–200 MB, the real
    image-size win.
-2. **Single-flight advisory lock** in `/api/cron/refresh` (§2).
+2. ~~**Single-flight advisory lock** in `/api/cron/refresh` (§2).~~ **DONE (#57).**
 3. **`prisma migrate`** instead of `db push` (§6); commit an initial migration.
 4. **Pool error handler** in `lib/db.ts` (§6).
 5. (Optional now) **Keyless Drive** in `lib/googleAuth` (§5).

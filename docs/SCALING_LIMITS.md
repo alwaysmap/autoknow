@@ -1,6 +1,7 @@
 # AutoKnow — Scaling Limits of Ingestion & the Vector Store
 
-Status: **Analysis, now decided** (2026-07-20 analysis; decision 2026-07-22). This
+Status: **Analysis, now decided** (2026-07-20 analysis; decision 2026-07-22;
+recommendation 6 shipped 2026-07-24, #57). This
 grounds — but no longer precedes — a decision: [ADR: Ingestion is sized for
 hundreds of sources; declare the limits, gate the 10K rebuild](adr/2026-07-22-ingestion-sized-for-hundreds-gate-the-10k-rebuild.md)
 consumes this analysis, accepts the hundreds-scale limits and requires them
@@ -244,14 +245,13 @@ SLA over 10K sources invalidates that founding assumption.
   before an HNSW index helps.
 - **Summaries fall behind too.** More ingestions across more scopes → more
   staleness → but only **10 summaries/cycle** ([`summaries.ts:526`](src/lib/summaries.ts)).
-- **No single-flight lock actually exists.** The README (Flow 2) claims a *"pg
-  advisory lock (single-flight: overlapping ticks no-op)"*, but there is **no
-  `advisory_lock` / `pg_try_advisory_lock` anywhere in the code**. Today overlaps
-  are unlikely (a 300s tick can't outrun an hourly schedule), but if caps rise so
-  a tick nears 300s — or Cloud Scheduler retries a slow tick — **two of the two
-  allowed instances can run concurrently**, double-spending Gemini and racing
-  revision writes. The claimed guard should either be implemented or the README
-  corrected (lesson 10).
+- **~~No single-flight lock actually exists.~~ RESOLVED (#57).** The README (Flow 2)
+  claimed a *"pg advisory lock (single-flight: overlapping ticks no-op)"* that did not
+  exist. It does now: [`src/lib/singleFlight.ts`](src/lib/singleFlight.ts) wraps the
+  cron handler, and an overlapping tick returns `{skipped: true}` without spending.
+  This was **one of the two** prerequisites the ADR's decision 5 names; the other —
+  decoupling the worker from the 300s request (recommendation 3 below) — is still
+  open, so caps stay where they are.
 
 ### Recommendations (in dependency order)
 1. **Declare the achievable SLA honestly.** With today's mechanics the realistic
@@ -273,8 +273,8 @@ SLA over 10K sources invalidates that founding assumption.
 5. **Add the ANN index and split search branches** ([`schema.prisma:14-18`](prisma/schema.prisma)):
    `CREATE INDEX … USING hnsw (embedding vector_cosine_ops)`, and separate the
    lexical/semantic passes so the index is actually used.
-6. **Implement the single-flight advisory lock** the README already advertises,
-   before raising any cap.
+6. ~~**Implement the single-flight advisory lock** the README already advertises,
+   before raising any cap.~~ **DONE (#57)** — `src/lib/singleFlight.ts`.
 7. **Right-size infra with the change, not before it:** `db-f1-micro` and 512 MiB
    Cloud Run are sized for hundreds of rows; 10K watched sources + HNSW + queue
    workers need a real DB tier and more memory. Track this as a cost decision.
