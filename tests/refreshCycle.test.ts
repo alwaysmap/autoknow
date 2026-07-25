@@ -208,6 +208,40 @@ describe('runRefreshCycle due-source selection', () => {
     expect(report.checked).toBe(1);
   });
 
+  // REFRESH_MAX_CADENCE_SECONDS lets a demo watch a week of freshness pass in a couple of
+  // minutes. It compresses SCHEDULING, deliberately, because the alternative — backdating
+  // each row's lastCheckedAt to force it due — corrupts a field the activity feed and
+  // Manage → Sources render, making the app claim a source was checked days ago seconds
+  // after it was checked. These two cases are the contract: it scales, and it is off by
+  // default (so production keeps the real cadence even if the code is imported there).
+  it('compresses the whole cadence table when REFRESH_MAX_CADENCE_SECONDS is set', async () => {
+    // Two seconds old: due under NO real cadence, due under a compressed one.
+    await seedChecked('http://example.com/tracker-good', 'Gerrit', 2 / 3600);
+    await seedChecked('http://example.com/web-good', 'Doc', 2 / 3600);
+
+    const prior = process.env.REFRESH_MAX_CADENCE_SECONDS;
+    process.env.REFRESH_MAX_CADENCE_SECONDS = '1'; // slowest class = 1s
+    let report;
+    try {
+      report = await runRefreshCycle({ maxRefreshes: 10 });
+    } finally {
+      if (prior === undefined) delete process.env.REFRESH_MAX_CADENCE_SECONDS;
+      else process.env.REFRESH_MAX_CADENCE_SECONDS = prior;
+    }
+
+    expect(report.due).toBe(2);
+    expect(report.checked).toBe(2);
+  });
+
+  it('leaves the real cadence alone when REFRESH_MAX_CADENCE_SECONDS is unset', async () => {
+    await seedChecked('http://example.com/web-good', 'Doc', 2 / 3600);
+    expect(process.env.REFRESH_MAX_CADENCE_SECONDS).toBeUndefined();
+
+    const report = await runRefreshCycle({ maxRefreshes: 10 });
+
+    expect(report.due).toBe(0); // two seconds into a 168-hour cadence
+  });
+
   it('ignores snapshot and frozen rows', async () => {
     await prisma.contextUrl.create({
       data: { url: 'http://example.com/good-snap', type: 'Gerrit', mode: 'snapshot', sourceRef: 'snap' },

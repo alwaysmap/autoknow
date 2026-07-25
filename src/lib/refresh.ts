@@ -8,6 +8,8 @@ import { driveConfigured, getServiceAccountToken } from './googleAuth';
 import { inferSource, LEGACY_TYPE_BY_KIND } from './sources';
 import { getIngestionSettings } from './ingestionSettings';
 import { perCycleBudget } from './ingestBudget';
+import { destructiveDbAllowed } from './dbSafety';
+import { MOCK_REF_PREFIX, mockSourceByRef, mockVersion, mockVersionIndex } from './mockCorpus';
 
 // Refresh a watched source (docs/INGEST_FRESHNESS_PLAN.md §4, §6, §7): Gate 1 (did
 // the source say it changed — conditional GET / version), Gate 2 (did the TEXT
@@ -40,13 +42,42 @@ export async function refreshSource(
   if (!row) return { ok: false, error: 'Unknown source.' };
   if (row.mode !== 'watched') return { ok: false, error: 'Snapshots are never re-checked.' };
 
+  // The mock check comes FIRST and keys off sourceRef, not the URL: corpus documents
+  // carry realistic docs.google.com / buganizer links, so URL inference would route them
+  // to the Drive or web fetcher and try to reach the real internet.
+  const isMock = !!row.sourceRef?.startsWith(MOCK_REF_PREFIX);
   const kind = row.sourceRef?.startsWith('drive:') ? 'drive' : inferSource(row.url).kind;
 
   // ---- fetch (Gate 1 where the connector supports it) ----
   let text: string | null = null;
   let sourceVersion: string | null = row.sourceVersion;
 
-  if (kind === 'drive') {
+  if (isMock) {
+    // The seed-only connector (lib/mockCorpus): serves the NEXT authored revision so the
+    // whole real path below — content hash, re-distillation, delta, re-embed, appended
+    // ContextRevision, freeze-on-resolved — runs against seeded data without a network.
+    //
+    // Fail closed on the same policy that permits a wipe (lib/dbSafety), for the reason
+    // AGENTS lesson 5 exists: fixture prose reaching a real deployment would be indexed,
+    // summarized and cited as if it were ingested fact. `destructiveDbAllowed()` is
+    // already the app's "this database is disposable demo data" signal — the seed that
+    // creates these rows is gated on it too, so a mock row and a live connector can only
+    // ever coexist where both are legitimate.
+    if (!destructiveDbAllowed()) {
+      return { ok: false, error: 'Mock sources are refreshable only in a demo/test database.' };
+    }
+    const mock = mockSourceByRef(row.sourceRef);
+    if (!mock) return freeze(row.id, 'deleted'); // corpus entry retired out from under the row
+    const next = mockVersionIndex(row.sourceVersion) + 1;
+    if (next >= mock.revisions.length) {
+      // Gate 1, honestly: the fixture has nothing newer, which is exactly the
+      // "source says it has not changed" answer a conditional GET gives.
+      await prisma.contextUrl.update({ where: { id: row.id }, data: { lastCheckedAt: new Date() } });
+      return { ok: true, result: 'unchanged' };
+    }
+    text = mock.revisions[next].text;
+    sourceVersion = mockVersion(next);
+  } else if (kind === 'drive') {
     // Prefer the caller's user token (manual Refresh now while signed in); fall back
     // to the service account (background sync — plan slice 3).
     const token =
@@ -154,6 +185,32 @@ export async function refreshSource(
 // apart, and adding one here would silently schedule it as web (#58).
 const CADENCE_HOURS: Record<string, number> = { tracker: 6, web: 24 * 7 };
 
+/**
+ * Compress the whole cadence table so a demo can watch a week of freshness go by in a
+ * couple of minutes: set this to the number of seconds the SLOWEST class should take,
+ * and every class scales proportionally (so trackers stay 28× quicker than the web).
+ * Unset — the normal case, including production — leaves the hours above exactly as
+ * written.
+ *
+ * This exists because the obvious alternative is worse. Making rows due by backdating
+ * their `lastCheckedAt` works, but `lastCheckedAt` is not bookkeeping — the activity
+ * feed and Manage → Sources SHOW it, so falsifying it makes the app report that a
+ * source was checked eight days ago seconds after checking it. Scheduling is the thing
+ * being compressed, so scheduling is the thing to compress.
+ *
+ * Deliberately not gated on the demo-database check that guards the mock connector: it
+ * fabricates nothing and cannot corrupt anything. The worst a bad value does is make the
+ * cron check sources more often, and the per-cycle budget (lib/ingestBudget) already
+ * bounds what that can spend.
+ */
+function cadenceScale(): number {
+  const raw = process.env.REFRESH_MAX_CADENCE_SECONDS;
+  if (!raw) return 1;
+  const seconds = Number(raw);
+  if (!Number.isFinite(seconds) || seconds <= 0) return 1;
+  return seconds / (CADENCE_HOURS.web * 3600);
+}
+
 const DRIVE_REF_PREFIX = 'drive:';
 
 /** Watched and not frozen — the set the cron is allowed to touch at all. */
@@ -186,7 +243,8 @@ const NOT_DRIVE_MANAGED = {
  * recorded class — the same way `mode` and `sourceRef` already do.
  */
 function dueWhere(nowMs: number): Prisma.ContextUrlWhereInput {
-  const cutoff = (hours: number) => new Date(nowMs - hours * 3600_000);
+  const scale = cadenceScale();
+  const cutoff = (hours: number) => new Date(nowMs - hours * scale * 3600_000);
   const pastItsCadence = {
     OR: [
       { lastCheckedAt: null }, // never checked — the JS filter read this as epoch 0
