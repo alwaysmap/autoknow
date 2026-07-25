@@ -20,6 +20,25 @@ export function localDate(
   return new Date(value).toLocaleDateString(locale, { timeZone: 'UTC', ...opts });
 }
 
+/**
+ * A timestamp to the MINUTE, in UTC: "2026-07-25 14:32".
+ *
+ * For provenance stamps — when a digest was distilled, when a source was last checked,
+ * when the cycle last ran — where a date alone cannot answer the question being asked.
+ * A reader who watched a document half an hour ago and cannot find it yet needs to know
+ * whether the summary predates their document or postdates it, and "Jul 25" cannot tell
+ * them; both things happened on Jul 25.
+ *
+ * UTC for the same reason localDate pins it: these render inside client components that
+ * are server-rendered first, so reading the machine's zone hydrates to a different
+ * string. The zone is never left implied — callers name it, either through their i18n
+ * string (`ingestRanAt`, `summaryProvenance`) or as a literal where the surrounding text
+ * is unlocalized anyway (the activity feed's provenance subtitles).
+ */
+export function isoDateTime(value: string | Date): string {
+  return new Date(value).toISOString().slice(0, 16).replace('T', ' ');
+}
+
 /** ISO-8601 week number, rendered as "W29" (weeks start Monday; W1 holds Jan 4). */
 export function isoWeekLabel(value: string | Date): string {
   const d = new Date(value);

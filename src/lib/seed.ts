@@ -1,5 +1,6 @@
 import { prisma } from './db';
-import { ingestRecord } from './vector';
+import { ingestContent } from './ingest';
+import { MOCK_CORPUS, mockSourceRef, mockVersion, type MockSource } from './mockCorpus';
 import { reindexAll } from './search';
 import { scoreToHealth } from './relationship';
 import { ensureBuiltinTemplates } from './programTemplates';
@@ -17,7 +18,8 @@ import { localDate } from './dates';
 // override, which is fail-closed on the same lib/dbSafety policy as the wipe below.
 //
 // Deliberate direct-write residue (each commented at the site): reference lookup
-// tables, Partner.phone/googleTeam, backdated relationship history, vector ingest.
+// tables, Partner.phone/googleTeam, backdated relationship history, and the ingest
+// dates of the authored corpus.
 import { POST as postPartnerRoute } from '../app/api/partners/route';
 import { POST as postPersonRoute } from '../app/api/people/route';
 import { POST as postAffiliationRoute } from '../app/api/people/[id]/affiliations/route';
@@ -277,6 +279,95 @@ async function recordRelationship(
       timestamp: entry.timestamp,
     },
   });
+}
+
+/**
+ * Ingest the authored corpus (lib/mockCorpus) through the app's REAL ingest boundary.
+ *
+ * Going through `ingestContent` is what makes a seeded source indistinguishable from one
+ * a user pasted — same dedupe, digest, embedding, contentHash and initial
+ * ContextRevision — so the whole freshness path has something real to act on. Why that
+ * is a rule rather than a preference: [ADR: Seeded content moves through the real
+ * connectors](../../docs/adr/2026-07-25-seeded-content-runs-the-real-pipeline-and-fakes-only-the-schedule.md).
+ *
+ * Anchors are authored as NAMES and resolved here, and an unresolvable name THROWS
+ * rather than attaching to nothing: a corpus entry silently anchored to null would read
+ * as "ingested fine" while being invisible on every page it was written for.
+ */
+async function seedMockCorpus(): Promise<number> {
+  const [projects, partners] = await Promise.all([
+    prisma.project.findMany({ select: { id: true, name: true } }),
+    prisma.partner.findMany({ select: { id: true, name: true } }),
+  ]);
+  const projectByName = new Map(projects.map((p) => [p.name, p.id]));
+  const partnerByName = new Map(partners.map((p) => [p.name, p.id]));
+
+  const resolveAnchor = async (s: MockSource) => {
+    let projectId: number | null = null;
+    let partnerId: number | null = null;
+    let phaseId: number | null = null;
+
+    if (s.anchor.program) {
+      projectId = projectByName.get(s.anchor.program) ?? null;
+      if (projectId == null) throw new Error(`Corpus "${s.key}": no program named "${s.anchor.program}".`);
+    }
+    if (s.anchor.partner) {
+      partnerId = partnerByName.get(s.anchor.partner) ?? null;
+      if (partnerId == null) throw new Error(`Corpus "${s.key}": no partner named "${s.anchor.partner}".`);
+    }
+    if (s.anchor.phase) {
+      if (projectId == null) throw new Error(`Corpus "${s.key}": a phase anchor needs a program anchor.`);
+      const phase = await prisma.phase.findFirst({
+        where: { projectId, name: s.anchor.phase },
+        select: { id: true },
+      });
+      if (!phase) throw new Error(`Corpus "${s.key}": "${s.anchor.program}" has no phase "${s.anchor.phase}".`);
+      phaseId = phase.id;
+    }
+    return { projectId, partnerId, phaseId };
+  };
+
+  let ingested = 0;
+  for (const s of MOCK_CORPUS) {
+    const anchor = await resolveAnchor(s);
+    const v0 = s.revisions[0];
+    const result = await ingestContent({
+      url: s.url,
+      title: s.title,
+      text: v0.text,
+      source: { kind: s.kind, mode: s.mode, sourceRef: mockSourceRef(s.key) },
+      mode: s.mode,
+      modeSource: s.modeSource,
+      sourceVersion: mockVersion(0),
+      anchor,
+      addedBy: s.addedBy,
+    });
+    if (!result.ok || !result.contextUrlId) {
+      throw new Error(`Corpus "${s.key}" failed to ingest: ${result.error ?? 'no row returned'}`);
+    }
+
+    // Documented direct-write residue, like recordRelationship above: ingestion stamps
+    // "now" by design, and there is no mutation surface for a DATED ingest. Backdating is
+    // what makes the corpus read as history instead of a wall of items created this second.
+    //
+    // This is NOT the falsified-timestamp the refresh path refuses to write (lib/refresh
+    // cadenceScale, and the ADR cited above). The distinction is whose claim the column
+    // carries: here it is the authored INGEST DATE of a document that is pretending to be
+    // three weeks old, set once at creation. There it would be a claim that the app
+    // PERFORMED a check it did not perform, overwriting a real observation with a false
+    // one on every cycle.
+    const at = new Date(Date.now() - v0.daysAgo * 86_400_000);
+    await prisma.contextUrl.update({
+      where: { id: result.contextUrlId },
+      data: { createdAt: at, lastCheckedAt: at, lastChangedAt: at },
+    });
+    await prisma.contextRevision.updateMany({
+      where: { contextUrlId: result.contextUrlId },
+      data: { checkedAt: at },
+    });
+    ingested++;
+  }
+  return ingested;
 }
 
 const WEEK_MS = 7 * 86_400_000;
@@ -691,37 +782,8 @@ export async function seedMockData() {
   // Qualcomm cockpit program (owned by Qualcomm): Bosch integrates audio
   await involvePartner(qualcommProjectId, qualcommPhases['Audio'], boschId, 'Integrator');
 
-  console.log('Seeding Context URLs for vector search mapping...');
-  // Vector ingest is a lib boundary of its own (embedding + raw SQL insert); there is
-  // no HTTP surface for it, and ingestRecord IS what the app's ingestion paths call.
-  await ingestRecord(
-    fordProjectId,
-    'https://chat.google.com/room/ford-evos-dev-talk',
-    'Chat',
-    'Ford Evos AAOS Development Chat',
-    'Ford Evos AAOS Bring-up project updates on VHAL sensor inputs and cluster panel configurations. We are diagnosing BSP power-on latencies and telemetry drops on cold boot.'
-  );
-  await ingestRecord(
-    toyotaProjectId,
-    'https://docs.google.com/document/d/toyota-digital-key-threat-model',
-    'Doc',
-    'Toyota Highlander Digital Key Threat Model',
-    'Toyota Highlander Digital Key threat modeling document. Details cryptographic key exchanges, NFC antenna protocols on the e-TNGA chassis, and companion app verification procedures.'
-  );
-  await ingestRecord(
-    boschProjectId,
-    'https://buganizer.corp.google.com/issues/9987211',
-    'Chat', // mock category
-    'Bosch Explorer VHAL Telemetry Bug',
-    'Bosch Explorer VHAL frame drops on telemetry unit. Dieter Meyer noted that telemetry drops occur when ADAS sensor calibrations start during active ignition sequences.'
-  );
-  await ingestRecord(
-    qualcommProjectId,
-    'https://chat.google.com/room/qcom-audio-deadlocks',
-    'Chat',
-    'Qualcomm Snapdragon Audio Drivers chat',
-    'Snapdragon audio HAL driver deadlocks during system start. Cold boot freezes are caused by priority inversion in thread scheduling for hardware outputs.'
-  );
+  // Ingested context is seeded LAST (below, after the enrichment and showcase
+  // programs exist), because corpus entries anchor to programs from all three blocks.
 
   // ---------------------------------------------------------------------------
   // Ecosystem enrichment: several ACTIVE programs of each type (AAOS / GAS /
@@ -1054,6 +1116,12 @@ export async function seedMockData() {
       timestamp: new Date('2026-07-01'),
     });
   }
+
+  // The ingested corpus goes in last: its entries anchor to programs created in all
+  // three blocks above, and to their phases by name.
+  console.log('Ingesting the mock source corpus through the ingest boundary...');
+  const ingested = await seedMockCorpus();
+  console.log(`Ingested ${ingested} sources.`);
 
   // Seeded records must be searchable immediately — build the vector index now
   // rather than waiting for a manual /api/admin/reindex.

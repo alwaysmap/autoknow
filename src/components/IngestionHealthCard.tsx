@@ -1,6 +1,7 @@
 import type { Locale } from '../lib/i18n';
 import { t } from '../lib/i18n';
 import type { IngestionHealth } from '../lib/ingestionHealth';
+import { isoDateTime } from '../lib/dates';
 import { MAX_DOC_CHARS } from '../lib/gemini';
 import BudgetSlider from './BudgetSlider';
 import styles from './IngestionHealthCard.module.css';
@@ -45,7 +46,7 @@ export default function IngestionHealthCard({
             <Stat label={t(locale, 'ingestStatErrors')} value={summary.errors + summary.driveErrors} warn />
           </div>
           <p className={styles.ranAt}>
-            {t(locale, 'ingestRanAt', { when: summary.ranAt.toISOString().slice(0, 16).replace('T', ' ') })}
+            {t(locale, 'ingestRanAt', { when: isoDateTime(summary.ranAt) })}
             {summary.quotaStopped && ` · ${t(locale, 'ingestQuotaStopped')}`}
           </p>
         </>

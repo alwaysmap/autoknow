@@ -10,6 +10,7 @@ process.env.DATABASE_URL = testDatabaseUrl();
 
 import { prisma, disconnectTestDb } from './helpers/db';
 import { BUILTIN_TEMPLATES } from '../src/lib/builtinTemplates';
+import { MOCK_CORPUS } from '../src/lib/mockCorpus';
 
 jest.mock('server-only', () => ({}));
 jest.mock('../src/auth', () => ({ authConfigured: false, auth: jest.fn(async () => null) }));
@@ -42,7 +43,35 @@ describe('seedMockData through the API', () => {
     expect(await prisma.phaseDependency.count()).toBeGreaterThan(0);
     expect(await prisma.phasePartner.count()).toBeGreaterThan(0);
     expect(await prisma.phasePerson.count()).toBeGreaterThan(0);
-    expect(await prisma.contextUrl.count()).toBe(4);
+    // One row per authored corpus entry — asserted against the corpus itself, because a
+    // literal here would have to be edited every time a document is added and would
+    // therefore be edited to whatever the code produced (the a-test-sharing-the-codes-
+    // hard-coded-answer trap). What is worth asserting is that every entry landed.
+    expect(await prisma.contextUrl.count()).toBe(MOCK_CORPUS.length);
+  });
+
+  it('every ingested source carries the freshness identity the refresh cycle needs', async () => {
+    // Seeded sources must be indistinguishable from pasted ones, or the whole freshness
+    // path silently has nothing to act on. A row missing any of these is invisible to the
+    // refresh cycle, to /manage/sources, and to the feed's "Updated: …" card.
+    const rows = await prisma.contextUrl.findMany({
+      select: { sourceRef: true, contentHash: true, mode: true, url: true, addedBy: true },
+    });
+    for (const row of rows) {
+      expect(row.sourceRef).toMatch(/^mock:/);
+      expect(row.contentHash).toEqual(expect.any(String));
+      expect(row.addedBy).toEqual(expect.any(String));
+    }
+    // Every source starts its history with an initial revision (delta null).
+    expect(await prisma.contextRevision.count()).toBe(MOCK_CORPUS.length);
+  });
+
+  it('anchors every source to something — a corpus entry attached to nothing is invisible', async () => {
+    const orphans = await prisma.contextUrl.findMany({
+      where: { projectId: null, partnerId: null, phaseId: null },
+      select: { title: true },
+    });
+    expect(orphans).toEqual([]);
   });
 
   it('program owners are canonical emails of existing people (requireOwnerEmail at the route)', async () => {
