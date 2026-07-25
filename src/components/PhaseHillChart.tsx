@@ -49,16 +49,35 @@ export default function PhaseHillChart({ phases, wide = false }: { phases: Phase
   // stays a short band instead of a huge dome, and labels get real room.
   const sx = wide ? 2.1 : 1;
   const W = 200 * sx;
-  const axisFs = wide ? 7 : 8;
   const axisLabels = { left: t(locale, 'figuringItOut'), right: t(locale, 'makingItHappen') };
+
+  // INK_SCALE — a viewBox unit is not a pixel, it is whatever the container's width
+  // makes it, so the wide variant authored the same numbers 2.3x larger than the gauge
+  // (#154: 8-unit labels rendered at 24px). Type and coins are measured against the
+  // reader's eye, so the wide variant scales them by ONE factor — which is what keeps
+  // the two variants the same drawing at two sizes (design.md §8c) rather than two
+  // drawings. 0.7 is set by the NARROW end: it keeps the 768px reading at the type
+  // scale's 9px floor (§8d rule 3). Hairlines skip it entirely — non-scaling-stroke
+  // holds those at 1px. Full argument, and why a chart's type size is its container's
+  // width times a constant:
+  // docs/knowledge/svg-chart-type-size-is-container-width-times-a-constant.md
+  const INK_SCALE = wide ? 0.7 : 1;
+  // The other half of the fix: a viewBox drawing grows without bound as its column
+  // grows. A rem max-height (design.md §9b) caps the scale at ~2.5px/unit, so past
+  // ~1130px of column the chart stops growing instead of magnifying its own type.
+  const MAX_H = wide ? '16.5rem' : undefined;
+  const labelFs = 8 * INK_SCALE;
+  const axisFs = (wide ? 7 : 8) * INK_SCALE;
 
   if (phases.length === 0) {
     return <p style={{ fontSize: '0.75rem', fontStyle: 'italic', color: 'var(--muted)' }}>{t(locale, 'noPhasesYet')}</p>;
   }
   const layout = layoutHill(phases, {
     width: W,
-    fontSize: 8,
+    fontSize: labelFs,
     axisFontSize: axisFs,
+    dotRadius: 5.5 * INK_SCALE,
+    // A fingertip, not ink — so NOT scaled. See HillLayoutOptions.
     hitRadius: wide ? 8 : 10,
     statusLabel: (s) => t(locale, STATUS_KEY[s]),
     axisLabels,
@@ -72,7 +91,9 @@ export default function PhaseHillChart({ phases, wide = false }: { phases: Phase
     // hide fifteen focusable dots — and a dot in a collapsed stack has no visible label,
     // so its accessible name is the only thing that identifies it. (The read-only
     // per-phase gauge in PhaseHillGauge has no interactive children and stays `img`.)
-    <svg viewBox={layout.viewBox} style={{ width: '100%', height: 'auto', overflow: 'visible' }} role="group" aria-label={t(locale, 'hillAria')}>
+    <svg viewBox={layout.viewBox}
+      style={{ display: 'block', width: '100%', height: 'auto', maxHeight: MAX_H, overflow: 'visible' }}
+      role="group" aria-label={t(locale, 'hillAria')}>
       {/* Instrument style only (revealed by CSS; see globals.css and PhaseHillSvg,
           which carries the same pair). Groove under the curve, quarter-tick
           graticule along the baseline — the same scale the dots are read against.
@@ -84,17 +105,22 @@ export default function PhaseHillChart({ phases, wide = false }: { phases: Phase
         fill="none"
         stroke="var(--fg)"
         strokeOpacity={0.07}
-        strokeWidth={9}
+        strokeWidth={9 * INK_SCALE}
         strokeLinecap="round"
       />
+      {/* The graticule and the crest line are HAIRLINES, and design.md §9 keeps a
+          hairline a hairline: `non-scaling-stroke` renders these at 1px whatever the
+          container's width does to the coordinate space. Without it the same authored
+          1 was 3px on the wide hill and would go sub-pixel on a narrow phone. It has
+          no effect on text or on `r`, which is why those take INK_SCALE instead. */}
       <g data-inst-only stroke="var(--border)" strokeWidth={1} strokeLinecap="round">
-        <line x1={10 * sx} y1={84} x2={190 * sx} y2={84} strokeOpacity={0.55} />
+        <line x1={10 * sx} y1={84} x2={190 * sx} y2={84} strokeOpacity={0.55} vectorEffect="non-scaling-stroke" />
         {[10, 55, 100, 145, 190].map((x) => (
-          <line key={x} x1={x * sx} y1={84} x2={x * sx} y2={x === 100 ? 78 : 80.5} />
+          <line key={x} x1={x * sx} y1={84} x2={x * sx} y2={x === 100 ? 78 : 80.5} vectorEffect="non-scaling-stroke" />
         ))}
       </g>
-      <path d={hillPath(sx)} fill="none" stroke="var(--border)" strokeWidth={2.5} strokeLinecap="round" />
-      <line x1={100 * sx} y1={10} x2={100 * sx} y2={80} stroke="var(--border)" strokeDasharray="3 3" />
+      <path d={hillPath(sx)} fill="none" stroke="var(--border)" strokeWidth={2.5 * INK_SCALE} strokeLinecap="round" />
+      <line x1={100 * sx} y1={10} x2={100 * sx} y2={80} stroke="var(--border)" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
       {/* Labels first, dots on top: where a long name has nowhere to go but across a
           stack, the coins stay whole and the text tucks behind them. */}
       {layout.labels.map((l) => (
@@ -103,7 +129,7 @@ export default function PhaseHillChart({ phases, wide = false }: { phases: Phase
           x={l.x}
           y={l.y}
           textAnchor="middle"
-          fontSize={8}
+          fontSize={labelFs}
           fontWeight={l.kind === 'group' ? 500 : 600}
           fill={l.kind === 'group' ? 'var(--muted)' : 'var(--fg)'}
           data-testid={`hill-label-${l.anchorId}`}
@@ -125,9 +151,10 @@ export default function PhaseHillChart({ phases, wide = false }: { phases: Phase
             aria-label={label}
             data-testid={`hill-dot-${d.id}`}
           >
-            {/* oversized invisible hit area — the visible dot alone is well under a finger */}
+            {/* Invisible hit area, never smaller than the coin it covers (layoutHill) */}
             <circle cx={d.x} cy={d.y} r={d.hitR} fill="transparent" />
-            <circle cx={d.x} cy={d.y} r={d.r} fill={phaseColor(d.id)} stroke="var(--paper)" strokeWidth={1.6} />
+            <circle cx={d.x} cy={d.y} r={d.r} fill={phaseColor(d.id)} stroke="var(--paper)"
+              strokeWidth={1.6} vectorEffect="non-scaling-stroke" />
             <title>{label}</title>
           </g>
         );

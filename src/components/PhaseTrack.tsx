@@ -11,7 +11,6 @@ import {
   stationOrder, bundleEdges, focusSubgraph, isBypass,
   type Edge, type Bundle, type BundleTie,
 } from '../lib/phaseTrackLayout';
-import PhaseHillChart from './PhaseHillChart';
 import { deriveEndPhase } from '../lib/programDag';
 import { validateTemplateDag } from '../lib/templateDag';
 import { HILL_PATH, hillCoordinates } from '../lib/geometry';
@@ -513,7 +512,13 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   }, [closeDetails]);
   useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
 
-  // Deeplinks from the dashboard's hill chart: a dot click jump-and-flashes here.
+  // Deeplinks from the summary hill chart: a dot click jump-and-flashes here.
+  // THE HILL LIVES ELSEWHERE NOW (above the Critical Chain, #154) and reaches us
+  // through a `window` event, so the two survive being separated in the tree — but
+  // only while THIS component is mounted. That is a real dependency, not a happy
+  // accident: the page renders the hill only in the branch that renders this rail
+  // (`showTrack`), because a dot whose listener is absent is a link that silently
+  // does nothing. Move the hill, keep that pairing.
   useEffect(() => {
     const onJump = (e: Event) => {
       const id = (e as CustomEvent<number>).detail;
@@ -1261,20 +1266,11 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
         {t(locale, 'phasesCard')}
       </AnchorHeading>
 
-      {/* Summary hill first: every phase as a dot on one wide hill — the at-a-glance
-          progress read before the rail's structural detail. Dots deeplink to rows via
-          JUMP_PHASE_EVENT, which this component already listens for. */}
-      {phases.length > 0 && (
-        <div className={styles.hillSummary}>
-          {/* statusProgress, not raw progress: a phase explicitly marked Active
-              before its hill has moved is In Progress, and the rail directly below
-              says so. Passing the raw 0 put it in the "Not Started" pile — the two
-              views contradicting each other about the same phase, on one screen. */}
-          <PhaseHillChart wide phases={phases.map((p) => ({
-            id: p.id, name: p.name, progress: statusProgress(p.progress, p.startedAt),
-          }))} />
-        </div>
-      )}
+      {/* The summary hill used to open this section. It now renders ABOVE the Critical
+          Chain (programs/[id]/page.tsx, #154) — the at-a-glance progress read belongs
+          beside the briefing, not buried under the chain. It still deeplinks INTO this
+          rail via JUMP_PHASE_EVENT; the listener below is why the page only renders it
+          when this component is on the page. */}
 
       {/* No chain summary up top — the chain is already the rail's heavy track, and the
           constraint card carries the evidence line. A second rendering said it twice. */}

@@ -18,7 +18,8 @@ import { getSummary } from '../../../lib/summaries';
 import { geminiConfigured } from '../../../lib/gemini';
 import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
 import { resolvePerson } from '../../../lib/people';
-import { effectiveStartedAt, phaseDetailHref } from '../../../lib/phase';
+import { effectiveStartedAt, phaseDetailHref, statusProgress } from '../../../lib/phase';
+import PhaseHillChart from '../../../components/PhaseHillChart';
 import { tNodes } from '../../../components/tNodes';
 import ChainLedger from '../../../components/ChainLedger';
 import AnchorHeading from '../../../components/AnchorHeading';
@@ -39,6 +40,10 @@ export default async function ProjectDetailsPage(props: {
   // sticky via cookie so it survives param-less navigation.
   const sp = await props.searchParams;
   const showTrack = sp.graph !== 'classic';
+  // The hill's dot deeplinks fire JUMP_PHASE_EVENT, whose listener lives in PhaseTrack —
+  // a window event, so the two need not be adjacent, but the listener must EXIST. Both
+  // render off this one name so a future change cannot mount one without the other.
+  const railMounted = showTrack;
   // ?lang= wins for deep links; otherwise the namespaced locale cookie (registry, #31).
   const locale = await getLocale(sp.lang);
 
@@ -410,6 +415,26 @@ export default async function ProjectDetailsPage(props: {
         </div>
 
         <div className={styles.contentCol}>
+            {/* The program's progress at a glance: every phase as one dot on one hill,
+                read straight after the needle and the briefing and BEFORE the chain
+                (#154). Full content width — a `topGrid` cell would halve it, and this
+                chart's apparent size is a pure function of its container's width.
+                No heading: the axis captions name it, and a title here would only
+                restate the picture (design.md §7, "few titles").
+
+                statusProgress, not raw progress — a phase explicitly marked Active
+                before its hill has moved is In Progress, and the rail below says so.
+                Passing the raw 0 put it in the "Not Started" pile, i.e. two views
+                contradicting each other about the same phase on one screen. The rail
+                calls the same function; neither re-derives it. */}
+            {railMounted && graphRows.length > 0 && (
+              <section className={styles.historySection}>
+                <PhaseHillChart wide phases={graphRows.map((p) => ({
+                  id: p.id, name: p.name, progress: statusProgress(p.progress, p.startedAt),
+                }))} />
+              </section>
+            )}
+
             {/* Critical Chain ledger: buffer vs SOP, where it went, who is
                 oversubscribed — "how are we doing" before the rail's structure. */}
             {/* the anchor lives on ChainLedger's own heading, not here — two
@@ -425,7 +450,7 @@ export default async function ProjectDetailsPage(props: {
             {/* Phases as a vertical rail (spec §2.13): node per phase, latest hill +
                 update + partners per row, Done rows collapsed, add/remove inline. */}
             <section className={styles.historySection}>
-              {showTrack ? (
+              {railMounted ? (
                 // PhaseTrack owns its title row — the ⋯ menu (expand/hide/edit) rides
                 // beside it and needs the component's collapse state.
                 <PhaseTrack projectId={projectId} phases={graphRows} allPartners={allPartners}

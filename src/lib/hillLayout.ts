@@ -41,7 +41,7 @@ export interface HillDot {
   x: number;
   y: number;
   r: number;
-  hitR: number; // invisible touch target; shrinks in a stack so neighbours stay reachable
+  hitR: number; // invisible touch target: at least `r`; otherwise half the gap to the nearest dot, capped at hitRadius
   level: number; // 0 = on the curve, 1.. = fanned off it
 }
 
@@ -67,7 +67,12 @@ export interface HillLayoutOptions {
   fontSize: number;
   /** axis-caption font size — the captions are keep-out boxes, not decoration. */
   axisFontSize: number;
-  /** radius of the invisible touch target on an uncrowded dot. */
+  /** visible coin radius, in viewBox units. Everything dot-shaped (blob distance,
+   *  stack pitch, stack height) is a multiple of it, so the caller changes the ink
+   *  scale with ONE number and gets the same drawing at another size. */
+  dotRadius: number;
+  /** radius of the invisible touch target on an uncrowded dot. This is a FINGER
+   *  measurement, not ink, so it does NOT scale with `dotRadius`. */
   hitRadius: number;
   /** localized status word for a collapsed stack ("Done", "Not Started", …). */
   statusLabel: (status: HillStatus) => string;
@@ -79,29 +84,37 @@ const BASE_WIDTH = 200; // lib/geometry's coordinate space
 const BASE_HEIGHT = 104;
 const AXIS_BASELINE = 99; // y of the axis captions in the base space
 
-const DOT_R = 5.5;
+/** The coin radius every dot-shaped measure below was tuned against — the narrow
+ *  PhaseHillChart's own. They are stated as ratios of it, so a caller that
+ *  passes a smaller `dotRadius` gets the SAME picture at a smaller size rather than
+ *  a differently-proportioned one (design.md §8c: one drawing, two sizes). */
+const BASE_DOT_R = 5.5;
 /** Centre distance below which two dots read as one blob (2r + the paper ring). */
-const MIN_DX = 13;
+const MIN_DX_R = 13 / BASE_DOT_R;
 /** Preferred height of the tallest stack; the pitch shrinks to stay inside it. */
-const STACK_BUDGET = 34;
-const PITCH_MIN = 3.6; // below this the coins stop being countable
-const PITCH_MAX = 7;
+const STACK_BUDGET_R = 34 / BASE_DOT_R;
+const PITCH_MIN_R = 3.6 / BASE_DOT_R; // below this the coins stop being countable
+const PITCH_MAX_R = 7 / BASE_DOT_R;
 /** Dots above this line fan DOWNWARD (there is no room above the crest). */
 const FAN_DOWN_ABOVE_Y = 40;
 /** A lone dot this close to the top labels below itself instead of above. */
 const LABEL_BELOW_ABOVE_Y = 22;
 
-const ROW = 11; // vertical step between stacked label rows
-const LABEL_GAP = 3.5; // clear space between a dot's rim and its label
+/** Same idea for the label metrics: every clearance is a multiple of the type it
+ *  separates, so shrinking the type shrinks the whitespace with it instead of
+ *  stranding a label three rows away from the dot it names. */
+const BASE_FS = 8;
+const ROW_EM = 11 / BASE_FS; // vertical step between stacked label rows
+const LABEL_GAP_EM = 3.5 / BASE_FS; // clear space between a dot's rim and its label
 const EXTRA_ROWS = 3; // how far a label may retreat before it is dropped
 const PAD_X = 2; // keep-in margin at the left/right viewBox edges
-/** Horizontal clearance. ~3 space-widths at the label size: at 4 units two labels on
+/** Horizontal clearance. ~3 space-widths at the label size: at 0.5em two labels on
  *  one row rendered as a single run of text with a hairline between them. */
-const GAP_X = 7;
+const GAP_X_EM = 7 / BASE_FS;
 /** Vertical clearance. Generous on purpose: the cap-height box below understates a
- *  line's real ink (ascenders, descenders), and two labels 1 unit apart READ as
- *  touching. Must stay under ROW so deliberately stacked rows still pass. */
-const GAP_Y = 2.5;
+ *  line's real ink (ascenders, descenders), and two labels an eighth of an em apart
+ *  READ as touching. Must stay under ROW_EM so stacked rows still pass. */
+const GAP_Y_EM = 2.5 / BASE_FS;
 const CAP = 0.78; // cap height / font size — the label box's rise above its baseline
 const DESC = 0.22;
 /** Dots are keep-out boxes for labels, but only their solid core: a label may sit in
@@ -124,6 +137,17 @@ interface Box {
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const round2 = (v: number) => Math.round(v * 100) / 100;
+
+/** Centre-to-centre distance from `dots[i]` to its closest neighbour, or Infinity when
+ *  it is the only dot. O(n²) over a handful of phases, which is cheaper than the
+ *  bookkeeping a spatial index would need here. */
+const nearestDotDistance = (dots: { x: number; y: number }[], i: number): number => {
+  let nearest = Infinity;
+  for (let j = 0; j < dots.length; j += 1) {
+    if (j !== i) nearest = Math.min(nearest, Math.hypot(dots[j].x - dots[i].x, dots[j].y - dots[i].y));
+  }
+  return nearest;
+};
 
 /** Deterministic width estimate — DOM measurement would be a browser-only read, and
  *  this chart renders on the server first. Counts CJK as double-width (the char-count
@@ -155,25 +179,27 @@ export function hillStatusOf(progress: number): HillStatus {
   return 'inProgress';
 }
 
-const overlapsY = (a: Box, b: Box) => a.y0 < b.y1 + GAP_Y && b.y0 < a.y1 + GAP_Y;
+const overlapsY = (a: Box, b: Box, gapY: number) => a.y0 < b.y1 + gapY && b.y0 < a.y1 + gapY;
 
 /**
  * Nearest x to `anchorX` at which a `2*halfW`-wide label fits inside [0, width] without
  * touching any blocked box. Solved as a 1-D interval problem: each obstacle forbids a
  * span of CENTRES, and the answer is either the anchor itself or the nearest edge of a
  * forbidden span. Returns null when the label cannot fit anywhere on this row.
+ * `gapX` is the horizontal clearance, which scales with the label's own type size.
  */
 export function freeLabelCenter(
   anchorX: number,
   halfW: number,
   blocked: Box[],
   width: number,
+  gapX: number,
 ): number | null {
   const lo = PAD_X + halfW;
   const hi = width - PAD_X - halfW;
   if (lo > hi) return null;
   const spans = blocked
-    .map((b): [number, number] => [b.x0 - halfW - GAP_X, b.x1 + halfW + GAP_X])
+    .map((b): [number, number] => [b.x0 - halfW - gapX, b.x1 + halfW + gapX])
     .sort((a, b) => a[0] - b[0]);
   const merged: [number, number][] = [];
   for (const span of spans) {
@@ -201,7 +227,7 @@ interface Anchored {
 }
 
 /** Swarm packing: the lowest level on which this dot clears every dot already there. */
-function assignLevels(sorted: Anchored[]): Map<number, number> {
+function assignLevels(sorted: Anchored[], minDx: number): Map<number, number> {
   const lanes: number[][] = [];
   const level = new Map<number, number>();
   for (const a of sorted) {
@@ -209,7 +235,7 @@ function assignLevels(sorted: Anchored[]): Map<number, number> {
     for (;;) {
       const lane = lanes[k];
       const last = lane?.[lane.length - 1];
-      if (last === undefined || a.x - last >= MIN_DX) break;
+      if (last === undefined || a.x - last >= minDx) break;
       k += 1;
     }
     (lanes[k] ??= []).push(a.x);
@@ -229,9 +255,16 @@ interface Candidate {
 }
 
 export function layoutHill(phases: HillPhase[], opts: HillLayoutOptions): HillLayout {
-  const { width, fontSize: fs, axisFontSize, hitRadius, statusLabel, axisLabels } = opts;
+  const { width, fontSize: fs, axisFontSize, dotRadius: r, hitRadius, statusLabel, axisLabels } = opts;
   const sx = width / BASE_WIDTH;
   const maxLabelWidth = width * LABEL_WIDTH_RATIO;
+  // Derived once: everything dot-shaped scales with the coin, everything label-shaped
+  // with the type. Nothing here is an absolute unit count any more.
+  const minDx = r * MIN_DX_R;
+  const rowStep = fs * ROW_EM;
+  const labelGap = fs * LABEL_GAP_EM;
+  const gapX = fs * GAP_X_EM;
+  const gapY = fs * GAP_Y_EM;
 
   const anchored: Anchored[] = phases.map((phase, index) => {
     const c = hillCoordinates(phase.progress);
@@ -239,17 +272,18 @@ export function layoutHill(phases: HillPhase[], opts: HillLayoutOptions): HillLa
   });
   // Ties break on input order, never on identity, so the layout is stable across renders.
   const byX = [...anchored].sort((a, b) => a.x - b.x || a.index - b.index);
-  const levels = assignLevels(byX);
+  const levels = assignLevels(byX, minDx);
   const maxLevel = Math.max(0, ...levels.values());
-  const pitch = maxLevel === 0 ? 0 : clamp(STACK_BUDGET / maxLevel, PITCH_MIN, PITCH_MAX);
+  const pitch =
+    maxLevel === 0
+      ? 0
+      : clamp((r * STACK_BUDGET_R) / maxLevel, r * PITCH_MIN_R, r * PITCH_MAX_R);
 
-  const dotsByX: HillDot[] = byX.map((a, i) => {
+  const placed = byX.map((a) => {
     const level = levels.get(a.index) ?? 0;
     // Fan away from the crest: at the ends there is no room below (axis captions), at
     // the crest none above. Both directions stay inside the drawing either way.
     const dir = a.baseY < FAN_DOWN_ABOVE_Y ? 1 : -1;
-    const crowded =
-      (i > 0 && a.x - byX[i - 1].x < MIN_DX) || (i + 1 < byX.length && byX[i + 1].x - a.x < MIN_DX);
     return {
       id: a.phase.id,
       name: a.phase.name,
@@ -257,13 +291,31 @@ export function layoutHill(phases: HillPhase[], opts: HillLayoutOptions): HillLa
       status: a.status,
       x: round2(a.x),
       y: round2(a.baseY + dir * level * pitch),
-      r: DOT_R,
-      // A full-size target on a shingled dot swallows its neighbours; shrink it to the
-      // pitch so every dot in a stack keeps an exclusive strip to hover.
-      hitR: round2(crowded ? Math.min(hitRadius, Math.max(2.5, pitch * 0.95)) : hitRadius),
+      // Rounded here, before hitR is floored against it, so the rounding can never
+      // put the target a hundredth of a unit inside its own coin.
+      r: round2(r),
       level,
     };
   });
+
+  // TOUCH TARGETS. Two rules, in this order:
+  //   1. never smaller than the coin you can see — a target inside its own dot is a
+  //      dot that looks clickable where it is not, and that is what a stack used to
+  //      produce (the target shrank to the pitch, which is BELOW the radius once a
+  //      stack is deep enough);
+  //   2. never more than half the way to the nearest neighbour, so no two targets
+  //      overlap and every dot keeps an exclusive area to hover.
+  // Where the two disagree — a shingled stack, whose coins are closer together than
+  // their own diameter — rule 1 wins and the targets overlap exactly as much as the
+  // coins do. The dots draw level 0 first, so the coin on TOP is also the target on
+  // top: what you see is what you hit. The cap is the caller's `hitRadius`, a finger
+  // measurement that stays put when the ink scales.
+  const dotsByX: HillDot[] = placed.map((d, i) => ({
+    ...d,
+    // Written floor-outside-ceiling so rule 1 beating rule 2 is legible here, rather
+    // than depending on the argument order of `clamp`.
+    hitR: round2(Math.max(d.r, Math.min(nearestDotDistance(placed, i) / 2, hitRadius))),
+  }));
   const baseYById = new Map(byX.map((a) => [a.phase.id, a.baseY]));
 
   // Same-status neighbours collapse into one label. Grouping is bounded by the first
@@ -271,7 +323,7 @@ export function layoutHill(phases: HillPhase[], opts: HillLayoutOptions): HillLa
   const groups: HillDot[][] = [];
   for (const d of dotsByX) {
     const g = groups[groups.length - 1];
-    if (g && g[0].status === d.status && d.x - g[0].x < MIN_DX) g.push(d);
+    if (g && g[0].status === d.status && d.x - g[0].x < minDx) g.push(d);
     else groups.push([d]);
   }
 
@@ -340,9 +392,9 @@ export function layoutHill(phases: HillPhase[], opts: HillLayoutOptions): HillLa
     const outward = cand.baseY < flipY ? 1 : -1;
     const row = (n: number) =>
       outward < 0
-        ? a.y - a.r - LABEL_GAP - n * ROW
-        : a.y + a.r + LABEL_GAP + fs * CAP + n * ROW;
-    const inward = outward < 0 ? a.y + a.r + LABEL_GAP + fs * CAP : a.y - a.r - LABEL_GAP;
+        ? a.y - a.r - labelGap - n * rowStep
+        : a.y + a.r + labelGap + fs * CAP + n * rowStep;
+    const inward = outward < 0 ? a.y + a.r + labelGap + fs * CAP : a.y - a.r - labelGap;
     const slots = [row(0)];
     if (!cand.stacked) slots.push(inward);
     for (let n = 1; n <= EXTRA_ROWS; n += 1) slots.push(row(n));
@@ -350,8 +402,8 @@ export function layoutHill(phases: HillPhase[], opts: HillLayoutOptions): HillLa
     for (const y of slots) {
       const band: Box = { x0: 0, x1: width, y0: y - fs * CAP, y1: y + fs * DESC };
       if (band.y1 > BASE_HEIGHT) continue; // below the drawing is off the chart, not just off-grid
-      const blocked = [...obstacles, ...labelBoxes].filter((b) => overlapsY(band, b));
-      const x = freeLabelCenter(a.x, halfW, blocked, width);
+      const blocked = [...obstacles, ...labelBoxes].filter((b) => overlapsY(band, b, gapY));
+      const x = freeLabelCenter(a.x, halfW, blocked, width, gapX);
       if (x === null) continue;
       labels.push({
         key: cand.key,

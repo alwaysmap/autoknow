@@ -24,15 +24,28 @@ const STATUS_WORD: Record<HillStatus, string> = {
   done: 'Done',
 };
 
+// WIDE and NARROW differ only by an ink factor, which is what proves the layout is
+// scale-free: any second factor would do, so this one is not coupled to the 0.7 the
+// component happens to author. `hitRadius` is NOT ink (it is a fingertip).
+const SHRUNK = 0.7;
 const WIDE: HillLayoutOptions = {
   width: 420, // the `wide` variant used by the program page's hill summary
-  fontSize: 8,
-  axisFontSize: 7,
+  fontSize: 8 * SHRUNK,
+  axisFontSize: 7 * SHRUNK,
+  dotRadius: 5.5 * SHRUNK,
   hitRadius: 8,
   statusLabel: (s) => STATUS_WORD[s],
   axisLabels: { left: 'Figuring it out', right: 'Making it happen' },
 };
-const NARROW: HillLayoutOptions = { ...WIDE, width: 200, axisFontSize: 8, hitRadius: 10 };
+/** The small variant — the base ink size, un-shrunk, in a 200-unit space. */
+const NARROW: HillLayoutOptions = {
+  ...WIDE,
+  width: 200,
+  fontSize: 8,
+  axisFontSize: 8,
+  dotRadius: 5.5,
+  hitRadius: 10,
+};
 
 const phase = (id: number, name: string, progress: number): HillPhase => ({ id, name, progress });
 
@@ -71,10 +84,16 @@ describe('layoutHill — every dot stays visible', () => {
 
   it('separates tied dots by enough to read as a stack of coins, not one blob', () => {
     const tied = Array.from({ length: 8 }, (_, i) => phase(i + 1, `Phase ${i + 1}`, 100));
-    const ys = layoutHill(tied, WIDE)
-      .dots.map((d) => d.y)
-      .sort((a, b) => a - b);
-    for (let i = 1; i < ys.length; i += 1) expect(ys[i] - ys[i - 1]).toBeGreaterThanOrEqual(3.5);
+    // The shingle is a fraction of the COIN, not an absolute unit count, so the same
+    // assertion holds at either ink scale (that is what keeps them one drawing).
+    for (const opts of [WIDE, NARROW]) {
+      const ys = layoutHill(tied, opts)
+        .dots.map((d) => d.y)
+        .sort((a, b) => a - b);
+      for (let i = 1; i < ys.length; i += 1) {
+        expect(ys[i] - ys[i - 1]).toBeGreaterThanOrEqual(opts.dotRadius * 0.63);
+      }
+    }
   });
 
   it('drops no dot on the 15-phase program, whatever its progress', () => {
@@ -98,16 +117,54 @@ describe('layoutHill — every dot stays visible', () => {
     }
   });
 
-  it('shrinks the touch target inside a stack so a buried dot stays hoverable', () => {
-    const tied = Array.from({ length: 8 }, (_, i) => phase(i + 1, `Phase ${i + 1}`, 100));
-    const { dots } = layoutHill(tied, WIDE);
-    const pitch = Math.min(...dots.slice(1).map((d, i) => Math.abs(d.y - dots[i].y)).filter((v) => v > 0));
-    for (const d of dots) expect(d.hitR).toBeLessThanOrEqual(pitch);
+  // #154 REWROTE this pair. The old rule was "in a stack, shrink the target to the
+  // pitch" — which, once a stack is deep enough for the pitch to fall under the coin
+  // radius, produced a target SMALLER than the dot on screen: a coin you can see and
+  // aim at, with dead ink around its rim. The rule now has a floor.
+  it('never gives a dot a touch target smaller than the dot you can see', () => {
+    const sets: HillPhase[][] = [
+      FORD,
+      Array.from({ length: 8 }, (_, i) => phase(i + 1, `Phase ${i + 1}`, 100)),
+      Array.from({ length: 24 }, (_, i) => phase(i + 1, `Phase ${i + 1}`, 100)), // pitch at its floor
+      [phase(1, 'A', 0), phase(2, 'B', 50), phase(3, 'C', 100)],
+    ];
+    for (const opts of [WIDE, NARROW]) {
+      for (const set of sets) {
+        for (const d of layoutHill(set, opts).dots) expect(d.hitR).toBeGreaterThanOrEqual(d.r);
+      }
+    }
+  });
+
+  it('caps a target at half the gap to the nearest dot, unless the coin is bigger', () => {
+    // The ceiling: half the distance to the nearest dot, so two targets never overlap.
+    // Where that would go under the coin the floor above wins instead — and then the
+    // targets overlap exactly as much as the visible coins already do, which is the
+    // point: what you see is what you hit.
+    for (const opts of [WIDE, NARROW]) {
+      const { dots } = layoutHill(FORD, opts);
+      for (const d of dots) {
+        const nearest = Math.min(
+          ...dots.filter((o) => o !== d).map((o) => Math.hypot(o.x - d.x, o.y - d.y)),
+        );
+        expect(d.hitR).toBeLessThanOrEqual(Math.max(d.r, nearest / 2) + 0.01);
+      }
+    }
   });
 
   it('leaves a lone dot its full-size touch target', () => {
     const spread = [phase(1, 'A', 0), phase(2, 'B', 50), phase(3, 'C', 100)];
     for (const d of layoutHill(spread, WIDE).dots) expect(d.hitR).toBe(WIDE.hitRadius);
+  });
+
+  it('holds the touch target at a fingertip size while the ink shrinks', () => {
+    // hitRadius is a finger, not ink: shrinking the drawing must not shrink the target
+    // an uncrowded dot gets. That inversion — `wide` magnifying every mark while
+    // cutting hitRadius 10 -> 8 — was the defect behind #154.
+    const spread = [phase(1, 'A', 0), phase(2, 'B', 50), phase(3, 'C', 100)];
+    const wideDots = layoutHill(spread, WIDE).dots;
+    const narrowDots = layoutHill(spread, NARROW).dots;
+    expect(wideDots[0].r).toBeLessThan(narrowDots[0].r); // the coin shrank…
+    expect(wideDots[0].hitR / wideDots[0].r).toBeGreaterThan(2); // …the target did not
   });
 
   it('never moves a dot off its own progress on the x axis', () => {
@@ -247,25 +304,34 @@ describe('text measurement', () => {
 
 describe('freeLabelCenter', () => {
   const box = (x0: number, x1: number) => ({ x0, x1, y0: 0, y1: 10 });
+  const GAP_X = 7; // the horizontal clearance at the base label size (8 units)
 
   it('returns the anchor when nothing is in the way', () => {
-    expect(freeLabelCenter(100, 20, [], 400)).toBe(100);
+    expect(freeLabelCenter(100, 20, [], 400, GAP_X)).toBe(100);
   });
 
   it('slides the label sideways to clear an obstacle instead of dropping it', () => {
-    const x = freeLabelCenter(100, 20, [box(110, 120)], 400);
+    const x = freeLabelCenter(100, 20, [box(110, 120)], 400, GAP_X);
     expect(x).not.toBeNull();
     expect(x! + 20).toBeLessThanOrEqual(110);
   });
 
   it('clamps to the chart rather than overhanging its edge', () => {
-    expect(freeLabelCenter(400, 30, [], 400)).toBe(368);
-    expect(freeLabelCenter(0, 30, [], 400)).toBe(32);
+    expect(freeLabelCenter(400, 30, [], 400, GAP_X)).toBe(368);
+    expect(freeLabelCenter(0, 30, [], 400, GAP_X)).toBe(32);
   });
 
   it('gives up when the label cannot fit at all', () => {
-    expect(freeLabelCenter(100, 300, [], 400)).toBeNull();
-    expect(freeLabelCenter(100, 90, [box(0, 400)], 400)).toBeNull();
+    expect(freeLabelCenter(100, 300, [], 400, GAP_X)).toBeNull();
+    expect(freeLabelCenter(100, 90, [box(0, 400)], 400, GAP_X)).toBeNull();
+  });
+
+  it('scales the clearance with the label size — smaller type, tighter packing', () => {
+    // At the base size the obstacle pushes the label further left than at a third of
+    // it: the gap is ~3 space-widths of the label's OWN type, not an absolute count.
+    const big = freeLabelCenter(100, 20, [box(110, 120)], 400, GAP_X)!;
+    const small = freeLabelCenter(100, 20, [box(110, 120)], 400, GAP_X / 3)!;
+    expect(small).toBeGreaterThan(big);
   });
 });
 
