@@ -78,9 +78,9 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
   for (const c of context) {
     // Freshness provenance rides on the subtitle (plan §2.2): watched sources say
     // when they were last checked; frozen ones say why they no longer are.
-    // To the minute (lib/dates.isoDateTime), because the question this line answers is
-    // "why isn't the document I watched half an hour ago showing up yet" — and a date
-    // alone cannot distinguish "checked before you added it" from "checked after".
+    // To the minute (see lib/dates.isoDateTime for why a date alone cannot answer the
+    // question this line is asked). The strings stay unlocalized because getActivity has
+    // no locale in scope — a pre-existing gap, not a new one.
     const provenance = c.frozenReason
       ? `frozen — ${c.frozenReason}`
       : c.mode === 'watched' && c.lastCheckedAt

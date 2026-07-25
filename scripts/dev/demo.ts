@@ -157,9 +157,33 @@ async function seedWhenReady(spawnedAt: number): Promise<{ bootMs: number; seedM
 
 const secs = (ms: number): string => `${(ms / 1000).toFixed(1)}s`;
 
-interface CycleResult {
-  checked?: number; changed?: number; frozen?: number; errors?: number; backlog?: number;
+/** The cron route's JSON response, in the shape this script reads it. Not imported from
+ *  lib/refresh: ts-node runs this file as an ES module, so a relative import would need a
+ *  file extension (same constraint as worktreeToken above). Every field is optional
+ *  because a single-flight skip returns `{ skipped: true }` and nothing else. */
+interface RefreshCycleResponse {
+  checked?: number;
+  changed?: number;
+  frozen?: number;
+  errors?: number;
   skipped?: boolean;
+}
+
+/** Point the demo's ingestion budget at DEMO_DAILY_BUDGET_DOCS. Once per run, before the
+ *  ticker starts, so changing it in Manage → Sources afterwards stays changed. */
+async function applyDemoBudget(): Promise<void> {
+  const client = new Client({ connectionString: DB_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `INSERT INTO "IngestionSettings" ("key", "dailyReingestBudgetDocs", "updatedAt")
+       VALUES ('default', $1, now())
+       ON CONFLICT ("key") DO UPDATE SET "dailyReingestBudgetDocs" = $1, "updatedAt" = now()`,
+      [DEMO_DAILY_BUDGET_DOCS],
+    );
+  } finally {
+    await client.end();
+  }
 }
 
 /**
@@ -168,34 +192,16 @@ interface CycleResult {
  * person page. This is the same endpoint Cloud Scheduler hits in production; the demo
  * is only supplying the schedule.
  *
- * The one thing the demo compresses is TIME, and it does that through
- * REFRESH_MAX_CADENCE_SECONDS (set on the server below), not by touching data: nobody
- * will leave a demo running for a week to watch the web cadence come round. Every gate,
- * budget, hash comparison, re-distillation and freeze is then the production path,
- * against untouched rows.
- *
- * The rejected alternative was backdating each row's lastCheckedAt to force it due. It
- * works, and it quietly lies: the feed and Manage → Sources RENDER lastCheckedAt, so the
- * demo would report "checked eight days ago" about a source it checked four seconds ago
- * — in the same UI whose whole job is telling you how fresh things are.
+ * Time is compressed through REFRESH_MAX_CADENCE_SECONDS (set on the server below)
+ * rather than by touching any row — see lib/refresh.cadenceScale for why that direction
+ * and not the other. Every gate, budget, hash comparison, re-distillation and freeze is
+ * then the production path against untouched data.
  */
 function startRefreshTicker(): void {
-  const client = new Client({ connectionString: DB_URL });
-  let connected = false;
   let firstReport = true;
 
   const tick = async (): Promise<void> => {
     try {
-      if (!connected) {
-        await client.connect();
-        await client.query(
-          `INSERT INTO "IngestionSettings" ("key", "dailyReingestBudgetDocs", "updatedAt")
-           VALUES ('default', $1, now())
-           ON CONFLICT ("key") DO UPDATE SET "dailyReingestBudgetDocs" = $1, "updatedAt" = now()`,
-          [DEMO_DAILY_BUDGET_DOCS],
-        );
-        connected = true;
-      }
       const res = await fetch(`${ORIGIN}/api/cron/refresh`, {
         headers: { authorization: `Bearer ${CRON_SECRET}` },
       });
@@ -203,7 +209,7 @@ function startRefreshTicker(): void {
         console.log(`• refresh tick failed (${res.status})`);
         return;
       }
-      const report = (await res.json()) as CycleResult;
+      const report = (await res.json()) as RefreshCycleResponse;
       if (report.skipped) return; // single-flight: another tick still running
 
       const { checked = 0, changed = 0, frozen = 0, errors = 0 } = report;
@@ -261,6 +267,7 @@ async function main(): Promise<void> {
   for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => server.kill(sig));
 
   const { bootMs, seedMs } = await seedWhenReady(spawnedAt);
+  await applyDemoBudget();
   startRefreshTicker();
 
   // The tool reports its own bring-up cost — answers "how long from scratch" without

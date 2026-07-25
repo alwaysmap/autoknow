@@ -18,7 +18,8 @@ import { localDate } from './dates';
 // override, which is fail-closed on the same lib/dbSafety policy as the wipe below.
 //
 // Deliberate direct-write residue (each commented at the site): reference lookup
-// tables, Partner.phone/googleTeam, backdated relationship history, vector ingest.
+// tables, Partner.phone/googleTeam, backdated relationship history, and the ingest
+// dates of the authored corpus.
 import { POST as postPartnerRoute } from '../app/api/partners/route';
 import { POST as postPersonRoute } from '../app/api/people/route';
 import { POST as postAffiliationRoute } from '../app/api/people/[id]/affiliations/route';
@@ -283,15 +284,11 @@ async function recordRelationship(
 /**
  * Ingest the authored corpus (lib/mockCorpus) through the app's REAL ingest boundary.
  *
- * This replaced four `ingestRecord` calls — a raw INSERT that wrote a digest straight
- * into the table, and the only caller lib/vector had, so that module went with them.
- * Those rows carried no sourceRef, mode, contentHash, sourceStatus or
- * revision history, which meant the demo could not exercise ANY of the freshness
- * machinery: `/manage/sources` had nothing to show, `runRefreshCycle` found nothing due,
- * and the feed's "Updated: …" card (lib/activity) could not appear at all. Going through
- * `ingestContent` means every seeded source is indistinguishable from one a user pasted
- * — same dedupe, same digest, same embedding, same initial ContextRevision — so the
- * refresh experiment has something real to act on.
+ * Going through `ingestContent` is what makes a seeded source indistinguishable from one
+ * a user pasted — same dedupe, digest, embedding, contentHash and initial
+ * ContextRevision — so the whole freshness path has something real to act on. Why that
+ * is a rule rather than a preference: [ADR: Seeded content moves through the real
+ * connectors](../../docs/adr/2026-07-25-seeded-content-runs-the-real-pipeline-and-fakes-only-the-schedule.md).
  *
  * Anchors are authored as NAMES and resolved here, and an unresolvable name THROWS
  * rather than attaching to nothing: a corpus entry silently anchored to null would read
@@ -350,11 +347,15 @@ async function seedMockCorpus(): Promise<number> {
     }
 
     // Documented direct-write residue, like recordRelationship above: ingestion stamps
-    // "now" by design, and there is no mutation surface for a DATED ingest. Backdating
-    // is what makes the corpus read as history rather than as a wall of items created
-    // this second — and it is also what puts every row PAST its refresh cadence
-    // (lib/refresh CADENCE_HOURS), so the very first cycle has real work to do instead
-    // of the demo having to wait six hours to show anything.
+    // "now" by design, and there is no mutation surface for a DATED ingest. Backdating is
+    // what makes the corpus read as history instead of a wall of items created this second.
+    //
+    // This is NOT the falsified-timestamp the refresh path refuses to write (lib/refresh
+    // cadenceScale, and the ADR cited above). The distinction is whose claim the column
+    // carries: here it is the authored INGEST DATE of a document that is pretending to be
+    // three weeks old, set once at creation. There it would be a claim that the app
+    // PERFORMED a check it did not perform, overwriting a real observation with a false
+    // one on every cycle.
     const at = new Date(Date.now() - v0.daysAgo * 86_400_000);
     await prisma.contextUrl.update({
       where: { id: result.contextUrlId },

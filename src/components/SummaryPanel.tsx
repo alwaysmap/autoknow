@@ -143,9 +143,7 @@ export default function SummaryPanel({
     );
   }
 
-  // To the minute, not the day: a reader who added a source half an hour ago and cannot
-  // see it yet needs to know whether this briefing predates their source. "Jul 25"
-  // cannot answer that — the source and the briefing are both from Jul 25.
+  // To the minute, not the day — lib/dates.isoDateTime carries why.
   const generated = isoDateTime(summary.generatedAt);
   const ordered = SECTION_ORDER.map((key) => summary.body.sections.find((s) => s.key === key)).filter(
     (s): s is NonNullable<typeof s> => !!s && s.bullets.length > 0,

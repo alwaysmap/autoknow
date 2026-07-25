@@ -209,11 +209,9 @@ describe('runRefreshCycle due-source selection', () => {
   });
 
   // REFRESH_MAX_CADENCE_SECONDS lets a demo watch a week of freshness pass in a couple of
-  // minutes. It compresses SCHEDULING, deliberately, because the alternative — backdating
-  // each row's lastCheckedAt to force it due — corrupts a field the activity feed and
-  // Manage → Sources render, making the app claim a source was checked days ago seconds
-  // after it was checked. These two cases are the contract: it scales, and it is off by
-  // default (so production keeps the real cadence even if the code is imported there).
+  // minutes (lib/refresh.cadenceScale). These two cases are its whole contract: it scales
+  // every class, and it is OFF unless set — the second matters most, because the failure
+  // nobody would notice is production quietly inheriting a compressed cadence.
   it('compresses the whole cadence table when REFRESH_MAX_CADENCE_SECONDS is set', async () => {
     // Two seconds old: due under NO real cadence, due under a compressed one.
     await seedChecked('http://example.com/tracker-good', 'Gerrit', 2 / 3600);

@@ -31,8 +31,9 @@ export function localDate(
  *
  * UTC for the same reason localDate pins it: these render inside client components that
  * are server-rendered first, so reading the machine's zone hydrates to a different
- * string. Callers pair it with a UTC marker in their own localized text (see
- * `ingestRanAt` / `summaryProvenance` in lib/i18n), so the zone is never implied.
+ * string. The zone is never left implied — callers name it, either through their i18n
+ * string (`ingestRanAt`, `summaryProvenance`) or as a literal where the surrounding text
+ * is unlocalized anyway (the activity feed's provenance subtitles).
  */
 export function isoDateTime(value: string | Date): string {
   return new Date(value).toISOString().slice(0, 16).replace('T', ' ');

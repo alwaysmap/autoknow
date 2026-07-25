@@ -51,10 +51,9 @@ describe('seedMockData through the API', () => {
   });
 
   it('every ingested source carries the freshness identity the refresh cycle needs', async () => {
-    // The seed used to write ContextUrl rows with a raw INSERT, which produced rows with
-    // no sourceRef, no contentHash and no revision — so nothing in the freshness path
-    // could act on them and the demo silently had no re-ingestion at all. This is the
-    // guard for that: seeded sources must be indistinguishable from pasted ones.
+    // Seeded sources must be indistinguishable from pasted ones, or the whole freshness
+    // path silently has nothing to act on. A row missing any of these is invisible to the
+    // refresh cycle, to /manage/sources, and to the feed's "Updated: …" card.
     const rows = await prisma.contextUrl.findMany({
       select: { sourceRef: true, contentHash: true, mode: true, url: true, addedBy: true },
     });

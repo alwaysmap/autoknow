@@ -2,14 +2,12 @@
 // feeds through the app's real ingest boundary, and that the mock connector re-serves
 // on refresh so re-ingestion can be watched end to end without a network.
 //
-// WHY RAW TEXT AND NOT DIGESTS. The seed used to write four `ingestedText` strings
-// straight into the table via a raw INSERT (the now-deleted lib/vector), so the demo never
-// exercised distillation, classification, hashing, revisions or embedding — and the
-// activity feed had four context cards against hundreds of phase-state rows, so it read
-// as nothing but buffers and dates. These are the documents themselves, so with a
-// GEMINI_API_KEY set the demo runs the SAME pipeline production does: Gemini distils
-// each one, the digest is embedded, and the row carries a real contentHash. Without a
-// key the app degrades honestly (lib/gemini) and the text still reads well.
+// WHY RAW TEXT AND NOT DIGESTS. These are the documents themselves, so with a
+// GEMINI_API_KEY set the demo runs the SAME pipeline production does: Gemini distils each
+// one, the digest is embedded, and the row carries a real contentHash. Without a key the
+// app degrades honestly (lib/gemini) and the text still reads well. Authoring the digests
+// instead would be cheaper and would mean the demo never exercised distillation,
+// classification, hashing, revisions or embedding at all.
 //
 // WHY EVERY SOURCE IS VERSIONED. `revisions` is the whole point of the fixture: index 0
 // is what the first ingest sees, and each later entry is what a LATER fetch finds. That
@@ -42,7 +40,12 @@ import type { SourceKind, TrackingMode } from './sources';
 
 /** One version of a source: what a fetch at that point in time returns. */
 export interface MockRevision {
-  /** Days before seed time this version became the live content. */
+  /**
+   * Days before seed time this version became the live content. Load-bearing only at
+   * index 0, which dates the ingest (lib/seed); a later refresh stamps the real clock,
+   * as it must. The later values keep each source's chronology legible while authoring
+   * and are what tests/mockConnector asserts the oldest-first ordering on.
+   */
   daysAgo: number;
   text: string;
 }
@@ -507,8 +510,8 @@ Dieter Meyer: agreed. Will do that Thursday.`,
 ];
 
 // ---------------------------------------------------------------------------------
-// 3. Risk signals that live on no timeline: a standards body moving, a supplier
-//    quality escape, a security finding, and one person gating several certifications.
+// 3. Risk signals that live on no timeline — things that will hurt a programme and that
+//    no phase, date or buffer anywhere in the app would ever surface.
 // ---------------------------------------------------------------------------------
 
 const RISK_SOURCES: MockSource[] = [

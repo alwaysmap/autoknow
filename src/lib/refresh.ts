@@ -57,12 +57,11 @@ export async function refreshSource(
     // whole real path below — content hash, re-distillation, delta, re-embed, appended
     // ContextRevision, freeze-on-resolved — runs against seeded data without a network.
     //
-    // Fail closed on the same policy that permits a wipe (lib/dbSafety), for the reason
-    // AGENTS lesson 5 exists: fixture prose reaching a real deployment would be indexed,
-    // summarized and cited as if it were ingested fact. `destructiveDbAllowed()` is
-    // already the app's "this database is disposable demo data" signal — the seed that
-    // creates these rows is gated on it too, so a mock row and a live connector can only
-    // ever coexist where both are legitimate.
+    // Fail closed on the same policy that permits a wipe (lib/dbSafety): fixture prose
+    // reaching a real deployment would be indexed, summarized and cited as if it were
+    // ingested fact (AGENTS lesson 5). `destructiveDbAllowed()` is already the app's
+    // "this database is disposable" signal, and the seed that creates these rows is gated
+    // on it too — so a mock row and a live connector only ever coexist legitimately.
     if (!destructiveDbAllowed()) {
       return { ok: false, error: 'Mock sources are refreshable only in a demo/test database.' };
     }
@@ -192,11 +191,10 @@ const CADENCE_HOURS: Record<string, number> = { tracker: 6, web: 24 * 7 };
  * Unset — the normal case, including production — leaves the hours above exactly as
  * written.
  *
- * This exists because the obvious alternative is worse. Making rows due by backdating
- * their `lastCheckedAt` works, but `lastCheckedAt` is not bookkeeping — the activity
- * feed and Manage → Sources SHOW it, so falsifying it makes the app report that a
- * source was checked eight days ago seconds after checking it. Scheduling is the thing
- * being compressed, so scheduling is the thing to compress.
+ * Scheduling is the thing being compressed, so scheduling is the thing to compress —
+ * backdating each row's `lastCheckedAt` to force it due was tried and rejected, because
+ * that column is rendered ([ADR: a demo may compress the schedule but never a
+ * timestamp](../../docs/adr/2026-07-25-seeded-content-runs-the-real-pipeline-and-fakes-only-the-schedule.md)).
  *
  * Deliberately not gated on the demo-database check that guards the mock connector: it
  * fabricates nothing and cannot corrupt anything. The worst a bad value does is make the
