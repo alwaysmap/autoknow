@@ -1,0 +1,33 @@
+/* The one person-in-a-cell treatment. A name WITH a route is a quiet blue link
+   (design.md §6: colour/underline is the affordance, weight stays at 400); a name
+   with NO route is plain text in the cell ink — never a link to nowhere. */
+
+.link {
+  color: var(--link);
+  text-decoration: none;
+  font-weight: 400;
+}
+
+.link:hover {
+  color: var(--link-hover);
+  text-decoration: underline;
+}
+
+/* Unresolvable — a departed person, or a non-person writer like 'drive-share'.
+   Still the row's own ink: it is a real fact about the row, not a fallback. */
+.plain {
+  color: inherit;
+}
+
+/* Nothing there at all: the em-dash placeholder, muted like every other. */
+.empty {
+  color: var(--muted);
+}
+
+/* Several people in one cell. Quiet comma-separated links, NOT pills: a pill per
+   person turns a 3-person cell into three loud objects, and design.md §6 says the
+   pill rule names which decoration to use when you decorate, not that every name
+   must be decorated. */
+.list {
+  display: inline;
+}

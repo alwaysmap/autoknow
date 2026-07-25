@@ -8,7 +8,8 @@ description: Building or changing any AutoKnow UI/UX — components, pages, dial
 **Read [docs/design.md](../../../docs/design.md) in full first** (~125 lines — it is
 the law, not a suggestion): everything-is-a-URL, Tufte data-ink ratios,
 percentage-free gauges/hill charts, 2-column detail grids, the table grammar
-(§6: per-column funnels, shareable URL state, ISO dates), one-line facts (§7),
+(§6: per-column funnels, shareable URL state, `PersonCell`, and `DateCell` —
+ISO in `dateTime`, locale-short visible), one-line facts (§7),
 and the ✦ AI-provenance mark (§8).
 
 **Before styling, check the findings.** [docs/knowledge/](../../../docs/knowledge/README.md)
@@ -109,7 +110,12 @@ open only the rows that match what you are about to touch.
    `env` itself: `runtimeExecutable: "env"` with the assignments as leading
    `runtimeArgs` before `npm run dev -- -p <port>`.
 2. Verify visually in BOTH themes (`data-theme` light/dark) — tokens live in
-   `globals.css`; components must not hard-code colors.
+   `globals.css`; components must not hard-code colors. The BROWSER is the one
+   thing in the chain that is NOT per-worktree, and a tab pointed at another
+   worktree's server screenshots that worktree's code
+   ([note](../../../docs/knowledge/preview-browser-tab-can-move-to-another-worktrees-server.md)) —
+   read `location.origin` from inside the page in the same call that collects the
+   data you are signing off.
 3. `npm run lint && npm run typecheck`.
 4. e2e for behavior: `npm run test:e2e` — first interaction after a page load
    must be a hydration-guarded retry (`expect(async () => {...}).toPass()`

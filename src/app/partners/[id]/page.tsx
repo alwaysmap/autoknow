@@ -18,6 +18,7 @@ import { t } from '../../../lib/i18n';
 import AnchorHeading from '../../../components/AnchorHeading';
 import KebabMenu from '../../../components/KebabMenu';
 import { NewPersonButton } from '../../../components/PersonEditor';
+import PersonCell from '../../../components/PersonCell';
 
 export const dynamic = 'force-dynamic';
 
@@ -267,9 +268,8 @@ export default async function PartnerDetailPage(props: PageProps) {
                 ))}
                 {partner.personAffiliations.map((aff) => (
                   <div key={aff.id} className={styles.personItem}>
-                    <Link href={`/people/${aff.personId}`} className={styles.personLink}>
-                      {aff.person.name}
-                    </Link>
+                    <PersonCell person={{ id: aff.personId, name: aff.person.name }}
+                      className={styles.personLink} />
                     {aff.role && <span className={styles.personRole}>{aff.role}</span>}
                   </div>
                 ))}

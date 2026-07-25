@@ -7,6 +7,8 @@ import Link from 'next/link';
 import DataTable from '../../components/DataTable';
 import PageShell from '../../components/PageShell';
 import { NewPersonButton } from '../../components/PersonEditor';
+import PersonCell from '../../components/PersonCell';
+import { personHref } from '../../lib/entityHref';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 import styles from '../partners/page.module.css';
@@ -57,7 +59,9 @@ export default function PeopleClient({ people, partners, initialFilters, initial
             renderRow={(p) => (
               <tr key={p.id}>
                 <th scope="row">
-                  <Link href={`/people/${p.id}`} className={styles.tableLink}>{p.name}</Link>
+                  {/* The roster's own key column is still a person (#153) — it goes
+                      through the shared cell like every other person in the app. */}
+                  <PersonCell person={p} className={styles.tableLink} />
                 </th>
                 <td>
                   {/* Company is a NOUN — a specific partner — so it navigates to
@@ -81,7 +85,7 @@ export default function PeopleClient({ people, partners, initialFilters, initial
                   {/* Bare count (§6, one measure per cell): the noun lives in the
                       accessible name, never announced as a context-free number. */}
                   <Link
-                    href={`/people/${p.id}`}
+                    href={personHref(p.id)}
                     className={styles.lifetimeProgramsLink}
                     aria-label={t(locale, p.programs === 1 ? 'programsCountAriaOne' : 'programsCountAria', { n: p.programs })}
                   >
@@ -89,7 +93,9 @@ export default function PeopleClient({ people, partners, initialFilters, initial
                   </Link>
                 </td>
                 <td>
-                  <a href={`mailto:${p.email}`} className={styles.telLink}>{p.email}</a>
+                  {/* The one deliberate email-as-label in the app (#153 acceptance 1):
+                      this is an EMAIL column with a mailto:, not a person reference. */}
+                  <a href={`mailto:${p.email}`} className={styles.emailLink}>{p.email}</a>
                 </td>
               </tr>
             )}

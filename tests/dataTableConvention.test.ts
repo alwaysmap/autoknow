@@ -19,12 +19,34 @@
 //    escapes the URL, which is what #87 fixed on /manage/sources and #95 on
 //    /ecosystem-summary. Carried in from #87, where it could not land: the last
 //    offender was #95's own subject, so the guard would have merged red.
+//
+// 4. No DATE rendered outside `DateCell` (#153). A date cell carries three things at
+//    once — ISO in `dateTime`, the locale-short reading text, the ISO-week title — and a
+//    host that formats its own gets at most one of them. Two tells, because a hand-rolled
+//    date shows up as either: the `<time>` element, or a date-formatting call.
+//
+// 5. No PERSON route built outside `lib/entityHref` (#153). `PersonCell` is where a
+//    person becomes a name + a route + the plain-text fallback; a host writing
+//    `/people/${id}` by hand is a person rendered some other way. This is the sweep
+//    entityHref's own comment asked for ("other call sites still hand-roll these
+//    literals"). Its LIMIT, stated rather than implied: it catches a host that links a
+//    person, not one that prints a person string with no link at all — source cannot tell
+//    a person-shaped string from any other. The four columns that did exactly that
+//    (#153's subject) are covered by review + the screenshots, not by this scan.
 
 import { readFileSync } from 'node:fs';
 import { tsxFiles, stripComments } from './helpers/sourceFiles';
 
 const ROOTS = ['src/app', 'src/components'];
 const DATA_TABLE = 'src/components/DataTable.tsx';
+const DATE_CELL = 'src/components/DateCell.tsx';
+const ENTITY_HREF = 'src/lib/entityHref.ts';
+
+/** A `<time>` element, or a call that turns a date into display text. */
+const DATE_RENDER = /<time[\s>]|toLocaleDateString|\blocalDate\(|\bisoDate\(|\bisoDateTime\(|\bisoWeekLabel\(/;
+
+/** A person's route, written out rather than taken from `personHref`. */
+const PERSON_ROUTE = /['"`]\/people\//;
 
 const code = (file: string): string => stripComments(readFileSync(file, 'utf8'));
 
@@ -96,5 +118,36 @@ describe('the shared-table convention (#125)', () => {
       .filter((f) => callSites(f).length > 0)
       .filter((f) => /<select[\s>]/.test(code(f)));
     expect(bad).toEqual([]);
+  });
+
+  it('finds no date formatted in a DataTable host (#153)', () => {
+    const bad = ROOTS.flatMap((r) => tsxFiles(r))
+      .filter((f) => callSites(f).length > 0)
+      .filter((f) => DATE_RENDER.test(code(f)));
+    expect(bad).toEqual([]);
+  });
+
+  it("still sees DateCell's own date render — proves the scan can find one at all", () => {
+    // The partner test the rule above is worthless without: DateCell is the ONE
+    // legitimate date render in the app, so a pattern that cannot find it there would
+    // pass every host vacuously. Both tells must fire — the <time> element AND the
+    // formatting call — or half the rule is asleep.
+    const src = code(DATE_CELL);
+    expect(DATE_RENDER.test(src)).toBe(true);
+    expect(/<time[\s>]/.test(src)).toBe(true);
+    expect(/\blocalDate\(/.test(src)).toBe(true);
+  });
+
+  it('finds no hand-built person route in a DataTable host (#153)', () => {
+    const bad = ROOTS.flatMap((r) => tsxFiles(r))
+      .filter((f) => callSites(f).length > 0)
+      .filter((f) => PERSON_ROUTE.test(code(f)));
+    expect(bad).toEqual([]);
+  });
+
+  it("still sees entityHref's own person route — proves the scan can find one at all", () => {
+    // Same reason as the DateCell partner: `personHref` is the one place the literal is
+    // allowed to exist, so if the pattern misses it there, it misses everywhere.
+    expect(PERSON_ROUTE.test(code(ENTITY_HREF))).toBe(true);
   });
 });

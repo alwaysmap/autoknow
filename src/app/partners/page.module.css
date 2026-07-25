@@ -65,13 +65,17 @@
   opacity: 0.8;
 }
 
-.telLink {
+/* Was .telLink, when /partners' person columns linked people from here. They render
+   through PersonCell now (#153), which owns the one quiet-link treatment. What is left
+   is /people's EMAIL column — a mailto:, the app's one deliberate email-as-label — so
+   the class is named for what it actually is. */
+.emailLink {
   color: var(--link);
   text-decoration: none;
   font-weight: 400;
 }
 
-.telLink:hover {
+.emailLink:hover {
   text-decoration: underline;
   color: var(--link-hover);
 }

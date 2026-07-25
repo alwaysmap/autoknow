@@ -9,7 +9,7 @@ import { formatNeedleValue } from '../../lib/needle';
 import SopOutlookCell from '../../components/SopOutlookCell';
 import type { LiveConstraint } from '../../lib/dashboardData';
 import { healthKey, healthColor, healthOrder } from '../../lib/health';
-import { resolvePerson } from '../../lib/people';
+import PersonCell, { personFilterLabel } from '../../components/PersonCell';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 import { useTableUrlSync } from '../../lib/useTableUrlSync';
@@ -158,7 +158,10 @@ export default function EcosystemSummaryClient({
           headers={[
             { key: 'partner.name', label: t(locale, 'partnerLabel') },
             { key: 'name', label: t(locale, 'programLabel') },
-            { key: 'ownerName', label: t(locale, 'ownerLabel'), filterable: true },
+            {
+              key: 'ownerName', label: t(locale, 'ownerLabel'), filterable: true,
+              filterLabel: personFilterLabel(people),
+            },
             { key: 'sopDate', label: t(locale, 'sopDate') },
             { key: 'volumeFirstYear', label: t(locale, 'volume12m') },
             {
@@ -193,18 +196,9 @@ export default function EcosystemSummaryClient({
                   {isEarlyStage && <span className={styles.earlyBadge}>{t(locale, 'earlyStage')}</span>}
                 </td>
                 <td>
-                  {(() => {
-                    if (!p.ownerName) return t(locale, 'unassigned');
-                    const matched = resolvePerson(people, p.ownerName);
-                    if (matched) {
-                      return (
-                        <Link href={`/people/${matched.id}`} className={styles.ownerLink}>
-                          {p.ownerName}
-                        </Link>
-                      );
-                    }
-                    return p.ownerName;
-                  })()}
+                  {/* By name, not by the stored LDAP email (#153); unresolvable owners
+                      stay plain text, and an absent one says so. */}
+                  <PersonCell value={p.ownerName} people={people} fallback={t(locale, 'unassigned')} />
                 </td>
                 <td><DateCell value={p.sopDate} fallback={t(locale, 'tbd')} /></td>
                 <td>{t(locale, 'unitsCount', { n: p.volumeFirstYear.toLocaleString(locale) })}</td>
