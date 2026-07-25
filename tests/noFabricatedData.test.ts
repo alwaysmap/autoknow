@@ -14,7 +14,7 @@
 // disguise, which is the one that actually happened, twice.
 
 import { readFileSync } from 'node:fs';
-import { sourceFiles } from './helpers/sourceFiles';
+import { sourceFiles, stripComments } from './helpers/sourceFiles';
 
 // Domain nouns that appeared in the fabricated panel — partner/program names from
 // `src/lib/seed.ts` and phase names from `src/lib/builtinTemplates.ts`. NOT "everything
@@ -41,12 +41,13 @@ const escapeForRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '
 
 const scannedFiles = (dir: string): string[] => sourceFiles(dir).filter((f) => !EXEMPT.test(f));
 
-/** Source with comments and import lines removed — those may name anything. */
+/** Comments come off via the shared stripper; import lines come off here, because only
+ *  THIS scan cares about them — an import may legitimately name anything. (The sibling
+ *  scan in dataTableConvention deliberately keeps them.) */
 const code = (file: string): string =>
-  readFileSync(file, 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
+  stripComments(readFileSync(file, 'utf8'))
     .split('\n')
-    .filter((l) => !/^\s*(\/\/|import|export .* from)/.test(l))
+    .filter((l) => !/^\s*(import|export .* from)/.test(l))
     .join('\n');
 
 describe('no seed entity name is hard-coded into a rendered surface (#129)', () => {
