@@ -1,7 +1,3 @@
-/* The strip owns its own grid, moved here verbatim from /ecosystem's `.statStrip`
-   when the block became a component (#133) — so the two pages cannot drift apart in
-   spacing any more than they can in meaning. */
-
 .strip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));

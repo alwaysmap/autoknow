@@ -3,8 +3,8 @@
 
 /* `width: 100%` is load-bearing: globals.css makes <body> a flex COLUMN, and an
    auto cross-axis margin on a flex item overrides stretch and shrink-wraps it to
-   its content — the measure would then be set by whichever locale's longest string
-   happens to be. Filling first, then capping, keeps it identical in all four. */
+   its content — the measure would then be set by whichever locale's string happens
+   to be longest. Filling first, then capping, keeps it identical in all four. */
 .container {
   width: 100%;
   max-width: 62rem;
@@ -56,5 +56,4 @@
     padding-block: 1rem 2rem;
     padding-inline: var(--page-gutter); /* → 1rem; re-assert the token over the tablet step above */
   }
-
 }

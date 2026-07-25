@@ -15,15 +15,9 @@ import styles from './page.module.css';
 // recent updates — ingested documents and human-written notes alike — as teasers,
 // so an idle visit still shows what moved.
 //
-// The hero headline and lede are gone (#133): the headline asked a question the box
-// already implies, and the lede explained that a search box searches. The leadership
-// strip takes that space, so the page says something about the portfolio instead of
-// about itself.
-//
-// The strip calls the SAME loader /ecosystem does, deliberately: SopRiskStat needs
-// `chainRemainingDays`, and a cheaper hand-rolled query is how two pages end up
-// reporting different counts for one word. That puts the critical-chain pass on this
-// page's critical path — an accepted cost, recorded here so it is not a surprise.
+// The leadership strip calls the SAME loader /ecosystem does (see EcosystemStatStrip
+// for why). That puts the critical-chain pass on this page's critical path — an
+// accepted cost, recorded here so it is not a surprise.
 
 export const dynamic = 'force-dynamic';
 

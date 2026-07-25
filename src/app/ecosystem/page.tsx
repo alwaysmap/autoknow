@@ -35,8 +35,7 @@ export default async function Home() {
 
   return (
     <PageShell title={t(locale, 'ecosystemDashboard')} maxWidth="68.75rem">
-      {/* The three questions the capacity chart below then answers in time. Shared
-            with `/` so the two pages cannot report different counts for one word. */}
+        {/* answered in time by the capacity chart below */}
         <EcosystemStatStrip programs={serializedProjects} relationshipScores={relationshipScores} now={now} />
 
         {/* the capacity picture gets the full page width — it's the chart leadership

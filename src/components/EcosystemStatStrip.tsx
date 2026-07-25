@@ -11,8 +11,9 @@ import styles from './EcosystemStatStrip.module.css';
 // and the three tiles have to agree about what "active" and "at risk" mean. Two
 // hand-rolled strips is how the same word ends up reporting two counts.
 //
-// It derives `activeCount` itself for the same reason — that predicate belongs with
-// the tile that shows it, not repeated at each call site.
+// It derives `activeCount` itself for the same reason: `!isArchived && progress < 100`
+// IS the definition of the number EcosystemStats renders, so it belongs with the tile
+// rather than at whichever page happens to call it.
 
 export default function EcosystemStatStrip({
   programs,
