@@ -1,5 +1,6 @@
-/* Person profile — the Me-page grammar (initials avatar + identity header), then
-   one capped reading column of whitespace-separated rows (design.md §7). */
+/* The person page. Both listings (Programs, History) are DataTables now (#125); what
+   stays here is the page's own ink — the profile header, the phase chips, and the
+   empty states. */
 
 .container {
   min-height: 100vh;
@@ -121,34 +122,28 @@
   margin: 0 0 0.75rem;
 }
 
+/* One line under a section heading saying what the table below actually contains —
+   a column header cannot carry "named on it, OR holding an action item there". */
+/* The Role cell holds up to two things — the TEL badge and any phase roles — which
+   ran together as "TELTPM" when laid out as bare inline spans. */
+.roleCell {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.sectionIntro {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  margin: 0 0 0.625rem;
+}
+
 .empty {
   font-size: 0.875rem;
   color: var(--muted);
   font-style: italic;
-}
-
-/* Program rows: whitespace-separated one-liners. */
-.rows {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4375rem;
-}
-
-.progRow {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
-  padding: 0.125rem 0;
-}
-.progName {
-  font-weight: 400;
-  font-size: 0.875rem;
-  color: var(--fg);
-  text-decoration: none;
-}
-.progName:hover {
-  text-decoration: underline;
 }
 
 .telMark {

@@ -1141,6 +1141,16 @@ const STRINGS = {
   activePrograms: { en: 'Active Programs', de: 'Aktive Programme', ja: 'アクティブなプログラム', ko: '활성 프로그램' },
   lifetimePrograms: { en: 'Lifetime Programs', de: 'Programme insgesamt', ja: '累計プログラム', ko: '누적 프로그램' },
   telsHeader: { en: 'Technical Engagement Leads', de: 'Technische Engagement-Leads', ja: 'テクニカルエンゲージメントリード', ko: '기술 참여 리드' },
+  // Singular of telsHeader — the badge shows the acronym, this is its expansion on hover.
+  telRole: { en: 'Technical Engagement Lead', de: 'Technischer Engagement-Lead', ja: 'テクニカルエンゲージメントリード', ko: '기술 참여 리드' },
+  roleHeader: { en: 'Role', de: 'Rolle', ja: '役割', ko: '역할' },
+  // What the Phases column actually contains — two provenances, neither filtered by status.
+  personProgramsIntro: {
+    en: 'Programs this person is named on — as Technical Engagement Lead, on a phase, or holding an action item there. Not filtered to active work.',
+    de: 'Programme, in denen diese Person genannt ist — als Technical Engagement Lead, in einer Phase oder mit einer Aufgabe darin. Nicht auf aktive Arbeit gefiltert.',
+    ja: 'この担当者が名前を連ねているプログラム — TEL として、フェーズ上、またはアクションアイテムの担当として。進行中の作業に限定されません。',
+    ko: '이 사람이 이름을 올린 프로그램 — TEL로서, 단계에서, 또는 액션 아이템 보유. 진행 중인 작업으로 제한되지 않습니다.',
+  },
   filterByType: { en: 'Filter by {t}', de: 'Nach {t} filtern', ja: '{t}で絞り込み', ko: '{t}(으)로 필터링' },
   // Accessible names for the Partners table count cells (design.md §6, one measure
   // per cell): the visible cell is the bare number, the noun it counts lives here.
