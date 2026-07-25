@@ -127,30 +127,6 @@
   font-style: italic;
 }
 
-/* Program rows: whitespace-separated one-liners. */
-.rows {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4375rem;
-}
-
-.progRow {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
-  padding: 0.125rem 0;
-}
-.progName {
-  font-weight: 400;
-  font-size: 0.875rem;
-  color: var(--fg);
-  text-decoration: none;
-}
-.progName:hover {
-  text-decoration: underline;
-}
-
 .telMark {
   font-size: 0.625rem;
   font-weight: 700;

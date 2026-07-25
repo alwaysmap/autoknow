@@ -3,12 +3,12 @@ import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import PersonAdminControls from '../../../components/PersonEditor';
 import { initialsOf } from '../../../lib/people';
-import { phaseColor, phaseDetailHref } from '../../../lib/phase';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
 import AnchorHeading from '../../../components/AnchorHeading';
 import PersonHistoryTable from './PersonHistoryTable';
+import PersonProgramsTable from './PersonProgramsTable';
 
 export const dynamic = 'force-dynamic';
 
@@ -142,24 +142,7 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
             {programRows.length === 0 ? (
               <p className={styles.empty}>{t(locale, 'noPartnerPrograms')}</p>
             ) : (
-              <div className={styles.rows}>
-                {programRows.map((prog) => (
-                  <div key={prog.id} className={styles.progRow}>
-                    <Link href={`/programs/${prog.id}`} className={styles.progName}>{prog.name}</Link>
-                    {prog.tel && <span className={styles.telMark}>TEL</span>}
-                    <span className={styles.phaseChips}>
-                      {prog.phases.map((ph) => (
-                        <Link key={ph.id} href={phaseDetailHref(prog.id, ph.id)} className={styles.phaseChip}
-                          title={ph.role ? `${ph.name} · ${ph.role}` : ph.name}>
-                          <span className={styles.phaseDot} style={{ background: phaseColor(ph.id) }} />
-                          {ph.name}
-                          {ph.role && <span className={styles.phaseRole}>{ph.role}</span>}
-                        </Link>
-                      ))}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <PersonProgramsTable locale={locale} rows={programRows} />
             )}
           </section>
 
