@@ -1,17 +1,19 @@
 'use client';
 
 import DateCell from '../../components/DateCell';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import DataTable from '../../components/DataTable';
 import styles from './EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../../lib/needle';
 import SopOutlookCell from '../../components/SopOutlookCell';
 import type { LiveConstraint } from '../../lib/dashboardData';
-import { HEALTHS, HEALTH_KEY, healthKey, healthColor, healthOrder } from '../../lib/health';
+import { healthKey, healthColor, healthOrder } from '../../lib/health';
 import { resolvePerson } from '../../lib/people';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
+import { useTableUrlSync } from '../../lib/useTableUrlSync';
+import type { TableSort } from '../../lib/tableUrlState';
 import AnchorHeading from '../../components/AnchorHeading';
 import PageShell from '../../components/PageShell';
 
@@ -49,6 +51,9 @@ interface Person {
 
 interface EcosystemSummaryClientProps {
   liveConstraints: LiveConstraint[];
+  /** Funnel selections restored from the query string (design.md §2). */
+  initialFilters?: Record<string, string[]>;
+  initialTableSort?: TableSort | null;
   /** Snapshotted server-side so SSR and hydration agree (see the page). */
   now: number;
   initialProjects: Project[];
@@ -59,220 +64,28 @@ export default function EcosystemSummaryClient({
   initialProjects,
   people,
   liveConstraints,
-  now
+  now,
+  initialFilters,
+  initialTableSort = null
 }: EcosystemSummaryClientProps) {
   const locale = useLocale();
-  const [minRiskVal, setMinRiskVal] = useState(0); // 0=Low, 1=Medium, 2=High, 3=Critical
-  const [selectedOwner, setSelectedOwner] = useState('All');
-  const [minProgress, setMinProgress] = useState(0);
-  const [maxProgress, setMaxProgress] = useState(100);
-  const [activeDrag, setActiveDrag] = useState<'min' | 'max' | null>(null);
+  // Filtering is the shared table grammar (#95): Health and Owner are in-header funnels,
+  // and the state round-trips through the URL like every other listing.
+  const [filters, setFilters] = useState<Record<string, string[]>>(initialFilters ?? {});
+  const [sort, setSort] = useState<TableSort | null>(initialTableSort);
+  useTableUrlSync(filters, sort);
 
-  const svgRef = useRef<SVGSVGElement>(null);
-
-  // Drag coordinates listeners
-  useEffect(() => {
-    if (activeDrag === null) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!svgRef.current) return;
-      const rect = svgRef.current.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 100;
-      let p = Math.round(((x - 5) / 90) * 100);
-      p = Math.max(0, Math.min(100, p));
-      p = Math.round(p / 5) * 5; // Snap to 5% intervals
-
-      if (activeDrag === 'min') {
-        setMinProgress(Math.min(p, maxProgress));
-      } else if (activeDrag === 'max') {
-        setMaxProgress(Math.max(p, minProgress));
-      }
-    };
-
-    const handleMouseUp = () => {
-      setActiveDrag(null);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [activeDrag, minProgress, maxProgress]);
-
-  // Extract unique program owners
-  const owners = ['All', ...Array.from(new Set(initialProjects.map(p => p.ownerName).filter(Boolean))) as string[]];
-
-  // Helper check to determine if project matches progress range
-  const matchesProgressRange = (proj: Project) => {
-    return proj.hillChartProgress >= minProgress && proj.hillChartProgress <= maxProgress;
-  };
-
-  // Filter projects
-  const filteredProjects = initialProjects.filter(proj => {
-    // 1. Filter by program Health (On Track / Some Risk / Concerned)
-    const riskVal = healthOrder(proj.theNeedle);
-    if (riskVal < minRiskVal) return false;
-
-    // 2. Filter by Googler Program Owner
-    if (selectedOwner !== 'All' && proj.ownerName !== selectedOwner) {
-      return false;
-    }
-
-    // 3. Filter by Progress Range
-    if (!matchesProgressRange(proj)) {
-      return false;
-    }
-
-    return true;
-  });
-
-  // Calculate high level dashboard aggregations
-  const criticalCount = filteredProjects.filter(p => healthOrder(p.theNeedle) >= 1).length;
-
-  // Build highlighted segment path for the mini Hill Chart preview
-  const miniHighlightPath = useMemo(() => {
-    let path = '';
-    for (let p = minProgress; p <= maxProgress; p += 5) {
-      const x = 5 + (p / 100) * 90;
-      const y = 35 - Math.sin((Math.PI * p) / 100) * 26;
-      if (p === minProgress) {
-        path += `M ${x} ${y}`;
-      } else {
-        path += ` L ${x} ${y}`;
-      }
-    }
-    const endX = 5 + (maxProgress / 100) * 90;
-    const endY = 35 - Math.sin((Math.PI * maxProgress) / 100) * 26;
-    if (path) path += ` L ${endX} ${endY}`;
-    return path;
-  }, [minProgress, maxProgress]);
-
-  // Coordinates helper for rendering handles
-  const leftHandleX = 5 + (minProgress / 100) * 90;
-  const leftHandleY = 35 - Math.sin((Math.PI * minProgress) / 100) * 26;
-  const rightHandleX = 5 + (maxProgress / 100) * 90;
-  const rightHandleY = 35 - Math.sin((Math.PI * maxProgress) / 100) * 26;
+  // The leaders banner counts the WHOLE portfolio, not the filtered view. It used to
+  // track the bespoke panel, because that panel filtered before render; DataTable now
+  // filters internally and does not report its result, so the count could only follow
+  // the funnels if the component reached back in. A portfolio-level alert that changes
+  // as you narrow a table was arguably the wrong reading anyway — but this IS a
+  // behaviour change, so it is stated rather than hidden behind a filtered-looking name.
+  const criticalCount = initialProjects.filter(p => healthOrder(p.theNeedle) >= 1).length;
 
   return (
     <PageShell title={t(locale, 'ecosystemSummary')}>
       <div className={styles.clientWrapper}>
-      {/* Search & Filter Widgets Panel */}
-      <section className={styles.filterSection}>
-        <div className={styles.filterGroup}>
-          <label htmlFor="riskSlider" className={styles.filterLabel}>
-            {t(locale, 'healthFloor')}: <strong>{HEALTHS[minRiskVal] ? t(locale, HEALTH_KEY[HEALTHS[minRiskVal]]) : t(locale, 'noneMatch')}</strong>
-          </label>
-          <input
-            id="riskSlider"
-            type="range"
-            min="0"
-            max="3"
-            value={minRiskVal}
-            onChange={(e) => setMinRiskVal(parseInt(e.target.value))}
-            className={styles.slider}
-          />
-        </div>
-
-        <div className={styles.filterGroup}>
-          <label htmlFor="ownerSelect" className={styles.filterLabel}>{t(locale, 'programOwnerGoogler')}</label>
-          <select
-            id="ownerSelect"
-            value={selectedOwner}
-            onChange={(e) => setSelectedOwner(e.target.value)}
-            className={styles.select}
-          >
-            {owners.map(owner => (
-              <option key={owner} value={owner}>{owner === 'All' ? t(locale, 'allLabel') : owner}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className={styles.progressFilterContainer}>
-          <label className={styles.filterLabel}>
-            {t(locale, 'filterProgressRange')}
-          </label>
-
-          {/* Hidden inputs to preserve Playwright E2E automation compatibility */}
-          <div style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, overflow: 'hidden' }}>
-            <input
-              id="minProgressSlider"
-              type="range"
-              min="0"
-              max="100"
-              value={minProgress}
-              onChange={(e) => {
-                const val = Math.min(parseInt(e.target.value), maxProgress);
-                setMinProgress(val);
-              }}
-            />
-            <input
-              id="maxProgressSlider"
-              type="range"
-              min="0"
-              max="100"
-              value={maxProgress}
-              onChange={(e) => {
-                const val = Math.max(parseInt(e.target.value), minProgress);
-                setMaxProgress(val);
-              }}
-            />
-          </div>
-
-          {/* Draggable boundary mini hill chart preview */}
-          <div className={styles.miniHillContainer}>
-            <svg ref={svgRef} className={styles.miniHillChart} viewBox="0 0 100 40">
-              <path d="M 5 35 Q 50 8 95 35" fill="none" stroke="var(--border)" strokeWidth="2.5" />
-              {miniHighlightPath && (
-                <path d={miniHighlightPath} fill="none" stroke="var(--p-600)" strokeWidth="3.5" strokeLinecap="round" />
-              )}
-              
-              {/* Left Handle (Min) */}
-              <circle
-                cx={leftHandleX}
-                cy={leftHandleY}
-                r="3.5"
-                fill="var(--p-700)"
-                className={styles.dragHandle}
-                style={{ cursor: 'ew-resize' }}
-              />
-              <circle
-                cx={leftHandleX}
-                cy={leftHandleY}
-                r="7"
-                fill="transparent"
-                style={{ cursor: 'ew-resize' }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  setActiveDrag('min');
-                }}
-              />
-
-              {/* Right Handle (Max) */}
-              <circle
-                cx={rightHandleX}
-                cy={rightHandleY}
-                r="3.5"
-                fill="var(--p-700)"
-                className={styles.dragHandle}
-                style={{ cursor: 'ew-resize' }}
-              />
-              <circle
-                cx={rightHandleX}
-                cy={rightHandleY}
-                r="7"
-                fill="transparent"
-                style={{ cursor: 'ew-resize' }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  setActiveDrag('max');
-                }}
-              />
-            </svg>
-          </div>
-        </div>
-      </section>
 
       {/* Visual Stuck / Critical Blockers Alerts */}
       {criticalCount > 0 && (
@@ -345,14 +158,23 @@ export default function EcosystemSummaryClient({
           headers={[
             { key: 'partner.name', label: t(locale, 'partnerLabel') },
             { key: 'name', label: t(locale, 'programLabel') },
-            { key: 'ownerName', label: t(locale, 'ownerLabel') },
+            { key: 'ownerName', label: t(locale, 'ownerLabel'), filterable: true },
             { key: 'sopDate', label: t(locale, 'sopDate') },
             { key: 'volumeFirstYear', label: t(locale, 'volume12m') },
-            { key: 'theNeedle', label: t(locale, 'healthLabel') },
+            {
+              key: 'theNeedle', label: t(locale, 'healthLabel'), filterable: true,
+              // Canonicalize legacy values so "Low"/"On Track" collapse to one option —
+              // same treatment as /programs, which this now matches.
+              filterValue: (row) => formatNeedleValue((row as Project).theNeedle),
+              filterLabel: (v) => t(locale, healthKey(v)),
+            },
             { key: 'hillChartProgress', label: t(locale, 'hillChartHeader') },
             { key: 'chainRemainingDays', label: t(locale, 'sopOutlookHeader') }
           ]}
-          data={filteredProjects}
+          data={initialProjects}
+          filters={filters}
+          onFiltersChange={setFilters}
+          onSortChange={(key, dir) => setSort({ key, dir })}
           renderRow={(p: Project) => {
             const isEarlyStage = p.hillChartProgress <= 50;
             return (
@@ -392,7 +214,7 @@ export default function EcosystemSummaryClient({
                     return (
                       <button
                         type="button"
-                        onClick={() => setMinRiskVal(healthOrder(label))}
+                        onClick={() => setFilters((f) => ({ ...f, theNeedle: [label] }))}
                         className={styles.badgeFilterBtn}
                         title={t(locale, 'filterHealthTitle', { h: t(locale, healthKey(label)) })}
                       >

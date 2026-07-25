@@ -78,22 +78,32 @@ test.describe('Ecosystem Summary Page (Deterministic + AI)', () => {
     // 2. The scorecard strip is retired — no big-number cards.
     await expect(page.locator('body')).not.toContainText('Programs in Flight');
 
-    // 3. Test filter by Googler Owner
-    await page.selectOption('select[id="ownerSelect"]', 'Dylan');
+    // 3-5. Filtering is the shared table grammar now (#95): the owner <select> and the
+    // health-floor slider became in-header funnels, and the progress band was retired.
+    // Two things worth asserting — that a funnel WRITES the URL, and that the URL is
+    // read back on a cold load, which is the half most likely to rot (design.md §2).
+    await page.getByRole('button', { name: /^filter owner$/i }).click();
+    await page.getByRole('checkbox', { name: 'Dylan' }).check();
+    await expect(page).toHaveURL(/ownerName=Dylan/);
     await expect(page.locator('body')).toContainText('Waymo Generation 6 AAOS');
 
-    // 4. Test risk floor slider
-    // Set risk floor to "Critical" (value "3"), which should hide our "High" risk program
-    await page.fill('input[id="riskSlider"]', '3');
-    await expect(page.locator('body')).toContainText('No programs match current filters.');
+    await page.getByRole('button', { name: /clear filters/i }).click();
+    await expect(page).not.toHaveURL(/ownerName=/);
 
-    // Reset risk floor to "Low" (value "0")
-    await page.fill('input[id="riskSlider"]', '0');
-    await expect(page.locator('body')).toContainText('Waymo Generation 6 AAOS');
+    // A NON-matching deep link, so the assertion means something: this fixture has one
+    // program, so "still visible" is true either way and only a disappearance proves the
+    // filter ran. Cold load, so the server-side parseFilterParams path is the one tested.
+    //
+    // Scoped to the launches table, NOT the body: the Flow Constraint panel above also
+    // names this program, so a page-wide "not visible" would fail while the filter is
+    // working perfectly — which is exactly what it did on first run.
+    const launches = page.locator('section', { hasText: 'Program Lifecycle & Launches' }).last();
+    await page.goto('/ecosystem-summary?ownerName=NoSuchOwner');
+    await expect(launches).toContainText('No programs match current filters.');
+    await expect(launches).not.toContainText('Waymo Generation 6 AAOS');
 
-    // 5. Test progress range filter
-    await page.fill('input[id="maxProgressSlider"]', '50');
-    await expect(page.locator('body')).toContainText('Waymo Generation 6 AAOS');
+    await page.goto('/ecosystem-summary');
+    await expect(launches).toContainText('Waymo Generation 6 AAOS');
 
     // 6. Flow Constraint Diagnosis reports the LIVE critical chain (#129).
     //
