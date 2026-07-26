@@ -161,11 +161,25 @@ describe('compareInsights', () => {
   });
 
   test('ACROSS sources the measures are never compared — that would rebuild `exposure`', () => {
-    // 40 percent-over vs 2 programs-gated are different units. Tie, so the producer's
-    // own order survives a stable sort rather than being silently re-ranked.
-    expect(compareInsights(at('act', 'critical-chain', 40, 'a'), at('act', 'resource-load', 2, 'b'))).toBe(0);
-    const list = [at('act', 'resource-load', 2, 'b'), at('act', 'critical-chain', 40, 'a')];
-    expect([...list].sort(compareInsights).map((i) => i.id)).toEqual(['b', 'a']);
+    // 40 percent-over vs 2 programs-gated are different units, so the ONLY thing
+    // separating these two is their source. Never the measures: a smaller number
+    // from an earlier-grouped source still comes first.
+    const list = [at('act', 'resource-load', 40, 'load'), at('act', 'critical-chain', 2, 'chain')];
+    expect([...list].sort(compareInsights).map((i) => i.id)).toEqual(['chain', 'load']);
+  });
+
+  test('the order is TOTAL: every permutation of a mixed list sorts the same', () => {
+    // Regression. Returning 0 across sources made this comparator intransitive —
+    // cc≡rl and rl≡cc while cc(10) < cc(5) — so `Array.sort` emitted cc(5) before
+    // cc(10) for exactly one of these four input orders. Measure ascending, which
+    // is the one thing compareInsights promises cannot happen.
+    const cc5 = at('act', 'critical-chain', 5, 'cc-5');
+    const cc10 = at('act', 'critical-chain', 10, 'cc-10');
+    const rl99 = at('act', 'resource-load', 99, 'rl-99');
+    const expected = ['cc-10', 'cc-5', 'rl-99'];
+    for (const perm of [[cc5, rl99, cc10], [cc5, cc10, rl99], [cc10, rl99, cc5], [rl99, cc5, cc10]]) {
+      expect([...perm].sort(compareInsights).map((i) => i.id)).toEqual(expected);
+    }
   });
 
   test('a null measure ranks against nothing', () => {

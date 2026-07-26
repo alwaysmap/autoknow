@@ -38,8 +38,12 @@ otherwise break while still compiling:
 * **`severity` is a three-value enum, never a score.** `BusiestRow.exposure` is
   `days × units`: two incommensurate units multiplied into a number no reader can
   interpret. `compareInsights` therefore ranks by severity across sources and
-  compares `measure` **only within one source**; across sources it returns a tie,
-  so the producer's own order survives a stable sort.
+  compares `measure` **only within one source**. Across sources it GROUPS, in
+  `InsightSource`'s declaration order, rather than returning a tie: a comparator
+  that ties across sources is intransitive, and `Array.sort` then reorders two
+  insights that *are* comparable. Grouping is not a claim that a chain insight
+  outranks a load one — it is what makes the order total, and a total order is
+  the only kind that can promise "bigger measure first" for every input.
 * **`symptom.key` and `action.key` are `StringKey` from `lib/i18n`, not `string`.**
   The catalog key is compile-checked, so prose cannot be smuggled into a producer.
   This is what lets a list of insights be built, sorted and filtered server-side —

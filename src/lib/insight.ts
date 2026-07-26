@@ -99,16 +99,36 @@ export interface Insight {
 const SEVERITY_RANK: Record<InsightSeverity, number> = { act: 0, watch: 1, clear: 2 };
 
 /**
- * List order for a mixed set: severity first (the deliberately coarse cross-source
- * rank), then `measure` descending — but ONLY between two insights from the SAME
- * source. Across sources the measures are different units (days, percent, units
- * delayed), and comparing them would silently rebuild `exposure`. Ties return 0,
- * so a producer's own order survives a stable sort.
+ * The order sources GROUP in — the declaration order of `InsightSource`, same as
+ * `InsightSeverity` reads in the order it sorts. This is a grouping, NOT a claim
+ * that a chain insight outranks a load one; it exists because the alternative is
+ * worse (see `compareInsights`).
+ */
+const SOURCE_RANK: Record<InsightSource, number> = {
+  'critical-chain': 0,
+  'resource-load': 1,
+  relationship: 2,
+  ingestion: 3,
+};
+
+/**
+ * List order for a mixed set: severity, then source, then `measure` descending —
+ * and `measure` is compared ONLY within one source. Across sources the measures
+ * are different units (days, percent, units delayed), so comparing them would
+ * silently rebuild `exposure`.
+ *
+ * Sources must GROUP rather than tie, because a comparator that returns 0 across
+ * sources is INTRANSITIVE: with cc(5), rl(99), cc(10) all at `act`, cc≡rl and
+ * rl≡cc hold while cc(10)<cc(5) does not, so `Array.sort` is free to emit cc(5)
+ * before cc(10) — measure ascending, the one thing this function promises never
+ * happens. It did, for the input order [cc(5), rl(99), cc(10)]. Grouping first
+ * makes the order total, so the promise holds for every permutation.
  */
 export function compareInsights(a: Insight, b: Insight): number {
   const bySeverity = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
   if (bySeverity !== 0) return bySeverity;
-  if (a.source !== b.source) return 0;
+  const bySource = SOURCE_RANK[a.source] - SOURCE_RANK[b.source];
+  if (bySource !== 0) return bySource;
   if (a.symptom.measure === null || b.symptom.measure === null) return 0;
   return b.symptom.measure - a.symptom.measure;
 }
