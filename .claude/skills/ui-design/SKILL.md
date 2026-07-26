@@ -29,13 +29,22 @@ open only the rows that match what you are about to touch.
   (sortable, per-column funnel filters, shareable URL state — design.md §6),
   **`AnchorHeading`** (a deep-linkable `<h2>` with an `actions` slot for its ⋯/ⓘ),
   **`StatTile`** (the ecosystem-strip figure grammar, §1/§7), **`SearchField`** (the
-  one live-filter box look), **`DateCell`** (ISO + calendar-week-on-hover). That
-  these were worth consolidating is recorded in their own headers: `AnchoredPopover`
-  replaced FOUR hand-rolled popovers (two opened off-screen at ordinary widths),
-  `SearchField` replaced THREE drifted copies of one input, and `initialsOf`/avatars
-  each had two divergent copies. If a primitive is close but not exact, **add a prop
-  — never fork it.** This is AGENTS lesson 7's creation-side twin: the fix for "the
-  same control exists in three hand-rolled variants" is to not author the third.
+  one live-filter box look), **`DateCell`** (ISO + calendar-week-on-hover), and
+  **`OverlayDialog`** (every modal — it owns `max-height`, the single scroll region,
+  the body-scroll lock and one dismiss contract). That these were worth consolidating
+  is recorded in their own headers: `AnchoredPopover` replaced FOUR hand-rolled
+  popovers (two opened off-screen at ordinary widths), `SearchField` replaced THREE
+  drifted copies of one input, and `initialsOf`/avatars each had two divergent copies.
+  If a primitive is close but not exact, **add a prop — never fork it.** This is
+  AGENTS lesson 7's creation-side twin: the fix for "the same control exists in three
+  hand-rolled variants" is to not author the third.
+
+  The cost is not hypothetical and not historical. `PhaseTrack` hand-rolled its own
+  scrim + popover **while already importing `OverlayDialog` forty lines away** for its
+  legend — and the hand-rolled one had no `max-height`, so it ran off the bottom of
+  the viewport and put a second scrollbar on the page. A user reported it; the fix was
+  deleting 47 lines of CSS and an entire `useEffect` that re-implemented Escape and the
+  body-scroll lock (`autoknow-wja`).
 - **Entity displays are links; entity inputs are pickers.** People →
   `/people/:id`, partners → `/partners/:id`. A field naming another entity is a
   `<select>` over existing rows + server-side resolution (`requireOwnerEmail` /
