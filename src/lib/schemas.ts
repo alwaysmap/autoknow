@@ -90,11 +90,6 @@ export const personMoveSchema = z.object({
   startDate: z.coerce.date(),
 });
 
-export const personCopySchema = z.object({
-  personId: zId,
-  copyEmail: z.email(),
-});
-
 export const personDeleteSchema = z.object({
   personId: zId,
 });

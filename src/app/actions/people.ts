@@ -7,11 +7,17 @@ import { indexEntity } from '../../lib/search';
 import { getCurrentUser } from '../../lib/session';
 import { authConfigured } from '../../auth';
 import { userFromHandle } from '../../lib/auth';
-import { parseForm, personCopySchema, personCreateSchema, personDeleteSchema, personMoveSchema } from '../../lib/schemas';
+import { parseForm, personCreateSchema, personDeleteSchema, personMoveSchema } from '../../lib/schemas';
+import { hasTakenEffect } from '../../lib/people';
 import { guarded, type ActionResult } from '../../lib/actionResult';
 
-// Person maintenance (move / copy / delete), zod-gated (lib/schemas). Lives here —
+// Person maintenance (move / delete), zod-gated (lib/schemas). Lives here —
 // not inline in the page — so the kebab-dialog client component can call them.
+//
+// There is deliberately NO copy action. It forked one human into a second Person
+// row (#124 Class 3): every `personId` FK stayed stranded on the original, the
+// history split, and both rows then competed in resolvePerson. Its only honest
+// use — "these are two different humans" — is what createPerson is for.
 
 export async function createPerson(formData: FormData) {
   const { name, email, partnerId, role } = parseForm(personCreateSchema, formData);
@@ -64,45 +70,27 @@ export async function movePersonCompany(formData: FormData): Promise<ActionResul
   await prisma.personAffiliation.create({
     data: { personId, partnerId: newPartnerId, role: newRole, startDate },
   });
-  await prisma.person.update({
-    where: { id: personId },
-    data: { currentPartnerId: newPartnerId },
-  });
+
+  // #124 Class 1. `currentPartnerId` is a CACHE of "where do they work TODAY", so it
+  // may only advance once the move's date has arrived. This used to be an
+  // unconditional write, which made a future-dated move apply the instant it was
+  // recorded: the identity line read the new employer months early while every
+  // affiliation row still said the old one, and the job actually held today was
+  // filed under History. Scheduling a change must RECORD it — the affiliation rows
+  // above are that record — without pretending it already happened.
+  //
+  // A backdated move still lands here, correctly: its date has arrived, so the
+  // cache advances and the window is retroactively re-attributed.
+  if (hasTakenEffect(startDate)) {
+    await prisma.person.update({
+      where: { id: personId },
+      data: { currentPartnerId: newPartnerId },
+    });
+  }
   await indexEntity('person', personId); // the embedding text names the company
 
   revalidatePath(`/people/${personId}`);
   revalidatePath('/people');
-  });
-}
-
-export async function copyPerson(formData: FormData): Promise<ActionResult> {
-  return guarded(async () => {
-  const { personId, copyEmail } = parseForm(personCopySchema, formData);
-
-  const source = await prisma.person.findUnique({ where: { id: personId } });
-  if (!source) throw new Error('Person not found');
-
-  const copy = await prisma.person.create({
-    data: {
-      name: source.name,
-      email: copyEmail,
-      currentPartnerId: source.currentPartnerId,
-      notes: source.notes,
-    },
-  });
-  await indexEntity('person', copy.id);
-
-  // Duplicate the active affiliation, if any.
-  const activeAff = await prisma.personAffiliation.findFirst({
-    where: { personId, endDate: null },
-  });
-  if (activeAff) {
-    await prisma.personAffiliation.create({
-      data: { personId: copy.id, partnerId: activeAff.partnerId, role: activeAff.role, startDate: new Date() },
-    });
-  }
-
-  redirect(`/people/${copy.id}`);
   });
 }
 

@@ -277,13 +277,14 @@ describe('seedMockData through the API', () => {
     expect(google.startDate.getTime()).toBeLessThanOrEqual(now);
     expect(google.endDate!.getTime()).toBeGreaterThan(now);
 
-    // Class 1, seeded through the real `movePersonCompany`: the cache has ALREADY
-    // advanced to Honda months before the date, so the identity line on
-    // /people/<id> reads Honda while every affiliation row says Google. When the
-    // move stops applying early, this expectation becomes Google LLC — the flip is
-    // the proof the fix works, so leave the assertion here rather than deleting it.
+    // The scheduled move is RECORDED but not APPLIED (#124 Class 1, fixed). The
+    // Honda affiliation above exists — the move is on the books — yet the cache the
+    // identity line reads still points at the company she is actually at today.
+    // This assertion is the whole point of routing the fixture through the real
+    // `movePersonCompany`: it is what would go red if the action ever went back to
+    // advancing `currentPartnerId` unconditionally.
     const current = await prisma.partner.findUniqueOrThrow({ where: { id: alice.currentPartnerId } });
-    expect(current.name).toBe('Honda');
+    expect(current.name).toBe('Google LLC');
 
     // Work inside each window, not just date ranges: Bosch-era and Qualcomm-era
     // phase involvement, plus TEL ownership of a live program under Google.
