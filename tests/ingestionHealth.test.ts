@@ -25,7 +25,7 @@ const drive = (o: Partial<DriveSyncReport> = {}): DriveSyncReport => ({
   skippedTooDeep: 1, errors: 0, demand: 5, spent: 3, backlog: 2, quotaStopped: false, ...o,
 });
 const web = (o: Partial<CycleReport> = {}): CycleReport => ({
-  due: 8, checked: 5, changed: 2, frozen: 0, errors: 1, skippedDrive: 4, backlog: 3, quotaStopped: false, ...o,
+  due: 8, checked: 5, changed: 2, frozen: 0, errors: 1, skippedDrive: 4, spent: 2, backlog: 3, quotaStopped: false, ...o,
 });
 
 beforeEach(async () => {

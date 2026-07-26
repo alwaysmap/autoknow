@@ -64,7 +64,12 @@ export async function GET(req: NextRequest) {
       // Only documents that were actually (re)ingested cost Gemini — a doc whose hash is
       // unchanged short-circuits before any call (lib/refresh Gate 1), which is why a
       // quiet cycle hands its whole allowance to summaries.
-      const spentRequests = (drive.spent + report.changed) * GEMINI_CALLS_PER_DOC;
+      //
+      // `report.spent`, NOT `report.changed`: a doc whose digest reads `resolved` spends
+      // both calls and then reports 'frozen', so counting 'changed' would hand summaries an
+      // allowance ingestion had already used — reintroducing the double-spend this whole
+      // change exists to remove, in a cycle where every changed doc happens to resolve.
+      const spentRequests = (drive.spent + report.spent) * GEMINI_CALLS_PER_DOC;
       const summaries = await runSummaryCycle({
         maxSummaries: summariesAffordable(requestBudget - spentRequests),
       });

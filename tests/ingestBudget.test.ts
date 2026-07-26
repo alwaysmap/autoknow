@@ -143,6 +143,24 @@ describe('one pool: ingestion and summaries share the cycle allowance', () => {
     }
   });
 
+  test('the tally counts DISTILLED docs, not "changed" ones', () => {
+    // Caught in review, and it is the original bug wearing a new coat. A doc whose digest
+    // reads `resolved` calls summarizeDocument AND embedForStorage, then reports
+    // result: 'frozen' (lib/refresh) — so it never appears in `changed`. Dividing the
+    // shared allowance by `changed` would hand summaries a pool ingestion had already
+    // spent, and in a cycle where every changed doc resolves it would hand over ALL of it.
+    const allowance = perCycleRequests(240); // 10 docs/cycle ⇒ 20 requests
+    const cycle = { changed: 0, frozen: 4, spent: 4 }; // four resolved docs: 8 requests gone
+
+    const byChanged = summariesAffordable(allowance - cycle.changed * GEMINI_CALLS_PER_DOC);
+    const bySpent = summariesAffordable(allowance - cycle.spent * GEMINI_CALLS_PER_DOC);
+
+    expect(byChanged).toBe(20); // the whole pool, on top of the 8 already spent — the bug
+    expect(bySpent).toBe(12); // what is actually left
+    expect(cycle.spent * GEMINI_CALLS_PER_DOC + bySpent * GEMINI_CALLS_PER_SUMMARY)
+      .toBeLessThanOrEqual(allowance);
+  });
+
   test('the shipped defaults now really do sit under the free tier', () => {
     // 60 docs/day ⇒ 4 requests/cycle ⇒ 96/day, all consumers included, vs a 250 tier.
     expect(perCycleRequests(60) * CYCLES_PER_DAY).toBe(96);

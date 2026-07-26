@@ -20,7 +20,7 @@ import 'server-only';
 // any moment and nothing tells us; expiring the latch means we re-probe on our own rather
 // than staying dark until a redeploy.
 
-const RETRY_AFTER_MS = 10 * 60_000;
+const LATCH_TTL_MS = 10 * 60_000;
 
 interface QuotaBlock {
   at: number;
@@ -47,7 +47,7 @@ export function noteQuotaRecovered(): void {
  */
 export function quotaBlocked(): { since: Date; reason: string } | null {
   if (!block) return null;
-  if (Date.now() - block.at >= RETRY_AFTER_MS) {
+  if (Date.now() - block.at >= LATCH_TTL_MS) {
     block = null; // TTL elapsed: re-probe rather than stay dark on a cap that may be lifted
     return null;
   }

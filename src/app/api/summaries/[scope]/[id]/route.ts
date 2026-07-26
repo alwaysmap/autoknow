@@ -44,8 +44,8 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ scope: st
   try {
     if (!geminiConfigured) return jsonError('Gemini is not configured (GEMINI_API_KEY missing)', 503);
     // Same preflight as quick-ingest: decline before spending rather than fail partway.
-    // 503 + Retry-After, not 500 — this is a temporary refusal to spend, and the existing
-    // summary is untouched and still being served by GET.
+    // 503, not 500 — a temporary refusal to spend, with the existing summary untouched and
+    // still served by GET.
     const blocked = quotaBlocked();
     if (blocked) {
       return jsonError(

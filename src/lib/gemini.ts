@@ -22,6 +22,10 @@ const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 // RESOURCE_EXHAUSTED), and unlike a rate limit it does not clear on its own — which is
 // why the latch below has a TTL rather than a per-cycle reset.
 export function isQuotaError(e: unknown): boolean {
+  // The structured answer first, so EmbeddingUnavailableError.quota is what callers
+  // actually consult. Without this the field would be decorative and every catch site
+  // would still be regex-matching a message that only happens to survive wrapping.
+  if (e instanceof EmbeddingUnavailableError) return e.quota;
   const status = (e as { status?: number; code?: number } | null)?.status
     ?? (e as { status?: number; code?: number } | null)?.code;
   if (status === 429) return true;

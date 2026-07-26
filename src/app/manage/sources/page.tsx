@@ -63,6 +63,7 @@ export default async function SourcesPage(props: {
   const initialFilters = parseFilterParams(sp, ['kind', 'state', 'addedBy']);
   const initialSort = parseSortParams(sp);
   const initialQ = typeof sp.q === 'string' ? sp.q : '';
+  const shareAddress = driveShareAddress();
 
   return (
     <div style={{ padding: '2rem var(--page-gutter)', maxWidth: '67.5rem' }}>
@@ -82,8 +83,8 @@ export default async function SourcesPage(props: {
              directly, but calling it "the address to share with" would state the friendly
              address we do not have. */
           <p data-testid="drive-on" style={{ color: 'var(--muted, #666)', fontSize: '0.8125rem', marginTop: '0.375rem', maxWidth: '47.5rem' }}>
-            {driveShareAddress()
-              ? t(locale, 'sourcesDriveOn', { email: driveShareAddress() as string })
+            {shareAddress
+              ? t(locale, 'sourcesDriveOn', { email: shareAddress })
               : t(locale, 'sourcesDriveOnDirect', { email: serviceAccountIdentity() ?? '' })}
           </p>
         ) : (

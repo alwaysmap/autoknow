@@ -3,7 +3,7 @@ import { createHash } from 'crypto';
 import { lookup } from 'node:dns/promises';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { embedForStorage, summarizeDocument, classifyContext, classifyWithinAnchor, digestToText, type Classification, type DocDigest } from './gemini';
+import { embedForStorage, summarizeDocument, classifyContext, classifyWithinAnchor, digestToText, isQuotaError, type Classification, type DocDigest } from './gemini';
 import { parseGoogleDocId, fetchGoogleDocText } from './google-docs';
 import { readCapped, isSourceRejected, REJECTION_KEY, MAX_FETCH_BYTES, isTruncated } from './ingestLimits';
 import type { StringKey } from './i18n';
@@ -138,7 +138,22 @@ export async function ingestContent(opts: IngestContentOptions): Promise<IngestR
     }
   }
 
-  const vectorStr = `[${(await embedForStorage(digestText)).join(',')}]`;
+  // embedForStorage THROWS rather than substituting the fallback pedestal, so this is a
+  // real error path now — and it must leave by the same door as every other failure here.
+  // Letting it escape turns a quota refusal into an unhandled server-action crash, and the
+  // quotaBlocked() preflight upstream only covers the SECOND caller onward: the first hit
+  // after a cold instance, or after the latch TTL expires, lands right here.
+  let vectorStr: string;
+  try {
+    vectorStr = `[${(await embedForStorage(digestText)).join(',')}]`;
+  } catch (e) {
+    return {
+      ok: false,
+      error: isQuotaError(e)
+        ? 'Gemini is over its quota or spending cap — nothing was saved. Check ai.studio/spend, then try again.'
+        : `Could not index this source: ${(e as Error).message}`,
+    };
+  }
   const hash = hashContent(opts.text);
   const now = new Date();
   const legacyType = LEGACY_TYPE_BY_KIND[opts.source.kind];
