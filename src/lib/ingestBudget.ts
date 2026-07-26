@@ -51,16 +51,12 @@ export const GEMINI_CALLS_PER_DOC = 2;
 export const GEMINI_CALLS_PER_SUMMARY = 1;
 
 // Cycles/day is the single most load-bearing number here — every cap below is a daily
-// budget divided by it — and it is no longer a literal. Cloud Scheduler owns the real
-// cadence and Terraform now exports it (REFRESH_CRON_SCHEDULE), so `resolveCyclesPerDay`
-// reads it and falls back to hourly only where infrastructure said nothing. See
-// lib/cronCadence for why the fallback errs in the safe direction.
+// budget divided by it — and it is no longer a literal: lib/cronCadence reads the
+// schedule Terraform exports, and owns the story of what the fallback costs.
 //
-// Every derivation below takes `cyclesPerDay` as a DEFAULTED parameter rather than
-// closing over a constant, so the value is resolved per call (an import-time constant
-// would freeze the environment as it was when the bundle loaded) and any caller —
-// notably a client component, where the variable does not exist — can pass the cadence
-// the server resolved.
+// Every derivation below takes it as a DEFAULTED parameter rather than closing over a
+// value, so it resolves per call and a caller that already knows the cadence can pass
+// it — which a client component MUST, since it cannot read the environment itself.
 
 /** How many documents one cron cycle may (re)ingest, given a daily budget. Floor so the
  *  daily total never exceeds the budget; min 1 so a small budget still makes progress.

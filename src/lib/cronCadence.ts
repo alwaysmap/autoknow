@@ -7,14 +7,16 @@
 // budget by cycles/day. If the real schedule runs more often than the app believes,
 // every cap is too generous by exactly that ratio and real spend is a straight multiple
 // of the ceiling the settings slider plots — the quota cap of the budget ADR, reachable
-// by editing one line of HCL. Halving `cron_schedule` to every 30 minutes doubled daily
-// spend in silence; at every 10 minutes it is 6×, and nothing in the app said so.
+// by editing one line of HCL. Halving `cron_schedule` to every 30 minutes would double
+// daily spend in silence; at every 10 minutes it is 6×, and nothing in the app would say.
 //
 // ADR: docs/adr/2026-07-26-infra-owned-facts-are-supplied-or-unknown.md — an
 // infrastructure-owned fact is supplied at runtime or declared unknown, never a literal.
 // This module is the "supplied" half; `knownCyclesPerDay()` returning null is the
 // "declared unknown" half, and user-facing copy branches on it rather than asserting a
-// cadence no deployment promised.
+// cadence no deployment promised. Reading this from a CLIENT component gets the fallback
+// and no warning, which is its own trap:
+// docs/knowledge/an-env-derived-default-is-the-fallback-inside-a-client-component.md
 
 /**
  * What to assume when infrastructure has not told us — a local checkout with no
@@ -33,20 +35,20 @@ export const DEFAULT_CYCLES_PER_DAY = 24;
 // is not pedantry. A step of 5 on the hours field fires at 0, 5, 10, 15 and 20: FIVE
 // times a day, not the 4.8 that 24/5 suggests. Rounding that down would under-count
 // cycles, which is the one direction a spend guard must never round.
-function fieldMatchCount(field: string, size: number): number | null {
-  if (field === '*') return size;
+function fieldMatchCount(field: string, domainSize: number): number | null {
+  if (field === '*') return domainSize;
 
   const step = /^\*\/(\d+)$/.exec(field);
   if (step) {
     const every = Number(step[1]);
-    if (every < 1 || every > size) return null;
-    return Math.ceil(size / every);
+    if (every < 1 || every > domainSize) return null;
+    return Math.ceil(domainSize / every);
   }
 
   // A plain value, or a comma list of them ("0 0,12 * * *" — twice a day).
   if (/^\d+(,\d+)*$/.test(field)) {
     const values = new Set(field.split(',').map(Number));
-    for (const v of values) if (v >= size) return null;
+    for (const v of values) if (v >= domainSize) return null;
     return values.size;
   }
 
@@ -54,8 +56,9 @@ function fieldMatchCount(field: string, size: number): number | null {
 }
 
 /**
- * Cycles per day for the cron shapes this pipeline realistically uses — a fixed minute
- * or minute step, an hour wildcard, step or list, and no day/month/weekday narrowing.
+ * Cycles per day for the cron shapes this pipeline realistically uses: the minute and
+ * hour fields each accept `*`, a step, a value or a comma list, and day/month/weekday
+ * must not narrow the schedule.
  *
  * Anything else returns null ON PURPOSE. An unrecognized schedule is precisely the case
  * where a human must re-derive the number rather than have a parser guess on their
@@ -79,12 +82,10 @@ export function cyclesPerDayOf(cron: string): number | null {
 
 /** The schedule infrastructure exported, or null where it did not. Read at CALL time,
  *  never captured at import: a module-level constant would freeze whatever the
- *  environment held when the bundle first loaded, and would be plain wrong in a client
- *  bundle, where this variable does not exist at all. */
+ *  environment held when the bundle first loaded. `cyclesPerDayOf` is the pure seam, so
+ *  nothing here needs an injectable-schedule parameter to stay testable. */
 function exportedCronSchedule(): string | null {
-  if (typeof process === 'undefined') return null;
-  const cron = process.env.REFRESH_CRON_SCHEDULE?.trim();
-  return cron ? cron : null;
+  return process.env.REFRESH_CRON_SCHEDULE?.trim() || null;
 }
 
 /**
@@ -92,7 +93,8 @@ function exportedCronSchedule(): string | null {
  * something this parser will not guess at. Callers that must state a cadence to a human
  * branch on the null instead of substituting the default.
  */
-export function knownCyclesPerDay(cron: string | null = exportedCronSchedule()): number | null {
+export function knownCyclesPerDay(): number | null {
+  const cron = exportedCronSchedule();
   return cron === null ? null : cyclesPerDayOf(cron);
 }
 
@@ -102,6 +104,6 @@ export function knownCyclesPerDay(cron: string | null = exportedCronSchedule()):
  * calls this, so a schedule change reaches every cap without anyone remembering to
  * pass it through.
  */
-export function resolveCyclesPerDay(cron: string | null = exportedCronSchedule()): number {
-  return knownCyclesPerDay(cron) ?? DEFAULT_CYCLES_PER_DAY;
+export function resolveCyclesPerDay(): number {
+  return knownCyclesPerDay() ?? DEFAULT_CYCLES_PER_DAY;
 }

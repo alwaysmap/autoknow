@@ -13,11 +13,10 @@ import styles from './IngestionHealthCard.module.css';
 // not indexed" list. Presentational: all data comes pre-shaped from lib/ingestionHealth,
 // all math from lib/ingestBudget.
 //
-// It is also the boundary where the Scheduler cadence crosses into the browser: this is a
-// server component, so it can read the exported schedule, and it hands the result down as
-// a prop rather than letting the client half guess (#197). The two readings differ on
-// purpose — `resolveCyclesPerDay` gives the budget math a number it can always divide by,
-// while `knownCyclesPerDay` gives the COPY the truth, including "we were not told", so a
+// It is also the boundary where the Scheduler cadence crosses into the browser (see
+// BudgetSlider for why that has to happen here). The two readings differ on purpose:
+// `resolveCyclesPerDay` gives the budget math a number it can always divide by, while
+// `knownCyclesPerDay` gives the COPY the truth, including "we were not told", so a
 // sentence never promises a cadence no deployment committed to.
 
 const FOLLOWED_FOLDER_DEPTH = 5; // mirrors MAX_FOLDER_DEPTH in lib/driveSync (surfaced to users)

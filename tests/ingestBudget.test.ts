@@ -21,19 +21,9 @@ import {
   knownCyclesPerDay,
   resolveCyclesPerDay,
 } from '../src/lib/cronCadence';
+import { clearCronScheduleAroundEachTest } from './helpers/cronSchedule';
 
-// The budget functions resolve the cadence from REFRESH_CRON_SCHEDULE on every call, so
-// every assertion about the DEFAULT has to be made with the variable genuinely absent —
-// otherwise a developer's .env (or a future one) silently rewrites what these prove. The
-// override cases set it inside their own test, after this has cleared it.
-const INHERITED_CRON = process.env.REFRESH_CRON_SCHEDULE;
-beforeEach(() => {
-  delete process.env.REFRESH_CRON_SCHEDULE;
-});
-afterAll(() => {
-  if (INHERITED_CRON === undefined) delete process.env.REFRESH_CRON_SCHEDULE;
-  else process.env.REFRESH_CRON_SCHEDULE = INHERITED_CRON;
-});
+clearCronScheduleAroundEachTest();
 
 describe('#38 ingestion budget math', () => {
   test('perCycleBudget floors so the daily total never exceeds the budget', () => {

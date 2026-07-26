@@ -3,7 +3,6 @@ import { prisma } from './db';
 import type { DriveSyncReport } from './driveSync';
 import type { CycleReport } from './refresh';
 import { getIngestionSettings } from './ingestionSettings';
-import { budgetGauge, type BudgetGauge } from './ingestBudget';
 
 // Ingestion health (#38, [ADR: Ingestion health is a serverless signal, not a growing
 // table]). Two halves of ONE decision:
@@ -107,8 +106,12 @@ export interface IngestionHealth {
   /** Indexed sources whose text ran past MAX_DOC_CHARS, so their tail is not searchable
    *  (#56). A count, not rows — the rows are the Sources table on the same page. */
   truncated: number;
+  /** The two stored settings, and NOT a gauge derived from them. This carried a
+   *  pre-computed `BudgetGauge` that no component ever read — the card's slider derives
+   *  its own from the same pure functions. Once cycles/day became a runtime value the
+   *  two copies were free to disagree, which is exactly the drift this change removes
+   *  one layer up, so the unread one goes. */
   budget: { dailyReingestBudgetDocs: number; freeTierRequestsPerDay: number };
-  gauge: BudgetGauge;
 }
 
 /** Everything Manage → Sources needs to render the health card, skip list, and budget
@@ -150,6 +153,5 @@ export async function getIngestionHealth(): Promise<IngestionHealth> {
     })),
     truncated,
     budget: settings,
-    gauge: budgetGauge(settings.dailyReingestBudgetDocs, settings.freeTierRequestsPerDay),
   };
 }

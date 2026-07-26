@@ -1,19 +1,15 @@
 /** @jest-environment jsdom */
 // The cadence has to survive the trip to the BROWSER, and that is a separate claim from
-// "the math divides by the right number". Manage → Sources renders on the server, where
-// REFRESH_CRON_SCHEDULE exists, but the budget slider is a client component, where it does
-// not. If the client half re-resolved the cadence for itself it would silently fall back
-// to hourly — putting the plotted ceiling back out of step with the enforced one, which is
-// the whole defect, only now in the half a human actually reads.
-//
-// So this renders the real card and asserts on the DOM: the figure under the slider and
-// the sentence beside it both move when the schedule does.
+// "the math divides by the right number" — see BudgetSlider's header for why the client
+// half cannot resolve it for itself. So this renders the real card and asserts on the
+// DOM: the figure under the slider and the sentence beside it both move when the
+// schedule does.
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import IngestionHealthCard from '../src/components/IngestionHealthCard';
 import type { IngestionHealth } from '../src/lib/ingestionHealth';
-import { budgetGauge } from '../src/lib/ingestBudget';
+import { clearCronScheduleAroundEachTest } from './helpers/cronSchedule';
 
 jest.mock('../src/app/actions/ingestion', () => ({
   updateIngestionBudgetAction: async () => {},
@@ -22,21 +18,13 @@ jest.mock('../src/app/actions/ingestion', () => ({
 // something jsdom will load. The constant is all this render needs.
 jest.mock('../src/lib/gemini', () => ({ MAX_DOC_CHARS: 100_000 }));
 
-const INHERITED_CRON = process.env.REFRESH_CRON_SCHEDULE;
-beforeEach(() => {
-  delete process.env.REFRESH_CRON_SCHEDULE;
-});
-afterAll(() => {
-  if (INHERITED_CRON === undefined) delete process.env.REFRESH_CRON_SCHEDULE;
-  else process.env.REFRESH_CRON_SCHEDULE = INHERITED_CRON;
-});
+clearCronScheduleAroundEachTest();
 
 const health = (): IngestionHealth => ({
   summary: null,
   skipped: [],
   truncated: 0,
   budget: { dailyReingestBudgetDocs: 60, freeTierRequestsPerDay: 250 },
-  gauge: budgetGauge(60, 250, 24),
 });
 
 const renderCard = () => render(<IngestionHealthCard locale="en" health={health()} />);
