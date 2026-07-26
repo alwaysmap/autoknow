@@ -29,6 +29,7 @@ import { POST as postPhaseRoute } from '../app/api/projects/[id]/phases/route';
 import { POST as postPhaseStateRoute } from '../app/api/projects/[id]/phases/[phaseId]/state/route';
 import { POST as postActionItemRoute } from '../app/api/projects/[id]/phases/[phaseId]/action-items/route';
 import { addPhaseDependency } from '../app/actions/dependencies';
+import { movePersonCompany } from '../app/actions/people';
 import { addPhasePartner } from '../app/actions/phasePartners';
 import { addPhasePerson } from '../app/actions/phasePeople';
 import { setPhaseStarted } from '../app/actions/hill';
@@ -1073,6 +1074,240 @@ export async function seedMockData() {
       prevPhaseId = phaseId;
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Alice Waters — the temporal-profile fixture (spec #124 §7).
+  //
+  // ONE human across FOUR employment periods, so the person and partner pages have
+  // a real multi-company career to get right — or, today, to get wrong in public.
+  // Everything below rides the same mutation boundaries as the rest of the seed
+  // (createPerson, the affiliations route, createProject/createPhase, the
+  // involvement actions), INCLUDING the scheduled Honda move, which goes through
+  // `movePersonCompany` itself rather than hand-writing the rows that action would
+  // write. That is the point: the action advances Person.currentPartnerId the
+  // moment it is called, with no check that the date has arrived (#124 Class 1), so
+  // this fixture RENDERS the defect — the identity line reads Honda months early
+  // while the timeline still says Google. When Class 1 is fixed, the same seed call
+  // starts producing the correct state with no edit here.
+  //
+  // DATES. The three past boundaries are literal: a career is a fact and stays true
+  // whenever the seed runs. The Honda move is DERIVED — first of the month, four
+  // months out — so a re-seed is always genuinely in the FUTURE; a literal would
+  // quietly slip into the past and turn the fixture into a lie (it would then be
+  // claiming a scheduled move that has already happened). On the day this landed
+  // that derives to 2026-11-01, which is §7's "2026-11" — the value the DoD's
+  // Class 1 bullet quotes. (#124's Class 1 repro shows 2026-09-01 instead; that is
+  // a screenshot of the buggy live demo, not a spec, so §7's table wins.)
+  // ---------------------------------------------------------------------------
+  console.log('Seeding the Alice Waters temporal-profile fixture (four periods, one human)...');
+
+  // Her address changes WITH the company (#124 §2) — but email is still a
+  // person-level column, so only the current period's address is storable on the
+  // row. The historical two are authored here because they are half the point of
+  // the fixture, and they do reach the database: they are the free-text
+  // `assignedTo` on the era action items below, which is exactly how a real
+  // action item captured at the time would carry them.
+  const ALICE = {
+    bosch: { role: 'Platform Engineer', email: 'alice.waters@bosch.com', start: '2022-01-01', end: '2024-03-01' },
+    qualcomm: { role: 'Staff Engineer', email: 'awaters@qualcomm.com', start: '2024-03-01', end: '2026-07-01' },
+    // §7 says alice@google.com. That address already belongs to the 'Alice PM'
+    // persona seeded above and Person.email is @unique, so the fixture takes the
+    // dotted form — the same shape as her Bosch address. Its local part
+    // ('alice.waters') is distinct from 'alice', so resolvePerson still sends the
+    // bare handle 'alice' to Alice PM and nothing else moves.
+    google: { role: 'Lead Program Manager', email: 'alice.waters@google.com', start: '2026-07-01' },
+    honda: { role: 'Cockpit Platform Lead' },
+  };
+
+  const aliceWatersId = await createPerson({
+    name: 'Alice Waters',
+    email: ALICE.google.email,
+    currentPartnerId: googlePartnerId,
+    // Company and title live in the periods below, so the note does not repeat them.
+    notes: 'Telematics platform engineer who moved to the Google side of the same programs.',
+  });
+
+  // Contiguous and half-open (`start <= t < end`): each period's end IS the next
+  // one's start, so there is no gap and no overlap anywhere in the career.
+  await addAffiliation(aliceWatersId, {
+    partnerId: boschId, role: ALICE.bosch.role,
+    startDate: ALICE.bosch.start, endDate: ALICE.bosch.end,
+  });
+  await addAffiliation(aliceWatersId, {
+    partnerId: qualcommId, role: ALICE.qualcomm.role,
+    startDate: ALICE.qualcomm.start, endDate: ALICE.qualcomm.end,
+  });
+  await addAffiliation(aliceWatersId, {
+    partnerId: googlePartnerId, role: ALICE.google.role, startDate: ALICE.google.start,
+  });
+
+  /** A program whose phases are dated by LITERAL calendar dates rather than by
+   *  offset from "now" — the two closed eras of Alice's career happened on real
+   *  dates and must not drift when the seed is re-run. Linear chain, so a finished
+   *  era stays DAG-coherent by construction. */
+  interface EraPhase { n: string; d: number; startedOn: string; states: { at: string; p: number }[] }
+  const seedEraPhases = async (projectId: number, phases: EraPhase[]): Promise<Record<string, number>> => {
+    const ids: Record<string, number> = {};
+    let prevPhaseId: number | null = null;
+    for (const ph of phases) {
+      const phaseId = await createPhase(projectId, {
+        name: ph.n,
+        forecastedDuration: ph.d,
+        // The auto-created initial row sits behind the whole dated history, so
+        // newest-wins ordering lands on the real progress (CRITICAL_CHAIN §6).
+        stateTimestamp: new Date(new Date(ph.states[0].at).getTime() - 2 * DAY).toISOString(),
+      });
+      await markStarted(projectId, phaseId, new Date(ph.startedOn));
+      for (const s of ph.states) {
+        await postPhaseState(projectId, phaseId, {
+          theNeedle: 'On Track',
+          hillChartProgress: s.p,
+          notes: s.p > 0 && s.p < 100 ? `${ph.n}: progress update.` : null,
+          source: 'seed',
+          timestamp: new Date(s.at).toISOString(),
+        });
+      }
+      if (prevPhaseId != null) await addDependency(projectId, phaseId, prevPhaseId);
+      ids[ph.n] = phaseId;
+      prevPhaseId = phaseId;
+    }
+    return ids;
+  };
+
+  // (a) INSIDE THE BOSCH WINDOW (2022-01 → 2024-03): a finished 2022–23 program
+  // with her in it, so that period owns real work and not just a date range.
+  const aliceBoschProjectId = await createProject({
+    name: 'Bosch TCU Gen-2 Platform', partnerId: boschId, ownerName: 'clara@google.com',
+    sopDate: '2023-09-30', volumeFirstYear: 95000,
+  });
+  await postProjectState(aliceBoschProjectId, {
+    theNeedle: 'On Track', hillChartProgress: 20,
+    notes: 'Gen-2 telematics board kickoff with the Bosch platform team.',
+    source: 'seed', timestamp: '2022-03-01',
+  });
+  await postProjectState(aliceBoschProjectId, {
+    theNeedle: 'On Track', hillChartProgress: 100,
+    notes: 'Gen-2 shipped; field validation closed out.',
+    source: 'seed', timestamp: '2023-06-01',
+  });
+  const aliceBoschPhases = await seedEraPhases(aliceBoschProjectId, [
+    { n: 'Telematics board bring-up', d: 60, startedOn: '2022-03-01',
+      states: [{ at: '2022-03-01', p: 20 }, { at: '2022-06-01', p: 100 }] },
+    { n: 'Modem integration', d: 70, startedOn: '2022-06-15',
+      states: [{ at: '2022-06-15', p: 30 }, { at: '2022-11-01', p: 100 }] },
+    { n: 'Field validation', d: 50, startedOn: '2022-11-15',
+      states: [{ at: '2022-11-15', p: 40 }, { at: '2023-06-01', p: 100 }] },
+  ]);
+  await involvePerson(aliceBoschProjectId, aliceBoschPhases['Modem integration'], aliceWatersId, ALICE.bosch.role);
+  // Addressed to the account she actually held in 2022. It links to her only
+  // because resolvePerson falls back to the email LOCAL PART and hers happens to
+  // have survived the moves — which is the accident #124 Class 4 is about, not a
+  // guarantee. The Qualcomm-era item below shows what happens when it doesn't.
+  await createActionItem(aliceBoschProjectId, aliceBoschPhases['Modem integration'], {
+    description: 'Close out LTE modem thermal throttling on the Gen-2 board',
+    assignedTo: ALICE.bosch.email, status: 'Completed', nextStep: 'Resolved',
+    source: 'Buganizer', sourceUrl: 'https://buganizer.corp.google.com/issues/4410932',
+  });
+
+  // (b) INSIDE THE QUALCOMM WINDOW (2024-03 → 2026-07): a 2024–25 silicon program.
+  const aliceQualcommProjectId = await createProject({
+    name: 'Qualcomm SA8155P Cockpit Validation', partnerId: qualcommId, ownerName: 'marcusw@google.com',
+    sopDate: '2025-12-31', volumeFirstYear: 140000,
+  });
+  await postProjectState(aliceQualcommProjectId, {
+    theNeedle: 'On Track', hillChartProgress: 25,
+    notes: 'Validation programme opened against the SA8155P cockpit reference.',
+    source: 'seed', timestamp: '2024-09-02',
+  });
+  await postProjectState(aliceQualcommProjectId, {
+    theNeedle: 'On Track', hillChartProgress: 100,
+    notes: 'Reference cockpit signed off; validation suite handed to the OEM programs.',
+    source: 'seed', timestamp: '2025-11-03',
+  });
+  const aliceQualcommPhases = await seedEraPhases(aliceQualcommProjectId, [
+    { n: 'Reference board enablement', d: 45, startedOn: '2024-09-02',
+      states: [{ at: '2024-09-02', p: 25 }, { at: '2025-01-15', p: 100 }] },
+    { n: 'Cockpit validation suite', d: 60, startedOn: '2025-02-03',
+      states: [{ at: '2025-02-03', p: 35 }, { at: '2025-07-01', p: 100 }] },
+    { n: 'OEM handover', d: 30, startedOn: '2025-07-15',
+      states: [{ at: '2025-07-15', p: 50 }, { at: '2025-11-03', p: 100 }] },
+  ]);
+  await involvePerson(aliceQualcommProjectId, aliceQualcommPhases['Cockpit validation suite'], aliceWatersId, ALICE.qualcomm.role);
+  // The same artifact, addressed to the account she held in 2025 — and this one
+  // strands: `awaters@qualcomm.com` matches no Person, because a Person holds ONE
+  // address and hers has since changed (#124 Class 4). Seeded deliberately so the
+  // defect is visible in data instead of only in prose; tests/seedMock pins it.
+  await createActionItem(aliceQualcommProjectId, aliceQualcommPhases['Cockpit validation suite'], {
+    description: 'Sign off cockpit validation suite for the SA8155P reference',
+    assignedTo: ALICE.qualcomm.email, status: 'Completed', nextStep: 'Resolved',
+    source: 'Gerrit', sourceUrl: 'https://android-review.googlesource.com/c/platform/hardware/qcom/+/71204',
+  });
+
+  // Lifecycle is a FACT someone sets and has no mutation surface of its own (like
+  // the product flags above) — set the column directly. Both era programs are done,
+  // which keeps them out of the risk list and the chain ledger (lib/lifecycle)
+  // while they stay on Alice's page as history.
+  await prisma.project.update({ where: { id: aliceBoschProjectId }, data: { lifecycle: 'complete' } });
+  await prisma.project.update({ where: { id: aliceQualcommProjectId }, data: { lifecycle: 'complete' } });
+
+  // (c) INSIDE THE GOOGLE WINDOW (2026-07 → open): TEL ownership of a LIVE program.
+  // Relative dates here, not literal — a current program must always read as "now",
+  // and anything a few weeks old is inside the Google period whenever it is seeded.
+  const aliceGoogleProjectId = await createProject({
+    name: 'Honda CR-V Cockpit Bring-up', partnerId: hondaId, ownerName: ALICE.google.email,
+    sopDate: aheadMonthEnd(300).toISOString(), volumeFirstYear: 130000,
+  });
+  await prisma.project.update({
+    where: { id: aliceGoogleProjectId },
+    data: { hasGas: true, hasGbi: true, hasAap: true },
+  });
+  await postProjectState(aliceGoogleProjectId, {
+    theNeedle: 'On Track', hillChartProgress: 40,
+    notes: 'Bring-up opened on the CR-V cockpit; rebase landed, integration under way.',
+    source: 'seed', timestamp: agoIso(2),
+  });
+  let aliceGooglePrevPhaseId: number | null = null;
+  for (const ph of [
+    { n: 'Platform rebase', d: 30, startedAgo: 20, states: [{ ago: 20, p: 25 }, { ago: 12, p: 100 }] },
+    { n: 'Cockpit integration', d: 45, startedAgo: 12, states: [{ ago: 12, p: 20 }, { ago: 4, p: 45 }] },
+    { n: 'CCC + GAS certification', d: 35, startedAgo: null, states: [{ ago: 2, p: 0 }] },
+  ] as { n: string; d: number; startedAgo: number | null; states: { ago: number; p: number }[] }[]) {
+    const phaseId = await createPhase(aliceGoogleProjectId, {
+      name: ph.n, forecastedDuration: ph.d, stateTimestamp: agoIso(ph.states[0].ago + 2),
+    });
+    if (ph.startedAgo != null) await markStarted(aliceGoogleProjectId, phaseId, ago(ph.startedAgo));
+    for (const s of ph.states) {
+      await postPhaseState(aliceGoogleProjectId, phaseId, {
+        theNeedle: 'On Track', hillChartProgress: s.p,
+        notes: s.p > 0 && s.p < 100 ? `${ph.n}: progress update.` : null,
+        source: 'seed', timestamp: agoIso(s.ago),
+      });
+    }
+    if (aliceGooglePrevPhaseId != null) await addDependency(aliceGoogleProjectId, phaseId, aliceGooglePrevPhaseId);
+    if (ph.n === 'Cockpit integration') {
+      await involvePerson(aliceGoogleProjectId, phaseId, aliceWatersId, ALICE.google.role);
+    }
+    aliceGooglePrevPhaseId = phaseId;
+  }
+
+  // (d) THE SCHEDULED MOVE. Four months out, through the real action — which today
+  // also flips currentPartnerId immediately, so /people/<alice> shows "Honda"
+  // while every affiliation row says she is still at Google. That IS Class 1, on a
+  // real page, in the demo. Deriving the date (never a literal) is what keeps it a
+  // FUTURE move on every re-seed.
+  const hondaMoveDate = new Date(Date.UTC(
+    new Date(seedNow).getUTCFullYear(), new Date(seedNow).getUTCMonth() + 4, 1,
+  ));
+  const moved = await movePersonCompany(fd({
+    personId: aliceWatersId,
+    newPartnerId: hondaId,
+    newRole: ALICE.honda.role,
+    startDate: hondaMoveDate.toISOString(),
+  }));
+  if (moved.error) throw new Error(`Seed scheduled move to Honda failed: ${moved.error}`);
+  console.log(
+    `Alice Waters: Bosch → Qualcomm → Google, with Honda SCHEDULED for ${hondaMoveDate.toISOString().slice(0, 10)}.`,
+  );
 
   // Relationship health (1..5 scale) spread across the partner set so the
   // /partners Relationship column shows real relative variation. Two entries for

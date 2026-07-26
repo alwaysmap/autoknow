@@ -36,10 +36,11 @@ describe('seedMockData through the API', () => {
   it('lands the full entity graph', async () => {
     // 1 Google + 4 classic + 10 enrichment partners.
     expect(await prisma.partner.count()).toBe(15);
-    // 7 classic-era people (incl. Alice + Clara, the once-freeform owners) + 8 enrichment.
-    expect(await prisma.person.count()).toBe(15);
-    // 4 classic + 7 enrichment + 4 showcase programs.
-    expect(await prisma.project.count()).toBe(15);
+    // 7 classic-era people (incl. Alice PM + Clara, the once-freeform owners)
+    // + 8 enrichment + Alice Waters, the temporal-profile fixture.
+    expect(await prisma.person.count()).toBe(16);
+    // 4 classic + 7 enrichment + 4 showcase + 3 Alice-era programs.
+    expect(await prisma.project.count()).toBe(18);
     expect(await prisma.phaseDependency.count()).toBeGreaterThan(0);
     expect(await prisma.phasePartner.count()).toBeGreaterThan(0);
     expect(await prisma.phasePerson.count()).toBeGreaterThan(0);
@@ -220,8 +221,84 @@ describe('seedMockData through the API', () => {
     });
     expect(cluster.assignedToPersonId).toBe(kenji.id);
 
-    // Nothing seeded an unlinked assignee.
-    expect(await prisma.actionItem.count({ where: { assignedToPersonId: null } })).toBe(0);
+    // Exactly ONE seeded assignee fails to link, and it is the fixture's point:
+    // Alice Waters' 2025 item is addressed to `awaters@qualcomm.com`, the account
+    // she held at the time. A Person carries ONE address, so resolvePerson has
+    // nothing to match and the item strands off the human who owns it — spec #124
+    // Class 4, in data. Pinned by exact address rather than by a count, so a
+    // genuinely sloppy assignee elsewhere still fails this. The period-scoped
+    // email work flips this to zero; that is the change that should edit this line.
+    const unlinked = await prisma.actionItem.findMany({
+      where: { assignedToPersonId: null },
+      select: { assignedTo: true },
+    });
+    expect(unlinked.map((a) => a.assignedTo)).toEqual(['awaters@qualcomm.com']);
+  });
+
+  // The temporal-profile fixture (spec #124 §7): one human, four periods. Guarded
+  // here because every later piece of that work is demonstrated against THIS data,
+  // and a fixture that silently loses a boundary would make the demos lie.
+  it('Alice Waters carries four contiguous periods, with Honda still in the future', async () => {
+    const alice = await prisma.person.findFirstOrThrow({
+      where: { email: 'alice.waters@google.com' },
+      include: { affiliations: { include: { partner: true }, orderBy: { startDate: 'asc' } } },
+    });
+    const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+
+    // The three settled periods carry literal dates — a career is a fact. Honda's
+    // start is derived, so it is asserted by its PROPERTIES further down instead.
+    expect(alice.affiliations.map((a) => [a.partner.name, a.role])).toEqual([
+      ['Bosch', 'Platform Engineer'],
+      ['Qualcomm', 'Staff Engineer'],
+      ['Google LLC', 'Lead Program Manager'],
+      ['Honda', 'Cockpit Platform Lead'],
+    ]);
+    expect(alice.affiliations.slice(0, 3).map((a) => [iso(a.startDate), iso(a.endDate)])).toEqual([
+      ['2022-01-01', '2024-03-01'],
+      ['2024-03-01', '2026-07-01'],
+      ['2026-07-01', iso(alice.affiliations[3].startDate)], // closed AT the scheduled move
+    ]);
+
+    // Half-open and contiguous: each period ends exactly where the next begins, so
+    // there is no gap and no overlap anywhere in the career.
+    const [bosch, qualcomm, google, honda] = alice.affiliations;
+    expect(iso(bosch.endDate)).toBe(iso(qualcomm.startDate));
+    expect(iso(qualcomm.endDate)).toBe(iso(google.startDate));
+    expect(iso(google.endDate)).toBe(iso(honda.startDate));
+    expect(honda.endDate).toBeNull();
+
+    // The Honda move is DERIVED, so it is in the future on every re-seed — that is
+    // what makes it exercise Class 1 at all. Asserted by properties, not by a
+    // literal: genuinely ahead, by months rather than days, and on a month
+    // boundary (§7 states the move as a month, "2026-11").
+    const now = Date.now();
+    expect(honda.startDate.getTime()).toBeGreaterThan(now + 60 * 86_400_000);
+    expect(honda.startDate.getUTCDate()).toBe(1);
+    expect(google.startDate.getTime()).toBeLessThanOrEqual(now);
+    expect(google.endDate!.getTime()).toBeGreaterThan(now);
+
+    // Class 1, seeded through the real `movePersonCompany`: the cache has ALREADY
+    // advanced to Honda months before the date, so the identity line on
+    // /people/<id> reads Honda while every affiliation row says Google. When the
+    // move stops applying early, this expectation becomes Google LLC — the flip is
+    // the proof the fix works, so leave the assertion here rather than deleting it.
+    const current = await prisma.partner.findUniqueOrThrow({ where: { id: alice.currentPartnerId } });
+    expect(current.name).toBe('Honda');
+
+    // Work inside each window, not just date ranges: Bosch-era and Qualcomm-era
+    // phase involvement, plus TEL ownership of a live program under Google.
+    const involvements = await prisma.phasePerson.findMany({
+      where: { personId: alice.id },
+      select: { phase: { select: { project: { select: { name: true } } } } },
+    });
+    expect(involvements.map((i) => i.phase.project.name).sort()).toEqual([
+      'Bosch TCU Gen-2 Platform', 'Honda CR-V Cockpit Bring-up', 'Qualcomm SA8155P Cockpit Validation',
+    ]);
+    const owned = await prisma.project.findMany({
+      where: { ownerName: 'alice.waters@google.com' },
+      select: { name: true },
+    });
+    expect(owned.map((p) => p.name)).toEqual(['Honda CR-V Cockpit Bring-up']);
   });
 
   it('relationship journal keeps the ghost-ring pair with canonical derived health', async () => {
