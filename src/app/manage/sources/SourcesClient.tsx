@@ -11,6 +11,7 @@ import { refreshSourceAction, toggleSourcePause, toggleSourceMode } from '../../
 import { inferSource, LEGACY_TYPE_BY_KIND } from '../../../lib/sources';
 import { t, type StringKey } from '../../../lib/i18n';
 import { useLocale } from '../../../components/LocaleProvider';
+import { MAX_DOC_CHARS } from '../../../lib/ingestLimits';
 
 // Manage → Sources at operator scale (thousands of rows eventually). Same table
 // grammar as every other listing now (#87): kind / tracking state / added-by are
@@ -32,6 +33,8 @@ export interface SourceRow {
   lastCheckedAt: string | null; // ISO
   createdAt: string; // ISO
   frozenReason: string | null;
+  /** Lossy: the text ran past MAX_DOC_CHARS, so this row's tail was never indexed (#56). */
+  truncated: boolean;
   entityName: string | null;
   entityHref: string | null;
   revisions: number;
@@ -159,6 +162,21 @@ export default function SourcesClient({ sources, initialFilters, initialSort, in
               style={{ fontWeight: 600, color: 'var(--fg, #222)', textDecoration: 'none' }}>
               {s.title || s.url}
             </a>
+            {/* #56: a source whose tail never reached the digest says so ON the source —
+                the standing 30K limit is stated on the health card, this is where it bit. */}
+            {s.truncated && (
+              <span
+                data-testid="truncated-badge"
+                title={t(locale, 'sourceTruncatedTitle', { chars: MAX_DOC_CHARS.toLocaleString(locale) })}
+                style={{
+                  marginLeft: '0.375rem', fontSize: '0.625rem', fontWeight: 700, whiteSpace: 'nowrap',
+                  padding: '0.0625rem 0.375rem', borderRadius: '62.4375rem',
+                  border: '1px solid var(--border, #ddd)', color: 'var(--muted, #888)',
+                }}
+              >
+                {t(locale, 'sourceTruncated')}
+              </span>
+            )}
             {s.entityName && (
               <div style={{ fontSize: '0.75rem', marginTop: '0.125rem' }}>
                 {s.entityHref

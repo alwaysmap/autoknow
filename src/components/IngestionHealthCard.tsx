@@ -30,7 +30,7 @@ export default function IngestionHealthCard({
   locale: Locale;
   health: IngestionHealth;
 }) {
-  const { summary, skipped, budget } = health;
+  const { summary, skipped, truncated, budget } = health;
 
   return (
     <section className={styles.card} data-testid="ingestion-health">
@@ -84,7 +84,14 @@ export default function IngestionHealthCard({
         <h3 className={styles.sectionTitle}>{t(locale, 'ingestLimitsTitle')}</h3>
         <ul className={styles.limitsList}>
           <li>{t(locale, 'ingestLimitDocs')}</li>
-          <li>{t(locale, 'ingestLimitChars', { chars: MAX_DOC_CHARS.toLocaleString(locale) })}</li>
+          <li>
+            {t(locale, 'ingestLimitChars', { chars: MAX_DOC_CHARS.toLocaleString(locale) })}
+            {/* #56: the standing limit, and — only when it has actually bitten — how many
+                sources it bit. A count of zero is not a finding, so it stays quiet. */}
+            {truncated > 0 && (
+              <span data-testid="truncated-count"> {t(locale, 'ingestLimitTruncatedNow', { count: truncated })}</span>
+            )}
+          </li>
           <li>{t(locale, 'ingestLimitDepth', { depth: FOLLOWED_FOLDER_DEPTH })}</li>
           <li>{t(locale, 'ingestLimitCadence')}</li>
         </ul>

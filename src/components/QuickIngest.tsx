@@ -124,7 +124,11 @@ export default function QuickIngest({
               )}
             </span>
           ) : (
-            <span className={styles.error}>{result.error}</span>
+            // A declared limit (unsupported media, …) speaks through the catalog; anything
+            // else is an unexpected transport failure and still shows its raw reason.
+            <span className={styles.error}>
+              {result.errorKey ? t(locale, result.errorKey, result.errorVars) : result.error}
+            </span>
           )}
         </div>
       )}

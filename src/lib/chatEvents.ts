@@ -4,12 +4,27 @@ import { prisma } from './db';
 import { ingestContent, hashContent } from './ingest';
 import { summarizeDocument, digestToText, geminiConfigured } from './gemini';
 import { getServiceAccountToken, driveConfigured, CHAT_BOT_SCOPE } from './googleAuth';
+import { t, type Locale } from './i18n';
+import { LOCALE } from './preferences';
+import { isTruncated } from './ingestLimits';
 
 // Google Chat @mention ingestion (plan §5.1 / slice 4). Chat POSTs interaction
 // events to our endpoint with a JWT minted by chat@system.gserviceaccount.com whose
 // audience is our GCP project number — verifying that is the route's entire
 // authentication. On MESSAGE we save the thread-as-of-now (dedupe by thread name;
 // re-mentions become revisions) and the JSON we return IS the app's in-thread reply.
+//
+// WHAT THAT REPLY MUST SAY (#56, the scaling ADR's decision 3): this connector captures
+// ONE THREAD's first THREAD_MESSAGE_LIMIT messages as a SNAPSHOT. It is not a room watch —
+// Chat rows are `snapshot` mode, so the refresh cycle never re-reads them and later
+// messages are invisible until a human @mentions the app again. The ack therefore names the
+// thread, the message cap when it is hit, and the snapshot; "room" and "watched" are words
+// this connector may not use (docs/SCALING_LIMITS.md §3).
+
+/** A Chat webhook carries no session and no cookie, so there is no user locale to read —
+ *  the reply goes out in the app default. The copy still lives in the catalog so a
+ *  per-space locale can be plumbed later without moving prose back into this file. */
+const REPLY_LOCALE: Locale = LOCALE.default;
 
 const CHAT_ISSUER = 'chat@system.gserviceaccount.com';
 const JWK_URL = `https://www.googleapis.com/service_accounts/v1/jwk/${CHAT_ISSUER}`;
@@ -167,42 +182,69 @@ export function formatChatReply(reply: { text: string } | Record<string, never>,
   return { hostAppDataAction: { chatDataAction: { createMessageAction: { message: { text: reply.text } } } } };
 }
 
-/** Fetch every message in the thread via app auth (the app is a member now). */
-async function fetchThreadText(spaceName: string, threadName: string): Promise<string | null> {
+/** How many of a thread's messages one snapshot reads. There is deliberately NO pagination
+ *  loop — windowing a long thread is a retrieval-quality change the scaling ADR defers with
+ *  chunking (decision 4). The cap is declared in the ack instead of being silent. */
+export const THREAD_MESSAGE_LIMIT = 100;
+
+export interface ThreadSnapshot {
+  /** Null when the thread could not be read at all (no history, no permission, API down). */
+  text: string | null;
+  /** The thread has more messages than this snapshot read. */
+  capped: boolean;
+}
+
+/** Read the first THREAD_MESSAGE_LIMIT messages of ONE thread via app auth (the app is a
+ *  member now), reporting whether more were left behind. */
+async function fetchThreadText(spaceName: string, threadName: string): Promise<ThreadSnapshot> {
   try {
     const token = await getServiceAccountToken([CHAT_BOT_SCOPE]);
     const params = new URLSearchParams({
       filter: `thread.name = "${threadName}"`,
-      pageSize: '100',
+      pageSize: String(THREAD_MESSAGE_LIMIT),
     });
     const res = await fetch(`https://chat.googleapis.com/v1/${spaceName}/messages?${params}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { messages?: Array<{ text?: string; sender?: { displayName?: string } }> };
-    const lines = (data.messages ?? [])
+    if (!res.ok) return { text: null, capped: false };
+    const data = (await res.json()) as {
+      messages?: Array<{ text?: string; sender?: { displayName?: string } }>;
+      nextPageToken?: string;
+    };
+    const messages = data.messages ?? [];
+    const lines = messages
       .map((m) => `${m.sender?.displayName ?? 'someone'}: ${m.text ?? ''}`.trim())
       .filter((l) => l.length > 2);
-    return lines.length ? lines.join('\n') : null;
+    // Chat's own "there is more" answer, with the page size as the fallback for a response
+    // that omits it — either way the user is told, never quietly given a partial thread.
+    const capped = !!data.nextPageToken || messages.length >= THREAD_MESSAGE_LIMIT;
+    return { text: lines.length ? lines.join('\n') : null, capped };
   } catch {
-    return null;
+    return { text: null, capped: false };
   }
 }
 
+/** Join the sentences one ack is made of. Each limit that applied gets its own sentence, so
+ *  the ack grows exactly as much as the truth requires. */
+const say = (...parts: Array<string | false | null>) => parts.filter(Boolean).join(' ');
+
 /** Handle one event; the returned object is posted as the app's reply. */
 export async function handleChatEvent(event: ChatEvent): Promise<{ text: string } | Record<string, never>> {
+  const tr = (key: Parameters<typeof t>[1], vars?: Record<string, string | number>) =>
+    t(REPLY_LOCALE, key, vars);
+
   if (event.type === 'ADDED_TO_SPACE') {
-    return { text: 'AutoKnow is here — @mention me on any message and I will save its thread as program/partner context.' };
+    return { text: tr('chatAddedToSpace', { n: THREAD_MESSAGE_LIMIT }) };
   }
   if (event.type !== 'MESSAGE' || !event.message) return {};
-  if (!geminiConfigured) return { text: 'AI ingestion is off (no GEMINI_API_KEY on the server) — nothing was saved.' };
+  if (!geminiConfigured) return { text: tr('chatAiOff') };
 
   // Single-domain guarantee at the code level: never ingest content from a sender
   // outside AUTH_ALLOWED_DOMAIN, independent of Workspace allowlist config (plan §7b).
   const allowedDomain = process.env.AUTH_ALLOWED_DOMAIN;
   const senderEmail = event.message.sender?.email ?? '';
   if (allowedDomain && !senderEmail.toLowerCase().endsWith(`@${allowedDomain.toLowerCase()}`)) {
-    return { text: `AutoKnow only ingests messages from @${allowedDomain} accounts.` };
+    return { text: tr('chatDomainOnly', { domain: allowedDomain }) };
   }
 
   const msg = event.message;
@@ -210,10 +252,22 @@ export async function handleChatEvent(event: ChatEvent): Promise<{ text: string 
   const threadName = msg.thread?.name ?? msg.name;
   const sender = msg.sender?.email ?? msg.sender?.displayName ?? 'chat';
 
-  // Thread-as-of-now; degrade to the mentioning message when history is off.
-  const threadText = (spaceName && (await fetchThreadText(spaceName, threadName)))
-    || (msg.argumentText || msg.text || '').trim();
-  if (!threadText) return { text: 'I could not read any text to save (is space history on?).' };
+  // Thread-as-of-now; degrade to the mentioning message when history is off. That degrade
+  // used to be SILENT — the ack said "saved" whether it had the thread or one message — so
+  // it is now reported as its own sentence (#56: the pattern is a boundary that fails safe
+  // but says nothing).
+  const snapshot: ThreadSnapshot = spaceName
+    ? await fetchThreadText(spaceName, threadName)
+    : { text: null, capped: false };
+  const threadText = snapshot.text ?? (msg.argumentText || msg.text || '').trim();
+  if (!threadText) return { text: tr('chatNoText') };
+
+  // The sentences that state which limits actually applied to THIS save.
+  const limits = say(
+    tr('chatSnapshotNote'),
+    snapshot.capped && tr('chatThreadCapped', { n: THREAD_MESSAGE_LIMIT }),
+    !snapshot.text && tr('chatThreadUnreadable'),
+  );
 
   const sourceRef = `chat:${threadName}`;
   const url = `https://chat.google.com/${threadName.replace('spaces/', 'room/')}`;
@@ -223,19 +277,22 @@ export async function handleChatEvent(event: ChatEvent): Promise<{ text: string 
   if (existing) {
     // Re-mention → a revision with what's new (plan §5.1), not a duplicate.
     const hash = hashContent(threadText);
-    if (hash === existing.contentHash) return { text: 'Already saved — nothing new in this thread since last time.' };
+    if (hash === existing.contentHash) return { text: tr('chatUnchanged') };
     const digest = await summarizeDocument(threadText, existing.ingestedText ?? undefined);
     const digestText = digestToText(digest);
     await prisma.$transaction([
       prisma.contextUrl.update({
         where: { id: existing.id },
-        data: { ingestedText: digestText, contentHash: hash, lastCheckedAt: new Date(), lastChangedAt: new Date() },
+        // truncated too: a thread that grows past the cap is lossy like any other source.
+        // This writer used to omit it, so a growing thread was never flagged (#56 review).
+        data: { ingestedText: digestText, contentHash: hash, truncated: isTruncated(threadText),
+          lastCheckedAt: new Date(), lastChangedAt: new Date() },
       }),
       prisma.contextRevision.create({
         data: { contextUrlId: existing.id, contentHash: hash, sourceStatus: digest.sourceStatus, digest: digestText, delta: (digest.delta ?? '').trim() || null },
       }),
     ]);
-    return { text: 'Updated — saved what’s new in this thread.' };
+    return { text: say(tr('chatUpdated'), limits) };
   }
 
   const result = await ingestContent({
@@ -249,7 +306,9 @@ export async function handleChatEvent(event: ChatEvent): Promise<{ text: string 
     addedBy: sender,
   });
 
-  if (!result.ok) return { text: `Could not save this thread: ${result.error ?? 'unknown error'}` };
-  const linked = result.attachedTo?.name ? ` — linked to ${result.attachedTo.name}` : '';
-  return { text: `Saved${linked}. It will appear in the activity feed and leadership summaries.` };
+  if (!result.ok) return { text: tr('chatSaveFailed', { reason: result.error ?? 'unknown error' }) };
+  const saved = result.attachedTo?.name
+    ? tr('chatSavedLinked', { name: result.attachedTo.name })
+    : tr('chatSaved');
+  return { text: say(saved, limits) };
 }

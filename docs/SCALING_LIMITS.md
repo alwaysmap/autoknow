@@ -1,7 +1,9 @@
 # AutoKnow — Scaling Limits of Ingestion & the Vector Store
 
 Status: **Analysis, now decided** (2026-07-20 analysis; decision 2026-07-22;
-recommendation 6 shipped 2026-07-24, #57). This
+recommendation 6 shipped 2026-07-24, #57; the §2 Drive skips shipped 2026-07-24,
+#38; the §3 Chat ack copy, the §4 typed media reject and its size ceiling, and
+the §0 truncation flag shipped 2026-07-25, #56). This
 grounds — but no longer precedes — a decision: [ADR: Ingestion is sized for
 hundreds of sources; declare the limits, gate the 10K rebuild](adr/2026-07-22-ingestion-sized-for-hundreds-gate-the-10k-rebuild.md)
 consumes this analysis, accepts the hundreds-scale limits and requires them
@@ -21,7 +23,10 @@ The unit of ingestion is **one `ContextUrl` row = one source = one digest = one
 
 1. Fetch the source's text.
 2. Truncate to **`MAX_DOC_CHARS = 30_000` chars** (~7.5k tokens) —
-   [`gemini.ts:22`](src/lib/gemini.ts), applied in `summarizeDocument`.
+   [`gemini.ts:22`](src/lib/gemini.ts), applied in `summarizeDocument`. A row whose
+   text ran past it carries `ContextUrl.truncated` and is marked "truncated" on
+   Manage → Sources, so the loss is visible on the source rather than inferred from
+   a thin search result (#56).
 3. `gemini-flash-latest` distills it into a small structured **digest**
    (summary + topics + decisions + questions + `sourceStatus`).
 4. **The digest** (not the document) is embedded into **one** `vector(768)`
@@ -158,7 +163,11 @@ hourly cron.
   That is a new connector, not a cap change.
 - **Set expectations in the ack copy:** today's reply says "I'll save its thread";
   it should say *thread*, first-N messages, snapshot — so users don't assume the
-  room is under live watch.
+  room is under live watch. **SHIPPED 2026-07-25 (#56):** every ack carries the
+  snapshot caveat, names the 100-message cap when it actually bit, and admits when
+  the thread history was unreadable and only the mentioning message was saved (that
+  degrade used to be silent). "room" and "watched" are asserted absent in
+  `tests/chatAckHonesty.test.ts`.
 
 ---
 
@@ -191,13 +200,20 @@ hourly cron.
 ### Recommendations
 - **Keep the hard reject, but make it honest and typed:** classify unsupported-
   media and tell the user "video isn't indexable" instead of leaking a raw Drive
-  403 (lesson 5 — degrade with an honest message).
+  403 (lesson 5 — degrade with an honest message). **SHIPPED 2026-07-25 (#56):**
+  `lib/ingestLimits` defines the typed refusal; the Drive export asks `files.get`
+  what the file actually IS before blaming permissions, so a video is named as a
+  video and a genuine 403 still freezes as access-revoked.
 - **If media indexing is wanted,** it is a separate pipeline: Speech-to-Text /
   video-intelligence → transcript → **chunk** (this is the first case that forces
   real chunking) → many `ContextUrl`/chunk rows → embeddings. Enforce a **max file
   size / duration** and stream to a bucket; never buffer bytes in the request.
 - **Add a size ceiling at the boundary** for any future binary path so the
-  no-OOM property becomes a guarantee, not an accident.
+  no-OOM property becomes a guarantee, not an accident. **SHIPPED 2026-07-25
+  (#56):** `readCapped` counts bytes as they arrive and cancels the body at
+  `MAX_FETCH_BYTES`, replacing the `res.text()`-then-slice that only capped a
+  string it had already materialized — and the Drive export, which had no cap at
+  all, now goes through it too.
 
 ---
 

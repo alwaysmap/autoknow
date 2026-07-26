@@ -256,6 +256,12 @@ model ContextUrl {
   sourceVersion String?   // Drive version / ETag / patchset
   contentHash   String?   // sha256 of normalized fetched text
   sourceStatus  String?   // open | resolved | not-applicable (digest-extracted)
+  // Lossy: the fetched text was longer than gemini.MAX_DOC_CHARS (30K), so everything past
+  // that never reached the digest or the embedding and is not searchable. One source = one
+  // digest = one embedding (no chunking — the scaling ADR's decision 4), so this is a
+  // standing property of the row, surfaced on Manage → Sources rather than left silent
+  // (decision 3, #56). Re-evaluated on every refresh.
+  truncated     Boolean   @default(false)
   addedBy       String?   // who brought this in: user handle, or the Drive sharer
   lastCheckedAt DateTime?
   lastChangedAt DateTime?

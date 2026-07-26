@@ -3,16 +3,10 @@ import { createHash } from 'crypto';
 import { lookup } from 'node:dns/promises';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import {
-  embedText,
-  summarizeDocument,
-  classifyContext,
-  classifyWithinAnchor,
-  digestToText,
-  type Classification,
-  type DocDigest,
-} from './gemini';
+import { embedText, summarizeDocument, classifyContext, classifyWithinAnchor, digestToText, type Classification, type DocDigest } from './gemini';
 import { parseGoogleDocId, fetchGoogleDocText } from './google-docs';
+import { readCapped, isSourceRejected, REJECTION_KEY, MAX_FETCH_BYTES, isTruncated } from './ingestLimits';
+import type { StringKey } from './i18n';
 import {
   inferSource,
   canonicalizeUrl,
@@ -34,6 +28,11 @@ export interface IngestAnchor {
 export interface IngestResult {
   ok: boolean;
   error?: string;
+  /** A TYPED refusal (unsupported media, …): the UI renders `t(locale, errorKey, errorVars)`
+   *  so a boundary limit reads as an honest sentence instead of a leaked upstream status
+   *  (#56). `error` still carries the English fallback for logs and non-UI callers. */
+  errorKey?: StringKey;
+  errorVars?: Record<string, string | number>;
   title?: string;
   digest?: DocDigest;
   attachedTo?: { kind: 'project' | 'partner' | 'none'; id: number | null; name: string | null };
@@ -143,6 +142,10 @@ export async function ingestContent(opts: IngestContentOptions): Promise<IngestR
   const hash = hashContent(opts.text);
   const now = new Date();
   const legacyType = LEGACY_TYPE_BY_KIND[opts.source.kind];
+  // Flags the row as lossy — see ContextUrl.truncated. Everything past the cap never reached
+  // the model and is not searchable. Recorded per row (#56) because a limit the user can
+  // SEE on the source they pasted is the difference between a known limit and a bug.
+  const truncated = isTruncated(opts.text);
 
   // Row + initial revision commit together (a source with no revision history reads
   // as broken), and the sourceRef unique constraint is the dedupe of record: two
@@ -155,12 +158,12 @@ export async function ingestContent(opts: IngestContentOptions): Promise<IngestR
         INSERT INTO "ContextUrl" (
           "projectId", "partnerId", "phaseId", "url", "type", "title", "ingestedText", "embedding",
           "mode", "modeSource", "sourceRef", "sourceVersion", "contentHash", "sourceStatus",
-          "addedBy", "lastCheckedAt", "lastChangedAt"
+          "addedBy", "lastCheckedAt", "lastChangedAt", "truncated"
         )
         VALUES (
           ${projectId}, ${partnerId}, ${phaseId}, ${opts.url}, ${legacyType}, ${title}, ${digestText}, ${vectorStr}::vector,
           ${opts.mode}, ${opts.modeSource}, ${opts.source.sourceRef}, ${opts.sourceVersion ?? null}, ${hash}, ${digest.sourceStatus},
-          ${opts.addedBy ?? null}, ${now}, ${now}
+          ${opts.addedBy ?? null}, ${now}, ${now}, ${truncated}
         )
         RETURNING id
       `);
@@ -216,6 +219,10 @@ export async function ingestGoogleDoc(
   try {
     text = await fetchGoogleDocText(docId, accessToken);
   } catch (e) {
+    // A shared video/PDF/Sheet reaches here as a typed boundary refusal, not a raw 403.
+    if (isSourceRejected(e)) {
+      return { ok: false, error: e.message, errorKey: REJECTION_KEY[e.kind], errorVars: e.vars };
+    }
     return { ok: false, error: (e as Error).message };
   }
   if (!text.trim()) return { ok: false, error: 'That document exported as empty text.' };
@@ -235,6 +242,10 @@ export async function ingestGoogleDoc(
 export interface WebFetchResult {
   ok: boolean;
   error?: string;
+  /** Typed boundary refusal (see IngestResult.errorKey) — set when the failure is a
+   *  declared limit rather than a transport problem. */
+  errorKey?: StringKey;
+  errorVars?: Record<string, string | number>;
   status?: number; // HTTP status on failure (404 → freeze as deleted)
   authWall?: boolean;
   text?: string;
@@ -321,10 +332,24 @@ export async function fetchWebUrl(url: string, priorEtag?: string | null): Promi
 
   const contentType = res.headers.get('content-type') || '';
   if (!/text\/|json|xml/.test(contentType)) {
-    return { ok: false, error: `Unsupported content type (${contentType.split(';')[0] || 'unknown'}).` };
+    // The binary boundary: a video/image/archive is refused BEFORE a byte of it is read,
+    // and refused by NAME so the user hears "video isn't indexable" rather than a
+    // content-type string (#56).
+    const type = contentType.split(';')[0] || 'unknown';
+    // Drop the connection rather than leaving the body to be drained or garbage-collected:
+    // refusing a 4 GB video only costs nothing if we also stop it arriving.
+    await res.body?.cancel().catch(() => {});
+    return {
+      ok: false,
+      error: `Unsupported content type (${type}).`,
+      errorKey: REJECTION_KEY['unsupported-media'],
+      errorVars: { type },
+    };
   }
 
-  const raw = (await res.text()).slice(0, 2_000_000);
+  // The byte ceiling lives on the wire (lib/ingestLimits), not on an already-buffered
+  // string: over-cap bodies are cancelled mid-stream, so no page can cost more than the cap.
+  const raw = await readCapped(res, MAX_FETCH_BYTES);
   const isHtml = /html/.test(contentType);
   const text = isHtml ? htmlToText(raw) : normalizeText(raw);
   if (looksLikeAuthWall(finalUrl, text)) return { ok: true, authWall: true, finalUrl };
@@ -372,7 +397,9 @@ export async function ingestLink(opts: {
 
   // tracker + generic web
   const fetched = await fetchWebUrl(opts.url);
-  if (!fetched.ok) return { ok: false, error: fetched.error };
+  if (!fetched.ok) {
+    return { ok: false, error: fetched.error, errorKey: fetched.errorKey, errorVars: fetched.errorVars };
+  }
   if (fetched.authWall) {
     return { ok: false, error: 'That page sits behind a sign-in wall, so it can’t be indexed from here.' };
   }
