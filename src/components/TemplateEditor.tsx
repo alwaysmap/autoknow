@@ -3,9 +3,11 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import ChartLabel from './ChartLabel';
 import Markdown from './Markdown';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
 import { LEAD_ROLES } from '../lib/builtinTemplates';
+import { estimateTextWidth } from '../lib/labelPlacement';
 import { updateTemplateMeta, cloneTemplate, saveTemplatePhases } from '../app/actions/templates';
 import PhaseDagEditor, { DagEditorNode } from './PhaseDagEditor';
 import PhaseTable from './PhaseTable';
@@ -73,7 +75,18 @@ export function DagPreview({ phases }: { phases: DagPreviewPhase[] }) {
   const maxRows = Math.max(1, ...[...columns.values()].map((c) => c.length));
   const w = PAD * 2 + (maxDepth + 1) * COL_W;
   const h = PAD * 2 + 14 + maxRows * ROW_H;
-  const truncate = (s: string) => (s.length > 17 ? s.slice(0, 16) + '…' : s);
+  // Trim to the WIDTH the column actually has, not to a glyph count: a 17-character name
+  // is ~110px in Latin and ~190px in Japanese, and the latter ran straight through the
+  // next column's node. The budget is the gap from this label's left edge to the next
+  // node's constraint ring, less a hair of breathing room.
+  const LABEL_FS = 11, LABEL_DX = 12, RING_R = 8.5;
+  const LABEL_MAX_W = COL_W - LABEL_DX - RING_R - 6;
+  const truncate = (s: string) => {
+    if (estimateTextWidth(s, LABEL_FS) <= LABEL_MAX_W) return s;
+    const glyphs = [...s];
+    while (glyphs.length > 1 && estimateTextWidth(glyphs.join('') + '…', LABEL_FS) > LABEL_MAX_W) glyphs.pop();
+    return glyphs.join('') + '…';
+  };
 
   if (phases.length === 0) return null;
   return (
@@ -91,7 +104,12 @@ export function DagPreview({ phases }: { phases: DagPreviewPhase[] }) {
           <g key={p.id}>
             {p.isEndPhase && <circle cx={c.x} cy={c.y} r={8.5} fill="none" stroke="var(--chain)" strokeWidth={1.8} />}
             <circle cx={c.x} cy={c.y} r={5} fill="hsl(0, 0%, 25%)" />
-            <text x={c.x + 12} y={c.y + 3.5} fontSize={11} fill="var(--fg)">{truncate(p.name)}</text>
+            {/* Node names sit on a FIXED grid (COL_W apart, ROW_H down) and `truncate`
+                now caps them by width, so two names cannot collide and no de-collision
+                pass belongs here. They do cross the dependency edges, which is what
+                ChartLabel's halo is for — this was the last hand-rolled `<text>` in the
+                sweep (AGENTS lesson 7). */}
+            <ChartLabel x={c.x + LABEL_DX} y={c.y + 3.5} fontSize={LABEL_FS} fill="var(--fg)">{truncate(p.name)}</ChartLabel>
             <title>{p.name}</title>
           </g>
         );
