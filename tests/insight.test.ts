@@ -1,4 +1,4 @@
-import { compareInsights, scopeIs, type Insight } from '../src/lib/insight';
+import { compareInsights, type Insight } from '../src/lib/insight';
 import { t } from '../src/lib/i18n';
 
 // The Insight envelope (lib/insight, ADR an-insight-separates-symptom-from-action).
@@ -182,21 +182,38 @@ describe('compareInsights', () => {
     }
   });
 
-  test('a null measure ranks against nothing', () => {
-    expect(compareInsights(at('act', 'ingestion', null, 'a'), at('act', 'ingestion', 9, 'b'))).toBe(0);
+  test('a measureless insight sorts to the end of its group, and does NOT tie', () => {
+    // A tie here is the same intransitivity as the cross-source case, one level
+    // down: null≡5, null≡10, yet 10<5. Permutations again, because [5, null, 10]
+    // was the single input order that exposed it.
+    const m5 = at('act', 'ingestion', 5, 'm5');
+    const m10 = at('act', 'ingestion', 10, 'm10');
+    const none = at('act', 'ingestion', null, 'none');
+    const expected = ['m10', 'm5', 'none'];
+    for (const perm of [[m5, none, m10], [none, m5, m10], [m10, none, m5], [m5, m10, none]]) {
+      expect([...perm].sort(compareInsights).map((i) => i.id)).toEqual(expected);
+    }
+  });
+
+  test('two measureless insights hold their input order', () => {
+    const a = at('act', 'ingestion', null, 'a');
+    const b = at('act', 'ingestion', null, 'b');
+    expect(compareInsights(a, b)).toBe(0);
   });
 });
 
-describe('scopeIs', () => {
-  test('narrows to the members that carry an id', () => {
+describe('InsightScope', () => {
+  // No narrowing HELPER: `InsightScope` is a discriminated union, so `.kind === x`
+  // narrows natively — a `scopeIs` wrapper was written and then deleted, because a
+  // named export that only restates the language earns nothing (AGENTS lesson 12).
+  test('a kind check narrows to the members that carry an id', () => {
     const scope = forecastOverrun.scope;
-    expect(scopeIs(scope, 'phase')).toBe(true);
-    if (scopeIs(scope, 'phase')) expect(scope.programId).toBe(12); // narrowed: programId is reachable
-    expect(scopeIs(scope, 'ecosystem')).toBe(false);
+    expect(scope.kind).toBe('phase');
+    if (scope.kind === 'phase') expect(scope.programId).toBe(12); // narrowed: programId is reachable
   });
 
   test('the ecosystem scope carries nothing beyond its kind', () => {
-    expect(scopeIs(gatingConstraint.scope, 'ecosystem')).toBe(true);
-    expect(scopeIs(gatingConstraint.scope, 'person')).toBe(false);
+    expect(gatingConstraint.scope.kind).toBe('ecosystem');
+    expect(Object.keys(gatingConstraint.scope)).toEqual(['kind']);
   });
 });

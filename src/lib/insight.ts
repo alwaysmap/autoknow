@@ -18,12 +18,19 @@ import type { StringKey } from './i18n';
 // a shape validated by one caller is a guess, so the first callers (#148, #140)
 // bring their own mapping and this file stays a contract.
 
-/** WHAT produced this — the discriminant, as FeedKind is for the feed. */
-export type InsightSource =
-  | 'critical-chain' // chainLedger Situations, live constraints
-  | 'resource-load' // one calendar across many programs
-  | 'relationship' // partner health / score movement
-  | 'ingestion'; // freshness, failures
+/**
+ * WHAT produced this — the discriminant, as FeedKind is for the feed. Declared as
+ * an ordered array because `compareInsights` GROUPS by this order and derives
+ * `SOURCE_RANK` from it; a union written separately would let the two disagree.
+ */
+export const INSIGHT_SOURCES = [
+  'critical-chain', // chainLedger Situations, live constraints
+  'resource-load', // one calendar across many programs
+  'relationship', // partner health / score movement
+  'ingestion', // freshness, failures
+] as const;
+
+export type InsightSource = (typeof INSIGHT_SOURCES)[number];
 
 /** WHO/WHAT it is about, so one list can be filtered or rolled up. */
 export type InsightScope =
@@ -95,21 +102,19 @@ export interface Insight {
   href: string;
 }
 
-/** The order `severity` sorts in. Private: `compareInsights` is the whole API. */
+/** The order `severity` sorts in. */
 const SEVERITY_RANK: Record<InsightSeverity, number> = { act: 0, watch: 1, clear: 2 };
 
 /**
- * The order sources GROUP in — the declaration order of `InsightSource`, same as
- * `InsightSeverity` reads in the order it sorts. This is a grouping, NOT a claim
- * that a chain insight outranks a load one; it exists because the alternative is
- * worse (see `compareInsights`).
+ * The order sources GROUP in. Derived from `INSIGHT_SOURCES` rather than written
+ * out again, so the order is a fact one array states, not a coupling between two
+ * lists that a reader has to keep true by hand (`lib/relationship`'s REL_SCORES →
+ * RelScore is the same move). A grouping is NOT a claim that a chain insight
+ * outranks a load one; it exists because the alternative is worse — see below.
  */
-const SOURCE_RANK: Record<InsightSource, number> = {
-  'critical-chain': 0,
-  'resource-load': 1,
-  relationship: 2,
-  ingestion: 3,
-};
+const SOURCE_RANK: Record<InsightSource, number> = Object.fromEntries(
+  INSIGHT_SOURCES.map((s, i) => [s, i]),
+) as Record<InsightSource, number>;
 
 /**
  * List order for a mixed set: severity, then source, then `measure` descending —
@@ -129,14 +134,12 @@ export function compareInsights(a: Insight, b: Insight): number {
   if (bySeverity !== 0) return bySeverity;
   const bySource = SOURCE_RANK[a.source] - SOURCE_RANK[b.source];
   if (bySource !== 0) return bySource;
-  if (a.symptom.measure === null || b.symptom.measure === null) return 0;
+  // A measureless insight has nothing to rank ON, so it sorts to the END of its
+  // severity+source group. NOT a tie: `null ≡ 5`, `null ≡ 10`, `10 < 5` is the
+  // same intransitivity one level down, and it reordered [5, null, 10] into
+  // 5-before-10 exactly as the cross-source tie did. Every branch of this
+  // function has to be total, not just the one that was caught first.
+  if (a.symptom.measure === null) return b.symptom.measure === null ? 0 : 1;
+  if (b.symptom.measure === null) return -1;
   return b.symptom.measure - a.symptom.measure;
-}
-
-/** Narrows a scope to one kind — the union is closed, so this is the read path. */
-export function scopeIs<K extends InsightScope['kind']>(
-  scope: InsightScope,
-  kind: K,
-): scope is Extract<InsightScope, { kind: K }> {
-  return scope.kind === kind;
 }

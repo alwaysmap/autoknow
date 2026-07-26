@@ -44,6 +44,16 @@ otherwise break while still compiling:
   insights that *are* comparable. Grouping is not a claim that a chain insight
   outranks a load one — it is what makes the order total, and a total order is
   the only kind that can promise "bigger measure first" for every input.
+
+  The same trap caught this comparator **twice**: once across sources, and once
+  on `measure: null`, where `null ≡ 5` and `null ≡ 10` while `10 < 5`. Both were
+  written as ties for the same sympathetic reason ("these two aren't comparable,
+  let the producer's order stand"), and a stable sort does not deliver that — it
+  preserves input order only for elements the comparator actually calls equal.
+  So: a measureless insight sorts to the END of its group, and **every branch of
+  a comparator has to be total, not just the one someone caught first.** Both are
+  pinned by permutation tests rather than a single input order, because a single
+  order is exactly how each of them hid.
 * **`symptom.key` and `action.key` are `StringKey` from `lib/i18n`, not `string`.**
   The catalog key is compile-checked, so prose cannot be smuggled into a producer.
   This is what lets a list of insights be built, sorted and filtered server-side —
