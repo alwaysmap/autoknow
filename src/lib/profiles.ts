@@ -9,14 +9,16 @@ import { prisma } from './db';
 // in ADR currentpartnerid-is-a-cache-affiliations-are-the-truth. Both coincide with the
 // truth only while nobody has a move recorded.
 //
-// `createPersonAt` is at the bottom and is a WRITE, which the module name does not
-// suggest. It is here because creating a person means opening their first period, so it
-// belongs with the code that reads periods — and because it needs prisma, which rules
-// out ./people below.
+// `createPersonAt` is a WRITE, which "resolvers" does not suggest. It is here because
+// creating a person means opening their first period, so it belongs with the code that
+// reads periods — and because it needs prisma, which is what rules out ./people.
 //
 // `coversDay` is the JS twin, for a period already in hand. These are for periods still
 // in the database: the predicate goes into SQL so the wrong row never comes back to be
-// filtered, which is what E4's composite indexes were added for.
+// filtered, which is what E4's composite indexes were added for. As of #127 E5 `coversDay`
+// has no production caller — /people/:id was the last and now asks in SQL. Staged, not
+// dead: it is still the right answer for a caller holding rows, and writing a third date
+// comparison instead is the bug.
 //
 // "Profile" is #124 §4's word for a person's affiliation as of a date — not the
 // account-shaped sense in `createMyProfile`.
@@ -181,10 +183,10 @@ export async function createPersonAt(person: {
  * The as-of predicate as raw SQL, for the ONE query that cannot be a Prisma call:
  * `lib/search`'s UNION, which is hand-written `Prisma.sql` end to end.
  *
- * It exists so that query does not spell the rule a fourth time. `asOfWhere` above is
- * the Prisma spelling and this is the SQL one; they are two renderings of a single
- * sentence and must be changed together — which is why they live four lines apart
- * rather than in the module that needs each.
+ * It exists so that query does not spell the rule a fourth time. `asOfWhere` at the top
+ * of this module is the Prisma spelling and this is the SQL one; they are two renderings
+ * of a single sentence and must change together, which is why both live here rather than
+ * each in the module that needs it.
  *
  * Correlates on a subquery rather than a join so the caller can drop it into an existing
  * `WHERE` without touching its FROM clause, and so a person cannot appear twice.

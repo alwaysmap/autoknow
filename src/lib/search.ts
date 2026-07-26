@@ -219,14 +219,15 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope, sem
         WHERE ${eligible} AND ${where}`;
     }
     case 'person': {
+      // Who is at this partner TODAY (#127 E5). This was `pe."currentPartnerId" = …` — a
+      // cache, and one the member/property lint selectors could never have seen, because
+      // inside `Prisma.sql` a column name is just text; that is exactly why the guard
+      // also carries a `TemplateElement` selector. Searching a partner's scope returned
+      // people who had not started and missed people who had. The predicate is
+      // `lib/profiles`', not spelled again here.
       const where =
         partnerId != null
-          ? // Who is at this partner TODAY (#127 E5). This was `pe."currentPartnerId" =
-            // …` — a cache, and one no AST-level lint rule could ever have seen, because
-            // inside `Prisma.sql` a column name is just text. Searching a partner's
-            // scope therefore returned people who had not started and missed people who
-            // had. The predicate is `lib/profiles`', not spelled again here.
-            personIsAtPartnerAsOfSql(Prisma.sql`pe.id`, partnerId)
+          ? personIsAtPartnerAsOfSql(Prisma.sql`pe.id`, partnerId)
           : projectId != null
             ? Prisma.sql`FALSE`
             : Prisma.sql`TRUE`;

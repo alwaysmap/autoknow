@@ -49,10 +49,8 @@ describe('partnerQueries module', () => {
       }
     });
 
-    // Two people, so the team cell has something to be right AND wrong about. Until
-    // #127 E5 `getAllPartners` unioned the `currentPartnerId` back-relation with every
-    // affiliation row, which listed the leaver here permanently — and the "My partners"
-    // toggle matched a company you left years ago.
+    // Two people, so the team cell has something to be right AND wrong about: one who
+    // is here today and one who left. A one-person fixture passes for the wrong reason.
     const stayer = await prisma.person.create({
       data: { name: 'Ada Current', email: 'ada@tesla.com', currentPartnerId: partner.id },
     });

@@ -48,10 +48,9 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
   }
 
   // The job held TODAY, decided ONCE for the whole page (#127 E5). The identity line
-  // prints it and the History section is its complement — so asking twice, or asking
-  // the `currentPartnerId` cache for the company and the affiliation rows for the role,
-  // is how a period came to appear in both places or in neither. Null is a real answer:
-  // a gap between jobs, or a hire that starts next month.
+  // prints it and the History section below is its complement BY ROW ID — one decision,
+  // so no period can land in both sections or in neither, which is how this page broke
+  // before. Null is a real answer: a gap between jobs, or a hire starting next month.
   const profile = await profileAsOf(person.id);
 
   // Programs owned as TEL: ownerName is a free-text handle/email, so match the
@@ -172,13 +171,8 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
               {t(locale, 'historyLabel')}
             </AnchorHeading>
             {(() => {
-              // Everything except the job held today — the COMPLEMENT of the identity
-              // line, by row id rather than by re-deciding. That is the whole reason
-              // `profileAsOf` is called above instead of running `coversDay` here: two
-              // independent decisions can disagree, and a period landing in both places
-              // or in neither is exactly how this section broke before (filtering on
-              // `endDate != null` filed TODAY's job under History the moment a move was
-              // scheduled).
+              // The COMPLEMENT of the identity line, by row id — see the `profileAsOf`
+              // call above for why it is a complement and not a second decision.
               //
               // A period that has not started yet lists here too — so this is NOT "prior"
               // companies — and its open end still renders as "Present", wrong for a job

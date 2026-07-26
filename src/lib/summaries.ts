@@ -170,8 +170,7 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
           states: { orderBy: { timestamp: 'desc' }, take: 3 },
           partners: { include: { partner: { select: { name: true } } } },
           // Who is on this phase, and in what role — the "why is this person named"
-          // signal (#73). Their company is the internal-vs-partner signal, and it is
-          // resolved as-of below rather than joined here (#127 E5).
+          // signal (#73). Their company is resolved as-of below, not joined here.
           people: { include: { person: { select: { id: true, name: true } } } },
           // Resolve the assignee to the canonical Person so the action carries their
           // company (assignedTo free text alone can't say which side they're on).
@@ -187,18 +186,20 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
   });
   if (!project) return null;
 
-  // Which company each named person is at TODAY, in one query for the whole program —
-  // the "which side are they on" signal the model reasons from. As-of, not the
-  // `currentPartner` cache the includes above used to carry (ADR
+  // Which company each named person is at TODAY, in one query for the whole program.
+  // This is the "which side are they on" signal the model reasons from — a Qualcomm
+  // owner IS the partner — which is why it must be as-of and not the `currentPartner`
+  // cache the includes above used to carry (ADR
   // currentpartnerid-is-a-cache-affiliations-are-the-truth).
-  const profileByPerson = await profilesAsOf([
+  const namedPersonIds = [
     ...new Set([
       ...project.phases.flatMap((ph) => ph.people.map((pp) => pp.personId)),
       ...project.phases.flatMap((ph) =>
         ph.actionItems.map((a) => a.assignedToPersonId).filter((id): id is number => id != null),
       ),
     ]),
-  ]);
+  ];
+  const profileByPerson = await profilesAsOf(namedPersonIds);
   /** Null, never a guess: a person with no period covering today is named without a
    *  company rather than with a stale one — the model must not infer a side from ink we
    *  do not have. */

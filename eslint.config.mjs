@@ -41,7 +41,8 @@ const noSessionFieldReads = [
 const AS_OF_MESSAGE =
   "Ask which company a person is at AS OF A DAY, never off the `currentPartnerId` cache " +
   "or an `endDate: null` where-clause. Two sanctioned answers: `lib/profiles` " +
-  "(profileAsOf / profilesAsOf / partnerRosterAsOf) when the rows are still in the " +
+  "(profileAsOf / profilesAsOf / partnerRosterAsOf / rostersByPartnerAsOf, and " +
+  "personIsAtPartnerAsOfSql for hand-written SQL) when the rows are still in the " +
   "database, `lib/people`'s coversDay when you already hold them " +
   "(docs/adr/2026-07-26-currentpartnerid-is-a-cache-affiliations-are-the-truth.md).";
 
@@ -53,10 +54,7 @@ const AS_OF_MESSAGE =
 // happened to mention `endDate` would have silently changed the answer.
 //
 // Both are broad on purpose and exempted BY FILE — the same trade the identity rule
-// makes. Narrowing by context (allow it under `data:`, forbid it under `select:`) is
-// exactly the kind of selector a fourth spelling walks around, because the wrong read is
-// not a syntax the AST distinguishes: `currentPartner` in an `include` and in a `select`
-// are the same node.
+// makes. The narrower, context-sensitive selector is a rejected alternative in the ADR.
 const noCachedAffiliationReads = [
   {
     // `person.currentPartner`, `p.currentPartnerId`, `partner.currentEmployees`.
@@ -113,8 +111,8 @@ const eslintConfig = defineConfig([
   ...nextTs,
   {
     rules: {
-      // Every family. The two overrides below re-list a SUBSET, so a new family added
-      // here must be added there too — that is the cost of exemptions that stay
+      // Every family. EVERY override below re-lists a subset, so a new family added here
+      // must be added to each of them too — that is the cost of exemptions that stay
       // decisions, and it is why each override says which families it drops and why.
       "no-restricted-syntax": [
         "error",

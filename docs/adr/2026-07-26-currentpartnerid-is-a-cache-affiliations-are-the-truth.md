@@ -25,7 +25,7 @@ nobody had thought to check, because each read *looked* locally reasonable.
 **Decision.** Two sanctioned ways to ask, and no third.
 
 1. **`src/lib/profiles.ts` when the rows are still in the database.** `profileAsOf`,
-   `profilesAsOf`, `partnerRosterAsOf`, `partnerRostersAsOf` — the predicate goes into
+   `profilesAsOf`, `partnerRosterAsOf`, `rostersByPartnerAsOf` — the predicate goes into
    SQL against E4's composite index, so the wrong row never comes back to be filtered.
    `personIsAtPartnerAsOfSql` is the same sentence for the one hand-written query
    (`lib/search`'s UNION) that cannot call Prisma.

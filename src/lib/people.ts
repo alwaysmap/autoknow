@@ -59,6 +59,12 @@ export function hasTakenEffect(effective: Date | string, at: Date = new Date()):
  * looks current). On the seeded fixture that read as Alice Waters' role vanishing from
  * the identity line, the job she actually holds filed under History, and a job she starts
  * in November labelled "Present".
+ *
+ * NO production caller as of #127 E5: /people/:id was the last one, and it now asks
+ * `profileAsOf` so its identity line and its History section cannot disagree. Staged,
+ * not dead — it is still the right answer the moment a surface has the periods in hand
+ * and no reason to re-query, and the lint rule names it as one of the two sanctioned
+ * spellings. Delete it only if that stops being true.
  */
 export function coversDay(
   period: { startDate: Date | string; endDate: Date | string | null },

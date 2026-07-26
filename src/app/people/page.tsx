@@ -30,20 +30,20 @@ export default async function PeoplePage(props: { searchParams: Promise<SearchPa
 
   // ONE query for the whole page rather than one per row, and the source of BOTH company
   // and role — they are one fact and must not come from two places (#127 E5).
-  const affiliationByPerson = await profilesAsOf(people.map((p) => p.id));
+  const profileByPerson = await profilesAsOf(people.map((p) => p.id));
 
   const rows = people.map((p) => {
     // No period covering today is a real answer — a gap, or a hire that starts next
     // month. Blank cells, never a guessed company: the funnel filter groups on the
     // rendered value, so an invented one would open a phantom facet.
-    const at = affiliationByPerson.get(p.id);
+    const profile = profileByPerson.get(p.id);
     return {
       id: p.id,
       name: p.name,
       email: p.email,
-      companyId: at?.partnerId ?? null,
-      company: at?.partner.name ?? '',
-      role: at?.role ?? '',
+      companyId: profile?.partnerId ?? null,
+      company: profile?.partner.name ?? '',
+      role: profile?.role ?? '',
       programs: new Set([
         ...p.phaseInvolvements.map((i) => i.phase.projectId),
         ...p.actionItems.map((a) => a.phase.projectId),

@@ -25,7 +25,7 @@ interface Project {
 
 /** Structurally `RosterMember` from lib/profiles, redeclared because this is a client
  *  component and that module is server-only. Keep the two in step. */
-interface Person {
+interface RosterMember {
   id: number;
   name: string;
   email: string;
@@ -39,7 +39,7 @@ interface Partner {
   projects: Project[];
   /** Who is at this partner TODAY — the as-of roster (lib/partnerQueries), not everyone
    *  who ever was. */
-  team: Person[];
+  team: RosterMember[];
 }
 
 interface Option {
@@ -50,7 +50,7 @@ interface Option {
 interface PartnersClientProps {
   partners: Partner[];
   currentUser: string;
-  people: Person[];
+  people: RosterMember[];
   /** partnerId → latest score + oldest→newest history (see lib/relationship). */
   relationship: Record<number, { score: number | null; history: number[] }>;
   types: Option[];
