@@ -15,6 +15,8 @@ import dash from './ProjectStatusDashboard.module.css';
 import pills from './PhaseTrack.module.css';
 import styles from './ProjectMetaHeader.module.css';
 import KebabMenu from './KebabMenu';
+import PersonCell from './PersonCell';
+import { partnerHref } from '../lib/entityHref';
 import { localDate } from '../lib/dates';
 import { resolvePerson } from '../lib/people';
 
@@ -155,7 +157,7 @@ export default function ProjectMetaHeader({
           dotted = the Googler owner. The pill styling replaces the old labels. */}
       <div className={styles.facts}>
         {oemPartner ? (
-          <Link href={`/partners/${oemPartner.id}`} className={`${pills.pill} ${pills.pillLead}`}
+          <Link href={partnerHref(oemPartner.id)} className={`${pills.pill} ${pills.pillLead}`}
             title="OEM">
             {oemPartner.name}
           </Link>
@@ -163,15 +165,18 @@ export default function ProjectMetaHeader({
           <span className={styles.factMuted}>{t(locale, 'tbd')}</span>
         )}
         {(suppliersList ?? []).map((sup) => (
-          <Link key={sup.id} href={`/partners/${sup.id}`} className={`${pills.pill} ${pills.pillCompany}`}
+          <Link key={sup.id} href={partnerHref(sup.id)} className={`${pills.pill} ${pills.pillCompany}`}
             title={t(locale, 'suppliersLabel')}>
             {sup.name}
           </Link>
         ))}
         {ownerName ? (
-          <span className={`${pills.pill} ${pills.pillGoogler}`} title={t(locale, 'googlerOwner')}>
-            {ownerName}
-          </span>
+          /* The owner reads by NAME and routes to /people/:id, through the one person
+             cell (#153) — the OEM and supplier pills beside it were already links, so
+             the owner was this strip's lone plain-text dead end (design.md §2). The
+             pill's dotted ink rides on PersonCell's className, as on the phase rail. */
+          <PersonCell value={ownerName} people={peopleOptions ?? []}
+            className={`${pills.pill} ${pills.pillGoogler}`} title={t(locale, 'googlerOwner')} />
         ) : (
           /* owner is REQUIRED — absence is a to-do, not a quiet fact */
           <button type="button" className={styles.ownerMissing} title={t(locale, 'googlerOwner')}

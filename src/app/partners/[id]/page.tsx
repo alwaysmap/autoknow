@@ -19,6 +19,7 @@ import AnchorHeading from '../../../components/AnchorHeading';
 import KebabMenu from '../../../components/KebabMenu';
 import { NewPersonButton } from '../../../components/PersonEditor';
 import PersonCell from '../../../components/PersonCell';
+import { resolvePeople } from '../../../lib/personDirectory';
 
 export const dynamic = 'force-dynamic';
 
@@ -119,6 +120,10 @@ export default async function PartnerDetailPage(props: PageProps) {
   const summary = await getSummary('partner', partner.id);
 
   const googleTeam = (partner.googleTeam as TeamMember[] | null) || [];
+  // `googleTeam` is a JSON blob of bare email strings — no Person relation to join
+  // through — so the join happens at read time, through the shared server resolver
+  // (#153). Keyed by the stored string, so the render hands its own value straight back.
+  const teamPeople = await resolvePeople(googleTeam.map((m) => m.email));
 
   // No phone here: phone numbers belong to PEOPLE, not companies (the People
   // block is where you find someone to call).
@@ -260,10 +265,13 @@ export default async function PartnerDetailPage(props: PageProps) {
               <p className={styles.empty}>{t(locale, 'noAssociatedPeople')}</p>
             ) : (
               <div className={styles.peopleList}>
+                {/* Both halves are names through PersonCell (#153) — `.personItem` in the
+                    module carries why the Google team's own twin class went away. */}
                 {googleTeam.map((member, i) => (
-                  <div key={`g-${i}`} className={styles.teamItem}>
-                    <strong>{member.email}</strong>
-                    {member.role && <span className={styles.teamRole}>{member.role}</span>}
+                  <div key={`g-${i}`} className={styles.personItem}>
+                    <PersonCell person={teamPeople[member.email]} value={member.email}
+                      className={styles.personLink} />
+                    {member.role && <span className={styles.personRole}>{member.role}</span>}
                   </div>
                 ))}
                 {partner.personAffiliations.map((aff) => (

@@ -126,13 +126,19 @@
   padding-top: 0.875rem;
 }
 
+/* The app's subsection heading, not a variant of it: uppercase, 700, 0.05em, muted —
+   the same treatment as the RISKS / ACTIONS / PROGRESS headings SummaryPanel puts in
+   the reading column right beside this rail, and as every other card head in the app.
+   It used to be head-font 0.875rem/0.08em in `--p-600`, which is the BRAND GREEN:
+   design.md §6 reserves the green ramp for semantic positives (on track, early,
+   saved), so spending it on a heading paints a status onto a label that has none. */
 .sidebarCard h3 {
-  font-family: var(--head-font);
-  font-size: 0.875rem;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--p-600);
+  letter-spacing: 0.05em;
+  color: var(--muted);
   margin: 0 0 0.625rem 0;
 }
 
@@ -200,23 +206,10 @@
   gap: 0.625rem;
 }
 
-.teamItem {
-  font-size: 0.8125rem;
-  display: flex;
-  align-items: baseline;
-  gap: 0.4375rem;
-  line-height: 1.25rem;
-}
-.teamItem strong {
-  color: var(--fg);
-}
-.teamRole {
-  font-size: 0.6875rem;
-  line-height: 1rem;
-  color: var(--muted);
-  font-style: italic;
-}
-
+/* One row treatment for everyone in this card. `.teamItem`/`.teamRole` were a
+   byte-identical twin of these two (bar an italic on the role), which is how the
+   Google-team half drifted into printing an email in bold while the affiliation half
+   right below it printed a name — #153's defect, in one card. */
 .personItem {
   font-size: 0.8125rem;
   display: flex;

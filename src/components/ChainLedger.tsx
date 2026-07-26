@@ -9,10 +9,12 @@ import { DAY_MS } from '../lib/sop';
 import AnchorHeading from './AnchorHeading';
 import OverlayDialog from './OverlayDialog';
 import ConstraintRing from './ConstraintRing';
+import PersonCell, { type PersonRef } from './PersonCell';
 import { ChainSchedule, CARD_W } from './ChainSchedule';
 import type { RowCard } from './ChainSchedule';
 import { isForecastOver, isSevereOverrun } from '../lib/chainLedger';
 import { phasesEditHref } from '../lib/phase';
+import { partnerHref, programHref } from '../lib/entityHref';
 import type { ChainLedgerResult, ResourceRef, ScheduleRow, Situation, WaterfallRow } from '../lib/chainLedger';
 import styles from './ChainLedger.module.css';
 
@@ -36,8 +38,12 @@ interface ChainLedgerProps {
   ledger: ChainLedgerResult;
   sopDate: string | null;
   volumeFirstYear: number;
-  owner: string | null; // the program's Googler owner
-  ownerPersonId: number | null; // resolved so the mention can link
+  owner: string | null; // the program's Googler owner, as stored (a handle or an email)
+  /** The Person that string names, when it names one — id AND name together, so the
+   *  sentence cannot end up with a route and no name to put on it (the pairing #153
+   *  drew out on the phase rail). Null when nothing resolves; PersonCell then reads the
+   *  stored string, and reads it as a name. */
+  ownerPerson: PersonRef | null;
   ownerOtherActive: OwnerOtherActive[];
 }
 
@@ -50,7 +56,7 @@ const CARD_GAP = 16; // px between the pointer and the summary card's near edge
 
 
 export default function ChainLedger({
-  projectId, locale, now, ledger, sopDate, volumeFirstYear, owner, ownerPersonId, ownerOtherActive,
+  projectId, locale, now, ledger, sopDate, volumeFirstYear, owner, ownerPerson, ownerOtherActive,
 }: ChainLedgerProps) {
   const [legendOpen, setLegendOpen] = useState(false);
   const wrapRef = useRef<HTMLElement>(null);
@@ -99,10 +105,15 @@ export default function ChainLedger({
     <button type="button" className={styles.phaseLink} onClick={() => jumpToPhase(id)}>{nameOf(id)}</button>
   );
   const progLink = (id: number, name: string) => (
-    <Link href={`/programs/${id}`} className={styles.entityLink}>{name}</Link>
+    <Link href={programHref(id)} className={styles.entityLink}>{name}</Link>
   );
+  // A contended resource is a partner or a PERSON, and the person half goes through the
+  // same cell as the owner sentence below — one component knows a person's route, so
+  // this file cannot hand-roll a second /people/:id (the sweep entityHref.ts flags).
   const resLink = (r: ResourceRef) => (
-    <Link href={r.kind === 'partner' ? `/partners/${r.id}` : `/people/${r.id}`} className={styles.entityLink}>{r.name}</Link>
+    r.kind === 'partner'
+      ? <Link href={partnerHref(r.id)} className={styles.entityLink}>{r.name}</Link>
+      : <PersonCell person={{ id: r.id, name: r.name }} className={styles.entityLink} />
   );
 
   // ---- headline: ONE sentence — buffer, estimated end date, SOP. The history
@@ -255,9 +266,11 @@ export default function ChainLedger({
       '; ',
     );
     nextSteps.push(tNodes(locale, ownerOtherActive.length === 1 ? 'clOwnerLoadOne' : 'clOwnerLoad', {
-      owner: ownerPersonId != null
-        ? <Link href={`/people/${ownerPersonId}`} className={styles.entityLink}>{owner}</Link>
-        : owner,
+      // A person inside a SENTENCE, so the name matters more here than anywhere: an
+      // LDAP address mid-prose is design.md §6's "reads as a machine wrote it". Same
+      // PersonCell the tables use — the sentence and the cells cannot disagree about
+      // what this person is called, or about where clicking them goes.
+      owner: <PersonCell person={ownerPerson} value={owner} className={styles.entityLink} />,
       n: ownerOtherActive.length,
       items,
     }));

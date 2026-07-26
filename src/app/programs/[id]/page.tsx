@@ -443,7 +443,8 @@ export default async function ProjectDetailsPage(props: {
               <ChainLedger projectId={projectId} locale={locale} now={now} ledger={ledger}
                 sopDate={project.sopDate ? project.sopDate.toISOString() : null}
                 volumeFirstYear={project.volumeFirstYear}
-                owner={project.ownerName} ownerPersonId={ownerPerson?.id ?? null}
+                owner={project.ownerName}
+                ownerPerson={ownerPerson ? { id: ownerPerson.id, name: ownerPerson.name } : null}
                 ownerOtherActive={otherActive} />
             </section>
 

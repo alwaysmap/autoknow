@@ -35,12 +35,45 @@
 
 .body { flex: 1; min-width: 0; }
 
-.head { display: flex; align-items: baseline; gap: 0.625rem; flex-wrap: wrap; }
+/* ONE line: title, then the date hard against the right edge. `nowrap` (it used to
+   wrap) is what keeps the date on the title's line — wrapped, a long title pushed it
+   onto a line of its own and the row lost its right-hand column. The title is the only
+   item that gives ground, and it gives it as an ellipsis (below); the gap went 0.625 →
+   1rem to buy that ellipsis a gutter, since a clipped title now runs right at the date
+   instead of ending wherever the words did. */
+.head { display: flex; align-items: baseline; gap: 1rem; flex-wrap: nowrap; }
 
-.title { font-weight: 400; color: var(--fg, #1a1a1a); text-decoration: none; }
+/* `min-width: 0` is the load-bearing declaration: a flex item's default `min-width:
+   auto` is its CONTENT width, so without it the title refuses to shrink, `ellipsis`
+   never fires, and the overflow shoves the date out of the row instead. */
+.title {
+  font-weight: 400;
+  color: var(--fg, #1a1a1a);
+  text-decoration: none;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .title:hover { text-decoration: underline; }
 
-.aside { margin-left: auto; font-size: 0.75rem; color: var(--muted, var(--muted)); white-space: nowrap; }
+/* The date never truncates and never shrinks — it is a fixed-width fact the whole
+   column reads down, so it claims its space first and the title fits in what is left.
+   `.deleteForm` rides beside it under the same rule: everything after the title holds
+   its box, so the row's whole contract is these three declarations and not one of them
+   is in a call site. */
+.aside {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--muted, var(--muted));
+  white-space: nowrap;
+}
+
+.deleteForm {
+  display: inline-flex;
+  flex-shrink: 0;
+}
 
 .meta { font-size: 0.75rem; color: var(--muted, var(--muted)); margin-top: 0.125rem; }
 
