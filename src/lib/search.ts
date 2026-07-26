@@ -1,7 +1,7 @@
 import 'server-only';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { embedText, geminiConfigured } from './gemini';
+import { embedForStorage, embedForQuery, geminiConfigured } from './gemini';
 import { FEED_TYPES, type FeedType, type FeedScope, type FeedItem } from './feed';
 
 // Unified search over everything in AutoKnow. Every searchable thing is tagged with
@@ -24,7 +24,10 @@ async function setEmbedding(
   text: string,
 ) {
   if (!text.trim()) return;
-  const vec = `[${(await embedText(text)).join(',')}]`;
+  // Storage, so it throws rather than substituting the pedestal — a reindex that cannot
+  // reach the model must leave the row's existing vector alone, not overwrite a real one
+  // with anti-signal (see embedForStorage).
+  const vec = `[${(await embedForStorage(text)).join(',')}]`;
   await prisma.$executeRawUnsafe(`UPDATE "${table}" SET embedding = $1::vector WHERE id = $2`, vec, id);
 }
 
@@ -254,11 +257,16 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope, sem
 // re-filter) and the embedding is deterministic. Bounded so it can't grow unbounded.
 const QUERY_EMBED_CACHE = new Map<string, number[]>();
 const QUERY_EMBED_CACHE_MAX = 500;
-async function embedQuery(q: string): Promise<number[]> {
+/** Null when no semantic vector is available (unconfigured, or the model refused — a
+ *  spend cap, say). The caller then ranks lexical-only rather than failing the search.
+ *  Only successes are cached, so a cap does not pin a query to lexical for the rest of
+ *  the process once quota returns. */
+async function embedQuery(q: string): Promise<number[] | null> {
   const key = q.toLowerCase();
   const hit = QUERY_EMBED_CACHE.get(key);
   if (hit) return hit;
-  const vec = await embedText(q);
+  const vec = await embedForQuery(q);
+  if (!vec) return null;
   if (QUERY_EMBED_CACHE.size >= QUERY_EMBED_CACHE_MAX) {
     QUERY_EMBED_CACHE.delete(QUERY_EMBED_CACHE.keys().next().value!); // evict oldest
   }
@@ -274,13 +282,15 @@ export async function unifiedSearch(
   const types = opts.types?.length ? opts.types : FEED_TYPES;
   const limit = opts.limit ?? 20;
   const scope = opts.scope ?? { kind: 'ecosystem' };
-  // Real embeddings only: the dev/test fallback is a uniform pedestal, not signal.
-  const semantic = geminiConfigured;
-
   try {
     const q = query.trim();
-    // Skip the Gemini round-trip entirely when the vector channel is off.
-    const vec = semantic ? `[${(await embedQuery(q)).join(',')}]` : '';
+    // Real embeddings only: the dev/test fallback is a uniform pedestal, not signal.
+    // The channel is off when Gemini is unconfigured AND when it is configured but the
+    // query embed did not come back — a spend cap must degrade the ranking, never fail
+    // the search or blend in a constant ~0.75.
+    const queryVec = geminiConfigured ? await embedQuery(q) : null;
+    const semantic = queryVec !== null;
+    const vec = semantic ? `[${queryVec.join(',')}]` : '';
     const branches = types.map((t) => branchSql(t, q, vec, scope, semantic));
     const unioned = Prisma.join(branches, ' UNION ALL ');
 

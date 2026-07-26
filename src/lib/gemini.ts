@@ -1,6 +1,7 @@
 import 'server-only';
 import { GoogleGenAI, Type } from '@google/genai';
 import { generateDeterministicEmbedding } from './embedding-fallback';
+import { noteQuotaExhausted, noteQuotaRecovered } from './geminiQuota';
 import { parseDocDigest, parseClassification, parseRawSummary } from './geminiSchemas';
 
 // Gemini: distill a document into decision-useful intelligence, classify which entity
@@ -17,12 +18,35 @@ const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 // cycle early, carrying the rest over (honest degradation, AGENTS lesson 5), rather than
 // burning the batch on calls that cannot succeed. Detection is deliberately broad: a
 // false positive only costs an early stop + carryover, which is harmless.
+// A monthly SPEND CAP answers the same way ("exceeded its monthly spending cap",
+// RESOURCE_EXHAUSTED), and unlike a rate limit it does not clear on its own — which is
+// why the latch below has a TTL rather than a per-cycle reset.
 export function isQuotaError(e: unknown): boolean {
   const status = (e as { status?: number; code?: number } | null)?.status
     ?? (e as { status?: number; code?: number } | null)?.code;
   if (status === 429) return true;
   const msg = e instanceof Error ? e.message : String(e ?? '');
-  return /\b429\b|RESOURCE_EXHAUSTED|\bquota\b|rate.?limit/i.test(msg);
+  return /\b429\b|RESOURCE_EXHAUSTED|\bquota\b|rate.?limit|spend(ing)?.?cap/i.test(msg);
+}
+
+/**
+ * Every call to the API goes through here so the quota latch is maintained centrally
+ * rather than at each of the five call sites — a latch that depends on being remembered
+ * is a latch that will be forgotten by the sixth. Success clears it; a quota-shaped
+ * failure sets it, so the next INTERACTIVE caller can decline before it mutates anything
+ * (lib/geminiQuota).
+ */
+async function callWithQuotaLatch<T>(call: () => Promise<T>): Promise<T> {
+  try {
+    const out = await call();
+    noteQuotaRecovered();
+    return out;
+  } catch (err) {
+    if (isQuotaError(err)) {
+      noteQuotaExhausted(err instanceof Error ? err.message : String(err));
+    }
+    throw err;
+  }
 }
 
 // The stable alias tracks the current flash model — pinned ids rot (gemini-2.5-flash
@@ -109,7 +133,7 @@ DOCUMENT:
 ${text.slice(0, MAX_DOC_CHARS)}
 """`;
 
-  const resp = await ai.models.generateContent({
+  const resp = await callWithQuotaLatch(() => ai!.models.generateContent({
     model: SUMMARY_MODEL,
     contents: prompt,
     config: {
@@ -136,7 +160,7 @@ ${text.slice(0, MAX_DOC_CHARS)}
         required: ['summary', 'keyTopics', 'decisions', 'openQuestions', 'entities', 'sourceStatus'],
       },
     },
-  });
+  }));
 
   return parseDocDigest(resp.text);
 }
@@ -158,7 +182,7 @@ export async function classifyWithinAnchor(
 DIGEST: ${JSON.stringify({ summary: digest.summary, keyTopics: digest.keyTopics })}
 CANDIDATES: ${JSON.stringify(candidates)}`;
 
-  const resp = await ai.models.generateContent({
+  const resp = await callWithQuotaLatch(() => ai!.models.generateContent({
     model: SUMMARY_MODEL,
     contents: prompt,
     config: {
@@ -169,7 +193,7 @@ CANDIDATES: ${JSON.stringify(candidates)}`;
         required: ['id'],
       },
     },
-  });
+  }));
 
   let id: number | null = null;
   try {
@@ -223,7 +247,7 @@ const BULLETS = {
 export async function generateStructuredSummary(prompt: string): Promise<RawSummary | null> {
   if (!ai) return null;
 
-  const resp = await ai.models.generateContent({
+  const resp = await callWithQuotaLatch(() => ai!.models.generateContent({
     model: SUMMARY_MODEL,
     contents: prompt.slice(0, MAX_DOC_CHARS),
     config: {
@@ -240,7 +264,7 @@ export async function generateStructuredSummary(prompt: string): Promise<RawSumm
         required: ['tldr', 'progress', 'risks', 'themes', 'actions'],
       },
     },
-  });
+  }));
 
   return parseRawSummary(resp.text);
 }
@@ -259,7 +283,7 @@ DIGEST: ${JSON.stringify({ summary: digest.summary, keyTopics: digest.keyTopics,
 PROJECTS: ${JSON.stringify(projects)}
 PARTNERS: ${JSON.stringify(partners)}`;
 
-  const resp = await ai.models.generateContent({
+  const resp = await callWithQuotaLatch(() => ai!.models.generateContent({
     model: SUMMARY_MODEL,
     contents: prompt,
     config: {
@@ -275,25 +299,95 @@ PARTNERS: ${JSON.stringify(partners)}`;
         required: ['kind', 'id', 'name', 'confidence'],
       },
     },
-  });
+  }));
 
   return parseClassification(resp.text);
 }
 
-/** Embed text to a 768-dim vector (real Gemini when configured, deterministic otherwise). */
-export async function embedText(text: string): Promise<number[]> {
-  if (!ai) return generateDeterministicEmbedding(text);
-  try {
-    const resp = await ai.models.embedContent({
+// ---- Embeddings: a fallback vector is fine for a QUERY, never for a stored ROW --------
+//
+// These were one function that caught every error and returned
+// `generateDeterministicEmbedding` regardless. That fallback is not degraded semantics,
+// it is ANTI-signal — all-positive components, so any two of them score ~0.75 cosine
+// against each other whatever the text says
+// ([note](../../docs/knowledge/fallback-embedding-is-a-uniform-pedestal-not-signal.md)).
+//
+// Substituting it for a row that already HAD a real vector destroys that row, silently
+// and permanently: refresh writes the vector in the same transaction as the new digest
+// and contentHash, so the hash then matches on every later cycle, Gate 1 reports
+// 'unchanged', and the row is never re-embedded. The transaction was written precisely to
+// stop a failed embed stranding a row — and the catch defeated it by turning the failure
+// into a plausible-looking success. A monthly spend cap (HTTP 429 RESOURCE_EXHAUSTED)
+// makes that the *normal* path rather than a rare one.
+//
+// So the two uses split, because they want opposite things from a failure:
+//   • storage  — must fail LOUD. Callers abort before writing, and the old row survives.
+//   • query    — must fail SOFT. A search still works ranked lexically; refusing to
+//                search because a cap was hit would be its own outage.
+
+/** A real model was configured and could not produce an embedding. Never thrown when
+ *  Gemini is simply unconfigured — that is a deployment state, not a failure. */
+export class EmbeddingUnavailableError extends Error {
+  /** The cause was a quota / spend-cap refusal rather than a transient fault, so a retry
+   *  now will fail the same way. Callers use it to stop a batch instead of grinding. */
+  readonly quota: boolean;
+  constructor(message: string, opts: { quota: boolean; cause?: unknown }) {
+    super(message, { cause: opts.cause });
+    this.name = 'EmbeddingUnavailableError';
+    this.quota = opts.quota;
+  }
+}
+
+async function embedViaGemini(text: string): Promise<number[]> {
+  const resp = await callWithQuotaLatch(() =>
+    ai!.models.embedContent({
       model: EMBED_MODEL,
       contents: text,
       config: { outputDimensionality: EMBED_DIMS },
-    });
-    const values = resp.embeddings?.[0]?.values;
-    if (values && values.length === EMBED_DIMS) return values;
-    console.warn(`Gemini embedding returned ${values?.length ?? 0} dims, expected ${EMBED_DIMS}; using fallback.`);
-  } catch (err) {
-    console.warn('Gemini embedding failed, using fallback:', err);
+    }),
+  );
+  const values = resp.embeddings?.[0]?.values;
+  if (!values || values.length !== EMBED_DIMS) {
+    // A wrong-width vector cannot go in the column and must not be padded into one.
+    throw new EmbeddingUnavailableError(
+      `Gemini embedding returned ${values?.length ?? 0} dims, expected ${EMBED_DIMS}.`,
+      { quota: false },
+    );
   }
-  return generateDeterministicEmbedding(text);
+  return values;
+}
+
+/**
+ * Embed text that is about to be PERSISTED. Falls back to the deterministic vector only
+ * when Gemini is unconfigured — a deployment with no key has no real vectors to damage,
+ * and its rows are consistently non-semantic. When a model IS configured, a failure
+ * throws: the caller aborts and whatever the row already holds survives intact.
+ */
+export async function embedForStorage(text: string): Promise<number[]> {
+  if (!ai) return generateDeterministicEmbedding(text);
+  try {
+    return await embedViaGemini(text);
+  } catch (err) {
+    if (err instanceof EmbeddingUnavailableError) throw err;
+    throw new EmbeddingUnavailableError(
+      `Gemini embedding failed: ${err instanceof Error ? err.message : String(err)}`,
+      { quota: isQuotaError(err), cause: err },
+    );
+  }
+}
+
+/**
+ * Embed a transient QUERY. Returns null when no semantic vector is available — the caller
+ * drops the semantic channel and ranks lexical-only, which is the same thing an
+ * unconfigured deployment already does. Never returns the pedestal: blending a constant
+ * ~0.75 into ranking is the noise the knowledge note above was written about.
+ */
+export async function embedForQuery(text: string): Promise<number[] | null> {
+  if (!ai) return null;
+  try {
+    return await embedViaGemini(text);
+  } catch (err) {
+    console.warn('Gemini query embedding unavailable; ranking lexical-only:', err);
+    return null;
+  }
 }

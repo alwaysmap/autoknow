@@ -1,7 +1,7 @@
 import 'server-only';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { summarizeDocument, digestToText, embedText, isQuotaError } from './gemini';
+import { summarizeDocument, digestToText, embedForStorage, isQuotaError } from './gemini';
 import { fetchWebUrl, hashContent } from './ingest';
 import { isSourceRejected, isTruncated } from './ingestLimits';
 import { parseGoogleDocId, fetchGoogleDocText } from './google-docs';
@@ -137,7 +137,7 @@ export async function refreshSource(
   // vector with no recovery path. Re-embed only on real digest change (plan §7).
   const writes: Prisma.PrismaPromise<unknown>[] = [];
   if (digestText !== row.ingestedText) {
-    const vectorStr = `[${(await embedText(digestText)).join(',')}]`;
+    const vectorStr = `[${(await embedForStorage(digestText)).join(',')}]`;
     writes.push(
       prisma.$executeRaw(
         Prisma.sql`UPDATE "ContextUrl" SET "embedding" = ${vectorStr}::vector WHERE id = ${row.id}`,

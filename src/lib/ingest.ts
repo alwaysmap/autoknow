@@ -3,7 +3,7 @@ import { createHash } from 'crypto';
 import { lookup } from 'node:dns/promises';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { embedText, summarizeDocument, classifyContext, classifyWithinAnchor, digestToText, type Classification, type DocDigest } from './gemini';
+import { embedForStorage, summarizeDocument, classifyContext, classifyWithinAnchor, digestToText, type Classification, type DocDigest } from './gemini';
 import { parseGoogleDocId, fetchGoogleDocText } from './google-docs';
 import { readCapped, isSourceRejected, REJECTION_KEY, MAX_FETCH_BYTES, isTruncated } from './ingestLimits';
 import type { StringKey } from './i18n';
@@ -138,7 +138,7 @@ export async function ingestContent(opts: IngestContentOptions): Promise<IngestR
     }
   }
 
-  const vectorStr = `[${(await embedText(digestText)).join(',')}]`;
+  const vectorStr = `[${(await embedForStorage(digestText)).join(',')}]`;
   const hash = hashContent(opts.text);
   const now = new Date();
   const legacyType = LEGACY_TYPE_BY_KIND[opts.source.kind];

@@ -27,7 +27,7 @@ jest.mock('../src/lib/gemini', () => ({
     };
   }),
   digestToText: (d: { summary: string }) => d.summary,
-  embedText: jest.fn(async () => Array(768).fill(0)),
+  embedForStorage: jest.fn(async () => Array(768).fill(0)),
   isQuotaError: () => false, // the test's 'model exploded' is a plain error, not a 429
 }));
 

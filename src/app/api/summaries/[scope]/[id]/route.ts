@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSummary, createSummary } from '../../../../../lib/summaries';
 import { geminiConfigured } from '../../../../../lib/gemini';
+import { quotaBlocked } from '../../../../../lib/geminiQuota';
 import { isSummaryScope } from '../../../../../lib/summaryPrompts';
 import { serverError, jsonError } from '../../../../../lib/api';
 import { requireRouteAuth } from '../../../../../lib/routeAuth';
@@ -42,6 +43,16 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ scope: st
   if (!parsed) return jsonError('Unknown summary scope or id', 404);
   try {
     if (!geminiConfigured) return jsonError('Gemini is not configured (GEMINI_API_KEY missing)', 503);
+    // Same preflight as quick-ingest: decline before spending rather than fail partway.
+    // 503 + Retry-After, not 500 — this is a temporary refusal to spend, and the existing
+    // summary is untouched and still being served by GET.
+    const blocked = quotaBlocked();
+    if (blocked) {
+      return jsonError(
+        'Gemini is over its quota or spending cap — the existing summary is unchanged. Check ai.studio/spend.',
+        503,
+      );
+    }
     const created = await createSummary(parsed.scope, parsed.targetId, 'manual');
     if (created == null) return jsonError('Nothing to summarize for this scope', 404);
     const summary = await getSummary(parsed.scope, parsed.targetId);
