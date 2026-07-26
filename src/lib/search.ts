@@ -24,9 +24,7 @@ async function setEmbedding(
   text: string,
 ) {
   if (!text.trim()) return;
-  // Storage, so it throws rather than substituting the pedestal — a reindex that cannot
-  // reach the model must leave the row's existing vector alone, not overwrite a real one
-  // with anti-signal (see embedForStorage).
+  // Storage: throws rather than substituting the pedestal (see embedForStorage).
   const vec = `[${(await embedForStorage(text)).join(',')}]`;
   await prisma.$executeRawUnsafe(`UPDATE "${table}" SET embedding = $1::vector WHERE id = $2`, vec, id);
 }

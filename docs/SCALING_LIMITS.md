@@ -30,7 +30,7 @@ The unit of ingestion is **one `ContextUrl` row = one source = one digest = one
 3. `gemini-flash-latest` distills it into a small structured **digest**
    (summary + topics + decisions + questions + `sourceStatus`).
 4. **The digest** (not the document) is embedded into **one** `vector(768)`
-   column via `embedText` — [`ingest.ts:141`](src/lib/ingest.ts).
+   column via `embedForStorage` — [`ingest.ts`](src/lib/ingest.ts).
 5. Search is a **blended lexical + exact vector scan** with **no ANN index**
    — [`search.ts`](src/lib/search.ts); the schema header says this is fine "at
    the current scale (hundreds of rows)" and to add HNSW past ~10k

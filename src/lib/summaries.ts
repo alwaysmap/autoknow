@@ -664,11 +664,13 @@ export interface SummaryCycleReport {
   generated: number;
   skipped: number;
   errors: number;
-  /** The cycle's shared request allowance ran out before every stale scope was covered.
-   *  Distinguishes "nothing needed doing" from "could not afford it" in the cron's JSON —
-   *  the two look identical in `generated: 0` and only one of them is a reason to raise
-   *  the budget. */
-  budgetExhausted: boolean;
+  /** A cap stopped this cycle short of covering every stale scope — either the shared
+   *  request allowance or MAX_SUMMARIES_PER_CYCLE, whichever bound first. Named for the
+   *  cap rather than the budget because both set it: reporting "budget exhausted" when the
+   *  per-tick latency bound was the constraint sends an operator to raise a number that
+   *  was not the problem. Distinguishes it from "nothing needed doing", which also shows
+   *  `generated: 0`. */
+  hitCap: boolean;
 }
 
 /** Latency bound, NOT the spend bound: a cron tick has 300s (the Cloud Run timeout) and
@@ -681,19 +683,19 @@ export async function runSummaryCycle(opts?: { maxSummaries?: number }): Promise
   // Default only for callers with no budget to spend from (tests, one-off scripts). The
   // cron always passes one; if it ever stops, this cap alone would put the cycle back
   // outside the budget, which is the bug this parameter exists to close.
-  const cap = Math.min(opts?.maxSummaries ?? MAX_SUMMARIES_PER_CYCLE, MAX_SUMMARIES_PER_CYCLE);
+  const cap = Math.min(opts?.maxSummaries ?? Infinity, MAX_SUMMARIES_PER_CYCLE);
   const report: SummaryCycleReport = {
     configured: geminiConfigured,
     scopes: 0,
     generated: 0,
     skipped: 0,
     errors: 0,
-    budgetExhausted: false,
+    hitCap: false,
   };
   // An exhausted allowance short-circuits before the seven staleness aggregates: there is
   // nothing to decide when nothing can be afforded.
   if (!geminiConfigured) return report;
-  if (cap <= 0) return { ...report, budgetExhausted: true };
+  if (cap <= 0) return { ...report, hitCap: true };
 
   const [partners, programs] = await Promise.all([
     prisma.partner.findMany({ select: { id: true } }),
@@ -758,7 +760,7 @@ export async function runSummaryCycle(opts?: { maxSummaries?: number }): Promise
   }
 
   for (const t of [...missing, ...stale]) {
-    if (report.generated >= cap) { report.skipped++; report.budgetExhausted = true; continue; }
+    if (report.generated >= cap) { report.skipped++; report.hitCap = true; continue; }
     try {
       const id = await createSummary(t.scope, t.id, 'auto');
       if (id) report.generated++;

@@ -26,7 +26,7 @@ export interface RefreshOutcome {
   /** This check actually called Gemini (distil + embed). NOT implied by `result`: a doc
    *  whose digest reads `resolved` spends both calls and then reports 'frozen', so
    *  counting 'changed' alone under-reports the spend — and the cron divides one shared
-   *  allowance by exactly this number (api/cron/refresh). Mirrors DriveSyncReport.spent. */
+   *  allowance by exactly this number (api/cron/refresh). */
   distilled?: boolean;
   frozenReason?: string | null;
   delta?: string | null;
@@ -273,7 +273,9 @@ export interface CycleReport {
   errors: number;
   skippedDrive: number;
   /** Documents this cycle actually spent Gemini on — the number the shared per-cycle
-   *  allowance is drawn down by. `changed` is NOT that number (see RefreshOutcome.distilled). */
+   *  allowance is drawn down by, and the mirror of DriveSyncReport.spent. `changed` is NOT
+   *  that number (see RefreshOutcome.distilled); the asymmetry with DriveSyncReport is what
+   *  let the cron divide by the wrong one. */
   spent: number;
   /** due − checked: web sources that were due but did not fit the budget (carried over). */
   backlog: number;

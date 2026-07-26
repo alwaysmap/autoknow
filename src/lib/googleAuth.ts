@@ -54,14 +54,10 @@ const workloadIdentity = !key && !!process.env.K_SERVICE && !!process.env.GOOGLE
 
 export const driveConfigured = !!key || workloadIdentity;
 
-// TWO DIFFERENT THINGS, deliberately not one function.
-//
-// The address people SHARE with and the identity the app AUTHENTICATES as are different
-// facts that merely coincide in a keyfile-only setup. They used to be resolved by a single
-// `serviceAccountEmail()` that fell through GOOGLE_SHARE_ADDRESS → client_email →
-// GOOGLE_SA_EMAIL, so any deployment where the infra var was absent printed a raw
-// *.iam.gserviceaccount.com address in the very sentence that calls it the address to
-// share with. It reads as authoritative and is not what the infrastructure established.
+// TWO DIFFERENT THINGS, deliberately not one function: the address people SHARE with and
+// the identity the app AUTHENTICATES as merely coincide in a keyfile-only setup. Merging
+// them back is the tempting mistake — see
+// docs/adr/2026-07-26-infra-owned-facts-are-supplied-or-unknown.md for what it cost.
 
 /**
  * The Workspace group people share Docs and folders with — `autoknow@<domain>`, created

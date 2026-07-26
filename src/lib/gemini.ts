@@ -113,6 +113,7 @@ export async function summarizeDocument(text: string, previousDigest?: string): 
       sourceStatus: 'not-applicable',
     };
   }
+  const client = ai;
 
   // Re-distillation (plan §7): the previous digest rides along so the model can also
   // report what's NEW — the delta becomes an activity-feed event.
@@ -137,7 +138,7 @@ DOCUMENT:
 ${text.slice(0, MAX_DOC_CHARS)}
 """`;
 
-  const resp = await callWithQuotaLatch(() => ai!.models.generateContent({
+  const resp = await callWithQuotaLatch(() => client.models.generateContent({
     model: SUMMARY_MODEL,
     contents: prompt,
     config: {
@@ -180,13 +181,14 @@ export async function classifyWithinAnchor(
   candidateLabel: 'phase' | 'program',
 ): Promise<number | null> {
   if (!ai || candidates.length === 0) return null;
+  const client = ai;
 
   const prompt = `A document has already been attached to the right place; the only question is whether it is specifically about ONE of these ${candidateLabel}s. Pick its id, or null if it is general / spans several.
 
 DIGEST: ${JSON.stringify({ summary: digest.summary, keyTopics: digest.keyTopics })}
 CANDIDATES: ${JSON.stringify(candidates)}`;
 
-  const resp = await callWithQuotaLatch(() => ai!.models.generateContent({
+  const resp = await callWithQuotaLatch(() => client.models.generateContent({
     model: SUMMARY_MODEL,
     contents: prompt,
     config: {
@@ -250,8 +252,9 @@ const BULLETS = {
  *  state, never a fake synthesis. */
 export async function generateStructuredSummary(prompt: string): Promise<RawSummary | null> {
   if (!ai) return null;
+  const client = ai;
 
-  const resp = await callWithQuotaLatch(() => ai!.models.generateContent({
+  const resp = await callWithQuotaLatch(() => client.models.generateContent({
     model: SUMMARY_MODEL,
     contents: prompt.slice(0, MAX_DOC_CHARS),
     config: {
@@ -279,6 +282,7 @@ export async function classifyContext(
   partners: ClassifyCandidate[],
 ): Promise<Classification> {
   if (!ai) return { kind: 'none', id: null, name: null, confidence: 0 };
+  const client = ai;
 
   const prompt = `Pick the single entity this document is most about. Prefer a specific program (project) when the document is clearly about one program; otherwise a partner; otherwise kind="none".
 
@@ -287,7 +291,7 @@ DIGEST: ${JSON.stringify({ summary: digest.summary, keyTopics: digest.keyTopics,
 PROJECTS: ${JSON.stringify(projects)}
 PARTNERS: ${JSON.stringify(partners)}`;
 
-  const resp = await callWithQuotaLatch(() => ai!.models.generateContent({
+  const resp = await callWithQuotaLatch(() => client.models.generateContent({
     model: SUMMARY_MODEL,
     contents: prompt,
     config: {
@@ -342,9 +346,9 @@ export class EmbeddingUnavailableError extends Error {
   }
 }
 
-async function embedViaGemini(text: string): Promise<number[]> {
+async function embedViaGemini(client: GoogleGenAI, text: string): Promise<number[]> {
   const resp = await callWithQuotaLatch(() =>
-    ai!.models.embedContent({
+    client.models.embedContent({
       model: EMBED_MODEL,
       contents: text,
       config: { outputDimensionality: EMBED_DIMS },
@@ -370,7 +374,7 @@ async function embedViaGemini(text: string): Promise<number[]> {
 export async function embedForStorage(text: string): Promise<number[]> {
   if (!ai) return generateDeterministicEmbedding(text);
   try {
-    return await embedViaGemini(text);
+    return await embedViaGemini(ai, text);
   } catch (err) {
     if (err instanceof EmbeddingUnavailableError) throw err;
     throw new EmbeddingUnavailableError(
@@ -383,13 +387,12 @@ export async function embedForStorage(text: string): Promise<number[]> {
 /**
  * Embed a transient QUERY. Returns null when no semantic vector is available — the caller
  * drops the semantic channel and ranks lexical-only, which is the same thing an
- * unconfigured deployment already does. Never returns the pedestal: blending a constant
- * ~0.75 into ranking is the noise the knowledge note above was written about.
+ * unconfigured deployment already does.
  */
 export async function embedForQuery(text: string): Promise<number[] | null> {
   if (!ai) return null;
   try {
-    return await embedViaGemini(text);
+    return await embedViaGemini(ai, text);
   } catch (err) {
     console.warn('Gemini query embedding unavailable; ranking lexical-only:', err);
     return null;

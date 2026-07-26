@@ -6,8 +6,8 @@ import { getIngestionSettings } from '../../../../lib/ingestionSettings';
 import {
   perCycleBudget,
   perCycleRequests,
+  requestsForDocs,
   summariesAffordable,
-  GEMINI_CALLS_PER_DOC,
 } from '../../../../lib/ingestBudget';
 import { recordCycle } from '../../../../lib/ingestionHealth';
 import { secretsEqual, serverError } from '../../../../lib/api';
@@ -43,11 +43,7 @@ export async function GET(req: NextRequest) {
   // construction. recordCycle then logs the reports to Cloud Logging (the drain alarm's
   // source) and upserts the bounded health summary.
   //
-  // Summaries were outside this pool until the quota cap that prompted the fix: their own
-  // 10/cycle bound meant up to 240 requests/day the budget never counted, on top of the
-  // 120 it did. Ordering the three stages against ONE allowance is what makes the number
-  // the settings slider plots an actual ceiling rather than a partial tally. See the
-  // header of lib/ingestBudget for why freshness is served before synthesis.
+  // Why one pool, and why this order: lib/ingestBudget's header.
   try {
     // Single-flight (#57): an overlapping tick acquires nothing and skips, so two
     // instances never double-spend the budget. Why it can't go through `prisma`:
@@ -69,7 +65,7 @@ export async function GET(req: NextRequest) {
       // both calls and then reports 'frozen', so counting 'changed' would hand summaries an
       // allowance ingestion had already used — reintroducing the double-spend this whole
       // change exists to remove, in a cycle where every changed doc happens to resolve.
-      const spentRequests = (drive.spent + report.spent) * GEMINI_CALLS_PER_DOC;
+      const spentRequests = requestsForDocs(drive.spent + report.spent);
       const summaries = await runSummaryCycle({
         maxSummaries: summariesAffordable(requestBudget - spentRequests),
       });

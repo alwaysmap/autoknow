@@ -4,6 +4,7 @@ import { lookup } from 'node:dns/promises';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { embedForStorage, summarizeDocument, classifyContext, classifyWithinAnchor, digestToText, isQuotaError, type Classification, type DocDigest } from './gemini';
+import { quotaDeclineMessage } from './geminiQuota';
 import { parseGoogleDocId, fetchGoogleDocText } from './google-docs';
 import { readCapped, isSourceRejected, REJECTION_KEY, MAX_FETCH_BYTES, isTruncated } from './ingestLimits';
 import type { StringKey } from './i18n';
@@ -138,11 +139,9 @@ export async function ingestContent(opts: IngestContentOptions): Promise<IngestR
     }
   }
 
-  // embedForStorage THROWS rather than substituting the fallback pedestal, so this is a
-  // real error path now — and it must leave by the same door as every other failure here.
-  // Letting it escape turns a quota refusal into an unhandled server-action crash, and the
-  // quotaBlocked() preflight upstream only covers the SECOND caller onward: the first hit
-  // after a cold instance, or after the latch TTL expires, lands right here.
+  // embedForStorage THROWS now, so this is a real error path — and it must leave by the
+  // same door as every other failure here, or a quota refusal becomes an unhandled
+  // server-action crash. The upstream preflight cannot cover this: see lib/geminiQuota.
   let vectorStr: string;
   try {
     vectorStr = `[${(await embedForStorage(digestText)).join(',')}]`;
@@ -150,7 +149,7 @@ export async function ingestContent(opts: IngestContentOptions): Promise<IngestR
     return {
       ok: false,
       error: isQuotaError(e)
-        ? 'Gemini is over its quota or spending cap — nothing was saved. Check ai.studio/spend, then try again.'
+        ? quotaDeclineMessage('nothing was saved')
         : `Could not index this source: ${(e as Error).message}`,
     };
   }

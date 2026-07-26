@@ -1,23 +1,17 @@
 // Find (and optionally repair) rows whose stored embedding is the deterministic FALLBACK
 // rather than a real one — `npm run db:embeddings:audit [-- --fix]`.
 //
-// Why these exist: until the embedForStorage/embedForQuery split, `embedText` caught every
-// failure — including a spend cap's HTTP 429 — and returned `generateDeterministicEmbedding`,
-// which refresh wrote in the same transaction as the new digest and contentHash. The hash
-// then matched forever, so the row reported 'unchanged' and was never re-embedded. Rows
-// poisoned that way cannot heal on their own; they have to be found and re-embedded, which
-// is what this does.
+// Why these exist, and why they cannot heal on their own:
+// docs/adr/2026-07-26-a-stored-vector-fails-loud-a-query-vector-fails-soft.md.
 //
 // HOW WE TELL THEM APART — by L2 norm, not by guessing. The fallback fills 768 components
 // with the fractional part of a sine, i.e. uniform in [0,1), so its norm is
 // sqrt(768 · E[x²]) = sqrt(768/3) ≈ 16. A real embedding is unit-scale, ~1. There is no
 // overlap worth arguing about, so the threshold sits far from both.
 //
-// The norm alone is the test. An exact check — recompute the fallback for the row's own
-// `ingestedText` and compare — was drafted and dropped: it needs src/lib/embedding-fallback,
-// which ts-node cannot import here without an extension it also rejects (the ESM constraint
-// scripts/dev/demo.ts documents), and inlining a second copy of the generator would be a
-// drift risk to confirm something the norm already settles 16-to-1.
+// The norm alone is the test. An exact recompute-and-compare was dropped: ts-node cannot
+// import src/lib/embedding-fallback here (the ESM extension constraint demo.ts documents),
+// and a second copy of the generator is drift risk to settle what the norm settles 16-to-1.
 
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';

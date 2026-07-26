@@ -33,7 +33,7 @@
 
 /**
  * Gemini requests a single (re)ingested document costs. Steady state (a changed doc)
- * is `summarizeDocument` (1 generateContent) + `embedText` (1 embedContent) = 2.
+ * is `summarizeDocument` (1 generateContent) + `embedForStorage` (1 embedContent) = 2.
  * First-time DISCOVERY adds one classify call (~3 total), but discovery is a one-time
  * cold-start cost; steady-state freshness — what the free-tier line must protect — is
  * refresh-dominated, so 2 is the honest nominal. Kept conservative and explicit rather
@@ -84,6 +84,13 @@ export function perCycleBudget(dailyReingestBudgetDocs: number, cyclesPerDay = C
  */
 export function perCycleRequests(dailyReingestBudgetDocs: number, cyclesPerDay = CYCLES_PER_DAY): number {
   return perCycleBudget(dailyReingestBudgetDocs, cyclesPerDay) * GEMINI_CALLS_PER_DOC;
+}
+
+/** What N (re)ingested documents cost in requests. Trivial, and it lives here anyway:
+ *  the module's contract is that every derivation is a tested pure function, and this is
+ *  the one step the cron was doing inline — the step a review already caught wrong once. */
+export function requestsForDocs(docs: number): number {
+  return Math.max(0, Math.floor(docs)) * GEMINI_CALLS_PER_DOC;
 }
 
 /** How many summaries a leftover request allowance buys — the budget half of the summary

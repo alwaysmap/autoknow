@@ -6,7 +6,7 @@ import { ingestLink, type IngestResult, type IngestAnchor } from '../../lib/inge
 import { refreshSource } from '../../lib/refresh';
 import { getAccessToken, getCurrentUser } from '../../lib/session';
 import { geminiConfigured } from '../../lib/gemini';
-import { quotaBlocked } from '../../lib/geminiQuota';
+import { quotaBlocked, quotaDeclineMessage } from '../../lib/geminiQuota';
 
 // Actions for the scoped QuickIngest component and the Manage → Sources operator
 // page (docs/INGEST_FRESHNESS_PLAN.md §5.2, §2.2).
@@ -27,14 +27,10 @@ export async function quickIngestAction(_prev: QuickIngestState, formData: FormD
   // nothing (lib/geminiQuota).
   const blocked = quotaBlocked();
   if (blocked) {
-    return {
-      result: {
-        ok: false,
-        error:
-          'Gemini is over its quota or spending cap, so nothing was ingested — the link was not saved. ' +
-          'Check the cap at ai.studio/spend, then try again.',
-      },
-    };
+    // Log what the API actually said and when we latched — an operator reading Cloud
+    // Logging needs both, and they are the only reason the latch carries a payload.
+    console.warn(`quick-ingest declined: Gemini quota latched at ${blocked.since.toISOString()} — ${blocked.reason}`);
+    return { result: { ok: false, error: quotaDeclineMessage('the link was not saved') } };
   }
 
   const mode = formData.get('mode') === 'snapshot' ? 'snapshot' as const : formData.get('mode') === 'watched' ? 'watched' as const : undefined;

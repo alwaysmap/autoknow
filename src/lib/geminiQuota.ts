@@ -54,6 +54,16 @@ export function quotaBlocked(): { since: Date; reason: string } | null {
   return { since: new Date(block.at), reason: block.reason };
 }
 
+/**
+ * The one sentence every decline site says, so the link and the tone live in one place.
+ * `whatSurvived` is the only per-site difference — three hand-rolled variants of this had
+ * already appeared across ingest, quick-ingest and the summaries route (AGENTS lesson 7),
+ * which is two places to miss when the URL or the wording changes.
+ */
+export function quotaDeclineMessage(whatSurvived: string): string {
+  return `Gemini is over its quota or spending cap — ${whatSurvived}. Check the cap at ai.studio/spend, then try again.`;
+}
+
 /** Test seam — the latch is module state, and a test that sets it must be able to clear
  *  it without waiting out the TTL. */
 export function resetQuotaLatchForTests(): void {

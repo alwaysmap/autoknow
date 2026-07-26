@@ -1,7 +1,7 @@
 ---
 title: Without a real embedding model, every "semantic" score is the same ~0.75 pedestal — noise, not signal
 status: current
-updated: 2026-07-23
+updated: 2026-07-26
 applies_to:
   - src/lib/search.ts
   - src/lib/embedding-fallback.ts
@@ -15,7 +15,7 @@ verified_by: 'tests/search.spec.ts "a reindex does not let unrelated records lea
 
 # Without a real embedding model, every "semantic" score is the same ~0.75 pedestal — noise, not signal
 
-**The lesson.** When `GEMINI_API_KEY` is unset, `embedText()` falls back to
+**The lesson.** When `GEMINI_API_KEY` is unset, `embedForStorage()` falls back to
 `generateDeterministicEmbedding` (`src/lib/embedding-fallback.ts`), an
 all-positive 768-dim vector (each component the fractional part of a sine, in
 `[0,1)`). Any two such vectors both point hard at the all-ones direction, so
@@ -30,7 +30,13 @@ the pedestal only shows up in dev / demo / test — exactly the environments whe
 a noisy result gets waved off as seed data. The fallback's own comment even says
 "degraded, non-semantic," but the ranking code still blends it in.
 
-**What to do.** Gate the semantic channel on `geminiConfigured`: with no real
+**What to do.** Since 2026-07-26 the pedestal can only reach a STORED vector on a
+deployment with no key at all: `embedForStorage` throws instead of substituting it, and
+`embedForQuery` returns null ([ADR](../adr/2026-07-26-a-stored-vector-fails-loud-a-query-vector-fails-soft.md)).
+Rows poisoned before that are found by `npm run db:embeddings:audit`. The ranking rule
+below still stands for the unconfigured case.
+
+Gate the semantic channel on `geminiConfigured`: with no real
 model, rank lexical-only (`unifiedSearch` sets `semantic=false` → `sem=0`,
 eligibility becomes `lex > 0`, and skip the embed round-trip entirely). When
 Gemini *is* configured, still gate **semantic-only** rows (`lex = 0`, matched
