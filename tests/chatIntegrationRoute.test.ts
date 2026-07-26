@@ -8,7 +8,6 @@ import { prisma, disconnectTestDb } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
 process.env.DATABASE_URL = testDatabaseUrl();
-process.env.GEMINI_API_KEY = ''; // deterministic fallback digest/embedding
 
 jest.mock('server-only', () => ({}));
 // next-auth v5 is ESM-only and won't compile under jest; auth-unconfigured is the

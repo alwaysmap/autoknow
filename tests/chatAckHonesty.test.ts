@@ -13,12 +13,12 @@ import { disconnectTestDb } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
 process.env.DATABASE_URL = testDatabaseUrl();
-process.env.GEMINI_API_KEY = ''; // deterministic fallback digest/embedding
 process.env.AUTH_ALLOWED_DOMAIN = '';
 
 jest.mock('server-only', () => ({}));
-// Gemini is "configured" (the handler refuses to save otherwise) while the key stays empty,
-// so summarizeDocument/embedText take their deterministic no-key path.
+// Gemini is "configured" (the handler refuses to save otherwise) while the process holds
+// no key at all (tests/no-live-gemini.ts). requireActual keeps the REAL
+// summarizeDocument/embedText, so they take their deterministic no-key path.
 jest.mock('../src/lib/gemini', () => ({
   ...jest.requireActual('../src/lib/gemini'),
   geminiConfigured: true,
