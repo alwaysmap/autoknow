@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { createPerson, movePersonCompany, copyPerson, deletePerson } from '../app/actions/people';
+import { createPerson, movePersonCompany, deletePerson } from '../app/actions/people';
 import { addPhasePerson } from '../app/actions/phasePeople';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
@@ -36,7 +36,6 @@ export default function PersonAdminControls({ personId, personName, partners, pr
   const locale = useLocale();
   const [assignOpen, setAssignOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
-  const [copyOpen, setCopyOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,9 +74,6 @@ export default function PersonAdminControls({ personId, personName, partners, pr
         </button>
         <button type="button" onClick={() => setMoveOpen(true)}>
           {t(locale, 'moveToDifferentCompany')}
-        </button>
-        <button type="button" onClick={() => setCopyOpen(true)}>
-          {t(locale, 'copyPersonProfile')}
         </button>
         <button type="button" data-testid="delete-person" onClick={() => setDeleteOpen(true)}>
           {t(locale, 'deleteLabel')}
@@ -148,27 +144,6 @@ export default function PersonAdminControls({ personId, personName, partners, pr
           <div className={dash.actionRow}>
             <button type="button" onClick={() => setMoveOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
             <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'movePartner')}</button>
-          </div>
-        </form>
-      </OverlayDialog>
-
-      {/* copy dialog */}
-      <OverlayDialog open={copyOpen} onClose={() => setCopyOpen(false)} width="30rem"
-        title={t(locale, 'copyPersonProfile')} closeLabel={t(locale, 'close')}>
-        <form
-          action={async (fd) => { await runAction(fd, copyPerson); }}
-          className={dash.dialogForm}
-        >
-          <input type="hidden" name="personId" value={personId} />
-          {errorLine}
-          <p className={dash.formHelp ?? ''}>{t(locale, 'copyProfileHelp')}</p>
-          <div className={dash.textInputGroup}>
-            <label htmlFor="copyEmail" className={dash.formLabel}>{t(locale, 'newEmailAddress')}</label>
-            <input id="copyEmail" type="email" name="copyEmail" required placeholder={t(locale, 'copyEmailPlaceholder')} className={dash.textInput} />
-          </div>
-          <div className={dash.actionRow}>
-            <button type="button" onClick={() => setCopyOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
-            <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'copyProfile')}</button>
           </div>
         </form>
       </OverlayDialog>

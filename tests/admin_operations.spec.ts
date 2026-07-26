@@ -1,4 +1,4 @@
-import { test, expect } from './helpers/e2e';
+import { test, expect, type Locator } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -60,15 +60,23 @@ test.describe('Admin and Maintenance Operations', () => {
     await prisma.$disconnect();
   });
 
-  // Maintenance lives behind the title kebab now — open the menu item (hydration-
-  // guarded), then work in its dialog.
-  const viaPersonKebab = async (page: import('./helpers/e2e').Page, label: string) => {
-    // Kebab items are role=menuitem now that the ⋯ menu is AnchoredPopover (#24).
-    const item = page.getByRole('menuitem', { name: label, exact: true });
+  // Maintenance lives behind the title kebab now. Opening it is hydration-guarded
+  // (AGENTS lesson 8) and the guard lives HERE, once: a second copy of these timeouts
+  // is a second thing to keep in step, and the copy is what drifts.
+  //
+  // `probe` is the item whose visibility proves the menu is open and populated. Kebab
+  // items are role=menuitem now that the ⋯ menu is AnchoredPopover (#24).
+  const openPersonKebab = async (page: import('./helpers/e2e').Page, probe: Locator) => {
     await expect(async () => {
-      if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
-      await expect(item).toBeVisible({ timeout: 1500 });
+      if (!(await probe.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+      await expect(probe).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
+  };
+
+  /** Open the kebab and click one of its items, then work in the dialog it opens. */
+  const viaPersonKebab = async (page: import('./helpers/e2e').Page, label: string) => {
+    const item = page.getByRole('menuitem', { name: label, exact: true });
+    await openPersonKebab(page, item);
     await item.click();
   };
 
@@ -93,19 +101,18 @@ test.describe('Admin and Maintenance Operations', () => {
     await expect(page.locator('body')).toContainText('Lead Systems Architect');
   });
 
-  test('should allow copy/duplicating a person profile', async ({ page }) => {
+  // "Copy Person Profile" is GONE (#124 Class 3) — it forked one human into a second
+  // Person row. This asserts the ENTRY POINT stayed deleted, which is the reachable
+  // half: a restored menu entry would otherwise only be caught by someone noticing
+  // duplicate rows in production.
+  test('the person kebab offers no Copy action — copying forked identity', async ({ page }) => {
     const person = await prisma.person.findFirst({ where: { name: 'Bob Miller' } });
     await page.goto(`/people/${person?.id}`);
 
-    await viaPersonKebab(page, 'Copy Person Profile');
-    const dialog = page.locator('dialog[open]');
-    await dialog.locator('input[name="copyEmail"]').fill('bmiller.copy@example.com');
-    await dialog.locator('button:has-text("Copy Profile")').click();
-
-    // Should redirect to the new person's details page
-    await page.waitForURL(/\/people\/\d+/);
-    await expect(page.locator('h1')).toContainText('Bob Miller');
-    await expect(page.locator('body')).toContainText('bmiller.copy@example.com');
+    // Delete is the probe: its testid survives a copy edit and a translation alike,
+    // and its presence proves the menu is really open and populated.
+    await openPersonKebab(page, page.getByTestId('delete-person'));
+    await expect(page.getByRole('menuitem', { name: /copy/i })).toHaveCount(0);
   });
 
   test('program lifecycle: cancel and reactivate from the kebab, visible in filters', async ({ page }) => {

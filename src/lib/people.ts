@@ -14,6 +14,33 @@ export interface PersonLike {
 }
 
 /**
+ * Has an effective date ARRIVED as of `at`? The intended single answer, so a scheduled
+ * change cannot be judged "already applied" by one caller and "still pending" by
+ * another — but not yet the ONLY one: `/people/:id` still decides current-vs-history
+ * inline from `!a.endDate` (page.tsx), which is why a scheduled move currently files
+ * today's job under History. That is #127 E2a, tracked separately; route new callers
+ * here rather than copying the inline rule.
+ *
+ * THE SAME-DAY BOUNDARY BELONGS TO THE FUTURE. Employment periods are half-open
+ * (#124 §2, `start <= t < end`), so `t === start` falls INSIDE the new period:
+ * a change effective TODAY has taken effect today. That is also the only reading
+ * that matches what a user means by "effective 25 Jul" — on the 25th, it is done.
+ *
+ * COMPARED AT UTC-DAY GRANULARITY, never as raw instants. An employment change is
+ * a CALENDAR fact — the boundary is a day, and the affiliation rows either side of
+ * it are dates. Effective dates arrive here in two shapes: the dialog's
+ * `<input type="date">` coerces to UTC midnight, while the seed hands over a full
+ * ISO timestamp. Comparing instants would let one calendar day answer differently
+ * depending on which shape it came in as. UTC rather than the machine's zone
+ * because every date surface in this app is pinned to UTC (lib/dates.ts) — a
+ * server in another zone must not shift the boundary by a day.
+ */
+export function hasTakenEffect(effective: Date | string, at: Date = new Date()): boolean {
+  const utcDay = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return utcDay(new Date(effective)) <= utcDay(at);
+}
+
+/**
  * Avatar initials: FIRST name initial + LAST name initial — 'Dylan Thomas' -> 'DT',
  * 'Junichi Monma' -> 'JM', 'Anne-Marie Dubois' -> 'AD'. Taking the LAST word (not the
  * second) keeps the family name when a middle name is present, and splitting on

@@ -1087,16 +1087,17 @@ export async function seedMockData() {
   // Alice Waters — the temporal-profile fixture (spec #124 §7).
   //
   // ONE human across FOUR employment periods, so the person and partner pages have
-  // a real multi-company career to get right — or, today, to get wrong in public.
-  // Everything below rides the same mutation boundaries as the rest of the seed
-  // (createPerson, the affiliations route, createProject/createPhase, the
-  // involvement actions), INCLUDING the scheduled Honda move, which goes through
-  // `movePersonCompany` itself rather than hand-writing the rows that action would
-  // write. That is the point: the action advances Person.currentPartnerId the
-  // moment it is called, with no check that the date has arrived (#124 Class 1), so
-  // this fixture RENDERS the defect — the identity line reads Honda months early
-  // while the timeline still says Google. When Class 1 is fixed, the same seed call
-  // starts producing the correct state with no edit here.
+  // a real multi-company career to get right. Everything below rides the same
+  // mutation boundaries as the rest of the seed (createPerson, the affiliations
+  // route, createProject/createPhase, the involvement actions), INCLUDING the
+  // scheduled Honda move, which goes through `movePersonCompany` itself rather than
+  // hand-writing the rows that action would write. That is the point: the fixture
+  // inherits whatever the action really does. It was authored while the action
+  // advanced Person.currentPartnerId unconditionally, so it RENDERED #124 Class 1 —
+  // the identity line read Honda months early while every affiliation row said Google.
+  // Class 1 is fixed (the action now advances the cache only once the date has
+  // arrived), and the same seed call produces the correct state with no edit here —
+  // which is exactly the outcome routing the fixture through the action was for.
   //
   // DATES. The three past boundaries are literal: a career is a fact and stays true
   // whenever the seed runs. The Honda move is DERIVED — first of the month, four
@@ -1292,11 +1293,14 @@ export async function seedMockData() {
     aliceGoogleProjectId, aliceGooglePhases['Cockpit integration'], aliceWatersId, ALICE.google.role,
   );
 
-  // (d) THE SCHEDULED MOVE. Four months out, through the real action — which today
-  // also flips currentPartnerId immediately, so /people/<alice> shows "Honda"
-  // while every affiliation row says she is still at Google. That IS Class 1, on a
-  // real page, in the demo. Deriving the date (never a literal) is what keeps it a
-  // FUTURE move on every re-seed.
+  // (d) THE SCHEDULED MOVE. Four months out, through the real action — which records
+  // the Honda affiliation but leaves currentPartnerId on Google until the date
+  // arrives, so the identity line on /people/<alice> correctly reads Google LLC. The
+  // Honda row itself still lands in the page's History section, marked "Present",
+  // because that section is filtered by `endDate` rather than by today (#127 E2a) —
+  // this fixture is what makes that residue visible. Deriving the date (never a
+  // literal) is what keeps it a FUTURE move on every re-seed, and therefore a live
+  // guard against Class 1 coming back.
   const hondaMoveDate = aheadMonthStart(4);
   const moved = await movePersonCompany(fd({
     personId: aliceWatersId,
