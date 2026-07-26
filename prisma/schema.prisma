@@ -436,6 +436,13 @@ model PersonAffiliation {
 
   @@index([personId])
   @@index([partnerId])
+  // As-of lookups (#127 E4, spec #124 §5): every temporal resolver filters the
+  // half-open range `startDate <= t < endDate` after picking the person or the
+  // partner, so the range columns belong in the index the lookup already uses.
+  // The bare [personId] / [partnerId] indexes above are strict prefixes of these
+  // and stay for now — dropping them is a separate, non-additive change.
+  @@index([personId, startDate, endDate])
+  @@index([partnerId, startDate, endDate])
 }
 
 model ProjectState {
