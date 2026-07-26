@@ -31,6 +31,8 @@
 // bounded by how much a person can click, and the settings copy says so rather than
 // letting the slider imply it covers them.
 
+import { resolveCyclesPerDay } from './cronCadence';
+
 /**
  * Gemini requests a single (re)ingested document costs. Steady state (a changed doc)
  * is `summarizeDocument` (1 generateContent) + `embedForStorage` (1 embedContent) = 2.
@@ -48,29 +50,23 @@ export const GEMINI_CALLS_PER_DOC = 2;
  */
 export const GEMINI_CALLS_PER_SUMMARY = 1;
 
-/**
- * Hourly cron ⇒ 24 cycles/day, and the single most load-bearing number here: every cap
- * is a daily budget divided by it, so if the real schedule runs MORE often than this
- * claims, actual spend is a straight multiple of the ceiling the slider plots. Halving
- * `cron_schedule` to every 30 minutes would double daily spend in silence — the exact
- * failure that produced the quota cap, reachable through a one-line infra edit.
- *
- * Cloud Scheduler owns the real cadence and never tells the app (Terraform sets
- * `cron_schedule` on the job and does not export it to Cloud Run), so this constant
- * cannot derive itself. Until it can (infra issue autoknow-6be exports the cadence) —
- * `tests/ingestBudget.test.ts` parses the Terraform default and fails if the two
- * disagree, which turns silent drift into a red build.
- */
-export const CYCLES_PER_DAY = 24;
+// Cycles/day is the single most load-bearing number here — every cap below is a daily
+// budget divided by it — and it is no longer a literal: lib/cronCadence reads the
+// schedule Terraform exports, and owns the story of what the fallback costs.
+//
+// Every derivation below takes it as a DEFAULTED parameter rather than closing over a
+// value, so it resolves per call and a caller that already knows the cadence can pass
+// it — which a client component MUST, since it cannot read the environment itself.
 
 /** How many documents one cron cycle may (re)ingest, given a daily budget. Floor so the
  *  daily total never exceeds the budget; min 1 so a small budget still makes progress.
  *
  *  Zero is the exception, and means OFF — spend nothing. It used to floor to 1 like any
  *  other small budget, which made the one setting whose intent is unambiguous ("stop
- *  spending") quietly cost 1 doc × 2 calls × 24 cycles = 48 requests/day while the
- *  slider beside it read 0. A budget the admin can't actually turn off is not a budget. */
-export function perCycleBudget(dailyReingestBudgetDocs: number, cyclesPerDay = CYCLES_PER_DAY): number {
+ *  spending") quietly cost 1 doc × 2 calls × every cycle of the day — 48 requests/day on
+ *  an hourly schedule — while the slider beside it read 0. A budget the admin can't
+ *  actually turn off is not a budget. */
+export function perCycleBudget(dailyReingestBudgetDocs: number, cyclesPerDay = resolveCyclesPerDay()): number {
   const b = Math.max(0, Math.floor(dailyReingestBudgetDocs));
   if (b === 0) return 0;
   return Math.max(1, Math.floor(b / Math.max(1, cyclesPerDay)));
@@ -82,7 +78,7 @@ export function perCycleBudget(dailyReingestBudgetDocs: number, cyclesPerDay = C
  * the three consumers cost different amounts per unit of work, and a single pool is the
  * only way the daily total stays bounded by one number.
  */
-export function perCycleRequests(dailyReingestBudgetDocs: number, cyclesPerDay = CYCLES_PER_DAY): number {
+export function perCycleRequests(dailyReingestBudgetDocs: number, cyclesPerDay = resolveCyclesPerDay()): number {
   return perCycleBudget(dailyReingestBudgetDocs, cyclesPerDay) * GEMINI_CALLS_PER_DOC;
 }
 
@@ -106,20 +102,21 @@ export function summariesAffordable(requestsRemaining: number): number {
  *
  * It reads `budget × GEMINI_CALLS_PER_DOC` only when the budget divides evenly by the
  * cycle count. Elsewhere the per-cycle floor rounds it, so the honest figure comes from
- * the per-cycle allowance rather than from the raw knob:
+ * the per-cycle allowance rather than from the raw knob (worked here at the hourly
+ * default; a denser schedule moves every number, which is the point of reading it):
  *
  *   • 60 docs/day floors to 2 docs/cycle ⇒ 96/day, not the 120 the raw product suggests.
  *   • 1..23 docs/day can't fill a cycle at all; the min-1 floor keeps them moving, so
  *     they really cost 48/day. The raw product said 2 — under-reporting, which is the
  *     one direction a quota guard must never round.
  *
- * The consequence is a staircase: budgets in the same 24-doc band plot the same figure.
- * That is a true property of an hourly cron with an integer per-cycle cap, and worth
- * showing rather than smoothing away.
+ * The consequence is a staircase: budgets in the same one-doc-per-cycle band plot the
+ * same figure. That is a true property of a periodic cron with an integer per-cycle cap,
+ * and worth showing rather than smoothing away.
  */
 export function estimatedRequestsPerDay(
   dailyReingestBudgetDocs: number,
-  cyclesPerDay = CYCLES_PER_DAY,
+  cyclesPerDay = resolveCyclesPerDay(),
 ): number {
   return perCycleRequests(dailyReingestBudgetDocs, cyclesPerDay) * Math.max(1, cyclesPerDay);
 }
@@ -130,7 +127,7 @@ export function estimatedRequestsPerDay(
  *  region actually ends. */
 export function maxDocsPerDayUnderFreeTier(
   freeTierRequestsPerDay: number,
-  cyclesPerDay = CYCLES_PER_DAY,
+  cyclesPerDay = resolveCyclesPerDay(),
 ): number {
   const cycles = Math.max(1, cyclesPerDay);
   const tier = Math.max(0, Math.floor(freeTierRequestsPerDay));
@@ -157,7 +154,7 @@ export interface BudgetGauge {
 export function budgetGauge(
   dailyReingestBudgetDocs: number,
   freeTierRequestsPerDay: number,
-  cyclesPerDay = CYCLES_PER_DAY,
+  cyclesPerDay = resolveCyclesPerDay(),
 ): BudgetGauge {
   const requestsPerDay = estimatedRequestsPerDay(dailyReingestBudgetDocs, cyclesPerDay);
   const freeTier = Math.max(0, Math.floor(freeTierRequestsPerDay));

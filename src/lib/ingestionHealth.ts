@@ -3,7 +3,6 @@ import { prisma } from './db';
 import type { DriveSyncReport } from './driveSync';
 import type { CycleReport } from './refresh';
 import { getIngestionSettings } from './ingestionSettings';
-import { budgetGauge, type BudgetGauge } from './ingestBudget';
 
 // Ingestion health (#38, [ADR: Ingestion health is a serverless signal, not a growing
 // table]). Two halves of ONE decision:
@@ -107,8 +106,10 @@ export interface IngestionHealth {
   /** Indexed sources whose text ran past MAX_DOC_CHARS, so their tail is not searchable
    *  (#56). A count, not rows — the rows are the Sources table on the same page. */
   truncated: number;
+  /** The two stored settings — NOT a gauge derived from them. The card's slider computes
+   *  its own from the pure functions in lib/ingestBudget, and a second copy here would be
+   *  free to disagree with it now that cycles/day is a runtime value. */
   budget: { dailyReingestBudgetDocs: number; freeTierRequestsPerDay: number };
-  gauge: BudgetGauge;
 }
 
 /** Everything Manage → Sources needs to render the health card, skip list, and budget
@@ -150,6 +151,5 @@ export async function getIngestionHealth(): Promise<IngestionHealth> {
     })),
     truncated,
     budget: settings,
-    gauge: budgetGauge(settings.dailyReingestBudgetDocs, settings.freeTierRequestsPerDay),
   };
 }

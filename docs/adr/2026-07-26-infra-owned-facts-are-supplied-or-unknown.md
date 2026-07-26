@@ -65,6 +65,13 @@ cron test guards only the **default**: a deployment overriding `var.cron_schedul
 still slips past it, and closing that needs the cadence genuinely exported. This
 decision governs the dev-mode/production-mode configuration work that follows it.
 
+*Closed since:* the cadence IS exported now (`REFRESH_CRON_SCHEDULE`), so
+`CYCLES_PER_DAY` is gone and `lib/cronCadence` reads the real schedule; the
+Terraform-default test survives as the guard on the FALLBACK. The corollary that cost
+the most to discover is recorded separately:
+[a shared function whose default reads `process.env` uses the fallback inside a client
+component](../knowledge/an-env-derived-default-is-the-fallback-inside-a-client-component.md).
+
 **Receipts.** Reported 2026-07-26 ("the terraform setup established autoknow@[domain]
 as the account … ensure that tests validate this, and that the text on this page is
 accurate regardless of deployment"). `src/lib/googleAuth.ts`,

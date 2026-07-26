@@ -740,11 +740,23 @@ const STRINGS = {
     ja: '共有フォルダは {depth} 階層まで辿ります。それより深いものは下に「未インデックス」として表示されます。',
     ko: '공유 폴더는 {depth}단계까지 따라갑니다. 그보다 깊은 것은 아래에 “색인 안 됨”으로 표시됩니다.',
   },
+  // Two branches, because the cadence is infrastructure's to state. This one runs when
+  // REFRESH_CRON_SCHEDULE is absent or unparseable: it describes the behaviour without
+  // naming a frequency, where "hourly" used to assert a schedule that is true on one
+  // deployment and false on every local checkout, which has no scheduler at all.
   ingestLimitCadence: {
-    en: 'Sources are re-checked hourly, within the daily budget above — a busy day can lag by a few hours before it catches up.',
-    de: 'Quellen werden stündlich erneut geprüft, im Rahmen des obigen Tagesbudgets — an einem geschäftigen Tag kann es einige Stunden dauern, bis der Rückstand aufgeholt ist.',
-    ja: 'ソースは上記の 1 日の予算の範囲で 1 時間ごとに再確認されます。多忙な日は追いつくまで数時間遅れることがあります。',
-    ko: '소스는 위의 일일 예산 범위 내에서 매시간 재확인됩니다. 바쁜 날에는 따라잡기까지 몇 시간 지연될 수 있습니다.',
+    en: 'Sources are re-checked on each refresh run, within the daily budget above — a busy day can lag by a few runs before it catches up.',
+    de: 'Quellen werden bei jedem Refresh-Lauf erneut geprüft, im Rahmen des obigen Tagesbudgets — an einem geschäftigen Tag kann es einige Läufe dauern, bis der Rückstand aufgeholt ist.',
+    ja: 'ソースは上記の 1 日の予算の範囲で、リフレッシュ実行のたびに再確認されます。多忙な日は追いつくまで数回の実行を要することがあります。',
+    ko: '소스는 위의 일일 예산 범위 내에서 새로고침이 실행될 때마다 재확인됩니다. 바쁜 날에는 따라잡기까지 몇 번의 실행이 걸릴 수 있습니다.',
+  },
+  // And this one when Terraform did export the Scheduler cadence — the same number the
+  // budget math divides by, so the sentence and the gauge above it cannot disagree.
+  ingestLimitCadenceKnown: {
+    en: 'Sources are re-checked {cycles} times a day, within the daily budget above — a busy day can lag by a few runs before it catches up.',
+    de: 'Quellen werden {cycles}-mal täglich erneut geprüft, im Rahmen des obigen Tagesbudgets — an einem geschäftigen Tag kann es einige Läufe dauern, bis der Rückstand aufgeholt ist.',
+    ja: 'ソースは上記の 1 日の予算の範囲で、1 日に {cycles} 回再確認されます。多忙な日は追いつくまで数回の実行を要することがあります。',
+    ko: '소스는 위의 일일 예산 범위 내에서 하루 {cycles}회 재확인됩니다. 바쁜 날에는 따라잡기까지 몇 번의 실행이 걸릴 수 있습니다.',
   },
   ingestSkipsTitle: {
     en: 'Shared but not indexed ({count})',
