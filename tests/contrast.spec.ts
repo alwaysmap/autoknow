@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './helpers/e2e';
 
 // Colour contrast, enforced across ALL FOUR appearance combos (2 styles × 2
 // themes). This exists because the SAME class of bug shipped THREE times this

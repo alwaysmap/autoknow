@@ -2,20 +2,18 @@ import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
 import path from 'path';
 import { testDatabaseUrl } from './tests/helpers/testDatabaseUrl';
-import { testServerPort } from './tests/helpers/worktree';
+import { e2eWorkers, testServerPort } from './tests/helpers/worktree';
 
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
-// The suite runs against ITS OWN Next server (NEVER :3100 — that is the long-lived
-// demo server), bound to the dedicated `<name>_<worktree>_test` database
-// (tests/helpers/testDatabaseUrl.ts — the name is forced to end in `_test`, so the
-// suite can never touch the real database). Both the port and the DB carry a
-// per-worktree token so two checkouts' e2e runs never collide on the socket or the
-// fixtures (AGENTS lesson 9). Auth and Gemini are explicitly unconfigured so behavior
-// is deterministic: stub identity, no AI calls.
-const TEST_DB = testDatabaseUrl();
-const PORT = testServerPort();
-const BASE_URL = `http://localhost:${PORT}`;
+// The suite runs against ITS OWN Next servers (NEVER :3100 — that is the long-lived demo
+// server), one per worker, each bound to that worker's `_test` database. The lane scheme
+// and why it exists are in tests/helpers/worktree.ts; what matters here is that the count
+// comes from e2eWorkers() so `workers`, the `webServer` array and global-setup-e2e cannot
+// disagree. Auth and Gemini are explicitly unconfigured so behavior is deterministic:
+// stub identity, no AI calls.
+const WORKERS = e2eWorkers();
+const PORTS = Array.from({ length: WORKERS }, (_, worker) => testServerPort(worker));
 
 // Under a PRODUCTION server (below), `requireRouteAuth` is fail-closed when auth is
 // unconfigured: it admits everything only when NODE_ENV !== 'production', and otherwise
@@ -27,9 +25,11 @@ const E2E_ADMIN_TOKEN = 'e2e-admin-token';
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.spec.ts',
-  globalSetup: './tests/global-setup',
-  /* Every spec seeds by wiping the ONE shared test database in beforeAll, so spec files
-     must never run concurrently — parallel workers clobber each other's fixtures. */
+  globalSetup: './tests/global-setup-e2e',
+  /* Every spec seeds by wiping ITS WORKER's database in beforeAll. Files are safe to run
+     concurrently because each worker owns a database and a server (see WORKERS below);
+     tests WITHIN a file are not, because they share that one wipe — so parallelism stops
+     at the file boundary. */
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   // Retries are a thin net for genuine transients (a dropped DB connection), NOT a
@@ -38,31 +38,40 @@ export default defineConfig({
   // a real flake fails VISIBLY on the second attempt instead of being retried into a
   // false green. Was `CI ? 2 : 1`; lowered when the suite moved to the prod build.
   retries: process.env.CI ? 1 : 0,
-  workers: 1,
+  // One worker per (server, database) pair provisioned below — never more, or the extra
+  // workers would land on a port nothing is listening on.
+  workers: WORKERS,
   reporter: process.env.CI ? 'html' : 'line',
   use: {
-    baseURL: BASE_URL,
+    // NO baseURL here: it is per-worker, and the config has no worker to ask. Specs
+    // import `test` from tests/helpers/e2e, whose fixture supplies it.
     trace: 'on-first-retry',
     // Authorize API/mutation routes on the prod server (see E2E_ADMIN_TOKEN). Harmless on
     // page navigations; identity still resolves to the stub via the session, so who-am-I
     // semantics are unchanged — this grants authorization, not a different user.
     extraHTTPHeaders: { 'x-admin-token': E2E_ADMIN_TOKEN },
   },
-  webServer: {
-    // Run e2e against a PRODUCTION build (`next build` + `next start`), NOT `next dev`.
-    // Dev compiled each route on first request, so under CI load first-hit compilation
-    // blew page.goto's 30s budget and server-action round-trips lagged past their
-    // assertion timeouts — the whole class of flakes the suite was leaning on `retries`
-    // to hide (webkit /programs/[id]: phase_graph goto timeouts, needle dialog-close and
-    // hill-note reflect races). A prod server precompiles every route and serves fast and
-    // deterministically, so those timings stop depending on runner load.
-    command: `npm run build && npm run start -- -p ${PORT}`,
-    url: `${BASE_URL}/login`,
+  // ONE SERVER PER WORKER, serving a PRODUCTION build (`next build` + `next start`), NOT
+  // `next dev`. Dev compiled each route on first request, so under CI load first-hit compilation blew
+  // page.goto's 30s budget and server-action round-trips lagged past their assertion
+  // timeouts — the whole class of flakes the suite was leaning on `retries` to hide
+  // (webkit /programs/[id]: phase_graph goto timeouts, needle dialog-close and hill-note
+  // reflect races). A prod server precompiles every route and serves fast and
+  // deterministically, so those timings stop depending on runner load.
+  //
+  // The build itself happens ONCE, before Playwright starts, in the `test:e2e:*` scripts
+  // — four servers building concurrently into one `.next-test` would corrupt it, and
+  // building four times would cost more than the parallelism saves. So these commands
+  // only start. Run `npx playwright test` directly and you serve whatever build is on
+  // disk; that is why the npm scripts are the supported entrypoint (AGENTS).
+  webServer: PORTS.map((port, worker) => ({
+    command: `npm run start -- -p ${port}`,
+    url: `http://localhost:${port}/login`,
     reuseExistingServer: false,
-    timeout: 300_000, // a cold `next build` is ~1–2 min; generous headroom for a loaded CI runner
+    timeout: 120_000, // starting a prebuilt server is seconds; headroom for a loaded runner
     env: {
-      DATABASE_URL: TEST_DB,
-      NEXT_DIST_DIR: '.next-test', // build+serve here, keeping the :3000 dev server's .next uncorrupted
+      DATABASE_URL: testDatabaseUrl(worker),
+      NEXT_DIST_DIR: '.next-test', // serve the e2e build, keeping the :3000 dev server's .next uncorrupted
       AUTH_GOOGLE_ID: '', // empty → no providers → stub identity (src/auth.ts)
       AUTH_GOOGLE_SECRET: '',
       // A prod server THROWS without a secret where dev only warns; set a throwaway one so
@@ -76,7 +85,7 @@ export default defineConfig({
       GOOGLE_SERVICE_ACCOUNT_JSON: '',
       GOOGLE_APPLICATION_CREDENTIALS: '',
     },
-  },
+  })),
   projects: [
     // Chromium runs the full behavioral suite — the user base is Chrome-dominant
     // (internal Googler tool), so this is the truth-bearing run.

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/e2e';
 import { wipeAll } from './helpers/fixtures';
 
 test.describe('Onboarding and Seeding Controls', () => {
@@ -12,6 +12,20 @@ test.describe('Onboarding and Seeding Controls', () => {
   });
 
   test('should support seeding defaults only and show clean onboarding empty states', async ({ page }) => {
+    // This is the only spec whose CLICKS run a whole seed: both buttons are `<form
+    // action={serverAction}>`, and the second one ingests the entire mock corpus (18
+    // sources) before it redirects. Playwright's 30s per-test default was never chosen for
+    // that — it was simply the default, and it held while the suite had the machine to
+    // itself. Now four workers share one Postgres, and a run whose median here is ~9.4s
+    // (measured: 8.9/10.0/9.0/9.7) produced one excursion past 30s.
+    //
+    // 120s is deliberately far above the median rather than a tight fit: the tail here is
+    // driven by whatever else the runner is doing, so a snug ceiling would just move the
+    // false red rather than remove it, and a false red on a seed costs more than a slow
+    // true one. It is a ceiling, not a target — if the median ever approaches it, that is
+    // a regression in the seed and the number above is what makes it legible.
+    test.setTimeout(120_000);
+
     await page.goto('/admin');
     await expect(page.locator('h1')).toContainText('Dev Console');
 

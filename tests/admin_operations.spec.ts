@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -62,7 +62,7 @@ test.describe('Admin and Maintenance Operations', () => {
 
   // Maintenance lives behind the title kebab now — open the menu item (hydration-
   // guarded), then work in its dialog.
-  const viaPersonKebab = async (page: import('@playwright/test').Page, label: string) => {
+  const viaPersonKebab = async (page: import('./helpers/e2e').Page, label: string) => {
     // Kebab items are role=menuitem now that the ⋯ menu is AnchoredPopover (#24).
     const item = page.getByRole('menuitem', { name: label, exact: true });
     await expect(async () => {

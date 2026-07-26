@@ -29,9 +29,11 @@ const config: Config = {
   // The main checkout hosts Claude Code worktrees under .claude/ — without this, jest
   // discovers each worktree's copy of the tests and the duplicates race on the test DB.
   testPathIgnorePatterns: ['/node_modules/', '<rootDir>/.claude/', '<rootDir>/.next'],
-  // Several suites wipe/seed the ONE shared *_test database (same rule as the
-  // Playwright config: fixtures must never run concurrently). The suite is small;
-  // serial is cheap and deterministic.
+  // Several suites wipe/seed the ONE *_test database this config provisions, so they must
+  // never run concurrently. The suite is small; serial is cheap and deterministic. (e2e
+  // escaped the same constraint by giving each Playwright worker its own database — see
+  // tests/helpers/worktree.ts — which is worth doing there because e2e is the CI critical
+  // path, and not here, where the whole run is ~30s.)
   maxWorkers: 1,
 }
  

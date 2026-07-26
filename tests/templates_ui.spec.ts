@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/e2e';
 import { prisma } from './helpers/db';
 
 // The /templates authoring surface (PHASE_TEMPLATES_PLAN §6): built-ins listed and

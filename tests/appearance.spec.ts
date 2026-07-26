@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
@@ -10,7 +10,7 @@ import { seedProgram, type SeededProgram } from './helpers/fixtures';
 const STYLE_KEY = 'autoknow-style';
 const THEME_KEY = 'autoknow-theme';
 
-const seed = (page: import('@playwright/test').Page, style?: string, theme?: string) =>
+const seed = (page: import('./helpers/e2e').Page, style?: string, theme?: string) =>
   page.addInitScript(
     ([s, t, sk, tk]) => {
       if (s) localStorage.setItem(sk as string, s as string);
@@ -19,7 +19,7 @@ const seed = (page: import('@playwright/test').Page, style?: string, theme?: str
     [style, theme, STYLE_KEY, THEME_KEY],
   );
 
-const root = (page: import('@playwright/test').Page) => page.locator('html');
+const root = (page: import('./helpers/e2e').Page) => page.locator('html');
 
 test.describe('Appearance: style and theme are independent', () => {
   let seeded: SeededProgram;

@@ -10,7 +10,7 @@ symptoms:
   - a PR takes ~6 minutes to go green and it feels like the tests are slow
   - you added actions/cache and nothing got faster, with no error anywhere
   - you are about to speed up a job that is not on the critical path
-verified_by: 'runs 30186686741 and the PR #186 run (per-step timings, Actions jobs API); PR #183/#185/#187; playwright.config.ts `workers: 1`'
+verified_by: 'runs 30186686741 and the PR #186 run (per-step timings, Actions jobs API); PR #183/#185/#187; autoknow-7mb (44.1s serial vs 39.1s on four workers, locally)'
 ---
 
 # CI wall clock is ONE job's critical path, and most cache wins are imaginary until measured
@@ -28,7 +28,8 @@ gh api repos/alwaysmap/autoknow/actions/runs/$RUN/jobs \
 Run 30186686741: e2e 5m43 (`--with-deps` **60s**, tests 218s), quality 2m34, image 1m36,
 migrations-lint 4s. Two surprises: `--with-deps` cost 60s **on a cache hit** (OS libs are
 not in the cached browser payload), and `image`/`quality` finish so far ahead of e2e that
-work there is spend, not time. **Sharding e2e by browser** across runners was the only change that moved wall clock (5m43 → ~4m10).
+work there is spend, not time. **Sharding e2e by browser** across runners was the only
+change that moved wall clock (5m43 → ~4m10).
 
 ## Caches: check the ref, then check the size
 
@@ -42,19 +43,18 @@ gh api repos/<owner>/<repo>/actions/caches \
   -q '.actions_caches[] | "\(.ref)  \(.size_in_bytes/1048576|floor)MB  \(.key)"'
 ```
 
-**`0MB` means it never worked.** Two that shipped and were reverted: `.next/cache` was
-empty because `next.config.ts` enables **Turbopack**, which keeps no persistent cache
-there; and buildx `type=gha` on the image job measured **96s → 113s, worse**, because the
-expensive layer is `next build` inside the image, which every PR invalidates by
-definition. What paid: `node_modules` (189MB, skips `npm ci`) and the browsers (261MB).
-Cache what is downloaded or linked, never what is compiled from sources the PR just
-changed — and verify on the PR *after* the change, since the one making it is cold.
+**`0MB` means it never worked.** Two that shipped and were reverted: `.next/cache` was empty
+because `next.config.ts` enables **Turbopack**, which keeps no persistent cache there; and
+buildx `type=gha` on the image job measured **96s → 113s, worse**, because the expensive
+layer is `next build` inside the image, which every PR invalidates by definition. What paid:
+`node_modules` (189MB, skips `npm ci`) and the browsers (261MB). Cache what is downloaded or
+linked, never what the PR just changed — and verify on the PR *after*, since yours is cold.
 
-## The ceiling caching cannot lift
-
-`playwright.config.ts` pins `workers: 1` because every spec wipes the ONE shared test DB
-in `beforeAll`. Sharding across separate *runners* is safe (each leg gets its own postgres
-service); raising `workers` needs per-worker databases — bead `autoknow-7mb`.
+**Measure against the CURRENT shape.** `workers: 1` (one shared test DB) became 4 in
+`autoknow-7mb` — a DB and a server per worker. Predicted ~4x, bought 44.1s → 39.1s: browser
+sharding had already halved what was left per leg, half of each leg is `next build`, and
+per-test time inflates under contention. An estimate written before the PREVIOUS
+optimisation ships is stale by the time you act on it.
 
 **The rule.** Print the per-step table, decide whether you are buying wall clock or spend,
 then re-measure — halve e2e and `quality` becomes the pole.
