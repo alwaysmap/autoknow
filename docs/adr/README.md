@@ -65,3 +65,4 @@ skill routes between them.
 | 2026-07-24 | [Compound records ride the PR that motivated them, and CI blocks the merge until the judgement is declared](2026-07-24-compound-records-ride-the-pr-that-motivated-them.md) | accepted | docs, knowledge, ci, agents, process |
 | 2026-07-24 | [A forecast on screen derives from the real plan; a synthetic model is deleted, not kept beside it](2026-07-24-forecasts-derive-from-the-real-chain-never-a-synthetic-model.md) | accepted | forecast, ui, data-integrity, charts, critical-chain |
 | 2026-07-25 | [Seeded content moves through the real connectors, and a demo may compress the schedule but never a timestamp](2026-07-25-seeded-content-runs-the-real-pipeline-and-fakes-only-the-schedule.md) | accepted | seed, demo, ingestion, freshness, data-integrity |
+| 2026-07-26 | [Parallel work builds in parallel and merges one at a time](2026-07-26-parallel-work-merges-serially.md) | accepted | deploy, ci, process, agents |

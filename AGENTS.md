@@ -99,7 +99,8 @@ here taxes every future session, so the `compound` skill sets the bar for adding
 one and routes most findings to [docs/knowledge/](docs/knowledge/README.md).
 
 1. A green pipeline is not a deploy — ask prod what sha it is running, and know
-   when a merge correctly deploys nothing (`gcp-debug`).
+   when a merge correctly deploys nothing (`gcp-debug`). Parallel work therefore
+   merges ONE PR at a time ([ADR: Parallel work builds in parallel and merges one at a time](docs/adr/2026-07-26-parallel-work-merges-serially.md)).
 2. Enforce rules in software, not prose: a new dangerous operation ships its
    fail-closed guard in the same PR (wipe guard, DDL-less runtime role,
    migration lint are the precedents).
