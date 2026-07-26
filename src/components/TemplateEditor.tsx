@@ -103,7 +103,10 @@ export function DagPreview({ phases }: { phases: DagPreviewPhase[] }) {
         return (
           <g key={p.id}>
             {p.isEndPhase && <circle cx={c.x} cy={c.y} r={RING_R} fill="none" stroke="var(--chain)" strokeWidth={1.8} />}
-            <circle cx={c.x} cy={c.y} r={5} fill="hsl(0, 0%, 25%)" />
+            {/* The node dot is ink, so it takes the ink TOKEN — as a literal
+                mid-grey it was a dark dot on dark paper, the same defect as
+                CapacityChart's INK (AGENTS lesson 7). */}
+            <circle cx={c.x} cy={c.y} r={5} fill="var(--fg)" />
             {/* Node names sit on a FIXED grid (COL_W apart, ROW_H down) and `truncate`
                 now caps them by width, so two names cannot collide and no de-collision
                 pass belongs here. They do cross the dependency edges, which is what

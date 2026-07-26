@@ -112,6 +112,25 @@ test.describe('colour contrast holds in every style × theme', () => {
     expect(failures, failures.join('\n')).toEqual([]);
   });
 
+  // CapacityChart draws the vehicles line and the SOP dots in --fg along the TOP
+  // EDGE of the AAOS band, so that band is their ground. Both used to be literals
+  // — ink hsl(0, 0%, 25%), band #dcd8cd — and a literal-on-literal pair measures
+  // beautifully (7.28:1) in a theme neither belongs to: the dark page had a
+  // near-white band, so the mid-grey line read only because the ground was ALSO
+  // wrong. Tokenising the ink alone would have swapped one invisible drawing for
+  // another (near-white on near-white, 1.21:1), which is why this asserts the
+  // PAIR. 3:1, the non-text floor: a stroke and a dot, not type.
+  test('the vehicles line reads on the AAOS band it rides on, in every combo', async ({ page }) => {
+    await page.goto('/');
+    const failures: string[] = [];
+    for (const { style, theme } of COMBOS) {
+      const t = await resolveTokens(page, style, theme, ['--fg', '--capacity-aaos']);
+      const r = ratio(luminance(t['--fg']), luminance(t['--capacity-aaos']));
+      if (r < 3) failures.push(`${style}/${theme}: --fg on --capacity-aaos: ${r.toFixed(2)} (${t['--capacity-aaos']})`);
+    }
+    expect(failures, failures.join('\n')).toEqual([]);
+  });
+
   test('the gauge face stays light in dark themes so the coloured sweep reads', async ({ page }) => {
     await page.goto('/');
     for (const { style } of COMBOS.filter((c) => c.theme === 'dark')) {
