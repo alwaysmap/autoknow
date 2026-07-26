@@ -7,7 +7,7 @@ import { indexEntity } from '../../lib/search';
 import { getCurrentUser } from '../../lib/session';
 import { authConfigured } from '../../auth';
 import { userFromHandle } from '../../lib/auth';
-import { parseForm, personCreateSchema, personDeleteSchema, personMoveSchema } from '../../lib/schemas';
+import { parseForm, personCreateSchema, personDeleteSchema, personMoveSchema, personUpdateSchema } from '../../lib/schemas';
 import { hasTakenEffect } from '../../lib/people';
 import { guarded, type ActionResult } from '../../lib/actionResult';
 
@@ -91,6 +91,44 @@ export async function movePersonCompany(formData: FormData): Promise<ActionResul
 
   revalidatePath(`/people/${personId}`);
   revalidatePath('/people');
+  });
+}
+
+/**
+ * Correct the CURRENT record: name, email, notes. A correction, not a change — the
+ * value was always wrong, so there is no effective date and nothing is appended to the
+ * career. Moving employer is `movePersonCompany`, which DOES take a date; #127 E14
+ * unifies the two behind one dialog.
+ *
+ * Email is the identity key here — `Person.email` is unique and `resolvePerson` matches
+ * on it — so it is the one field with reach beyond the row, and the reach is not all
+ * handled: `Project.ownerName` still stores an address as FREE TEXT, so programs owned
+ * under the old one keep pointing at it. Renaming an owner's address today orphans their
+ * programs, until #127 E6 gives ownership a real FK.
+ */
+export async function updatePerson(formData: FormData): Promise<ActionResult> {
+  return guarded(async () => {
+    const { personId, name, email, notes } = parseForm(personUpdateSchema, formData);
+
+    // Name the clash rather than letting the raw constraint failure speak: `guarded`
+    // would flatten a P2002 into its generic "something went wrong" line, which is no
+    // help when the duplicate is a person you could go and look at.
+    // Thrown with an em-dash because that is how `guarded` tells a message written for
+    // a user from a raw internal one (lib/actionResult).
+    const clash = await prisma.person.findUnique({ where: { email }, select: { id: true, name: true } });
+    if (clash && clash.id !== personId) {
+      throw new Error(`${email} already belongs to ${clash.name} — use a different address`);
+    }
+
+    await prisma.person.update({
+      where: { id: personId },
+      data: { name, email, notes: notes ?? null },
+    });
+    // The directory answers on name and address; a correction nobody can search for is
+    // half a correction.
+    await indexEntity('person', personId);
+    revalidatePath(`/people/${personId}`);
+    revalidatePath('/people');
   });
 }
 

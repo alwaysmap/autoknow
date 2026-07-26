@@ -114,7 +114,9 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
         <div className={styles.profileInfo}>
           <div className={styles.titleRow}>
             <h1>{person.name}</h1>
-            <PersonAdminControls personId={person.id} personName={person.name} partners={partners} programs={assignablePrograms} />
+            <PersonAdminControls personId={person.id} personName={person.name}
+              personEmail={person.email} personNotes={person.notes}
+              partners={partners} programs={assignablePrograms} />
           </div>
           <div className={styles.identLine}>
             <Link href={`/partners/${person.currentPartnerId}`} className={styles.identCompany}>

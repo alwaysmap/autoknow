@@ -1292,6 +1292,18 @@ const STRINGS = {
   otherUnassociated: { en: 'Other / Unassociated', de: 'Sonstige / Nicht zugeordnet', ja: 'その他 / 未対応付け', ko: '기타 / 미연결' },
   profileMaintenance: { en: 'Profile Maintenance', de: 'Profilpflege', ja: 'プロフィール管理', ko: '프로필 관리' },
   moveToDifferentCompany: { en: 'Move to Different Company', de: 'Zu anderem Unternehmen wechseln', ja: '別の会社へ異動', ko: '다른 회사로 이동' },
+  // #127 E3. "Edit details", not "Edit person": what it edits is the record, and the
+  // name has to survive E14 folding the Move dialog into it. Name and Email reuse
+  // nameLabel/emailHeader — the same two fields on the same entity as the Create dialog.
+  editDetails: { en: 'Edit details', de: 'Details bearbeiten', ja: '詳細を編集', ko: '세부정보 편집' },
+  personNotesLabel: { en: 'Notes', de: 'Notizen', ja: 'メモ', ko: '메모' },
+  personNotesPlaceholder: {
+    en: 'Anything worth knowing about this person',
+    de: 'Was über diese Person zu wissen ist',
+    ja: 'この人について知っておくとよいこと',
+    ko: '이 사람에 대해 알아둘 만한 내용',
+  },
+  saveChanges: { en: 'Save changes', de: 'Änderungen speichern', ja: '変更を保存', ko: '변경사항 저장' },
   newOrganization: { en: 'New Organization', de: 'Neue Organisation', ja: '新しい組織', ko: '새 조직' },
   selectPartner: { en: 'Select Partner...', de: 'Partner wählen…', ja: 'パートナーを選択...', ko: '파트너 선택...' },
   roleTitle: { en: 'Role / Title', de: 'Rolle / Titel', ja: '役割 / 役職', ko: '역할 / 직함' },
