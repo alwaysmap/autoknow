@@ -47,6 +47,6 @@ the case that must close — which means an `<a href="#">` used as a fake button
 dismiss. No such anchor exists in any panel today (all nine consumers were swept), and
 an anchor that does not navigate is already an anti-pattern here.
 
-**Receipts.** `autoknow-6mn`; PR for `fix/6mn-menu-closes-on-navigate`;
+**Receipts.** `autoknow-6mn`; PR #209;
 `tests/menu_dismiss.spec.ts` (red on the nav case before the fix, green after, and its
 fourth test holds the server-action side of the rule).
