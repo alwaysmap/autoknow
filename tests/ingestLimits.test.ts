@@ -10,7 +10,6 @@
 import { testDatabaseUrl } from './helpers/testDatabaseUrl';
 
 process.env.DATABASE_URL = testDatabaseUrl();
-process.env.GEMINI_API_KEY = '';
 
 jest.mock('server-only', () => ({}));
 jest.mock('node:dns/promises', () => ({

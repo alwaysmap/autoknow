@@ -7,7 +7,6 @@ import { prisma, disconnectTestDb } from './helpers/db';
 import { seedProgram } from './helpers/fixtures';
 
 process.env.DATABASE_URL = testDatabaseUrl();
-process.env.GEMINI_API_KEY = ''; // deterministic fallback embeddings
 
 jest.mock('server-only', () => ({}));
 

@@ -9,7 +9,6 @@ import { prisma, disconnectTestDb } from './helpers/db';
 import { seedProgram, SeededProgram } from './helpers/fixtures';
 
 process.env.DATABASE_URL = testDatabaseUrl();
-process.env.GEMINI_API_KEY = '';
 
 jest.mock('server-only', () => ({}));
 jest.mock('../src/auth', () => ({ authConfigured: false, auth: jest.fn(async () => null) }));
