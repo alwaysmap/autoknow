@@ -2,23 +2,25 @@ import 'server-only';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 
-// EMPLOYMENT PERIODS: the as-of resolvers, and the one way to open a period (#127 E5,
-// spec #124 §4). "Which company is this person at, and as what" is a question about a
-// DAY, and the two wrong ways to ask it — `where: { endDate: null }` and the
-// `Person.currentPartnerId` cache — are argued once each, at `coversDay` in ./people and
-// in ADR currentpartnerid-is-a-cache-affiliations-are-the-truth. Both coincide with the
-// truth only while nobody has a move recorded.
+// EMPLOYMENT PERIODS: the as-of resolvers, and the two writes that open one (#127 E5,
+// autoknow-pvn, spec #124 §4). "Which company is this person at, and as what" is a
+// question about a DAY, and the two wrong ways to ask it — `where: { endDate: null }`
+// and the `Person.currentPartnerId` cache — are argued once each, at `coversDay` in
+// ./people and in ADR currentpartnerid-is-a-cache-affiliations-are-the-truth. Both
+// coincide with the truth only while nobody has a move recorded.
 //
-// `createPersonAt` is a WRITE, which "resolvers" does not suggest. It is here because
-// creating a person means opening their first period, so it belongs with the code that
-// reads periods — and because it needs prisma, which is what rules out ./people.
+// `createPersonAt` and `movePersonTo` are WRITES, which "resolvers" does not suggest.
+// They are here because opening a period is a decision about the day the resolvers
+// resolve — `movePersonTo` picks the period to close with the very same predicate, which
+// is the whole of autoknow-pvn — and because they need prisma, which rules out ./people.
 //
 // `coversDay` is the JS twin, for a period already in hand. These are for periods still
 // in the database: the predicate goes into SQL so the wrong row never comes back to be
-// filtered, which is what E4's composite indexes were added for. As of #127 E5 `coversDay`
-// has no production caller — /people/:id was the last and now asks in SQL. Staged, not
-// dead: it is still the right answer for a caller holding rows, and writing a third date
-// comparison instead is the bug.
+// filtered, which is what E4's composite indexes were added for. #127 E5 left `coversDay`
+// with no production caller — /people/:id was the last and now asks in SQL — and
+// autoknow-pvn gave it one back: `movePersonCompany` holds the period it just wrote, so
+// asking here would be a needless round trip. That is the division. Writing a third date
+// comparison instead of either is the bug.
 //
 // "Profile" is #124 §4's word for a person's affiliation as of a date — not the
 // account-shaped sense in `createMyProfile`.
@@ -31,9 +33,11 @@ import { prisma } from './db';
  * NULL OR endDate > at)`. Half-open — a period ENDING on `at` does not cover it, its
  * successor starting that day does. A contiguous career therefore matches exactly ONE
  * period per person — but that is the shape the data is MEANT to have, not something
- * this predicate enforces: there is no exclusion constraint, and `movePersonCompany`
- * can still author an overlap (autoknow-pvn). The resolvers below order deterministically
+ * this predicate enforces: there is no exclusion constraint, and the affiliations API
+ * can still author an overlap (autoknow-2of). The resolvers below order deterministically
  * so an overlap picks the same row on every render rather than flickering.
+ * `movePersonTo` used to be the other author of one; since autoknow-pvn it HEALS an
+ * overlap it finds, because it closes every period covering the move date.
  *
  * Shaped for `@@index([personId, startDate, endDate])`: `startDate` is the index BOUND
  * and lands in Index Cond. `endDate` is NOT and cannot be — `IS NULL OR >` is not an
@@ -201,4 +205,66 @@ export function personIsAtPartnerAsOfSql(
     WHERE a."partnerId" = ${partnerId}
       AND a."startDate" <= ${at}
       AND (a."endDate" IS NULL OR a."endDate" > ${at}))`;
+}
+
+/**
+ * Record "from `at`, this person is at `partnerId` as `role`", and leave the career
+ * CONTIGUOUS around it. Returns the period it opened.
+ *
+ * A move is an INSERT INTO A TIMELINE, not an append — ADR
+ * a-move-is-an-insert-into-a-timeline carries the rule, its edge cases and the readings
+ * rejected. What it replaced was `where: { endDate: null }`, "close whatever period is
+ * open", which is a different question and answered wrong the moment a move was
+ * scheduled or backdated (autoknow-pvn). The three writes below are the rule's three
+ * clauses, in order:
+ *
+ *  1. every period COVERING `at` ends there — selected with `asOfWhere`, so which row a
+ *     move closes cannot drift from what the resolvers above call the job held then;
+ *  2. a period left EMPTY by that is deleted, not kept as a zero-length row;
+ *  3. the new period ends where the next one begins, or is open if none follows.
+ *
+ * No covering period is not an error: that is a hire being backdated in, or a return
+ * from a gap, and only clause 3 applies. One transaction, because a career that is
+ * contiguous only if all three writes land is not contiguous.
+ */
+export async function movePersonTo({ personId, partnerId, role, at }: {
+  personId: number;
+  partnerId: number;
+  role: string;
+  at: Date;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const covering = await tx.personAffiliation.findMany({
+      where: { personId, ...asOfWhere(at) },
+      select: { id: true, startDate: true },
+    });
+    // Strictly after: a period starting ON `at` is a COVERING period, handled below.
+    const next = await tx.personAffiliation.findFirst({
+      where: { personId, startDate: { gt: at } },
+      orderBy: { startDate: 'asc' },
+      select: { startDate: true },
+    });
+
+    // An exhaustive two-way split, because `asOfWhere` already bounds every row here to
+    // `startDate <= at`. Spelled `>=` and not `===` because these are Date OBJECTS, on
+    // which `===` is reference identity and matches nothing.
+    const startsBefore = covering.filter((p) => p.startDate < at).map((p) => p.id);
+    const startsOnMoveDate = covering.filter((p) => p.startDate >= at).map((p) => p.id);
+
+    if (startsBefore.length > 0) {
+      await tx.personAffiliation.updateMany({
+        where: { id: { in: startsBefore } },
+        data: { endDate: at },
+      });
+    }
+    // Closing one of these at its own start would give `[at, at)` — half-open, so no day
+    // at all. Guarded like the above because the ordinary move leaves this set empty, and
+    // an `in: []` is a wasted round trip inside the transaction rather than a free no-op.
+    if (startsOnMoveDate.length > 0) {
+      await tx.personAffiliation.deleteMany({ where: { id: { in: startsOnMoveDate } } });
+    }
+    return tx.personAffiliation.create({
+      data: { personId, partnerId, role, startDate: at, endDate: next?.startDate ?? null },
+    });
+  });
 }

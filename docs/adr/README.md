@@ -71,3 +71,4 @@ skill routes between them.
 | 2026-07-26 | [A fact owned by infrastructure is supplied at runtime or declared unknown — never a literal](2026-07-26-infra-owned-facts-are-supplied-or-unknown.md) | accepted | infra, terraform, config, env, copy, budget |
 | 2026-07-26 | [A stored vector fails loud; a query vector fails soft](2026-07-26-a-stored-vector-fails-loud-a-query-vector-fails-soft.md) | accepted | ingestion, embeddings, data-integrity, gemini, search |
 | 2026-07-26 | [`Person.currentPartnerId` is a cache; the affiliation covering the day is the truth](2026-07-26-currentpartnerid-is-a-cache-affiliations-are-the-truth.md) | accepted | data-integrity, identity, affiliations, lint, prisma |
+| 2026-07-26 | [Recording a move INSERTS into a career timeline; it never appends to the end of it](2026-07-26-a-move-is-an-insert-into-a-timeline.md) | accepted | people, affiliations, temporal, data-integrity, actions |

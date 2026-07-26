@@ -8,8 +8,8 @@ import { getCurrentUser } from '../../lib/session';
 import { authConfigured } from '../../auth';
 import { userFromHandle } from '../../lib/auth';
 import { parseForm, personCreateSchema, personDeleteSchema, personMoveSchema, personUpdateSchema } from '../../lib/schemas';
-import { hasTakenEffect } from '../../lib/people';
-import { createPersonAt } from '../../lib/profiles';
+import { coversDay } from '../../lib/people';
+import { createPersonAt, movePersonTo } from '../../lib/profiles';
 import { guarded, type ActionResult } from '../../lib/actionResult';
 
 // Person maintenance (move / delete), zod-gated (lib/schemas). Lives here —
@@ -53,21 +53,11 @@ export async function movePersonCompany(formData: FormData): Promise<ActionResul
   return guarded(async () => {
   const { personId, newPartnerId, newRole, startDate } = parseForm(personMoveSchema, formData);
 
-  // Close any currently OPEN affiliations, then open the new one.
-  //
-  // The guard fires here and the disable is honest rather than a waiver: "open" is not
-  // "current", and this action knows it. With a move already scheduled — today's period
-  // closed on 1 Nov, next November's open — recording a second move closes the FUTURE
-  // period and leaves today's alone, so the career gains an overlap. Closing the period
-  // that COVERS the effective date is the right rule, and it belongs with the unified
-  // move/correct dialog rather than bolted on here: autoknow-pvn (#127 E14).
-  await prisma.personAffiliation.updateMany({
-    // eslint-disable-next-line no-restricted-syntax -- known-wrong, tracked in autoknow-pvn
-    where: { personId, endDate: null },
-    data: { endDate: startDate },
-  });
-  await prisma.personAffiliation.create({
-    data: { personId, partnerId: newPartnerId, role: newRole, startDate },
+  // The period arithmetic — which period the move date falls in, what bounds the new one
+  // — lives in lib/profiles beside the resolvers that have to agree with it, and the
+  // account of why "the OPEN period" was the wrong answer lives there too (autoknow-pvn).
+  const newPeriod = await movePersonTo({
+    personId, partnerId: newPartnerId, role: newRole, at: startDate,
   });
 
   // #124 Class 1. `currentPartnerId` is a CACHE of "where do they work TODAY", so it
@@ -78,9 +68,11 @@ export async function movePersonCompany(formData: FormData): Promise<ActionResul
   // filed under History. Scheduling a change must RECORD it — the affiliation rows
   // above are that record — without pretending it already happened.
   //
-  // A backdated move still lands here, correctly: its date has arrived, so the
-  // cache advances and the window is retroactively re-attributed.
-  if (hasTakenEffect(startDate)) {
+  // `coversDay(newPeriod)`, NOT `hasTakenEffect(startDate)`, and the two differ for a
+  // BACKDATED move landing before periods already on the books: backdating Alice to 2019
+  // opens a period that ENDED in 2022 — its start has certainly arrived, and she still
+  // does not work there today.
+  if (coversDay(newPeriod)) {
     await prisma.person.update({
       where: { id: personId },
       data: { currentPartnerId: newPartnerId },
