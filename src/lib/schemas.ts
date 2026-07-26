@@ -94,6 +94,15 @@ export const personDeleteSchema = z.object({
   personId: zId,
 });
 
+/** Edit the CURRENT record: corrections, never history — see `updatePerson` for why
+ *  employer and role are not here. Notes are free prose about the human, not a timeline. */
+export const personUpdateSchema = z.object({
+  personId: zId,
+  name: zText.max(200),
+  email: z.email(),
+  notes: zTextOrNull,
+});
+
 // ---- person creation & assignment ------------------------------------------------
 
 /** Person records are creatable by any login; a Person needs no Login (partner-side

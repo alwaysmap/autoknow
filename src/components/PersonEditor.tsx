@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { createPerson, movePersonCompany, deletePerson } from '../app/actions/people';
+import { createPerson, movePersonCompany, updatePerson, deletePerson } from '../app/actions/people';
 import { addPhasePerson } from '../app/actions/phasePeople';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
@@ -27,14 +27,21 @@ export interface ProgramOption {
 }
 
 
-export default function PersonAdminControls({ personId, personName, partners, programs }: {
+// name/email/notes are threaded in rather than re-fetched: the Edit dialog seeds from
+// the record the page already rendered, so what you see is what the form opens with.
+export default function PersonAdminControls({
+  personId, personName, personEmail, personNotes, partners, programs,
+}: {
   personId: number;
   personName: string;
+  personEmail: string;
+  personNotes: string | null;
   partners: Option[];
   programs: ProgramOption[];
 }) {
   const locale = useLocale();
   const [assignOpen, setAssignOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -71,6 +78,9 @@ export default function PersonAdminControls({ personId, personName, partners, pr
       <KebabMenu ariaLabel={t(locale, 'moreActions')}>
         <button type="button" data-testid="add-to-program" onClick={() => { setPickedProgram(''); setAssignOpen(true); }}>
           {t(locale, 'addToProgram')}
+        </button>
+        <button type="button" data-testid="edit-person" onClick={() => setEditOpen(true)}>
+          {t(locale, 'editDetails')}
         </button>
         <button type="button" onClick={() => setMoveOpen(true)}>
           {t(locale, 'moveToDifferentCompany')}
@@ -113,6 +123,38 @@ export default function PersonAdminControls({ personId, personName, partners, pr
           <div className={dash.actionRow}>
             <button type="button" onClick={() => setAssignOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
             <button type="submit" disabled={saving || !pickedProgram} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'save')}</button>
+          </div>
+        </form>
+      </OverlayDialog>
+
+      {/* Edit dialog: the CURRENT record only. Employer and role are absent because they
+          live on an affiliation period, not on the person — see `updatePerson`. */}
+      <OverlayDialog open={editOpen} onClose={() => setEditOpen(false)} width="30rem"
+        title={t(locale, 'editDetails')} closeLabel={t(locale, 'close')}>
+        <form
+          action={async (fd) => { if (await runAction(fd, updatePerson)) setEditOpen(false); }}
+          className={dash.dialogForm}
+        >
+          <input type="hidden" name="personId" value={personId} />
+          {errorLine}
+          <div className={dash.textInputGroup}>
+            <label htmlFor="personName" className={dash.formLabel}>{t(locale, 'nameLabel')}</label>
+            <input id="personName" type="text" name="name" required defaultValue={personName}
+              className={dash.textInput} />
+          </div>
+          <div className={dash.textInputGroup}>
+            <label htmlFor="personEmail" className={dash.formLabel}>{t(locale, 'emailHeader')}</label>
+            <input id="personEmail" type="email" name="email" required defaultValue={personEmail}
+              className={dash.textInput} />
+          </div>
+          <div className={dash.textInputGroup}>
+            <label htmlFor="personNotes" className={dash.formLabel}>{t(locale, 'personNotesLabel')}</label>
+            <textarea id="personNotes" name="notes" rows={3} defaultValue={personNotes ?? ''}
+              placeholder={t(locale, 'personNotesPlaceholder')} className={dash.textArea} />
+          </div>
+          <div className={dash.actionRow}>
+            <button type="button" onClick={() => setEditOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
+            <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'saveChanges')}</button>
           </div>
         </form>
       </OverlayDialog>
