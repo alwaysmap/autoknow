@@ -54,14 +54,35 @@ export function quotaBlocked(): { since: Date; reason: string } | null {
   return { since: new Date(block.at), reason: block.reason };
 }
 
-/**
- * The one sentence every decline site says, so the link and the tone live in one place.
- * `whatSurvived` is the only per-site difference — three hand-rolled variants of this had
- * already appeared across ingest, quick-ingest and the summaries route (AGENTS lesson 7),
- * which is two places to miss when the URL or the wording changes.
- */
+/** The one sentence every decline site says, so the link and the tone live in one place.
+ *  `whatSurvived` is the only per-site difference. Prefer declineIfQuotaBlocked below,
+ *  which says it AND does the check; call this directly only where the refusal is
+ *  discovered rather than predicted (a 429 that beat the latch). */
 export function quotaDeclineMessage(whatSurvived: string): string {
   return `Gemini is over its quota or spending cap — ${whatSurvived}. Check the cap at ai.studio/spend, then try again.`;
+}
+
+/**
+ * The WHOLE preflight, not just its sentence: check the latch, log what the API said
+ * and when we latched it, and hand back the decline — or `null`, meaning go ahead.
+ *
+ * This is AGENTS lesson 7 caught mid-recurrence. Three hand-rolled variants of the
+ * DECLINE had appeared across ingest, quick-ingest and the summaries route, so the
+ * sentence was extracted — but the latch check and the log line beside it were not, and
+ * by the fourth caller those existed in four places again. An operator reading Cloud
+ * Logging needs that line to be one grep, and `since` + `reason` are the only reason the
+ * latch carries a payload at all.
+ *
+ * @param what          who is declining, for the log line — distinct per ENTRY POINT, not
+ *                      per operation ('summary regenerate (action)' vs '… (api)'), or the
+ *                      grep cannot tell two surfaces of one operation apart
+ * @param whatSurvived  what is still intact, for the user: 'the link was not saved'
+ */
+export function declineIfQuotaBlocked(what: string, whatSurvived: string): string | null {
+  const blocked = quotaBlocked();
+  if (!blocked) return null;
+  console.warn(`${what} declined: Gemini quota latched at ${blocked.since.toISOString()} — ${blocked.reason}`);
+  return quotaDeclineMessage(whatSurvived);
 }
 
 /** Test seam — the latch is module state, and a test that sets it must be able to clear

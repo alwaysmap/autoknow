@@ -1,26 +1,93 @@
 /** @jest-environment jsdom */
-// A scope with no evidence must not sit forever "Synthesizing…": once the
-// auto-generation completes and there is still no summary, the panel shows an honest
-// "nothing to summarize" state.
+// What the panel owes a reader when the briefing behind it is missing, unfinished, or
+// unrefreshable — three failures that all used to render as the same optimism:
+//   • no evidence at all → an honest "nothing to summarize", not a forever "Synthesizing…"
+//   • a refused or failed auto-refresh → the reason, and NEVER the page (autoknow-6by)
+//   • the entity links the briefing carries, which are the server's data, not the model's
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { LocaleProvider } from '../src/components/LocaleProvider';
 import SummaryPanel from '../src/components/SummaryPanel';
+import type { ActionResult } from '../src/lib/actionResult';
 
-const regenerateSummary = jest.fn(async (_fd: FormData) => {});
+const regenerateSummary = jest.fn(async (_fd: FormData): Promise<ActionResult> => ({}));
 jest.mock('../src/app/actions/summaries', () => ({
   regenerateSummary: (fd: FormData) => regenerateSummary(fd),
 }));
 
-const renderPanel = (props: Partial<React.ComponentProps<typeof SummaryPanel>> = {}) =>
+/** Stands in for Next's global-error: if the auto-refresh's failure escapes the panel,
+ *  this is what the reader gets instead of the page. */
+class Boundary extends React.Component<{ children: React.ReactNode }, { caught: boolean }> {
+  state = { caught: false };
+  static getDerivedStateFromError() {
+    return { caught: true };
+  }
+  render() {
+    return this.state.caught ? <p>THE PAGE DIED</p> : this.props.children;
+  }
+}
+
+const renderPanel = (
+  props: Partial<React.ComponentProps<typeof SummaryPanel>> = {},
+  options?: Parameters<typeof render>[1],
+) =>
   render(
     <LocaleProvider locale="en">
       <SummaryPanel scope="partner" targetId={1} path="/partners/1" summary={null} configured {...props} />
     </LocaleProvider>,
+    options,
   );
 
-beforeEach(() => regenerateSummary.mockClear());
+beforeEach(() => {
+  regenerateSummary.mockReset();
+  regenerateSummary.mockResolvedValue({});
+});
+
+// The briefing failing to refresh must cost the briefing, never the page (autoknow-6by).
+describe('SummaryPanel when the auto-refresh fails', () => {
+  const cached = {
+    id: 1,
+    scope: 'program' as const,
+    targetId: 3,
+    generatedAt: new Date().toISOString(),
+    trigger: 'cron',
+    model: 'test',
+    tldr: 'Bring-up is on plan.',
+    sourceCount: 2,
+    stale: true, // ← what a fresh needle update leaves behind, and what fires the refresh
+    body: { sections: [] },
+  };
+
+  // The panel under a stand-in for Next's error boundary: the two tests below differ
+  // only in HOW the refresh fails, so nothing else may differ between them.
+  const renderProgramPanel = () =>
+    renderPanel({ scope: 'program', targetId: 3, path: '/programs/3', summary: cached }, { wrapper: Boundary });
+
+  it('keeps the page alive and says why when the action returns { error }', async () => {
+    regenerateSummary.mockResolvedValue({
+      error: 'Gemini is over its quota or spending cap — the existing briefing is unchanged.',
+    });
+
+    renderProgramPanel();
+
+    await waitFor(() => expect(screen.getByTestId('summary-error-program')).toBeInTheDocument());
+    expect(screen.queryByText('THE PAGE DIED')).not.toBeInTheDocument();
+    // the cached briefing is still readable — it is older, not wrong
+    expect(screen.getByText(/Bring-up is on plan/)).toBeInTheDocument();
+  });
+
+  it('survives a REJECTED action (transport, or a server action that still throws)', async () => {
+    regenerateSummary.mockRejectedValue(new Error('500 Internal Server Error'));
+
+    renderProgramPanel();
+
+    await waitFor(() => expect(screen.getByTestId('summary-error-program')).toBeInTheDocument());
+    expect(screen.queryByText('THE PAGE DIED')).not.toBeInTheDocument();
+    // the client says only what it knows: no answer came back, whatever happened there
+    expect(screen.getByText(/could not be refreshed — the server did not answer/i)).toBeInTheDocument();
+  });
+});
 
 describe('SummaryPanel with no evidence', () => {
   it('auto-generates on mount, then shows the empty state instead of a stuck spinner', async () => {

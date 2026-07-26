@@ -6,7 +6,7 @@ import { ingestLink, type IngestResult, type IngestAnchor } from '../../lib/inge
 import { refreshSource } from '../../lib/refresh';
 import { getAccessToken, getCurrentUser } from '../../lib/session';
 import { geminiConfigured } from '../../lib/gemini';
-import { quotaBlocked, quotaDeclineMessage } from '../../lib/geminiQuota';
+import { declineIfQuotaBlocked } from '../../lib/geminiQuota';
 
 // Actions for the scoped QuickIngest component and the Manage → Sources operator
 // page (docs/INGEST_FRESHNESS_PLAN.md §5.2, §2.2).
@@ -25,13 +25,8 @@ export async function quickIngestAction(_prev: QuickIngestState, formData: FormD
   // embed — discovering the cap partway through means work done, money spent and a
   // half-finished request to explain. Declining up front costs nothing and changes
   // nothing (lib/geminiQuota).
-  const blocked = quotaBlocked();
-  if (blocked) {
-    // Log what the API actually said and when we latched — an operator reading Cloud
-    // Logging needs both, and they are the only reason the latch carries a payload.
-    console.warn(`quick-ingest declined: Gemini quota latched at ${blocked.since.toISOString()} — ${blocked.reason}`);
-    return { result: { ok: false, error: quotaDeclineMessage('the link was not saved') } };
-  }
+  const declined = declineIfQuotaBlocked('quick-ingest', 'the link was not saved');
+  if (declined) return { result: { ok: false, error: declined } };
 
   const mode = formData.get('mode') === 'snapshot' ? 'snapshot' as const : formData.get('mode') === 'watched' ? 'watched' as const : undefined;
   const anchorKind = (formData.get('anchorKind') as string) || '';
@@ -57,10 +52,40 @@ export async function quickIngestAction(_prev: QuickIngestState, formData: FormD
   return { result };
 }
 
+/** One re-check attempt, with the provider's failure kept INSIDE it. Split out so the
+ *  action below stays the flat guard → attempt → revalidate its siblings are, and so
+ *  the every-path revalidate is visible rather than promised by a comment. */
+async function attemptSourceRefresh(id: number): Promise<void> {
+  if (declineIfQuotaBlocked('source refresh', 'the source was not re-checked')) return;
+  try {
+    await refreshSource(id, { userAccessToken: await getAccessToken() });
+  } catch (e) {
+    console.error(`source refresh failed (${id}):`, e);
+  }
+}
+
+/**
+ * "Refresh now" on one watched source. Re-distilling costs a Gemini call, so this is
+ * the same shape as quickIngestAction above and as regenerateSummary: ask the quota
+ * latch BEFORE spending, and never let a provider failure out of the action.
+ *
+ * It rides a bare `<form action={…}>` (SourcesClient), so a PROVIDER rejection here is
+ * not a failed button — it costs the whole page
+ * (docs/knowledge/a-server-action-a-component-auto-fires-is-on-the-pages-critical-path.md).
+ * A bad id still throws: that is our own form malformed, not the world refusing.
+ *
+ * The revalidate then runs whatever happened, because refreshSource writes
+ * `lastCheckedAt` and can freeze the row before it gives up. A refusal is still quieter
+ * than it should be — the operator sees an unchanged row and the reason only in the
+ * server log — because this form has nowhere to render one. Giving it an inline surface
+ * is autoknow-dv3; taking the page down was the bug.
+ */
 export async function refreshSourceAction(formData: FormData) {
   const id = parseInt((formData.get('id') as string) || '', 10);
   if (Number.isNaN(id)) throw new Error('Invalid source id');
-  await refreshSource(id, { userAccessToken: await getAccessToken() });
+
+  await attemptSourceRefresh(id);
+
   revalidatePath('/manage/sources');
   const path = (formData.get('path') as string) || null;
   if (path) revalidatePath(path);
