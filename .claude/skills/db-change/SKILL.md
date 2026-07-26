@@ -29,8 +29,9 @@ host — `npm run db:up` / `db:down` manage the one sanctioned container
 (`pgvector/pgvector:pg16` from docker-compose.yml).
 
 **Findings for this surface:** [docs/knowledge/](../../../docs/knowledge/README.md) —
-scan the trigger column for `prisma/migrations/**` and `npm run db:migrate` before
-editing a migration you have already applied.
+scan the trigger column for `prisma/migrations/**`, `npm run db:migrate` and
+`src/lib/seed.ts` before editing a migration you have already applied or dating a
+new fixture.
 
 ## Non-negotiables (enforced, not advisory)
 
