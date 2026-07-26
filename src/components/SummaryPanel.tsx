@@ -83,6 +83,11 @@ export default function SummaryPanel({
   // "still synthesizing" from "finished, but there was nothing to synthesize" — the
   // latter must show an honest empty state, not a perpetual spinner.
   const [attempted, setAttempted] = React.useState(false);
+  // Why the last refresh did not happen, in the server's own words. Held here rather
+  // than thrown, because the auto-run below fires on ordinary page views and an
+  // unhandled rejection there costs the whole page, not the briefing
+  // (docs/knowledge/a-server-action-a-component-auto-fires-is-on-the-pages-critical-path.md).
+  const [refreshError, setRefreshError] = React.useState<string | null>(null);
 
   const regenerate = () =>
     startTransition(async () => {
@@ -90,9 +95,22 @@ export default function SummaryPanel({
       fd.set('scope', scope);
       fd.set('targetId', String(targetId));
       fd.set('path', path);
-      await regenerateSummary(fd);
+      try {
+        const { error } = await regenerateSummary(fd);
+        setRefreshError(error ?? null);
+      } catch (err) {
+        console.error('summary refresh failed:', err);
+        setRefreshError(t(locale, 'summaryRefreshNoAnswer'));
+      }
       setAttempted(true);
     });
+
+  // One concept, named once: there is a reason to show, and we are not already busy
+  // re-trying — which is also what makes the toolbar stop claiming "updating".
+  const showRefreshError = !pending && refreshError !== null;
+  const errorLine = (
+    <p className={styles.empty} data-testid={`summary-error-${scope}`}>{refreshError}</p>
+  );
 
   // Stale content ⇒ refresh in the background; NO summary yet ⇒ generate one
   // automatically — either way, once per mount.
@@ -118,7 +136,9 @@ export default function SummaryPanel({
   }
 
   if (!summary) {
-    // Three honest states, never a stuck spinner:
+    // Three states, never a stuck spinner. (A refusal is the FOURTH, and it is not one
+    // of these `message` keys — it renders as `errorLine` just below, because its words
+    // are the server's, not a key of ours.)
     //  - a generation is actually running (or the auto-run is about to fire) → synthesizing
     //  - it finished and produced nothing (no evidence for this scope) → nothing-to-summarize
     //  - Gemini configured but nothing attempted yet, or unconfigured → prompt to generate
@@ -132,7 +152,7 @@ export default function SummaryPanel({
     return (
       <div data-testid={`summary-${scope}`}>
         <div className={styles.header}>
-          <p className={styles.empty}>{t(locale, message)}</p>
+          {showRefreshError ? errorLine : <p className={styles.empty}>{t(locale, message)}</p>}
           <button type="button" className={styles.geminiBtn} disabled={pending} onClick={regenerate}
             title={t(locale, 'summaryGenerate')} aria-label={t(locale, 'summaryGenerate')}
             data-pending={pending || undefined}>
@@ -151,13 +171,19 @@ export default function SummaryPanel({
 
   return (
     <div data-testid={`summary-${scope}`}>
+      {/* `updating`: a refresh already refused is not "updating" — leaving the toolbar
+          in that state is the perpetual spinner AGENTS lesson 5 forbids. */}
       <SummaryToolbar
         generatedLabel={generated}
         sourceCount={summary.sourceCount}
-        updating={summary.stale || pending}
+        updating={pending || (summary.stale && !showRefreshError)}
         pending={pending}
         onRefresh={configured ? regenerate : undefined}
       />
+
+      {/* A refresh that was declined or failed says so, once, above the briefing it
+          could not replace — the cached one below is still true, just older. */}
+      {showRefreshError && errorLine}
 
       <p className={styles.tldr}>{renderProse(summary.tldr, summary.body.tldrSegments)}</p>
 

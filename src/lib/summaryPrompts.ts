@@ -15,6 +15,16 @@ export type SummaryScope = 'ecosystem' | 'partner' | 'program';
 
 export const SUMMARY_SCOPES: SummaryScope[] = ['ecosystem', 'partner', 'program'];
 
+/**
+ * What a refused or failed regeneration leaves standing, for the decline sentence
+ * (lib/geminiQuota). Shared by the two surfaces that can refuse the SAME operation — the
+ * `regenerateSummary` action and `POST /api/summaries/:scope/:id` — which had drifted to
+ * calling the artifact a "briefing" and a "summary" respectively. It lives here, in the
+ * vocabulary module both already import, rather than in the action: a `'use server'` file
+ * may export nothing but async functions.
+ */
+export const BRIEFING_SURVIVED = 'the existing briefing is unchanged';
+
 // The machine contract — the renderer and citation mapper depend on every line here.
 const CONTRACT = `Synthesize ONLY from the numbered evidence records below — do not invent facts. Every bullet must list the evidence record ids it draws from in its "evidence" array, and ONLY there — never write ids or bracketed references like [0, 3] inside the prose itself. Skip a section (empty array) when the evidence has nothing real for it — a thin section is better than a padded one. Never include numeric progress percentages — describe position in words.`;
 

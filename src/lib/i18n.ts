@@ -506,6 +506,19 @@ const STRINGS = {
   summaryRefresh: { en: 'Refresh', de: 'Aktualisieren', ja: '更新', ko: '새로 고침' },
   summaryGenerate: { en: 'Generate summary', de: 'Zusammenfassung erzeugen', ja: 'サマリーを生成', ko: '요약 생성' },
   summarySynthesizing: { en: 'Synthesizing…', de: 'Synthetisiert…', ja: '生成中…', ko: '생성 중…' },
+  // The client-side half of a failed refresh: the ANSWER never came back, so there is no
+  // server sentence to render. It says only that, because that is all the client knows —
+  // the request may well have arrived and died there. Deliberately not a copy of the
+  // action's own failure message (app/actions/summaries), which describes a different
+  // fact; one sentence per fact, or the two drift into contradicting each other.
+  // (That action's messages, like quickIngestAction's, are knowingly untranslated: they
+  //  are composed server-side, where there is no locale.)
+  summaryRefreshNoAnswer: {
+    en: 'The briefing could not be refreshed — the server did not answer.',
+    de: 'Das Briefing konnte nicht aktualisiert werden — der Server hat nicht geantwortet.',
+    ja: 'ブリーフィングを更新できませんでした。サーバーから応答がありませんでした。',
+    ko: '브리핑을 새로 고치지 못했습니다 — 서버가 응답하지 않았습니다.',
+  },
   summaryNoEvidence: {
     en: 'Nothing to summarize yet — no stored updates or ingested context for this scope.',
     de: 'Noch nichts zusammenzufassen — keine gespeicherten Updates oder Kontextquellen für diesen Bereich.',
