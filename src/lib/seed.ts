@@ -1094,7 +1094,7 @@ export async function seedMockData() {
   // hand-writing the rows that action would write. That is the point: the fixture
   // inherits whatever the action really does. It was authored while the action
   // advanced Person.currentPartnerId unconditionally, so it RENDERED #124 Class 1 —
-  // the identity line read Honda months early while the timeline still said Google.
+  // the identity line read Honda months early while every affiliation row said Google.
   // Class 1 is fixed (the action now advances the cache only once the date has
   // arrived), and the same seed call produces the correct state with no edit here —
   // which is exactly the outcome routing the fixture through the action was for.
@@ -1295,10 +1295,12 @@ export async function seedMockData() {
 
   // (d) THE SCHEDULED MOVE. Four months out, through the real action — which records
   // the Honda affiliation but leaves currentPartnerId on Google until the date
-  // arrives, so /people/<alice> keeps reading Google LLC while the Honda period sits
-  // on the timeline ahead of her. Deriving the date (never a literal) is what keeps
-  // it a FUTURE move on every re-seed, and therefore a live guard against Class 1
-  // coming back.
+  // arrives, so the identity line on /people/<alice> correctly reads Google LLC. The
+  // Honda row itself still lands in the page's History section, marked "Present",
+  // because that section is filtered by `endDate` rather than by today (#127 E2a) —
+  // this fixture is what makes that residue visible. Deriving the date (never a
+  // literal) is what keeps it a FUTURE move on every re-seed, and therefore a live
+  // guard against Class 1 coming back.
   const hondaMoveDate = aheadMonthStart(4);
   const moved = await movePersonCompany(fd({
     personId: aliceWatersId,

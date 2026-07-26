@@ -14,9 +14,12 @@ export interface PersonLike {
 }
 
 /**
- * Has an effective date ARRIVED as of `at`? The one place that answers it, so a
- * scheduled change cannot be judged "already applied" by one caller and "still
- * pending" by another.
+ * Has an effective date ARRIVED as of `at`? The intended single answer, so a scheduled
+ * change cannot be judged "already applied" by one caller and "still pending" by
+ * another — but not yet the ONLY one: `/people/:id` still decides current-vs-history
+ * inline from `!a.endDate` (page.tsx), which is why a scheduled move currently files
+ * today's job under History. That is #127 E2a, tracked separately; route new callers
+ * here rather than copying the inline rule.
  *
  * THE SAME-DAY BOUNDARY BELONGS TO THE FUTURE. Employment periods are half-open
  * (#124 §2, `start <= t < end`), so `t === start` falls INSIDE the new period:
