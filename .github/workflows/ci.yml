@@ -155,8 +155,21 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false # a webkit-only break must not hide a chromium result, or vice versa
+      # WORKER COUNT IS PER LEG, because the legs have opposite shapes and one number
+      # cannot suit both. chromium spreads 23 light spec files, so four workers keep the
+      # runner busy. webkit matches only FOUR files, and they are the four heaviest — at
+      # `workers: 4` that is four WebKit browsers plus four `next start` servers plus
+      # Postgres on 4 vCPU, and the first measurement of that (run 30191202038) came back
+      # 164s against a 124s serial baseline: 32% SLOWER, on the leg that IS the critical
+      # path. Two workers halve the server and browser footprint while still splitting
+      # the four files. Re-measure before changing either number — see the knowledge note
+      # ci-wall-clock-is-one-job-find-it-before-optimizing.
       matrix:
-        project: [chromium, webkit]
+        include:
+          - project: chromium
+            workers: 4
+          - project: webkit
+            workers: 2
     timeout-minutes: 30
     services:
       postgres:
@@ -183,6 +196,9 @@ jobs:
       # per-worker autoknow_<token>_w<n>_test DBs — one per Playwright worker — then
       # `prisma db push` syncs the schema into each of them.
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/autoknow
+      # Sets `workers`, the `webServer` array length and the number of databases at once
+      # (tests/helpers/worktree.ts). See the matrix above for why it differs per leg.
+      E2E_WORKERS: ${{ matrix.workers }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
