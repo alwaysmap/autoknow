@@ -23,6 +23,14 @@ name: CI
 #                     builds in Docker only after merge (ADR npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it).
 on:
   pull_request:
+  # Pushes to main run ONE job — `warm-cache` below — and none of the gates. A GitHub
+  # Actions cache is readable only from the run's own ref or from the DEFAULT BRANCH, so
+  # a cache written by a `pull_request` run lands on refs/pull/<n>/merge and no other PR
+  # can ever see it. Without this trigger every PR starts cold and the caches below are
+  # decoration: measured on PR #184, `npm ci` still cost 21s against a cache that had been
+  # populated by PR #183 an hour earlier.
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -38,6 +46,8 @@ concurrency:
 jobs:
   migrations-lint:
     name: migrations-lint
+    # PR gate only — a push to main runs `warm-cache` and nothing else.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     # Every gate below diffs the branch against the PR's base; each refuses to run
     # rather than pass on an empty diff if this does not resolve (scripts/ci/lib.sh).
@@ -56,6 +66,8 @@ jobs:
 
   quality:
     name: quality (typecheck · lint · jest · build)
+    # PR gate only — a push to main runs `warm-cache` and nothing else.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     # The fast half: no browsers, no e2e web server. Comfortably ~2× headroom over its
     # real cost — the e2e job (below) carries the long pole on its own budget.
@@ -149,6 +161,8 @@ jobs:
     # and needs per-worker databases first — bead autoknow-7mb, deliberately not bundled
     # here.
     name: e2e (playwright · ${{ matrix.project }})
+    # PR gate only — a push to main runs `warm-cache` and nothing else.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false # a webkit-only break must not hide a chromium result, or vice versa
@@ -228,6 +242,8 @@ jobs:
 
   image:
     name: image (Dockerfile builds; deps-stage postinstall contract)
+    # PR gate only — a push to main runs `warm-cache` and nothing else.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -252,5 +268,98 @@ jobs:
           context: .
           push: false
           tags: autoknow:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ---------------------------------------------------------------------------------
+  # PUSH-TO-MAIN ONLY. Runs no gate and asserts nothing — its entire job is to write the
+  # caches above onto the DEFAULT BRANCH, which is the only ref every PR run is allowed
+  # to read from. Without it the `actions/cache` steps in the jobs above are decoration:
+  # a pull_request run writes to refs/pull/<n>/merge, the next PR cannot see it, and
+  # every PR pays a cold `npm ci`, a cold `next build` and a from-scratch docker build.
+  #
+  # Deliberately NOT "run the whole of CI on main too": that would cost a full ~14
+  # runner-minutes per merge to re-prove what the PR just proved. This is the cheap half
+  # — install, build, fetch — and it exists purely so the next PR starts warm.
+  #
+  # THE KEYS BELOW MUST MATCH THE JOBS ABOVE EXACTLY. A typo here does not fail anything;
+  # it silently goes back to cold PRs, which is how this was missed the first time. When
+  # you change a cache key above, change it here in the same commit.
+  # ---------------------------------------------------------------------------------
+  warm-cache:
+    name: warm-cache (main only; writes the caches PRs read)
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        project: [chromium, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Cache node_modules
+        id: node-modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+      - if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
+      - run: npm run db:generate
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles('package-lock.json') }}
+      - run: npx playwright install ${{ matrix.project }}
+      # The e2e webServer builds into .next-test; the quality job builds into .next. Warm
+      # BOTH, from one build each, on the same keys those jobs restore with.
+      - name: Cache the e2e production build
+        uses: actions/cache@v4
+        with:
+          path: .next-test/cache
+          key: next-e2e-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            next-e2e-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles('package-lock.json') }}-
+      - name: Cache the production build
+        if: matrix.project == 'chromium'
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-build-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            next-build-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+      # A dummy DATABASE_URL, exactly as the quality job and the Dockerfile do: nothing
+      # dynamic touches the DB at build time, and this job has no postgres service.
+      #
+      # chromium only: `.next` is warmed for the single `quality` job, so building it on
+      # both legs would burn a second ~40s compile for a cache nobody keys off webkit.
+      - name: Build (populates the Next compile cache)
+        if: matrix.project == 'chromium'
+        env:
+          DATABASE_URL: postgresql://build:build@localhost:5432/build
+        run: npm run build
+      - name: Build the e2e dist dir (populates .next-test)
+        env:
+          DATABASE_URL: postgresql://build:build@localhost:5432/build
+          NEXT_DIST_DIR: .next-test
+        run: npm run build
+
+  warm-image-cache:
+    name: warm-image-cache (main only; writes the buildx layer cache)
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: autoknow:warm
           cache-from: type=gha
           cache-to: type=gha,mode=max

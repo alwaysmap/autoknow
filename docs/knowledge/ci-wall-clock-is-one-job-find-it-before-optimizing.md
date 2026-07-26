@@ -1,5 +1,5 @@
 ---
-title: CI wall clock is ONE job's critical path — measure per-step before optimizing anything
+title: CI wall clock is ONE job's critical path, and a PR-scoped cache is one no PR reads
 status: current
 updated: 2026-07-26
 applies_to:
@@ -8,17 +8,17 @@ applies_to:
   - any "CI is too slow / too expensive" question
 symptoms:
   - a PR takes ~6 minutes to go green and it feels like the tests are slow
+  - you added actions/cache and nothing got faster, with no error anywhere
   - you are about to speed up a job that is not on the critical path
-  - runner-minute spend is rising and nobody knows which step causes it
-verified_by: 'run 30186686741 (per-step timings via the Actions jobs API); playwright.config.ts:41 `workers: 1`; .github/workflows/ci.yml e2e matrix'
+verified_by: 'run 30186686741 (per-step timings, Actions jobs API); PR #183 vs #184 (cache scoping); playwright.config.ts:41 `workers: 1`'
 ---
 
-# CI wall clock is ONE job's critical path — measure per-step before optimizing anything
+# CI wall clock is ONE job's critical path, and a PR-scoped cache is one no PR reads
 
-**The lesson.** The four CI jobs run in parallel, so **wall clock is the slowest single
-job, not the sum**, while **spend is the sum**. Those two numbers point at different
-fixes, and optimizing the wrong one feels productive and changes nothing. Get the real
-per-step numbers first — one API call, no guessing:
+## Measure per-step first — the guesses are wrong
+
+Jobs run in parallel, so **wall clock is the slowest single job and spend is the sum**.
+Those point at different fixes. One API call gets the truth:
 
 ```bash
 RUN=$(gh run list --workflow=ci.yml --status completed --limit 1 --json databaseId -q '.[0].databaseId')
@@ -27,32 +27,34 @@ gh api repos/alwaysmap/autoknow/actions/runs/$RUN/jobs \
       "   \(.name): \((.completed_at|fromdateiso8601) - (.started_at|fromdateiso8601))s")'
 ```
 
-**What that showed (run 30186686741), and why it was surprising.** Wall clock 5m43s,
-spend ~10 runner-minutes:
+Run 30186686741: e2e 5m43 (`--with-deps` **60s**, tests 218s), quality 2m34, image 1m36,
+migrations-lint 4s. Two surprises: **`--with-deps` cost 60s on a cache HIT** (OS libs are
+not in the cached browser payload, so caching more browsers saves nothing), and
+`image`/`quality` finish so far ahead of e2e that work there is spend, not time.
 
-| Job | Total | The cost inside it |
-| --- | --- | --- |
-| e2e | 5m43 | `playwright install --with-deps` **60s**, the test run **218s** |
-| quality | 2m34 | `npm ci` 27s, lint 23s, build 36s, typecheck 16s, jest 19s |
-| image | 1m36 | `docker build` 95s, no layer cache |
-| migrations-lint | 4s | — |
+## A cache only PRs write is a cache nobody reads
 
-Two things a reasonable person would have got wrong from the outside:
+An Actions cache is readable only from the run's own ref **or the default branch**. With
+`on: pull_request` alone, every cache lands on `refs/pull/<n>/merge` and the next PR
+cannot see it — so `actions/cache` is decoration and *nothing warns you*:
 
-* **`--with-deps` cost 60s on a cache HIT.** The Playwright browser cache restored in 1s
-  and then the step shelled out to `apt` anyway — the OS libs are not in the cached
-  payload. Caching more browsers would have saved nothing.
-* **`image` and `quality` are free in wall-clock terms.** Both finish long before e2e, so
-  every second cut there is money only. Worth doing, but it is not the answer to "the PR
-  takes six minutes".
+```bash
+gh api repos/<owner>/<repo>/actions/caches -q '.actions_caches[] | "\(.ref)  |  \(.key)"'
+#   refs/pull/184/merge  |  node-modules-Linux-node22-5648ed48...   <- all on PR refs
+```
 
-**The ceiling nobody can cache away.** `playwright.config.ts` pins `workers: 1` because
-every spec wipes the ONE shared test database in `beforeAll`. That, not tooling, is why
-the suite is serial on a 4-vCPU runner. Sharding by browser across separate *runners*
-works (each leg gets its own postgres service); raising `workers` inside a leg does not,
-until each worker has its own database — bead `autoknow-7mb`.
+Fix: a `push: branches: [main]` job that only writes those keys onto the default branch
+(`warm-cache` in `ci.yml`) — not the whole gate suite, which would re-prove on main what
+the PR just proved. **It fails silently both ways**: a wrong key or a drifted warm job
+breaks no check, CI just goes cold again. Verify on the PR *after* the change — the one
+that made it is cold by definition.
 
-**The rule.** Before touching a workflow, print the per-step table and decide which
-number you are optimizing. If it is wall clock, you may only work on the job that IS the
-critical path; anything else is spend. And re-measure after, because the critical path
-moves — halve e2e and `quality` becomes the pole.
+## The ceiling caching cannot lift
+
+`playwright.config.ts` pins `workers: 1` because every spec wipes the ONE shared test DB
+in `beforeAll` — that, not tooling, is why the suite is serial on 4 vCPUs. Sharding across
+separate *runners* is safe (each leg gets its own postgres service); raising `workers`
+needs per-worker databases first — bead `autoknow-7mb`.
+
+**The rule.** Print the per-step table, decide whether you are buying wall clock or spend,
+and re-measure after — halve e2e and `quality` becomes the pole.
