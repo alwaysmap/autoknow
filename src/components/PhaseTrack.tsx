@@ -1254,8 +1254,8 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     onClick={() => setTracksHidden((v) => !v)}>
                     {t(locale, tracksHidden ? 'showTracksAction' : 'hideTracks')}
                   </button>
-                  <Link href={phasesEditHref(projectId)} role="menuitem" className={styles.menuItem}
-                    onClick={() => close()}>
+                  {/* No onClick={close}: AnchoredPopover dismisses navigating links itself. */}
+                  <Link href={phasesEditHref(projectId)} role="menuitem" className={styles.menuItem}>
                     {t(locale, 'editPhases')}
                   </Link>
                 </>

@@ -27,6 +27,13 @@ import styles from './AnchoredPopover.module.css';
 //      in-flight server action. Focus moves into the panel on open, back to the trigger
 //      on close.
 //
+//      NAVIGATION is the ONE exception, and it is decided here, not per call site: a link
+//      that replaces this page dismisses the panel, because a stale menu over the new route
+//      is the bug this was reported as. Nothing else inside the panel closes it, so the
+//      <form> rule above is untouched. Deliberately not scoped to the `variant` below —
+//      a filter panel that navigates is being replaced too
+//      ([ADR: Navigation is the one inner activation that dismisses a popover](../../docs/adr/2026-07-26-navigation-is-the-one-inner-activation-that-dismisses.md)).
+//
 // `variant='menu'` is for action lists (role=menu, arrow-key roving over the items,
 // correct `menuitem` roles applied to the focusable children). `variant='panel'` is for
 // a settings card or a filter checklist — a labelled region with native tab order, NOT
@@ -39,8 +46,9 @@ type ToggleEventLike = Event & { newState?: string };
 
 /** Handed to a render-prop child so an item can dismiss the panel after acting. Most
  *  callers don't need it — `popover="auto"` light-dismiss (outside click / Escape) covers
- *  the common case, and it must NOT close on inner clicks (that would abort a menu item's
- *  in-flight <form>). A bulk action that mutates what's behind the menu is the exception. */
+ *  the common case, links dismiss on their own (see the header), and it must NOT close on
+ *  inner clicks generally (that would abort a menu item's in-flight <form>). A <button>
+ *  bulk action that mutates what's behind the menu is the remaining exception. */
 export interface AnchoredPopoverApi {
   close: () => void;
 }
@@ -157,6 +165,29 @@ export default function AnchoredPopover({
     };
   }, [open, position]);
 
+  // Dismiss-on-navigate (see the header). Delegated on the panel so it covers links a call
+  // site renders however it likes — next/link, a plain <a>, one nested in a row wrapper —
+  // and so it costs nothing when the panel holds no links at all.
+  //
+  // `e.defaultPrevented` is deliberately NOT consulted: next/link preventDefaults in its own
+  // onClick to run the client-side navigation itself, and React dispatches that handler
+  // before this one bubbles, so the flag is TRUE in precisely the case that must close.
+  // What IS excluded is every anchor activation the BROWSER would send somewhere other than
+  // this page, because there the menu the reader opened is still the menu they are looking
+  // at. (An `<a href="#">` used as a fake button would still dismiss — no panel has one, and
+  // a non-navigating anchor is already the wrong element.)
+  const dismissOnNavigate = (e: React.MouseEvent) => {
+    const link = (e.target as HTMLElement).closest('a[href]');
+    // React bubbles along the REACT tree, so a portal rendered by a child would reach this
+    // handler from outside the panel's DOM; `contains` keeps the rule to our own panel.
+    if (!link || !panelRef.current?.contains(link)) return;
+    // Any of these has the browser take the link elsewhere — new tab, new window, download.
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const linkTarget = link.getAttribute('target');
+    if (link.hasAttribute('download') || (linkTarget && linkTarget !== '_self')) return;
+    close();
+  };
+
   const onPanelKeyDown = (e: React.KeyboardEvent) => {
     if (variant !== 'menu') return;
     const list = items();
@@ -192,6 +223,7 @@ export default function AnchoredPopover({
         role={variant === 'menu' ? 'menu' : 'group'}
         aria-label={panelLabel}
         className={`${styles.panel} ${panelClassName ?? ''}`}
+        onClick={dismissOnNavigate}
         onKeyDown={onPanelKeyDown}
       >
         {typeof children === 'function'
