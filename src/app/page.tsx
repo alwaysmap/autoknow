@@ -10,10 +10,11 @@ import { t } from '../lib/i18n';
 import { tNodes } from '../components/tNodes';
 import styles from './page.module.css';
 
-// The landing page (2026-07-20, user call). ONE job: get you to the thing you
-// came for. A big search box is the primary affordance; under it, the five most
-// recent updates — ingested documents and human-written notes alike — as teasers,
-// so an idle visit still shows what moved.
+// The landing page (2026-07-20, user call). ONE job: get you to the thing you came
+// for. In order: the leadership strip (2026-07-25, user call), then a big search box
+// — the primary affordance, which is a different claim from being the first block —
+// then the five most recent updates as teasers, ingested documents and human-written
+// notes alike, so an idle visit still shows what moved.
 //
 // The leadership strip calls the SAME loader /ecosystem does (see EcosystemStatStrip
 // for why). That puts the critical-chain pass on this page's critical path — an
@@ -39,6 +40,11 @@ export default async function Landing(props: { searchParams: Promise<{ q?: strin
 
   return (
     <div className={styles.container}>
+      {/* Outside <main>, which labels the hero. The strip must stay short enough that
+          the autofocused input keeps its place above the fold — otherwise the browser
+          scrolls straight past the strip on load (design.md §2b). */}
+      <EcosystemStatStrip programs={serializedProjects} relationshipScores={relationshipScores} now={now} />
+
       <main className={styles.hero}>
         <UnifiedSearch
           initialQuery={q ?? ''}
@@ -57,8 +63,6 @@ export default async function Landing(props: { searchParams: Promise<{ q?: strin
           })}
         </p>
       </main>
-
-      <EcosystemStatStrip programs={serializedProjects} relationshipScores={relationshipScores} now={now} />
 
       <section className={styles.latest}>
         <AnchorHeading id="latest-updates" linkLabel={t(locale, 'anchorLink')}>

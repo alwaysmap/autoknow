@@ -46,6 +46,15 @@ Every entity displayed in a dashboard view or detail card must serve as an activ
 (2026-07-20, user call.) The root route is **not** a dashboard. Its one job is to
 get you to the thing you came for:
 
+* **The leadership strip leads, above the search box** (2026-07-25, user call —
+  `EcosystemStatStrip`, the same component `/ecosystem` renders, so the two pages
+  cannot disagree about what "active" or "at risk" counts). Three numbers that read
+  in a glance are what the eye should land on; the search box is what you ACT with,
+  and the two are not the same job. Primary affordance and first block are different
+  claims — see the primary-affordance bullet below, which is unchanged by this. The
+  one constraint the order must respect: the box is autofocused, so if the strip ever
+  pushes it below the fold the browser scrolls straight past the strip on load and the
+  arrangement defeats itself. Measured at 390×760 the input sits at 452px, unscrolled.
 * **A big search box is the primary affordance** — the largest control in the app,
   autofocused, and the only place `hero`-sized styling is sanctioned
   (`UnifiedSearch` takes a `hero` prop). It deep-links: `/?q=…` runs the query on
@@ -60,7 +69,7 @@ get you to the thing you came for:
   `UnifiedSearch` + `FeedList` below. One component, two depths — never a second
   search implementation. Type-filter chips wait for results: filled chips under an
   empty box are loud and filter nothing.
-* **Under it, the five most recent updates as teasers** — ingested documents and
+* **Under the box, the five most recent updates as teasers** — ingested documents and
   human-written notes alike, from the same `getActivity` feed the rest of the app
   uses. Title, provenance, two clamped lines of the actual words. Teasers are
   `LatestTeasers`, deliberately NOT `FeedList`: the feed renders gauges, hill
