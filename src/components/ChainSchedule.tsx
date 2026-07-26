@@ -1,14 +1,19 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type SVGProps } from 'react';
 import ChartLabel from './ChartLabel';
 import { t, Locale } from '../lib/i18n';
 import { localDate } from '../lib/dates';
-import { DAY_MS } from '../lib/sop';
+import { DAY_MS, dayFloor } from '../lib/sop';
 import ConstraintRing from './ConstraintRing';
 import { isForecastOver } from '../lib/chainLedger';
 import type { ChainLedgerResult, ScheduleRow } from '../lib/chainLedger';
-import { keepNonOverlapping, dodgeLabels } from '../lib/labelPlacement';
+import { bufferSeries, type BufferPoint } from '../lib/bufferSeries';
+import { flowScale, blownAt } from '../lib/bufferFlow';
+import {
+  keepNonOverlapping, dodgeLabels, inkBox, halfHFor, baselineToCentreY, centreToBaselineY,
+  type PlacedLabel,
+} from '../lib/labelPlacement';
 import { focusWindow, panWindow, zoomWindow, type Span } from '../lib/focusWindow';
 import styles from './ChainLedger.module.css';
 
@@ -23,10 +28,14 @@ import styles from './ChainLedger.module.css';
 //     their ends, and idle handoffs draw to the day — the chart drives "start the
 //     next phase the day the baton lands", never "wait until Friday" (the whole
 //     point of critical chain / the relay runner).
-//   • a buffer-on-hand LANE below, on the same week axis: the buffer draining and
-//     refilling, each step pinned under the phase that moved it and labelled with
-//     the buffer actually in hand there. The grid answers who was where when; the
-//     lane carries the exact day magnitudes the weekly cells round off.
+//   • a two-tone buffer FLOW below, on the same x-axis (issue #161, decision 2):
+//     one value per day — buffer LEFT (green, in hand) against buffer SPENT (red) —
+//     with the boundary between them as the reading. It replaces a stepped lane
+//     whose ~10 risers each carried a label, and most of whose code existed to stop
+//     those labels colliding; the reader wanted ONE number, and a step they want
+//     explained is a column they look up in the grid above. That is what the shared
+//     x-axis is for. Per-move fidelity did not move here — it already exists twice,
+//     in "Where the buffer went" and in the day summary.
 // All colour is theme tokens (globals.css); nothing is a literal (design.md §8b).
 
 const WEEK_MS = 7 * DAY_MS;
@@ -34,7 +43,13 @@ const WEEK_MS = 7 * DAY_MS;
 // ---- SVG user-space geometry (px here is viewBox coordinate space, design.md §9) ----
 const W = 900, PAD_R = 14, ROW_H = 34, TOP = 36;
 const CELL_H = 19, CELL_GAP = 1.5; // the coloured cell inside each row band
-const LANE_H = 106, LANE_GAP = 28; // buffer-on-hand lane below the grid
+const FLOW_H = 112, FLOW_GAP = 28; // the two-tone buffer flow below the grid
+// EXTENTS of the flow's two short markers: the reserve stub in from the right edge, and
+// the blown-day tick either side of 0%.
+const GUIDELINE_STUB_W = 20, BLOWN_TICK_H = 6;
+// STROKE widths, shared between what is DRAWN and the ink boxes the label pass must clear
+// (`inkBox`) — a rule whose two sites disagree is one the pass thinks it dodged.
+const BOUNDARY_W = 1.75, GRIDLINE_W = 1, GUIDELINE_W = 1.5, BLOWN_TICK_W = 2;
 const AXIS_H = 24; // week/month ticks under the grid
 const RING_PAD = 24, TEXT_PAD = 10, CHAR_W = 6.5, WIDE_CHAR_W = 12;
 const CARD_W = 272;
@@ -53,12 +68,10 @@ const ZOOM_STEP = 0.6;
 const textWidth = (s: string) =>
   [...s].reduce((w, ch) => w + (ch.charCodeAt(0) > 0x2e80 ? WIDE_CHAR_W : CHAR_W), 0);
 
-/** A round-ish step (1/2/5 × 10ⁿ) near `rough`, for a readable y-axis scale. */
-function niceStep(rough: number): number {
-  const p = Math.pow(10, Math.floor(Math.log10(Math.max(1, rough))));
-  const n = rough / p;
-  return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * p;
-}
+/** A percentage as the axis writes it: rounded, and negatives with a real minus
+ *  sign rather than a hyphen — this axis's negative half is its point, so the
+ *  glyph that says so should not be the one that also means "range". */
+const pctText = (v: number) => `${v < 0 ? '−' : ''}${Math.abs(Math.round(v))}`;
 
 const dayShort = (ms: number, locale: Locale) => localDate(new Date(ms), locale, { month: 'short', day: 'numeric' });
 const monthLong = (ms: number, locale: Locale) => localDate(new Date(ms), locale, { month: 'long', year: 'numeric' });
@@ -71,11 +84,20 @@ function weekFloor(ms: number): number {
 }
 const weekCeil = (ms: number): number => weekFloor(ms + WEEK_MS - 1);
 
+/** A full-height vertical — today, the SOP, a break seam, the crosshair — running `y0` to
+ *  `y1` at `cx`, with `cut` removed from its middle. Every one of them crosses the gutter
+ *  between the grid and the flow, where the flow's caption sits, and a rule through a word
+ *  ruins the word; no placement pass can help, because they all nudge in y and this ink is
+ *  vertical. One component so a fifth vertical cannot be added without the cut. */
+function VRule({ cx, y0, y1, cut, ...stroke }: {
+  cx: number; y0: number; y1: number; cut: { top: number; bottom: number } | null;
+} & SVGProps<SVGLineElement>) {
+  const spans = cut ? [[y0, cut.top], [cut.bottom, y1]] : [[y0, y1]];
+  return <>{spans.map(([a, b], k) => <line key={k} x1={cx} y1={a} x2={cx} y2={b} {...stroke} />)}</>;
+}
+
 /** A hovered/focused row plus where its card should sit, in px relative to the section. */
 export interface RowCard { row: ScheduleRow; left: number; top: number }
-
-/** A dated change to the buffer, for the buffer-on-hand lane. */
-interface LaneEvent { atMs: number; deltaDays: number; kind: 'loss' | 'gain' | 'forecast'; projected: boolean }
 
 type CellKind = 'done' | 'elapsed' | 'over' | 'under' | 'forecast' | 'fover' | 'sched';
 // Nuance, not a wall of black (user call): settled/done work recedes (soft ink), the
@@ -160,16 +182,42 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
 
   const gridBot = TOP + rows.length * ROW_H;
   const axisY = gridBot + 6;
-  const laneTop = axisY + AXIS_H + LANE_GAP;
-  const laneBot = laneTop + LANE_H;
-  const H = (sopMs != null ? laneBot : gridBot + AXIS_H) + 26;
+  const flowTop = axisY + AXIS_H + FLOW_GAP;
+  const flowBot = flowTop + FLOW_H;
+  // The flow is a share of B₀, so it needs a B₀ to be a share OF: no SOP, or a program
+  // that started with no buffer at all, and there is no percentage story to tell.
+  // bufferSeries says so by returning null, and the chart says so in words rather than
+  // drawing a frame it invented (AGENTS lesson 5).
+  const series = sopMs != null ? bufferSeries(ledger, now) : null;
+  const noteY = flowTop + 4; // where the honest "no buffer to divide" line sits instead
+  const H = (series ? flowBot : sopMs != null ? noteY : gridBot + AXIS_H) + 26;
   // How far a full-height vertical (today, a break seam, the crosshair) runs: to the
-  // lane bottom when the lane is drawn, else just past the grid.
-  const vExtentBot = sopMs != null ? laneBot : gridBot + 2;
-  // The crosshair's date caption sits below the line — but with no lane the line stops
+  // flow's floor when the flow is drawn, else just past the grid.
+  const vExtentBot = series ? flowBot : gridBot + 2;
+  // The crosshair's date caption sits below the line — but with no flow the line stops
   // ABOVE the month-letter axis, so drop the caption clear of that axis rather than 15px
   // under the line (where it would land in the same band as the month letters).
-  const crosshairDateY = sopMs != null ? laneBot + 15 : axisY + AXIS_H + 12;
+  const crosshairDateY = series ? flowBot + 15 : axisY + AXIS_H + 12;
+
+  // The flow's CAPTION sits in the gutter between the two panels — and every full-height
+  // vertical (today, the SOP, a break seam, the crosshair) runs straight through that
+  // gutter to reach the flow. A rule through a word ruins the word, and no de-collider
+  // can help here: the placement passes nudge labels in Y, and this ink is vertical. So a
+  // vertical is CUT where it would cross the caption, and only there — one date still
+  // reads down both panels, the cut lands in the panel gutter where the eye expects a
+  // seam, and the caption is safe from a crosshair that can arrive at any x.
+  // The cut is UNCONDITIONAL, not "only where a vertical would actually hit the caption":
+  // the crosshair follows the pointer, so a conditional gap would open and close as the
+  // user sweeps across the caption — a flicker on the one line they are actively moving.
+  // Cutting every vertical instead gives the whole gutter one consistent seam, and drops
+  // the caption's width (measured with this file's own narrow estimator, the unsafe
+  // direction for a cut) out of the geometry entirely. Half-height follows `box()`'s
+  // convention below, so the gap matches the box the placement passes reserve.
+  const flowTitleY = flowTop - 8; // baseline of the caption rendered with the flow
+  const captionCut = series ? (() => {
+    const cy = baselineToCentreY(flowTitleY, FS_SMALL), halfH = halfHFor(FS_SMALL);
+    return { top: cy - halfH, bottom: cy + halfH };
+  })() : null;
 
   // ---- piecewise time axis: full weeks share the space; empty runs collapse ----
   // A week is OCCUPIED (never collapses) if any phase span or idle handoff touches it,
@@ -292,7 +340,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
         return { ms: m.ms, letter: monthNarrow.format(new Date(m.ms)), cx: (x(from) + x(to)) / 2, span: x(to) - x(from) };
       }).filter((o) => o.span >= 12)
     : [];
-  const axisLabelY = axisY + 16, axisHalfH = FS_AXIS / 2 + 1;
+  const axisLabelY = axisY + 16, axisHalfH = halfHFor(FS_AXIS);
   // Break durations (priority 2) and month letters (priority 1) share the axis line, so
   // de-collide them together, then split back per-series so each render site indexes its own.
   const axisKeep = keepNonOverlapping([
@@ -334,80 +382,229 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
     return cells;
   };
 
-  // ---- buffer-on-hand lane: the buffer the SOP started with, stepped through the
-  // dated events to now. Drawn only when an SOP gives an absolute buffer to track. ----
-  const startBuffer = ledger.startBufferDays;
-  const laneEvents: LaneEvent[] = [];
-  rows.forEach((r, i) => {
-    if (r.gapBeforeDays >= 1 && i > 0) laneEvents.push({ atMs: rows[i - 1].endMs, deltaDays: -r.gapBeforeDays, kind: 'loss', projected: false });
-    if (r.kind === 'done' && r.varianceDays >= 1) laneEvents.push({ atMs: r.plannedEndMs, deltaDays: -r.varianceDays, kind: 'loss', projected: false });
-    if (r.kind === 'done' && r.varianceDays <= -1) laneEvents.push({ atMs: r.endMs, deltaDays: -r.varianceDays, kind: 'gain', projected: false });
-    if (isForecastOver(r)) laneEvents.push({ atMs: r.plannedEndMs, deltaDays: -r.varianceDays, kind: 'forecast', projected: true });
-  });
-  laneEvents.sort((a, b) => a.atMs - b.atMs);
+  // ---- the two-tone buffer flow (issue #161, decisions 2/3/5/7) ----
+  // Everything the flow renders is derived here, in ONE place, from the day series:
+  // the frame, the two bands, the boundary between them, and every label — including
+  // the de-collision pass, so no label can be added later without going through it.
+  // Label strategy is the semantic split (design.md §8c): the y-axis values HIDE a
+  // loser (a dropped gridline value is still readable off the scale and its
+  // neighbours), while the readings — how much is left at today, what the negative
+  // half means, the day the buffer ran out — are each a distinct fact that cannot be
+  // inferred from anything else on the chart, so they DODGE and all survive.
+  const flow = series == null ? null : (() => {
+    const scale = flowScale(series.points.map((p) => p.leftPct));
+    const yOf = (pct: number) => flowBot - ((pct - scale.min) / (scale.max - scale.min)) * FLOW_H;
+    // Only the focus window is drawn, plus one point either side: x() clamps those to
+    // the frame's edge, so the bands reach it instead of stopping a day short.
+    const firstIn = series.points.findIndex((p) => inView(p.ms));
+    if (firstIn < 0) return null;
+    let lastIn = series.points.length - 1;
+    while (lastIn > firstIn && !inView(series.points[lastIn].ms)) lastIn--;
+    const pts = series.points.slice(Math.max(0, firstIn - 1), lastIn + 2);
+    const px = (p: BufferPoint) => Math.max(labelW, Math.min(W - PAD_R, x(p.ms)));
 
-  // Walk the events into flats (a level held over a span) and risers (a step at an
-  // event), carrying the running LEVEL so the lane can label the buffer actually in
-  // hand at each inflection, not just how much that step moved it.
-  const laneClampX = (ms: number) => Math.max(labelW, Math.min(W - PAD_R, x(ms)));
-  const laneStartX = laneClampX(firstStartMs);
-  const laneFlats: { x1: number; x2: number; level: number; projected: boolean }[] = [];
-  const laneRisers: { x: number; atMs: number; from: number; to: number; kind: LaneEvent['kind']; projected: boolean }[] = [];
-  let laneLevel = startBuffer ?? 0; // the running buffer; its final value is the level at `now`
-  let laneMaxLevel = laneLevel;
-  let lanePx = laneStartX;
-  for (const e of laneEvents) {
-    const ex = laneClampX(e.atMs);
-    laneFlats.push({ x1: lanePx, x2: ex, level: laneLevel, projected: e.projected });
-    laneRisers.push({ x: ex, atMs: e.atMs, from: laneLevel, to: laneLevel + e.deltaDays, kind: e.kind, projected: e.projected });
-    laneLevel += e.deltaDays;
-    laneMaxLevel = Math.max(laneMaxLevel, laneLevel);
-    lanePx = ex;
-  }
-  laneFlats.push({ x1: lanePx, x2: x(now), level: laneLevel, projected: false });
-  const laneEndLevel = laneLevel;
-  const laneMax = Math.max(10, laneMaxLevel, ledger.guidelineDays) * 1.12;
-  const bufY = (v: number) => laneBot - (Math.max(0, v) / laneMax) * (LANE_H - 10);
-  // y-axis scale values, derived here like laneFlats/laneRisers (aim for ~3 gridlines).
-  const bufTicks: number[] = [];
-  for (let v = 0, step = niceStep(laneMax / 3); v <= laneMax + 0.01; v += step) bufTicks.push(v);
-  // Lane labels split by strategy (design.md §8c). The ANCHORS — y-axis scale values, the
-  // reserve marker, the start, and now — de-collide by HIDING a loser (a hidden tick is
-  // still readable from the scale; now outranks reserve). The RISERS never hide: a step is
-  // a real buffer move, so they FAN OUT in y around the surviving anchors instead (user
-  // call). Centres per anchor: y-axis / reserve end-anchored, now start-anchored, rest centred.
-  const laneHalfH = FS_SMALL / 2 + 1;
-  // Half-widths for the collision boxes. The trailing pad is breathing room around each
-  // label so near-misses still count as clashes; it scales loosely with weight — the bold
-  // riser/start values (+4) and the emphasised now marker (+3) claim a touch more room than
-  // the lighter reserve tick (+2). ticks (+2) round v themselves since niceStep hands back
-  // whole days; the free-floating values round here so their measured width matches render.
-  const shortHalf = (v: number) => textWidth(t(locale, 'clBufferDaysShort', { d: Math.round(v) })) / 2 + 4;
-  const reserveHalf = textWidth(t(locale, 'clBufferGuideline', { d: ledger.guidelineDays })) / 2 + 2;
-  const nowHalf = textWidth(t(locale, 'clBufferNow', { d: Math.round(laneEndLevel) })) / 2 + 3;
-  // Build each label group as its own array so the keep-flags below slice back by group
-  // length, not by hand-counted offsets that silently misalign if a group is reordered.
-  const tickLabels = bufTicks.map((v) => {
-    const hw = textWidth(t(locale, 'clBufferDaysShort', { d: v })) / 2 + 2;
-    return { x: labelW - 4 - hw, y: bufY(v) + 3.5, halfW: hw, halfH: laneHalfH, priority: 2 };
-  });
-  const reserveLabel = { x: W - PAD_R - 3 - reserveHalf, y: bufY(ledger.guidelineDays) - 3, halfW: reserveHalf, halfH: laneHalfH, priority: 2 };
-  const startLabel = { x: laneStartX, y: bufY(startBuffer ?? 0) - 7, halfW: shortHalf(startBuffer ?? 0), halfH: laneHalfH, priority: 2 };
-  // The walk above levels over ALL events (so a flat entering the view carries the right
-  // level), but only risers whose event falls inside the focus window are drawn or labelled.
-  const visibleRisers = laneRisers.filter((s) => inView(s.atMs));
-  const riserLabels = visibleRisers.map((s) => ({ x: s.x, y: bufY(s.to) + (s.to >= s.from ? -7 : 13), halfW: shortHalf(s.to), halfH: laneHalfH, priority: 1 }));
-  const nowLabel = { x: x(now) + 6 + nowHalf, y: bufY(laneEndLevel) - 7, halfW: nowHalf, halfH: FS_EMPH / 2 + 1, priority: 3 };
-  // Order is [ ...ticks, reserve, start, now ]; slice ticks back by length and destructure
-  // the three singletons, so no hand-counted offset can drift out of step with the array.
-  const anchorLabels = [...tickLabels, reserveLabel, startLabel, nowLabel];
-  const anchorKeep = keepNonOverlapping(anchorLabels);
-  const keepTicks = anchorKeep.slice(0, tickLabels.length);
-  const [keepReserveLabel, keepStartLabel, keepNowLabel] = anchorKeep.slice(tickLabels.length);
-  // Fan the riser labels out in y around whichever anchors survived — never hide one. The
-  // band is the lane plot plus a little below its floor, where a level-0 loss label sits.
-  const keptAnchors = anchorLabels.filter((_, i) => anchorKeep[i]);
-  const riserLabelY = dodgeLabels(keptAnchors, riserLabels, { top: laneTop + 2, bottom: laneBot + 16 });
+    // A band between two per-day percentage functions, as one filled polygon: out
+    // along the top, back along the bottom. Where the two meet the band is
+    // zero-height and simply disappears — which is how a blown buffer draws no green
+    // and a program above 100% draws no red, without either being a special case.
+    const band = (ps: BufferPoint[], top: (p: BufferPoint) => number, bot: (p: BufferPoint) => number) =>
+      ps.length < 2 ? null
+        : `M ${ps.map((p) => `${px(p)} ${yOf(top(p))}`).join(' L ')}`
+          + ` L ${[...ps].reverse().map((p) => `${px(p)} ${yOf(bot(p))}`).join(' L ')} Z`;
+    // Split at today so the forecast tail draws lighter and dashed (decision 5). Each
+    // half keeps the boundary day the other ends on, so they meet rather than leaving
+    // a one-day slit between them.
+    const past = pts.filter((p, i) => !p.projected || (i > 0 && !pts[i - 1].projected));
+    const ahead = pts.filter((p, i) => p.projected || (i + 1 < pts.length && pts[i + 1].projected));
+    const ZERO = () => 0, FULL = () => 100;
+    const leftTop = (p: BufferPoint) => Math.max(0, p.leftPct); // green: 0 → buffer left
+    const spentBot = (p: BufferPoint) => Math.min(100, p.leftPct); // red: buffer left → 100%
+    const debtBot = (p: BufferPoint) => Math.min(0, p.leftPct); // the part below 0%: days past SOP
+    const boundary = (ps: BufferPoint[]) => ps.map((p) => `${px(p)},${yOf(p.leftPct)}`).join(' ');
+
+    const nowPt = series.points.find((p) => p.ms === dayFloor(now)) ?? series.points[series.points.length - 1];
+    const blown = blownAt(series.points);
+    // The 50%-of-remaining reserve is a value that only exists as of NOW
+    // (chainLedger.ts defines it as remainingTotal / 2), so it is a marker, never a
+    // rule across the chart — a full-width line would state a threshold that did not
+    // apply in the past (decision 7). Two cases drop it rather than distort something:
+    // a reserve OUTSIDE the frame (the frame is derived from the FLOW, and stretching
+    // it to hold a reserve far above B₀ would squash the reading this chart exists for
+    // — the headline's title states the reserve in words either way), and a reserve of
+    // ZERO days, which is not a threshold but a program with no work left.
+    const guidelinePct = (ledger.guidelineDays * 100) / series.startBufferDays;
+    const showGuideline = ledger.guidelineDays > 0 && guidelinePct > scale.min && guidelinePct < scale.max;
+
+    /** The boundary's highest and lowest y across a span of the plot, or null where the
+     *  line does not reach. A label is a horizontal strip ~90px wide, and this line can
+     *  drop that far inside it — so a reading placed a fixed offset from the boundary AT
+     *  TODAY gets struck through by the boundary a few pixels away. Each reading clears
+     *  the line across its OWN width instead, which is a fact about the data under it,
+     *  not a guess.
+     *
+     *  Whole SEGMENTS, not sampled points: a span narrower than one day's spacing sits
+     *  between two points and would otherwise report "no line here" while the line runs
+     *  straight through it. A segment that only partly overlaps donates its full drop,
+     *  which over-reserves — the safe direction (labelPlacement's TUNING note). */
+    const boundaryBand = (from: number, to: number): { top: number; bottom: number } | null => {
+      let top = Infinity, bottom = -Infinity;
+      for (let i = 1; i < pts.length; i++) {
+        const p0 = pts[i - 1], p1 = pts[i];
+        if (px(p1) < from) continue;
+        if (px(p0) > to) break; // pts are ms-ascending and px is monotone in ms
+        top = Math.min(top, yOf(p0.leftPct), yOf(p1.leftPct));
+        bottom = Math.max(bottom, yOf(p0.leftPct), yOf(p1.leftPct));
+      }
+      return top === Infinity ? null : { top, bottom };
+    };
+
+    // ---- labels ----
+    const box = (text: string, cx: number, cy: number, priority: number, size = FS_SMALL) =>
+      ({ x: cx, y: cy, halfW: textWidth(text) / 2 + 3, halfH: halfHFor(size), priority, text, size });
+    // Boxes are in CENTRE space (what labelPlacement reasons about); each render site
+    // converts back to a baseline. The whole flow goes through one pass, so mixing the
+    // two spaces — the trap this module's helpers exist to close — cannot happen here.
+    const endAnchored = (text: string, right: number, cy: number, priority: number, size = FS_SMALL) =>
+      box(text, right - (textWidth(text) / 2 + 3), cy, priority, size);
+    const startAnchored = (text: string, left: number, cy: number, priority: number, size = FS_SMALL) =>
+      box(text, left + textWidth(text) / 2 + 3, cy, priority, size);
+
+    // The scale: plain percentages in the left gutter…
+    const axisTicks = scale.ticks.filter((v) => v >= 0)
+      .map((v) => ({ v, ...endAnchored(t(locale, 'clFlowPct', { p: pctText(v) }), labelW - 4, yOf(v), 1) }));
+    // …and, below zero, what the percentage MEANS (decision 3) — never "−14 d left",
+    // which is not a thing anybody has. That sentence is far too wide for the name
+    // gutter, so it sits just inside the plot, where the sub-zero half is empty by
+    // construction: the buffer starts at 100% and only ever reaches this band late.
+    const debtTicks = scale.ticks.filter((v) => v < 0).map((v) => ({
+      v,
+      ...startAnchored(t(locale, 'clFlowPastSop', {
+        p: pctText(v), d: Math.round((-v * series.startBufferDays) / 100),
+      }), labelW + 6, yOf(v), 1),
+    }));
+    // The reading at today: what is in hand, and what has gone — one label per band,
+    // the emphasis on what is LEFT, which is the number the reader came for.
+    //
+    // Past zero there is nothing "left" to report, so the reading switches to the
+    // axis's own phrasing, days past the SOP: the chart never writes "−76% left ·
+    // −126d", a quantity nobody has (decision 3, and the rule the axis already follows).
+    const leftText = nowPt.leftPct >= 0
+      ? t(locale, 'clFlowLeft', { p: pctText(nowPt.leftPct), d: Math.round(nowPt.leftDays) })
+      : t(locale, 'clFlowPastSop', { p: pctText(nowPt.leftPct), d: Math.round(-nowPt.leftDays) });
+    const spentText = t(locale, 'clFlowSpent', { p: pctText(100 - nowPt.leftPct) });
+    // The pair sits to the RIGHT of today and FLIPS to its left when the wider of the
+    // two would run past the frame — not an edge case: a program whose forecast finish
+    // is near its SOP puts today hard against the right edge, and it shipped clipped on
+    // the first real page load. Both flip on the WIDER one's measurement; split, they
+    // would read as two labels about two different moments.
+    const nowWidest = Math.max(textWidth(leftText), textWidth(spentText));
+    const nowFits = x(now) + 6 + nowWidest + 6 <= W - PAD_R;
+    // The strip of plot the pair occupies, and where the boundary runs across it: the
+    // "left" reading sits below the line's lowest point there, "spent" above its
+    // highest, so neither is crossed however steeply the buffer was moving.
+    const nowSpan = nowFits
+      ? { from: x(now), to: x(now) + 12 + nowWidest }
+      : { from: x(now) - 12 - nowWidest, to: x(now) };
+    const nowBand = boundaryBand(nowSpan.from, nowSpan.to)
+      ?? { top: yOf(nowPt.leftPct), bottom: yOf(nowPt.leftPct) };
+    // `priority` is inert for these two — they only ever reach dodgeLabels, which keeps
+    // every label and orders by x. It is carried so the box grammar stays one grammar.
+    const nowAnchored = (text: string, cy: number, priority: number, size: number) => (nowFits
+      ? startAnchored(text, x(now) + 6, cy, priority, size)
+      : endAnchored(text, x(now) - 6, cy, priority, size));
+    // Which side of the boundary the pair sits on is a question about ROOM, not about
+    // sign. A blown buffer has no green band left to sit in; its MIRROR — a buffer at or
+    // above B₀, where the line rides in the frame's top pad — has no red band above. Same
+    // fact, both times: one side of the line has run out of plot, so both readings stack
+    // into the side that is left, "spent" still above "left" (the tank drains from the
+    // top). Reading that off `leftPct > 0` saw only the blown half, so a program holding
+    // 115% of its buffer placed "spent" above the frame's ceiling — where the dodge's own
+    // bounds clamp pinned it back onto the boundary, dead centre.
+    //
+    // The pair is placed TOGETHER, in one expression, because what has to hold is a
+    // relation between them: "spent" above "left", always. As two independent offsets it
+    // inverted in the state neither of them named — a boundary that both starts high and
+    // collapses below zero across the label's own width, so NEITHER side has room. FAR is
+    // what keeps the order when they share a side: dodgeLabels orders by x, not by
+    // priority, so a flipped pair would otherwise stack in whichever order their two
+    // widths happened to fall.
+    //
+    // The predicates size ONE label per side, which is the straddle case they decide. When
+    // they send both to one side, that side may be too small for the FAR label too —
+    // deliberately: dodgeLabels clamps it into the plot and dodges it clear, and the clamp
+    // can only push it FURTHER from the line, never past its partner, so the order
+    // survives. Sizing them for the stacked case would only move the straddle threshold
+    // and stop the pair straddling in plots where it fits comfortably.
+    const NEAR = 10, FAR = 25;
+    const above = nowBand.top - flowTop, below = flowBot - nowBand.bottom;
+    const roomAbove = above >= FS_SMALL + NEAR, roomBelow = below >= FS_EMPH + NEAR;
+    const [leftY, spentY] = roomAbove && roomBelow
+      ? [nowBand.bottom + NEAR, nowBand.top - NEAR]
+      : (roomBelow || (!roomAbove && below >= above))
+        ? [nowBand.bottom + FAR, nowBand.bottom + NEAR] // both below, spent nearer the line
+        : [nowBand.top - NEAR, nowBand.top - FAR]; // both above, left nearer the line
+    const nowLeft = nowAnchored(leftText, leftY, 3, FS_EMPH);
+    const nowSpent = nowAnchored(spentText, spentY, 2, FS_SMALL);
+    const guidelineLabel = endAnchored(
+      t(locale, 'clBufferGuideline', { d: ledger.guidelineDays }), W - PAD_R - 3, yOf(guidelinePct) - 8, 2);
+    // Centred on the day it names, but never off the frame: a label half outside the
+    // plot is one you cannot read, and its date is the point of it.
+    const blownLabel = blown && inView(blown.ms)
+      ? (() => {
+          const b = box(t(locale, 'clFlowBlown', { date: dayShort(blown.ms, locale) }), x(blown.ms), yOf(0) - 13, 2);
+          return { ...b, x: Math.max(labelW + b.halfW, Math.min(W - PAD_R - b.halfW, b.x)) };
+        })()
+      : null;
+
+    // The anchors hide a loser; the readings all survive, nudged in y around whichever
+    // anchors did. Bounds keep every dodged label inside the plot — below its floor is
+    // where the crosshair's own date caption lives.
+    const anchors = [...axisTicks, ...(showGuideline ? [guidelineLabel] : [])];
+    const anchorKeep = keepNonOverlapping(anchors);
+    const readings = [...debtTicks, nowLeft, nowSpent, ...(blownLabel ? [blownLabel] : [])];
+
+    // Every piece of INK the readings have to clear, as opposed to the CAPTIONS naming it
+    // — see `inkBox`, which exists because this is the bug that shipped here. Each entry
+    // states the same geometry as its render site below, so a change to one that misses
+    // the other is a rule the pass thinks it dodged. The boundary is the one that is not
+    // axis-aligned, so it goes in per reading, as the y range it covers across THAT
+    // reading's own width — the fact under the label, not a guess taken at one x.
+    //
+    // Two pieces of the flow's ink are deliberately absent, because something else already
+    // holds them off: the frame, which the `bounds` below keep every label inside, and the
+    // dot at today, which the readings clear by being anchored 6px past it in x.
+    const boundaryUnder = (l: PlacedLabel): PlacedLabel[] => {
+      const b = boundaryBand(l.x - l.halfW, l.x + l.halfW);
+      return b == null ? [] : [inkBox(l.x - l.halfW, b.top, l.x + l.halfW, b.bottom, BOUNDARY_W)];
+    };
+    const ink: PlacedLabel[] = [
+      ...scale.ticks.map((v) => inkBox(labelW, yOf(v), W - PAD_R, yOf(v), GRIDLINE_W)),
+      ...(showGuideline ? [inkBox(W - PAD_R - GUIDELINE_STUB_W, yOf(guidelinePct), W - PAD_R, yOf(guidelinePct), GUIDELINE_W)] : []),
+      ...(blown && blownLabel ? [inkBox(x(blown.ms), yOf(0) - BLOWN_TICK_H, x(blown.ms), yOf(0) + BLOWN_TICK_H, BLOWN_TICK_W)] : []),
+      ...readings.flatMap(boundaryUnder),
+    ];
+
+    const readingY = dodgeLabels([...anchors.filter((_, i) => anchorKeep[i]), ...ink], readings,
+      { top: flowTop + 2, bottom: flowBot - 2 });
+    const placed = readings.map((r, i) => ({ ...r, y: readingY[i] }));
+
+    return {
+      scale, yOf, nowPt, blown, guidelinePct, showGuideline,
+      areas: {
+        leftPast: band(past, leftTop, ZERO), leftAhead: band(ahead, leftTop, ZERO),
+        spentPast: band(past, FULL, spentBot), spentAhead: band(ahead, FULL, spentBot),
+        debtPast: band(past, ZERO, debtBot), debtAhead: band(ahead, ZERO, debtBot),
+      },
+      boundaryPast: boundary(past),
+      boundaryAhead: boundary(ahead),
+      axisTicks: axisTicks.filter((_, i) => anchorKeep[i]),
+      guidelineLabel: showGuideline && anchorKeep[anchors.length - 1] ? guidelineLabel : null,
+      debtLabels: placed.slice(0, debtTicks.length),
+      nowLeftLabel: placed[debtTicks.length],
+      nowSpentLabel: placed[debtTicks.length + 1],
+      blownLabel: blownLabel ? placed[debtTicks.length + 2] : null,
+    };
+  })();
 
   const constraintCx = labelW - (labelW > 40 ? 12 : 6);
 
@@ -448,7 +645,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
             false statement about how much time it represents (design.md §8c / #42) */}
         {breaks.map((b, i) => (
           <g key={`brk${i}`}>
-            <line x1={b.cx} y1={TOP - 6} x2={b.cx} y2={vExtentBot}
+            <VRule cx={b.cx} y0={TOP - 6} y1={vExtentBot} cut={captionCut}
               stroke="var(--border)" strokeWidth={1} strokeDasharray="2 3" />
             <path d={`M ${b.cx - 5} ${axisY + 3} l 4 -8 M ${b.cx - 1} ${axisY + 3} l 4 -8`}
               stroke="var(--muted)" strokeWidth={1.25} fill="none" />
@@ -466,7 +663,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
             scrolled their date out of the focus window (an edge-clamped line would lie). */}
         {inView(now) && (
           <>
-            <line x1={x(now)} y1={TOP - 12} x2={x(now)} y2={vExtentBot}
+            <VRule cx={x(now)} y0={TOP - 12} y1={vExtentBot} cut={captionCut}
               stroke="var(--muted)" strokeWidth={1} strokeDasharray="3 3" />
             <ChartLabel x={x(now)} y={todayLabelY} textAnchor="middle" fontSize={FS_EMPH} fill="var(--muted)">
               {t(locale, 'clTodayLabel', { date: dayShort(now, locale) })}
@@ -475,7 +672,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
         )}
         {sopMs != null && inView(sopMs) && (
           <>
-            <line x1={x(sopMs)} y1={TOP - 12} x2={x(sopMs)} y2={laneBot} stroke="var(--fg)" strokeWidth={1.5} />
+            <VRule cx={x(sopMs)} y0={TOP - 12} y1={vExtentBot} cut={captionCut} stroke="var(--fg)" strokeWidth={1.5} />
             <ChartLabel x={Math.min(x(sopMs), W - 8)} y={TOP - 18} textAnchor="end" fontSize={FS_EMPH} fill="var(--fg)">
               {t(locale, 'clSopLabel', { month: monthLong(sopMs, locale) })}
             </ChartLabel>
@@ -564,102 +761,116 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
           );
         })}
 
-        {/* ---------- buffer-on-hand lane ---------- */}
-        {sopMs != null && startBuffer != null && (
-          <g>
-            <rect x={labelW} y={laneTop} width={plotW} height={LANE_H} rx={6}
+        {/* ---------- the two-tone buffer flow ---------- */}
+        {flow && (
+          <g data-testid="chain-buffer-flow">
+            <rect x={labelW} y={flowTop} width={plotW} height={FLOW_H} rx={6}
               fill="var(--surface)" stroke="var(--border)" strokeWidth={1} />
-            {/* title above the lane, leaving the left gutter free for the y-axis scale */}
-            <ChartLabel x={labelW} y={laneTop - 8} textAnchor="start" fontSize={FS_SMALL} fill="var(--muted)">
-              {t(locale, 'clBufferLane')}
+            {/* title above the flow, leaving the left gutter free for the y-axis scale.
+                Its box is `captionCut` above, which every full-height vertical cuts
+                around — change one and the other follows, or the rules cut empty air. */}
+            <ChartLabel x={labelW} y={flowTitleY} textAnchor="start" fontSize={FS_SMALL} fill="var(--muted)"
+              data-testid="chain-flow-title">
+              {t(locale, 'clFlowTitle')}
             </ChartLabel>
-            {/* y-axis SCALE: round gridlines + values, so an arbitrary level reads off the
-                axis, not just the labelled inflection points (#83) */}
-            {bufTicks.map((v, i) => (
-              <g key={`yt${i}`}>
-                <line x1={labelW} y1={bufY(v)} x2={W - PAD_R} y2={bufY(v)}
-                  stroke="var(--border)" strokeWidth={1} opacity={v === 0 ? 1 : 0.4} />
-                {keepTicks[i] && (
-                  <ChartLabel x={labelW - 4} y={bufY(v) + 3.5} textAnchor="end" fontSize={FS_SMALL} fill="var(--muted)">
-                    {t(locale, 'clBufferDaysShort', { d: v })}
-                  </ChartLabel>
-                )}
-              </g>
+            {/* the derived scale. 0% and 100% are not scale, they are the two facts the
+                chart is about — B₀ and the moment it runs out — so they carry weight the
+                intermediate gridlines do not. */}
+            {flow.scale.ticks.map((v) => (
+              <line key={`ft${v}`} x1={labelW} y1={flow.yOf(v)} x2={W - PAD_R} y2={flow.yOf(v)}
+                stroke="var(--border)" strokeWidth={GRIDLINE_W} opacity={v === 0 || v === 100 ? 1 : 0.4} />
             ))}
-            {/* the 50%-rule reserve — a distinct dashed marker on that scale (its LINE
-                always shows; the label yields to the current-buffer label if they'd clash) */}
-            <line x1={labelW} y1={bufY(ledger.guidelineDays)} x2={W - PAD_R} y2={bufY(ledger.guidelineDays)}
-              stroke="var(--muted)" strokeWidth={1} strokeDasharray="4 3" opacity={0.9} />
-            {keepReserveLabel && (
-              <ChartLabel x={W - PAD_R - 3} y={bufY(ledger.guidelineDays) - 3} textAnchor="end" fontSize={FS_SMALL}
-                fill="var(--muted)" halo="var(--surface)">
-                {t(locale, 'clBufferGuideline', { d: ledger.guidelineDays })}
+            {/* BUFFER SPENT rides above the boundary, BUFFER LEFT below it: the buffer as a
+                tank that drains from the top. The forecast halves are the same two claims
+                about days not yet spent, so they are the same two hues, lighter (decision 5). */}
+            {flow.areas.spentPast && <path d={flow.areas.spentPast} fill="var(--bad)" fillOpacity={0.17} />}
+            {flow.areas.spentAhead && <path d={flow.areas.spentAhead} fill="var(--bad)" fillOpacity={0.09} />}
+            {flow.areas.leftPast && <path d={flow.areas.leftPast} fill="var(--ok)" fillOpacity={0.22} />}
+            {flow.areas.leftAhead && <path d={flow.areas.leftAhead} fill="var(--ok)" fillOpacity={0.11} />}
+            {/* below 0% the buffer is not low, it is GONE, and every further day is a day
+                past the SOP — the one band that gets a second coat of the same ink */}
+            {flow.areas.debtPast && <path d={flow.areas.debtPast} fill="var(--bad)" fillOpacity={0.3} />}
+            {flow.areas.debtAhead && <path d={flow.areas.debtAhead} fill="var(--bad)" fillOpacity={0.18} />}
+            {/* the boundary IS the reading: solid through today, dashed into the forecast */}
+            {flow.boundaryPast && (
+              <polyline points={flow.boundaryPast} fill="none" stroke="var(--fg)" strokeWidth={BOUNDARY_W} />
+            )}
+            {flow.boundaryAhead && (
+              <polyline points={flow.boundaryAhead} fill="none" stroke="var(--fg)" strokeWidth={BOUNDARY_W}
+                strokeDasharray="3 2" opacity={0.75} />
+            )}
+            {/* the 50%-of-remaining reserve, as a marker at the right edge rather than a
+                rule across the chart: it is a value that only exists as of now */}
+            {flow.showGuideline && (
+              <line x1={W - PAD_R - GUIDELINE_STUB_W} y1={flow.yOf(flow.guidelinePct)} x2={W - PAD_R} y2={flow.yOf(flow.guidelinePct)}
+                stroke="var(--muted)" strokeWidth={GUIDELINE_W} strokeDasharray="4 3" />
+            )}
+            {/* Every label below renders CENTRED on its own collision box, so what was
+                placed and what is painted cannot drift apart — the class of bug where a
+                de-collider reports clear and the screen shows otherwise. */}
+            {flow.guidelineLabel && (
+              <ChartLabel x={flow.guidelineLabel.x} y={centreToBaselineY(flow.guidelineLabel.y, FS_SMALL)}
+                textAnchor="middle" fontSize={FS_SMALL} fill="var(--muted)" halo="var(--surface)">
+                {flow.guidelineLabel.text}
               </ChartLabel>
             )}
-            {/* flats: the level held over a span */}
-            {laneFlats.map((f, i) => (
-              <line key={`f${i}`} x1={f.x1} y1={bufY(f.level)} x2={f.x2} y2={bufY(f.level)}
-                stroke="var(--fg)" strokeWidth={2} strokeDasharray={f.projected ? '3 2' : undefined} />
-            ))}
-            {/* the buffer the program STARTED with — the baseline every later level reads from */}
-            {inView(firstStartMs) && (
+            {/* the day the buffer ran out — usually in the forecast tail, which is why the
+                tail is drawn at all */}
+            {flow.blown && flow.blownLabel && (
               <>
-                <circle cx={laneStartX} cy={bufY(startBuffer)} r={2.6} fill="var(--fg)" />
-                {keepStartLabel && (
-                  <ChartLabel x={laneStartX} y={bufY(startBuffer) - 7} textAnchor="middle" fontSize={FS_SMALL}
-                    fill="var(--muted)" halo="var(--surface)">
-                    {t(locale, 'clBufferDaysShort', { d: startBuffer })}
-                  </ChartLabel>
-                )}
+                <line x1={x(flow.blown.ms)} y1={flow.yOf(0) - BLOWN_TICK_H} x2={x(flow.blown.ms)} y2={flow.yOf(0) + BLOWN_TICK_H}
+                  stroke="var(--bad)" strokeWidth={BLOWN_TICK_W} />
+                <ChartLabel x={flow.blownLabel.x} y={centreToBaselineY(flow.blownLabel.y, FS_SMALL)} textAnchor="middle"
+                  fontSize={FS_SMALL} fill="var(--bad)" halo="var(--surface)">
+                  {flow.blownLabel.text}
+                </ChartLabel>
               </>
             )}
-            {/* risers: a coloured step at each event, labelled with the buffer IN HAND after
-                it. Every label is kept (a step is a real move) and fanned out in y; when a
-                label ends up pushed well off its dot — a busy same-week cluster — a hair
-                leader ties it back so you still know which step it names. */}
-            {visibleRisers.map((s, i) => {
-              const col = s.kind === 'gain' ? 'var(--ok)' : s.kind === 'forecast' ? 'var(--warn)' : 'var(--bad)';
-              const dotY = bufY(s.to);
-              const labelY = riserLabelY[i];
-              const gap = Math.abs(labelY - dotY);
-              return (
-                <g key={`r${i}`}>
-                  <line x1={s.x} y1={bufY(s.from)} x2={s.x} y2={dotY} stroke={col} strokeWidth={2.5}
-                    strokeDasharray={s.projected ? '3 2' : undefined} />
-                  <circle cx={s.x} cy={dotY} r={2.6} fill={col} />
-                  {gap > 16 && (
-                    <line x1={s.x} y1={dotY} x2={s.x} y2={labelY + (labelY > dotY ? -laneHalfH : laneHalfH)}
-                      stroke={col} strokeWidth={0.75} opacity={0.5} />
-                  )}
-                  <ChartLabel x={s.x} y={labelY} textAnchor="middle" fontSize={FS_SMALL}
-                    fill={col} halo="var(--surface)">
-                    {t(locale, 'clBufferDaysShort', { d: Math.round(s.to) })}
-                  </ChartLabel>
-                </g>
-              );
-            })}
-            {/* now: the buffer currently in hand (where the walked line lands) */}
+            {/* the scale's own values: plain percentages in the gutter, and below zero what
+                that percentage means in days past the SOP */}
+            {flow.axisTicks.map((tk) => (
+              <ChartLabel key={`fl${tk.v}`} x={tk.x} y={centreToBaselineY(tk.y, FS_SMALL)} textAnchor="middle"
+                fontSize={FS_SMALL} fill="var(--muted)">
+                {tk.text}
+              </ChartLabel>
+            ))}
+            {flow.debtLabels.map((tk, i) => (
+              <ChartLabel key={`fd${i}`} x={tk.x} y={centreToBaselineY(tk.y, FS_SMALL)} textAnchor="middle"
+                fontSize={FS_SMALL} fill="var(--bad)" halo="var(--surface)">
+                {tk.text}
+              </ChartLabel>
+            ))}
+            {/* the reading at today, one label in each band */}
             {inView(now) && (
               <>
-                <circle cx={x(now)} cy={bufY(laneEndLevel)} r={3.2} fill="var(--fg)" />
-                {keepNowLabel && (
-                  <ChartLabel x={x(now) + 6} y={bufY(laneEndLevel) - 7} fontSize={FS_EMPH} fill="var(--fg)" halo="var(--surface)">
-                    {t(locale, 'clBufferNow', { d: Math.round(laneEndLevel) })}
-                  </ChartLabel>
-                )}
+                <circle cx={x(now)} cy={flow.yOf(flow.nowPt.leftPct)} r={3.2} fill="var(--fg)" />
+                <ChartLabel x={flow.nowSpentLabel.x} y={centreToBaselineY(flow.nowSpentLabel.y, FS_SMALL)}
+                  textAnchor="middle" fontSize={FS_SMALL} fill="var(--muted)" halo="var(--surface)">
+                  {flow.nowSpentLabel.text}
+                </ChartLabel>
+                <ChartLabel x={flow.nowLeftLabel.x} y={centreToBaselineY(flow.nowLeftLabel.y, FS_EMPH)}
+                  textAnchor="middle" fontSize={FS_EMPH} fill="var(--fg)" halo="var(--surface)">
+                  {flow.nowLeftLabel.text}
+                </ChartLabel>
               </>
             )}
-            {/* transparent overlay so hovering the lane also drives the crosshair */}
-            <rect x={labelW} y={laneTop} width={plotW} height={LANE_H} fill="transparent"
+            {/* transparent overlay so hovering the flow also drives the crosshair */}
+            <rect x={labelW} y={flowTop} width={plotW} height={FLOW_H} fill="transparent"
               onMouseMove={(e) => trackPointer(e.clientX)} />
           </g>
+        )}
+        {/* An SOP with no buffer to divide: say so, rather than draw a share of nothing. */}
+        {sopMs != null && series == null && (
+          <ChartLabel x={labelW} y={noteY} textAnchor="start" fontSize={FS_SMALL} fill="var(--muted)">
+            {t(locale, 'clFlowNoBase')}
+          </ChartLabel>
         )}
 
         {/* shared date crosshair — one vertical line down the grid AND the lane, so the eye
             reads a single date across both (#75). Non-interactive, drawn on top. */}
         {crosshairX != null && (
           <g style={{ pointerEvents: 'none' }}>
-            <line x1={crosshairX} y1={TOP - 8} x2={crosshairX} y2={vExtentBot}
+            <VRule cx={crosshairX} y0={TOP - 8} y1={vExtentBot} cut={captionCut}
               stroke="var(--chain)" strokeWidth={1.25} opacity={0.85} />
             <ChartLabel x={crosshairX} y={crosshairDateY} textAnchor="middle"
               fontSize={FS_SMALL} fill="var(--chain-ink)">

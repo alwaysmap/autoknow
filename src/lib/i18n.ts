@@ -1650,10 +1650,10 @@ const STRINGS = {
     ko: '링은 SOP를 좌우하는 단계를 표시합니다.',
   },
   clKeyBufferLane: {
-    en: 'The lane below tracks buffer on hand: a red step spends it, a green step gives it back.',
-    de: 'Die Spur darunter zeigt den verfügbaren Puffer: eine rote Stufe verbraucht ihn, eine grüne gibt ihn zurück.',
-    ja: '下のレーンは手元のバッファを示します。赤い段差は消費、緑の段差は返却です。',
-    ko: '아래 레인은 남은 버퍼를 나타냅니다. 빨간 계단은 소모, 초록 계단은 반환입니다.',
+    en: 'The flow below splits the program buffer each day: green is still in hand, red is spent. Dashed is the forecast; below the 0% line the buffer is gone and the days are past the SOP.',
+    de: 'Der Verlauf darunter teilt den Programmpuffer täglich auf: grün ist verfügbar, rot verbraucht. Gestrichelt ist die Prognose; unter der 0-%-Linie ist der Puffer aufgebraucht und die Tage liegen nach dem SOP.',
+    ja: '下のフローは各日のプログラムバッファを分けます。緑は手元に残る分、赤は消費した分です。破線は予測で、0%線より下はバッファが尽きてSOPを超過した日数です。',
+    ko: '아래 흐름은 매일의 프로그램 버퍼를 나눕니다. 초록은 남은 버퍼, 빨강은 소모한 버퍼입니다. 점선은 예측이며, 0% 선 아래는 버퍼가 소진되어 SOP를 넘긴 일수입니다.',
   },
   clDaysEarly: { en: '{d} days early', de: '{d} Tage früher', ja: '{d}日早く完了', ko: '{d}일 일찍 완료' },
   clOneDayEarly: { en: '1 day early', de: '1 Tag früher', ja: '1日早く完了', ko: '1일 일찍 완료' },
@@ -1704,10 +1704,32 @@ const STRINGS = {
   clIdleDays: { en: '{d}d idle', de: '{d}T Leerlauf', ja: '待機{d}日', ko: '{d}일 대기' },
   // Label under an axis-break glyph: how much empty time the seam compresses.
   clAxisBreak: { en: '{d} days', de: '{d} Tage', ja: '{d}日', ko: '{d}일' },
-  clBufferLane: { en: 'buffer on hand', de: 'Puffer verfügbar', ja: '手元のバッファ', ko: '남은 버퍼' },
-  clBufferNow: { en: '{d}d buffer', de: '{d}T Puffer', ja: 'バッファ{d}日', ko: '버퍼 {d}일' },
+  // The two-tone buffer flow (issue #161). It replaced a stepped lane whose labels
+  // named every MOVE ({d}d buffer, {d}d, buffer on hand); these name the two BANDS
+  // and the frame around them, because the flow's reading is one boundary, not ten
+  // steps. `clBufferGuideline` survives the swap: decision 7 keeps the reserve as a
+  // marker at today, and a marker still needs its label.
+  clFlowTitle: {
+    en: 'buffer left vs spent', de: 'Puffer übrig vs. verbraucht',
+    ja: 'バッファ残 vs 消費', ko: '버퍼 잔여 vs 소모',
+  },
+  clFlowPct: { en: '{p}%', de: '{p} %', ja: '{p}%', ko: '{p}%' },
+  clFlowLeft: { en: '{p}% left · {d}d', de: '{p} % übrig · {d}T', ja: '残り{p}% · {d}日', ko: '{p}% 잔여 · {d}일' },
+  clFlowSpent: { en: '{p}% spent', de: '{p} % verbraucht', ja: '{p}%消費', ko: '{p}% 소모' },
+  // Below zero the axis is labelled in what it MEANS — the buffer is gone, so the
+  // number people act on is days past the SOP, never "−{d}d of buffer left".
+  clFlowPastSop: {
+    en: '{p}% · {d}d past SOP', de: '{p} % · {d}T nach SOP',
+    ja: '{p}% · SOPを{d}日超過', ko: '{p}% · SOP {d}일 초과',
+  },
+  clFlowBlown: { en: 'buffer gone · {date}', de: 'Puffer aufgebraucht · {date}', ja: 'バッファ枯渇 · {date}', ko: '버퍼 소진 · {date}' },
+  clFlowNoBase: {
+    en: 'No buffer to divide: this program started with none.',
+    de: 'Kein Puffer zum Aufteilen: dieses Programm startete ohne.',
+    ja: '分配できるバッファがありません。このプログラムは最初からゼロです。',
+    ko: '나눌 버퍼가 없습니다: 이 프로그램은 처음부터 버퍼가 없었습니다.',
+  },
   clBufferGuideline: { en: '{d}d reserve', de: '{d}T Reserve', ja: '予備{d}日', ko: '예비 {d}일' },
-  clBufferDaysShort: { en: '{d}d', de: '{d}T', ja: '{d}日', ko: '{d}일' },
   // Waterfall
   clWhereBufferWent: { en: 'Where the buffer went', de: 'Wohin der Puffer ging', ja: 'バッファの行方', ko: '버퍼가 쓰인 곳' },
   clCostDays: { en: 'cost {d} days', de: 'kostete {d} Tage', ja: '{d}日を消費', ko: '{d}일 소모' },
