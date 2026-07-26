@@ -3,7 +3,12 @@ import { runRefreshCycle } from '../../../../lib/refresh';
 import { runDriveSync } from '../../../../lib/driveSync';
 import { runSummaryCycle } from '../../../../lib/summaries';
 import { getIngestionSettings } from '../../../../lib/ingestionSettings';
-import { perCycleBudget } from '../../../../lib/ingestBudget';
+import {
+  perCycleBudget,
+  perCycleRequests,
+  summariesAffordable,
+  GEMINI_CALLS_PER_DOC,
+} from '../../../../lib/ingestBudget';
 import { recordCycle } from '../../../../lib/ingestionHealth';
 import { secretsEqual, serverError } from '../../../../lib/api';
 import { withSingleFlight, REFRESH_LOCK_KEY } from '../../../../lib/singleFlight';
@@ -33,19 +38,36 @@ export async function GET(req: NextRequest) {
   // cycle's summaries instead of waiting an hour.
   //
   // #38: one daily Gemini budget (the admin's setting) is spread over the cycles and
-  // SHARED across Drive + web — Drive spends first, web gets what's left — so total daily
-  // spend stays under the free tier by construction. recordCycle then logs the reports to
-  // Cloud Logging (the drain alarm's source) and upserts the bounded health summary.
+  // SHARED across all three stages — Drive spends first, web takes what's left, summaries
+  // take what survives that — so total daily spend stays under the free tier by
+  // construction. recordCycle then logs the reports to Cloud Logging (the drain alarm's
+  // source) and upserts the bounded health summary.
+  //
+  // Summaries were outside this pool until the quota cap that prompted the fix: their own
+  // 10/cycle bound meant up to 240 requests/day the budget never counted, on top of the
+  // 120 it did. Ordering the three stages against ONE allowance is what makes the number
+  // the settings slider plots an actual ceiling rather than a partial tally. See the
+  // header of lib/ingestBudget for why freshness is served before synthesis.
   try {
     // Single-flight (#57): an overlapping tick acquires nothing and skips, so two
     // instances never double-spend the budget. Why it can't go through `prisma`:
     // lib/singleFlight.
     const result = await withSingleFlight(REFRESH_LOCK_KEY, async () => {
-      const budget = perCycleBudget((await getIngestionSettings()).dailyReingestBudgetDocs);
-      const drive = await runDriveSync({ maxIngests: budget });
-      const report = await runRefreshCycle({ maxRefreshes: Math.max(0, budget - drive.spent) });
+      const { dailyReingestBudgetDocs } = await getIngestionSettings();
+      const docBudget = perCycleBudget(dailyReingestBudgetDocs);
+      const requestBudget = perCycleRequests(dailyReingestBudgetDocs);
+
+      const drive = await runDriveSync({ maxIngests: docBudget });
+      const report = await runRefreshCycle({ maxRefreshes: Math.max(0, docBudget - drive.spent) });
       await recordCycle(drive, report);
-      const summaries = await runSummaryCycle();
+
+      // Only documents that were actually (re)ingested cost Gemini — a doc whose hash is
+      // unchanged short-circuits before any call (lib/refresh Gate 1), which is why a
+      // quiet cycle hands its whole allowance to summaries.
+      const spentRequests = (drive.spent + report.changed) * GEMINI_CALLS_PER_DOC;
+      const summaries = await runSummaryCycle({
+        maxSummaries: summariesAffordable(requestBudget - spentRequests),
+      });
       return { ...report, drive, summaries };
     });
     // 200, not an error: a skipped tick is the guard working, and a non-2xx would make

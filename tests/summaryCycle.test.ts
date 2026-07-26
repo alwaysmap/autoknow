@@ -71,3 +71,43 @@ describe('runSummaryCycle', () => {
     expect(after?.stale).toBe(false);
   });
 });
+
+// The summary pass spends from the SAME per-cycle Gemini allowance as ingestion
+// (lib/ingestBudget); api/cron/refresh hands it whatever Drive and refresh left. Before
+// that, its private 10/cycle cap put up to 240 requests/day outside the budget entirely.
+describe('runSummaryCycle honours the cycle allowance it is given', () => {
+  beforeEach(async () => {
+    // Make every scope stale again so the cap, not the staleness, is what bounds the run.
+    await prisma.projectState.create({
+      data: {
+        projectId: seeded.projectId,
+        theNeedle: 'Concerned',
+        hillChartProgress: 50,
+        notes: 'budget fixture',
+        source: 'testbot',
+      },
+    });
+  });
+
+  it('generates no more than maxSummaries, and says the budget ran out', async () => {
+    const report = await summaries.runSummaryCycle({ maxSummaries: 1 });
+    expect(report.generated).toBe(1);
+    expect(report.skipped).toBeGreaterThan(0);
+    expect(report.budgetExhausted).toBe(true);
+  });
+
+  it('an exhausted allowance spends nothing at all', async () => {
+    const report = await summaries.runSummaryCycle({ maxSummaries: 0 });
+    expect(report.generated).toBe(0);
+    expect(report.budgetExhausted).toBe(true);
+    // Short-circuited before the staleness aggregates — no scopes were even considered.
+    expect(report.scopes).toBe(0);
+  });
+
+  it('a covered cycle does not claim the budget ran out', async () => {
+    await summaries.runSummaryCycle({ maxSummaries: 10 }); // clear the backlog
+    const report = await summaries.runSummaryCycle({ maxSummaries: 10 });
+    expect(report.generated).toBe(0);
+    expect(report.budgetExhausted).toBe(false);
+  });
+});

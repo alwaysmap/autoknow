@@ -54,11 +54,35 @@ const workloadIdentity = !key && !!process.env.K_SERVICE && !!process.env.GOOGLE
 
 export const driveConfigured = !!key || workloadIdentity;
 
-/** The address users share files/folders with. Prefer the friendly group address
- *  (GOOGLE_SHARE_ADDRESS, e.g. autoknow@domain — a group the runtime SA belongs to, so
- *  sharing with it grants the SA access) over the raw *.iam.gserviceaccount.com email. */
-export function serviceAccountEmail(): string | null {
-  return process.env.GOOGLE_SHARE_ADDRESS ?? key?.client_email ?? process.env.GOOGLE_SA_EMAIL ?? null;
+// TWO DIFFERENT THINGS, deliberately not one function.
+//
+// The address people SHARE with and the identity the app AUTHENTICATES as are different
+// facts that merely coincide in a keyfile-only setup. They used to be resolved by a single
+// `serviceAccountEmail()` that fell through GOOGLE_SHARE_ADDRESS → client_email →
+// GOOGLE_SA_EMAIL, so any deployment where the infra var was absent printed a raw
+// *.iam.gserviceaccount.com address in the very sentence that calls it the address to
+// share with. It reads as authoritative and is not what the infrastructure established.
+
+/**
+ * The Workspace group people share Docs and folders with — `autoknow@<domain>`, created
+ * by Terraform (`google_cloud_identity_group.share`) with the runtime SA as a MEMBER, so
+ * sharing with the group grants the SA access while users only ever see a clean address.
+ * Terraform wires it to GOOGLE_SHARE_ADDRESS on Cloud Run, and that variable is the ONLY
+ * source: a service account cannot have a vanity @domain email, so there is nothing here
+ * to derive it from, and guessing `autoknow@${AUTH_ALLOWED_DOMAIN}` would name a group
+ * that may not exist. Null means the deployment has not declared one — say so rather than
+ * substituting an address that was never established (AGENTS lesson 5).
+ */
+export function driveShareAddress(): string | null {
+  return process.env.GOOGLE_SHARE_ADDRESS?.trim() || null;
+}
+
+/** The service account the app authenticates AS. Sharing a file with it directly does
+ *  work, which is why local/dev setups without a Workspace group are still usable — but
+ *  it is the fallback, and the UI names it as the service account rather than dressing it
+ *  up as the friendly share address. */
+export function serviceAccountIdentity(): string | null {
+  return key?.client_email ?? process.env.GOOGLE_SA_EMAIL?.trim() ?? null;
 }
 
 const b64url = (input: string | Buffer): string => Buffer.from(input).toString('base64url');

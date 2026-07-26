@@ -639,10 +639,23 @@ const STRINGS = {
     ko: 'AutoKnow가 수집한 모든 소스와 최신 상태 유지 방식. 감시 중인 소스는 커넥터 주기에 따라 재확인되며 스냅샷은 재확인되지 않습니다.',
   },
   sourcesDriveOn: {
-    en: 'Drive sync is on — share a Doc or folder with {email} and it will be indexed automatically within the hour.',
-    de: 'Drive-Sync ist aktiv — ein mit {email} geteiltes Dokument oder ein Ordner wird innerhalb einer Stunde automatisch indexiert.',
-    ja: 'Drive 同期は有効です — {email} に共有したドキュメントやフォルダは 1 時間以内に自動でインデックスされます。',
-    ko: 'Drive 동기화가 켜져 있습니다 — {email}과 공유한 문서나 폴더는 1시간 이내에 자동으로 색인됩니다.',
+    // No cadence claim: the schedule lives in Cloud Scheduler (`cron_schedule`) and is
+    // never handed to the app, so "within the hour" was prose asserting infra the app
+    // cannot see — false on every deployment with a different schedule, and on the
+    // local/self-hosted ones with no scheduler at all.
+    en: 'Drive sync is on — share a Doc or folder with {email} and the refresh worker will index it on its next run.',
+    de: 'Drive-Sync ist aktiv — teilen Sie ein Dokument oder einen Ordner mit {email}; der Refresh-Worker indexiert es bei seinem nächsten Lauf.',
+    ja: 'Drive 同期は有効です — {email} にドキュメントやフォルダを共有すると、次回のリフレッシュ実行時にインデックスされます。',
+    ko: 'Drive 동기화가 켜져 있습니다 — {email}과 문서나 폴더를 공유하면 새로고침 작업자가 다음 실행 때 색인합니다.',
+  },
+  // No Workspace share group is configured (no GOOGLE_SHARE_ADDRESS): name the service
+  // account as itself. Sharing with it directly works; calling it "the address to share
+  // with" would claim a friendly address this deployment does not have.
+  sourcesDriveOnDirect: {
+    en: 'Drive sync is on — no Workspace share address is configured, so share a Doc or folder directly with the service account {email} and the refresh worker will index it on its next run. Sharing with a service account is external to your domain; your Workspace sharing policy has to allow it.',
+    de: 'Drive-Sync ist aktiv — es ist keine Workspace-Freigabeadresse konfiguriert. Teilen Sie ein Dokument oder einen Ordner daher direkt mit dem Servicekonto {email}; der Refresh-Worker indexiert es bei seinem nächsten Lauf. Ein Servicekonto liegt außerhalb Ihrer Domain — Ihre Workspace-Freigaberichtlinie muss das zulassen.',
+    ja: 'Drive 同期は有効です — Workspace の共有アドレスが設定されていないため、ドキュメントやフォルダはサービスアカウント {email} に直接共有してください。次回のリフレッシュ実行時にインデックスされます。サービスアカウントはドメイン外のため、Workspace の共有ポリシーで許可されている必要があります。',
+    ko: 'Drive 동기화가 켜져 있습니다 — Workspace 공유 주소가 구성되어 있지 않으므로 문서나 폴더를 서비스 계정 {email}과 직접 공유하세요. 새로고침 작업자가 다음 실행 때 색인합니다. 서비스 계정은 도메인 외부이므로 Workspace 공유 정책에서 허용해야 합니다.',
   },
   sourcesDriveOff: {
     en: 'Background refresh of Google Docs starts once the service account is configured; until then use Refresh now while signed in.',
@@ -672,10 +685,10 @@ const STRINGS = {
   },
   ingestBudgetTitle: { en: 'Free-tier budget', de: 'Budget (kostenloser Tarif)', ja: '無料枠の予算', ko: '무료 등급 예산' },
   ingestBudgetHelp: {
-    en: 'How many documents may be (re)ingested per day. Each costs about 2 Gemini calls; unchanged documents cost nothing. Raise it to fill a new corpus faster (watch the free-tier line), or lower it to stay well clear.',
-    de: 'Wie viele Dokumente pro Tag (neu) erfasst werden dürfen. Jedes kostet etwa 2 Gemini-Aufrufe; unveränderte Dokumente kosten nichts. Höher, um einen neuen Bestand schneller zu füllen (die Freigrenze beachten), oder niedriger, um deutlich darunter zu bleiben.',
-    ja: '1 日に（再）取り込みできるドキュメント数。1 件あたり約 2 回の Gemini 呼び出しが必要で、変更のないドキュメントは消費しません。新しいコーパスを速く埋めるには上げ（無料枠の線に注意）、余裕を持たせるには下げます。',
-    ko: '하루에 (재)수집할 수 있는 문서 수입니다. 문서당 약 2회의 Gemini 호출이 필요하며 변경되지 않은 문서는 소비하지 않습니다. 새 코퍼스를 빨리 채우려면 올리고(무료 등급 선 확인), 여유를 두려면 내리세요.',
+    en: 'The daily Gemini allowance for automatic work, set as documents per day. Each document costs about 2 calls; unchanged documents cost nothing. Summaries draw on the same allowance, after ingestion — so a quiet day spends it keeping summaries current. Searching and regenerating by hand cost extra. Raise it to fill a new corpus faster (watch the free-tier line), or lower it to stay well clear.',
+    de: 'Das tägliche Gemini-Kontingent für automatische Arbeit, angegeben als Dokumente pro Tag. Jedes Dokument kostet etwa 2 Aufrufe; unveränderte Dokumente kosten nichts. Zusammenfassungen werden nach der Erfassung aus demselben Kontingent bezahlt — an einem ruhigen Tag hält es also die Zusammenfassungen aktuell. Suchen und manuelles Neuerzeugen kosten zusätzlich. Höher, um einen neuen Bestand schneller zu füllen (die Freigrenze beachten), oder niedriger, um deutlich darunter zu bleiben.',
+    ja: '自動処理に使う 1 日分の Gemini 利用枠を、ドキュメント数として設定します。1 件あたり約 2 回の呼び出しが必要で、変更のないドキュメントは消費しません。要約も取り込みの後に同じ枠から使われるため、変更の少ない日はこの枠が要約の更新に充てられます。検索と手動での再生成は別途消費します。新しいコーパスを速く埋めるには上げ（無料枠の線に注意）、余裕を持たせるには下げます。',
+    ko: '자동 처리에 쓰는 하루치 Gemini 사용량을 문서 수로 설정합니다. 문서당 약 2회의 호출이 필요하며 변경되지 않은 문서는 소비하지 않습니다. 요약도 수집 이후 같은 사용량에서 차감되므로, 변경이 적은 날에는 이 사용량이 요약을 최신으로 유지하는 데 쓰입니다. 검색과 수동 재생성은 별도로 소비합니다. 새 코퍼스를 빨리 채우려면 올리고(무료 등급 선 확인), 여유를 두려면 내리세요.',
   },
   ingestBudgetSliderLabel: { en: 'Daily re-ingest budget', de: 'Tägliches Erfassungsbudget', ja: '1 日の取り込み予算', ko: '일일 수집 예산' },
   ingestBudgetDocsUnit: { en: 'docs/day', de: 'Dok./Tag', ja: '件/日', ko: '건/일' },

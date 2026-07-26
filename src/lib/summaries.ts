@@ -664,13 +664,36 @@ export interface SummaryCycleReport {
   generated: number;
   skipped: number;
   errors: number;
+  /** The cycle's shared request allowance ran out before every stale scope was covered.
+   *  Distinguishes "nothing needed doing" from "could not afford it" in the cron's JSON —
+   *  the two look identical in `generated: 0` and only one of them is a reason to raise
+   *  the budget. */
+  budgetExhausted: boolean;
 }
 
+/** Latency bound, NOT the spend bound: a cron tick has 300s (the Cloud Run timeout) and
+ *  has already done Drive + refresh by the time it gets here. The spend bound is the
+ *  caller's `maxSummaries`, drawn from the cycle's shared request allowance — see
+ *  lib/ingestBudget. Whichever is smaller wins. */
 const MAX_SUMMARIES_PER_CYCLE = 10;
 
-export async function runSummaryCycle(): Promise<SummaryCycleReport> {
-  const report: SummaryCycleReport = { configured: geminiConfigured, scopes: 0, generated: 0, skipped: 0, errors: 0 };
+export async function runSummaryCycle(opts?: { maxSummaries?: number }): Promise<SummaryCycleReport> {
+  // Default only for callers with no budget to spend from (tests, one-off scripts). The
+  // cron always passes one; if it ever stops, this cap alone would put the cycle back
+  // outside the budget, which is the bug this parameter exists to close.
+  const cap = Math.min(opts?.maxSummaries ?? MAX_SUMMARIES_PER_CYCLE, MAX_SUMMARIES_PER_CYCLE);
+  const report: SummaryCycleReport = {
+    configured: geminiConfigured,
+    scopes: 0,
+    generated: 0,
+    skipped: 0,
+    errors: 0,
+    budgetExhausted: false,
+  };
+  // An exhausted allowance short-circuits before the seven staleness aggregates: there is
+  // nothing to decide when nothing can be afforded.
   if (!geminiConfigured) return report;
+  if (cap <= 0) return { ...report, budgetExhausted: true };
 
   const [partners, programs] = await Promise.all([
     prisma.partner.findMany({ select: { id: true } }),
@@ -735,7 +758,7 @@ export async function runSummaryCycle(): Promise<SummaryCycleReport> {
   }
 
   for (const t of [...missing, ...stale]) {
-    if (report.generated >= MAX_SUMMARIES_PER_CYCLE) { report.skipped++; continue; }
+    if (report.generated >= cap) { report.skipped++; report.budgetExhausted = true; continue; }
     try {
       const id = await createSummary(t.scope, t.id, 'auto');
       if (id) report.generated++;

@@ -1,5 +1,5 @@
 import { prisma } from '../../../lib/db';
-import { driveConfigured, serviceAccountEmail } from '../../../lib/googleAuth';
+import { driveConfigured, driveShareAddress, serviceAccountIdentity } from '../../../lib/googleAuth';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import { getIngestionHealth } from '../../../lib/ingestionHealth';
@@ -76,8 +76,15 @@ export default async function SourcesPage(props: {
           {t(locale, 'sourcesLegend')}
         </p>
         {driveConfigured ? (
+          /* The Workspace group is the established sharing address, so it wins whenever the
+             deployment declares one. Without it we name the service account AS the service
+             account — the raw *.iam.gserviceaccount.com address does work when shared with
+             directly, but calling it "the address to share with" would state the friendly
+             address we do not have. */
           <p data-testid="drive-on" style={{ color: 'var(--muted, #666)', fontSize: '0.8125rem', marginTop: '0.375rem', maxWidth: '47.5rem' }}>
-            {t(locale, 'sourcesDriveOn', { email: serviceAccountEmail() ?? '' })}
+            {driveShareAddress()
+              ? t(locale, 'sourcesDriveOn', { email: driveShareAddress() as string })
+              : t(locale, 'sourcesDriveOnDirect', { email: serviceAccountIdentity() ?? '' })}
           </p>
         ) : (
           sources.some((s) => s.type === 'Doc' && s.mode === 'watched') && (
