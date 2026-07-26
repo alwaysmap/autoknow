@@ -72,6 +72,13 @@ const eslintConfig = defineConfig([
     // TS/ESM build, so the Next TypeScript ruleset doesn't apply.
     "infra/**",
     "scripts/**",
+    // Claude Code agent worktrees: FULL copies of this repo, so linting walked them and
+    // reported 344,487 problems from paths outside the checkout being linted. Flat
+    // config ignores only node_modules and .git by default, which is why this needs
+    // saying — `tsc` skips dot-directories on its own, and jest.config.ts already
+    // ignores `.claude/` for the same root cause. Absent in CI, so only the local gate
+    // breaks, and only while an agent is working — when it matters most.
+    ".claude/**",
   ]),
 ]);
 
