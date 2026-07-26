@@ -4,6 +4,7 @@ status: current
 updated: 2026-07-25
 applies_to:
   - src/components/**/*.tsx
+  - src/**/*.module.css
   - src/app/globals.css
   - tests/contrast.spec.ts
 symptoms:

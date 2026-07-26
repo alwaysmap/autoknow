@@ -36,9 +36,7 @@ const INK = 'var(--fg)';
 
 // Categorical band fills — deliberately outside the health palette (amber/red/
 // green judge; these classify). AAOS is the quiet base; products get one tint each.
-// The palette itself lives in globals.css, restated for dark: AAOS and AAP used to
-// be hexes here with no dark value, so the dark theme drew a near-white AAOS band
-// and then lost the near-white vehicles line inside it.
+// The palette itself lives in globals.css, restated for dark.
 const BAND_FILL: Record<ProductKey, string> = {
   aaos: 'var(--capacity-aaos)',
   gbi: 'var(--capacity-gbi)',

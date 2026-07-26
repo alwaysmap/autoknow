@@ -162,15 +162,13 @@
 
   /* Capacity product bands (CapacityChart's CFD stack). A CATEGORICAL palette,
      deliberately outside the health palette — amber/red/green JUDGE, these only
-     say WHICH product a band is. That reasoning is sound and unchanged; what was
-     wrong is that two of the five lived in the component as raw hexes with no dark
-     value, so on the dark theme AAOS stayed a near-white band and the near-white
-     vehicles line drawn along its top edge vanished into it. The whole palette is
-     stated here now, three of them aliasing tokens already restated for dark.
+     say WHICH product a band is.
      AAOS is the QUIET BASE the vehicles line and the SOP dots ride on, so each
      theme states it one soft step off --paper (measured on /ecosystem: 1.3–1.4:1
      light, 1.7–1.9:1 dark — a band edge, not text) and far enough from --fg for
-     that ink to read on top of it. tests/contrast.spec.ts holds the second half. */
+     that ink to read on top of it. Why these were hexes in the component, and why
+     that measured FINE until it didn't:
+     docs/knowledge/a-literal-ink-over-a-literal-ground-measures-fine.md. */
   --capacity-aaos: #dcd8cd;
   --capacity-gbi: var(--p-200);
   --capacity-gas: var(--p-400);

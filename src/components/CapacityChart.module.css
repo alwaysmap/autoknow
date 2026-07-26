@@ -119,15 +119,8 @@
   color: var(--muted);
 }
 
-/* .legendItem / .swatchInk / .swatchMuted were a dead legend row — no call site
-   since the direct band labels replaced it — and .swatchInk carried the same
-   hsl(0, 0%, 25%) literal as the component's INK, i.e. the bug in a third
-   disguise (AGENTS lesson 7). Deleted rather than tokenised: a rule nothing
-   renders cannot be signed off from a screenshot. */
-
 .excluded {
-  /* Quiet amber — a data-quality flag, not decoration. The token, not a hex: the
-     literal it replaces was picked on the cream page and had no dark value. */
+  /* Quiet amber — a data-quality flag, not decoration. */
   color: var(--warn);
 }
 
