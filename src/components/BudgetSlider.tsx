@@ -11,6 +11,13 @@ import styles from './IngestionHealthCard.module.css';
 // budgetGauge() the cron also enforces (tests/ingestBudget.test.ts), so what the user sees
 // is exactly what will be spent. Cost-to-zero is preserved: the budget only spends on
 // documents that actually changed.
+//
+// `cyclesPerDay` is a PROP, not a default, and that is the whole point of #197: the
+// Scheduler cadence arrives as a server-side env var, which does not exist in the browser
+// bundle. Letting this component fall back to the default would put the gauge back on an
+// assumed cadence while the cron enforces the real one — the same divergence between the
+// plotted ceiling and the spent one that this change exists to close, only now in the
+// half a human actually reads.
 
 export interface BudgetSliderLabels {
   help: string;
@@ -30,10 +37,12 @@ export interface BudgetSliderLabels {
 export default function BudgetSlider({
   initialBudgetDocs,
   initialFreeTierRpd,
+  cyclesPerDay,
   labels,
 }: {
   initialBudgetDocs: number;
   initialFreeTierRpd: number;
+  cyclesPerDay: number;
   labels: BudgetSliderLabels;
 }) {
   const [budget, setBudget] = useState(initialBudgetDocs);
@@ -41,7 +50,7 @@ export default function BudgetSlider({
   const [pending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
 
-  const gauge = budgetGauge(budget, freeTier);
+  const gauge = budgetGauge(budget, freeTier, cyclesPerDay);
   // Slider max keeps the free-tier line roughly mid-scale so the safe/over split is legible.
   const maxDocs = Math.max(10, gauge.safeMaxDocsPerDay * 2, budget);
   const pct = (n: number) => `${Math.min(100, Math.max(0, (n / maxDocs) * 100))}%`;

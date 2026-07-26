@@ -8,7 +8,6 @@ import path from 'path';
 import {
   GEMINI_CALLS_PER_DOC,
   GEMINI_CALLS_PER_SUMMARY,
-  CYCLES_PER_DAY,
   perCycleBudget,
   perCycleRequests,
   summariesAffordable,
@@ -16,14 +15,33 @@ import {
   maxDocsPerDayUnderFreeTier,
   budgetGauge,
 } from '../src/lib/ingestBudget';
+import {
+  DEFAULT_CYCLES_PER_DAY,
+  cyclesPerDayOf,
+  knownCyclesPerDay,
+  resolveCyclesPerDay,
+} from '../src/lib/cronCadence';
+
+// The budget functions resolve the cadence from REFRESH_CRON_SCHEDULE on every call, so
+// every assertion about the DEFAULT has to be made with the variable genuinely absent —
+// otherwise a developer's .env (or a future one) silently rewrites what these prove. The
+// override cases set it inside their own test, after this has cleared it.
+const INHERITED_CRON = process.env.REFRESH_CRON_SCHEDULE;
+beforeEach(() => {
+  delete process.env.REFRESH_CRON_SCHEDULE;
+});
+afterAll(() => {
+  if (INHERITED_CRON === undefined) delete process.env.REFRESH_CRON_SCHEDULE;
+  else process.env.REFRESH_CRON_SCHEDULE = INHERITED_CRON;
+});
 
 describe('#38 ingestion budget math', () => {
   test('perCycleBudget floors so the daily total never exceeds the budget', () => {
     // 60 docs/day over 24 cycles = 2.5 → floor 2; 2 × 24 = 48 ≤ 60.
     expect(perCycleBudget(60)).toBe(2);
-    expect(perCycleBudget(60) * CYCLES_PER_DAY).toBeLessThanOrEqual(60);
+    expect(perCycleBudget(60) * DEFAULT_CYCLES_PER_DAY).toBeLessThanOrEqual(60);
     expect(perCycleBudget(240)).toBe(10);
-    expect(perCycleBudget(240) * CYCLES_PER_DAY).toBeLessThanOrEqual(240);
+    expect(perCycleBudget(240) * DEFAULT_CYCLES_PER_DAY).toBeLessThanOrEqual(240);
   });
 
   test('a small budget still makes at least 1 doc/cycle of progress', () => {
@@ -48,7 +66,7 @@ describe('#38 ingestion budget math', () => {
   test('estimated requests/day is the ENFORCED ceiling, not the raw knob × calls-per-doc', () => {
     // It reports what the cron can actually spend: per-cycle allowance × cycles. The raw
     // product (100 × 2 = 200) over-states, because 100/24 floors to 4 docs a cycle.
-    expect(estimatedRequestsPerDay(100)).toBe(4 * GEMINI_CALLS_PER_DOC * CYCLES_PER_DAY);
+    expect(estimatedRequestsPerDay(100)).toBe(4 * GEMINI_CALLS_PER_DOC * DEFAULT_CYCLES_PER_DAY);
     expect(estimatedRequestsPerDay(100)).toBe(192);
     expect(estimatedRequestsPerDay(0)).toBe(0);
     // …and the direction that matters: a sub-cycle budget rides the min-1 floor, so it
@@ -58,7 +76,7 @@ describe('#38 ingestion budget math', () => {
 
   test('the plotted figure is exactly what a full day of cycles can spend', () => {
     for (const budget of [0, 1, 23, 24, 60, 100, 143, 240, 1000]) {
-      expect(estimatedRequestsPerDay(budget)).toBe(perCycleRequests(budget) * CYCLES_PER_DAY);
+      expect(estimatedRequestsPerDay(budget)).toBe(perCycleRequests(budget) * DEFAULT_CYCLES_PER_DAY);
     }
   });
 
@@ -139,7 +157,7 @@ describe('one pool: ingestion and summaries share the cycle allowance', () => {
         const onSummaries = summariesAffordable(perCycle - onIngest) * GEMINI_CALLS_PER_SUMMARY;
         expect(onIngest + onSummaries).toBeLessThanOrEqual(perCycle);
       }
-      expect(perCycle * CYCLES_PER_DAY).toBe(estimatedRequestsPerDay(budget));
+      expect(perCycle * DEFAULT_CYCLES_PER_DAY).toBe(estimatedRequestsPerDay(budget));
     }
   });
 
@@ -163,48 +181,42 @@ describe('one pool: ingestion and summaries share the cycle allowance', () => {
 
   test('the shipped defaults now really do sit under the free tier', () => {
     // 60 docs/day ⇒ 4 requests/cycle ⇒ 96/day, all consumers included, vs a 250 tier.
-    expect(perCycleRequests(60) * CYCLES_PER_DAY).toBe(96);
-    expect(perCycleRequests(60) * CYCLES_PER_DAY).toBeLessThanOrEqual(250);
+    expect(perCycleRequests(60) * DEFAULT_CYCLES_PER_DAY).toBe(96);
+    expect(perCycleRequests(60) * DEFAULT_CYCLES_PER_DAY).toBeLessThanOrEqual(250);
     expect(budgetGauge(60, 250).exceedsFreeTier).toBe(false);
   });
 });
 
-// CYCLES_PER_DAY is the divisor under every cap, but Cloud Scheduler owns the real
-// cadence and Terraform never hands it to the app — `cron_schedule` is set on the job and
-// not exported to Cloud Run. So the constant is an ASSUMPTION about infrastructure, and an
-// assumption that fails open: run the cron twice as often and daily spend doubles while
-// the slider keeps plotting the old ceiling. That is the quota cap again, one line of HCL
-// away. Until the schedule is exported and the constant can derive itself, this reads the
-// Terraform and refuses to let the two drift apart quietly.
-describe('CYCLES_PER_DAY tracks the Cloud Scheduler cron', () => {
+// Cycles/day is the divisor under every cap, and it used to be a literal 24 — an
+// ASSUMPTION about infrastructure that failed OPEN: run the cron twice as often and daily
+// spend doubles while the slider keeps plotting the old ceiling. Terraform now exports the
+// Scheduler cadence (REFRESH_CRON_SCHEDULE, #197), so the divisor is read rather than
+// assumed. These cover the three states that exist — exported, absent, and exported as
+// something no parser should guess at — and the Terraform-default guard stays, because the
+// FALLBACK now depends on that default being what it claims.
+describe('cycles/day is read from the exported Scheduler cadence', () => {
   const vars = readFileSync(
     path.join(__dirname, '..', 'infra', 'terraform', 'variables.tf'),
     'utf8',
   );
 
-  /** Cycles/day for the cron shapes this pipeline realistically uses. Anything else
-   *  returns null ON PURPOSE — an unrecognized schedule is precisely the case where a
-   *  human must re-derive the constant rather than have a parser guess for them. */
-  function cyclesPerDayOf(cron: string): number | null {
-    const fields = cron.trim().split(/\s+/);
-    if (fields.length !== 5) return null;
-    const [minute, hour, dom, month, dow] = fields;
-    if (dom !== '*' || month !== '*' || dow !== '*') return null; // not a plain daily cadence
-
-    if (/^\d+$/.test(minute) && hour === '*') return 24; // "0 * * * *" — hourly
-    const everyNHours = hour.match(/^\*\/(\d+)$/);
-    if (/^\d+$/.test(minute) && everyNHours) return 24 / Number(everyNHours[1]);
-    const everyMMinutes = minute.match(/^\*\/(\d+)$/);
-    if (everyMMinutes && hour === '*') return 1440 / Number(everyMMinutes[1]);
-    return null;
-  }
-
   it('parses the cadences this pipeline uses, and only those', () => {
     expect(cyclesPerDayOf('0 * * * *')).toBe(24);
     expect(cyclesPerDayOf('0 */2 * * *')).toBe(12);
     expect(cyclesPerDayOf('*/30 * * * *')).toBe(48);
+    expect(cyclesPerDayOf('0 0,12 * * *')).toBe(2); // a list of hours
     expect(cyclesPerDayOf('0 9 * * 1')).toBeNull(); // weekly — re-derive by hand
     expect(cyclesPerDayOf('nonsense')).toBeNull();
+    expect(cyclesPerDayOf('')).toBeNull();
+    expect(cyclesPerDayOf('0 24 * * *')).toBeNull(); // hour 24 does not exist
+    expect(cyclesPerDayOf('0 9-17 * * *')).toBeNull(); // ranges are not modelled
+  });
+
+  it('counts the fires a step makes, rather than dividing by it', () => {
+    // A step of 5 over 24 hours fires at 0, 5, 10, 15, 20 — five cycles, not 24/5 = 4.8.
+    // Dividing would UNDER-count cycles, which over-states what each one may spend.
+    expect(cyclesPerDayOf('0 */5 * * *')).toBe(5);
+    expect(cyclesPerDayOf('*/7 * * * *')).toBe(24 * 9); // 0,7,…,56 — nine an hour
   });
 
   it('matches the cron_schedule Terraform actually defaults to', () => {
@@ -213,18 +225,63 @@ describe('CYCLES_PER_DAY tracks the Cloud Scheduler cron', () => {
 
     const cron = (match as RegExpMatchArray)[1];
     const cycles = cyclesPerDayOf(cron);
-    // A null here means the schedule changed to a shape this test does not model: work out
-    // the real cycles/day, set CYCLES_PER_DAY to it, and teach cyclesPerDayOf the shape.
+    // A null here means the schedule changed to a shape this parser does not model: work
+    // out the real cycles/day and teach cyclesPerDayOf the shape. The equality keeps the
+    // FALLBACK honest — a deployment that predates the export gets this number.
     expect(cycles).not.toBeNull();
-    expect(cycles).toBe(CYCLES_PER_DAY);
+    expect(cycles).toBe(DEFAULT_CYCLES_PER_DAY);
   });
 
-  it('spells out what drift would cost, so the next reader does not have to model it', () => {
-    // Same budget, twice the cycles: the enforced ceiling doubles while the gauge — which
-    // reads CYCLES_PER_DAY — keeps reporting the old number.
-    const plotted = estimatedRequestsPerDay(60); // uses CYCLES_PER_DAY = 24
-    const ifCronRanTwiceAsOften = perCycleRequests(60, 24) * 48;
-    expect(ifCronRanTwiceAsOften).toBe(plotted * 2);
+  it('falls back to the default when infrastructure said nothing', () => {
+    // The config gate: infra lands first, the app second. A revision without the env var
+    // — or any local checkout, which has no scheduler at all — still computes a budget.
+    expect(knownCyclesPerDay()).toBeNull();
+    expect(resolveCyclesPerDay()).toBe(DEFAULT_CYCLES_PER_DAY);
+    expect(perCycleBudget(240)).toBe(10);
+  });
+
+  it('falls back safely when the schedule is present but unparseable', () => {
+    for (const junk of ['every hour', '0 9 * * 1', '0 * * *', '   ']) {
+      process.env.REFRESH_CRON_SCHEDULE = junk;
+      expect(knownCyclesPerDay()).toBeNull(); // declared unknown, never guessed
+      expect(resolveCyclesPerDay()).toBe(DEFAULT_CYCLES_PER_DAY);
+      expect(perCycleBudget(240)).toBe(10);
+    }
+  });
+
+  // THE GAP THE OLD TEST LEFT OPEN. It pinned the constant to the Terraform DEFAULT, so a
+  // deployment that overrode `var.cron_schedule` sailed past a green suite and spent a
+  // multiple of what the slider plotted. These drive the override end to end.
+  it('an overridden half-hourly schedule halves what a cycle may spend', () => {
+    process.env.REFRESH_CRON_SCHEDULE = '*/30 * * * *';
+    expect(resolveCyclesPerDay()).toBe(48);
+    // The same 240-doc budget, now spread over twice as many cycles: 5 a cycle, not 10.
+    // Under the old literal the cron would have kept ingesting 10 — 480 requests/day
+    // against a budget the admin set expecting 480 over 24 cycles. Same ceiling, twice
+    // the cycles, double the spend.
+    expect(perCycleBudget(240)).toBe(5);
+    expect(perCycleRequests(240)).toBe(10);
+    expect(estimatedRequestsPerDay(240)).toBe(480);
+  });
+
+  it('a ten-minute schedule changes what the gauge tells the admin is safe', () => {
+    process.env.REFRESH_CRON_SCHEDULE = '*/10 * * * *';
+    expect(resolveCyclesPerDay()).toBe(144);
+    // The min-1 floor costs 1 doc × 2 calls × 144 cycles = 288/day, so a 250/day free tier
+    // funds NO budget at all. The old literal plotted 143 docs/day as "safe" here while the
+    // cron really spent 288+ — the gauge lying by a factor of six, silently.
+    expect(estimatedRequestsPerDay(1)).toBe(288);
+    expect(maxDocsPerDayUnderFreeTier(250)).toBe(0);
+    expect(budgetGauge(60, 250).exceedsFreeTier).toBe(true);
+    expect(budgetGauge(60, 250).safeMaxDocsPerDay).toBe(0);
+  });
+
+  it('an explicit cadence still wins over the environment', () => {
+    // The client half of the settings page cannot read the env var, so the server passes
+    // the resolved number down as a prop. That path has to keep working.
+    process.env.REFRESH_CRON_SCHEDULE = '*/30 * * * *';
+    expect(perCycleBudget(240, DEFAULT_CYCLES_PER_DAY)).toBe(10);
+    expect(budgetGauge(60, 250, 12).requestsPerDay).toBe(120); // 5 docs/cycle × 2 × 12
   });
 });
 

@@ -3,6 +3,7 @@ import { t } from '../lib/i18n';
 import type { IngestionHealth } from '../lib/ingestionHealth';
 import { isoDateTime } from '../lib/dates';
 import { MAX_DOC_CHARS } from '../lib/gemini';
+import { knownCyclesPerDay, resolveCyclesPerDay } from '../lib/cronCadence';
 import BudgetSlider from './BudgetSlider';
 import styles from './IngestionHealthCard.module.css';
 
@@ -11,6 +12,13 @@ import styles from './IngestionHealthCard.module.css';
 // free-tier budget knob, the standing limits in plain language, and the live "shared but
 // not indexed" list. Presentational: all data comes pre-shaped from lib/ingestionHealth,
 // all math from lib/ingestBudget.
+//
+// It is also the boundary where the Scheduler cadence crosses into the browser: this is a
+// server component, so it can read the exported schedule, and it hands the result down as
+// a prop rather than letting the client half guess (#197). The two readings differ on
+// purpose — `resolveCyclesPerDay` gives the budget math a number it can always divide by,
+// while `knownCyclesPerDay` gives the COPY the truth, including "we were not told", so a
+// sentence never promises a cadence no deployment committed to.
 
 const FOLLOWED_FOLDER_DEPTH = 5; // mirrors MAX_FOLDER_DEPTH in lib/driveSync (surfaced to users)
 
@@ -31,6 +39,7 @@ export default function IngestionHealthCard({
   health: IngestionHealth;
 }) {
   const { summary, skipped, truncated, budget } = health;
+  const cycles = knownCyclesPerDay();
 
   return (
     <section className={styles.card} data-testid="ingestion-health">
@@ -62,6 +71,7 @@ export default function IngestionHealthCard({
         <BudgetSlider
           initialBudgetDocs={budget.dailyReingestBudgetDocs}
           initialFreeTierRpd={budget.freeTierRequestsPerDay}
+          cyclesPerDay={resolveCyclesPerDay()}
           labels={{
             help: t(locale, 'ingestBudgetHelp'),
             sliderLabel: t(locale, 'ingestBudgetSliderLabel'),
@@ -93,7 +103,11 @@ export default function IngestionHealthCard({
             )}
           </li>
           <li>{t(locale, 'ingestLimitDepth', { depth: FOLLOWED_FOLDER_DEPTH })}</li>
-          <li>{t(locale, 'ingestLimitCadence')}</li>
+          <li>
+            {cycles === null
+              ? t(locale, 'ingestLimitCadence')
+              : t(locale, 'ingestLimitCadenceKnown', { cycles })}
+          </li>
         </ul>
       </div>
 
