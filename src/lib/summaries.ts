@@ -10,6 +10,7 @@ import { personHref, partnerHref, programHref, phaseDetailHref } from './entityH
 import { linkify, type EntityLink, type Segment } from './summaryLinkify';
 import { sopOutlook } from './sop';
 import { localDate } from './dates';
+import { profilesAsOf } from './profiles';
 
 // The leadership-summary engine, one machine for three scopes (ecosystem / partner /
 // program): gather what AutoKnow already stores — needle updates, hill updates,
@@ -138,12 +139,20 @@ export function nextStepPhrase(nextStep: string): string {
 /** An action's owner as "Name (Company)" — the affiliation is the signal that tells the
  *  model which side the person is on (a Qualcomm owner is the partner, not someone who
  *  "works with" the partner). Prefers the canonical Person; falls back to the free-text
- *  `assignedTo` when the assignee never resolved to a row. Null when neither exists. */
+ *  `assignedTo` when the assignee never resolved to a row. Null when neither exists.
+ *
+ *  The company rides ON the person rather than as a third argument, so the name and the
+ *  company cannot be sourced from two different people by a caller that transposes two
+ *  adjacent nullable strings — the failure mode would be a brief confidently naming
+ *  someone's colleague's employer. The caller supplies it because the only correct source
+ *  is the affiliation covering the day (`lib/profiles`) and this function has no business
+ *  fetching; it used to read `person.currentPartner`, the cache, which attributed actions
+ *  to employers people had not started at yet (#127 E5). */
 export function formatActionOwner(
-  person: { name: string; currentPartner: { name: string } | null } | null | undefined,
+  person: { name: string; company?: string | null } | null | undefined,
   assignedTo: string | null | undefined,
 ): string | null {
-  if (person) return `${person.name}${person.currentPartner ? ` (${person.currentPartner.name})` : ''}`;
+  if (person) return `${person.name}${person.company ? ` (${person.company})` : ''}`;
   const free = assignedTo?.trim();
   return free ? free : null;
 }
@@ -161,13 +170,13 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
           states: { orderBy: { timestamp: 'desc' }, take: 3 },
           partners: { include: { partner: { select: { name: true } } } },
           // Who is on this phase, and in what role — the "why is this person named"
-          // signal (#73). currentPartner is their affiliation (internal vs partner).
-          people: { include: { person: { select: { id: true, name: true, currentPartner: { select: { name: true } } } } } },
+          // signal (#73). Their company is resolved as-of below, not joined here.
+          people: { include: { person: { select: { id: true, name: true } } } },
           // Resolve the assignee to the canonical Person so the action carries their
           // company (assignedTo free text alone can't say which side they're on).
           actionItems: {
             where: { status: 'Pending' },
-            include: { assignedToPerson: { select: { id: true, name: true, currentPartner: { select: { name: true } } } } },
+            include: { assignedToPerson: { select: { id: true, name: true } } },
           },
           dependencies: true,
         },
@@ -176,6 +185,25 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
     },
   });
   if (!project) return null;
+
+  // Which company each named person is at TODAY, in one query for the whole program.
+  // This is the "which side are they on" signal the model reasons from — a Qualcomm
+  // owner IS the partner — which is why it must be as-of and not the `currentPartner`
+  // cache the includes above used to carry (ADR
+  // currentpartnerid-is-a-cache-affiliations-are-the-truth).
+  const namedPersonIds = [
+    ...new Set([
+      ...project.phases.flatMap((ph) => ph.people.map((pp) => pp.personId)),
+      ...project.phases.flatMap((ph) =>
+        ph.actionItems.map((a) => a.assignedToPersonId).filter((id): id is number => id != null),
+      ),
+    ]),
+  ];
+  const profileByPerson = await profilesAsOf(namedPersonIds);
+  /** Null, never a guess: a person with no period covering today is named without a
+   *  company rather than with a stale one — the model must not infer a side from ink we
+   *  do not have. */
+  const companyOf = (personId: number) => profileByPerson.get(personId)?.partner.name ?? null;
 
   // Register the scope's entities so their names in the generated prose become links to
   // their endpoints (#77). partnerId is a scalar on Project, so no extra select needed.
@@ -249,7 +277,7 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
     // "who is here and why" the briefing used to miss entirely.
     const people = phase.people
       .map((pp) => {
-        const detail = [pp.person.currentPartner?.name, pp.role].filter(Boolean).join(', ');
+        const detail = [companyOf(pp.personId), pp.role].filter(Boolean).join(', ');
         return `${pp.person.name}${detail ? ` (${detail})` : ''}`;
       })
       .join(', ');
@@ -265,7 +293,13 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
 
     for (const item of phase.actionItems) {
       if (item.assignedToPerson) reg.add(item.assignedToPerson.name, personHref(item.assignedToPerson.id));
-      const owner = formatActionOwner(item.assignedToPerson, item.assignedTo);
+      const owner = formatActionOwner(
+        item.assignedToPerson && {
+          name: item.assignedToPerson.name,
+          company: companyOf(item.assignedToPerson.id),
+        },
+        item.assignedTo,
+      );
       ev.push(
         'action',
         `open action on "${phase.name}" (${project.name}): ${item.description}${owner ? ` — owner ${owner}` : ''}; ${nextStepPhrase(item.nextStep)}`,

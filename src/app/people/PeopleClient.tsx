@@ -20,7 +20,11 @@ interface PersonRow {
   id: number;
   name: string;
   email: string;
-  companyId: number;
+  /** One fact in two fields, and they are absent together: no affiliation period covers
+   *  today (a gap, or a hire starting later) means `companyId === null` AND
+   *  `company === ''`. The cell below relies on that — it tests the id and falls back on
+   *  the name (#127 E5). */
+  companyId: number | null;
   company: string;
   role: string;
   programs: number;

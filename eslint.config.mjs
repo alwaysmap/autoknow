@@ -32,12 +32,94 @@ const noSessionFieldReads = [
   },
 ];
 
+// ADR currentpartnerid-is-a-cache-affiliations-are-the-truth, same shape and for the
+// same reason as the identity rule above: a question with ONE right way to ask it, and
+// three spellings in the tree that each look plausible at the call site. WHY the other
+// two are wrong is the ADR's job; the message below carries the part a developer who
+// trips this needs. Rediscovered by hand three times (E2, E2a, E5) before it became a
+// rule — AGENTS lesson 2.
+const AS_OF_MESSAGE =
+  "Ask which company a person is at AS OF A DAY, never off the `currentPartnerId` cache " +
+  "or an `endDate: null` where-clause. Two sanctioned answers: `lib/profiles` " +
+  "(profileAsOf / profilesAsOf / partnerRosterAsOf / rostersByPartnerAsOf, and " +
+  "personIsAtPartnerAsOfSql for hand-written SQL) when the rows are still in the " +
+  "database, `lib/people`'s coversDay when you already hold them " +
+  "(docs/adr/2026-07-26-currentpartnerid-is-a-cache-affiliations-are-the-truth.md).";
+
+// TWO FAMILIES, because the exemptions differ. Naming the cache is allowed in the few
+// files that have to; asking "is the period open?" where "is it current?" was meant is
+// allowed only in the module that defines the predicate. They are separate arrays rather
+// than one array the overrides filter, so "which rules does this file keep?" is answered
+// by a spread below rather than by a string search over a selector — a fifth rule that
+// happened to mention `endDate` would have silently changed the answer.
+//
+// Both are broad on purpose and exempted BY FILE — the same trade the identity rule
+// makes. The narrower, context-sensitive selector is a rejected alternative in the ADR.
+const noCachedAffiliationReads = [
+  {
+    // `person.currentPartner`, `p.currentPartnerId`, `partner.currentEmployees`.
+    selector:
+      "MemberExpression[property.name=/^(currentPartner|currentPartnerId|currentEmployees)$/]",
+    message: AS_OF_MESSAGE,
+  },
+  {
+    // The Prisma shapes: an `include`/`select`/`where`/`data` key, a destructure, and a
+    // shorthand all land here as a Property key.
+    selector:
+      "Property[key.name=/^(currentPartner|currentPartnerId|currentEmployees)$/]",
+    message: AS_OF_MESSAGE,
+  },
+  {
+    // Raw SQL — `Prisma.sql\`pe."currentPartnerId" = ...\`` is a STRING, invisible to
+    // every selector above, and `lib/search.ts` scoped the people results that way.
+    // Without this the guard would have a hole exactly where the query is hand-written.
+    selector: "TemplateElement[value.raw=/currentPartnerId|currentEmployees/]",
+    message: AS_OF_MESSAGE,
+  },
+];
+
+// `endDate: null` — "is this period open?", asked where "is it current?" was meant.
+//
+// NOT anchored under a `where` key, though that is the only place it does damage: an
+// anchored selector is defeated by hoisting the object one line up
+// (`const w = { personId, endDate: null }`), and a guard a reformat can disable is not a
+// guard. Unanchored, the DATA side stays legal anyway by node shape rather than by
+// position — closing a period writes a DATE (`endDate: startDate`), and the nullable
+// forms already in the tree are `endDate ?? null` and `x ? y : null`, whose values are
+// Logical/Conditional expressions, not the `null` Literal this matches as a direct child.
+const noOpenPeriodAsCurrent = [
+  {
+    selector: "Property[key.name='endDate'] > Literal[raw='null']",
+    message: AS_OF_MESSAGE,
+  },
+];
+
+// The cache is still a column with a public name, so some files have to SAY it — which
+// is not the same as reading it for display, and mostly not even the same as writing it.
+// Only the first entry writes; the rest carry the name because the request contract does.
+// Listed individually so each exemption stays a decision, and each keeps the OTHER
+// families (they are re-listed below, not switched off).
+const MAY_NAME_THE_CACHE = [
+  "src/app/actions/people.ts", // movePersonCompany advances it on the effective day
+  "src/app/api/people/route.ts", // destructures the request field of that name
+  "src/lib/schemas.ts", // the zod contract that request is parsed against
+  "src/lib/seed.ts", // puts it in the POST body it sends to that route
+];
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
     rules: {
-      "no-restricted-syntax": ["error", ...noSessionFieldReads],
+      // Every family. EVERY override below re-lists a subset, so a new family added here
+      // must be added to each of them too — that is the cost of exemptions that stay
+      // decisions, and it is why each override says which families it drops and why.
+      "no-restricted-syntax": [
+        "error",
+        ...noSessionFieldReads,
+        ...noCachedAffiliationReads,
+        ...noOpenPeriodAsCurrent,
+      ],
       // Underscore-prefixed args/vars are an intentional "unused on purpose" marker
       // (e.g. a typed-but-ignored callback parameter). Standard convention.
       "@typescript-eslint/no-unused-vars": [
@@ -50,9 +132,46 @@ const eslintConfig = defineConfig([
     // The auth layer itself — the two files whose JOB is to turn a session into
     // something the rest of the app may read. session.ts builds CurrentUser;
     // routeAuth.ts checks an email exists to admit a request, and never displays it.
-    // Exempting by name (not all of src/lib) keeps the exemption a decision.
+    // Exempting by name (not all of src/lib) keeps the exemption a decision. Drops the
+    // SESSION family only — neither file touches affiliations, but spelling that out
+    // beats `"off"`, which would silently absorb every family added later.
     files: ["src/lib/session.ts", "src/lib/routeAuth.ts"],
-    rules: { "no-restricted-syntax": "off" },
+    rules: {
+      "no-restricted-syntax": ["error", ...noCachedAffiliationReads, ...noOpenPeriodAsCurrent],
+    },
+  },
+  {
+    // See MAY_NAME_THE_CACHE. Drops the CACHE family only. `noOpenPeriodAsCurrent`
+    // deliberately stays: being allowed to name `currentPartnerId` says nothing about
+    // being allowed to ask an affiliation question the wrong way, and `movePersonCompany`
+    // does exactly that — it trips this selector and carries a justified disable naming
+    // the bead that fixes it.
+    files: MAY_NAME_THE_CACHE,
+    rules: {
+      "no-restricted-syntax": ["error", ...noSessionFieldReads, ...noOpenPeriodAsCurrent],
+    },
+  },
+  {
+    // The module that DEFINES the as-of predicate has to write it down once, and
+    // `asOfWhere`'s `OR: [{ endDate: null }, { endDate: { gt: at } }]` is that once —
+    // the correct use of the literal, which is why the rule points every other file
+    // here. Drops the open-period family only; the cache write inside `createPersonAt`
+    // still trips the cache family and carries its own inline disable, because one
+    // sanctioned write is worth naming at the line rather than at the file.
+    files: ["src/lib/profiles.ts"],
+    rules: {
+      "no-restricted-syntax": ["error", ...noSessionFieldReads, ...noCachedAffiliationReads],
+    },
+  },
+  {
+    // Tests are FIXTURE authors, and both families are unavoidable there:
+    // `currentPartnerId` is a REQUIRED FK so no test can build a Person without naming
+    // it, and `endDate: null` is how you write down an open period you are about to
+    // assert on (tests/coversDay.test.ts does exactly that). Fifteen identical disable
+    // comments would teach nobody anything. What a test reads is also usually the
+    // POINT — tests/scheduledMove.test.ts asserts the cache does NOT advance early.
+    files: ["tests/**"],
+    rules: { "no-restricted-syntax": ["error", ...noSessionFieldReads] },
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([

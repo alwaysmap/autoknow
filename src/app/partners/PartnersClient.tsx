@@ -12,6 +12,7 @@ import { RelationshipCell } from '../../components/RelationshipScale';
 import { parseScore, clampScore, REL_KEY } from '../../lib/relationship';
 import { PersonList } from '../../components/PersonCell';
 import { deriveEmail, normalizeHandle } from '../../lib/auth';
+import type { PersonLike } from '../../lib/people';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 import styles from './page.module.css';
@@ -23,14 +24,12 @@ interface Project {
   ownerName: string | null;
 }
 
-interface Person {
+/** Structurally `RosterMember` from lib/profiles, redeclared because this is a client
+ *  component and that module is server-only. Keep the two in step. */
+interface RosterMember {
   id: number;
   name: string;
   email: string;
-}
-
-interface Affiliation {
-  person: Person;
 }
 
 interface Partner {
@@ -39,8 +38,9 @@ interface Partner {
   type: string;
   region: string;
   projects: Project[];
-  currentEmployees: Person[];
-  personAffiliations: Affiliation[];
+  /** Who is at this partner TODAY — the as-of roster (lib/partnerQueries), not everyone
+   *  who ever was. */
+  team: RosterMember[];
 }
 
 interface Option {
@@ -51,7 +51,7 @@ interface Option {
 interface PartnersClientProps {
   partners: Partner[];
   currentUser: string;
-  people: Person[];
+  people: PersonLike[];
   /** partnerId → latest score + oldest→newest history (see lib/relationship). */
   relationship: Record<number, { score: number | null; history: number[] }>;
   types: Option[];
@@ -90,8 +90,7 @@ export default function PartnersClient({ partners, currentUser, people, relation
       !!value && (deriveEmail(value) === userEmail || normalizeHandle(value) === userHandle);
     const isMyPartner = (partner: Partner) =>
       partner.projects.some((p) => isCurrentUser(p.ownerName)) ||
-      partner.currentEmployees.some((e) => isCurrentUser(e.email)) ||
-      partner.personAffiliations.some((pa) => isCurrentUser(pa.person.email));
+      partner.team.some((member) => isCurrentUser(member.email));
     return partners.filter((partner) => !myPartnersOnly || isMyPartner(partner));
   }, [partners, myPartnersOnly, userEmail, userHandle]);
 
@@ -106,13 +105,10 @@ export default function PartnersClient({ partners, currentUser, people, relation
         new Set(partner.projects.map((p) => p.ownerName).filter(Boolean))
       ) as string[];
 
-      // Extract unique team member emails
-      const team = Array.from(
-        new Set([
-          ...partner.currentEmployees.map((e) => e.email),
-          ...partner.personAffiliations.map((pa) => pa.person.email),
-        ])
-      ).filter(Boolean) as string[];
+      // Team member emails. The Set is belt-and-braces: the as-of predicate SELECTS one
+      // period per person, but nothing constrains the data to have only one, so an
+      // overlap authored elsewhere must not print a name twice.
+      const team = Array.from(new Set(partner.team.map((member) => member.email)));
 
       return {
         id: partner.id,

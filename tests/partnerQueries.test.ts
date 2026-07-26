@@ -48,6 +48,24 @@ describe('partnerQueries module', () => {
         volumeFirstYear: 20000
       }
     });
+
+    // Two people, so the team cell has something to be right AND wrong about: one who
+    // is here today and one who left. A one-person fixture passes for the wrong reason.
+    const stayer = await prisma.person.create({
+      data: { name: 'Ada Current', email: 'ada@tesla.com', currentPartnerId: partner.id },
+    });
+    const leaver = await prisma.person.create({
+      data: { name: 'Bo Departed', email: 'bo@tesla.com', currentPartnerId: partner.id },
+    });
+    await prisma.personAffiliation.create({
+      data: { personId: stayer.id, partnerId: partner.id, role: 'Engineer', startDate: new Date('2020-01-01') },
+    });
+    await prisma.personAffiliation.create({
+      data: {
+        personId: leaver.id, partnerId: partner.id, role: 'Engineer',
+        startDate: new Date('2019-01-01'), endDate: new Date('2021-06-01'),
+      },
+    });
   });
 
   afterAll(async () => {
@@ -74,5 +92,13 @@ describe('partnerQueries module', () => {
   it('counts all lifetime projects with getLifetimePrograms()', async () => {
     const results = await getAllPartners();
     expect(getLifetimePrograms(results[0])).toBe(2);
+  });
+
+  it('lists only who is at the partner TODAY, not everyone who ever was (#127 E5)', async () => {
+    // Bo's `currentPartnerId` still points at Tesla — the cache is not maintained on the
+    // way out — so a roster that believed either the cache or the affiliation HISTORY
+    // would include him. Only the as-of predicate excludes him.
+    const [tesla] = await getAllPartners();
+    expect(tesla.team.map((p) => p.name)).toEqual(['Ada Current']);
   });
 });

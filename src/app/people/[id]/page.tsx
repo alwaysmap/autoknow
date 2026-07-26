@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import PersonAdminControls from '../../../components/PersonEditor';
-import { coversDay, initialsOf } from '../../../lib/people';
+import { initialsOf } from '../../../lib/people';
+import { profileAsOf } from '../../../lib/profiles';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
@@ -29,7 +30,6 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
   const person = await prisma.person.findUnique({
     where: { id: personId },
     include: {
-      currentPartner: true,
       affiliations: {
         include: { partner: true },
         orderBy: { startDate: 'desc' },
@@ -46,6 +46,12 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
   if (!person) {
     return notFound();
   }
+
+  // The job held TODAY, decided ONCE for the whole page (#127 E5). The identity line
+  // prints it and the History section below is its complement BY ROW ID — one decision,
+  // so no period can land in both sections or in neither, which is how this page broke
+  // before. Null is a real answer: a gap between jobs, or a hire starting next month.
+  const profile = await profileAsOf(person.id);
 
   // Programs owned as TEL: ownerName is a free-text handle/email, so match the
   // person's email and its bare local-part/handle forms.
@@ -119,26 +125,26 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
               partners={partners} programs={assignablePrograms} />
           </div>
           <div className={styles.identLine}>
-            <Link href={`/partners/${person.currentPartnerId}`} className={styles.identCompany}>
-              {person.currentPartner.name}
-            </Link>
-            {(() => {
-              // The role held TODAY rides the identity line — the period containing today,
-              // not the open one (see `coversDay`). The partner check keeps the pair
-              // honest: the line prints currentPartner's NAME, so a role taken from some
-              // other partner's period would read as a title held at the wrong company.
-              // Without a match we print no role rather than the wrong one.
-              const active = person.affiliations.find(
-                (a) => coversDay(a) && a.partnerId === person.currentPartnerId,
-              );
-              return active?.role ? (
-                <>
-                  <span className={styles.identSep}>·</span>
-                  <span className={styles.identRole}>{active.role}</span>
-                </>
-              ) : null;
-            })()}
-            <span className={styles.identSep}>·</span>
+            {/* Company and role are ONE fact — the period covering today — so they are
+                read off one row and appear or vanish together. The old pair could not:
+                the company came from the `currentPartnerId` cache and the role from the
+                affiliations, so a scheduled move printed the new employer beside the old
+                job's title. With no period today the line is just the address; inventing
+                a company would be the same lie the cache used to tell. */}
+            {profile && (
+              <>
+                <Link href={`/partners/${profile.partnerId}`} className={styles.identCompany}>
+                  {profile.partner.name}
+                </Link>
+                {profile.role && (
+                  <>
+                    <span className={styles.identSep}>·</span>
+                    <span className={styles.identRole}>{profile.role}</span>
+                  </>
+                )}
+                <span className={styles.identSep}>·</span>
+              </>
+            )}
             <a href={`mailto:${person.email}`} className={styles.identEmail}>{person.email}</a>
           </div>
         </div>
@@ -165,9 +171,8 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
               {t(locale, 'historyLabel')}
             </AnchorHeading>
             {(() => {
-              // Everything except the job held today, which lives in the identity line.
-              // Keyed on coversDay for the same reason as the line above: filtering by
-              // `endDate != null` put TODAY's period here the moment a move was scheduled.
+              // The COMPLEMENT of the identity line, by row id — see the `profileAsOf`
+              // call above for why it is a complement and not a second decision.
               //
               // A period that has not started yet lists here too — so this is NOT "prior"
               // companies — and its open end still renders as "Present", wrong for a job
@@ -176,9 +181,16 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
               // edit/cancel), which is #127 E14. Dropping the row in the meantime would
               // read as the move having been cancelled — a worse lie than an early
               // "Present".
-              const otherPeriods = person.affiliations.filter((a) => !coversDay(a));
+              const otherPeriods = person.affiliations.filter((a) => a.id !== profile?.id);
               if (otherPeriods.length === 0) {
-                return <p className={styles.empty}>{t(locale, 'noPriorCompanies', { c: person.currentPartner.name })}</p>;
+                // "before {c}" only parses when there IS a current company to be before.
+                return (
+                  <p className={styles.empty}>
+                    {profile
+                      ? t(locale, 'noPriorCompanies', { c: profile.partner.name })
+                      : t(locale, 'noAffiliations')}
+                  </p>
+                );
               }
               return (
                 <PersonHistoryTable

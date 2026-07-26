@@ -88,11 +88,9 @@ export default async function PartnerDetailPage(props: PageProps) {
 
   // Latest relationship state, plus what the edit/delete affordances need to be
   // honest about.
-  // `roster` is who is HERE today (#127 E5) — the old `endDate: null` listed people who
-  // had not arrived and dropped the ones who had. `employeeCount` below still counts off
-  // `currentPartnerId`, so this page is as-of in its list and cached in its headline
-  // figure until the rest of E5 demotes that column.
-  const [roster, recentStates, types, regions, employeeCount, allPartners] = await Promise.all([
+  // `roster` is who is HERE today, and the headline employee figure is its length —
+  // ONE source, so the page cannot print "12 people" above a list of 11 (#127 E5).
+  const [roster, recentStates, types, regions, allPartners] = await Promise.all([
     partnerRosterAsOf(partner.id),
     // Two newest — the header card shows the prior score alongside the current one.
     prisma.partnerState.findMany({
@@ -102,7 +100,6 @@ export default async function PartnerDetailPage(props: PageProps) {
     }),
     prisma.partnerType.findMany({ orderBy: { name: 'asc' } }),
     prisma.region.findMany({ orderBy: { name: 'asc' } }),
-    prisma.person.count({ where: { currentPartnerId: partner.id } }),
     // Organizations for the "New person" picker — pre-selected to THIS partner.
     prisma.partner.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
   ]);
@@ -166,7 +163,7 @@ export default async function PartnerDetailPage(props: PageProps) {
             types={types}
             regions={regions}
             programCount={ownedCount}
-            employeeCount={employeeCount}
+            employeeCount={roster.length}
           />
         </div>
         {/* Classification is navigation (design.md §2/§6): type and region jump to

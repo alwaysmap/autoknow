@@ -6,6 +6,10 @@ test.describe('People and Biographical History', () => {
   test.describe.configure({ mode: 'serial' });
 
   let personId: number;
+  // Someone whose only employment period has ENDED, so no period covers today. Since
+  // #127 E5 that is a renderable state rather than an impossible one — the pages must
+  // say nothing about a company rather than fall back to the stale cache.
+  let betweenJobsId: number;
 
   test.beforeAll(async () => {
     // Clean tables
@@ -53,6 +57,27 @@ test.describe('People and Biographical History', () => {
         role: 'Systems Engineer',
         startDate: new Date('2026-01-01T00:00:00Z')
       }
+    });
+
+    // The between-jobs case. `currentPartnerId` still points at Ford — the cache is not
+    // maintained on the way out — so any surface reading it would confidently print
+    // "Ford". Only the as-of predicate knows she is not there.
+    const between = await prisma.person.create({
+      data: {
+        name: 'Nadia Between',
+        email: 'nadia@example.com',
+        currentPartnerId: ford.id,
+      },
+    });
+    betweenJobsId = between.id;
+    await prisma.personAffiliation.create({
+      data: {
+        personId: between.id,
+        partnerId: ford.id,
+        role: 'Validation Engineer',
+        startDate: new Date('2021-01-01T00:00:00Z'),
+        endDate: new Date('2024-06-01T00:00:00Z'),
+      },
     });
 
     // Create projects for actions
@@ -131,6 +156,33 @@ test.describe('People and Biographical History', () => {
     await expect(page.locator('h1')).toContainText('Priya Nair');
     await expect(page.locator('body')).toContainText('Ford');
     await expect(page.locator('body')).toContainText('Connectivity Lead');
+  });
+
+  test('a person with no period covering today shows no company, rather than the stale cache', async ({ page }) => {
+    await page.goto(`/people/${betweenJobsId}`);
+
+    // The identity line itself, not the page header — the header also contains the
+    // kebab's dialogs, whose partner picker lists every partner including Ford.
+    const ident = page.locator('[class*="identLine"]');
+    await expect(ident).toContainText('nadia@example.com');
+    // The cache says Ford. The identity line must not, and must not link to it either —
+    // this is the assertion that fails if anyone reintroduces a currentPartner read.
+    await expect(ident).not.toContainText('Ford');
+    await expect(ident.locator('a[href^="/partners/"]')).toHaveCount(0);
+    // Her ENDED Ford period is still history, and still says Ford — the page is silent
+    // about today, not about her career.
+    await expect(page.locator('body')).toContainText('Validation Engineer');
+  });
+
+  test('the directory leaves both company and role blank for that person', async ({ page }) => {
+    await page.goto('/people');
+
+    // Company and Role come from ONE row now, so they are blank together. A row naming a
+    // company with no role is the half-and-half state #127 E5 removed.
+    const row = page.getByRole('row').filter({ hasText: 'Nadia Between' });
+    await expect(row).toBeVisible();
+    await expect(row).not.toContainText('Ford');
+    await expect(row).not.toContainText('Validation Engineer');
   });
 
   test('a login can assign a person onto a program phase from the kebab', async ({ page }) => {

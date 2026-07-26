@@ -2,6 +2,7 @@ import 'server-only';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { embedForStorage, embedForQuery, geminiConfigured } from './gemini';
+import { personIsAtPartnerAsOfSql } from './profiles';
 import { FEED_TYPES, type FeedType, type FeedScope, type FeedItem } from './feed';
 
 // Unified search over everything in AutoKnow. Every searchable thing is tagged with
@@ -218,9 +219,15 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope, sem
         WHERE ${eligible} AND ${where}`;
     }
     case 'person': {
+      // Who is at this partner TODAY (#127 E5). This was `pe."currentPartnerId" = …` — a
+      // cache, and one the member/property lint selectors could never have seen, because
+      // inside `Prisma.sql` a column name is just text; that is exactly why the guard
+      // also carries a `TemplateElement` selector. Searching a partner's scope returned
+      // people who had not started and missed people who had. The predicate is
+      // `lib/profiles`', not spelled again here.
       const where =
         partnerId != null
-          ? Prisma.sql`pe."currentPartnerId" = ${partnerId}`
+          ? personIsAtPartnerAsOfSql(Prisma.sql`pe.id`, partnerId)
           : projectId != null
             ? Prisma.sql`FALSE`
             : Prisma.sql`TRUE`;

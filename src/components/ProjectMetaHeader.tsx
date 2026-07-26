@@ -65,7 +65,11 @@ interface ProjectMetaHeaderProps {
   hasAap: boolean;
   oemPartner?: PartnerRef | null;
   suppliersList?: PartnerRef[];
-  currentPartnerId?: number;
+  /** The PROGRAM's lead partner (`Project.partnerId`) — nothing to do with
+   *  `Person.currentPartnerId`. It was called `currentPartnerId` until #127 E5, which
+   *  made that name actively misleading: a grep for the person cache landed here, and a
+   *  reader had to open the call site to learn it was a different table. */
+  leadPartnerId?: number;
   partnerOptions?: PartnerOption[];
   /** Existing people — the owner is picked from these, never typed freeform. */
   peopleOptions?: PersonOption[];
@@ -95,7 +99,7 @@ export default function ProjectMetaHeader({
   projectId, projectName, archivedTag, actions, currentNeedle, currentHillChartProgress,
   ownerName, sopDateString, projectedFinishMs, bufferDays, guidelineDays, now,
   volumeFirstYear, hasGas, hasGbi, hasDigitalKey, hasAap, oemPartner, suppliersList,
-  currentPartnerId, partnerOptions, peopleOptions,
+  leadPartnerId, partnerOptions, peopleOptions,
 }: ProjectMetaHeaderProps) {
   const locale = useLocale();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -232,7 +236,7 @@ export default function ProjectMetaHeader({
           {(partnerOptions?.length ?? 0) > 0 && (
             <div className={dash.textInputGroup}>
               <label htmlFor="editLeadPartner" className={dash.formLabel}>{t(locale, 'leadPartnerLabel')}</label>
-              <select id="editLeadPartner" name="partnerId" defaultValue={currentPartnerId} className={dash.textInput}>
+              <select id="editLeadPartner" name="partnerId" defaultValue={leadPartnerId} className={dash.textInput}>
                 {[...partnerOptions!].sort((a, b) => Number(b.isOem) - Number(a.isOem) || a.name.localeCompare(b.name)).map((po) => (
                   <option key={po.id} value={po.id}>
                     {po.name}{po.isOem ? ' (OEM)' : ''}
