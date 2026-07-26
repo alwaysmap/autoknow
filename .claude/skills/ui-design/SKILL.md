@@ -45,6 +45,12 @@ open only the rows that match what you are about to touch.
   the viewport and put a second scrollbar on the page. A user reported it; the fix was
   deleting 47 lines of CSS and an entire `useEffect` that re-implemented Escape and the
   body-scroll lock (`autoknow-wja`).
+- **A menu item that navigates needs NOTHING from you** — render a plain `<Link>`.
+  `AnchoredPopover` dismisses on a link activation that replaces the page, and only on
+  that; buttons and server-action forms still keep the panel open, which is the rule the
+  component exists to protect. Adding `onClick={close}` to a link is re-authoring the
+  variant that caused `autoknow-6mn`
+  ([ADR: Navigation is the one inner activation that dismisses a popover](../../../docs/adr/2026-07-26-navigation-is-the-one-inner-activation-that-dismisses.md)).
 - **Entity displays are links; entity inputs are pickers.** People →
   `/people/:id`, partners → `/partners/:id`. A field naming another entity is a
   `<select>` over existing rows + server-side resolution (`requireOwnerEmail` /

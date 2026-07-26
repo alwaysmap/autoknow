@@ -72,3 +72,4 @@ skill routes between them.
 | 2026-07-26 | [A stored vector fails loud; a query vector fails soft](2026-07-26-a-stored-vector-fails-loud-a-query-vector-fails-soft.md) | accepted | ingestion, embeddings, data-integrity, gemini, search |
 | 2026-07-26 | [`Person.currentPartnerId` is a cache; the affiliation covering the day is the truth](2026-07-26-currentpartnerid-is-a-cache-affiliations-are-the-truth.md) | accepted | data-integrity, identity, affiliations, lint, prisma |
 | 2026-07-26 | [Recording a move INSERTS into a career timeline; it never appends to the end of it](2026-07-26-a-move-is-an-insert-into-a-timeline.md) | accepted | people, affiliations, temporal, data-integrity, actions |
+| 2026-07-26 | [Navigation is the one inner activation that dismisses a popover, and the popover decides it](2026-07-26-navigation-is-the-one-inner-activation-that-dismisses.md) | accepted | ui, popover, menus, navigation, components |
