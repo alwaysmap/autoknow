@@ -8,6 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { tsxFiles } from './helpers/sourceFiles';
+import { cssFiles, blankComments } from './helpers/css';
 
 const SRC = path.join(__dirname, '..', 'src');
 
@@ -41,6 +42,27 @@ function headingContents(): { file: string; line: number; inner: string }[] {
   return found;
 }
 
+/** Every `*.module.css` rule whose selector targets an `<h1>`–`<h6>`, with its body. */
+function headingRules(): { file: string; line: number; selector: string; body: string }[] {
+  const found: { file: string; line: number; selector: string; body: string }[] = [];
+  for (const file of cssFiles(SRC).filter((f) => f.endsWith('.module.css'))) {
+    // Comments BLANKED, not stripped: this repo's stylesheets discuss declarations at
+    // length (several paragraphs name `--p-600`), and a scan must not fire on a sentence
+    // about a declaration — while every offset still points at the real source line.
+    const css = blankComments(fs.readFileSync(file, 'utf8'));
+    for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (!/(^|[\s>+~,.#[])h[1-6]\b/.test(m[1])) continue;
+      found.push({
+        file: path.relative(path.join(SRC, '..'), file),
+        line: css.slice(0, m.index).split('\n').length,
+        selector: m[1].trim(),
+        body: m[2],
+      });
+    }
+  }
+  return found;
+}
+
 describe('headings', () => {
   it('finds headings to check (the scan itself has not silently broken)', () => {
     // A regex that matched nothing would make every assertion below vacuous.
@@ -68,6 +90,30 @@ describe('headings', () => {
         }
       }
     }
+    expect(offenders).toEqual([]);
+  });
+
+  // A heading's ink, not its words. `AnchorHeading` owns the markup but NOT the
+  // typography — every page module declares its own `.section h2 { … }` — so a page can
+  // re-tint a shared heading and nothing says otherwise. Two had: `/ecosystem`'s
+  // `.sectionHeader h2` and `/partners/:id`'s `.sidebarCard h3` both painted themselves
+  // `--p-600`, the BRAND GREEN that design.md §6 reserves for semantic positives (on
+  // track, early, saved). A green heading reads as a status on a label that has none.
+  //
+  // Scoped to the green ramp on purpose: `--fg` (section headings) and `--muted` (the
+  // uppercase micro-heading) are both legitimate and this must not adjudicate between
+  // them. It catches the one thing that is never right.
+  it('finds heading RULES to check (the CSS scan itself has not silently broken)', () => {
+    // Same canary as the markup scan above: a brace matcher or an `h[1-6]` filter that
+    // stopped matching would make the assertion below vacuous and permanently green.
+    expect(headingRules().length).toBeGreaterThan(10);
+  });
+
+  it('no heading paints itself from the brand-green ramp', () => {
+    const offenders = headingRules()
+      .map((r) => ({ ...r, green: r.body.match(/(?:^|[\s;])color:\s*var\(\s*(--p-\d+)/) }))
+      .filter((r) => r.green)
+      .map((r) => `${r.file}:${r.line} ${r.selector} → ${r.green![1]}`);
     expect(offenders).toEqual([]);
   });
 });

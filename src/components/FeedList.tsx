@@ -97,17 +97,21 @@ export default function FeedList({
           )}
           <div className={styles.body}>
             <div className={styles.head}>
+              {/* `title`: the heading is one ellipsized line now, so the full text has to
+                  stay reachable — hover is where a clipped title says the rest. */}
               {it.external ? (
-                <a className={styles.title} href={it.href} target="_blank" rel="noopener noreferrer">{it.title}</a>
+                <a className={styles.title} href={it.href} title={it.title}
+                  target="_blank" rel="noopener noreferrer">{it.title}</a>
               ) : (
                 // A hash href is a STATE fragment (#phase-:id-detail, #status-history) with no
                 // scroll target, so Next would jump to the page top (#40); scroll={false} keeps
                 // the reader's place and lets the popover open.
-                <Link className={styles.title} href={it.href} scroll={it.href.includes('#') ? false : undefined}>{it.title}</Link>
+                <Link className={styles.title} href={it.href} title={it.title}
+                  scroll={it.href.includes('#') ? false : undefined}>{it.title}</Link>
               )}
               <span className={styles.aside}>{aside(it, locale)}</span>
               {deletable && (
-                <form action={deleteFeedItem} style={{ display: 'inline-flex' }}>
+                <form action={deleteFeedItem} className={styles.deleteForm}>
                   <input type="hidden" name="id" value={it.id} />
                   {revalidate && <input type="hidden" name="revalidate" value={revalidate} />}
                   <button type="submit" title={t(locale, 'removeThisUpdate')} aria-label={t(locale, 'removeLabel')}

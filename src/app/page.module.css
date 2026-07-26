@@ -1,5 +1,6 @@
-/* Landing page. The search box is the largest thing here on purpose; everything
-   else is quiet enough that the eye lands on it first. */
+/* Landing page. The strip leads and the search box is the largest thing here — first
+   block and primary affordance are different jobs (design.md §2b). Everything else is
+   quiet enough that those two are what you see. */
 
 /* `width: 100%` is load-bearing: globals.css makes <body> a flex COLUMN, and an
    auto cross-axis margin on a flex item overrides stretch and shrink-wraps it to
@@ -14,10 +15,14 @@
   padding-inline: var(--page-gutter);
 }
 
-/* Vertical room above the hero so the input sits near the optical centre of a
-   laptop viewport rather than jammed under the nav. */
+/* The top padding used to be 3.5rem, to keep the input off the nav when the hero was
+   the page's first block. The strip is the first block now (2026-07-25, user call),
+   and it brings its own 1.875rem below it (EcosystemStatStrip.module.css) — stacked,
+   that was 86px of dead air between the two things the page opens with. The bottom
+   padding is untouched: the gap DOWN to the browse line and the teasers is still the
+   hero's to set. */
 .hero {
-  padding: 3.5rem 0 2.5rem;
+  padding: 1.5rem 0 2.5rem;
 }
 
 .browse {
@@ -47,7 +52,7 @@
   }
 
   .hero {
-    padding: 2rem 0 1.75rem;
+    padding: 1rem 0 1.75rem; /* same strip-above rebalance as the desktop step */
   }
 }
 
