@@ -91,12 +91,24 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # `cache: npm` above only caches the download tarballs — `npm ci` still linked ~27s
+      # of node_modules every run. Cache the built tree itself, keyed on the lockfile.
+      - name: Cache node_modules
+        id: node-modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+      - if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       # Deliberately explicit, though `npm ci`'s postinstall also generates it: CI
       # must not depend on a lifecycle-script side effect. `--ignore-scripts`
       # anywhere upstream would otherwise leave no client and fail as a confusing
       # typecheck error. `prisma generate` is idempotent, so the cost is seconds.
       # ADR npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it.
+      # This is also why the step is NOT conditional on the cache: a node_modules hit
+      # means npm ci (and its postinstall) never ran, so the cached client could be stale
+      # against a changed schema.
       - run: npm run db:generate
       - run: npm run typecheck
       - run: npm run lint
@@ -109,18 +121,39 @@ jobs:
       # the Dockerfile: nothing dynamic touches the DB at build time (the e2e job below
       # builds a SEPARATE prod server against the real test DB; this asserts the
       # DB-less build contract the Docker image relies on).
+      # Next's incremental compile cache. This job builds into the default .next (the e2e
+      # job caches .next-test separately), so the two never share or clobber a key.
+      - name: Cache the production build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-build-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            next-build-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+            next-build-${{ runner.os }}-
       - name: Production build compiles
         env:
           DATABASE_URL: postgresql://build:build@localhost:5432/build
         run: npm run build
 
   e2e:
-    name: e2e (playwright · chromium + webkit)
+    # ONE JOB PER BROWSER, in parallel. Measured on run 30186686741, the single job was
+    # 5m43s and WAS the whole workflow's critical path: 60s of `--with-deps` apt + 218s of
+    # serial `next build` + tests. Splitting makes the e2e cost max(chromium, webkit)
+    # instead of their sum, and lets each shard apt-install only the browser it runs —
+    # chromium's dep set is far smaller than webkit's, and chromium is the long pole.
+    #
+    # Safe to shard because each matrix leg is a SEPARATE runner with its OWN postgres
+    # service, so the "one shared test DB, workers:1" constraint that playwright.config.ts
+    # documents still holds WITHIN a leg. Raising `workers` above 1 is the much larger win
+    # and needs per-worker databases first — bead autoknow-7mb, deliberately not bundled
+    # here.
+    name: e2e (playwright · ${{ matrix.project }})
     runs-on: ubuntu-latest
-    # Runs in PARALLEL with `quality`. It owns the two costs that used to tip the shared
-    # job over 25m — the `--with-deps` apt install (webkit needs the OS libs even on a
-    # browser-cache hit) and its own `next build` web server (playwright.config.ts) — so
-    # a 30m ceiling here is real headroom, not a shared squeeze.
+    strategy:
+      fail-fast: false # a webkit-only break must not hide a chromium result, or vice versa
+      matrix:
+        project: [chromium, webkit]
     timeout-minutes: 30
     services:
       postgres:
@@ -152,20 +185,46 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # `cache: npm` above only caches the download tarballs — `npm ci` still linked ~26s
+      # of node_modules every run. Cache the built tree itself, keyed on the lockfile, and
+      # skip the install entirely on a hit.
+      - name: Cache node_modules
+        id: node-modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+      - if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       # global-setup runs `prisma db push`, so the client must exist here too — same
-      # explicit-generate reasoning as the quality job.
+      # explicit-generate reasoning as the quality job. Always run it: on a node_modules
+      # cache hit npm ci did NOT run, so postinstall did not either, and the cached tree's
+      # generated client can be stale against a changed schema.
       - run: npm run db:generate
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - run: npx playwright install --with-deps chromium webkit
-      # global-setup connects to the DB the instant `npm run test:e2e` starts, so
-      # prove the mapped port is reachable first — same gate as the quality job.
+          key: playwright-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles('package-lock.json') }}
+      # Only this leg's browser. `--with-deps` stays because the apt libs are NOT part of
+      # the cached browser payload and webkit genuinely needs them, but chromium's set is
+      # much smaller than the combined install this replaced.
+      - run: npx playwright install --with-deps ${{ matrix.project }}
+      # The e2e webServer builds into NEXT_DIST_DIR=.next-test (playwright.config.ts), NOT
+      # .next — so this is the path that matters here. Next's own incremental cache lives
+      # under it and turns the cold `next build` inside webServer into a warm one.
+      - name: Cache the e2e production build
+        uses: actions/cache@v4
+        with:
+          path: .next-test/cache
+          key: next-e2e-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            next-e2e-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles('package-lock.json') }}-
+            next-e2e-${{ runner.os }}-${{ matrix.project }}-
+      # global-setup connects to the DB the instant the run starts, so prove the mapped
+      # port is reachable first — same gate as the quality job.
       - uses: ./.github/actions/wait-for-postgres
-      - run: npm run test:e2e
+      - run: npm run test:e2e:${{ matrix.project }}
 
   image:
     name: image (Dockerfile builds; deps-stage postinstall contract)
@@ -180,4 +239,18 @@ jobs:
       #   2. the deps stage's contract — `npm ci` runs postinstall there WITHOUT the
       #      source tree, so the bootstrap must degrade to nothing (ADR npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it).
       # No push, no registry credentials: building is the whole assertion.
-      - run: docker build -t autoknow:ci .
+      #
+      # Layer-cached through the Actions cache (buildx `type=gha`): the measured 95s was a
+      # from-scratch build every run, and the expensive layer — the deps stage's `npm ci` —
+      # only changes when package-lock.json does. `mode=max` caches intermediate stages
+      # too, which is the point: the deps stage is exactly the one worth keeping.
+      # This job is NOT the critical path (it finished in 1m36 against e2e's 5m43), so
+      # this buys runner MINUTES, not wall clock.
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: autoknow:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
