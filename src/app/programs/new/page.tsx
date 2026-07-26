@@ -3,7 +3,7 @@ import { prisma } from '../../../lib/db';
 import { listTemplates, getTemplateWithPhases } from '../../../lib/programTemplates';
 import { validateTemplateDag } from '../../../lib/templateDag';
 import { parseSopInput } from '../../../lib/sop';
-import { requireOwnerEmail } from '../../../lib/owner';
+import { requireOwner } from '../../../lib/owner';
 import { getCurrentUser } from '../../../lib/session';
 import { indexEntity } from '../../../lib/search';
 import { hillStatus } from '../../../lib/phase';
@@ -23,8 +23,8 @@ async function createProject(formData: FormData) {
   const templateIdStr = formData.get('template') as string;
   const ownerInput = ((formData.get('owner') as string) || '').trim();
   if (!ownerInput) throw new Error('An assigned Googler (owner) is required');
-  // The owner must be an existing Person (picked, not typed) — canonical email.
-  const owner = await requireOwnerEmail(ownerInput);
+  // The owner must be an existing Person (picked, not typed) — canonical email AND id.
+  const owner = await requireOwner(ownerInput);
   // Every program MUST carry a target SOP (month/year; last day of month assumed).
   const sopDate = parseSopInput((formData.get('sopMonth') as string) || '');
   const hasGas = formData.get('hasGas') === 'on';
@@ -72,7 +72,7 @@ async function createProject(formData: FormData) {
 
   const project = await prisma.$transaction(async (tx) => {
     const created = await tx.project.create({
-      data: { name, partnerId, ownerName: owner, sopDate, hasGas, hasGbi, hasDigitalKey, hasAap }
+      data: { name, partnerId, ...owner, sopDate, hasGas, hasGbi, hasDigitalKey, hasAap }
     });
 
     // Log program creation so it appears in the activity feed.
@@ -107,12 +107,18 @@ async function createProject(formData: FormData) {
         }
       });
 
-      if (owner && p.name === firstPhaseName) {
+      // No `owner &&` guard: it was already dead — an empty input is rejected above and
+      // requireOwner throws rather than returning nothing.
+      if (p.name === firstPhaseName) {
         await tx.actionItem.create({
           data: {
             phaseId: phase.id,
             description: `Initial bring-up action for ${p.name}`,
-            assignedTo: owner,
+            // The assignee columns are the same pair as the owner's, so fill BOTH —
+            // this path had been writing the text alone, which is the defect #127 E6
+            // is closing one model over (AGENTS lesson 7).
+            assignedTo: owner.ownerName,
+            assignedToPersonId: owner.ownerPersonId,
             status: 'Pending'
           }
         });

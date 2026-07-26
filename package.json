@@ -30,6 +30,7 @@
     "db:studio": "prisma studio",
     "db:test:clean": "ts-node scripts/db/clean-test-dbs.ts",
     "db:embeddings:audit": "ts-node scripts/db/audit-embeddings.ts",
+    "db:backfill:owner-person": "ts-node --compilerOptions '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' scripts/db/backfill-owner-person.ts",
     "infra:plan": "scripts/infra/terraform.sh plan",
     "infra:apply": "scripts/infra/terraform.sh apply",
     "infra:output": "scripts/infra/terraform.sh output",

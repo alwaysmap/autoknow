@@ -70,7 +70,19 @@ model Project {
   theNeedle         String         @default("Low")
   hillChartProgress Int            @default(0)
   sopDate           DateTime? // target SOP — month/year minimum, stored as month-end
+  // The assigned Googler, twice over — the same shape ActionItem.assignedTo /
+  // assignedToPersonId has carried since 0_init. `ownerName` holds the canonical
+  // email as TEXT and is still what every reader matches on; `ownerPersonId` is the
+  // entity reference that survives the owner changing address (#124 Class 4). No path
+  // that ASSIGNS an owner can write one without the other — `requireOwner` in lib/owner
+  // hands back exactly this pair and nothing hands back the email alone. Deleting the
+  // person is the deliberate exception: it clears the id and KEEPS the text, so the
+  // program still says who used to own it. #127 E7 moves the readers over.
   ownerName         String?
+  ownerPersonId     Int?
+  // Back-relation: Person.ownedProjects. Named here because a grep for the forward
+  // field is not the set of readers (docs/knowledge/a-prisma-back-relation-hides-the-field-you-are-grepping-for.md).
+  ownerPerson       Person?        @relation(fields: [ownerPersonId], references: [id])
   volumeFirstYear   Int            @default(0)
   // Included Google products — which capacity this program brings online.
   hasGas            Boolean        @default(false) // Google Automotive Services
@@ -83,6 +95,10 @@ model Project {
   lifecycle         ProjectLifecycle @default(active)
   states            ProjectState[]
   embedding         Unsupported("vector(768)")?
+
+  // The dominant read behind the FK is "programs owned by this person" (the person
+  // page), and Postgres does not auto-index FK columns.
+  @@index([ownerPersonId])
 }
 
 // Leadership summary for one scope (ecosystem / partner / program): risks, progress,
@@ -378,6 +394,7 @@ model Person {
   notes            String?
   affiliations     PersonAffiliation[]
   actionItems      ActionItem[]
+  ownedProjects    Project[] // back-relation of Project.ownerPersonId (#127 E6)
   phaseInvolvements PhasePerson[]
   embedding        Unsupported("vector(768)")?
 }

@@ -7,7 +7,7 @@ import { prisma } from '../../../lib/db';
 import { parseHealth } from '../../../lib/health';
 import { parseSopInput } from '../../../lib/sop';
 import { getCurrentUser } from '../../../lib/session';
-import { requireOwnerEmail } from '../../../lib/owner';
+import { requireOwner } from '../../../lib/owner';
 
 export async function updateProjectMetrics(formData: FormData) {
   const projectIdStr = formData.get('projectId') as string;
@@ -17,8 +17,8 @@ export async function updateProjectMetrics(formData: FormData) {
   // Every program MUST have an assigned Googler — the resource half of CCPM and
   // the "who do I ask" answer. Enforced here, not just by the form's required flag.
   if (!ownerInput) throw new Error('An assigned Googler (owner) is required');
-  // …and the owner must be an existing Person, stored by canonical email.
-  const ownerName = await requireOwnerEmail(ownerInput);
+  // …and the owner must be an existing Person, stored by canonical email AND by id.
+  const owner = await requireOwner(ownerInput);
   const sopDateStr = formData.get('sopDate') as string;
   const volumeFirstYearStr = formData.get('volumeFirstYear') as string;
   const notes = formData.get('notes') as string || null;
@@ -42,7 +42,7 @@ export async function updateProjectMetrics(formData: FormData) {
       data: {
         theNeedle,
         hillChartProgress: !isNaN(hillChartProgress) ? hillChartProgress : 0,
-        ownerName,
+        ...owner,
         sopDate,
         volumeFirstYear: !isNaN(volumeFirstYear) ? volumeFirstYear : 0,
         hasGas,

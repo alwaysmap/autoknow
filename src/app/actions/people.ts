@@ -94,8 +94,10 @@ export async function movePersonCompany(formData: FormData): Promise<ActionResul
  * Email is the identity key here — `Person.email` is unique and `resolvePerson` matches
  * on it — so it is the one field with reach beyond the row, and the reach is not all
  * handled: `Project.ownerName` still stores an address as FREE TEXT, so programs owned
- * under the old one keep pointing at it. Renaming an owner's address today orphans their
- * programs, until #127 E6 gives ownership a real FK.
+ * under the old one keep pointing at it. #127 E6 has added `Project.ownerPersonId`
+ * alongside it and every write path now fills both, but the READERS still match on the
+ * text — so renaming an owner's address still hides their programs until E7 moves those
+ * lookups onto the FK.
  */
 export async function updatePerson(formData: FormData): Promise<ActionResult> {
   return guarded(async () => {
@@ -129,9 +131,15 @@ export async function deletePerson(formData: FormData): Promise<ActionResult> {
 
   await prisma.personAffiliation.deleteMany({ where: { personId } });
   await prisma.phasePerson.deleteMany({ where: { personId } });
+  // Detach, don't cascade: an action item and a program outlive the person row, and
+  // the text column (`assignedTo` / `ownerName`) keeps saying who it used to be.
   await prisma.actionItem.updateMany({
     where: { assignedToPersonId: personId },
     data: { assignedToPersonId: null },
+  });
+  await prisma.project.updateMany({
+    where: { ownerPersonId: personId },
+    data: { ownerPersonId: null },
   });
   await prisma.person.delete({ where: { id: personId } });
 

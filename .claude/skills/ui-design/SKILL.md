@@ -60,7 +60,7 @@ open only the rows that match what you are about to touch.
   of this.
 - **Entity displays are links; entity inputs are pickers.** People →
   `/people/:id`, partners → `/partners/:id`. A field naming another entity is a
-  `<select>` over existing rows + server-side resolution (`requireOwnerEmail` /
+  `<select>` over existing rows + server-side resolution (`requireOwner` /
   `resolvePerson` in `src/lib/`), never free text (PR #11).
 - **Section affordances ride INSIDE the heading.** A ⓘ, ⋯ menu or any control
   belonging to an `<h2>` goes through `AnchorHeading`'s `actions` prop — never as

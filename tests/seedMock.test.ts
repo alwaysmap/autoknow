@@ -75,7 +75,7 @@ describe('seedMockData through the API', () => {
     expect(orphans).toEqual([]);
   });
 
-  it('program owners are canonical emails of existing people (requireOwnerEmail at the route)', async () => {
+  it('program owners are canonical emails of existing people (requireOwner at the route)', async () => {
     const byName = async (name: string) =>
       prisma.project.findFirstOrThrow({ where: { name }, select: { ownerName: true } });
     // The lead-PM persona is bound to the SIGNED-IN identity (mocked to dev@google.com
@@ -86,10 +86,21 @@ describe('seedMockData through the API', () => {
     expect((await byName('Honda Accord AAOS Bring-up')).ownerName).toBe('marcusw@google.com');
 
     // Every seeded owner resolves to a person on file — none is freeform text.
-    const owners = await prisma.project.findMany({ select: { ownerName: true } });
-    const emails = new Set((await prisma.person.findMany({ select: { email: true } })).map((p) => p.email));
+    const owners = await prisma.project.findMany({
+      select: { ownerName: true, ownerPersonId: true },
+    });
+    const people = await prisma.person.findMany({ select: { id: true, email: true } });
+    const emails = new Set(people.map((p) => p.email));
+    const idByEmail = new Map(people.map((p) => [p.email, p.id]));
     for (const { ownerName } of owners) {
       expect(ownerName && emails.has(ownerName)).toBe(true);
+    }
+
+    // …and the DUAL WRITE happened (#127 E6): the seed goes through POST /api/projects
+    // like every other caller, so an ownerPersonId missing here means the seam that is
+    // supposed to make writing one column without the other impossible has a hole.
+    for (const { ownerName, ownerPersonId } of owners) {
+      expect(ownerPersonId).toBe(idByEmail.get(ownerName as string));
     }
   });
 

@@ -9,9 +9,11 @@
 // sqrt(768 · E[x²]) = sqrt(768/3) ≈ 16. A real embedding is unit-scale, ~1. There is no
 // overlap worth arguing about, so the threshold sits far from both.
 //
-// The norm alone is the test. An exact recompute-and-compare was dropped: ts-node cannot
-// import src/lib/embedding-fallback here (the ESM extension constraint demo.ts documents),
-// and a second copy of the generator is drift risk to settle what the norm settles 16-to-1.
+// The norm alone is the test, by CHOICE: a second copy of the generator would be drift
+// risk to settle what the norm settles 16-to-1. This comment used to claim ts-node cannot
+// import src/lib at all — it can, with a `--compilerOptions` override on the npm script
+// ([note](../../docs/knowledge/a-ts-node-script-cannot-import-src-lib-without-a-compileroptions-override.md)),
+// so importing src/lib/embedding-fallback here is available if the norm ever stops sufficing.
 
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
