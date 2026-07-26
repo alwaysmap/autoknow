@@ -73,6 +73,26 @@ open only the rows that match what you are about to touch.
   visibility. Same rule for direction: derive it from the data, never from the
   order a path happens to be authored in
   ([ADR: A semantic overlay derives from the data it means, never from the layer beneath](../../../docs/adr/2026-07-21-semantic-overlays-derive-from-data-not-from-the-layer-beneath.md)).
+- **Chart text may never overlap anything — that is a blocking defect, not polish.**
+  Every SVG `<text>` whose x or y comes from a datum goes through
+  `src/lib/labelPlacement.ts` before it renders (`estimateTextWidth` for `halfW`,
+  `baselineToCentreY`/`centreToBaselineY` because SVG places text by its BASELINE and
+  the module reasons about box centres). **Which strategy is a SEMANTIC call:**
+  `keepNonOverlapping` HIDES the loser — acceptable only where the reader still recovers
+  the value from a scale — while `dodgeLabels` NUDGES in y and keeps every label, which
+  is what a distinct fact requires — a per-bar variance, a phase name. Hand `dodgeLabels`
+  the INK as well — gridlines, thresholds, boundary polylines as `inkBox`, never their
+  tick captions: a caption is a ~30px box in the left gutter, so nothing inside the plot
+  can ever overlap it in x and the pass reports success over a label printed straight
+  through the rule. Never resolve a collision by shrinking type (chart sizes were raised
+  once for legibility, #83), and ship the crowding fixture in the same PR — the dataset
+  that crowds is the *healthy* one, so the demo seed never shows it to you. Sign off from
+  a SCREENSHOT in both themes: the de-collision tests agreed with the bug for months,
+  because they were built from the same wrong boxes. The two notes carry the mechanics —
+  [label-on-label](../../../docs/knowledge/a-chart-labels-crowding-case-is-usually-the-healthy-dataset.md)
+  and [label-on-ink](../../../docs/knowledge/a-placement-pass-clears-labels-not-the-ink-you-did-not-pass.md) —
+  and `CapacityChart`/`CycleTimeScatterPlot` still clear their ink by arithmetic alone
+  (bead `autoknow-fs3`). AGENTS lesson 19.
 - **Hydration-safe browser state.** localStorage/matchMedia reads use
   `useSyncExternalStore` with a neutral server snapshot —
   `src/components/ThemeToggle.tsx` is the reference. setState-in-effect is a

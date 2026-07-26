@@ -150,6 +150,12 @@ one and routes most findings to [docs/knowledge/](docs/knowledge/README.md).
     data — never from the path, constant or predicate beneath it — and is signed
     off from a SCREENSHOT: counting elements proves existence, not visibility
     ([ADR: A semantic overlay derives from the data it means, never from the layer beneath](docs/adr/2026-07-21-semantic-overlays-derive-from-data-not-from-the-layer-beneath.md)).
+19. Chart text that overlaps anything is a blocking defect at the severity of a
+    wrong number, and de-colliding it is a SEMANTIC choice, not a styling one:
+    `keepNonOverlapping` HIDES a label (only where a scale still gives the reader
+    the value), `dodgeLabels` keeps them all. A new chart ships its pass, the INK
+    that pass must clear, and a crowding fixture in the same PR (`ui-design`;
+    [note](docs/knowledge/a-chart-labels-crowding-case-is-usually-the-healthy-dataset.md)).
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:970c3bf2 -->
 ## Beads Issue Tracker
