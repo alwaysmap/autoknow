@@ -67,3 +67,6 @@ skill routes between them.
 | 2026-07-25 | [Seeded content moves through the real connectors, and a demo may compress the schedule but never a timestamp](2026-07-25-seeded-content-runs-the-real-pipeline-and-fakes-only-the-schedule.md) | accepted | seed, demo, ingestion, freshness, data-integrity |
 | 2026-07-26 | [Parallel work builds in parallel and merges one at a time](2026-07-26-parallel-work-merges-serially.md) | accepted | deploy, ci, process, agents |
 | 2026-07-26 | [An insight is one envelope, and its symptom is separate from its action](2026-07-26-an-insight-separates-symptom-from-action.md) | accepted | insights, types, i18n, ui, chain |
+| 2026-07-26 | [One Gemini budget, spent by every automated consumer in priority order](2026-07-26-one-gemini-budget-pool-ordered-freshness-first.md) | accepted | ingestion, gemini, cost, budget, summaries |
+| 2026-07-26 | [A fact owned by infrastructure is supplied at runtime or declared unknown — never a literal](2026-07-26-infra-owned-facts-are-supplied-or-unknown.md) | accepted | infra, terraform, config, env, copy, budget |
+| 2026-07-26 | [A stored vector fails loud; a query vector fails soft](2026-07-26-a-stored-vector-fails-loud-a-query-vector-fails-soft.md) | accepted | ingestion, embeddings, data-integrity, gemini, search |

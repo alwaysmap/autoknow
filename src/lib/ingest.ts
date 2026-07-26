@@ -3,7 +3,8 @@ import { createHash } from 'crypto';
 import { lookup } from 'node:dns/promises';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { embedText, summarizeDocument, classifyContext, classifyWithinAnchor, digestToText, type Classification, type DocDigest } from './gemini';
+import { embedForStorage, summarizeDocument, classifyContext, classifyWithinAnchor, digestToText, isQuotaError, type Classification, type DocDigest } from './gemini';
+import { quotaDeclineMessage } from './geminiQuota';
 import { parseGoogleDocId, fetchGoogleDocText } from './google-docs';
 import { readCapped, isSourceRejected, REJECTION_KEY, MAX_FETCH_BYTES, isTruncated } from './ingestLimits';
 import type { StringKey } from './i18n';
@@ -138,7 +139,20 @@ export async function ingestContent(opts: IngestContentOptions): Promise<IngestR
     }
   }
 
-  const vectorStr = `[${(await embedText(digestText)).join(',')}]`;
+  // embedForStorage THROWS now, so this is a real error path — and it must leave by the
+  // same door as every other failure here, or a quota refusal becomes an unhandled
+  // server-action crash. The upstream preflight cannot cover this: see lib/geminiQuota.
+  let vectorStr: string;
+  try {
+    vectorStr = `[${(await embedForStorage(digestText)).join(',')}]`;
+  } catch (e) {
+    return {
+      ok: false,
+      error: isQuotaError(e)
+        ? quotaDeclineMessage('nothing was saved')
+        : `Could not index this source: ${(e as Error).message}`,
+    };
+  }
   const hash = hashContent(opts.text);
   const now = new Date();
   const legacyType = LEGACY_TYPE_BY_KIND[opts.source.kind];

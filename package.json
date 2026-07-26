@@ -29,6 +29,7 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "db:test:clean": "ts-node scripts/db/clean-test-dbs.ts",
+    "db:embeddings:audit": "ts-node scripts/db/audit-embeddings.ts",
     "ci:lint-migrations": "scripts/ci/lint-migrations.sh",
     "ci:lint-ordering": "scripts/ci/lint-change-ordering.sh",
     "ci:lint-compound": "scripts/ci/lint-compound.sh",

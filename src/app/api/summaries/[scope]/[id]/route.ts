@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSummary, createSummary } from '../../../../../lib/summaries';
 import { geminiConfigured } from '../../../../../lib/gemini';
+import { quotaBlocked, quotaDeclineMessage } from '../../../../../lib/geminiQuota';
 import { isSummaryScope } from '../../../../../lib/summaryPrompts';
 import { serverError, jsonError } from '../../../../../lib/api';
 import { requireRouteAuth } from '../../../../../lib/routeAuth';
@@ -42,6 +43,14 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ scope: st
   if (!parsed) return jsonError('Unknown summary scope or id', 404);
   try {
     if (!geminiConfigured) return jsonError('Gemini is not configured (GEMINI_API_KEY missing)', 503);
+    // Same preflight as quick-ingest: decline before spending rather than fail partway.
+    // 503, not 500 — a temporary refusal to spend, with the existing summary untouched and
+    // still served by GET.
+    const blocked = quotaBlocked();
+    if (blocked) {
+      console.warn(`summary regenerate declined: Gemini quota latched at ${blocked.since.toISOString()} — ${blocked.reason}`);
+      return jsonError(quotaDeclineMessage('the existing summary is unchanged'), 503);
+    }
     const created = await createSummary(parsed.scope, parsed.targetId, 'manual');
     if (created == null) return jsonError('Nothing to summarize for this scope', 404);
     const summary = await getSummary(parsed.scope, parsed.targetId);

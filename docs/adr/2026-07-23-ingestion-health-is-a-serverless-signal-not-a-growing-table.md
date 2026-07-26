@@ -3,6 +3,8 @@ status: accepted
 date: 2026-07-23
 supersedes: ""
 superseded-by: ""
+extends: ""
+extended-by: one-gemini-budget-pool-ordered-freshness-first
 tags: [ingestion, infra, cost, observability, scaling]
 ---
 

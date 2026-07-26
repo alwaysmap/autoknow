@@ -1,7 +1,7 @@
 import 'server-only';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { summarizeDocument, digestToText, embedText, isQuotaError } from './gemini';
+import { summarizeDocument, digestToText, embedForStorage, isQuotaError } from './gemini';
 import { fetchWebUrl, hashContent } from './ingest';
 import { isSourceRejected, isTruncated } from './ingestLimits';
 import { parseGoogleDocId, fetchGoogleDocText } from './google-docs';
@@ -23,6 +23,11 @@ export interface RefreshOutcome {
   error?: string;
   /** What the check concluded. */
   result?: 'unchanged' | 'changed' | 'frozen';
+  /** This check actually called Gemini (distil + embed). NOT implied by `result`: a doc
+   *  whose digest reads `resolved` spends both calls and then reports 'frozen', so
+   *  counting 'changed' alone under-reports the spend — and the cron divides one shared
+   *  allowance by exactly this number (api/cron/refresh). */
+  distilled?: boolean;
   frozenReason?: string | null;
   delta?: string | null;
 }
@@ -137,7 +142,7 @@ export async function refreshSource(
   // vector with no recovery path. Re-embed only on real digest change (plan §7).
   const writes: Prisma.PrismaPromise<unknown>[] = [];
   if (digestText !== row.ingestedText) {
-    const vectorStr = `[${(await embedText(digestText)).join(',')}]`;
+    const vectorStr = `[${(await embedForStorage(digestText)).join(',')}]`;
     writes.push(
       prisma.$executeRaw(
         Prisma.sql`UPDATE "ContextUrl" SET "embedding" = ${vectorStr}::vector WHERE id = ${row.id}`,
@@ -178,8 +183,8 @@ export async function refreshSource(
   ]);
 
   return resolved
-    ? { ok: true, result: 'frozen', frozenReason: 'resolved', delta }
-    : { ok: true, result: 'changed', delta };
+    ? { ok: true, result: 'frozen', frozenReason: 'resolved', delta, distilled: true }
+    : { ok: true, result: 'changed', delta, distilled: true };
 }
 
 // ---- Worker cycle (plan §6): fixed per-connector cadence, capped re-digests -------
@@ -267,6 +272,11 @@ export interface CycleReport {
   frozen: number;
   errors: number;
   skippedDrive: number;
+  /** Documents this cycle actually spent Gemini on — the number the shared per-cycle
+   *  allowance is drawn down by, and the mirror of DriveSyncReport.spent. `changed` is NOT
+   *  that number (see RefreshOutcome.distilled); the asymmetry with DriveSyncReport is what
+   *  let the cron divide by the wrong one. */
+  spent: number;
   /** due − checked: web sources that were due but did not fit the budget (carried over). */
   backlog: number;
   /** The cycle stopped early on a Gemini quota (429) error (AGENTS lesson 5). */
@@ -298,7 +308,7 @@ export async function runRefreshCycle(opts?: { maxRefreshes?: number }): Promise
   ]);
 
   const report: CycleReport = {
-    due, checked: 0, changed: 0, frozen: 0, errors: 0, skippedDrive,
+    due, checked: 0, changed: 0, frozen: 0, errors: 0, skippedDrive, spent: 0,
     backlog: Math.max(0, due - Math.max(0, budget)), quotaStopped: false,
   };
   for (const c of page) {
@@ -315,6 +325,10 @@ export async function runRefreshCycle(opts?: { maxRefreshes?: number }): Promise
     // A quota error surfaced by refreshSource itself (it swallows its errors into a string).
     if (!outcome.ok && isQuotaError(outcome.error)) { report.quotaStopped = true; break; }
     report.checked++;
+    // Tallied before the ok/failed split: a source that distilled and then failed its
+    // write still spent the requests, and an allowance that only counts successes is an
+    // allowance that can be overspent by failing.
+    if (outcome.distilled) report.spent++;
     if (!outcome.ok) {
       report.errors++;
       // Rotate the failing source to the back of the lastCheckedAt queue. Without

@@ -15,8 +15,12 @@
 //             seedMockData works — server-only), so it's driven against the running
 //             server via /api/admin/seed. Idempotent: skips seeding when the DB
 //             already has data; pass `--reseed` to wipe + reseed.
-//   • cron  : the refresh cycle is driven on an interval (below), so re-ingested
-//             content arrives on its own — nobody clicks Refresh anywhere.
+//   • cron  : OFF by default. The refresh cycle is the demo's only unattended spender of
+//             real Gemini quota, and a demo left open all afternoon is not a reason to
+//             burn a daily free-tier budget. Trigger a cycle by hand whenever you want
+//             one (the command is printed on boot), or pass `--cron` to restore the
+//             self-driving interval for a session where watching content arrive on its
+//             own IS the point.
 //
 // The dev server runs in the foreground (Ctrl-C stops it), so its logs stream as usual.
 
@@ -63,12 +67,18 @@ const DB_URL = (() => {
 const PORT = 3600 + (parseInt(TOKEN.slice(0, 4), 16) % 300); // 3600..3899
 const ORIGIN = `http://localhost:${PORT}`;
 const RESEED = process.argv.includes('--reseed');
+// Opt in to the self-driving refresh interval. Off by default so the demo never spends
+// Gemini quota in the background — see the `cron` note in the header.
+const CRON = process.argv.includes('--cron');
 
 // Local-only cron credential. The refresh route refuses to run at all without one
 // (api/cron/refresh), which is the behaviour we want in prod and the one thing standing
 // between this demo and a self-driving ingestion cycle.
+// The secret stays wired whether or not the ticker runs, because it is also what makes a
+// MANUAL cycle possible: the route refuses to run without one, so an unset secret would
+// take "refresh on demand" away along with the automation.
 const CRON_SECRET = `demo-${TOKEN}`;
-// How often the demo drives a refresh cycle. Fast enough to watch, and self-limiting:
+// How often `--cron` drives a refresh cycle. Fast enough to watch, and self-limiting:
 // once the fixture's authored revisions are exhausted every later tick short-circuits at
 // Gate 1 and spends no Gemini at all (lib/refresh).
 const TICK_MS = 15_000;
@@ -77,10 +87,10 @@ const TICK_MS = 15_000;
 // not how much it can ever spend — that ceiling is the number of authored revisions.
 //
 // Deliberately kept UNDER the free-tier line the settings slider draws (100 docs/day ≈
-// 200 requests/day against a 250 default): a demo must not configure the app into the
+// 192 requests/day against a 250 default): a demo must not configure the app into the
 // state its own UI flags in warning ink. Set once per demo run, so changing it in
 // Manage → Sources to watch the budget bite stays changed.
-const DEMO_DAILY_BUDGET_DOCS = 100; // → perCycleBudget() = 4 per cycle
+const DEMO_DAILY_BUDGET_DOCS = 100; // → perCycleBudget() = 4 per cycle, 8 requests
 // Compress lib/refresh's cadence table so its slowest class (a week) comes round in this
 // many seconds — the demo's substitute for waiting a week, applied to SCHEDULING rather
 // than to any row's data. Slightly longer than a tick, so each tick finds fresh work.
@@ -187,10 +197,11 @@ async function applyDemoBudget(): Promise<void> {
 }
 
 /**
- * Drive the real refresh cycle on an interval, so re-ingested content shows up on its
- * own — the point of the exercise is that nobody clicks Refresh on a programme or
- * person page. This is the same endpoint Cloud Scheduler hits in production; the demo
- * is only supplying the schedule.
+ * Drive the real refresh cycle on an interval (`--cron`), so re-ingested content shows up
+ * on its own — when that is what you are demonstrating, the point is that nobody clicks
+ * Refresh on a programme or person page. This is the same endpoint Cloud Scheduler hits
+ * in production; the demo is only supplying the schedule, which is exactly why it is
+ * opt-in: an interval this fast against a real key is a background quota drain.
  *
  * Time is compressed through REFRESH_MAX_CADENCE_SECONDS (set on the server below)
  * rather than by touching any row — see lib/refresh.cadenceScale for why that direction
@@ -268,7 +279,7 @@ async function main(): Promise<void> {
 
   const { bootMs, seedMs } = await seedWhenReady(spawnedAt);
   await applyDemoBudget();
-  startRefreshTicker();
+  if (CRON) startRefreshTicker();
 
   // The tool reports its own bring-up cost — answers "how long from scratch" without
   // any external timing.
@@ -277,10 +288,19 @@ async function main(): Promise<void> {
   console.log(`     from scratch: ${secs(Date.now() - startedAt)}  (schema ${secs(schemaMs)} · boot ${secs(bootMs)} · ${seedPart})`);
   console.log(
     process.env.GEMINI_API_KEY
-      ? `     refresh cycle every ${TICK_MS / 1000}s · Gemini key present (real digests + embeddings)\n`
-      : `     refresh cycle every ${TICK_MS / 1000}s · NO GEMINI_API_KEY — digests are excerpts, ` +
-        `embeddings are the fallback pedestal, and re-ingests produce no delta\n`,
+      ? '     Gemini key present — real digests + embeddings, and real quota spend'
+      : '     NO GEMINI_API_KEY — digests are excerpts, embeddings are the fallback ' +
+        'pedestal, and re-ingests produce no delta',
   );
+  if (CRON) {
+    console.log(`     refresh cycle: every ${TICK_MS / 1000}s (--cron)\n`);
+  } else {
+    // Printed in full rather than described, so "update when I feel like it" is a paste
+    // away. The same endpoint Cloud Scheduler hits in prod, driven by hand.
+    console.log('     refresh cycle: ON DEMAND — nothing spends Gemini in the background.');
+    console.log(`       curl -H 'authorization: Bearer ${CRON_SECRET}' ${ORIGIN}/api/cron/refresh`);
+    console.log('       (or re-run with --cron for the self-driving interval)\n');
+  }
 }
 
 main().catch((err) => {

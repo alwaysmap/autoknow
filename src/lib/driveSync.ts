@@ -4,7 +4,7 @@ import { driveConfigured, getServiceAccountToken } from './googleAuth';
 import { fetchGoogleDocText } from './google-docs';
 import { isQuotaError } from './gemini';
 import { ingestContent } from './ingest';
-import { refreshSource } from './refresh';
+import { refreshSource, type RefreshOutcome } from './refresh';
 import { getIngestionSettings } from './ingestionSettings';
 import { perCycleBudget } from './ingestBudget';
 
@@ -260,7 +260,19 @@ export async function runDriveSync(opts?: { maxIngests?: number }): Promise<Driv
     report.demand++;
     if (report.spent >= maxIngests) continue; // over budget — carries to next cycle
 
-    const outcome = await refreshSource(row.id); // drive branch uses the SA token
+    // Wrapped to match the newly-shared branch above. It used to be safe bare because
+    // refreshSource resolved its failures into `outcome.error`; embedForStorage now THROWS,
+    // and an escape here takes down runDriveSync and withSingleFlight before
+    // api/cron/refresh can call recordCycle — losing the ingestion-health signal and the
+    // drain report for the tick, during exactly the quota incident that needs them.
+    let outcome: RefreshOutcome;
+    try {
+      outcome = await refreshSource(row.id); // drive branch uses the SA token
+    } catch (e) {
+      if (isQuotaError(e)) { report.quotaStopped = true; break; }
+      report.errors++;
+      continue;
+    }
     if (!outcome.ok) {
       if (isQuotaError(outcome.error)) { report.quotaStopped = true; break; }
       report.errors++;

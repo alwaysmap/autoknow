@@ -171,6 +171,16 @@ serverless signal, not a growing table](adr/2026-07-23-ingestion-health-is-a-ser
   bounded by construction. The Manage → Sources slider plots that budget against a
   configurable free-tier request ceiling and shows where it crosses. This deployment runs on
   the Gemini free tier; a 429 stops the cycle and carries over (§9).
+
+  **ONE pool, covering every consumer.** As first shipped this bounded ingestion only:
+  `runSummaryCycle` spent beside it under a private cap of 10/cycle, so an hourly cron could
+  add up to 240 requests/day that the slider never counted — a default install read "120/day,
+  48% of the free tier" and could spend ~360 against a 250/day tier. The cron now derives one
+  per-cycle allowance in REQUESTS (`perCycleRequests`) and spends it in priority order —
+  Drive, then web refresh, then whatever summaries the remainder buys — and the figure the
+  slider plots is that enforced ceiling rather than a partial tally. Freshness is served
+  before synthesis, which is also self-balancing: unchanged documents short-circuit before
+  any Gemini call, so a quiet cycle hands its whole allowance to summaries.
 - **The health summary is bounded state, never a log.** The cron upserts ONE
   `IngestionCycleSummary` row (latest cycle + total backlog); the full time-series stays in
   Cloud Logging. The drain alarm is a Cloud Monitoring alert on a log-based metric over that

@@ -6,6 +6,7 @@ import { ingestLink, type IngestResult, type IngestAnchor } from '../../lib/inge
 import { refreshSource } from '../../lib/refresh';
 import { getAccessToken, getCurrentUser } from '../../lib/session';
 import { geminiConfigured } from '../../lib/gemini';
+import { quotaBlocked, quotaDeclineMessage } from '../../lib/geminiQuota';
 
 // Actions for the scoped QuickIngest component and the Manage → Sources operator
 // page (docs/INGEST_FRESHNESS_PLAN.md §5.2, §2.2).
@@ -19,6 +20,17 @@ export async function quickIngestAction(_prev: QuickIngestState, formData: FormD
   if (!url) return { result: { ok: false, error: 'Paste a link first.' } };
   if (!geminiConfigured) {
     return { result: { ok: false, error: 'AI ingestion is off — no GEMINI_API_KEY is configured.' } };
+  }
+  // Ask BEFORE starting. An ingest is a digest call, sometimes a classify call, then an
+  // embed — discovering the cap partway through means work done, money spent and a
+  // half-finished request to explain. Declining up front costs nothing and changes
+  // nothing (lib/geminiQuota).
+  const blocked = quotaBlocked();
+  if (blocked) {
+    // Log what the API actually said and when we latched — an operator reading Cloud
+    // Logging needs both, and they are the only reason the latch carries a payload.
+    console.warn(`quick-ingest declined: Gemini quota latched at ${blocked.since.toISOString()} — ${blocked.reason}`);
+    return { result: { ok: false, error: quotaDeclineMessage('the link was not saved') } };
   }
 
   const mode = formData.get('mode') === 'snapshot' ? 'snapshot' as const : formData.get('mode') === 'watched' ? 'watched' as const : undefined;

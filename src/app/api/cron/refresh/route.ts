@@ -3,7 +3,12 @@ import { runRefreshCycle } from '../../../../lib/refresh';
 import { runDriveSync } from '../../../../lib/driveSync';
 import { runSummaryCycle } from '../../../../lib/summaries';
 import { getIngestionSettings } from '../../../../lib/ingestionSettings';
-import { perCycleBudget } from '../../../../lib/ingestBudget';
+import {
+  perCycleBudget,
+  perCycleRequests,
+  requestsForDocs,
+  summariesAffordable,
+} from '../../../../lib/ingestBudget';
 import { recordCycle } from '../../../../lib/ingestionHealth';
 import { secretsEqual, serverError } from '../../../../lib/api';
 import { withSingleFlight, REFRESH_LOCK_KEY } from '../../../../lib/singleFlight';
@@ -33,19 +38,37 @@ export async function GET(req: NextRequest) {
   // cycle's summaries instead of waiting an hour.
   //
   // #38: one daily Gemini budget (the admin's setting) is spread over the cycles and
-  // SHARED across Drive + web — Drive spends first, web gets what's left — so total daily
-  // spend stays under the free tier by construction. recordCycle then logs the reports to
-  // Cloud Logging (the drain alarm's source) and upserts the bounded health summary.
+  // SHARED across all three stages — Drive spends first, web takes what's left, summaries
+  // take what survives that — so total daily spend stays under the free tier by
+  // construction. recordCycle then logs the reports to Cloud Logging (the drain alarm's
+  // source) and upserts the bounded health summary.
+  //
+  // Why one pool, and why this order: lib/ingestBudget's header.
   try {
     // Single-flight (#57): an overlapping tick acquires nothing and skips, so two
     // instances never double-spend the budget. Why it can't go through `prisma`:
     // lib/singleFlight.
     const result = await withSingleFlight(REFRESH_LOCK_KEY, async () => {
-      const budget = perCycleBudget((await getIngestionSettings()).dailyReingestBudgetDocs);
-      const drive = await runDriveSync({ maxIngests: budget });
-      const report = await runRefreshCycle({ maxRefreshes: Math.max(0, budget - drive.spent) });
+      const { dailyReingestBudgetDocs } = await getIngestionSettings();
+      const docBudget = perCycleBudget(dailyReingestBudgetDocs);
+      const requestBudget = perCycleRequests(dailyReingestBudgetDocs);
+
+      const drive = await runDriveSync({ maxIngests: docBudget });
+      const report = await runRefreshCycle({ maxRefreshes: Math.max(0, docBudget - drive.spent) });
       await recordCycle(drive, report);
-      const summaries = await runSummaryCycle();
+
+      // Only documents that were actually (re)ingested cost Gemini — a doc whose hash is
+      // unchanged short-circuits before any call (lib/refresh Gate 1), which is why a
+      // quiet cycle hands its whole allowance to summaries.
+      //
+      // `report.spent`, NOT `report.changed`: a doc whose digest reads `resolved` spends
+      // both calls and then reports 'frozen', so counting 'changed' would hand summaries an
+      // allowance ingestion had already used — reintroducing the double-spend this whole
+      // change exists to remove, in a cycle where every changed doc happens to resolve.
+      const spentRequests = requestsForDocs(drive.spent + report.spent);
+      const summaries = await runSummaryCycle({
+        maxSummaries: summariesAffordable(requestBudget - spentRequests),
+      });
       return { ...report, drive, summaries };
     });
     // 200, not an error: a skipped tick is the guard working, and a non-2xx would make

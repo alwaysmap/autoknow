@@ -226,9 +226,21 @@ never hold a session; the secret is its authentication.
 
 ## 5. Service account for Drive sync (active)
 
-This is the identity users *share Docs and folders with* so AutoKnow discovers
-and re-indexes them in the background. Decision record: plan §5 (service account
-over a dedicated Workspace user or domain-wide delegation).
+This is the identity AutoKnow *authenticates as* to read Docs and folders in the
+background. Decision record: plan §5 (service account over a dedicated Workspace
+user or domain-wide delegation).
+
+**It is not necessarily the address users share with.** On the Terraform-managed
+deployment, sharing goes to a Workspace group — `autoknow@<domain>`
+(`google_cloud_identity_group.share`) — that has this service account as a MEMBER,
+because a service account cannot hold a vanity @domain email. Sharing with the group
+grants the SA access, so users see a clean address and never a
+`*.iam.gserviceaccount.com` one. Terraform passes the group to the app as
+`GOOGLE_SHARE_ADDRESS`, which is the ONLY thing the Sources page will present as the
+address to share with; without it the page names this service account explicitly as a
+service account instead (`tests/driveShareAddress.test.ts` pins both halves). A manual
+deployment with no group shares directly with the SA email below — that works, it is
+just the fallback.
 
 1. In the GCP project: **IAM & Admin → Service Accounts → Create service account**.
    Name e.g. `autoknow`. **Grant it NO roles** — Drive access comes purely from

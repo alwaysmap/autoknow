@@ -31,7 +31,7 @@ jest.mock('../src/lib/gemini', () => ({
     delta: previous ? 'something changed' : undefined,
   })),
   digestToText: (d: { summary: string }) => d.summary,
-  embedText: jest.fn(async () => Array(768).fill(0)),
+  embedForStorage: jest.fn(async () => Array(768).fill(0)),
   isQuotaError: () => false,
 }));
 
