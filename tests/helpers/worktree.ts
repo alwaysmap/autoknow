@@ -5,16 +5,64 @@
 // mid-run, and both runs fighting for one socket (AGENTS lesson 9).
 //
 // The cure is a token unique to THIS checkout. Every test entrypoint — jest, the
-// Playwright web server, tests/global-setup — runs with cwd = the worktree root, so
+// Playwright web servers, both global setups — runs with cwd = the worktree root, so
 // a hash of cwd is identical across them within a worktree and differs across
 // worktrees. testDatabaseUrl() folds it into the DB name and playwright.config folds
-// it into the port, so concurrent worktrees are isolated by construction while a
-// single worktree stays on one stable DB/port (its own suites still run serially —
-// workers=1 — because they share that one DB).
+// it into the port, so concurrent worktrees are isolated by construction.
+//
+// WITHIN a worktree, e2e now splits again by Playwright worker: each parallel worker
+// gets its own database AND its own web server bound to it (e2eWorkers below), because
+// every spec wipes its database in beforeAll and workers that share one clobber each
+// other's fixtures. jest is unaffected — it still runs maxWorkers:1 against the one
+// unsuffixed database.
 
 import { createHash } from 'node:crypto';
 
 const digest = (input: string): Buffer => createHash('sha1').update(input).digest();
+
+/** The size of the port block each worktree owns — the ceiling on e2eWorkers(). */
+const MAX_WORKERS = 8;
+/** 4 because a GitHub runner has 4 vCPU and the e2e job is the workflow's critical path. */
+const DEFAULT_WORKERS = 4;
+
+/**
+ * How many Playwright workers run in parallel — and therefore how many test databases and
+ * web servers a run provisions. `E2E_WORKERS` overrides it.
+ *
+ * Each worker costs one `next start` (~200MB) and one database, and both scale linearly.
+ * This is the number that must not drift between the config's `workers`, the `webServer`
+ * array and global-setup-e2e's provisioning loop. Hence: one function.
+ */
+export function e2eWorkers(): number {
+  const raw = process.env.E2E_WORKERS?.trim();
+  if (!raw) return DEFAULT_WORKERS;
+  const explicit = Number(raw);
+  // Both refusals are loud on purpose. A typo'd knob that silently falls back to the
+  // default, and a count that silently overflows this worktree's port block into the next
+  // one's, both surface as an unreproducible fixture flake rather than as a bad setting.
+  if (!Number.isInteger(explicit) || explicit <= 0) {
+    throw new Error(`E2E_WORKERS must be a positive integer (got "${raw}").`);
+  }
+  if (explicit > MAX_WORKERS) {
+    throw new Error(
+      `E2E_WORKERS=${explicit} exceeds the ${MAX_WORKERS}-port block each worktree owns ` +
+        '(tests/helpers/worktree.ts). Raise MAX_WORKERS if this is genuinely needed.',
+    );
+  }
+  return explicit;
+}
+
+/**
+ * Which worker THIS process belongs to, or null when there is no worker — jest, the
+ * Playwright main process, global-setup. Playwright sets TEST_PARALLEL_INDEX in each
+ * worker process; it is the parallel SLOT (0..workers-1), stable across the worker
+ * restart that follows a crash, which TEST_WORKER_INDEX is not. The slot is what a
+ * database and a server are bound to, so the slot is what we key on.
+ */
+export function e2eWorkerIndex(): number | null {
+  const raw = parseInt(process.env.TEST_PARALLEL_INDEX ?? '', 10);
+  return Number.isFinite(raw) && raw >= 0 ? raw : null;
+}
 
 /**
  * Short, stable, filesystem-derived token identifying this worktree. `WORKTREE_ID`
@@ -27,16 +75,21 @@ export function worktreeToken(): string {
 }
 
 /**
- * The Playwright dev-server port for this worktree: a deterministic offset off 3130
- * (kept clear of :3000 dev and :3100 demo) so two worktrees' e2e runs never fight for
- * one socket. `TEST_SERVER_PORT` overrides.
+ * The Playwright web-server port for `workerIndex` in this worktree: a deterministic
+ * offset off 3130 (kept clear of :3000 dev and :3100 demo) so two worktrees' e2e runs
+ * never fight for one socket. `TEST_SERVER_PORT` overrides the base. Defaults to the
+ * CALLER's own worker, matching testDatabaseUrl — inside a worker the port and the
+ * database must name the same lane, and a default of 0 would quietly break that.
+ *
+ * The per-worktree base advances in strides of MAX_WORKERS rather than by 1, so a
+ * worktree owns a whole BLOCK of ports and no two checkouts' blocks can interleave.
+ * Sizing the stride off a constant rather than off e2eWorkers() keeps the blocks fixed:
+ * a run with `E2E_WORKERS=8` must not renumber every other worktree's ports.
  */
-export function testServerPort(): number {
-  const explicit = process.env.TEST_SERVER_PORT;
-  if (explicit) {
-    const n = parseInt(explicit, 10);
-    if (Number.isFinite(n)) return n;
-  }
+export function testServerPort(workerIndex = e2eWorkerIndex() ?? 0): number {
+  const explicit = parseInt(process.env.TEST_SERVER_PORT ?? '', 10);
+  if (Number.isFinite(explicit)) return explicit + workerIndex;
   const h = digest(worktreeToken());
-  return 3130 + (((h[0] << 8) | h[1]) % 400); // 3130..3529
+  const block = ((h[0] << 8) | h[1]) % 50;
+  return 3130 + block * MAX_WORKERS + workerIndex; // 3130..3529, in blocks of 8
 }

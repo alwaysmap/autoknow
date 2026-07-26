@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 

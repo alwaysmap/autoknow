@@ -18,8 +18,11 @@ const CODE_EXT = new Set(['.ts', '.tsx', '.mts', '.js', '.mjs']);
 
 // Injected by the platform, never written into a .env — a stale hand-written value
 // is worse than none. NODE_ENV is Next's, CI is GitHub Actions', K_SERVICE is how
-// the app knows it is on Cloud Run, GIT_SHA is stamped by the build.
-const PLATFORM_INJECTED = new Set(['NODE_ENV', 'CI', 'K_SERVICE', 'GIT_SHA']);
+// the app knows it is on Cloud Run, GIT_SHA is stamped by the build, and
+// TEST_PARALLEL_INDEX is Playwright's per-worker slot: setting it by hand would point
+// every worker at one worker's database, which is the exact collision the suffix exists
+// to prevent.
+const PLATFORM_INJECTED = new Set(['NODE_ENV', 'CI', 'K_SERVICE', 'GIT_SHA', 'TEST_PARALLEL_INDEX']);
 
 // Consumed by a dependency rather than by our own `process.env` reads, so the scan
 // below cannot see them. Each one still has to be documented, hence this list.

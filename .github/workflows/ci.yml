@@ -145,19 +145,31 @@ jobs:
     # instead of their sum, and lets each shard apt-install only the browser it runs —
     # chromium's dep set is far smaller than webkit's, and chromium is the long pole.
     #
-    # Safe to shard because each matrix leg is a SEPARATE runner with its OWN postgres
-    # service, so the "one shared test DB, workers:1" constraint that playwright.config.ts
-    # documents still holds WITHIN a leg. Raising `workers` above 1 is the much larger win
-    # and needs per-worker databases first — bead autoknow-7mb, deliberately not bundled
-    # here.
+    # WITHIN a leg the suite is parallel too: playwright.config.ts runs one worker per
+    # (database, web server) pair, four by default, which is what the runner's 4 vCPU are
+    # for. The legs stay separate runners with their OWN postgres service, so the two axes
+    # never interact.
     name: e2e (playwright · ${{ matrix.project }})
     # PR gate only — a push to main runs `warm-cache` and nothing else.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false # a webkit-only break must not hide a chromium result, or vice versa
+      # WORKER COUNT IS PER LEG, because the legs have opposite shapes and one number
+      # cannot suit both. chromium spreads 23 light spec files, so four workers keep the
+      # runner busy. webkit matches only FOUR files, and they are the four heaviest — at
+      # `workers: 4` that is four WebKit browsers plus four `next start` servers plus
+      # Postgres on 4 vCPU, and the first measurement of that (run 30191202038) came back
+      # 164s against a 124s serial baseline: 32% SLOWER, on the leg that IS the critical
+      # path. Two workers halve the server and browser footprint while still splitting
+      # the four files. Re-measure before changing either number — see the knowledge note
+      # ci-wall-clock-is-one-job-find-it-before-optimizing.
       matrix:
-        project: [chromium, webkit]
+        include:
+          - project: chromium
+            workers: 4
+          - project: webkit
+            workers: 2
     timeout-minutes: 30
     services:
       postgres:
@@ -181,8 +193,12 @@ jobs:
           --health-retries=10
     env:
       # global-setup connects to the /postgres maintenance DB on this host to create the
-      # per-worktree autoknow_<token>_test DB, then `prisma db push` syncs the schema.
+      # per-worker autoknow_<token>_w<n>_test DBs — one per Playwright worker — then
+      # `prisma db push` syncs the schema into each of them.
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/autoknow
+      # Sets `workers`, the `webServer` array length and the number of databases at once
+      # (tests/helpers/worktree.ts). See the matrix above for why it differs per leg.
+      E2E_WORKERS: ${{ matrix.workers }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

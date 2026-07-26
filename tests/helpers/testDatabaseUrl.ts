@@ -1,11 +1,12 @@
 // The single source of truth for which database tests may touch. It derives a
-// dedicated `<name>_<worktree>_test` database from DATABASE_URL, so even a
+// dedicated `<name>_<worktree>[_w<n>]_test` database from DATABASE_URL, so even a
 // misconfigured environment can NEVER point the test suite at the real database — the
 // name is forced to end in `_test`, and we fail hard if that somehow isn't true. The
-// per-worktree segment (tests/helpers/worktree) keeps concurrent checkouts on separate
-// databases so their fixture wipes can't collide (AGENTS lesson 9).
+// per-worktree segment keeps concurrent checkouts on separate databases, and the
+// per-worker segment does the same for the Playwright workers within one run, so no two
+// fixture wipes can collide (tests/helpers/worktree, AGENTS lesson 9).
 
-import { worktreeToken } from './worktree';
+import { e2eWorkerIndex, worktreeToken } from './worktree';
 
 export const DEFAULT_DB_URL = 'postgresql://postgres:postgres@localhost:5432/autoknow';
 
@@ -25,28 +26,40 @@ export function announceDbFallback(): void {
   );
 }
 
-export function testDatabaseUrl(): string {
-  // Explicit opt-out: an operator or CI can pin the exact test DB via
-  // TEST_DATABASE_URL (no per-worktree token injected), still forced to end in _test.
+/**
+ * @param workerIndex Which Playwright worker's database. Defaults to the caller's own
+ *   worker (null outside one), which is what makes tests/helpers/db correct with no
+ *   argument: it is imported INSIDE a worker process, so it lands on that worker's
+ *   database, while jest — which has no TEST_PARALLEL_INDEX — keeps the unsuffixed one.
+ *   playwright.config.ts and global-setup-e2e run in the MAIN process and must therefore
+ *   pass the index explicitly; they are provisioning other processes' databases, not
+ *   their own.
+ */
+export function testDatabaseUrl(workerIndex = e2eWorkerIndex()): string {
+  // Explicit opt-out: an operator or CI can pin the base name via TEST_DATABASE_URL (no
+  // per-worktree token injected).
   const explicit = process.env.TEST_DATABASE_URL;
-  if (explicit) {
-    const url = new URL(explicit);
-    const name = url.pathname.replace(/^\//, '') || 'autoknow';
-    if (!name.endsWith('_test')) url.pathname = `/${name}_test`;
-    return assertTestName(url);
-  }
+  if (explicit) return testDbUrl(new URL(explicit), workerIndex);
 
   let base = process.env.DATABASE_URL;
   if (!base) {
     announceDbFallback();
     base = DEFAULT_DB_URL;
   }
-  const url = new URL(base);
-  // Strip any existing `_test` suffix so the base name is stable whether DATABASE_URL
-  // points at `autoknow` or `autoknow_test`, then rebuild as `<base>_<worktree>_test`:
-  // unique per checkout, still ending in `_test` (the wipe guard keys on that suffix).
-  const baseName = (url.pathname.replace(/^\//, '') || 'autoknow').replace(/_test$/, '');
-  url.pathname = `/${baseName}_${worktreeToken()}_test`;
+  return testDbUrl(new URL(base), workerIndex, worktreeToken());
+}
+
+/**
+ * Rebuild `url`'s database name as `<stem>[_<worktree>][_w<n>]_test`. Any existing `_test`
+ * suffix is stripped first, so the stem is stable whether DATABASE_URL points at
+ * `autoknow` or `autoknow_test`, and the result always ends in `_test` — the wipe guard
+ * keys on that. The worker segment is appended even under TEST_DATABASE_URL, because it
+ * is not a preference: two workers on one database wipe each other's fixtures.
+ */
+function testDbUrl(url: URL, workerIndex: number | null, worktree?: string): string {
+  const stem = (url.pathname.replace(/^\//, '') || 'autoknow').replace(/_test$/, '');
+  const parts = [stem, worktree, workerIndex === null ? undefined : `w${workerIndex}`, 'test'];
+  url.pathname = `/${parts.filter(Boolean).join('_')}`;
   return assertTestName(url);
 }
 

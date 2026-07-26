@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/e2e';
 
 test.describe('Projects API', () => {
   test('should return a list of active projects', async ({ request }) => {

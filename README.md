@@ -74,7 +74,8 @@ local use):
 | `demo` | One command: per-worktree seeded demo DB + `next dev` with stub auth + mock data, and a refresh cycle driven on an interval so re-ingestion arrives with nobody clicking Refresh (`--reseed` to refresh). Uses your `GEMINI_API_KEY` if `.env` has one — with it the seeded corpus is really distilled and embedded; without it digests are excerpts and embeddings are the fallback pedestal |
 | `lint` / `typecheck` | ESLint / `tsc --noEmit` |
 | `test` (`:watch`, `:coverage`) | Jest unit + DB tests against the `*_test` database |
-| `test:e2e` (`:ui`) | Playwright: full suite on Chromium + engine-sensitive specs on WebKit (own server on a per-worktree port, own per-worktree `*_test` DB) |
+| `test:e2e` (`:ui`) | Playwright: full suite on Chromium + engine-sensitive specs on WebKit (one prebuilt server + `*_test` DB per worker, on a per-worktree port block) |
+| `test:e2e:build` | the prod build the e2e servers serve — run by every `test:e2e*` script, not on its own |
 | `test:e2e:screens` | opt-in: capture UI screenshots into `./screenshots` for visual review |
 | `evidence` | The full local gate: typecheck → lint → coverage → e2e → build |
 | `db:up` / `db:down` | Start / stop the local Postgres container |
@@ -131,13 +132,15 @@ npm run test:coverage  # Generate a coverage report
 ```
 
 **End-to-End Tests (Playwright):**
-The Playwright config starts its own dev server on a **per-worktree port** (~3130,
-derived in `tests/helpers/worktree`) with its own **per-worktree** `_test` database
-and a separate `.next-test` build dir, so it never disturbs a dev server you're
-running on :3000 and two worktrees' e2e runs never collide. The browser matrix is
-deliberate: Chromium runs the full suite; WebKit re-runs only the engine-sensitive
-specs (dialogs, month/range inputs, SVG drag). Screenshot capture is a separate
-opt-in project.
+The suite builds once into a separate `.next-test` dir, then starts **one server per
+worker** (4 by default; `E2E_WORKERS` overrides) on a **per-worktree** block of ports
+(~3130, derived in `tests/helpers/worktree`), each bound to its own
+`autoknow_<token>_w<n>_test` database. So it never disturbs a dev server you're running
+on :3000, two worktrees' runs never collide, and the workers within a run never wipe
+each other's fixtures. Specs import `test` from `tests/helpers/e2e` — that fixture is
+what points a worker at its own server. The browser matrix is deliberate: Chromium runs
+the full suite; WebKit re-runs only the engine-sensitive specs (dialogs, month/range
+inputs, SVG drag). Screenshot capture is a separate opt-in project.
 ```bash
 npm run test:e2e          # chromium (all) + webkit (engine-sensitive specs)
 npm run test:e2e:ui       # Opens the Playwright interactive UI

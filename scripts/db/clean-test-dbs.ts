@@ -1,8 +1,9 @@
 // Reclaim per-worktree test databases (npm run db:test:clean).
 //
-// Every git worktree provisions its own `autoknow_<token>_test` database on first
-// test run (tests/helpers/worktree + tests/global-setup) and NOTHING ever drops it,
-// so they accumulate one-per-worktree forever. This sweep drops every idle
+// Every git worktree provisions its own `autoknow_<token>_test` database on first test
+// run, plus one `…_w<n>_test` per Playwright worker on first e2e run
+// (tests/helpers/worktree + the two global setups), and NOTHING ever drops them, so they
+// accumulate per worktree and per worker forever. This sweep drops every idle
 // `autoknow…_test` database on the local server; a database with open connections
 // (a suite running right now, or a stray psql/Studio) is left alone and reported.
 //

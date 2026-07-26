@@ -31,14 +31,25 @@ warnings is the bar — the suite was once left red on main and it hid real bugs
   concurrent worktrees get separate DBs/ports and can't clobber each other
   (AGENTS lesson 9). Override with `WORKTREE_ID` / `TEST_SERVER_PORT` /
   `TEST_DATABASE_URL` (e.g. to pin a name in CI). Test DBs are created lazily by
-  `tests/global-setup` and **never auto-dropped**, so each worktree leaves one
-  `autoknow_<token>_test` behind — run **`npm run db:test:clean`** to drop every
-  idle `autoknow…_test` DB (it skips any with open connections, and never touches
-  the real `autoknow` DB or the demo/scratch DBs, which lack the `_test` suffix).
-- **Playwright**: boots its own dev server on the per-worktree port (~3130) with a
-  separate `.next-test` build dir and stubbed auth; `workers=1` is load-bearing
-  (specs serially wipe this worktree's `*_test` DB). Never run two suites at once
-  *within the same worktree* (different worktrees are now safe to run in parallel).
+  the global setups and **never auto-dropped**, so a worktree leaves
+  `autoknow_<token>_test` plus one `…_w<n>_test` per e2e worker behind — run
+  **`npm run db:test:clean`** to drop every idle `autoknow…_test` DB (it skips
+  any with open connections, and never touches the real `autoknow` DB or the
+  demo/scratch DBs, which lack the `_test` suffix).
+- **Per-worker isolation (e2e)**: Playwright runs `e2eWorkers()` workers — 4 by
+  default, `E2E_WORKERS` overrides — and each owns a `…_w<n>_test` database AND
+  its own `next start` on `basePort + n`, so the wipe in a spec's `beforeAll` is
+  invisible to the other workers. Three things must agree for that to hold (the
+  worker count, the port, the DB name) and all three fail silently, so
+  `tests/e2eWorkerIsolation.test.ts` asserts them. **A spec must import `test`
+  from `tests/helpers/e2e`, never from `@playwright/test`** — the per-worker
+  `baseURL` lives in that fixture, and the guard test fails the build otherwise.
+- **Playwright**: serves a PROD build out of `.next-test` with stubbed auth. The
+  build runs ONCE, in the `test:e2e*` npm scripts, before Playwright starts — the
+  `webServer` entries only `next start`, so run e2e through the scripts, not
+  `npx playwright test`. Parallelism stops at the FILE boundary
+  (`fullyParallel: false`): tests within a file share one wipe. Never run two
+  suites at once *within the same worktree* (different worktrees are safe).
 - **Browser matrix is deliberate — don't widen it casually**: chromium runs the
   full suite; webkit runs only the engine-sensitive specs (dialogs,
   month/range inputs, SVG drag: `projects_flow`, `project_details`,

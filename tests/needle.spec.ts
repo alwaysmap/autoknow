@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Locator } from '@playwright/test';
+import { test, expect, type Page, type Locator } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
