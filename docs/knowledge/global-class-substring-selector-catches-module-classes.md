@@ -1,7 +1,7 @@
 ---
 title: A global `[class*="foo"]` selector styles ANY CSS-module class whose hashed name contains "foo"
 status: current
-updated: 2026-07-23
+updated: 2026-07-26
 applies_to:
   - src/**/*.module.css
   - src/app/globals.css
@@ -9,7 +9,7 @@ symptoms:
   - an element has an unexpected background / border / padding / margin nobody wrote for it
   - a compact control (a single input, a small row) renders as a full-width bordered card
   - the surprise style has !important and no matching rule in that component's module
-verified_by: 'globals.css `[class*="filterSection"], [class*="filterBar"]` vs the .filterBar→.filterRow rename (#86)'
+verified_by: 'globals.css `[class*="filterSection"], [class*="filterBar"]` vs the .filterBar→.filterRow rename (#86); `[class*="card"]` erasing the addressed-update highlight in NeedleHistoryList (#111)'
 ---
 
 # A global `[class*="foo"]` selector styles ANY CSS-module class whose name contains "foo"
@@ -40,9 +40,21 @@ out-specify it — the rule is `!important` and renaming is a one-word fix. If y
 genuinely want that global card, opt in *deliberately* by naming into it, don't
 back into it.
 
-**How we found out.** The new DataTable filter row (#86) rendered as a big §1
-card that pushed the box away from the table. `getComputedStyle` showed a
-`--surface` background + border + 8px radius the module never declared; the
-source was `[class*="filterBar"]`. Caught by looking at the rendered page, not
-the DOM — a class audit would have reported one correctly-applied module class
-(AGENTS lesson 18).
+**When you cannot rename — use a property the blanket does not claim.** Renaming
+works when *you* name the element. It is unavailable when the global is
+SUBTRACTIVE and the class is load-bearing elsewhere: `[class*="card"]` (all
+`!important`) strips `NeedleHistoryList`'s `.card`, and renaming would have put
+borders and a `--surface` fill back on the program history popup too — unrelated
+churn smuggled in by a deep-link feature (#111). Out-specifying is still wrong.
+Instead style what the blanket never names: it claims `border`, `box-shadow`,
+`background`, `padding`, so `outline`/`outline-offset` survive and can carry a
+selection ring no `!important` can erase. Read the block first — free properties
+differ per blanket. Note the tell: the *base* rule was dead too, so the module
+had long described an appearance the page never had.
+
+**How we found out.** The DataTable filter row (#86) rendered as a big §1 card;
+`getComputedStyle` showed a `--surface` background + border + radius the module
+never declared, from `[class*="filterBar"]`. Caught by looking at the page, not
+the DOM — a class audit reports one correctly-applied class (AGENTS lesson 18).
+#111 hit the subtractive half: a highlight with correct markup and a matching
+rule computed `box-shadow: none`, identical to its neighbours.

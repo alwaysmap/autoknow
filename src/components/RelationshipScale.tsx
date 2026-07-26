@@ -1,81 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
+import NeedleHistoryList from './NeedleHistoryList';
 import OverlayDialog from './OverlayDialog';
+import { RelationshipFace, RelationshipNoValue } from './RelationshipFace';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
+import { subscribeLocationChange } from '../lib/locationHash';
 import { updatePartnerRelationship } from '../app/actions/relationship';
-import { REL_SCORES, REL_KEY, clampScore, type RelScore } from '../lib/relationship';
+import {
+  REL_SCORES, REL_KEY, RELATIONSHIP_HISTORY_HASH, clampScore, isRelationshipHash,
+  parseRelUpdateHash, type RelScore,
+} from '../lib/relationship';
+import type { NeedleChange } from '../lib/history';
 import styles from './RelationshipScale.module.css';
 import { localDate } from '../lib/dates';
 
-// Partner relationship health on a 7-point scale — deliberately NOT a needle and
-// deliberately colorless. Health is read as POSITION on a common 1..7 axis: a solid
-// ink dot at the current score, an open ring where it was last time. Because every
-// partner renders the same fixed axis, stacking these tracks (the /partners list)
+// Partner relationship health on a 5-point scale — deliberately NOT a needle and
+// deliberately colorless. Health is read as POSITION on a common 1..5 axis. Because
+// every partner renders the same fixed axis, stacking these (the /partners list)
 // makes relative health across all relationships legible at a glance.
+//
+// The two glyphs live in ./RelationshipFace and are imported FROM THERE by every call
+// site — re-exporting them here would keep the very import cycle the move removed.
 
-// ---- Face + sparkline (the legible form of the scale) --------------------------
-// A pain-scale/"airport bathroom" face carries the VALENCE the dot-axis couldn't:
-// nobody has to ask whether 7 is good when 7 is beaming. Ink-only (the scale stays
-// colorless by design) — mouth curvature and eyes do all the work.
-
-export function RelationshipFace({ score, size = 22, decorative = false }: {
-  score: RelScore; size?: number;
-  /** Inside an already-labeled control (e.g. the picker radios) the face must not
-   *  contribute to the accessible name. */
-  decorative?: boolean;
-}) {
-  const locale = useLocale();
-  // curvature: -1 (deep frown, 1) .. +1 (big smile, 7); 4 is a flat "steady".
-  const c = (score - 3) / 2;
-  const endY = 3.6 - c * 1.6;
-  const ctlY = 3.6 + c * 3.4;
-  return (
-    <svg
-      viewBox="-10 -10 20 20"
-      width={size}
-      height={size}
-      {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': `${score}/5 — ${t(locale, REL_KEY[score])}` })}
-    >
-      <circle cx={0} cy={0} r={8.6} fill="none" stroke="currentColor" strokeWidth={1.5} />
-      <circle cx={-3.1} cy={-2.6} r={1.15} fill="currentColor" />
-      <circle cx={3.1} cy={-2.6} r={1.15} fill="currentColor" />
-      <path
-        d={`M -4 ${endY} Q 0 ${ctlY} 4 ${endY}`}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-      />
-      {!decorative && (
-        <title>{`${score}/5 — ${t(locale, REL_KEY[score])} (1 = ${t(locale, REL_KEY[1])}, 5 = ${t(locale, REL_KEY[5])})`}</title>
-      )}
-    </svg>
-  );
-}
-
-/** "Was unrated" — the prior slot when health goes from nothing to its first value.
- *  A dashed empty ring with a centre dash; not a face (there was no reading). */
-export function RelationshipNoValue({ size = 26, decorative = false }: { size?: number; decorative?: boolean }) {
-  const locale = useLocale();
-  return (
-    <svg
-      viewBox="-10 -10 20 20"
-      width={size}
-      height={size}
-      {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': t(locale, 'relNotRated') })}
-    >
-      <circle cx={0} cy={0} r={8.6} fill="none" stroke="currentColor" strokeWidth={1.4} strokeDasharray="2.4 2.4" />
-      <line x1={-3.6} y1={0} x2={3.6} y2={0} stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
-      {!decorative && <title>{t(locale, 'relNotRated')}</title>}
-    </svg>
-  );
-}
-
-// Compact readout for list rows: aligned track + numeral. Sorting the column and
-// scanning dot positions are the two ways to compare partners; both need no color.
+// Compact readout for list rows. Sorting the column and scanning face positions are
+// the two ways to compare partners; both need no color.
 export function RelationshipCell({ score }: { score: RelScore | null; history?: number[] }) {
   const locale = useLocale();
   if (score === null) {
@@ -88,30 +39,140 @@ export function RelationshipCell({ score }: { score: RelScore | null; history?: 
   );
 }
 
-// Full unit for the partner page header: track, score + descriptor, updated date,
-// and the update dialog (score picker + required note).
+/**
+ * The partner page's health unit: the faces, the date, and DETAIL — a hash-addressable
+ * view / update / history popover (#111).
+ *
+ * It is the third member of a family, not a new shape: Program Status & Health
+ * (`NeedleGauge`) and Phase Progress (`PhaseTrack`) already put an entity's updates
+ * behind a fragment, and every reference to one carries the fragment that opens it.
+ * This mirrors `NeedleGauge` deliberately — same `OverlayDialog`, same in-place update
+ * mode rather than a stacked second `<dialog>` (#34/#35), same `subscribeLocationChange`
+ * opener (#40) — and adds the one thing neither had: a fragment that addresses a SINGLE
+ * update, so a feed row or a briefing citation lands on the entry it cites.
+ *
+ * The fragment never reaches the server, so resolution is necessarily client-side.
+ */
 export default function RelationshipScale({
   partnerId,
   score,
   previousScore,
   updatedAt,
   editable = true,
+  history,
 }: {
   partnerId: number;
   score: RelScore | null;
   previousScore?: RelScore | null;
-  /** Oldest → newest scores for the sparkline; falls back to the dot track. */
-  history?: number[];
   updatedAt?: string | null;
   editable?: boolean;
+  /** Every recorded update, newest first — the popover's content. Required: the
+   *  popover IS this component's detail view, so there is exactly one overlay and
+   *  no second, history-less path to keep in sync. */
+  history: NeedleChange[];
 }) {
-  const [dialogOpen, setDialogOpen] = useState(false);
   const locale = useLocale();
-  const [pick, setPick] = useState<RelScore>(score ?? 4);
+  const [pick, setPick] = useState<RelScore>(score ?? 3);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [noteError, setNoteError] = useState(false);
+  // The note lives inside MarkdownNoteEditor; mirror it out so a dismissal can tell
+  // whether there is unsaved work to protect (#35).
+  const [noteText, setNoteText] = useState('');
 
-  const open = () => { setPick(score ?? 4); setNoteError(false); setDialogOpen(true); };
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  /** The single update a deep link asked for, or null for "just open the log". */
+  const [addressed, setAddressed] = useState<number | null>(null);
+
+  // Mirror detailOpen into a ref so the deep-link handler reads the live value without
+  // re-subscribing on every open/close. The open/close helpers below ALSO write it
+  // eagerly: `replaceState` is patched to notify listeners synchronously (#40), so
+  // openDetail's own hash write re-enters the handler in the same tick — before React
+  // has committed the render that would update this ref from state. Without the eager
+  // write the handler sees "not open yet" and redundantly re-runs the whole opening.
+  const detailOpenRef = useRef(false);
+  useEffect(() => { detailOpenRef.current = detailOpen; }, [detailOpen]);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const resetForm = () => { setPick(score ?? 3); setNoteError(false); setNoteText(''); };
+
+  // Has the open form changed anything worth protecting? The pick, or a typed note.
+  const fieldsDirty = pick !== (score ?? 3) || noteText.trim() !== '';
+  // The guard every dismissal path (× / Escape / backdrop) runs through: a close
+  // proceeds freely unless the open form has unsaved work, in which case it must be
+  // confirmed — so a stray close can't silently drop an in-progress edit, while a
+  // pristine form still closes without a nag (#35).
+  const mayDismiss = (active: boolean) => !(active && fieldsDirty) || window.confirm(t(locale, 'discardUpdateConfirm'));
+
+  // Opening writes the hash, so the open popover IS a shareable URL.
+  const openDetail = () => {
+    resetForm();
+    setAdding(false);
+    setAddressed(null);
+    setDetailOpen(true);
+    detailOpenRef.current = true;
+    if (window.location.hash !== `#${RELATIONSHIP_HISTORY_HASH}`) {
+      window.history.replaceState(null, '', `#${RELATIONSHIP_HISTORY_HASH}`);
+    }
+  };
+  const closeDetail = () => {
+    setAdding(false);
+    setDetailOpen(false);
+    setAddressed(null);
+    detailOpenRef.current = false;
+    // Clear whichever member of the family opened it — the log or one update — so a
+    // reload after closing doesn't re-open what the reader just dismissed.
+    if (isRelationshipHash(window.location.hash)) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  };
+  const startAdding = () => { resetForm(); setAdding(true); };
+
+  // Deep link: `#relationship-history` opens the log, `#relationship-update-:id`
+  // opens it at that update. Runs once per mount and on in-page hash changes — Next's
+  // <Link> navigates via pushState, which does not fire `hashchange` (#40), so a
+  // same-page feed link would otherwise change the URL and open nothing.
+  useEffect(() => {
+    const openIfHashed = () => {
+      const hash = window.location.hash;
+      if (!isRelationshipHash(hash)) return;
+      setAddressed(parseRelUpdateHash(hash));
+      if (!detailOpenRef.current) {
+        resetForm();
+        setAdding(false);
+        setDetailOpen(true);
+      }
+    };
+    openIfHashed();
+    return subscribeLocationChange(openIfHashed);
+    // Keyed on `history` like NeedleGauge: the server hands down a fresh array on
+    // every revalidate, so the subscription rebinds and `resetForm` can never close
+    // over a `score` older than the log beside it. With `[]` the handler would keep
+    // the first render's props forever, and re-prefill the picker with a superseded
+    // score after the user files an update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [history]);
+
+  // Bring the addressed update into view. A log of near-identical cards otherwise
+  // answers "here is the history" when the reader asked "show me THIS update".
+  // `nearest` keeps the scroll inside the popover's single scroll region.
+  useEffect(() => {
+    if (!detailOpen || addressed == null) return;
+    listRef.current?.querySelector(`[data-update-id="${addressed}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [detailOpen, addressed]);
+
+  const submitUpdate = async (formData: FormData) => {
+    // The rich editor's hidden input can't carry native `required` — gate here.
+    if (!((formData.get('notes') as string) || '').trim()) { setNoteError(true); return; }
+    setNoteError(false);
+    setIsSubmitting(true);
+    try {
+      await updatePartnerRelationship(formData);
+      setAdding(false);
+    } catch (err) { console.error(err); }
+    finally { setIsSubmitting(false); }
+  };
 
   return (
     <div className={styles.wrapper} data-testid="relationship-scale">
@@ -148,62 +209,87 @@ export default function RelationshipScale({
           {t(locale, 'updatedOn', { d: localDate(updatedAt, locale, { month: 'short', day: 'numeric' }) })}
         </div>
       )}
-      {editable && (
-        <button type="button" onClick={open} className={styles.updateBtn}>{t(locale, 'update')}</button>
-      )}
+      {/* faces · date · DETAIL — one horizontal cluster (§7). Updating happens inside
+          the popover, so the resting row states the fact and offers one way in,
+          exactly as the program gauge's row does. */}
+      <button type="button" onClick={openDetail} className={styles.updateBtn}>{t(locale, 'detail')}</button>
 
-      <OverlayDialog open={dialogOpen} onClose={() => setDialogOpen(false)} width="28rem"
-        title={t(locale, 'relUpdateTitle')} closeLabel={t(locale, 'close')}>
-        <form
-          action={async (formData) => {
-            if (!((formData.get('notes') as string) || '').trim()) { setNoteError(true); return; }
-            setNoteError(false);
-            setIsSubmitting(true);
-            try { await updatePartnerRelationship(formData); setDialogOpen(false); }
-            catch (err) { console.error(err); }
-            finally { setIsSubmitting(false); }
-          }}
-          className={styles.dialogForm}
-        >
-          <input type="hidden" name="partnerId" value={partnerId} />
-          <input type="hidden" name="score" value={pick} />
-
-          <div className={styles.formGroup}>
-            <div className={styles.scaleHint}>{t(locale, 'relScaleHint')}</div>
-            <div className={styles.picker} role="radiogroup" aria-label={t(locale, 'relScoreAria')}>
-              {REL_SCORES.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  role="radio"
-                  aria-checked={pick === s}
-                  onClick={() => setPick(clampScore(s))}
-                  className={`${styles.pickBtn} ${pick === s ? styles.pickBtnActive : ''}`}
-                >
-                  <RelationshipFace score={s} size={20} decorative />
-                  {s}
+      {/* The complete log — faces, the qualitative label, author, timestamp and the
+          written note in full (it feeds the AI briefing and is deliberately absent
+          beside the readout). UPDATE reveals the form in place rather than opening a
+          second modal over this one (§4b). */}
+      <OverlayDialog
+        open={detailOpen}
+        onClose={closeDetail}
+        width="56rem"
+        dataTestId="relationship-detail"
+        title={t(locale, 'relDetailTitle')}
+        closeLabel={t(locale, 'close')}
+        canClose={() => mayDismiss(adding)}
+        // While editing, the form owns its own Cancel/Save — a second dialog-level
+        // Close rail would be a duplicate action AND a silent-discard path, so the
+        // footer is hidden until the edit is resolved (#35).
+        footer={
+          adding ? undefined : (
+            <>
+              <button type="button" onClick={closeDetail} className={styles.cancelBtn}>
+                {t(locale, 'close')}
+              </button>
+              {editable && (
+                <button type="button" onClick={startAdding} className={styles.submitBtn}>
+                  {t(locale, 'update')}
                 </button>
-              ))}
+              )}
+            </>
+          )
+        }
+      >
+        {adding && (
+          <form action={submitUpdate} className={styles.inlineForm}>
+            <input type="hidden" name="partnerId" value={partnerId} />
+            <input type="hidden" name="score" value={pick} />
+
+            <div className={styles.formGroup}>
+              <div className={styles.scaleHint}>{t(locale, 'relScaleHint')}</div>
+              <div className={styles.picker} role="radiogroup" aria-label={t(locale, 'relScoreAria')}>
+                {REL_SCORES.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    role="radio"
+                    aria-checked={pick === s}
+                    onClick={() => setPick(clampScore(s))}
+                    className={`${styles.pickBtn} ${pick === s ? styles.pickBtnActive : ''}`}
+                  >
+                    <RelationshipFace score={s} size={20} decorative />
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.pickDescriptor}>{t(locale, REL_KEY[pick])}</div>
             </div>
-            <div className={styles.pickDescriptor}>{t(locale, REL_KEY[pick])}</div>
-          </div>
 
-          <div className={styles.formGroup}>
-            <span className={styles.formLabel}>{t(locale, 'updateWhatWhy')}</span>
-            <MarkdownNoteEditor name="notes" ariaLabel={t(locale, 'updateWhatWhy')}
-              placeholder={t(locale, 'relNotePlaceholder')} />
-            {noteError && <div className={styles.noteError}>{t(locale, 'updateNeedsNote')}</div>}
-          </div>
+            <div className={styles.formGroup}>
+              <span className={styles.formLabel}>{t(locale, 'updateWhatWhy')}</span>
+              <MarkdownNoteEditor name="notes" ariaLabel={t(locale, 'updateWhatWhy')}
+                placeholder={t(locale, 'relNotePlaceholder')} onChange={setNoteText} />
+              {noteError && <div className={styles.noteError}>{t(locale, 'updateNeedsNote')}</div>}
+            </div>
 
-          <div className={styles.actionRow}>
-            <button type="button" onClick={() => setDialogOpen(false)} disabled={isSubmitting} className={styles.cancelBtn}>
-              {t(locale, 'cancel')}
-            </button>
-            <button type="submit" disabled={isSubmitting} className={styles.submitBtn}>
-              {isSubmitting ? t(locale, 'saving') : t(locale, 'save')}
-            </button>
-          </div>
-        </form>
+            <div className={styles.actionRow}>
+              <button type="button" onClick={() => setAdding(false)} disabled={isSubmitting} className={styles.cancelBtn}>
+                {t(locale, 'cancel')}
+              </button>
+              <button type="submit" disabled={isSubmitting} className={styles.submitBtn}>
+                {isSubmitting ? t(locale, 'saving') : t(locale, 'save')}
+              </button>
+            </div>
+          </form>
+        )}
+        <div ref={listRef}>
+          <NeedleHistoryList changes={history} relationship locale={locale}
+            highlightId={addressed} emptyLabel={t(locale, 'noUpdatesRecorded')} />
+        </div>
       </OverlayDialog>
     </div>
   );

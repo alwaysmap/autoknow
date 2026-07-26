@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { FeedItem } from '../lib/feed';
 import Markdown from './Markdown';
 import { NeedleGaugeSvg } from './NeedleGaugeSvg';
-import { RelationshipFace, RelationshipNoValue } from './RelationshipScale';
+import { RelationshipFace, RelationshipNoValue } from './RelationshipFace';
 import { parseScore } from '../lib/relationship';
 import { PhaseHillSvg } from './PhaseHillGauge';
 import { deleteFeedItem } from '../app/actions/status';

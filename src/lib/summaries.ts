@@ -4,9 +4,9 @@ import { generateStructuredSummary, geminiConfigured, SUMMARY_MODEL, type Summar
 import { DEFAULT_SUMMARY_PROMPTS, type SummaryScope } from './summaryPrompts';
 import { computeCriticalChain } from './criticalChain';
 import { parseHealth } from './health';
-import { deriveScore } from './relationship';
+import { deriveScore, relScoreLabel, EVIDENCE_LOCALE } from './relationship';
 import { hillStatus } from './phase';
-import { personHref, partnerHref, programHref, phaseDetailHref } from './entityHref';
+import { personHref, partnerHref, programHref, phaseDetailHref, relationshipUpdateHref } from './entityHref';
 import { linkify, type EntityLink, type Segment } from './summaryLinkify';
 import { sopOutlook } from './sop';
 import { localDate } from './dates';
@@ -339,8 +339,13 @@ async function gatherPartnerEvidence(partnerId: number, windowStart: Date, ev: E
     .forEach((s, i) => {
       ev.push(
         'relationship',
-        `${i === 0 ? 'CURRENT ' : ''}relationship update ${proseDay(s.timestamp)}: score ${deriveScore(s)}/5 (1=critical, 5=exemplary)${s.notes ? ` — ${s.notes}` : ''}${s.source ? ` (by ${s.source})` : ''}`,
-        { label: `Relationship · ${fmtDate(s.timestamp)}`, href: `/partners/${partnerId}`, external: false },
+        // The WORD, never the numeral. A leadership brief that reads "3/5" is not the
+        // model paraphrasing badly — it is faithfully echoing the evidence we handed
+        // it, so the fix is here and not in the prompt alone (#111).
+        `${i === 0 ? 'CURRENT ' : ''}relationship update ${proseDay(s.timestamp)}: relationship health is ${relScoreLabel(EVIDENCE_LOCALE, deriveScore(s))}${s.notes ? ` — ${s.notes}` : ''}${s.source ? ` (by ${s.source})` : ''}`,
+        // The citation opens the popover AT this update — resolved here, at the
+        // boundary, never a URL the model wrote (AGENTS lesson 15).
+        { label: `Relationship · ${fmtDate(s.timestamp)}`, href: relationshipUpdateHref(partnerId, s.id), external: false },
       );
     });
 

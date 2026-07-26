@@ -14,6 +14,7 @@ import { getActivity } from '../../../lib/activity';
 import { getSummary } from '../../../lib/summaries';
 import { geminiConfigured } from '../../../lib/gemini';
 import { deriveScore } from '../../../lib/relationship';
+import { getNeedleHistory } from '../../../lib/history';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import AnchorHeading from '../../../components/AnchorHeading';
@@ -90,7 +91,7 @@ export default async function PartnerDetailPage(props: PageProps) {
   // honest about.
   // `roster` is who is HERE today, and the headline employee figure is its length —
   // ONE source, so the page cannot print "12 people" above a list of 11 (#127 E5).
-  const [roster, recentStates, types, regions, allPartners] = await Promise.all([
+  const [roster, recentStates, relHistory, types, regions, allPartners] = await Promise.all([
     partnerRosterAsOf(partner.id),
     // Two newest — the header card shows the prior score alongside the current one.
     prisma.partnerState.findMany({
@@ -98,6 +99,10 @@ export default async function PartnerDetailPage(props: PageProps) {
       orderBy: { timestamp: 'desc' },
       take: 2,
     }),
+    // The full log behind the health popover. The fragment that opens it never
+    // reaches the server, so the history has to be here on every render — the
+    // popover is resolved client-side (#111).
+    getNeedleHistory('partner', partner.id),
     prisma.partnerType.findMany({ orderBy: { name: 'asc' } }),
     prisma.region.findMany({ orderBy: { name: 'asc' } }),
     // Organizations for the "New person" picker — pre-selected to THIS partner.
@@ -244,6 +249,7 @@ export default async function PartnerDetailPage(props: PageProps) {
               score={latestState ? deriveScore(latestState) : null}
               previousScore={priorState ? deriveScore(priorState) : null}
               updatedAt={latestState?.timestamp?.toISOString() ?? null}
+              history={relHistory?.changes ?? []}
             />
             {partner.summary && <p className={styles.summaryText}>{partner.summary}</p>}
             <FactsInline facts={contactFacts} />

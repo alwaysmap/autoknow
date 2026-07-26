@@ -72,40 +72,81 @@ test.describe('Progress & Health gauge updates', () => {
   test('should allow updating relationship health on the 1..5 scale at the Partner level', async ({ page }) => {
     await page.goto(`/partners/${partnerId}`);
 
-    // The relationship unit lives in the Key Details sidebar block.
+    // The relationship unit lives in the Key Details sidebar block. Like the program
+    // gauge, the resting row states the fact and offers ONE way in: Detail (#111).
     const scale = page.getByTestId('relationship-scale');
     await expect(scale).toContainText('Not rated'); // no state logged yet — honest empty
 
-    // Hydration-guarded open (first click can be swallowed under load).
-    const dialog = page.locator('dialog[open]');
-    await expect(async () => {
-      if (!(await dialog.isVisible())) {
-        await scale.getByRole('button', { name: 'Update', exact: true }).click({ timeout: 2000 });
-      }
-      await expect(dialog).toBeVisible({ timeout: 1500 });
-    }).toPass({ timeout: 20000 });
+    const detail = page.getByTestId('relationship-detail');
+    await openDetail(page, scale, detail);
+    // An empty log says so rather than pretending; UPDATE is the way on.
+    await expect(detail).toContainText('No updates recorded yet.');
+
+    // Opening writes the fragment, so the open popover IS a shareable URL.
+    expect(await page.evaluate(() => window.location.hash)).toBe('#relationship-history');
+
+    // The form is a MODE of this popover, never a second stacked <dialog> (§4b).
+    await detail.getByRole('button', { name: 'Update', exact: true }).click();
+    await expect(detail.locator('form')).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(1); // never two modals
 
     // Pick 3 on the scale — the descriptor confirms the selection, no colors involved.
-    await dialog.getByRole('radio', { name: '3', exact: true }).click();
-    await expect(dialog).toContainText('Steady');
+    await detail.getByRole('radio', { name: '3', exact: true }).click();
+    await expect(detail).toContainText('Steady');
 
     // The note is required.
-    await dialog.locator('button:has-text("Save Update")').click();
-    await expect(dialog).toContainText('An update needs a note');
+    await detail.locator('button:has-text("Save Update")').click();
+    await expect(detail).toContainText('An update needs a note');
 
-    await dialog.locator('[data-testid="note-editor"] [contenteditable="true"]').click();
+    await detail.locator('[data-testid="note-editor"] [contenteditable="true"]').click();
     await page.keyboard.type('Tesla relationship is strained due to supply chains.');
-    await dialog.locator('button:has-text("Save Update")').click();
+    await expect(detail.locator('input[name="notes"]')).toHaveValue(/supply chains/);
+    await detail.locator('button:has-text("Save Update")').click();
 
-    // Verify it closed and the header face carries the new position (the face is
-    // the single visible measure; score + descriptor live in its accessible name).
+    // The form gives way to the log, which now carries the update. Waiting on the
+    // FORM is the honest signal that the save committed — the note text is already
+    // on screen inside the open editor, so asserting on it races the server action.
+    await expect(detail.locator('form')).toHaveCount(0);
+    await expect(detail).toContainText('Tesla relationship is strained');
+
+    // The dialog-level Close rail (the × carries no visible text — see the update-mode
+    // test below, which counts the rail exactly this way).
+    await detail.locator('button:has-text("Close")').click();
     await expect(page.locator('dialog[open]')).toHaveCount(0);
-    await expect(scale.getByRole('img', { name: /3\/5 — Steady/ }).first()).toBeVisible();
+
+    // The header face carries the new position (the face is the single visible
+    // measure; the word and its position live in its accessible name).
+    await expect(scale.getByRole('img', { name: /Steady — 3\/5/ }).first()).toBeVisible();
 
     // The state row carries the score AND the derived health (feed/filters coherence).
     const state = await prisma.partnerState.findFirst({ where: { partnerId }, orderBy: { timestamp: 'desc' } });
     expect(state?.relationshipScore).toBe(3);
     expect(state?.theNeedle).toBe('Some Risk');
+  });
+
+  test('a deep link to ONE partner-health update opens the popover at that update', async ({ page }) => {
+    // The receiving half of the feed row / briefing citation (#111): the fragment
+    // never reaches the server, so this is resolved client-side on load.
+    const updates = await prisma.partnerState.findMany({
+      where: { partnerId }, orderBy: { timestamp: 'desc' },
+    });
+    expect(updates.length).toBeGreaterThan(0);
+    const target = updates[0];
+
+    await page.goto(`/partners/${partnerId}#relationship-update-${target.id}`);
+
+    const detail = page.getByTestId('relationship-detail');
+    await expect(detail).toBeVisible({ timeout: 20000 });
+    // …and it surfaces THAT update, not merely the log.
+    await expect(detail.locator(`[data-update-id="${target.id}"][data-addressed]`)).toBeVisible();
+
+    // The activity feed's own row carries the SAME fragment — one vocabulary for the
+    // feed and the briefing, not two spellings of the same destination.
+    await detail.locator('button:has-text("Close")').click();
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+    await expect(
+      page.locator(`a[href="/partners/${partnerId}#relationship-update-${target.id}"]`).first(),
+    ).toBeAttached();
   });
 
   test('should allow updating progress + health at the Project level', async ({ page }) => {

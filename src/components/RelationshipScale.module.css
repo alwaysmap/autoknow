@@ -31,30 +31,11 @@
   color: var(--fg);
 }
 
-.score {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--fg);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.den {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--muted);
-  margin-left: 0.0625rem;
-}
-
 .descriptor {
   font-size: 0.8125rem;
   line-height: 1.25rem;
   font-weight: 600;
   color: var(--fg);
-}
-
-.track {
-  display: block;
 }
 
 .updatedAt {
@@ -88,32 +69,23 @@
   gap: 0.5rem;
 }
 
-.cellScore {
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
-  font-weight: 700;
-  color: var(--fg);
-  font-variant-numeric: tabular-nums;
-}
-
-.cellDen {
-  font-size: 0.6875rem;
-  line-height: 1rem;
-  font-weight: 600;
-  color: var(--muted);
-}
-
 .notRated {
   font-size: 0.75rem;
   font-style: italic;
   color: var(--muted);
 }
 
-/* dialog (matches the app's modal grammar) */
-.dialogForm {
+/* The update form as a MODE of the history popover, not a second <dialog> (§4b) —
+   the rule under it separates the edit from the log it will join. Mirrors
+   NeedleGauge.module.css `.inlineForm`. */
+.inlineForm {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1rem;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
 }
 
 .formGroup {
@@ -134,9 +106,12 @@
   color: var(--muted);
 }
 
+/* One column per point on the axis. This said `repeat(7, …)` — left behind by the
+   brief 7-point era (lib/relationship) — so the five buttons crushed into the left
+   five sevenths with two empty columns beside them. */
 .picker {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 0.375rem;
 }
 
