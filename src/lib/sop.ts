@@ -7,6 +7,11 @@ import { deriveProgramStatus } from './lifecycle';
 
 export const DAY_MS = 86_400_000;
 
+/** The UTC midnight starting the day `ms` falls in — the day key every per-day
+ *  series and lookup agrees on, so a point and the summary for it cannot land on
+ *  different days. Lives beside DAY_MS because it is the same unit's identity. */
+export const dayFloor = (ms: number) => Math.floor(ms / DAY_MS) * DAY_MS;
+
 /** "2027-03" (a <input type="month"> value) → the last day of that month (UTC). */
 export function monthEndDate(yyyyMm: string): Date {
   const m = /^(\d{4})-(\d{2})$/.exec(yyyyMm);
