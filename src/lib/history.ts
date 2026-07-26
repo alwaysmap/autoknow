@@ -11,6 +11,10 @@ export type HistoryType = 'project' | 'phase' | 'partner';
 // One recorded needle change, with full fidelity (health string + 0..100 progress + the
 // previous state for the ghost marker + the markdown note), for the list/history cards.
 export interface NeedleChange {
+  /** The state row's own id — what a deep link ADDRESSES (#111). Without it a
+   *  fragment can only open the whole log, so every reference to one update lands
+   *  on the same place. `lib/relationship.relUpdateHash` turns it into a fragment. */
+  id: number;
   timestamp: string;
   progress: number; // 0..100
   health: string | null;
@@ -24,13 +28,14 @@ export interface NeedleChange {
   source: string | null;
 }
 
-type RawState = { theNeedle: string | null; hillChartProgress: number | null; relationshipScore?: number | null; notes: string | null; source?: string | null; timestamp: Date };
+type RawState = { id: number; theNeedle: string | null; hillChartProgress: number | null; relationshipScore?: number | null; notes: string | null; source?: string | null; timestamp: Date };
 
 // Turn ascending states into changes ordered most-recent-first, each carrying the prior
 // state so the mini gauge can draw the "previous" marker.
 const toChanges = (asc: RawState[]): NeedleChange[] =>
   asc
     .map((s, i) => ({
+      id: s.id,
       timestamp: s.timestamp.toISOString(),
       progress: s.hillChartProgress ?? 0,
       health: s.theNeedle,
@@ -47,7 +52,10 @@ export async function getNeedleHistory(
   type: HistoryType,
   id: number,
 ): Promise<{ title: string; changes: NeedleChange[] } | null> {
-  const select = { theNeedle: true, hillChartProgress: true, notes: true, source: true, timestamp: true } as const;
+  // `id` is selected for every scope, not only partners: it is what a per-update
+  // deep link addresses, and a shape that carried it for one entity only would be
+  // the next hand-rolled variant (AGENTS lesson 7).
+  const select = { id: true, theNeedle: true, hillChartProgress: true, notes: true, source: true, timestamp: true } as const;
   if (type === 'project') {
     const p = await prisma.project.findUnique({ where: { id }, select: { name: true, states: { orderBy: { timestamp: 'asc' }, select } } });
     return p ? { title: p.name, changes: toChanges(p.states) } : null;

@@ -1,4 +1,9 @@
-import { clampScore, parseScore, deriveScore, scoreToHealth, relationshipMix } from '../src/lib/relationship';
+import {
+  clampScore, parseScore, deriveScore, scoreToHealth, relationshipMix,
+  relScoreLabel, EVIDENCE_LOCALE, RELATIONSHIP_HISTORY_HASH, relUpdateHash,
+  parseRelUpdateHash, isRelationshipHash, REL_SCORES,
+} from '../src/lib/relationship';
+import { relationshipUpdateHref } from '../src/lib/entityHref';
 
 // The 5-point relationship scale (lib/relationship): scores clamp to 1..5, rows from
 // the brief 7-point era and health-only legacy rows both derive sensible positions,
@@ -71,5 +76,74 @@ describe('relationshipMix', () => {
     const { buckets, rated } = relationshipMix([null, null]);
     expect(rated).toBe(0);
     expect(buckets.every((b) => b.share === 0)).toBe(true);
+  });
+});
+
+// The ONE numeric → qualitative-word mapping (#111). A leadership brief reads
+// "Steady"; "3/5" is an internal coordinate leaking into prose.
+describe('relScoreLabel', () => {
+  test('every point on the scale has a word, and none of them is a number', () => {
+    expect(REL_SCORES.map((s) => relScoreLabel('en', s))).toEqual([
+      'Critical', 'Strained', 'Steady', 'Strong', 'Exemplary',
+    ]);
+    for (const s of REL_SCORES) {
+      expect(relScoreLabel(EVIDENCE_LOCALE, s)).not.toMatch(/\d/);
+    }
+  });
+
+  test('no reading is its own word, never a mid-scale guess', () => {
+    expect(relScoreLabel('en', null)).toBe('Not rated');
+    // The trap #129 closed: an unrated partner must not read as a deliberate 3.
+    expect(relScoreLabel('en', null)).not.toBe(relScoreLabel('en', 3));
+  });
+
+  test('the word is localized, not hard-coded English', () => {
+    expect(relScoreLabel('de', 3)).toBe('Stabil');
+    expect(relScoreLabel('ja', 5)).toBe('模範的');
+    expect(relScoreLabel('ko', 1)).toBe('위기');
+  });
+
+  test('evidence handed to the model is written in English', () => {
+    // The brief is generated once and read by everyone, so the evidence locale is
+    // fixed rather than inherited from whoever triggered the regeneration.
+    expect(EVIDENCE_LOCALE).toBe('en');
+  });
+});
+
+// Partner health is hash-addressable, exactly as phases and program status are: the
+// popover IS a URL, and a reference to ONE update carries the fragment that opens it.
+describe('partner-health deep-link fragments', () => {
+  test('the log and one update share a prefix but never match each other', () => {
+    expect(relUpdateHash(42)).toBe('relationship-update-42');
+    expect(relUpdateHash(42).startsWith('relationship-')).toBe(true);
+    expect(parseRelUpdateHash(`#${RELATIONSHIP_HISTORY_HASH}`)).toBeNull();
+  });
+
+  test('parseRelUpdateHash reads the id with or without the #, and rejects junk', () => {
+    expect(parseRelUpdateHash('#relationship-update-7')).toBe(7);
+    expect(parseRelUpdateHash('relationship-update-7')).toBe(7);
+    expect(parseRelUpdateHash('#relationship-update-')).toBeNull();
+    expect(parseRelUpdateHash('#relationship-update-abc')).toBeNull();
+    expect(parseRelUpdateHash('#phase-7-detail')).toBeNull();
+    // Must not swallow a neighbouring section anchor on the same page.
+    expect(parseRelUpdateHash('#activity')).toBeNull();
+  });
+
+  test('isRelationshipHash recognizes both members and nothing else', () => {
+    expect(isRelationshipHash('#relationship-history')).toBe(true);
+    expect(isRelationshipHash('#relationship-update-3')).toBe(true);
+    // Both members accept the bare form too, so the family answers consistently
+    // whether it is handed `location.hash` or a fragment sliced out of an href.
+    expect(isRelationshipHash('relationship-history')).toBe(true);
+    expect(isRelationshipHash('relationship-update-3')).toBe(true);
+    expect(isRelationshipHash('#status-history')).toBe(false);
+    expect(isRelationshipHash('#phase-3-detail')).toBe(false);
+    expect(isRelationshipHash('')).toBe(false);
+  });
+
+  test('the href hangs the fragment off the one partner route', () => {
+    expect(relationshipUpdateHref(13, 42)).toBe('/partners/13#relationship-update-42');
+    // Round-trip: a link built here is a link the popover can resolve.
+    expect(parseRelUpdateHash(relationshipUpdateHref(13, 42).split('#')[1])).toBe(42);
   });
 });

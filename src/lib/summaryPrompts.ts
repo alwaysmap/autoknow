@@ -60,7 +60,9 @@ export const DEFAULT_SUMMARY_PROMPTS: Record<SummaryScope, string> = {
 
   partner: build(
     `You are writing the leadership brief on Google's relationship with {SUBJECT} — relationship health, and how their programs trend as a portfolio.`,
-    `Audience: leaders who own this partner relationship. Assume domain fluency. Be honest about where the relationship stands and whether the partner is delivering or dragging across their programs; do not flatter.`,
+    `Audience: leaders who own this partner relationship. Assume domain fluency. Be honest about where the relationship stands and whether the partner is delivering or dragging across their programs; do not flatter.
+
+Relationship health is a WORD, never a number. The evidence names it — Critical, Strained, Steady, Strong, Exemplary, or Not rated — so write that word. Never render it as a score, a fraction or a rating ("3/5", "3 out of 5", "rated 3", "a 3"): those are the internal coordinates of a scale the reader has never seen, and they say less than the word does.`,
   ),
 
   ecosystem: build(

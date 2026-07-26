@@ -1,5 +1,5 @@
 import { parseHealth, type Health } from './health';
-import type { StringKey } from './i18n';
+import { t, type Locale, type StringKey } from './i18n';
 
 // Partner relationship health — a discrete 5-point scale, NOT a needle. A needle is a
 // progress metaphor; a relationship has no "percent done". The scale is deliberately
@@ -38,6 +38,62 @@ export const REL_KEY: Record<RelScore, StringKey> = {
   4: 'relScore4',
   5: 'relScore5',
 };
+
+/**
+ * The ONE numeric → qualitative-word mapping (#111). A relationship reading is a
+ * WORD everywhere a human reads prose — "Steady", never "3/5". The numeral is the
+ * axis coordinate the colorless scale is drawn on; it is legible on the face, the
+ * picker and the legend, and nowhere else.
+ *
+ * `null` is its own case ("Not rated") rather than a mid-scale 3: no reading yet is
+ * not a health class (#129, the reason `deriveScore` refuses `null`).
+ *
+ * Every call site goes through here — an inline `t(locale, REL_KEY[score])` ternary
+ * repeated per surface is exactly how the six labels drift apart (AGENTS lesson 7).
+ */
+export function relScoreLabel(locale: Locale, score: RelScore | null): string {
+  return score === null ? t(locale, 'relNotRated') : t(locale, REL_KEY[score]);
+}
+
+/**
+ * The language the AI's EVIDENCE is written in. The model is prompted in English and
+ * the stored health strings are English by construction (`i18n.ts`: for health, `en`
+ * MUST equal the stored value), so an evidence line asks for the English label
+ * explicitly rather than inheriting a viewer's locale — the brief is generated once
+ * and read by everyone.
+ */
+export const EVIDENCE_LOCALE: Locale = 'en';
+
+// ---- Deep-link fragments -------------------------------------------------------
+// A partner's health record lives in the DETAIL popover on its partner page — there
+// is no standalone page (`/history/partner/:id` was retired 2026-07-20). The popover
+// IS a URL, exactly as a phase's is (`lib/phase.ts`), and this family mirrors that
+// one: `#relationship-history` opens the log, `#relationship-update-:id` opens it AND
+// surfaces one update. The prefix is shared so a reader who knows one can guess the
+// other, and neither can match the other's target.
+//
+// The hash never reaches the server, so resolution is necessarily client-side —
+// `RelationshipScale` listens via `subscribeLocationChange` (#40).
+
+/** Opens the partner-health log. */
+export const RELATIONSHIP_HISTORY_HASH = 'relationship-history';
+
+/** Opens the log AND surfaces one update, addressed by its `PartnerState.id`. */
+export const relUpdateHash = (stateId: number): string => `relationship-update-${stateId}`;
+
+/** `PartnerState.id` out of a `#relationship-update-:id` fragment (with or without
+ *  the `#`), or null when the fragment addresses no single update. */
+export const parseRelUpdateHash = (hash: string): number | null => {
+  const m = /^#?relationship-update-(\d+)$/.exec(hash);
+  return m ? parseInt(m[1], 10) : null;
+};
+
+/** Does this fragment ask for the partner-health popover at all — the log itself or
+ *  one update within it? */
+export const isRelationshipHash = (hash: string): boolean =>
+  hash === `#${RELATIONSHIP_HISTORY_HASH}` ||
+  hash === RELATIONSHIP_HISTORY_HASH ||
+  parseRelUpdateHash(hash) !== null;
 
 /** Health derived from a score — keeps theNeedle/feed/filters coherent. */
 export function scoreToHealth(score: number): Health {

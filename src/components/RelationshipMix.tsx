@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import { relationshipMix, REL_KEY, REL_SCORES, type RelScore } from '../lib/relationship';
-import { RelationshipFace } from './RelationshipScale';
+import { RelationshipFace } from './RelationshipFace';
 import StatTile from './StatTile';
 import styles from './RelationshipMix.module.css';
 

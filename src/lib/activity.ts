@@ -3,7 +3,7 @@ import { prisma } from './db';
 import { formatNeedleValue } from './needle';
 import { deriveScore } from './relationship';
 import { hillStatus, phaseColor } from './phase';
-import { partnerHref, phaseDetailHref, programHref } from './entityHref';
+import { phaseDetailHref, programHref, relationshipUpdateHref } from './entityHref';
 import { isoDateTime } from './dates';
 import type { FeedItem, FeedScope, FeedKind } from './feed';
 
@@ -235,7 +235,10 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
         title: 'Relationship update',
         subtitle: meta(scope.kind === 'ecosystem' ? s.partner.name : null, s.source, true),
         detail: clampDetail(s.notes),
-        href: partnerHref(s.partner.id),
+        // Deep-link to THIS update inside the partner-health popover, the way the
+        // status and phase rows above already deep-link (#111). The bare partner
+        // page was a dead end: the reader clicked one update and got the whole page.
+        href: relationshipUpdateHref(s.partner.id, s.id),
         external: false,
         timestamp: s.timestamp.toISOString(),
         relationship: {

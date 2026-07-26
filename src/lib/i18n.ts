@@ -617,7 +617,6 @@ const STRINGS = {
   relScore4: { en: 'Strong', de: 'Stark', ja: '強固', ko: '강력' },
   relScore5: { en: 'Exemplary', de: 'Vorbildlich', ja: '模範的', ko: '모범적' },
   relationshipLabel: { en: 'Relationship', de: 'Beziehung', ja: '関係', ko: '관계' },
-  relUpdateTitle: { en: 'Relationship update', de: 'Beziehungs-Update', ja: '関係の更新', ko: '관계 업데이트' },
   relScaleHint: { en: '1 = critical · 5 = exemplary', de: '1 = kritisch · 5 = vorbildlich', ja: '1 = 危機的 · 5 = 模範的', ko: '1 = 위기 · 5 = 모범적' },
   relScoreAria: { en: 'Relationship score, 1 to 5', de: 'Beziehungswert, 1 bis 5', ja: '関係スコア（1〜5）', ko: '관계 점수, 1~5' },
   relNotRated: { en: 'Not rated', de: 'Nicht bewertet', ja: '未評価', ko: '평가 없음' },
@@ -1476,6 +1475,12 @@ const STRINGS = {
     de: 'Fortschritt & Status — vollständiger Verlauf',
     ja: '進捗と健全性 — 全履歴',
     ko: '진행 및 상태 — 전체 기록',
+  },
+  relDetailTitle: {
+    en: 'Relationship health — full history',
+    de: 'Beziehungsstatus — vollständiger Verlauf',
+    ja: '関係の健全性 — 全履歴',
+    ko: '관계 상태 — 전체 기록',
   },
   discardUpdateConfirm: {
     en: 'Discard your unsaved update?',

@@ -17,6 +17,27 @@
   background: var(--surface);
 }
 
+/* The one update a deep link addressed (#111). A reader who followed
+   `#relationship-update-42` lands in a log of near-identical entries, so the entry
+   they were SENT to has to answer "which one" without being read. Deliberately in
+   the UI accent, not a health colour: "you were sent here" is a navigation fact, and
+   the relationship scale is colorless by design.
+
+   It is drawn in OUTLINE because globals.css carries a blanket
+   `[class*="card"] { border: none; box-shadow: none; background: transparent }` —
+   all `!important`, and it matches this module's hashed `.card` on the substring
+   (docs/knowledge/global-class-substring-selector-catches-module-classes.md). Border,
+   background and shadow are therefore unavailable here, and out-specifying an
+   `!important` blanket is what that note tells you not to do. `outline` is untouched
+   by it, so the highlight cannot be silently erased by a rule that never names this
+   file. Verified from a screenshot in both themes — this exact rule rendered
+   invisibly on the first attempt (AGENTS lesson 18). */
+.card[data-addressed] {
+  outline: 0.125rem solid var(--focus-ring);
+  outline-offset: 0.375rem;
+  border-radius: 0.25rem;
+}
+
 /* Compact needle on the left — a fixed, wide/short slot. */
 .gauge {
   flex: 0 0 8.25rem;
@@ -91,7 +112,11 @@
 
 @media (max-width: 520px) {
   .card { flex-direction: column; align-items: stretch; gap: 0.625rem; }
-  .gauge { width: 10rem; }
+  /* `flex: 0 0 8.25rem` above sizes the graphic along the MAIN axis — which the
+     stack has just turned vertical, so the basis became a 8.25rem HEIGHT and left a
+     band of dead space between the graphic and its words on every phone-width
+     card. Reset the basis; the width below is what this slot actually wants. */
+  .gauge { width: 10rem; flex: 0 0 auto; }
 }
 
 /* Compact variant — the same history cards at phase-popover scale. */

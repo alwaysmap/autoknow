@@ -1,5 +1,5 @@
 import { NeedleGaugeSvg } from './NeedleGaugeSvg';
-import { RelationshipFace, RelationshipNoValue } from './RelationshipScale';
+import { RelationshipFace, RelationshipNoValue } from './RelationshipFace';
 import Markdown from './Markdown';
 import { parseHealth, healthColor, HEALTH_KEY } from '../lib/health';
 import { deriveScore, REL_KEY } from '../lib/relationship';
@@ -18,11 +18,16 @@ export default function NeedleHistoryList({
   emptyLabel,
   relationship = false,
   locale = 'en',
+  highlightId = null,
 }: {
   changes: NeedleChange[];
   emptyLabel?: string;
   relationship?: boolean;
   locale?: Locale;
+  /** The one update a deep link addressed (#111) — marked so a reader who followed
+   *  `#relationship-update-42` can see WHICH entry they were sent to. The card
+   *  carries `data-update-id` regardless, so the opener can scroll it into view. */
+  highlightId?: number | null;
 }) {
   if (changes.length === 0) {
     return <p className={styles.empty}>{emptyLabel ?? t(locale, 'noUpdatesRecorded')}</p>;
@@ -30,7 +35,7 @@ export default function NeedleHistoryList({
 
   return (
     <div className={styles.list}>
-      {changes.map((c, i) => {
+      {changes.map((c) => {
         const health = parseHealth(c.health);
         const score = relationship ? deriveScore({ relationshipScore: c.score, theNeedle: c.health }) : null;
         // The prior value, when this update changed it: shown as a gray face with an
@@ -40,7 +45,12 @@ export default function NeedleHistoryList({
             ? deriveScore({ relationshipScore: c.previousScore, theNeedle: c.previousHealth })
             : null;
         return (
-          <article key={`${c.timestamp}-${i}`} className={styles.card}>
+          <article
+            key={c.id}
+            className={styles.card}
+            data-update-id={c.id}
+            data-addressed={highlightId != null && c.id === highlightId ? '' : undefined}
+          >
             <div className={styles.gauge}>
               {relationship && score !== null ? (
                 <span className={styles.relFaces}>
