@@ -112,6 +112,46 @@ test.describe('colour contrast holds in every style × theme', () => {
     expect(failures, failures.join('\n')).toEqual([]);
   });
 
+  // CapacityChart draws the vehicles line and the SOP dots in --fg along the TOP
+  // EDGE of the AAOS band, so that band is their ground. Both used to be literals
+  // — ink hsl(0, 0%, 25%), band #dcd8cd — and a literal-on-literal pair measures
+  // beautifully (7.28:1) in a theme neither belongs to: the dark page had a
+  // near-white band, so the mid-grey line read only because the ground was ALSO
+  // wrong. Tokenising the ink alone would have swapped one invisible drawing for
+  // another (near-white on near-white, 1.21:1), which is why this asserts the
+  // PAIR. 3:1, the non-text floor: a stroke and a dot, not type.
+  test('the vehicles line reads on the AAOS band it rides on', async ({ page }) => {
+    await page.goto('/');
+    const failures: string[] = [];
+    for (const { style, theme } of COMBOS) {
+      const t = await resolveTokens(page, style, theme, ['--fg', '--capacity-aaos']);
+      const r = ratio(luminance(t['--fg']), luminance(t['--capacity-aaos']));
+      if (r < 3) failures.push(`${style}/${theme}: --fg on --capacity-aaos: ${r.toFixed(2)} (${t['--capacity-aaos']})`);
+    }
+    expect(failures, failures.join('\n')).toEqual([]);
+  });
+
+  // The palette is stated in the LIGHT block and only partly restated in the dark one —
+  // two carry their own dark value, three alias tokens that already flip. That split is
+  // the fragile part: add a sixth band as a raw literal with no dark partner and it
+  // simply keeps its light value on dark paper, which is the exact shape of the bug
+  // above. Prose asking the next person to remember is not a mechanism (AGENTS lesson 2),
+  // so assert the property instead: every band MOVES between light and dark, however it
+  // gets there. This does not care which route a token takes, only that it flips.
+  test('every capacity band has a dark value — aliased or its own', async ({ page }) => {
+    await page.goto('/');
+    const BANDS = ['--capacity-aaos', '--capacity-gbi', '--capacity-gas', '--capacity-dk', '--capacity-aap'];
+    const failures: string[] = [];
+    for (const { style } of COMBOS.filter((c) => c.theme === 'light')) {
+      const light = await resolveTokens(page, style, 'light', BANDS);
+      const dark = await resolveTokens(page, style, 'dark', BANDS);
+      for (const b of BANDS) {
+        if (light[b] === dark[b]) failures.push(`${style}: ${b} is ${light[b]} in BOTH themes — no dark value`);
+      }
+    }
+    expect(failures, failures.join('\n')).toEqual([]);
+  });
+
   test('the gauge face stays light in dark themes so the coloured sweep reads', async ({ page }) => {
     await page.goto('/');
     for (const { style } of COMBOS.filter((c) => c.theme === 'dark')) {

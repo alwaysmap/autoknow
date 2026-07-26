@@ -160,6 +160,21 @@
   --band-gained: hsla(146, 62%, 40%, 0.30);       /* days handed back — green */
   --band-buffer: hsla(178, 55%, 40%, 0.22);       /* room still in hand — teal */
 
+  /* Capacity product bands (CapacityChart's CFD stack). A CATEGORICAL palette,
+     deliberately outside the health palette — amber/red/green JUDGE, these only
+     say WHICH product a band is.
+     AAOS is the QUIET BASE the vehicles line and the SOP dots ride on, so each
+     theme states it one soft step off --paper (measured on /ecosystem: 1.3–1.4:1
+     light, 1.7–1.9:1 dark — a band edge, not text) and far enough from --fg for
+     that ink to read on top of it. Why these were hexes in the component, and why
+     that measured FINE until it didn't:
+     docs/knowledge/a-literal-ink-over-a-literal-ground-measures-fine.md. */
+  --capacity-aaos: #dcd8cd;
+  --capacity-gbi: var(--p-200);
+  --capacity-gas: var(--p-400);
+  --capacity-dk: var(--chain-soft);
+  --capacity-aap: #bcd2e0;
+
   --head-font: var(--font-rubik), "Rubik", sans-serif;
   --body-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono-font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
@@ -264,6 +279,15 @@
   --band-lost-forecast: hsla(36, 95%, 58%, 0.34);
   --band-gained: hsla(146, 60%, 55%, 0.32);
   --band-buffer: hsla(178, 55%, 55%, 0.24);
+
+  /* Capacity bands on dark paper — see the light block for what they mean. Only
+     the two that carry their own value need restating; GBI/GAS/DK alias tokens
+     that already flip. AAOS drops to a warm neutral a step ABOVE --paper and
+     7.1:1 under --fg, so the vehicles line and the SOP dots read ON it instead of
+     disappearing into it. AAP mirrors DK's dark lightness, keeping the top two
+     bands told apart by HUE exactly as they are in light. */
+  --capacity-aaos: hsl(42, 10%, 29%);
+  --capacity-aap: hsl(202, 32%, 40%);
 
   color-scheme: dark;
 }

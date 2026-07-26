@@ -27,16 +27,22 @@ import styles from './CapacityChart.module.css';
 // exactly where each ramp begins. Hover reads every band at a quarter; clicking a
 // quarter opens the programs shipping in it; ⤢ opens the chart near-fullscreen.
 
-const INK = 'hsl(0, 0%, 25%)';
+// The vehicles line, the SOP dots and the AAOS label are all the SAME ink — the
+// chart's one piece of foreground drawing — so they share one token. It was a
+// literal `hsl(0, 0%, 25%)`, which is mid-grey in both themes: correct on cream,
+// unreadable on the dark theme's paper. `var(--fg)` is what PhaseTrack's INK
+// already is, and it flips (design.md §8b).
+const INK = 'var(--fg)';
 
 // Categorical band fills — deliberately outside the health palette (amber/red/
 // green judge; these classify). AAOS is the quiet base; products get one tint each.
+// The palette itself lives in globals.css, restated for dark.
 const BAND_FILL: Record<ProductKey, string> = {
-  aaos: '#dcd8cd',
-  gbi: 'var(--p-200)',
-  gas: 'var(--p-400)',
-  digitalKey: 'var(--chain-soft, #c9b9e6)',
-  aap: '#bcd2e0',
+  aaos: 'var(--capacity-aaos)',
+  gbi: 'var(--capacity-gbi)',
+  gas: 'var(--capacity-gas)',
+  digitalKey: 'var(--capacity-dk)',
+  aap: 'var(--capacity-aap)',
 };
 const BAND_CODE: Record<ProductKey, string> = {
   aaos: 'AAOS',
@@ -212,7 +218,7 @@ function ProductAreaChart({
         {placedBandLabels.map(({ k, y: cy, text }) => (
           <ChartLabel key={`lbl${k}`} data-testid={`capacity-band-label-${k}`}
             x={labelLeft} y={centreToBaselineY(cy, labelFs)} fontSize={labelFs}
-            fontWeight={k === 'aaos' ? 600 : 400} fill={k === 'aaos' ? INK : 'var(--fg)'}>
+            fontWeight={k === 'aaos' ? 600 : 400} fill={INK}>
             {text}
             <title>{t(locale, BAND_NAME_KEY[k])}</title>
           </ChartLabel>
