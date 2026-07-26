@@ -12,6 +12,7 @@ import { RelationshipCell } from '../../components/RelationshipScale';
 import { parseScore, clampScore, REL_KEY } from '../../lib/relationship';
 import { PersonList } from '../../components/PersonCell';
 import { deriveEmail, normalizeHandle } from '../../lib/auth';
+import type { PersonLike } from '../../lib/people';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 import styles from './page.module.css';
@@ -50,7 +51,7 @@ interface Option {
 interface PartnersClientProps {
   partners: Partner[];
   currentUser: string;
-  people: RosterMember[];
+  people: PersonLike[];
   /** partnerId → latest score + oldest→newest history (see lib/relationship). */
   relationship: Record<number, { score: number | null; history: number[] }>;
   types: Option[];
