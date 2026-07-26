@@ -434,13 +434,24 @@ model PersonAffiliation {
   startDate DateTime
   endDate   DateTime? // null means current
 
+  // Superseded for READS by the composites below, which have these as strict
+  // prefixes — kept only because dropping an index is not additive. Owned by bead
+  // autoknow-4y3, to land after E5 is healthy in prod so a plan regression stays
+  // attributable to one change. Not an oversight; do not "tidy" them separately.
   @@index([personId])
   @@index([partnerId])
-  // As-of lookups (#127 E4, spec #124 §5): every temporal resolver filters the
-  // half-open range `startDate <= t < endDate` after picking the person or the
-  // partner, so the range columns belong in the index the lookup already uses.
-  // The bare [personId] / [partnerId] indexes above are strict prefixes of these
-  // and stay for now — dropping them is a separate, non-additive change.
+  // As-of lookups (#127 E4, spec #124 §5). `endDate` is nullable, so the predicate
+  // is `startDate <= t AND (endDate IS NULL OR endDate > t)` — NOT a clean half-open
+  // range, and the two trailing columns earn their place for different reasons:
+  //   startDate is an index BOUND (it lands in Index Cond).
+  //   endDate is NOT, and cannot be: `IS NULL OR >` is not an indexable boundary.
+  //     It rides along so a resolver selecting only these columns gets an Index
+  //     Only Scan and evaluates that filter without touching the heap.
+  // Verified by EXPLAIN, not assumed — forcing the plan gives
+  // `Index Cond: personId = .. AND startDate <= ..` with `Filter: endDate IS NULL
+  // OR endDate > ..`, and `Index Only Scan` once the select list stays inside the
+  // index. Widen or reorder these and re-run that EXPLAIN before believing a
+  // claim about which half is a bound.
   @@index([personId, startDate, endDate])
   @@index([partnerId, startDate, endDate])
 }
