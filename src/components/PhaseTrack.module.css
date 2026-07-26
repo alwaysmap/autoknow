@@ -819,55 +819,14 @@
   border-radius: 0.125rem;
 }
 
-/* Focused DETAILS popover: the phase lifts off the rail and floats over a scrim —
-   a clearly different mode, not a denser inline card. Click-scrim or Esc to close.
-   Status update, involvement editing, dependencies, history, and removal live here. */
-.scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 110; /* above the pinned nav (100) — a modal owns the whole viewport */
-  background: rgba(20, 20, 20, 0.4);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 6vh 1rem 1rem;
-  overflow-y: auto;
-  animation: scrimIn 0.12s ease-out;
-}
-@keyframes scrimIn {
-  from { background: rgba(20, 20, 20, 0); }
-  to { background: rgba(20, 20, 20, 0.4); }
-}
+/* The focused phase popover is an OverlayDialog (#34) — that container owns the scrim,
+   the max-height, the single scroll region, the body-scroll lock and the one dismiss
+   contract, so none of it lives here any more. This class is LOOK ONLY, per the
+   component's `className` contract: the chain-accent left edge that says "you are
+   focused on one station", echoing the constraint marker on the rail. Re-adding any
+   sizing here is how the popover last grew past the bottom of the viewport. */
 .popover {
-  position: relative;
-  width: min(71.25rem, 94vw); /* two-pane dossier; updates are 4-5 sentence prose */
-  background: var(--paper);
-  border: 1px solid var(--border);
-  /* the chain-accent edge echoes the constraint marker — "you are focused on one station" */
   border-left: 3px solid var(--chain);
-  border-radius: 0.625rem;
-  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.18);
-  padding: 1.375rem 1.625rem;
-  animation: popIn 0.14s ease-out;
-}
-@keyframes popIn {
-  from { transform: translateY(0.5rem); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-.popClose {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.875rem;
-  background: none;
-  border: none;
-  font-size: 0.9375rem;
-  line-height: 1;
-  color: var(--muted);
-  cursor: pointer;
-  padding: 0.25rem;
-}
-.popClose:hover {
-  color: var(--fg);
 }
 .popStation {
   align-self: center;
@@ -1212,7 +1171,9 @@
 .progressPane {
   flex: 1.25; /* updates are prose — the writing/reading pane gets the wider beam */
   min-width: 0;
-  /* updates + full history scroll inside the pane; the popover itself stays put */
+  /* Updates + full history scroll inside the PANE. A deliberate second scroller inside
+     OverlayDialog's own body: the two panes are independent readings, so the history
+     running long must not push the About pane off the bottom. */
   max-height: 62vh;
   overflow-y: auto;
   padding-right: 0.25rem; /* room for the scrollbar, not a box */

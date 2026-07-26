@@ -536,19 +536,8 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     return () => window.removeEventListener('autoknow:jump-phase', onJump);
   }, [phases, jumpTo]);
 
-  // Esc closes the focused popover — the scrim is the other way out.
-  useEffect(() => {
-    if (detailsId == null) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeDetails(); };
-    window.addEventListener('keydown', onKey);
-    // A modal owns the viewport: the page behind must not scroll under the scrim.
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [detailsId, closeDetails]);
+  // Esc, the backdrop, and the body-scroll lock for the focused popover are all
+  // OverlayDialog's (#34), not ours.
 
   // Esc leaves the traced mode too — but only once the popover has taken its turn,
   // so one key never closes two things at once.
@@ -807,7 +796,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     if (next === 0) clearStarted();
   };
 
-  // The popover body — built only when a phase is focused, rendered inside the scrim.
+  // The popover body — built only when a phase is focused, rendered into an OverlayDialog.
   const detailsOverlay = (() => {
     if (!details) return null;
     const p = details;
@@ -821,27 +810,30 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     const log = fullLog?.phaseId === p.id ? fullLog.entries : p.history;
 
     return (
-      <div className={styles.scrim} role="presentation" onClick={closeDetails}>
-        <div
-          className={styles.popover}
-          role="dialog"
-          aria-modal="true"
-          aria-label={p.name}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button type="button" className={styles.popClose} onClick={closeDetails}
-            aria-label={t(locale, 'closeEdit')}>✕</button>
-
-          {/* keyed by phase: swapping a neighbour into this window must remount the
-              form (a half-typed note belongs to the phase it was typed for) */}
-          <div className={styles.details} data-testid="phase-details" key={p.id}>
-            <div className={styles.detailsHead}>
-              <StationGlyph progress={p.progress} />
-              <h3 className={styles.detailsTitle} title={status(statusProgress(p.progress, p.startedAt))}>{p.name}</h3>
-              <span className={styles.plan}>{planWords(p)}</span>
-              {paceChip(p)}
-            </div>
-
+      <OverlayDialog
+        open
+        onClose={closeDetails}
+        // two-pane dossier; updates are 4-5 sentence prose. The container still caps
+        // this at the safe viewport, so it is a max, not a size.
+        width="71.25rem"
+        closeLabel={t(locale, 'closeEdit')}
+        className={styles.popover}
+        // MOVED here from the body div: the phase name now lives in the fixed header, and
+        // specs scope `getByRole('heading')` to this testid. Left on the body, the heading
+        // would sit outside the hook that looks for it.
+        dataTestId="phase-details"
+        title={(
+          <div className={styles.detailsHead}>
+            <StationGlyph progress={p.progress} />
+            <h3 className={styles.detailsTitle} title={status(statusProgress(p.progress, p.startedAt))}>{p.name}</h3>
+            <span className={styles.plan}>{planWords(p)}</span>
+            {paceChip(p)}
+          </div>
+        )}
+      >
+        {/* keyed by phase: swapping a neighbour into this window must remount the
+            form (a half-typed note belongs to the phase it was typed for) */}
+        <div className={styles.details} key={p.id}>
             {isConstraint && (
               <p className={styles.constraintWhy}>{constraintWhy(p).join(' · ')}</p>
             )}
@@ -1192,9 +1184,8 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                 </div>
               </div>
             </div>
-          </div>
         </div>
-      </div>
+      </OverlayDialog>
     );
   })();
 
