@@ -153,8 +153,13 @@ async function createPartner(body: {
   return partner.id;
 }
 
+// `role`/`startDate` describe the OPENING employment period, which /api/people now
+// creates alongside the person (#127 E5). Supplying them here is what keeps a seeded
+// career contiguous: without them the route defaults to "Member, from today", and the
+// real period posted afterwards through the affiliations route would OVERLAP it.
 async function createPerson(body: {
   name: string; email: string; currentPartnerId: number; notes?: string;
+  role?: string; startDate?: string;
 }): Promise<number> {
   const { person } = await apiPost<CreatedPerson>(postPersonRoute, '/api/people', body);
   return person.id;
@@ -595,43 +600,46 @@ export async function seedMockData() {
   console.log('Seeding people...');
   // People come BEFORE programs: the projects route resolves each program's owner
   // against existing people and refuses freeform names.
-  const meId = await createPerson({
+  await createPerson({
     name: me.name, email: me.email, currentPartnerId: googlePartnerId,
+    role: 'Lead Program Manager', startDate: '2024-01-01',
     notes: 'Lead Program Manager for AutoKnow ecosystem and Ford relationship.',
   });
-  const bobId = await createPerson({
+  await createPerson({
     name: 'Bob AccountManager', email: 'bob@google.com', currentPartnerId: googlePartnerId,
+    role: 'Cloud Account Manager', startDate: '2024-03-15',
     notes: 'Cloud Account Manager supervising OEM contract executions.',
   });
-  const aliceId = await createPerson({
+  await createPerson({
     name: 'Alice PM', email: 'alice@google.com', currentPartnerId: googlePartnerId,
+    role: 'Partner Engineering Manager', startDate: '2023-02-01',
     notes: 'Partner Engineering Manager for the Toyota relationship.',
   });
-  const claraId = await createPerson({
+  await createPerson({
     name: 'Clara Operations', email: 'clara@google.com', currentPartnerId: googlePartnerId,
+    role: 'Supplier Operations Lead', startDate: '2023-07-01',
     notes: 'Supplier Operations Lead covering Bosch programs.',
   });
-  const kenjiId = await createPerson({
+  await createPerson({
     name: 'Kenji Sato', email: 'kenji.sato@toyota.com', currentPartnerId: toyotaId,
+    role: 'VP of Software Engineering', startDate: '2022-06-01',
     notes: 'VP of Software Engineering at Toyota Connected.',
   });
-  const dieterId = await createPerson({
+  await createPerson({
     name: 'Dieter Meyer', email: 'dieter.meyer@bosch.com', currentPartnerId: boschId,
+    role: 'Senior ADAS Systems Lead', startDate: '2023-01-10',
     notes: 'Senior Lead ADAS architect at Bosch GmbH.',
   });
-  const sarahId = await createPerson({
+  await createPerson({
     name: 'Sarah Jenkins', email: 'sjenkins@qualcomm.com', currentPartnerId: qualcommId,
+    role: 'Snapdragon Automotive PM', startDate: '2023-09-01',
     notes: 'Qualcomm Snapdragon Cockpit product manager.',
   });
 
-  console.log('Seeding person affiliations...');
-  await addAffiliation(meId, { partnerId: googlePartnerId, role: 'Lead Program Manager', startDate: '2024-01-01' });
-  await addAffiliation(bobId, { partnerId: googlePartnerId, role: 'Cloud Account Manager', startDate: '2024-03-15' });
-  await addAffiliation(aliceId, { partnerId: googlePartnerId, role: 'Partner Engineering Manager', startDate: '2023-02-01' });
-  await addAffiliation(claraId, { partnerId: googlePartnerId, role: 'Supplier Operations Lead', startDate: '2023-07-01' });
-  await addAffiliation(kenjiId, { partnerId: toyotaId, role: 'VP of Software Engineering', startDate: '2022-06-01' });
-  await addAffiliation(dieterId, { partnerId: boschId, role: 'Senior ADAS Systems Lead', startDate: '2023-01-10' });
-  await addAffiliation(sarahId, { partnerId: qualcommId, role: 'Snapdragon Automotive PM', startDate: '2023-09-01' });
+  // No `addAffiliation` calls for these seven: their current period is the one
+  // `createPerson` opened above. `addAffiliation` is now only for PRIOR periods and
+  // SCHEDULED moves — a second post naming the same job would overlap it, and the
+  // as-of resolvers would then have two rows to choose between for one day.
 
   // Demo programs instantiate these real templates, so their phases carry the
   // researched Goal/"Done when" content and the full DAG. `through` is how far into
@@ -813,19 +821,24 @@ export async function seedMockData() {
   const harmanId = await mkPartner('Harman', 'Supplier', 'AMER', 'Audio + telematics stacks on Stellantis programs.');
   const mediatekId = await mkPartner('MediaTek', 'Supplier', 'APAC', 'Dimensity Auto silicon on mid-range cockpits.');
 
-  const mkPerson = (name: string, email: string, currentPartnerId: number, notes: string) =>
-    createPerson({ name, email, currentPartnerId, notes });
+  // Each carries the ROLE they hold today, which is what opens their current period —
+  // before #127 E5 these eight had no current affiliation at all, so the directory's Role
+  // column was blank for half its rows and nobody noticed, because Company was still
+  // being read off the cache.
+  const mkPerson = (name: string, email: string, currentPartnerId: number, role: string, startDate: string, notes: string) =>
+    createPerson({ name, email, currentPartnerId, role, startDate, notes });
 
-  const priyaId = await mkPerson('Priya Sharma', 'priyash@google.com', googlePartnerId, 'Partner engineer across GAS integrations.');
-  const marcusId = await mkPerson('Marcus Webb', 'marcusw@google.com', googlePartnerId, 'TPM for the AAOS bring-up portfolio.');
-  const aikoId = await mkPerson('Aiko Tanaka', 'aiko@honda.example', hondaId, 'Honda cockpit software lead.');
-  const lenaId = await mkPerson('Lena Fischer', 'lena@continental.example', continentalId, 'Continental integration architect.');
-  const carlosId = await mkPerson('Carlos Ruiz', 'carlos@gm.example', gmId, 'GM Ultifi platform owner.');
-  const minjiId = await mkPerson('Min-ji Park', 'minji@lge.example', lgeId, 'LGE head-unit delivery manager.');
-  const svenId = await mkPerson('Sven Larsson', 'sven@volvocars.example', volvoCarsId, 'Volvo Digital Key security lead.');
-  const deepakId = await mkPerson('Deepak Rao', 'deepak@mediatek.example', mediatekId, 'MediaTek automotive FAE.');
+  const priyaId = await mkPerson('Priya Sharma', 'priyash@google.com', googlePartnerId, 'Partner Engineer', '2023-04-01', 'Partner engineer across GAS integrations.');
+  const marcusId = await mkPerson('Marcus Webb', 'marcusw@google.com', googlePartnerId, 'Technical Program Manager', '2022-09-01', 'TPM for the AAOS bring-up portfolio.');
+  const aikoId = await mkPerson('Aiko Tanaka', 'aiko@honda.example', hondaId, 'Cockpit Software Lead', '2021-04-01', 'Honda cockpit software lead.');
+  const lenaId = await mkPerson('Lena Fischer', 'lena@continental.example', continentalId, 'Integration Architect', '2023-05-01', 'Continental integration architect.');
+  const carlosId = await mkPerson('Carlos Ruiz', 'carlos@gm.example', gmId, 'Ultifi Platform Owner', '2022-02-01', 'GM Ultifi platform owner.');
+  const minjiId = await mkPerson('Min-ji Park', 'minji@lge.example', lgeId, 'Head-unit Delivery Manager', '2024-08-01', 'LGE head-unit delivery manager.');
+  const svenId = await mkPerson('Sven Larsson', 'sven@volvocars.example', volvoCarsId, 'Digital Key Security Lead', '2021-11-01', 'Volvo Digital Key security lead.');
+  const deepakId = await mkPerson('Deepak Rao', 'deepak@mediatek.example', mediatekId, 'Automotive FAE', '2022-01-01', 'MediaTek automotive FAE.');
 
-  // A little career history so people pages have texture.
+  // PRIOR periods only — each ends exactly where the current one above begins, so every
+  // career is contiguous and half-open with no day covered twice.
   await addAffiliation(lenaId, { partnerId: boschId, role: 'Platform engineer', startDate: '2019-02-01', endDate: '2023-05-01' });
   await addAffiliation(deepakId, { partnerId: qualcommId, role: 'FAE', startDate: '2018-06-01', endDate: '2022-01-01' });
   await addAffiliation(minjiId, { partnerId: harmanId, role: 'Delivery lead', startDate: '2020-03-01', endDate: '2024-08-01' });
@@ -1128,16 +1141,23 @@ export async function seedMockData() {
     honda: { role: 'Cockpit Platform Lead' },
   };
 
+  // Creation opens the CURRENT period (Google, from 2026-07-01) — the third of the four.
+  // It is authored here rather than posted afterwards because /api/people opens one
+  // regardless (#127 E5): a second post naming the same job would sit ON TOP of it, and
+  // "no overlap anywhere" below would stop being true the moment it was written.
   const aliceWatersId = await createPerson({
     name: 'Alice Waters',
     email: ALICE.google.email,
     currentPartnerId: googlePartnerId,
-    // Company and title live in the periods below, so the note does not repeat them.
+    role: ALICE.google.role, startDate: ALICE.google.start,
+    // Company and title live in the periods, so the note does not repeat them.
     notes: 'Telematics platform engineer who moved to the Google side of the same programs.',
   });
 
-  // Contiguous and half-open (`start <= t < end`): each period's end IS the next
-  // one's start, so there is no gap and no overlap anywhere in the career.
+  // The two CLOSED periods before it. Contiguous and half-open (`start <= t < end`):
+  // each period's end IS the next one's start, so there is no gap and no overlap
+  // anywhere in the career — including into the Google period opened above, whose start
+  // is exactly the Qualcomm period's end.
   await addAffiliation(aliceWatersId, {
     partnerId: boschId, role: ALICE.bosch.role,
     startDate: ALICE.bosch.start, endDate: ALICE.bosch.end,
@@ -1145,9 +1165,6 @@ export async function seedMockData() {
   await addAffiliation(aliceWatersId, {
     partnerId: qualcommId, role: ALICE.qualcomm.role,
     startDate: ALICE.qualcomm.start, endDate: ALICE.qualcomm.end,
-  });
-  await addAffiliation(aliceWatersId, {
-    partnerId: googlePartnerId, role: ALICE.google.role, startDate: ALICE.google.start,
   });
 
   /** A program whose phases are dated by LITERAL calendar dates rather than by

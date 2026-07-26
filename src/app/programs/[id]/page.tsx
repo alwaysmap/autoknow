@@ -18,6 +18,7 @@ import { getSummary } from '../../../lib/summaries';
 import { geminiConfigured } from '../../../lib/gemini';
 import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
 import { resolvePerson } from '../../../lib/people';
+import { profilesAsOf } from '../../../lib/profiles';
 import { effectiveStartedAt, phaseDetailHref, statusProgress } from '../../../lib/phase';
 import PhaseHillChart from '../../../components/PhaseHillChart';
 import { tNodes } from '../../../components/tNodes';
@@ -73,7 +74,7 @@ export default async function ProjectDetailsPage(props: {
             orderBy: { id: 'asc' }
           },
           partners: { include: { partner: { include: { type: true } } } },
-          people: { include: { person: { include: { currentPartner: { include: { type: true } } } } } },
+          people: { include: { person: { select: { id: true, name: true } } } },
           dependencies: true
         },
         orderBy: { id: 'asc' }
@@ -150,6 +151,12 @@ export default async function ProjectDetailsPage(props: {
   for (const pp of personElsewhere) {
     if (isActive(pp.phase.states)) personLoad.set(pp.personId, (personLoad.get(pp.personId) ?? 0) + 1);
   }
+  // Which company each phase participant is at TODAY, in one query for the whole page —
+  // it drives the OEM/supplier colour of their pill on the track. As-of, not the
+  // `currentPartner` cache the include above used to carry (ADR
+  // currentpartnerid-is-a-cache-affiliations-are-the-truth).
+  const profileByPerson = await profilesAsOf(involvedPersonIds);
+
   const graphRows = project.phases.map((phase) => {
     return {
       id: phase.id,
@@ -196,8 +203,8 @@ export default async function ProjectDetailsPage(props: {
         personId: pp.personId,
         name: pp.person.name,
         role: pp.role,
-        company: pp.person.currentPartner?.name ?? null,
-        companyType: pp.person.currentPartner?.type?.name ?? null,
+        company: profileByPerson.get(pp.personId)?.partner.name ?? null,
+        companyType: profileByPerson.get(pp.personId)?.partner.type?.name ?? null,
         otherActive: personLoad.get(pp.personId) ?? 0,
       })),
     };
@@ -360,7 +367,7 @@ export default async function ProjectDetailsPage(props: {
           hasGbi={project.hasGbi}
           hasDigitalKey={project.hasDigitalKey}
           hasAap={project.hasAap}
-          currentPartnerId={project.partnerId}
+          leadPartnerId={project.partnerId}
           partnerOptions={[...oems, ...suppliers].map((pa) => ({ id: pa.id, name: pa.name, isOem: oems.some((o) => o.id === pa.id) }))}
           peopleOptions={allPeople}
           oemPartner={oemPartner ? { id: oemPartner.id, name: oemPartner.name } : null}

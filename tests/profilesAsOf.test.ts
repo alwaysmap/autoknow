@@ -10,6 +10,7 @@
 import { testDatabaseUrl } from './helpers/testDatabaseUrl';
 process.env.DATABASE_URL = testDatabaseUrl(); // bind lib/db to the *_test database
 
+import { Prisma } from '@prisma/client';
 import { prisma, disconnectTestDb } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -21,6 +22,8 @@ type Profiles = typeof import('../src/lib/profiles');
 let profileAsOf: Profiles['profileAsOf'];
 let profilesAsOf: Profiles['profilesAsOf'];
 let partnerRosterAsOf: Profiles['partnerRosterAsOf'];
+let partnerRostersAsOf: Profiles['partnerRostersAsOf'];
+let personIsAtPartnerAsOfSql: Profiles['personIsAtPartnerAsOfSql'];
 
 const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 /** Asked about a FIXED day, never `new Date()`: a resolver whose test drifts with the
@@ -34,7 +37,8 @@ let google: number;
 let honda: number;
 
 beforeAll(async () => {
-  ({ profileAsOf, profilesAsOf, partnerRosterAsOf } = await import('../src/lib/profiles'));
+  ({ profileAsOf, profilesAsOf, partnerRosterAsOf, partnerRostersAsOf, personIsAtPartnerAsOfSql } =
+    await import('../src/lib/profiles'));
   await wipeAll();
 
   const region = { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } };
@@ -133,5 +137,57 @@ describe('partnerRosterAsOf', () => {
     expect(await partnerRosterAsOf(bosch, TODAY)).toEqual([]);
     expect((await partnerRosterAsOf(bosch, d('2023-06-01'))).map((r) => r.person.name))
       .toEqual(['Alice Waters']);
+  });
+});
+
+describe('partnerRostersAsOf', () => {
+  // The plural exists because /partners renders a team cell per row. Its predecessor
+  // unioned the `currentPartnerId` back-relation with EVERY affiliation the partner had
+  // ever had, so these assertions are the two halves of that bug.
+  it('gives each partner the same roster the singular would', async () => {
+    const all = await partnerRostersAsOf(TODAY);
+    expect(all.get(google)?.map((p) => p.name)).toEqual(['Alice Waters', 'Bob Miller']);
+    const single = await partnerRosterAsOf(google, TODAY);
+    expect(all.get(google)?.map((p) => p.id)).toEqual(single.map((r) => r.person.id));
+  });
+
+  it('drops a leaver rather than keeping them forever', async () => {
+    // Alice left Bosch in 2024; the old union listed her there permanently.
+    expect((await partnerRostersAsOf(TODAY)).has(bosch)).toBe(false);
+    expect((await partnerRostersAsOf(d('2023-06-01'))).get(bosch)?.map((p) => p.name))
+      .toEqual(['Alice Waters']);
+  });
+
+  it('omits a partner nobody is at that day rather than mapping it to []', async () => {
+    // Same contract as profilesAsOf: callers default, they do not distinguish two empties.
+    expect((await partnerRostersAsOf(TODAY)).has(honda)).toBe(false);
+  });
+});
+
+describe('personIsAtPartnerAsOfSql', () => {
+  // lib/search's UNION is hand-written SQL and cannot call the Prisma resolvers, so this
+  // is the same sentence rendered as a predicate. It must agree with them: a column name
+  // inside a template literal is just text, so no AST rule can catch a drift here — this
+  // test is the only thing that can.
+  const at = async (partnerId: number, day: Date) =>
+    (
+      await prisma.$queryRaw<{ id: number; name: string }[]>`
+        SELECT pe.id, pe.name FROM "Person" pe
+        WHERE ${personIsAtPartnerAsOfSql(Prisma.sql`pe.id`, partnerId, day)}
+        ORDER BY pe.name ASC`
+    ).map((r) => r.name);
+
+  it('agrees with partnerRosterAsOf on who is there today', async () => {
+    expect(await at(google, TODAY)).toEqual(['Alice Waters', 'Bob Miller']);
+  });
+
+  it('excludes the partner someone has not started at, and the one they left', async () => {
+    expect(await at(honda, TODAY)).toEqual([]);
+    expect(await at(bosch, TODAY)).toEqual([]);
+  });
+
+  it('moves with the day, which is why it takes one', async () => {
+    expect(await at(honda, d('2027-01-01'))).toEqual(['Alice Waters']);
+    expect(await at(bosch, d('2023-06-01'))).toEqual(['Alice Waters']);
   });
 });

@@ -20,7 +20,9 @@ interface PersonRow {
   id: number;
   name: string;
   email: string;
-  companyId: number;
+  /** Null when no affiliation period covers today — a gap, or a hire starting later.
+   *  The cell below already renders that case as plain text (#127 E5). */
+  companyId: number | null;
   company: string;
   role: string;
   programs: number;

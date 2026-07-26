@@ -131,11 +131,19 @@ export const projectLifecycleSchema = z.object({
 
 // ---- people / projects (JSON API) -----------------------------------------------
 
+// `currentPartnerId` keeps its name — it is the published request contract — but since
+// #127 E5 it means "the partner they START at", and the route opens the employment
+// period to say so. `role`/`startDate` describe that opening period; omitting them means
+// "Member, from today", which is all a caller who only knows the company can honestly
+// say. A caller who knows the real career supplies them here rather than creating the
+// person and then posting a SECOND period that overlaps the default.
 export const personApiSchema = z.object({
   name: zText.max(200),
   email: z.email(),
   currentPartnerId: zId,
   notes: zTextOrNull.optional(),
+  role: zText.max(100).optional(),
+  startDate: z.coerce.date().optional(),
 });
 
 export const projectApiSchema = z.object({

@@ -29,18 +29,15 @@ interface Person {
   email: string;
 }
 
-interface Affiliation {
-  person: Person;
-}
-
 interface Partner {
   id: number;
   name: string;
   type: string;
   region: string;
   projects: Project[];
-  currentEmployees: Person[];
-  personAffiliations: Affiliation[];
+  /** Who is at this partner TODAY (lib/partnerQueries). Used to be the union of a
+   *  `currentPartnerId` cache and every affiliation ever recorded — see #127 E5. */
+  team: Person[];
 }
 
 interface Option {
@@ -90,8 +87,7 @@ export default function PartnersClient({ partners, currentUser, people, relation
       !!value && (deriveEmail(value) === userEmail || normalizeHandle(value) === userHandle);
     const isMyPartner = (partner: Partner) =>
       partner.projects.some((p) => isCurrentUser(p.ownerName)) ||
-      partner.currentEmployees.some((e) => isCurrentUser(e.email)) ||
-      partner.personAffiliations.some((pa) => isCurrentUser(pa.person.email));
+      partner.team.some((e) => isCurrentUser(e.email));
     return partners.filter((partner) => !myPartnersOnly || isMyPartner(partner));
   }, [partners, myPartnersOnly, userEmail, userHandle]);
 
@@ -106,13 +102,10 @@ export default function PartnersClient({ partners, currentUser, people, relation
         new Set(partner.projects.map((p) => p.ownerName).filter(Boolean))
       ) as string[];
 
-      // Extract unique team member emails
-      const team = Array.from(
-        new Set([
-          ...partner.currentEmployees.map((e) => e.email),
-          ...partner.personAffiliations.map((pa) => pa.person.email),
-        ])
-      ).filter(Boolean) as string[];
+      // Team member emails. The Set is belt-and-braces: the as-of predicate SELECTS one
+      // period per person, but nothing constrains the data to have only one, so an
+      // overlap authored elsewhere must not print a name twice.
+      const team = Array.from(new Set(partner.team.map((e) => e.email)));
 
       return {
         id: partner.id,

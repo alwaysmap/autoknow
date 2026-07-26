@@ -1234,6 +1234,12 @@ const STRINGS = {
   createMyProfile: { en: 'Create my profile', de: 'Mein Profil erstellen', ja: 'マイプロフィールを作成', ko: '내 프로필 만들기' },
   selectProgram: { en: 'Select program…', de: 'Programm wählen…', ja: 'プログラムを選択…', ko: '프로그램 선택…' },
   selectPhase: { en: 'Select phase…', de: 'Phase wählen…', ja: 'フェーズを選択…', ko: '단계 선택…' },
+  noAffiliations: {
+    en: 'No employment history recorded.',
+    de: 'Keine Beschäftigungshistorie erfasst.',
+    ja: '所属履歴は登録されていません。',
+    ko: '소속 이력이 등록되지 않았습니다.',
+  },
   noPriorCompanies: {
     en: 'No companies before {c}.',
     de: 'Keine Unternehmen vor {c}.',

@@ -1,4 +1,5 @@
 import { prisma } from './db';
+import { partnerRostersAsOf, type RosterMember } from './profiles';
 
 // Partner list data for /partners. Plain module functions on the shared prisma
 // singleton (the rest of the codebase's convention) — not a constructor-injected
@@ -11,44 +12,44 @@ export interface ProjectSummary {
   ownerName: string | null;
 }
 
-export interface EmployeeSummary {
-  id: number;
-  name: string;
-  email: string;
-}
-
-export interface AffiliationSummary {
-  person: {
-    id: number;
-    name: string;
-    email: string;
-  };
-}
-
 export interface PartnerWithRelations {
   id: number;
   name: string;
   type: string;
   region: string;
   projects: ProjectSummary[];
-  currentEmployees: EmployeeSummary[];
-  personAffiliations: AffiliationSummary[];
+  /** Who is at this partner TODAY — the as-of roster (#127 E5), the same answer
+   *  /partners/:id lists. */
+  team: RosterMember[];
 }
 
-/** All partners with projects, current employees, and affiliations. */
+/**
+ * All partners with their projects and today's roster.
+ *
+ * The roster replaces a UNION of two wrong sets: `currentEmployees` (the
+ * `currentPartnerId` back-relation, so the cache — see ADR
+ * currentpartnerid-is-a-cache-affiliations-are-the-truth) and `personAffiliations`
+ * (every affiliation the partner had EVER had). The team cell listed leavers
+ * permanently and "My partners" matched a company you left in 2022. Adding a stale set
+ * to an unfiltered one is not a hedge, it is both errors at once.
+ *
+ * Worth knowing for the NEXT sweep: `currentEmployees` is a back-relation, so it never
+ * appeared in any grep for "currentPartner" and this file survived the first two passes
+ * (docs/knowledge/a-prisma-back-relation-hides-the-field-you-are-grepping-for.md).
+ */
 export async function getAllPartners(): Promise<PartnerWithRelations[]> {
-  const rows = await prisma.partner.findMany({
-    include: {
-      type: { select: { name: true } },
-      region: { select: { name: true } },
-      projects: { select: { id: true, name: true, isArchived: true, ownerName: true } },
-      currentEmployees: { select: { id: true, name: true, email: true } },
-      personAffiliations: {
-        select: { person: { select: { id: true, name: true, email: true } } },
+  const [rows, rosters] = await Promise.all([
+    prisma.partner.findMany({
+      include: {
+        type: { select: { name: true } },
+        region: { select: { name: true } },
+        projects: { select: { id: true, name: true, isArchived: true, ownerName: true } },
       },
-    },
-    orderBy: { name: 'asc' },
-  });
+      orderBy: { name: 'asc' },
+    }),
+    // One query for every partner's roster, not one per row.
+    partnerRostersAsOf(),
+  ]);
   // Map to the string-typed UI contract — an explicit projection, not an `as unknown`.
   return rows.map((r) => ({
     id: r.id,
@@ -56,8 +57,7 @@ export async function getAllPartners(): Promise<PartnerWithRelations[]> {
     type: r.type?.name ?? '',
     region: r.region?.name ?? '',
     projects: r.projects,
-    currentEmployees: r.currentEmployees,
-    personAffiliations: r.personAffiliations,
+    team: rosters.get(r.id) ?? [],
   }));
 }
 

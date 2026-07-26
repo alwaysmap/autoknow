@@ -2,6 +2,7 @@ import 'server-only';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { embedForStorage, embedForQuery, geminiConfigured } from './gemini';
+import { personIsAtPartnerAsOfSql } from './profiles';
 import { FEED_TYPES, type FeedType, type FeedScope, type FeedItem } from './feed';
 
 // Unified search over everything in AutoKnow. Every searchable thing is tagged with
@@ -220,7 +221,12 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope, sem
     case 'person': {
       const where =
         partnerId != null
-          ? Prisma.sql`pe."currentPartnerId" = ${partnerId}`
+          ? // Who is at this partner TODAY (#127 E5). This was `pe."currentPartnerId" =
+            // …` — a cache, and one no AST-level lint rule could ever have seen, because
+            // inside `Prisma.sql` a column name is just text. Searching a partner's
+            // scope therefore returned people who had not started and missed people who
+            // had. The predicate is `lib/profiles`', not spelled again here.
+            personIsAtPartnerAsOfSql(Prisma.sql`pe.id`, partnerId)
           : projectId != null
             ? Prisma.sql`FALSE`
             : Prisma.sql`TRUE`;

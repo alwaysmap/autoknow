@@ -9,6 +9,7 @@ import { authConfigured } from '../../auth';
 import { userFromHandle } from '../../lib/auth';
 import { parseForm, personCreateSchema, personDeleteSchema, personMoveSchema, personUpdateSchema } from '../../lib/schemas';
 import { hasTakenEffect } from '../../lib/people';
+import { createPersonAt } from '../../lib/profiles';
 import { guarded, type ActionResult } from '../../lib/actionResult';
 
 // Person maintenance (move / delete), zod-gated (lib/schemas). Lives here —
@@ -21,12 +22,7 @@ import { guarded, type ActionResult } from '../../lib/actionResult';
 
 export async function createPerson(formData: FormData) {
   const { name, email, partnerId, role } = parseForm(personCreateSchema, formData);
-  const person = await prisma.person.create({
-    data: { name, email, currentPartnerId: partnerId },
-  });
-  await prisma.personAffiliation.create({
-    data: { personId: person.id, partnerId, role: role ?? 'Member', startDate: new Date() },
-  });
+  const person = await createPersonAt({ name, email, partnerId, role: role ?? 'Member' });
   await indexEntity('person', person.id);
   redirect(`/people/${person.id}`);
 }
@@ -46,14 +42,9 @@ export async function createMyProfile(formData: FormData) {
   const existing = await prisma.person.findUnique({ where: { email } });
   if (existing) redirect(`/people/${existing.id}`);
 
-  const person = await prisma.person.create({
-    // The person's NAME is the human name ('Dylan Thomas'), not the handle — the
-    // directory is read by people, and resolvePerson matches on the unique email.
-    data: { name: identity.name, email, currentPartnerId: partnerId },
-  });
-  await prisma.personAffiliation.create({
-    data: { personId: person.id, partnerId, role: 'Member', startDate: new Date() },
-  });
+  // The person's NAME is the human name ('Dylan Thomas'), not the handle — the
+  // directory is read by people, and resolvePerson matches on the unique email.
+  const person = await createPersonAt({ name: identity.name, email, partnerId });
   await indexEntity('person', person.id);
   redirect(`/people/${person.id}`);
 }
@@ -62,8 +53,16 @@ export async function movePersonCompany(formData: FormData): Promise<ActionResul
   return guarded(async () => {
   const { personId, newPartnerId, newRole, startDate } = parseForm(personMoveSchema, formData);
 
-  // Close any currently active affiliations, then open the new one.
+  // Close any currently OPEN affiliations, then open the new one.
+  //
+  // The guard fires here and the disable is honest rather than a waiver: "open" is not
+  // "current", and this action knows it. With a move already scheduled — today's period
+  // closed on 1 Nov, next November's open — recording a second move closes the FUTURE
+  // period and leaves today's alone, so the career gains an overlap. Closing the period
+  // that COVERS the effective date is the right rule, and it belongs with the unified
+  // move/correct dialog rather than bolted on here: autoknow-pvn (#127 E14).
   await prisma.personAffiliation.updateMany({
+    // eslint-disable-next-line no-restricted-syntax -- known-wrong, tracked in autoknow-pvn
     where: { personId, endDate: null },
     data: { endDate: startDate },
   });

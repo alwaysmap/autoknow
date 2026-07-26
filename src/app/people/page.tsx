@@ -23,29 +23,35 @@ export default async function PeoplePage(props: { searchParams: Promise<SearchPa
       id: true,
       name: true,
       email: true,
-      currentPartner: { select: { id: true, name: true } },
       phaseInvolvements: { select: { phase: { select: { projectId: true } } } },
       actionItems: { select: { phase: { select: { projectId: true } } } },
     },
   });
 
-  // ONE query for the whole page rather than one per row. Note the Company column above
-  // still comes from `currentPartner` — this made the ROLE as-of, not the whole row;
-  // demoting that cache is the rest of #127 E5.
+  // ONE query for the whole page rather than one per row, and now the source of BOTH
+  // company and role. It used to feed only Role while Company came off the
+  // `currentPartnerId` cache, so a row could name one employer and that employer's
+  // predecessor's job title (#127 E5).
   const affiliationByPerson = await profilesAsOf(people.map((p) => p.id));
 
-  const rows = people.map((p) => ({
-    id: p.id,
-    name: p.name,
-    email: p.email,
-    companyId: p.currentPartner.id,
-    company: p.currentPartner.name,
-    role: affiliationByPerson.get(p.id)?.role ?? '',
-    programs: new Set([
-      ...p.phaseInvolvements.map((i) => i.phase.projectId),
-      ...p.actionItems.map((a) => a.phase.projectId),
-    ]).size,
-  }));
+  const rows = people.map((p) => {
+    // No period covering today is a real answer — a gap, or a hire that starts next
+    // month. Blank cells, never a guessed company: the funnel filter groups on the
+    // rendered value, so an invented one would open a phantom facet.
+    const at = affiliationByPerson.get(p.id);
+    return {
+      id: p.id,
+      name: p.name,
+      email: p.email,
+      companyId: at?.partnerId ?? null,
+      company: at?.partner.name ?? '',
+      role: at?.role ?? '',
+      programs: new Set([
+        ...p.phaseInvolvements.map((i) => i.phase.projectId),
+        ...p.actionItems.map((a) => a.phase.projectId),
+      ]).size,
+    };
+  });
 
   const initialFilters = parseFilterParams(searchParams, ['company', 'role']);
   const initialSort = parseSortParams(searchParams);
