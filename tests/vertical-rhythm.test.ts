@@ -107,7 +107,12 @@ describe('vertical rhythm', () => {
     // sanctioned hairline exception. box-shadow is decorative (offsets, blur, and
     // 1px inset hairline dividers) and doesn't participate in layout rhythm — a
     // shadow that doesn't grow with the root is invisible, not broken.
-    const EXEMPT = /^(border(?!-radius)[a-z-]*|outline[a-z-]*|stroke[a-z-]*|box-shadow|background-size|backdrop-filter|text-decoration-thickness|--graticule)$/;
+    //
+    // The graticule exemption names the two IMAGE tokens and stops there. Both carry a
+    // 1px tick as ink; every other `--graticule-*` is GEOMETRY (height, min-width, lead,
+    // and the scale's background-size pair) and is rem like any other length — matching
+    // the family with a wildcard would exempt exactly the tokens that must keep scaling.
+    const EXEMPT = /^(border(?!-radius)[a-z-]*|outline[a-z-]*|stroke[a-z-]*|box-shadow|background-size|backdrop-filter|text-decoration-thickness|--graticule(-scale)?)$/;
     const offenders: string[] = [];
     for (const file of CSS) {
       const text = stripComments(readFileSync(file, 'utf8'))

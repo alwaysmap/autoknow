@@ -381,7 +381,22 @@
      (`margin-left: calc(--graticule-lead - <row gap>)`), and trailing icon affordances
      (⋯ ⓘ) are pulled ink-tight, so the value reads identically on page titles,
      <h2> rows and detail headers. */
+  /* The rule after a TITLE reads as an instrument scale: a taller tick every fifth.
+     Two layers, because ONE repeating gradient cannot vary tick height — each is a
+     single tick tiled by background-size, so the period is the size and the ink is the
+     1px at its left edge. Both hang from the BOTTOM edge, which is the baseline these
+     rules already rest on, so the major grows upward and the minor keeps exactly the
+     height it has today.
+     A separate token from --graticule on purpose: the nav hairline (layout.module.css)
+     and the table header rule (DataTable) pin their own single background-size, which
+     would be applied to BOTH layers and flatten the scale back out. */
+  --graticule-scale:
+    linear-gradient(to right, var(--border) 0 1px, transparent 1px),
+    linear-gradient(to right, var(--border) 0 1px, transparent 1px);
+  --graticule-scale-size: 2.8125rem 100%, 0.5625rem 50%; /* major every 5th minor */
+
   --graticule-height: 0.375rem;    /* tick-rule thickness */
+  --graticule-scale-height: 0.75rem; /* the MAJOR tick; the minor is half of it */
   --graticule-min-width: 1.5rem;   /* the floor a shrink-wrapped rule collapses to */
   --graticule-lead: 0.75rem;       /* ink → first tick; the reader-visible gap */
 }
