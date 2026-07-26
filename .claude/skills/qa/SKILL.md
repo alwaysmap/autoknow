@@ -62,3 +62,7 @@ warnings is the bar — the suite was once left red on main and it hid real bugs
   before closing (the checkbox-label bug existed twice in two files).
 - Prod verification after merge belongs to the **gcp-debug** skill
   (`/api/health` sha check).
+
+**Findings for this surface:** [docs/knowledge/](../../../docs/knowledge/README.md) —
+scan the trigger column for `mutation-testing a new guard` before planting a mutation,
+and when a restored baseline is still red.

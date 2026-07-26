@@ -3,6 +3,7 @@ status: accepted
 date: 2026-07-20
 supersedes: ""
 superseded-by: ""
+extended-by: parallel-work-merges-serially
 tags: [deploy, ci]
 ---
 

@@ -19,7 +19,11 @@ const AGENTS = 'AGENTS.md';
 
 /** The numbers actually defined by the lessons list. */
 const defined = (): number[] => {
-  const body = readFileSync(AGENTS, 'utf8').split('# Compounding lessons')[1] ?? '';
+  // Bounded at the next heading, not at EOF: anything appended to AGENTS.md below this
+  // section — a managed block from another tool, say — otherwise contributes its own
+  // numbered list and reads as a renumbering of the lessons (2026-07-26, beads adoption).
+  const after = readFileSync(AGENTS, 'utf8').split('# Compounding lessons')[1] ?? '';
+  const body = after.split(/^#{1,6} /m)[0];
   return [...body.matchAll(/^(\d+)\. /gm)].map((m) => Number(m[1]));
 };
 

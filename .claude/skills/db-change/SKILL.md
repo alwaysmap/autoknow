@@ -28,6 +28,10 @@ mock seed — OPERATIONS §1).
 host — `npm run db:up` / `db:down` manage the one sanctioned container
 (`pgvector/pgvector:pg16` from docker-compose.yml).
 
+**Findings for this surface:** [docs/knowledge/](../../../docs/knowledge/README.md) —
+scan the trigger column for `prisma/migrations/**` and `npm run db:migrate` before
+editing a migration you have already applied.
+
 ## Non-negotiables (enforced, not advisory)
 
 - **Additive** (new table, nullable/defaulted column, index): ships WITH app
