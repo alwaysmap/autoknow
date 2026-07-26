@@ -5,10 +5,14 @@
 // The stepped lane this replaces walked a hand-built event list inside the
 // component (ChainSchedule.tsx). Moving that walk here buys two things the lane
 // could not have:
-//   • ONE SET OF BOOKS. The moves below are derived from `ledger.schedule` with
-//     exactly the predicates `computeChainLedger` uses to build its waterfall, so
-//     the flow and "Where the buffer went" cannot quietly drift apart. The gate is
-//     mechanical: `netDays` must equal `ledger.usedDays` (tests/bufferSeries.test.ts).
+//   • ONE SET OF BOOKS. The moves below apply the same five predicates
+//     `computeChainLedger` uses to build its waterfall (chainLedger.ts:288-299).
+//     They are COPIED, not shared — only `isForecastOver` is imported. That is a
+//     deliberate, temporary duplication: chainLedger.ts is held to a zero-byte diff
+//     this step so #174 rebases onto it cleanly. What holds the two copies together
+//     until they are extracted is mechanical, not vigilance: `netDays` must equal
+//     `ledger.usedDays` (tests/bufferSeries.test.ts). Extracting the other four
+//     predicates is autoknow-4dr.1; do that before a third caller copies them again.
 //   • A SLOPE WHERE THE LOSS WAS GRADUAL. A day of idle handoff costs a day of
 //     buffer, every day it lasts; a phase past its plan tick spends a day per day
 //     it keeps running. Those are RAMPS across their window, not cliffs at one end
@@ -20,7 +24,7 @@
 
 import { isForecastOver, FORECAST_NOISE_DAYS } from './chainLedger';
 import type { ChainLedgerResult, ScheduleRow } from './chainLedger';
-import { DAY_MS } from './sop';
+import { DAY_MS, dayFloor } from './sop';
 
 /**
  * A dated change to the buffer, signed in BUFFER terms: negative spends it,
@@ -58,13 +62,14 @@ export interface BufferSeriesResult {
    * `ledger.usedDays` − `netDays`: buffer the walk cannot point at. Reported,
    * NEVER folded into the points — a flow that silently reconciles itself to the
    * headline number is exactly the flow that cannot tell you the books are off.
-   * (The waterfall keeps its own copy of this as an `unattributed` row, and drops
-   * it below ±2 days as rounding drift; see FORECAST_NOISE_DAYS.)
+   * (The waterfall keeps its own copy of this as an `unattributed` row and drops it
+   * below ±2 days as rounding drift — `chainLedger.ts:304`, a bare literal that
+   * happens to equal FORECAST_NOISE_DAYS but is not derived from it, so tuning that
+   * constant would not move this threshold.)
    */
   unattributedDays: number;
 }
 
-const dayFloor = (ms: number) => Math.floor(ms / DAY_MS) * DAY_MS;
 
 /**
  * The moves, derived from the schedule rows with the waterfall's own predicates.
@@ -129,8 +134,10 @@ export function bufferSeries(ledger: ChainLedgerResult, now: number): BufferSeri
 
   const moves = movesOf(schedule, now);
   // Accumulated as `0 − days` rather than negating the sum: with no moves at all,
-  // negating yields -0, which reads as 0 everywhere except `Object.is` and the
-  // string a renderer would print for it.
+  // negating yields -0. Checked rather than assumed — String(), template literals,
+  // toFixed() and JSON.stringify() all print "0"; the only formatter that surfaces
+  // "-0" is Intl.NumberFormat, which no Chain component uses today. So this costs
+  // nothing and closes the one door (that, and `Object.is` in a future test).
   const netDays = moves.reduce((sum, m) => sum - m.days, 0);
 
   const firstMs = dayFloor(Math.min(...schedule.map((r) => r.startMs)));

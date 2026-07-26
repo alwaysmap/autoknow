@@ -11,7 +11,7 @@
 
 import { isForecastOver } from './chainLedger';
 import type { ScheduleRow } from './chainLedger';
-import { DAY_MS } from './sop';
+import { DAY_MS, dayFloor } from './sop';
 
 /**
  * What a phase was doing on the day — the Option A marks, named. `over` is the
@@ -52,9 +52,18 @@ export interface DaySummary {
   credits: DayCredit[];
 }
 
-const dayFloor = (ms: number) => Math.floor(ms / DAY_MS) * DAY_MS;
 
-interface Span { state: DayPhaseState; a: number; b: number }
+/**
+ * One state sub-span of a phase's bar. NOT named `Span`: `lib/focusWindow` already
+ * exports that name for a `{ min, max }` viewport, and `ChainSchedule.tsx` — the
+ * component step 2 wires `phaseDaySpans` into — already imports it. Two `Span`s in
+ * one file would be an import alias on day one.
+ */
+export interface PhaseSpan {
+  state: DayPhaseState;
+  fromMs: number;
+  toMs: number;
+}
 
 /**
  * A row's state sub-spans — the same decomposition the Option A bar draws, so the
@@ -62,9 +71,11 @@ interface Span { state: DayPhaseState; a: number; b: number }
  * days a phase handed back are not part of the phase (it is over), they are a
  * credit window, and they come back from `summaryAt` as one.
  */
-export function phaseDaySpans(r: ScheduleRow, now: number): Span[] {
-  const out: Span[] = [];
-  const push = (state: DayPhaseState, a: number, b: number) => { if (b > a) out.push({ state, a, b }); };
+export function phaseDaySpans(r: ScheduleRow, now: number): PhaseSpan[] {
+  const out: PhaseSpan[] = [];
+  const push = (state: DayPhaseState, fromMs: number, toMs: number) => {
+    if (toMs > fromMs) out.push({ state, fromMs, toMs });
+  };
   if (r.kind === 'done') {
     push('done', r.startMs, Math.min(r.endMs, r.plannedEndMs));
     push('over', r.plannedEndMs, r.endMs);
@@ -81,20 +92,34 @@ export function phaseDaySpans(r: ScheduleRow, now: number): Span[] {
   return out;
 }
 
-/** How much of [a, b) the day starting at `dayMs` covers. */
-const overlap = (dayMs: number, a: number, b: number) =>
-  Math.min(dayMs + DAY_MS, b) - Math.max(dayMs, a);
+/** How much of [fromMs, toMs) the day starting at `dayMs` covers. */
+const overlap = (dayMs: number, fromMs: number, toMs: number) =>
+  Math.min(dayMs + DAY_MS, toMs) - Math.max(dayMs, fromMs);
+
+/** The state a day belongs to when it straddles two of one phase's spans: the
+ *  larger overlap, ties to the LATER span, because the fact worth surfacing is
+ *  the one the phase moved INTO. */
+function dominantSpan(r: ScheduleRow, dayMs: number, now: number): PhaseSpan | null {
+  let best: PhaseSpan | null = null;
+  let bestOverlapMs = 0;
+  for (const span of phaseDaySpans(r, now)) {
+    const overlapMs = overlap(dayMs, span.fromMs, span.toMs);
+    if (overlapMs > 0 && overlapMs >= bestOverlapMs) {
+      best = span;
+      bestOverlapMs = overlapMs;
+    }
+  }
+  return best;
+}
 
 /**
- * Everything in flight on `dayMs`, for the chain rows `rows` as of `now`.
+ * Everything in flight on `atMs`, for the chain rows `rows` as of `now`.
  *
  * A day is crossed when it OVERLAPS a span at all, so a phase that starts at noon
- * still owns that day. Where a day straddles two of a phase's own spans — the plan
- * tick falling mid-day — the state with the larger overlap wins, ties going to the
- * later span, because the fact worth surfacing is the one the phase moved INTO.
+ * still owns that day.
  */
-export function summaryAt(rows: ScheduleRow[], dayMs: number, now: number): DaySummary {
-  const day = dayFloor(dayMs);
+export function summaryAt(rows: ScheduleRow[], atMs: number, now: number): DaySummary {
+  const day = dayFloor(atMs);
   const phases: DayPhase[] = [];
   const gaps: DayGap[] = [];
   const credits: DayCredit[] = [];
@@ -109,15 +134,11 @@ export function summaryAt(rows: ScheduleRow[], dayMs: number, now: number): DayS
       credits.push({ phaseId: r.id, days: -r.varianceDays, fromMs: r.endMs, toMs: r.plannedEndMs });
     }
 
-    let best: { span: Span; ov: number } | null = null;
-    for (const span of phaseDaySpans(r, now)) {
-      const ov = overlap(day, span.a, span.b);
-      if (ov > 0 && (!best || ov >= best.ov)) best = { span, ov };
-    }
-    if (!best) continue;
+    const dominant = dominantSpan(r, day, now);
+    if (!dominant) continue;
     phases.push({
       row: r,
-      state: best.span.state,
+      state: dominant.state,
       dayIndex: Math.floor((day - dayFloor(r.startMs)) / DAY_MS) + 1,
       spanDays: Math.max(1, Math.round((r.endMs - r.startMs) / DAY_MS)),
     });
