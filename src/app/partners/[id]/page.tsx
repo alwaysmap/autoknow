@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '../../../lib/db';
+import { partnerRosterAsOf } from '../../../lib/profiles';
 import styles from './page.module.css';
 import RelationshipScale from '../../../components/RelationshipScale';
 import PartnerAdminControls from '../../../components/PartnerEditor';
@@ -78,14 +79,7 @@ export default async function PartnerDetailPage(props: PageProps) {
 
   const partner = await prisma.partner.findUnique({
     where: { id: partnerId },
-    include: {
-      type: true,
-      region: true,
-      personAffiliations: {
-        where: { endDate: null },
-        include: { person: true }
-      }
-    }
+    include: { type: true, region: true },
   });
 
   if (!partner) {
@@ -94,7 +88,12 @@ export default async function PartnerDetailPage(props: PageProps) {
 
   // Latest relationship state, plus what the edit/delete affordances need to be
   // honest about.
-  const [recentStates, types, regions, employeeCount, allPartners] = await Promise.all([
+  // `roster` is who is HERE today (#127 E5) — the old `endDate: null` listed people who
+  // had not arrived and dropped the ones who had. `employeeCount` below still counts off
+  // `currentPartnerId`, so this page is as-of in its list and cached in its headline
+  // figure until the rest of E5 demotes that column.
+  const [roster, recentStates, types, regions, employeeCount, allPartners] = await Promise.all([
+    partnerRosterAsOf(partner.id),
     // Two newest — the header card shows the prior score alongside the current one.
     prisma.partnerState.findMany({
       where: { partnerId: partner.id },
@@ -261,7 +260,7 @@ export default async function PartnerDetailPage(props: PageProps) {
               <h3>{t(locale, 'peopleLabel')}</h3>
               <NewPersonButton partners={allPartners} defaultPartnerId={partner.id} />
             </div>
-            {googleTeam.length === 0 && partner.personAffiliations.length === 0 ? (
+            {googleTeam.length === 0 && roster.length === 0 ? (
               <p className={styles.empty}>{t(locale, 'noAssociatedPeople')}</p>
             ) : (
               <div className={styles.peopleList}>
@@ -274,7 +273,7 @@ export default async function PartnerDetailPage(props: PageProps) {
                     {member.role && <span className={styles.personRole}>{member.role}</span>}
                   </div>
                 ))}
-                {partner.personAffiliations.map((aff) => (
+                {roster.map((aff) => (
                   <div key={aff.id} className={styles.personItem}>
                     <PersonCell person={{ id: aff.personId, name: aff.person.name }}
                       className={styles.personLink} />

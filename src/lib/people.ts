@@ -23,12 +23,9 @@ export interface PersonLike {
  * by another. `coversDay` below is the period-shaped question built on it; route new
  * callers to one of the two rather than writing a third date comparison.
  *
- * Two callers still cannot: `src/app/people/page.tsx` (the list's Role column) and
- * `src/app/partners/[id]/page.tsx` (the roster) ask the same question as a Prisma
- * `where: { endDate: null }`, which on a person with a scheduled move selects the job
- * they have NOT started. Those are query-shaped and belong to #127 E5's `profilesAsOf` /
- * `partnerRosterAsOf`, where the rule can be pushed into SQL against E4's indexes; both
- * are named on that issue so the sweep is not left to memory.
+ * A caller holding rows already asks here. A caller that still has to FETCH them asks
+ * `./profiles`, where the same rule is a SQL predicate against E4's indexes — those two
+ * are the only sanctioned spellings, and a third `endDate == null` is the bug.
  *
  * THE SAME-DAY BOUNDARY BELONGS TO THE FUTURE. Employment periods are half-open
  * (#124 §2, `start <= t < end`), so `t === start` falls INSIDE the new period:
