@@ -17,7 +17,13 @@
 >   with the destructive-migration lint gate and the `app_runtime` least-privilege
 >   DB role (playbook "Enforcement").
 > - **Custom domain:** implemented via `google_cloud_run_domain_mapping` (§10).
-> - **Terraform:** lives in `infra/terraform/` with per-instance tfvars.
+> - **Terraform:** lives in `infra/terraform/` with per-instance tfvars. Run it as
+>   **`npm run infra:plan` / `npm run infra:apply`**, never bare `terraform`: `.env` sets
+>   `GOOGLE_APPLICATION_CREDENTIALS`, which the Google provider prefers over your gcloud
+>   login, so a bare invocation authenticates as the app's service account and fails with a
+>   403 that reads like a missing state bucket
+>   ([note](knowledge/env-service-account-key-hijacks-terraform.md)). The scripts strip it
+>   and assert the ADC principal before touching the backend.
 > - **Single-flight:** shipped in #57 as `src/lib/singleFlight.ts` — NOT §2's
 >   `$queryRaw` sketch, which survives only as a marked-wrong example.
 >
