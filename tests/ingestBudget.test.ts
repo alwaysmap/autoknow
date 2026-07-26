@@ -21,9 +21,9 @@ import {
   knownCyclesPerDay,
   resolveCyclesPerDay,
 } from '../src/lib/cronCadence';
-import { clearCronScheduleAroundEachTest } from './helpers/cronSchedule';
+import { clearCronScheduleBeforeEachTest } from './helpers/cronSchedule';
 
-clearCronScheduleAroundEachTest();
+clearCronScheduleBeforeEachTest();
 
 describe('#38 ingestion budget math', () => {
   test('perCycleBudget floors so the daily total never exceeds the budget', () => {

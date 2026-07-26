@@ -11,8 +11,8 @@ jest.mock('server-only', () => ({}));
 
 import type { DriveSyncReport } from '../src/lib/driveSync';
 import type { CycleReport } from '../src/lib/refresh';
-// Safe as a static import despite the hoisting rule above: it reads no environment at
-// import time and never touches the database.
+// Exempt from the hoisting rule stated below: it reads no environment at import time and
+// never touches the database, so a static import binds nothing to the wrong place.
 import { budgetGauge } from '../src/lib/ingestBudget';
 
 // Dynamic import AFTER process.env.DATABASE_URL is set — a static import is hoisted above

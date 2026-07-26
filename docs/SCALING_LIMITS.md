@@ -36,15 +36,15 @@ The unit of ingestion is **one `ContextUrl` row = one source = one digest = one
    the current scale (hundreds of rows)" and to add HNSW past ~10k
    ([`schema.prisma:11-18`](prisma/schema.prisma)).
 
-Two revisiting engines run inside **one Cloud Run request capped at 300s**, on the
-Cloud Scheduler cadence — hourly at the shipped default, but `var.cron_schedule` sets
-it and every "/ h" figure below scales with it
-([`variables.tf:57`](infra/terraform/variables.tf), `cron_schedule = "0 * * * *"`;
-the app reads the same value at runtime via `REFRESH_CRON_SCHEDULE`, see
-[`cronCadence.ts`](src/lib/cronCadence.ts)) —
+Two revisiting engines run inside **one Cloud Run request capped at 300s**,
 sequentially: `runDriveSync()` → `runRefreshCycle()` → `runSummaryCycle()`
-([`cron/refresh/route.ts:31-33`](src/app/api/cron/refresh/route.ts)). Per-cycle
-caps bound every stage:
+([`cron/refresh/route.ts:31-33`](src/app/api/cron/refresh/route.ts)). Cloud
+Scheduler sets how often that request happens — hourly at the shipped default
+([`variables.tf:57`](infra/terraform/variables.tf), `cron_schedule = "0 * * * *"`),
+which is what the "/ h" column below assumes; change `var.cron_schedule` and every
+figure in it scales, as does the app's own budget math, which reads the same value
+at runtime ([`cronCadence.ts`](src/lib/cronCadence.ts)). Per-cycle caps bound every
+stage:
 
 | Stage | Cap / cycle | Hourly throughput | File |
 |---|---|---|---|

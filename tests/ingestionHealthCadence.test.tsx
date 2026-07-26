@@ -9,7 +9,7 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import IngestionHealthCard from '../src/components/IngestionHealthCard';
 import type { IngestionHealth } from '../src/lib/ingestionHealth';
-import { clearCronScheduleAroundEachTest } from './helpers/cronSchedule';
+import { clearCronScheduleBeforeEachTest } from './helpers/cronSchedule';
 
 jest.mock('../src/app/actions/ingestion', () => ({
   updateIngestionBudgetAction: async () => {},
@@ -18,7 +18,7 @@ jest.mock('../src/app/actions/ingestion', () => ({
 // something jsdom will load. The constant is all this render needs.
 jest.mock('../src/lib/gemini', () => ({ MAX_DOC_CHARS: 100_000 }));
 
-clearCronScheduleAroundEachTest();
+clearCronScheduleBeforeEachTest();
 
 const health = (): IngestionHealth => ({
   summary: null,

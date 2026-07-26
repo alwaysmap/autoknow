@@ -106,11 +106,9 @@ export interface IngestionHealth {
   /** Indexed sources whose text ran past MAX_DOC_CHARS, so their tail is not searchable
    *  (#56). A count, not rows — the rows are the Sources table on the same page. */
   truncated: number;
-  /** The two stored settings, and NOT a gauge derived from them. This carried a
-   *  pre-computed `BudgetGauge` that no component ever read — the card's slider derives
-   *  its own from the same pure functions. Once cycles/day became a runtime value the
-   *  two copies were free to disagree, which is exactly the drift this change removes
-   *  one layer up, so the unread one goes. */
+  /** The two stored settings — NOT a gauge derived from them. The card's slider computes
+   *  its own from the pure functions in lib/ingestBudget, and a second copy here would be
+   *  free to disagree with it now that cycles/day is a runtime value. */
   budget: { dailyReingestBudgetDocs: number; freeTierRequestsPerDay: number };
 }
 
