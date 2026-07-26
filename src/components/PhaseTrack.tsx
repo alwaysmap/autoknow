@@ -22,6 +22,7 @@ import OverlayDialog from './OverlayDialog';
 import ConstraintRing from './ConstraintRing';
 import PersonCell from './PersonCell';
 import { partnerHref } from '../lib/entityHref';
+import { useSteadyPageScroll } from '../lib/useSteadyPageScroll';
 import QuickIngest from './QuickIngest';
 import HillHistoryList from './HillHistoryList';
 import type { HillChange } from '../lib/history';
@@ -230,6 +231,7 @@ function MiniHill({ progress, previousProgress }: { progress: number; previousPr
 
 export default function PhaseTrack({ projectId, phases, allPartners, allPeople, locale }: PhaseTrackProps) {
   const byId = new Map(phases.map((p) => [p.id, p]));
+  const scrollPageTo = useSteadyPageScroll();
 
   const chain = computeCriticalChain(
     phases.map((p) => ({
@@ -513,11 +515,11 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     // Align the phase head to the TOP of the scrollport (it clears the sticky nav via
     // html { scroll-padding-top }), matching the row's `#phase-N` anchor so the two
     // scrolls this click fires agree instead of fighting (one to top, one to centre).
-    headRefs.current.get(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollPageTo(headRefs.current.get(id), { behavior: 'smooth', block: 'start' });
     setFlashId(id);
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlashId(null), 1400);
-  }, [closeDetails]);
+  }, [closeDetails, scrollPageTo]);
   useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
 
   // Deeplinks from the summary hill chart: a dot click jump-and-flashes here.
@@ -651,6 +653,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     // AFTER the commit: expanding changes the card's height, and measuring first
     // would scroll to the box it used to have. Two frames — one for React to paint
     // the new size, one for layout to settle on it.
+    //
+    // Those two frames are the whole reason this scroll needs the guard in
+    // lib/useSteadyPageScroll: a starved animation clock can hold them for a couple of hundred
+    // milliseconds, long enough to land INSIDE the next card's press and move the page
+    // between its down and its up — which retargets that click to a common ancestor and
+    // loses it silently (autoknow-e1h).
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const node = rowRefs.current.get(p.id);
       if (!node) return;
@@ -665,7 +673,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
       if (box.top >= clearance && box.bottom <= window.innerHeight) return;
       // `block: 'start'` honours html { scroll-padding-top } and matches the card's
       // own `#phase-N` anchor, so the deep link and this scroll agree.
-      node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      scrollPageTo(node, { behavior: 'smooth', block: 'start' });
     }));
   };
 

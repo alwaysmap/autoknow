@@ -60,6 +60,13 @@ warnings is the bar — the suite was once left red on main and it hid real bugs
 - **e2e flake rule**: the first interaction after a page load is a
   hydration-guarded retry (`expect(async () => {...}).toPass()` — see
   `tests/project_details.spec.ts`). An unguarded first click is the #1 flake.
+  **If that click NAVIGATES, the guard is `clickUntilNavigated` (tests/helpers/e2e.ts),
+  never a bare `toPass`**: a retry body that leaves the page is not idempotent,
+  and a navigation that lands late strands the loop on the destination
+  ([note](../../../docs/knowledge/a-retry-loop-that-navigates-strands-itself-on-the-destination.md)).
+  A guarded click can also be swallowed outright when the page scrolls between
+  its press and its release
+  ([note](../../../docs/knowledge/a-page-scroll-between-press-and-release-loses-the-click.md)).
 
 ## Discipline
 

@@ -148,6 +148,40 @@ test.describe('PhaseTrack rail', () => {
     await expect(page.locator('button[aria-label^="Toggle detail"]')).toHaveCount(0);
   });
 
+  // A card click that lands while the PAGE IS STILL MOVING must still select the card.
+  // `html { scroll-behavior: smooth }` makes every in-page scroll an animation, and on a
+  // loaded machine its frames arrive late — late enough to step between a press and its
+  // release. The two then land on different elements and the browser delivers `click` to
+  // their common ancestor, so the card's handler never runs and NOTHING reports an error:
+  // the gesture just does nothing (autoknow-e1h, webkit under full-suite load).
+  //
+  // Reproduced deterministically rather than by loading the box: the scroll is started
+  // from the `mousemove` that precedes the press — after every actionability check has
+  // passed, which is exactly what a starved animation frame achieves by accident — and
+  // `delay` holds the button down long enough for a frame to land in between.
+  //
+  // The one place in this suite where the hydration-guarded retry is deliberately NOT
+  // used, and it has to be: the `once` listener is spent by the first attempt, so a
+  // retry would re-click a settled page and pass without reproducing anything — a guard
+  // that reports green whatever the code does. `toBeVisible()` below is the guard
+  // instead: it waits out the render, and hydration cannot be the variable here because
+  // the assertion is about what the click DID, not whether it landed at all.
+  test('a card click is not swallowed by page motion still under way', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
+    const audio = row(page, 'Audio');
+    await expect(audio).toBeVisible();
+
+    await page.evaluate(() => {
+      window.addEventListener('mousemove', () => window.scrollBy({ top: 400, behavior: 'smooth' }), {
+        once: true,
+        capture: true,
+      });
+    });
+    await audio.locator('a[data-card-title]').click({ delay: 150 });
+
+    await expect(audio).toHaveAttribute('data-rel', 'self');
+  });
+
   // Collapsing the DIAGRAM is one state: every card at min and the dependency track
   // ink put away, stations left standing. Collapsing only the cards left the densest
   // thing on screen untouched, and on a rail that already opens with collapsed cards
