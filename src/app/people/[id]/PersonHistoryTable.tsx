@@ -47,7 +47,9 @@ export default function PersonHistoryTable({ rows, locale }: { rows: PersonHisto
           </th>
           <td>{r.role}</td>
           <td><DateCell value={r.startDate} /></td>
-          {/* No end date means still there — "present", not an unknown value. */}
+          {/* No end date means still there — "present", not an unknown value. Except on a
+              period that has not STARTED yet, where "Present" is wrong and this table has
+              no way to know: a scheduled move gets its own affordance in #127 E14. */}
           <td><DateCell value={r.endDate} fallback={t(locale, 'present')} /></td>
         </tr>
       )}

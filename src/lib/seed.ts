@@ -1295,10 +1295,11 @@ export async function seedMockData() {
 
   // (d) THE SCHEDULED MOVE. Four months out, through the real action — which records
   // the Honda affiliation but leaves currentPartnerId on Google until the date
-  // arrives, so the identity line on /people/<alice> correctly reads Google LLC. The
-  // Honda row itself still lands in the page's History section, marked "Present",
-  // because that section is filtered by `endDate` rather than by today (#127 E2a) —
-  // this fixture is what makes that residue visible. Deriving the date (never a
+  // arrives, so the identity line on /people/<alice> correctly reads Google LLC · Lead
+  // Program Manager. The Honda row lists under History, which is right — it is not the
+  // job held today — but its open end still renders "Present", which is not. That last
+  // residue is #127 E14's scheduled-move affordance, and this fixture is what keeps it
+  // visible until then. Deriving the date (never a
   // literal) is what keeps it a FUTURE move on every re-seed, and therefore a live
   // guard against Class 1 coming back.
   const hondaMoveDate = aheadMonthStart(4);
