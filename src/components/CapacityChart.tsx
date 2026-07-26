@@ -12,6 +12,7 @@ import {
   type ProductKey,
   type ProductCapacityPoint,
 } from '../lib/sop';
+import { centreToBaselineY, dodgeLabels, estimateTextWidth } from '../lib/labelPlacement';
 import { t, type Locale, type StringKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import OverlayDialog from './OverlayDialog';
@@ -139,17 +140,28 @@ function ProductAreaChart({
   const tickEvery = Math.max(1, Math.ceil(points.length / (big ? 10 : 7)));
   const last = points[points.length - 1];
 
-  // Direct labels at the right edge: band code + final count, nudged apart.
-  const ordered = activeBands
-    .map((k) => {
+  // Direct labels at the right edge: band code + final count, one per series, sitting at
+  // its band's midpoint. Two thin adjacent bands put two midpoints within a line height,
+  // and the count is a distinct fact that at rest appears nowhere else on the chart (the
+  // CFD readout is hover-only) — so the collision is resolved by NUDGING every label into
+  // a free slot (dodgeLabels), never by hiding one. This replaced a hand-rolled push-up
+  // loop that (a) only ever pushed toward the top and (b) had no bounds, so a stack of
+  // thin top bands walked its labels clean off the plot; dodgeLabels clamps to the box.
+  const labelFs = fs(11);
+  const labelLeft = w - PAD_R + 10;
+  const bandLabels = activeBands.map((k) => ({ k, text: `${BAND_CODE[k]} ${fmtUnits(last.units[k])}` }));
+  // One column, so every label claims the WIDEST box in it: identical x/halfW makes the
+  // fan-out process strictly top-down, which keeps the labels in band order.
+  const labelHalfW = Math.max(0, ...bandLabels.map((l) => estimateTextWidth(l.text, labelFs))) / 2;
+  const labelYs = dodgeLabels(
+    [],
+    bandLabels.map(({ k }) => {
       const b = stacks[stacks.length - 1][k];
-      return { k, midY: y((b.lo + b.hi) / 2), value: last.units[k] };
-    })
-    .sort((a, b) => b.midY - a.midY);
-  const minGap = fs(13);
-  for (let i = 1; i < ordered.length; i++) {
-    if (ordered[i - 1].midY - ordered[i].midY < minGap) ordered[i].midY = ordered[i - 1].midY - minGap;
-  }
+      return { x: labelLeft + labelHalfW, y: y((b.lo + b.hi) / 2), halfW: labelHalfW, halfH: labelFs / 2 + 1.5, priority: 1 };
+    }),
+    { top: PAD_T, bottom: h - PAD_B },
+  );
+  const placedBandLabels = bandLabels.map(({ k, text }, i) => ({ k, text, y: labelYs[i] }));
 
   // Hover → nearest quarterly sample (CFD-style crosshair + readout).
   const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
@@ -197,10 +209,11 @@ function ProductAreaChart({
         ))}
 
         {/* direct band labels at the right edge: code + final count */}
-        {ordered.map(({ k, midY, value }) => (
-          <ChartLabel key={`lbl${k}`} x={w - PAD_R + 10} y={midY + fs(3.5)} fontSize={fs(11)}
+        {placedBandLabels.map(({ k, y: cy, text }) => (
+          <ChartLabel key={`lbl${k}`} data-testid={`capacity-band-label-${k}`}
+            x={labelLeft} y={centreToBaselineY(cy, labelFs)} fontSize={labelFs}
             fontWeight={k === 'aaos' ? 600 : 400} fill={k === 'aaos' ? INK : 'var(--fg)'}>
-            {BAND_CODE[k]} {fmtUnits(value)}
+            {text}
             <title>{t(locale, BAND_NAME_KEY[k])}</title>
           </ChartLabel>
         ))}
