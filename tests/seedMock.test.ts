@@ -227,7 +227,7 @@ describe('seedMockData through the API', () => {
     // nothing to match and the item strands off the human who owns it — spec #124
     // Class 4, in data. Pinned by exact address rather than by a count, so a
     // genuinely sloppy assignee elsewhere still fails this. The period-scoped
-    // email work flips this to zero; that is the change that should edit this line.
+    // email work (#127 E3) flips this to zero; that is the change that should edit this line.
     const unlinked = await prisma.actionItem.findMany({
       where: { assignedToPersonId: null },
       select: { assignedTo: true },

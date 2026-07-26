@@ -952,6 +952,14 @@ export async function seedMockData() {
     const d = new Date(seedNow + days * DAY);
     return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
   };
+  /** First of the month `months` ahead of seed time. Sibling of `aheadMonthEnd`, and the
+   *  only correct way to date a SCHEDULED event in a fixture: a literal would quietly
+   *  become a past date and stop being scheduled at all
+   *  (docs/knowledge/a-literal-future-date-in-a-fixture-expires.md). */
+  const aheadMonthStart = (months: number) => {
+    const d = new Date(seedNow);
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, 1));
+  };
 
   interface ShowPhase {
     n: string;
@@ -1145,7 +1153,11 @@ export async function seedMockData() {
    *  offset from "now" — the two closed eras of Alice's career happened on real
    *  dates and must not drift when the seed is re-run. Linear chain, so a finished
    *  era stays DAG-coherent by construction. */
-  interface EraPhase { n: string; d: number; startedOn: string; states: { at: string; p: number }[] }
+  /** `startedOn: null` = queued, never started — the live era needs that; the two closed
+   *  eras never use it. Timestamps are ISO strings rather than day-offsets so ONE helper
+   *  serves both: the closed eras pass literals, the live era passes `agoIso(...)`, and
+   *  which is which reads off the call site. */
+  interface EraPhase { n: string; d: number; startedOn: string | null; states: { at: string; p: number }[] }
   const seedEraPhases = async (projectId: number, phases: EraPhase[]): Promise<Record<string, number>> => {
     const ids: Record<string, number> = {};
     let prevPhaseId: number | null = null;
@@ -1157,7 +1169,7 @@ export async function seedMockData() {
         // newest-wins ordering lands on the real progress (CRITICAL_CHAIN §6).
         stateTimestamp: new Date(new Date(ph.states[0].at).getTime() - 2 * DAY).toISOString(),
       });
-      await markStarted(projectId, phaseId, new Date(ph.startedOn));
+      if (ph.startedOn != null) await markStarted(projectId, phaseId, new Date(ph.startedOn));
       for (const s of ph.states) {
         await postPhaseState(projectId, phaseId, {
           theNeedle: 'On Track',
@@ -1266,38 +1278,26 @@ export async function seedMockData() {
     notes: 'Bring-up opened on the CR-V cockpit; rebase landed, integration under way.',
     source: 'seed', timestamp: agoIso(2),
   });
-  let aliceGooglePrevPhaseId: number | null = null;
-  for (const ph of [
-    { n: 'Platform rebase', d: 30, startedAgo: 20, states: [{ ago: 20, p: 25 }, { ago: 12, p: 100 }] },
-    { n: 'Cockpit integration', d: 45, startedAgo: 12, states: [{ ago: 12, p: 20 }, { ago: 4, p: 45 }] },
-    { n: 'CCC + GAS certification', d: 35, startedAgo: null, states: [{ ago: 2, p: 0 }] },
-  ] as { n: string; d: number; startedAgo: number | null; states: { ago: number; p: number }[] }[]) {
-    const phaseId = await createPhase(aliceGoogleProjectId, {
-      name: ph.n, forecastedDuration: ph.d, stateTimestamp: agoIso(ph.states[0].ago + 2),
-    });
-    if (ph.startedAgo != null) await markStarted(aliceGoogleProjectId, phaseId, ago(ph.startedAgo));
-    for (const s of ph.states) {
-      await postPhaseState(aliceGoogleProjectId, phaseId, {
-        theNeedle: 'On Track', hillChartProgress: s.p,
-        notes: s.p > 0 && s.p < 100 ? `${ph.n}: progress update.` : null,
-        source: 'seed', timestamp: agoIso(s.ago),
-      });
-    }
-    if (aliceGooglePrevPhaseId != null) await addDependency(aliceGoogleProjectId, phaseId, aliceGooglePrevPhaseId);
-    if (ph.n === 'Cockpit integration') {
-      await involvePerson(aliceGoogleProjectId, phaseId, aliceWatersId, ALICE.google.role);
-    }
-    aliceGooglePrevPhaseId = phaseId;
-  }
+  // Same helper as the two closed eras — relative dates because this program is LIVE and
+  // has to stay live on every re-seed. The involvement is attached off the returned id
+  // map, not by matching a phase NAME inside the loop: a rename would silently drop
+  // Alice's only Google-era involvement, and the guard below asserts the PROJECT name, so
+  // nothing would have gone red.
+  const aliceGooglePhases = await seedEraPhases(aliceGoogleProjectId, [
+    { n: 'Platform rebase', d: 30, startedOn: agoIso(20), states: [{ at: agoIso(20), p: 25 }, { at: agoIso(12), p: 100 }] },
+    { n: 'Cockpit integration', d: 45, startedOn: agoIso(12), states: [{ at: agoIso(12), p: 20 }, { at: agoIso(4), p: 45 }] },
+    { n: 'CCC + GAS certification', d: 35, startedOn: null, states: [{ at: agoIso(2), p: 0 }] },
+  ]);
+  await involvePerson(
+    aliceGoogleProjectId, aliceGooglePhases['Cockpit integration'], aliceWatersId, ALICE.google.role,
+  );
 
   // (d) THE SCHEDULED MOVE. Four months out, through the real action — which today
   // also flips currentPartnerId immediately, so /people/<alice> shows "Honda"
   // while every affiliation row says she is still at Google. That IS Class 1, on a
   // real page, in the demo. Deriving the date (never a literal) is what keeps it a
   // FUTURE move on every re-seed.
-  const hondaMoveDate = new Date(Date.UTC(
-    new Date(seedNow).getUTCFullYear(), new Date(seedNow).getUTCMonth() + 4, 1,
-  ));
+  const hondaMoveDate = aheadMonthStart(4);
   const moved = await movePersonCompany(fd({
     personId: aliceWatersId,
     newPartnerId: hondaId,
