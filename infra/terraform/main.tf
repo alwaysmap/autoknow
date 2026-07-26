@@ -356,6 +356,17 @@ resource "google_cloud_run_v2_service" "app" {
         name  = "GOOGLE_SHARE_ADDRESS"
         value = google_cloud_identity_group.share.group_key[0].id
       }
+      # The Scheduler cadence, told to the app rather than assumed by it. Every Gemini cap
+      # in lib/ingestBudget is a daily budget divided by cycles-per-day, so a schedule that
+      # runs more often than the app assumes multiplies real spend while the settings
+      # slider keeps plotting the old ceiling — a quota cap reachable by editing the line
+      # below and nothing else. `var.cron_schedule` stays the single source; this only
+      # stops it being invisible to the code that depends on it.
+      # ADR: docs/adr/2026-07-26-infra-owned-facts-are-supplied-or-unknown.md
+      env {
+        name  = "REFRESH_CRON_SCHEDULE"
+        value = var.cron_schedule
+      }
       # Secret env — one block per secret
       dynamic "env" {
         for_each = {
