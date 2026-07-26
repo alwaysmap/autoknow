@@ -293,8 +293,6 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
     for (const item of phase.actionItems) {
       if (item.assignedToPerson) reg.add(item.assignedToPerson.name, personHref(item.assignedToPerson.id));
       const owner = formatActionOwner(
-        // `?.id`, not the FK column: the name and the company are then structurally
-        // incapable of coming from two different rows.
         item.assignedToPerson && {
           name: item.assignedToPerson.name,
           company: companyOf(item.assignedToPerson.id),

@@ -39,7 +39,8 @@ affiliations. A surface that needs one fact reads it from one row.
 **Enforcement is the point, not the migration.** `eslint.config.mjs` carries TWO rule
 families, because their exemptions differ. One fails the build on `currentPartner` /
 `currentPartnerId` / `currentEmployees` in any shape (member read, Prisma key, or raw-SQL
-template text), and is switched off for the four files that maintain the cache. The other
+template text), and is switched off for the four files that have to say the name —
+one because it writes the cache, three because the request contract carries it. The other
 fails on `endDate: null` as a property value, and is switched off only for the module
 that DEFINES the as-of predicate and for test fixtures. Both are broad on purpose and
 exempted BY FILE, exactly as the identity rule is — see

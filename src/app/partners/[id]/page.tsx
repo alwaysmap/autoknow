@@ -88,10 +88,8 @@ export default async function PartnerDetailPage(props: PageProps) {
 
   // Latest relationship state, plus what the edit/delete affordances need to be
   // honest about.
-  // `roster` is who is HERE today (#127 E5) — the old `endDate: null` listed people who
-  // had not arrived and dropped the ones who had. The headline employee figure is now
-  // `roster.length`: it used to be its own `count({ where: { currentPartnerId } })`, so
-  // the page could print "12 people" above a list of 11 — two sources, one question.
+  // `roster` is who is HERE today, and the headline employee figure is its length —
+  // ONE source, so the page cannot print "12 people" above a list of 11 (#127 E5).
   const [roster, recentStates, types, regions, allPartners] = await Promise.all([
     partnerRosterAsOf(partner.id),
     // Two newest — the header card shows the prior score alongside the current one.

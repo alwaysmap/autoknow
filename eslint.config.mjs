@@ -34,18 +34,10 @@ const noSessionFieldReads = [
 
 // ADR currentpartnerid-is-a-cache-affiliations-are-the-truth, same shape and for the
 // same reason as the identity rule above: a question with ONE right way to ask it, and
-// three spellings in the tree that each look plausible at the call site.
-//
-// "Which company is this person at?" is a question about a DAY, answered by the
-// PersonAffiliation period that CONTAINS that day. `Person.currentPartnerId` is a
-// denormalized cache of the answer for TODAY, advanced by `movePersonCompany` only once
-// a move's date arrives — so it is stale by construction between the two, and it cannot
-// answer about any other day at all. `where: { endDate: null }` is the other wrong
-// spelling: it asks "is this period OPEN?", which coincides with "is it CURRENT?" only
-// while nobody has a move recorded.
-//
-// This rule has now been rediscovered three times by hand (E2, E2a, E5). The migration
-// fixes today's readers; this is what stops tomorrow's — AGENTS lesson 2.
+// three spellings in the tree that each look plausible at the call site. WHY the other
+// two are wrong is the ADR's job; the message below carries the part a developer who
+// trips this needs. Rediscovered by hand three times (E2, E2a, E5) before it became a
+// rule — AGENTS lesson 2.
 const AS_OF_MESSAGE =
   "Ask which company a person is at AS OF A DAY, never off the `currentPartnerId` cache " +
   "or an `endDate: null` where-clause. Two sanctioned answers: `lib/profiles` " +
@@ -53,12 +45,12 @@ const AS_OF_MESSAGE =
   "database, `lib/people`'s coversDay when you already hold them " +
   "(docs/adr/2026-07-26-currentpartnerid-is-a-cache-affiliations-are-the-truth.md).";
 
-// TWO FAMILIES, because the exemptions differ. Naming the cache is allowed in the files
-// that maintain it; asking "is the period open?" where "is it current?" was meant is
-// allowed nowhere. They are separate arrays rather than one array the override filters,
-// so that "which rules does a cache-writer keep?" is answered by the spread below rather
-// than by a string search over a selector — a fifth rule that happened to mention
-// `endDate` would have silently changed the answer.
+// TWO FAMILIES, because the exemptions differ. Naming the cache is allowed in the few
+// files that have to; asking "is the period open?" where "is it current?" was meant is
+// allowed only in the module that defines the predicate. They are separate arrays rather
+// than one array the overrides filter, so "which rules does this file keep?" is answered
+// by a spread below rather than by a string search over a selector — a fifth rule that
+// happened to mention `endDate` would have silently changed the answer.
 //
 // Both are broad on purpose and exempted BY FILE — the same trade the identity rule
 // makes. Narrowing by context (allow it under `data:`, forbid it under `select:`) is
@@ -104,14 +96,16 @@ const noOpenPeriodAsCurrent = [
   },
 ];
 
-// The cache is still a column, so something has to name it. These are the files whose
-// JOB that is; each is listed individually so the exemption stays a decision, and each
-// keeps the OTHER families (they are re-listed below, not switched off).
-const CACHE_WRITERS = [
-  "src/app/actions/people.ts", // movePersonCompany advances the cache on the effective day
-  "src/app/api/people/route.ts", // destructures the request field, which keeps the name
+// The cache is still a column with a public name, so some files have to SAY it — which
+// is not the same as reading it for display, and mostly not even the same as writing it.
+// Only the first entry writes; the rest carry the name because the request contract does.
+// Listed individually so each exemption stays a decision, and each keeps the OTHER
+// families (they are re-listed below, not switched off).
+const MAY_NAME_THE_CACHE = [
+  "src/app/actions/people.ts", // movePersonCompany advances it on the effective day
+  "src/app/api/people/route.ts", // destructures the request field of that name
   "src/lib/schemas.ts", // the zod contract that request is parsed against
-  "src/lib/seed.ts", // seeds the column alongside the affiliation rows
+  "src/lib/seed.ts", // puts it in the POST body it sends to that route
 ];
 
 const eslintConfig = defineConfig([
@@ -149,12 +143,12 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    // The cache's own maintainers — see CACHE_WRITERS. Drops the CACHE family only.
-    // `noOpenPeriodAsCurrent` deliberately stays: being allowed to write
-    // `currentPartnerId` says nothing about being allowed to ask an affiliation question
-    // the wrong way, and `movePersonCompany` does exactly that — it trips this selector
-    // and carries a justified disable naming the bead that fixes it.
-    files: CACHE_WRITERS,
+    // See MAY_NAME_THE_CACHE. Drops the CACHE family only. `noOpenPeriodAsCurrent`
+    // deliberately stays: being allowed to name `currentPartnerId` says nothing about
+    // being allowed to ask an affiliation question the wrong way, and `movePersonCompany`
+    // does exactly that — it trips this selector and carries a justified disable naming
+    // the bead that fixes it.
+    files: MAY_NAME_THE_CACHE,
     rules: {
       "no-restricted-syntax": ["error", ...noSessionFieldReads, ...noOpenPeriodAsCurrent],
     },
@@ -178,7 +172,6 @@ const eslintConfig = defineConfig([
     // assert on (tests/coversDay.test.ts does exactly that). Fifteen identical disable
     // comments would teach nobody anything. What a test reads is also usually the
     // POINT — tests/scheduledMove.test.ts asserts the cache does NOT advance early.
-    // Listed after CACHE_WRITERS so this wins for any file matching both.
     files: ["tests/**"],
     rules: { "no-restricted-syntax": ["error", ...noSessionFieldReads] },
   },

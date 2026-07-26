@@ -28,10 +28,8 @@ export default async function PeoplePage(props: { searchParams: Promise<SearchPa
     },
   });
 
-  // ONE query for the whole page rather than one per row, and now the source of BOTH
-  // company and role. It used to feed only Role while Company came off the
-  // `currentPartnerId` cache, so a row could name one employer and that employer's
-  // predecessor's job title (#127 E5).
+  // ONE query for the whole page rather than one per row, and the source of BOTH company
+  // and role — they are one fact and must not come from two places (#127 E5).
   const affiliationByPerson = await profilesAsOf(people.map((p) => p.id));
 
   const rows = people.map((p) => {

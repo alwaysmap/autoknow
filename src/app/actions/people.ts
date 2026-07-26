@@ -22,7 +22,7 @@ import { guarded, type ActionResult } from '../../lib/actionResult';
 
 export async function createPerson(formData: FormData) {
   const { name, email, partnerId, role } = parseForm(personCreateSchema, formData);
-  const person = await createPersonAt({ name, email, partnerId, role: role ?? 'Member' });
+  const person = await createPersonAt({ name, email, partnerId, role: role ?? undefined });
   await indexEntity('person', person.id);
   redirect(`/people/${person.id}`);
 }

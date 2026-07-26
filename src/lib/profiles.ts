@@ -2,12 +2,17 @@ import 'server-only';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 
-// AS-OF RESOLVERS (#127 E5, spec #124 §4). "Which company is this person at, and as
-// what" is a question about a DAY. Why `where: { endDate: null }` is the wrong way to
-// ask it is written once, at `coversDay` in ./people, and why `Person.currentPartnerId`
-// is the other wrong way is written once in ADR
-// currentpartnerid-is-a-cache-affiliations-are-the-truth. This module does not repeat
-// either: in short, both coincide with the truth only while nobody has a move recorded.
+// EMPLOYMENT PERIODS: the as-of resolvers, and the one way to open a period (#127 E5,
+// spec #124 §4). "Which company is this person at, and as what" is a question about a
+// DAY, and the two wrong ways to ask it — `where: { endDate: null }` and the
+// `Person.currentPartnerId` cache — are argued once each, at `coversDay` in ./people and
+// in ADR currentpartnerid-is-a-cache-affiliations-are-the-truth. Both coincide with the
+// truth only while nobody has a move recorded.
+//
+// `createPersonAt` is at the bottom and is a WRITE, which the module name does not
+// suggest. It is here because creating a person means opening their first period, so it
+// belongs with the code that reads periods — and because it needs prisma, which rules
+// out ./people below.
 //
 // `coversDay` is the JS twin, for a period already in hand. These are for periods still
 // in the database: the predicate goes into SQL so the wrong row never comes back to be
@@ -106,18 +111,16 @@ export interface RosterMember {
 }
 
 /**
- * `partnerRosterAsOf` for every partner in ONE query, keyed by partnerId — the /partners
- * list renders a team cell per row and must not issue a query per partner.
+ * `partnerRosterAsOf` for every partner in ONE query, keyed by partnerId — a list
+ * rendering a team cell per row must not issue a query per partner.
  *
- * Selects the person rather than including the affiliation, because a list has no use
- * for the period: `getAllPartners` previously merged the `currentEmployees` back-relation
- * with EVERY affiliation the partner ever had, so the team cell listed leavers forever
- * and the "My partners" toggle matched a company you left in 2022.
+ * Yields PEOPLE, not affiliations, because a list has no use for the period — which is
+ * the whole difference from the singular above, and the reason for the longer name.
  *
  * A partner with nobody there today is absent from the map, not an empty array — same
  * contract as `profilesAsOf`, so callers default rather than distinguishing two empties.
  */
-export async function partnerRostersAsOf(at: Date = new Date()) {
+export async function rostersByPartnerAsOf(at: Date = new Date()) {
   const rows = await prisma.personAffiliation.findMany({
     where: asOfWhere(at),
     select: { partnerId: true, person: { select: { id: true, name: true, email: true } } },

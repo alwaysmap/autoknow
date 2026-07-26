@@ -23,6 +23,8 @@ interface Project {
   ownerName: string | null;
 }
 
+/** Structurally `RosterMember` from lib/profiles, redeclared because this is a client
+ *  component and that module is server-only. Keep the two in step. */
 interface Person {
   id: number;
   name: string;
@@ -35,8 +37,8 @@ interface Partner {
   type: string;
   region: string;
   projects: Project[];
-  /** Who is at this partner TODAY (lib/partnerQueries). Used to be the union of a
-   *  `currentPartnerId` cache and every affiliation ever recorded — see #127 E5. */
+  /** Who is at this partner TODAY — the as-of roster (lib/partnerQueries), not everyone
+   *  who ever was. */
   team: Person[];
 }
 
@@ -87,7 +89,7 @@ export default function PartnersClient({ partners, currentUser, people, relation
       !!value && (deriveEmail(value) === userEmail || normalizeHandle(value) === userHandle);
     const isMyPartner = (partner: Partner) =>
       partner.projects.some((p) => isCurrentUser(p.ownerName)) ||
-      partner.team.some((e) => isCurrentUser(e.email));
+      partner.team.some((member) => isCurrentUser(member.email));
     return partners.filter((partner) => !myPartnersOnly || isMyPartner(partner));
   }, [partners, myPartnersOnly, userEmail, userHandle]);
 
@@ -105,7 +107,7 @@ export default function PartnersClient({ partners, currentUser, people, relation
       // Team member emails. The Set is belt-and-braces: the as-of predicate SELECTS one
       // period per person, but nothing constrains the data to have only one, so an
       // overlap authored elsewhere must not print a name twice.
-      const team = Array.from(new Set(partner.team.map((e) => e.email)));
+      const team = Array.from(new Set(partner.team.map((member) => member.email)));
 
       return {
         id: partner.id,

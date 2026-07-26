@@ -22,7 +22,7 @@ type Profiles = typeof import('../src/lib/profiles');
 let profileAsOf: Profiles['profileAsOf'];
 let profilesAsOf: Profiles['profilesAsOf'];
 let partnerRosterAsOf: Profiles['partnerRosterAsOf'];
-let partnerRostersAsOf: Profiles['partnerRostersAsOf'];
+let rostersByPartnerAsOf: Profiles['rostersByPartnerAsOf'];
 let personIsAtPartnerAsOfSql: Profiles['personIsAtPartnerAsOfSql'];
 
 const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
@@ -37,7 +37,7 @@ let google: number;
 let honda: number;
 
 beforeAll(async () => {
-  ({ profileAsOf, profilesAsOf, partnerRosterAsOf, partnerRostersAsOf, personIsAtPartnerAsOfSql } =
+  ({ profileAsOf, profilesAsOf, partnerRosterAsOf, rostersByPartnerAsOf, personIsAtPartnerAsOfSql } =
     await import('../src/lib/profiles'));
   await wipeAll();
 
@@ -140,12 +140,11 @@ describe('partnerRosterAsOf', () => {
   });
 });
 
-describe('partnerRostersAsOf', () => {
-  // The plural exists because /partners renders a team cell per row. Its predecessor
-  // unioned the `currentPartnerId` back-relation with EVERY affiliation the partner had
-  // ever had, so these assertions are the two halves of that bug.
+describe('rostersByPartnerAsOf', () => {
+  // Must agree with the singular and must drop leavers — the two properties
+  // `getAllPartners` needs and its predecessor had neither of (see partnerQueries).
   it('gives each partner the same roster the singular would', async () => {
-    const all = await partnerRostersAsOf(TODAY);
+    const all = await rostersByPartnerAsOf(TODAY);
     expect(all.get(google)?.map((p) => p.name)).toEqual(['Alice Waters', 'Bob Miller']);
     const single = await partnerRosterAsOf(google, TODAY);
     expect(all.get(google)?.map((p) => p.id)).toEqual(single.map((r) => r.person.id));
@@ -153,14 +152,14 @@ describe('partnerRostersAsOf', () => {
 
   it('drops a leaver rather than keeping them forever', async () => {
     // Alice left Bosch in 2024; the old union listed her there permanently.
-    expect((await partnerRostersAsOf(TODAY)).has(bosch)).toBe(false);
-    expect((await partnerRostersAsOf(d('2023-06-01'))).get(bosch)?.map((p) => p.name))
+    expect((await rostersByPartnerAsOf(TODAY)).has(bosch)).toBe(false);
+    expect((await rostersByPartnerAsOf(d('2023-06-01'))).get(bosch)?.map((p) => p.name))
       .toEqual(['Alice Waters']);
   });
 
   it('omits a partner nobody is at that day rather than mapping it to []', async () => {
     // Same contract as profilesAsOf: callers default, they do not distinguish two empties.
-    expect((await partnerRostersAsOf(TODAY)).has(honda)).toBe(false);
+    expect((await rostersByPartnerAsOf(TODAY)).has(honda)).toBe(false);
   });
 });
 
