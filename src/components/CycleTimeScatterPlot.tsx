@@ -2,7 +2,7 @@
 
 import ChartLabel from './ChartLabel';
 import React, { useMemo } from 'react';
-import { baselineToCentreY, centreToBaselineY, dodgeLabels, estimateTextWidth } from '../lib/labelPlacement';
+import { baselineToCentreY, centreToBaselineY, dodgeLabels, estimateTextWidth, halfHFor } from '../lib/labelPlacement';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import styles from './CycleTimeScatterPlot.module.css';
@@ -94,7 +94,7 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
       x: xScale(days),
       y: centreY,
       halfW: estimateTextWidth(text, PERCENTILE_FS) / 2,
-      halfH: PERCENTILE_FS / 2 + 1,
+      halfH: halfHFor(PERCENTILE_FS),
       priority: 1,
     });
     // The travel window, converted through the SAME transform as the boxes so the whole

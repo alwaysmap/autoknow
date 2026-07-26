@@ -32,6 +32,8 @@ import {
   keepNonOverlapping,
   dodgeLabels,
   estimateTextWidth,
+  baselineToCentreY,
+  halfHFor,
   type PlacedLabel,
 } from '../src/lib/labelPlacement';
 
@@ -67,7 +69,42 @@ function boxOf(el: SVGTextElement, fallbackFs: number) {
   const anchor = el.getAttribute('text-anchor') ?? 'start';
   const left = Number(el.getAttribute('x'));
   const cx = anchor === 'middle' ? left : anchor === 'end' ? left - w / 2 : left + w / 2;
-  return { text, x: cx, y: Number(el.getAttribute('y')), halfW: w / 2, halfH: fs / 2 + 1 };
+  // ONE y convention in this file, and it is the CENTRE, because that is what every box
+  // here means. An SVG <text> carries its BASELINE instead, and mixing the two is
+  // invisible in label-on-label checks (same size ⇒ same shift, so it cancels) and wrong
+  // in every label-on-INK check, by about a third of a cap height.
+  const cy = baselineToCentreY(Number(el.getAttribute('y')), fs);
+  return { text, x: cx, y: cy, halfW: w / 2, halfH: halfHFor(fs) };
+}
+
+const isHorizontal = (el: SVGLineElement) => Number(el.getAttribute('y1')) === Number(el.getAttribute('y2'));
+
+/** A rendered <line> as the box of ink it lays down, stroke included. */
+const lineBox = (el: SVGLineElement) => {
+  const n = (a: string) => Number(el.getAttribute(a));
+  const w = Number(el.getAttribute('stroke-width')) || 1;
+  const horizontal = isHorizontal(el);
+  return {
+    text: `${horizontal ? 'rule' : 'vertical'} @ ${horizontal ? `y${n('y1')}` : `x${n('x1')}`}`,
+    x: (n('x1') + n('x2')) / 2, y: (n('y1') + n('y2')) / 2,
+    halfW: Math.abs(n('x2') - n('x1')) / 2 + w / 2,
+    halfH: Math.abs(n('y2') - n('y1')) / 2 + w / 2,
+  };
+};
+
+/** Every HORIZONTAL rule painted inside `scope`. A gridline, threshold or axis rule is ink
+ *  a label must clear, and it is NOT the box the placement pass was handed: the pass got
+ *  the rule's tick CAPTION, off in the gutter, which nothing in the plot can overlap in x.
+ *  That is the whole bug §4 exists for, so every chart here is now asked the question. */
+const rulesIn = (scope: Element) =>
+  Array.from(scope.querySelectorAll<SVGLineElement>('line')).filter(isHorizontal).map(lineBox);
+
+/** No label in `boxes` may sit on any horizontal rule painted in `scope`. */
+function expectOffTheRules(boxes: (Box & { text: string })[], scope: Element) {
+  const rules = rulesIn(scope);
+  expect(rules.length).toBeGreaterThan(0); // a chart with no rules proves nothing here
+  expect(boxes.flatMap((l) => rules.filter((r) => intersects(l, r)).map((r) => `"${l.text}" on ${r.text}`)))
+    .toEqual([]);
 }
 
 const wrap = (ui: React.ReactNode) => render(<LocaleProvider locale="en">{ui}</LocaleProvider>);
@@ -194,10 +231,20 @@ describe('CapacityChart — direct band labels, crowded on purpose', () => {
   it('keeps every dodged label inside the plot box', () => {
     const { container } = wrap(<CapacityChart programs={crowded} now={NOW} />);
     // The inline chart is authored at 340 tall with PAD_T 16 / PAD_B 30 (CapacityChart).
+    // `y` is a box centre here (see boxOf), so this is a loose containment check, not the
+    // exact clamp — dodgeLabels' own bounds are asserted mechanically in §1.
     for (const b of bandBoxes(container)) {
       expect(b.y).toBeGreaterThan(16);
       expect(b.y).toBeLessThan(340 - 30);
     }
+  });
+
+  it('keeps every band label off the chart\'s own horizontal rules', () => {
+    // This chart does NOT pass its rules into its placement pass — it clears them by
+    // arithmetic (labels sit outside the plot's right edge). Asserted as an OUTCOME, so a
+    // failure here means "start passing the ink", not "the test is wrong".
+    const { container } = wrap(<CapacityChart programs={crowded} now={NOW} />);
+    expectOffTheRules(bandBoxes(container), container);
   });
 });
 
@@ -262,7 +309,13 @@ describe('CycleTimeScatterPlot — the healthy distribution is the crowding case
   it('leaves an uncrowded pair on its natural baseline', () => {
     const { container } = wrap(<CycleTimeScatterPlot data={data} stats={wide} />);
     const ys = captionBoxes(container).filter((b) => b.id.endsWith('-0')).map((b) => b.y);
-    expect(new Set(ys).size).toBe(1); // both still at rowY - 22
+    expect(new Set(ys).size).toBe(1); // both still on one baseline (rowY - 22, as centres)
+  });
+
+  it('keeps every percentile caption off the chart\'s own horizontal rules', () => {
+    // Same as CapacityChart's: an outcome check on a chart that does not pass its ink in.
+    const { container } = wrap(<CycleTimeScatterPlot data={data} stats={identical} />);
+    expectOffTheRules(captionBoxes(container), container);
   });
 });
 
@@ -302,11 +355,36 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
     />,
   ).container;
 
-  const flowBoxes = (container: HTMLElement) => {
+  /** Two phases hand days BACK and the live one is on time, so the program carries MORE
+   *  buffer than it started with. The boundary then rides in the frame's top pad, where
+   *  there is no plot above it — the shape the screenshot caught, with "115% left · 157d"
+   *  printed straight through the 100% gridline and "spent" pinned onto the boundary by
+   *  the dodge's own bounds clamp. NOT the leftPct === 100 case: any value at or above
+   *  the top gridline reproduces it, and a fix predicated on 100 misses this fixture. */
+  const aboveStart: ChainLedgerInput = {
+    phases: [
+      phase(1, 'Design', 30, 100, [], iso(0), iso(23)),
+      phase(2, 'Build', 40, 100, [1], iso(23), iso(56)),
+      phase(3, 'Certification', 30, 10, [2], iso(56)),
+    ],
+    sopDate: iso(150),
+    now: day(60),
+  };
+
+  const flowEl = (container: HTMLElement) => {
     const flow = container.querySelector('[data-testid="chain-buffer-flow"]');
     if (!flow) throw new Error('the buffer flow did not render for this fixture');
-    return Array.from(flow.querySelectorAll<SVGTextElement>('text')).map((el) => boxOf(el, 10));
+    return flow;
   };
+
+  const flowBoxes = (container: HTMLElement) =>
+    Array.from(flowEl(container).querySelectorAll<SVGTextElement>('text')).map((el) => boxOf(el, 10));
+
+  /** Every VERTICAL rule in the whole instrument: today, the SOP, the break seams. */
+  const verticals = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll<SVGLineElement>('svg line'))
+      .filter((el) => !isHorizontal(el))
+      .map(lineBox);
 
   /** No two labels on each other, and none half outside the frame. The second half is
    *  the one no placement pass can check for you: `dodgeLabels` reasons about labels,
@@ -327,6 +405,10 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
     const boxes = expectReadable(drawChain(chain(105)));
     expect(boxes.some((b) => /past SOP/.test(b.text))).toBe(true);
     expect(boxes.some((b) => /buffer gone/.test(b.text))).toBe(true);
+  });
+
+  it('reads clean when the buffer is ABOVE the level it started at', () => {
+    expectReadable(drawChain(aboveStart));
   });
 
   it('reads clean with a NARROW name gutter, where the axis values have least room', () => {
@@ -354,14 +436,20 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
     expect(reading!.x + reading!.halfW).toBeLessThanOrEqual(CHAIN_W);
   });
 
-  it('keeps the readings off the boundary line, which slopes under them', () => {
+  it.each([
+    ['a blown buffer', chain(105)],
+    ['a buffer ABOVE the level it started at', aboveStart],
+  ])('keeps the readings off the boundary line, which slopes under them — %s', (_name, input) => {
     // The flow's own polyline is ink a placement pass cannot see. Each reading clears
     // the line across ITS OWN width — so assert against the drawn points, not a fixed
     // offset from the value at today.
-    const container = drawChain(chain(105));
+    const container = drawChain(input);
     const boxes = flowBoxes(container).filter((b) => /spent|left|past SOP/.test(b.text));
-    const line = container.querySelector('[data-testid="chain-buffer-flow"] polyline')!;
-    const pts = (line.getAttribute('points') ?? '').split(' ')
+    // BOTH halves: the boundary is drawn as a solid past and a dashed forecast, and the
+    // reading at today sits to today's RIGHT — i.e. over the forecast half. Sampling only
+    // the first polyline read the ink on the wrong side of the label and reported clear.
+    const pts = Array.from(container.querySelectorAll('[data-testid="chain-buffer-flow"] polyline'))
+      .flatMap((line) => (line.getAttribute('points') ?? '').split(' '))
       .map((p) => p.split(',').map(Number))
       .filter(([px, py]) => Number.isFinite(px) && Number.isFinite(py));
     expect(pts.length).toBeGreaterThan(1);
@@ -371,6 +459,37 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
         expect(Math.abs(py - b.y)).toBeGreaterThan(b.halfH);
       }
     }
+  });
+
+  it.each([
+    ['a healthy program', chain(200)],
+    ['a blown buffer', chain(105)],
+    ['a buffer ABOVE the level it started at', aboveStart],
+  ])('keeps every flow label off every gridline — %s', (_name, input) => {
+    // The regression this file exists for, one level down: `dodgeLabels` was handed the
+    // gridlines' CAPTIONS and not the gridlines, so it reported clear while the reading
+    // sat on the rule. Assert against the rendered ink itself, which cannot lie about it.
+    const container = drawChain(input);
+    expectOffTheRules(flowBoxes(container), flowEl(container));
+  });
+
+  it('reproduces the top-pad case at all — the fixture must actually hold >100%', () => {
+    // A fixture that quietly stopped reproducing would turn the check above green for the
+    // wrong reason, so it states the condition it is there to exercise.
+    const reading = flowBoxes(drawChain(aboveStart)).find((b) => /left · /.test(b.text));
+    expect(reading?.text).toMatch(/^1[0-9]{2}% left · /);
+  });
+
+  it('never runs a vertical rule through the flow caption', () => {
+    // today / the SOP / a break seam all reach down into the flow, and the caption sits in
+    // the gutter they cross. Vertical ink is the one collision no placement pass can fix
+    // (they nudge in y), so the rules are cut around the caption instead.
+    const container = drawChain(aboveStart);
+    const title = container.querySelector<SVGTextElement>('[data-testid="chain-flow-title"]');
+    expect(title).not.toBeNull();
+    const box = boxOf(title!, 10);
+    const hits = verticals(container).filter((v) => intersects(box, v)).map((v) => v.text);
+    expect(hits).toEqual([]);
   });
 
   it('says so in words when there is no buffer to be a share of', () => {

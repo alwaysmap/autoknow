@@ -12,21 +12,20 @@ symptoms:
   - two chart captions print on top of each other and both become unreadable
   - a chart label is missing, and the value it named appears nowhere else
   - a label sits outside the plot box, past the axis or off the top of the SVG
-  - a label is clipped by the frame, or a chart line runs straight through one, while every de-collision test is green
+  - a label is clipped by the frame, while every de-collision test is green
   - the chart looks perfect against seeded data and wrong against a real program
-verified_by: 'tests/labelCollisionSweep.test.tsx (p50 === p85, five thin capacity bands, seeded PRNG corpus, the buffer flow blown and with today at the right edge); issue #161 sweep + step 2/4; before/after screenshots in both themes'
+verified_by: 'tests/labelCollisionSweep.test.tsx (p50 === p85, five thin capacity bands, seeded PRNG corpus, the buffer flow blown, above B₀, and with today at the right edge); issue #161 sweep + step 2/4; before/after screenshots in both themes'
 ---
 
 Placing a label at a data-derived coordinate delegates its legibility to the data: it
 reads fine until two points come close, and then BOTH labels are destroyed — not one.
 The #161 sweep found ten files drawing labels and one de-colliding them.
 
-**Why it bites.** The dataset that crowds is usually the *good* one, so neither the
-demo seed nor a screenshot review will show it to you. `CycleTimeScatterPlot` drew
-`P50` and `P85` at each percentile's own x, same baseline: a tight distribution — a
-healthy, predictable phase — printed them on one pixel and deleted the median from the
-chart. `CapacityChart`'s band labels sat at their midpoints, so thin adjacent bands
-stacked into mush. Both are least readable when the program is at its healthiest.
+**Why it bites.** The dataset that crowds is usually the *good* one, so neither the demo
+seed nor a screenshot review will show it to you. `CycleTimeScatterPlot` drew `P50` and
+`P85` at each percentile's own x, same baseline: a tight distribution — a healthy,
+predictable phase — printed them on one pixel and deleted the median. `CapacityChart`'s
+band labels sat at their midpoints, so thin adjacent bands stacked into mush.
 
 **What to do.**
 
@@ -40,20 +39,17 @@ stacked into mush. Both are least readable when the program is at its healthiest
    could the reader still get the number?" A hover readout does not count: not there at rest.
 3. **Never resolve a collision by shrinking type.** `ChainSchedule.tsx`'s sizes
    (`FS_ROW`/`FS_EMPH` 12, `FS_AXIS` 11, `FS_SMALL` 10) were raised once for legibility
-   (#83); a de-collider that undoes that is a regression in disguise.
-4. Hand-rolled push-apart loops are the recurring trap: `CapacityChart`'s pushed only
-   *upward* with no bounds, so thin top bands walked their labels clean off the plot — a
-   pass producing a *different* invisible-label bug. `dodgeLabels` clamps to a `YBounds`.
-5. Drive the test from a fixture chosen to crowd, and prove the detector can see a
+   (#83); a de-collider that undoes that is a regression in disguise. Hand-rolled
+   push-apart loops are the other trap: `CapacityChart`'s pushed only *upward* with no
+   bounds and walked thin top bands' labels off the plot. `dodgeLabels` clamps.
+4. Drive the test from a fixture chosen to crowd, and prove the detector can see a
    collision before trusting it to report none.
-6. **A placement pass only knows about LABELS** — not the frame, not the chart's own
-   ink. #161 step 2's flow shipped both failures with every pass green: a reading
-   anchored to today's right ran off the viewBox (today sits hard against the right edge
-   whenever a program finishes near its SOP), and one offset a fixed distance from the
-   boundary at ONE x was struck through where it sloped. Fix from the data — flip the
-   anchor side when the measured width would cross the frame, clear the line across the
-   label's OWN width (min/max y over that span) — and assert the frame bound in the
-   test, because the de-collider never will.
+5. Assert the FRAME too: a reading anchored to today's right ran off the viewBox (today
+   sits hard against the right edge whenever a program finishes near its SOP). Flip the
+   anchor side on the measured width, and assert the bound — the de-collider never will.
+6. Everything above is label-on-LABEL. Label-on-INK — a gridline or the chart's own
+   line through a caption — is a different failure with the same green tests:
+   [A placement pass clears the labels you pass it, never the ink you didn't](a-placement-pass-clears-labels-not-the-ink-you-did-not-pass.md).
 
 **Still open.** `src/lib/hillLayout.ts` carries a second de-collider and
 `ChainSchedule.tsx` a private `estimateTextWidth` — "the de-collider" is not yet one

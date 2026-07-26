@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type SVGProps } from 'react';
 import ChartLabel from './ChartLabel';
 import { t, Locale } from '../lib/i18n';
 import { localDate } from '../lib/dates';
@@ -10,7 +10,10 @@ import { isForecastOver } from '../lib/chainLedger';
 import type { ChainLedgerResult, ScheduleRow } from '../lib/chainLedger';
 import { bufferSeries, type BufferPoint } from '../lib/bufferSeries';
 import { flowScale, blownAt } from '../lib/bufferFlow';
-import { keepNonOverlapping, dodgeLabels, centreToBaselineY } from '../lib/labelPlacement';
+import {
+  keepNonOverlapping, dodgeLabels, inkBox, halfHFor, baselineToCentreY, centreToBaselineY,
+  type PlacedLabel,
+} from '../lib/labelPlacement';
 import { focusWindow, panWindow, zoomWindow, type Span } from '../lib/focusWindow';
 import styles from './ChainLedger.module.css';
 
@@ -41,6 +44,12 @@ const WEEK_MS = 7 * DAY_MS;
 const W = 900, PAD_R = 14, ROW_H = 34, TOP = 36;
 const CELL_H = 19, CELL_GAP = 1.5; // the coloured cell inside each row band
 const FLOW_H = 112, FLOW_GAP = 28; // the two-tone buffer flow below the grid
+// EXTENTS of the flow's two short markers: the reserve stub in from the right edge, and
+// the blown-day tick either side of 0%.
+const GUIDELINE_STUB_W = 20, BLOWN_TICK_H = 6;
+// STROKE widths, shared between what is DRAWN and the ink boxes the label pass must clear
+// (`inkBox`) — a rule whose two sites disagree is one the pass thinks it dodged.
+const BOUNDARY_W = 1.75, GRIDLINE_W = 1, GUIDELINE_W = 1.5, BLOWN_TICK_W = 2;
 const AXIS_H = 24; // week/month ticks under the grid
 const RING_PAD = 24, TEXT_PAD = 10, CHAR_W = 6.5, WIDE_CHAR_W = 12;
 const CARD_W = 272;
@@ -74,6 +83,18 @@ function weekFloor(ms: number): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - (dow - 1) * DAY_MS;
 }
 const weekCeil = (ms: number): number => weekFloor(ms + WEEK_MS - 1);
+
+/** A full-height vertical — today, the SOP, a break seam, the crosshair — running `y0` to
+ *  `y1` at `cx`, with `cut` removed from its middle. Every one of them crosses the gutter
+ *  between the grid and the flow, where the flow's caption sits, and a rule through a word
+ *  ruins the word; no placement pass can help, because they all nudge in y and this ink is
+ *  vertical. One component so a fifth vertical cannot be added without the cut. */
+function VRule({ cx, y0, y1, cut, ...stroke }: {
+  cx: number; y0: number; y1: number; cut: { top: number; bottom: number } | null;
+} & SVGProps<SVGLineElement>) {
+  const spans = cut ? [[y0, cut.top], [cut.bottom, y1]] : [[y0, y1]];
+  return <>{spans.map(([a, b], k) => <line key={k} x1={cx} y1={a} x2={cx} y2={b} {...stroke} />)}</>;
+}
 
 /** A hovered/focused row plus where its card should sit, in px relative to the section. */
 export interface RowCard { row: ScheduleRow; left: number; top: number }
@@ -177,6 +198,26 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   // ABOVE the month-letter axis, so drop the caption clear of that axis rather than 15px
   // under the line (where it would land in the same band as the month letters).
   const crosshairDateY = series ? flowBot + 15 : axisY + AXIS_H + 12;
+
+  // The flow's CAPTION sits in the gutter between the two panels — and every full-height
+  // vertical (today, the SOP, a break seam, the crosshair) runs straight through that
+  // gutter to reach the flow. A rule through a word ruins the word, and no de-collider
+  // can help here: the placement passes nudge labels in Y, and this ink is vertical. So a
+  // vertical is CUT where it would cross the caption, and only there — one date still
+  // reads down both panels, the cut lands in the panel gutter where the eye expects a
+  // seam, and the caption is safe from a crosshair that can arrive at any x.
+  // The cut is UNCONDITIONAL, not "only where a vertical would actually hit the caption":
+  // the crosshair follows the pointer, so a conditional gap would open and close as the
+  // user sweeps across the caption — a flicker on the one line they are actively moving.
+  // Cutting every vertical instead gives the whole gutter one consistent seam, and drops
+  // the caption's width (measured with this file's own narrow estimator, the unsafe
+  // direction for a cut) out of the geometry entirely. Half-height follows `box()`'s
+  // convention below, so the gap matches the box the placement passes reserve.
+  const flowTitleY = flowTop - 8; // baseline of the caption rendered with the flow
+  const captionCut = series ? (() => {
+    const cy = baselineToCentreY(flowTitleY, FS_SMALL), halfH = halfHFor(FS_SMALL);
+    return { top: cy - halfH, bottom: cy + halfH };
+  })() : null;
 
   // ---- piecewise time axis: full weeks share the space; empty runs collapse ----
   // A week is OCCUPIED (never collapses) if any phase span or idle handoff touches it,
@@ -299,7 +340,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
         return { ms: m.ms, letter: monthNarrow.format(new Date(m.ms)), cx: (x(from) + x(to)) / 2, span: x(to) - x(from) };
       }).filter((o) => o.span >= 12)
     : [];
-  const axisLabelY = axisY + 16, axisHalfH = FS_AXIS / 2 + 1;
+  const axisLabelY = axisY + 16, axisHalfH = halfHFor(FS_AXIS);
   // Break durations (priority 2) and month letters (priority 1) share the axis line, so
   // de-collide them together, then split back per-series so each render site indexes its own.
   const axisKeep = keepNonOverlapping([
@@ -394,20 +435,32 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
     const guidelinePct = (ledger.guidelineDays * 100) / series.startBufferDays;
     const showGuideline = ledger.guidelineDays > 0 && guidelinePct > scale.min && guidelinePct < scale.max;
 
-    /** The boundary's highest and lowest y across a span of the plot. A label is a
-     *  horizontal strip ~90px wide, and this line can drop that far inside it — so a
-     *  reading placed a fixed offset from the boundary AT TODAY gets struck through by
-     *  the boundary a few pixels away. Each reading clears the line across its OWN
-     *  width instead, which is a fact about the data under it, not a guess. */
-    const boundaryBand = (from: number, to: number) => {
-      const ys = pts.filter((p) => px(p) >= from && px(p) <= to).map((p) => yOf(p.leftPct));
-      if (ys.length === 0) return { top: yOf(nowPt.leftPct), bottom: yOf(nowPt.leftPct) };
-      return { top: Math.min(...ys), bottom: Math.max(...ys) };
+    /** The boundary's highest and lowest y across a span of the plot, or null where the
+     *  line does not reach. A label is a horizontal strip ~90px wide, and this line can
+     *  drop that far inside it — so a reading placed a fixed offset from the boundary AT
+     *  TODAY gets struck through by the boundary a few pixels away. Each reading clears
+     *  the line across its OWN width instead, which is a fact about the data under it,
+     *  not a guess.
+     *
+     *  Whole SEGMENTS, not sampled points: a span narrower than one day's spacing sits
+     *  between two points and would otherwise report "no line here" while the line runs
+     *  straight through it. A segment that only partly overlaps donates its full drop,
+     *  which over-reserves — the safe direction (labelPlacement's TUNING note). */
+    const boundaryBand = (from: number, to: number): { top: number; bottom: number } | null => {
+      let top = Infinity, bottom = -Infinity;
+      for (let i = 1; i < pts.length; i++) {
+        const p0 = pts[i - 1], p1 = pts[i];
+        if (px(p1) < from) continue;
+        if (px(p0) > to) break; // pts are ms-ascending and px is monotone in ms
+        top = Math.min(top, yOf(p0.leftPct), yOf(p1.leftPct));
+        bottom = Math.max(bottom, yOf(p0.leftPct), yOf(p1.leftPct));
+      }
+      return top === Infinity ? null : { top, bottom };
     };
 
     // ---- labels ----
     const box = (text: string, cx: number, cy: number, priority: number, size = FS_SMALL) =>
-      ({ x: cx, y: cy, halfW: textWidth(text) / 2 + 3, halfH: size / 2 + 1, priority, text, size });
+      ({ x: cx, y: cy, halfW: textWidth(text) / 2 + 3, halfH: halfHFor(size), priority, text, size });
     // Boxes are in CENTRE space (what labelPlacement reasons about); each render site
     // converts back to a baseline. The whole flow goes through one pass, so mixing the
     // two spaces — the trap this module's helpers exist to close — cannot happen here.
@@ -452,16 +505,46 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
     const nowSpan = nowFits
       ? { from: x(now), to: x(now) + 12 + nowWidest }
       : { from: x(now) - 12 - nowWidest, to: x(now) };
-    const nowBand = boundaryBand(nowSpan.from, nowSpan.to);
+    const nowBand = boundaryBand(nowSpan.from, nowSpan.to)
+      ?? { top: yOf(nowPt.leftPct), bottom: yOf(nowPt.leftPct) };
+    // `priority` is inert for these two — they only ever reach dodgeLabels, which keeps
+    // every label and orders by x. It is carried so the box grammar stays one grammar.
     const nowAnchored = (text: string, cy: number, priority: number, size: number) => (nowFits
       ? startAnchored(text, x(now) + 6, cy, priority, size)
       : endAnchored(text, x(now) - 6, cy, priority, size));
-    // The pair sits either side of the boundary — but only while there IS a green band
-    // to sit in. Once the buffer is blown, "left" has no band and the floor is right
-    // there, so both readings stack ABOVE the line, where all the ink is anyway.
-    const hasBufferAtNow = nowPt.leftPct > 0;
-    const nowLeft = nowAnchored(leftText, hasBufferAtNow ? nowBand.bottom + 10 : nowBand.top - 10, 3, FS_EMPH);
-    const nowSpent = nowAnchored(spentText, nowBand.top - (hasBufferAtNow ? 10 : 25), 2, FS_SMALL);
+    // Which side of the boundary the pair sits on is a question about ROOM, not about
+    // sign. A blown buffer has no green band left to sit in; its MIRROR — a buffer at or
+    // above B₀, where the line rides in the frame's top pad — has no red band above. Same
+    // fact, both times: one side of the line has run out of plot, so both readings stack
+    // into the side that is left, "spent" still above "left" (the tank drains from the
+    // top). Reading that off `leftPct > 0` saw only the blown half, so a program holding
+    // 115% of its buffer placed "spent" above the frame's ceiling — where the dodge's own
+    // bounds clamp pinned it back onto the boundary, dead centre.
+    //
+    // The pair is placed TOGETHER, in one expression, because what has to hold is a
+    // relation between them: "spent" above "left", always. As two independent offsets it
+    // inverted in the state neither of them named — a boundary that both starts high and
+    // collapses below zero across the label's own width, so NEITHER side has room. FAR is
+    // what keeps the order when they share a side: dodgeLabels orders by x, not by
+    // priority, so a flipped pair would otherwise stack in whichever order their two
+    // widths happened to fall.
+    //
+    // The predicates size ONE label per side, which is the straddle case they decide. When
+    // they send both to one side, that side may be too small for the FAR label too —
+    // deliberately: dodgeLabels clamps it into the plot and dodges it clear, and the clamp
+    // can only push it FURTHER from the line, never past its partner, so the order
+    // survives. Sizing them for the stacked case would only move the straddle threshold
+    // and stop the pair straddling in plots where it fits comfortably.
+    const NEAR = 10, FAR = 25;
+    const above = nowBand.top - flowTop, below = flowBot - nowBand.bottom;
+    const roomAbove = above >= FS_SMALL + NEAR, roomBelow = below >= FS_EMPH + NEAR;
+    const [leftY, spentY] = roomAbove && roomBelow
+      ? [nowBand.bottom + NEAR, nowBand.top - NEAR]
+      : (roomBelow || (!roomAbove && below >= above))
+        ? [nowBand.bottom + FAR, nowBand.bottom + NEAR] // both below, spent nearer the line
+        : [nowBand.top - NEAR, nowBand.top - FAR]; // both above, left nearer the line
+    const nowLeft = nowAnchored(leftText, leftY, 3, FS_EMPH);
+    const nowSpent = nowAnchored(spentText, spentY, 2, FS_SMALL);
     const guidelineLabel = endAnchored(
       t(locale, 'clBufferGuideline', { d: ledger.guidelineDays }), W - PAD_R - 3, yOf(guidelinePct) - 8, 2);
     // Centred on the day it names, but never off the frame: a label half outside the
@@ -479,7 +562,29 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
     const anchors = [...axisTicks, ...(showGuideline ? [guidelineLabel] : [])];
     const anchorKeep = keepNonOverlapping(anchors);
     const readings = [...debtTicks, nowLeft, nowSpent, ...(blownLabel ? [blownLabel] : [])];
-    const readingY = dodgeLabels(anchors.filter((_, i) => anchorKeep[i]), readings,
+
+    // Every piece of INK the readings have to clear, as opposed to the CAPTIONS naming it
+    // — see `inkBox`, which exists because this is the bug that shipped here. Each entry
+    // states the same geometry as its render site below, so a change to one that misses
+    // the other is a rule the pass thinks it dodged. The boundary is the one that is not
+    // axis-aligned, so it goes in per reading, as the y range it covers across THAT
+    // reading's own width — the fact under the label, not a guess taken at one x.
+    //
+    // Two pieces of the flow's ink are deliberately absent, because something else already
+    // holds them off: the frame, which the `bounds` below keep every label inside, and the
+    // dot at today, which the readings clear by being anchored 6px past it in x.
+    const boundaryUnder = (l: PlacedLabel): PlacedLabel[] => {
+      const b = boundaryBand(l.x - l.halfW, l.x + l.halfW);
+      return b == null ? [] : [inkBox(l.x - l.halfW, b.top, l.x + l.halfW, b.bottom, BOUNDARY_W)];
+    };
+    const ink: PlacedLabel[] = [
+      ...scale.ticks.map((v) => inkBox(labelW, yOf(v), W - PAD_R, yOf(v), GRIDLINE_W)),
+      ...(showGuideline ? [inkBox(W - PAD_R - GUIDELINE_STUB_W, yOf(guidelinePct), W - PAD_R, yOf(guidelinePct), GUIDELINE_W)] : []),
+      ...(blown && blownLabel ? [inkBox(x(blown.ms), yOf(0) - BLOWN_TICK_H, x(blown.ms), yOf(0) + BLOWN_TICK_H, BLOWN_TICK_W)] : []),
+      ...readings.flatMap(boundaryUnder),
+    ];
+
+    const readingY = dodgeLabels([...anchors.filter((_, i) => anchorKeep[i]), ...ink], readings,
       { top: flowTop + 2, bottom: flowBot - 2 });
     const placed = readings.map((r, i) => ({ ...r, y: readingY[i] }));
 
@@ -540,7 +645,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
             false statement about how much time it represents (design.md §8c / #42) */}
         {breaks.map((b, i) => (
           <g key={`brk${i}`}>
-            <line x1={b.cx} y1={TOP - 6} x2={b.cx} y2={vExtentBot}
+            <VRule cx={b.cx} y0={TOP - 6} y1={vExtentBot} cut={captionCut}
               stroke="var(--border)" strokeWidth={1} strokeDasharray="2 3" />
             <path d={`M ${b.cx - 5} ${axisY + 3} l 4 -8 M ${b.cx - 1} ${axisY + 3} l 4 -8`}
               stroke="var(--muted)" strokeWidth={1.25} fill="none" />
@@ -558,7 +663,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
             scrolled their date out of the focus window (an edge-clamped line would lie). */}
         {inView(now) && (
           <>
-            <line x1={x(now)} y1={TOP - 12} x2={x(now)} y2={vExtentBot}
+            <VRule cx={x(now)} y0={TOP - 12} y1={vExtentBot} cut={captionCut}
               stroke="var(--muted)" strokeWidth={1} strokeDasharray="3 3" />
             <ChartLabel x={x(now)} y={todayLabelY} textAnchor="middle" fontSize={FS_EMPH} fill="var(--muted)">
               {t(locale, 'clTodayLabel', { date: dayShort(now, locale) })}
@@ -567,7 +672,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
         )}
         {sopMs != null && inView(sopMs) && (
           <>
-            <line x1={x(sopMs)} y1={TOP - 12} x2={x(sopMs)} y2={vExtentBot} stroke="var(--fg)" strokeWidth={1.5} />
+            <VRule cx={x(sopMs)} y0={TOP - 12} y1={vExtentBot} cut={captionCut} stroke="var(--fg)" strokeWidth={1.5} />
             <ChartLabel x={Math.min(x(sopMs), W - 8)} y={TOP - 18} textAnchor="end" fontSize={FS_EMPH} fill="var(--fg)">
               {t(locale, 'clSopLabel', { month: monthLong(sopMs, locale) })}
             </ChartLabel>
@@ -661,8 +766,11 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
           <g data-testid="chain-buffer-flow">
             <rect x={labelW} y={flowTop} width={plotW} height={FLOW_H} rx={6}
               fill="var(--surface)" stroke="var(--border)" strokeWidth={1} />
-            {/* title above the flow, leaving the left gutter free for the y-axis scale */}
-            <ChartLabel x={labelW} y={flowTop - 8} textAnchor="start" fontSize={FS_SMALL} fill="var(--muted)">
+            {/* title above the flow, leaving the left gutter free for the y-axis scale.
+                Its box is `captionCut` above, which every full-height vertical cuts
+                around — change one and the other follows, or the rules cut empty air. */}
+            <ChartLabel x={labelW} y={flowTitleY} textAnchor="start" fontSize={FS_SMALL} fill="var(--muted)"
+              data-testid="chain-flow-title">
               {t(locale, 'clFlowTitle')}
             </ChartLabel>
             {/* the derived scale. 0% and 100% are not scale, they are the two facts the
@@ -670,7 +778,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
                 intermediate gridlines do not. */}
             {flow.scale.ticks.map((v) => (
               <line key={`ft${v}`} x1={labelW} y1={flow.yOf(v)} x2={W - PAD_R} y2={flow.yOf(v)}
-                stroke="var(--border)" strokeWidth={1} opacity={v === 0 || v === 100 ? 1 : 0.4} />
+                stroke="var(--border)" strokeWidth={GRIDLINE_W} opacity={v === 0 || v === 100 ? 1 : 0.4} />
             ))}
             {/* BUFFER SPENT rides above the boundary, BUFFER LEFT below it: the buffer as a
                 tank that drains from the top. The forecast halves are the same two claims
@@ -685,17 +793,17 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
             {flow.areas.debtAhead && <path d={flow.areas.debtAhead} fill="var(--bad)" fillOpacity={0.18} />}
             {/* the boundary IS the reading: solid through today, dashed into the forecast */}
             {flow.boundaryPast && (
-              <polyline points={flow.boundaryPast} fill="none" stroke="var(--fg)" strokeWidth={1.75} />
+              <polyline points={flow.boundaryPast} fill="none" stroke="var(--fg)" strokeWidth={BOUNDARY_W} />
             )}
             {flow.boundaryAhead && (
-              <polyline points={flow.boundaryAhead} fill="none" stroke="var(--fg)" strokeWidth={1.75}
+              <polyline points={flow.boundaryAhead} fill="none" stroke="var(--fg)" strokeWidth={BOUNDARY_W}
                 strokeDasharray="3 2" opacity={0.75} />
             )}
             {/* the 50%-of-remaining reserve, as a marker at the right edge rather than a
                 rule across the chart: it is a value that only exists as of now */}
             {flow.showGuideline && (
-              <line x1={W - PAD_R - 20} y1={flow.yOf(flow.guidelinePct)} x2={W - PAD_R} y2={flow.yOf(flow.guidelinePct)}
-                stroke="var(--muted)" strokeWidth={1.5} strokeDasharray="4 3" />
+              <line x1={W - PAD_R - GUIDELINE_STUB_W} y1={flow.yOf(flow.guidelinePct)} x2={W - PAD_R} y2={flow.yOf(flow.guidelinePct)}
+                stroke="var(--muted)" strokeWidth={GUIDELINE_W} strokeDasharray="4 3" />
             )}
             {/* Every label below renders CENTRED on its own collision box, so what was
                 placed and what is painted cannot drift apart — the class of bug where a
@@ -710,8 +818,8 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
                 tail is drawn at all */}
             {flow.blown && flow.blownLabel && (
               <>
-                <line x1={x(flow.blown.ms)} y1={flow.yOf(0) - 6} x2={x(flow.blown.ms)} y2={flow.yOf(0) + 6}
-                  stroke="var(--bad)" strokeWidth={2} />
+                <line x1={x(flow.blown.ms)} y1={flow.yOf(0) - BLOWN_TICK_H} x2={x(flow.blown.ms)} y2={flow.yOf(0) + BLOWN_TICK_H}
+                  stroke="var(--bad)" strokeWidth={BLOWN_TICK_W} />
                 <ChartLabel x={flow.blownLabel.x} y={centreToBaselineY(flow.blownLabel.y, FS_SMALL)} textAnchor="middle"
                   fontSize={FS_SMALL} fill="var(--bad)" halo="var(--surface)">
                   {flow.blownLabel.text}
@@ -762,7 +870,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
             reads a single date across both (#75). Non-interactive, drawn on top. */}
         {crosshairX != null && (
           <g style={{ pointerEvents: 'none' }}>
-            <line x1={crosshairX} y1={TOP - 8} x2={crosshairX} y2={vExtentBot}
+            <VRule cx={crosshairX} y0={TOP - 8} y1={vExtentBot} cut={captionCut}
               stroke="var(--chain)" strokeWidth={1.25} opacity={0.85} />
             <ChartLabel x={crosshairX} y={crosshairDateY} textAnchor="middle"
               fontSize={FS_SMALL} fill="var(--chain-ink)">

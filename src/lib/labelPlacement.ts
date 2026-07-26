@@ -14,9 +14,11 @@
 // already for legibility (#83) and a de-collider that undoes that is a regression wearing
 // a fix.
 
-/** A label candidate: its CENTRE (`x`,`y`), half-width/half-height, and `priority` (higher
+/** A BOX to be cleared: its CENTRE (`x`,`y`), half-width/half-height, and `priority` (higher
  *  wins a contested slot; ties keep the earlier x). The caller must pass the centre — for
- *  an end-anchored label that is `x - halfW`, for a start-anchored one `x + halfW`. */
+ *  an end-anchored label that is `x - halfW`, for a start-anchored one `x + halfW`.
+ *
+ *  Usually a label, but NOT only a label — see `dodgeLabels`' `fixed` and `inkBox`. */
 export interface PlacedLabel {
   x: number;
   y: number;
@@ -70,6 +72,11 @@ export const baselineToCentreY = (baselineY: number, fontSize: number): number =
 export const centreToBaselineY = (centreY: number, fontSize: number): number =>
   centreY + fontSize * CAP_HALF_EM;
 
+/** The `halfH` a label of `fontSize` reserves: half the em box plus a point of air, so
+ *  two labels at rest have a visible gap rather than kissing. Here for the same reason
+ *  `CAP_HALF_EM` is — four call sites had hand-copied it. */
+export const halfHFor = (fontSize: number): number => fontSize / 2 + 1;
+
 const overlaps = (a: PlacedLabel, b: PlacedLabel): boolean =>
   Math.abs(a.x - b.x) < a.halfW + b.halfW && Math.abs(a.y - b.y) < a.halfH + b.halfH;
 
@@ -86,14 +93,34 @@ export function keepNonOverlapping(labels: PlacedLabel[]): boolean[] {
   return keep;
 }
 
+/** An axis-aligned line of INK — a gridline, a threshold, a marker tick, a span of a
+ *  polyline — as the box a label has to clear. Ink is not a label, and until #161 nobody
+ *  passed any: `ChainSchedule`'s buffer flow handed `dodgeLabels` its gridlines' TICK
+ *  CAPTIONS, ~30px boxes in the left gutter, while the rules they name are painted right
+ *  across the plot. Nothing inside the plot can overlap a gutter box in x, so the pass
+ *  reported clear and the reading printed on the rule. Charge the stroke to the box in
+ *  both axes: over-reserving costs a label a few px of dodge, under-reserving is silent. */
+export const inkBox = (x1: number, y1: number, x2: number, y2: number, strokeW: number): PlacedLabel => ({
+  x: (x1 + x2) / 2, y: (y1 + y2) / 2,
+  halfW: Math.abs(x2 - x1) / 2 + strokeW / 2,
+  halfH: Math.abs(y2 - y1) / 2 + strokeW / 2,
+  priority: 0,
+});
+
 /** A vertical band the dodged labels must stay within (the lane plot, roughly). */
 export interface YBounds { top: number; bottom: number }
 
 /** Place EVERY `movable` label, keeping its x / halfW / halfH but nudging its y to the
- *  nearest position free of the `fixed` labels and the movable labels already placed,
- *  clamped so the box stays inside [top, bottom]. Returns the chosen y per movable, in
- *  input order — so a cluster of near-coincident labels FANS OUT rather than any being
- *  dropped. Used for the buffer-lane risers, where hiding a step would hide a real move.
+ *  nearest position free of everything in `fixed` and of the movable labels already
+ *  placed, clamped so the box stays inside [top, bottom]. Returns the chosen y per
+ *  movable, in input order — so a cluster of near-coincident labels FANS OUT rather than
+ *  any being dropped. Used for the buffer-lane risers, where hiding a step would hide a
+ *  real move.
+ *
+ *  `fixed` is EVERYTHING THE MOVABLES MUST CLEAR, not "the labels already placed" — a
+ *  full-plot-width gridline belongs in it as a box (`inkBox`); its tick caption does not
+ *  stand in for it. Read that sentence twice: three charts here passed only labels, and
+ *  the one whose rules ran under its readings shipped a reading printed on a gridline.
  *
  *  Greedy: process left-to-right (ties top-first) so stacks build in a stable order, and
  *  for each label take the smallest |Δy| slot that clears everything placed so far. If no
@@ -109,7 +136,13 @@ export function dodgeLabels(fixed: PlacedLabel[], movable: PlacedLabel[], bounds
     const lbl = movable[i];
     const lo = bounds.top + lbl.halfH, hi = bounds.bottom - lbl.halfH;
     const clamp = (y: number) => Math.max(lo, Math.min(hi, y));
-    const free = (y: number) => placed.every((p) => !overlaps({ ...lbl, y }, p));
+    // One scratch box, mutated, rather than `overlaps({ ...lbl, y }, p)`: that spread ran
+    // once per probe, and the probe count grew by an order of magnitude when the ink
+    // joined `fixed` — order 10⁴ throwaway boxes per render of a chart that re-renders on
+    // every mousemove. The RULE stays in `overlaps`; a second copy of it here would be
+    // the two-copies-free-to-drift trap this module exists to close.
+    const probe = { ...lbl };
+    const free = (y: number) => { probe.y = y; return placed.every((p) => !overlaps(probe, p)); };
     let chosen = clamp(lbl.y);
     if (!free(chosen)) {
       // spiral out from the natural y in both directions, nearest slot wins
