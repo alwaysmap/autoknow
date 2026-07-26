@@ -7,8 +7,14 @@
 //  2. CHART-LEVEL checks driven by fixture data deliberately chosen to CROWD — because
 //     the bug this sweep exists to kill is not "the de-collider is wrong", it is "nobody
 //     called the de-collider, and the default dataset happened not to notice". The
-//     fixtures are the datasets that notice: two adjacent thin capacity bands, and the
-//     healthy cycle-time distribution where p50 == p85.
+//     fixtures are the datasets that notice: two adjacent thin capacity bands, the
+//     healthy cycle-time distribution where p50 == p85, and (§4) the buffer flow's
+//     blown-buffer and today-at-the-right-edge cases.
+//
+// §4 also asserts what a de-collider CANNOT see, because both bugs the flow shipped on
+// its first real page load were of that kind: a label clipped by the FRAME, and a label
+// struck through by the chart's own boundary LINE. Neither is a label-on-label overlap,
+// so every placement pass reported clear.
 //
 // Boxes are reconstructed from the rendered attributes with the SAME width estimator the
 // components lay out with, so this asserts the geometry that actually shipped. It cannot
@@ -20,6 +26,8 @@ import { render } from '@testing-library/react';
 import { LocaleProvider } from '../src/components/LocaleProvider';
 import CapacityChart, { type CapacityChartProgram } from '../src/components/CapacityChart';
 import CycleTimeScatterPlot, { type CycleTimeData, type CycleTimeStats } from '../src/components/CycleTimeScatterPlot';
+import { ChainSchedule, W as CHAIN_W } from '../src/components/ChainSchedule';
+import { computeChainLedger, type ChainLedgerInput, type LedgerPhaseInput } from '../src/lib/chainLedger';
 import {
   keepNonOverlapping,
   dodgeLabels,
@@ -255,5 +263,127 @@ describe('CycleTimeScatterPlot — the healthy distribution is the crowding case
     const { container } = wrap(<CycleTimeScatterPlot data={data} stats={wide} />);
     const ys = captionBoxes(container).filter((b) => b.id.endsWith('-0')).map((b) => b.y);
     expect(new Set(ys).size).toBe(1); // both still at rowY - 22
+  });
+});
+
+// ---- 4. ChainSchedule's buffer flow: the blown buffer, and today at the edge ------
+
+describe("ChainSchedule's buffer flow — the frame and the boundary are collisions too", () => {
+  const DAY = 86_400_000;
+  const D0 = Date.UTC(2026, 0, 1);
+  const day = (n: number) => D0 + n * DAY;
+  const iso = (n: number) => new Date(day(n)).toISOString();
+  const phase = (
+    id: number, name: string, forecastedDuration: number, progress: number,
+    parentIds: number[] = [], startedAt: string | null = null, completedAt: string | null = null,
+  ): LedgerPhaseInput => ({ id, name, forecastedDuration, progress, parentIds, startedAt, completedAt });
+
+  /** A(30) done 3 days early · 6 idle days · B(40) live and over · C(30) queued. Moving
+   *  the SOP moves B₀, which is the only thing the flow is a share OF — so one shape
+   *  drives the healthy case, the blown case and everything between. */
+  const chain = (sopDay: number, names = ['Design', 'Build', 'Certification']): ChainLedgerInput => ({
+    phases: [
+      phase(1, names[0], 30, 100, [], iso(0), iso(27)),
+      phase(2, names[1], 40, 50, [1], iso(33)),
+      phase(3, names[2], 30, 0, [2]),
+    ],
+    sopDate: iso(sopDay),
+    now: day(60),
+  });
+
+  const drawChain = (input: ChainLedgerInput) => wrap(
+    <ChainSchedule
+      ledger={computeChainLedger(input)}
+      sopMs={input.sopDate ? +new Date(input.sopDate) : null}
+      now={input.now}
+      locale="en"
+      onRowCard={() => {}}
+      onJump={() => {}}
+    />,
+  ).container;
+
+  const flowBoxes = (container: HTMLElement) => {
+    const flow = container.querySelector('[data-testid="chain-buffer-flow"]');
+    if (!flow) throw new Error('the buffer flow did not render for this fixture');
+    return Array.from(flow.querySelectorAll<SVGTextElement>('text')).map((el) => boxOf(el, 10));
+  };
+
+  /** No two labels on each other, and none half outside the frame. The second half is
+   *  the one no placement pass can check for you: `dodgeLabels` reasons about labels,
+   *  so a reading anchored to today's right runs off the viewBox with every pass green. */
+  const expectReadable = (container: HTMLElement) => {
+    const boxes = flowBoxes(container);
+    expect(boxes.length).toBeGreaterThan(0);
+    expect(collidingPairs(boxes)).toEqual([]);
+    expect(boxes.filter((b) => b.x - b.halfW < 0 || b.x + b.halfW > CHAIN_W).map((b) => b.text)).toEqual([]);
+    return boxes;
+  };
+
+  it('reads clean on a healthy program, buffer comfortably in hand', () => {
+    expectReadable(drawChain(chain(200)));
+  });
+
+  it('reads clean when the buffer is BLOWN — sub-zero scale, the day it ran out, and today all in one column', () => {
+    const boxes = expectReadable(drawChain(chain(105)));
+    expect(boxes.some((b) => /past SOP/.test(b.text))).toBe(true);
+    expect(boxes.some((b) => /buffer gone/.test(b.text))).toBe(true);
+  });
+
+  it('reads clean with a NARROW name gutter, where the axis values have least room', () => {
+    expectReadable(drawChain(chain(105, ['A', 'B', 'C'])));
+  });
+
+  it('reads clean with long CJK names and a wide gutter', () => {
+    expectReadable(drawChain(chain(105, ['設計フェーズ', '製造フェーズ', '認証フェーズ'])));
+  });
+
+  it('flips the reading at today rather than clipping it against the right edge', () => {
+    // `now` is a Sunday and the work is done, so the week-ceiling that ends the axis is
+    // one day away: today lands as far right as this axis can put it. Anchored to its
+    // right, the reading ran off the frame — green tests, unreadable chart.
+    const boxes = expectReadable(drawChain({
+      phases: [
+        phase(1, 'Design', 30, 100, [], iso(0), iso(34)),
+        phase(2, 'Build', 20, 100, [1], iso(34), iso(57)),
+      ],
+      sopDate: iso(59),
+      now: day(59),
+    }));
+    const reading = boxes.find((b) => /left · /.test(b.text));
+    expect(reading).toBeDefined();
+    expect(reading!.x + reading!.halfW).toBeLessThanOrEqual(CHAIN_W);
+  });
+
+  it('keeps the readings off the boundary line, which slopes under them', () => {
+    // The flow's own polyline is ink a placement pass cannot see. Each reading clears
+    // the line across ITS OWN width — so assert against the drawn points, not a fixed
+    // offset from the value at today.
+    const container = drawChain(chain(105));
+    const boxes = flowBoxes(container).filter((b) => /spent|left|past SOP/.test(b.text));
+    const line = container.querySelector('[data-testid="chain-buffer-flow"] polyline')!;
+    const pts = (line.getAttribute('points') ?? '').split(' ')
+      .map((p) => p.split(',').map(Number))
+      .filter(([px, py]) => Number.isFinite(px) && Number.isFinite(py));
+    expect(pts.length).toBeGreaterThan(1);
+    for (const b of boxes) {
+      const under = pts.filter(([px]) => px >= b.x - b.halfW && px <= b.x + b.halfW);
+      for (const [, py] of under) {
+        expect(Math.abs(py - b.y)).toBeGreaterThan(b.halfH);
+      }
+    }
+  });
+
+  it('says so in words when there is no buffer to be a share of', () => {
+    // The SOP lands before the chain even starts: B₀ ≤ 0, so there is no percentage
+    // story — and the chart says so rather than inventing a frame (AGENTS lesson 5).
+    const container = drawChain(chain(1));
+    expect(container.querySelector('[data-testid="chain-buffer-flow"]')).toBeNull();
+    expect(container.textContent).toContain('No buffer to divide');
+  });
+
+  it('labels the negative half in days past the SOP, never as "days left"', () => {
+    const debt = flowBoxes(drawChain(chain(105))).filter((b) => /past SOP/.test(b.text));
+    expect(debt.length).toBeGreaterThan(0);
+    for (const b of debt) expect(b.text).toMatch(/^−\d+% · \d+d past SOP$/);
   });
 });

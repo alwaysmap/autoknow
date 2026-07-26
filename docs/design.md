@@ -508,12 +508,16 @@ combination must work:
   idle handoff `--warn` (dashed, in the channel between rows), forecast/not-started
   a dashed `--muted` outline. Transitions are drawn **to the day** (cells clip to
   the phase's true start/end; idle gaps render to the day, so the chart drives
-  "start the day the baton lands", not "wait until Friday"). A **buffer-on-hand
-  lane** sits below on the same week axis — a stepped line, each step pinned under
-  the phase that moved it and labelled with the buffer in hand there. Every step is
-  labelled — where several phases move the buffer in the same week the labels FAN OUT
-  in y rather than any being dropped (a hidden step hides a real buffer move); only the
-  redundant anchors (a y-axis tick still read from the scale) may yield. There is no
+  "start the day the baton lands", not "wait until Friday"). A **two-tone buffer
+  flow** sits below on the same axis (issue #161): one value per day, buffer LEFT
+  (`--ok`, in hand) against buffer SPENT (`--bad`), with the boundary between them as
+  the reading — no per-move annotation, because a step you want explained is a COLUMN
+  you look up in the grid above, and every move is already named in "Where the buffer
+  went". Its y-axis is **derived from the data at render time** and never clipped: it
+  holds 0% and 100% and runs past either end when the data does, and below 0% it is
+  labelled in what it means (`−50% · 83d past SOP`), never as "days left". This
+  replaced a stepped lane whose ~10 riser labels needed a fan-out pass to survive each
+  other. There is no
   texture layer and no `data-std-only` / `data-inst-only` pair here any more; the grid
   reads identically in both styles. The axis always reaches the SOP; a run of ≥ 6
   **empty** weeks (no phase, no handoff — the buffer tail, or the SOP-overshoot span)

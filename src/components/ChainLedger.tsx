@@ -544,10 +544,12 @@ export default function ChainLedger({
           {t(locale, 'clKeyRing')}
         </div>
         <div className={styles.legendRow}>
+          {/* the two-tone flow in miniature: the same two bands either side of one
+              boundary, drawn from the same tokens as the chart (issue #161) */}
           <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <path d="M2 5 H9 V10 H14 V7 H20" fill="none" stroke="var(--fg)" strokeWidth={1.5} />
-            <line x1={9} y1={5} x2={9} y2={10} stroke="var(--bad)" strokeWidth={2} />
-            <line x1={14} y1={10} x2={14} y2={7} stroke="var(--ok)" strokeWidth={2} />
+            <path d="M2 4 H20 V8 L14 9 L8 6 L2 5 Z" fill="var(--bad)" fillOpacity={0.17} />
+            <path d="M2 5 L8 6 L14 9 L20 8 V12 H2 Z" fill="var(--ok)" fillOpacity={0.22} />
+            <path d="M2 5 L8 6 L14 9 L20 8" fill="none" stroke="var(--fg)" strokeWidth={1.5} />
           </svg>
           {t(locale, 'clKeyBufferLane')}
         </div>

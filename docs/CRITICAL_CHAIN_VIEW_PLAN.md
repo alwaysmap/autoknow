@@ -35,6 +35,24 @@ dragging the chart, so day-level detail in a busy fortnight is legible; markers 
 risers outside the window are dropped rather than edge-clamped. Still open from #75's
 neighbours: the #22 touch-gesture story (the pan is mouse-only for now).
 
+UPDATE (2026-07-25, issue #161 step 2/4): the buffer-on-hand LANE described above is
+GONE, replaced by a **two-tone buffer flow** — one value per day, buffer LEFT (green,
+in hand) against buffer SPENT (red), with the boundary between them as the whole
+reading. The lane's per-move fidelity was deliberately dropped, not moved: it already
+exists twice, in §4b "Where the buffer went" and in the day summary (`lib/chainDay`),
+and most of the lane's code existed to stop ~10 riser labels colliding. The day series
+is `src/lib/bufferSeries.ts` (gated against the §4b waterfall by a balance test, so the
+two renderings of one set of books cannot disagree) and the render frame is
+`src/lib/bufferFlow.ts`. The frame is DERIVED at render time and never clipped: it
+holds 0% and 100% and extends past either end — above 100% when a phase hands back more
+than the program started with, and below 0% when the buffer is blown, where the axis is
+labelled in what it means (`−50% · 83d past SOP`) and the day the buffer ran out is
+marked. `guidelineDays` is a marker at the right edge rather than a full-width rule,
+because it is `remainingTotal / 2` — a value that only exists as of now — and it is
+omitted rather than clamped when it falls outside the frame. The phase × week grid
+above is UNTOUCHED by this step; #161 steps 3–4 replace it with per-row bars and swap
+the row hover card for a docked day strip.
+
 UPDATE (2026-07-24, user call): **an overrun against a phase's own estimate is now a
 LEVER, and past a threshold it is the program's headline.** The taxonomy always
 detected `sunkOverrun` / `forecastOverrun`, but only §4b spent them — the response
