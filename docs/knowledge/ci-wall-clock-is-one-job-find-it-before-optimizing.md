@@ -52,6 +52,32 @@ the suite is serial on a 4-vCPU runner. Sharding by browser across separate *run
 works (each leg gets its own postgres service); raising `workers` inside a leg does not,
 until each worker has its own database — bead `autoknow-7mb`.
 
+## A cache that only PRs write is a cache nobody reads
+
+The first version of this work added `actions/cache` to the PR jobs and stopped there.
+It bought **nothing**, and the run still looked plausible — `npm ci` merely took its usual
+21s, with no error anywhere.
+
+**A GitHub Actions cache is readable only from the run's own ref, or from the DEFAULT
+BRANCH.** `ci.yml` was `on: pull_request` only, so every cache it wrote landed on
+`refs/pull/<n>/merge` and no other PR could ever see it. Confirmed, not guessed:
+
+```bash
+gh api repos/<owner>/<repo>/actions/caches -q '.actions_caches[] | "\(.ref)  |  \(.key)"'
+#   refs/pull/184/merge  |  node-modules-Linux-node22-5648ed48...
+#   refs/pull/183/merge  |  playwright-Linux-chromium-5648ed48...
+```
+
+Every entry on a PR ref = every PR starts cold. The fix is a `push: branches: [main]`
+trigger running a job whose only purpose is to write those keys onto the default branch
+(`warm-cache` in `ci.yml`) — deliberately NOT the whole gate suite, which would re-prove
+on main what the PR just proved.
+
+**The trap is that this fails silently in both directions.** A wrong key, a `path` typo,
+or a warm job that drifts from the reader's key does not fail any check — CI just quietly
+goes back to cold. So: after changing a cache key, look at `npm ci`'s duration on the
+NEXT PR, not on the PR that made the change (which is cold by definition).
+
 **The rule.** Before touching a workflow, print the per-step table and decide which
 number you are optimizing. If it is wall clock, you may only work on the job that IS the
 critical path; anything else is spend. And re-measure after, because the critical path
