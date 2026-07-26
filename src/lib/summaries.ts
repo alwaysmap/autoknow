@@ -692,9 +692,9 @@ export async function runSummaryCycle(opts?: { maxSummaries?: number }): Promise
     errors: 0,
     hitCap: false,
   };
+  if (!geminiConfigured) return report;
   // An exhausted allowance short-circuits before the seven staleness aggregates: there is
   // nothing to decide when nothing can be afforded.
-  if (!geminiConfigured) return report;
   if (cap <= 0) return { ...report, hitCap: true };
 
   const [partners, programs] = await Promise.all([

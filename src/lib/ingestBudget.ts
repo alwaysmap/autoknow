@@ -57,7 +57,7 @@ export const GEMINI_CALLS_PER_SUMMARY = 1;
  *
  * Cloud Scheduler owns the real cadence and never tells the app (Terraform sets
  * `cron_schedule` on the job and does not export it to Cloud Run), so this constant
- * cannot derive itself. Until it can — see the infra issue to export the schedule —
+ * cannot derive itself. Until it can (infra issue autoknow-6be exports the cadence) —
  * `tests/ingestBudget.test.ts` parses the Terraform default and fails if the two
  * disagree, which turns silent drift into a red build.
  */

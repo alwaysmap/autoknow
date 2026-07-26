@@ -71,7 +71,7 @@ local use):
 | Script | What it does |
 |---|---|
 | `dev` / `build` / `start` | Next.js dev server / production build / serve the build |
-| `demo` | One command: per-worktree seeded demo DB + `next dev` with stub auth + mock data, and a refresh cycle driven on an interval so re-ingestion arrives with nobody clicking Refresh (`--reseed` to refresh). Uses your `GEMINI_API_KEY` if `.env` has one — with it the seeded corpus is really distilled and embedded; without it digests are excerpts and embeddings are the fallback pedestal |
+| `demo` | One command: per-worktree seeded demo DB + `next dev` with stub auth + mock data (`--reseed` to refresh). The refresh cycle is **on demand** — the boot banner prints the curl — so a demo left open spends no Gemini in the background; `--cron` restores the self-driving interval. Uses your `GEMINI_API_KEY` if `.env` has one — with it the seeded corpus is really distilled and embedded; without it digests are excerpts and embeddings are the fallback pedestal |
 | `lint` / `typecheck` | ESLint / `tsc --noEmit` |
 | `test` (`:watch`, `:coverage`) | Jest unit + DB tests against the `*_test` database |
 | `test:e2e` (`:ui`) | Playwright: full suite on Chromium + engine-sensitive specs on WebKit (one prebuilt server + `*_test` DB per worker, on a per-worktree port block) |
@@ -86,6 +86,7 @@ local use):
 | `db:seed` | Prisma seed (mock data; wipe-guarded — see OPERATIONS §1) |
 | `db:studio` | Prisma Studio on :5555 |
 | `db:test:clean` | Drop stray per-worktree `autoknow…_test` DBs (skips in-use; never the dev/demo DBs) |
+| `db:embeddings:audit` | Find rows holding the fallback embedding instead of a real one (by L2 norm — see the script). Read-only; `-- --fix` clears them so re-ingestion rebuilds them |
 | `ci:lint-migrations` | PR gate: block destructive migrations (used by `ci.yml`) |
 | `ci:migrate` | Forward-only `prisma migrate deploy` to Cloud SQL (used by `deploy.yml`) |
 | `ci:deploy` | Build → push image → roll Cloud Run (used by `deploy.yml`) |

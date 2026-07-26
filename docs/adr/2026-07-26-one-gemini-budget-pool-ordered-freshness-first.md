@@ -56,7 +56,7 @@ free-tier marker at 143 rather than 125 — because they are now derived from th
 per-cycle floor. The readout becomes a staircase (budgets in the same 24-doc band
 plot alike); that is a true property of an hourly cron with an integer cap and is
 shown rather than smoothed. Summaries can be starved by a busy ingestion cycle, by
-design, and `SummaryCycleReport.budgetExhausted` distinguishes that from "nothing
+design, and `SummaryCycleReport.hitCap` distinguishes that from "nothing
 needed doing". Interactive spend stays unbounded — only copy defends it, and a
 deployment with heavy search use can still exceed the tier.
 

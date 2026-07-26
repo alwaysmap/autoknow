@@ -113,6 +113,8 @@ export async function summarizeDocument(text: string, previousDigest?: string): 
       sourceStatus: 'not-applicable',
     };
   }
+  // Bound after the guard because the arrow function handed to callWithQuotaLatch loses
+  // the narrowing — the alias is what keeps this a guard rather than a `!` assertion.
   const client = ai;
 
   // Re-distillation (plan §7): the previous digest rides along so the model can also
