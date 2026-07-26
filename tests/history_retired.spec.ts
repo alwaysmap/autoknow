@@ -51,7 +51,8 @@ test.describe('Retired history pages', () => {
     await expect(details).toContainText('Codec drops blocking the DSP path');
 
     // Closing takes the fragment back off: the URL never claims an open popover.
-    // (The ✕ is a sibling of the details pane, so it scopes to the dialog.)
+    // (The ✕ lives in OverlayDialog's fixed header, above the details pane, so it is
+    // reached by the dialog's accessible name rather than from inside the pane.)
     await page.getByRole('dialog', { name: 'Integration' }).getByRole('button', { name: 'Close' }).click();
     await expect(details).toHaveCount(0);
     await expect.poll(() => new URL(page.url()).hash).toBe('');
