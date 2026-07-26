@@ -29,19 +29,46 @@ export interface PlacedLabel {
  *  anything above the CJK block boundary is full-width and then some. Deliberately an
  *  ESTIMATE: measuring text needs a DOM, and a layout that needs a DOM cannot be a pure
  *  function, cannot run on the server, and cannot be unit-tested against a crowding
- *  fixture. Erring wide is the safe direction — it buys a de-collider more clearance. */
+ *  fixture.
+ *
+ *  TUNING, both directions. Too WIDE only wastes clearance — a de-collider dodges labels
+ *  that would have fitted. Too NARROW is the dangerous one and is SILENT: boxes
+ *  under-reserve, every function here reports clear, and the labels overlap on screen
+ *  anyway. No test catches that, because the tests build their boxes from this same
+ *  estimator — only a screenshot does. So err wide.
+ *
+ *  0.59 is the observed average advance of digits and lower-case latin in the body face
+ *  at chart sizes, rounded up. `WIDE_FROM` is the ONLY script split: Arabic, Devanagari,
+ *  Thai and friends are all charged the latin rate, which is the narrow (unsafe)
+ *  direction for them — widen the rule, not the constant, if that ever matters. */
 const CHAR_EM = 0.59;
 const WIDE_CHAR_EM = 1.09;
 /** Above this code point, assume a full-width glyph (CJK, kana, hangul, their punctuation). */
 const WIDE_FROM = 0x2e80;
 
 /** Estimated rendered width of `s` at `fontSize` px — the halfW every PlacedLabel needs.
- *  ChainSchedule.tsx carries a private copy of this predating the module (its own
- *  `textWidth`, hard-coded at 6.5/12 px because every label there is 10–12px type);
- *  collapsing it onto this is deferred only because #161 steps 2–4 are rewriting that
- *  file right now. */
+ *  ChainSchedule.tsx carries a private copy predating this module (its own `textWidth`,
+ *  hard-coded at 6.5/12 px). Collapsing them is bead autoknow-9xf, deferred because #161
+ *  steps 2–4 are rewriting that file. NOTE for whoever does it: the two are NOT
+ *  equivalent — 6.5/12 is 0.542em/1.0em against this module's 0.59/1.09, so every
+ *  ChainSchedule box widens ~9% on the swap. That is the correct direction (see TUNING
+ *  above), but it is a real layout change, not a no-op refactor. */
 export const estimateTextWidth = (s: string, fontSize: number): number =>
   [...s].reduce((w, ch) => w + (ch.codePointAt(0)! > WIDE_FROM ? WIDE_CHAR_EM : CHAR_EM), 0) * fontSize;
+
+/** Half the cap height, in em. SVG places text by its BASELINE; every function in this
+ *  module reasons about box CENTRES (see PlacedLabel). That mismatch is the module's one
+ *  real trap, so the conversion lives here and is not re-derived per chart — two call
+ *  sites had already hand-tuned two different magic numbers for it. */
+const CAP_HALF_EM = 0.32;
+
+/** An SVG text baseline → the box centre `PlacedLabel` wants. Convert BEFORE placing. */
+export const baselineToCentreY = (baselineY: number, fontSize: number): number =>
+  baselineY - fontSize * CAP_HALF_EM;
+
+/** A placed box centre → the `y` an SVG `<text>` takes. Convert AFTER placing. */
+export const centreToBaselineY = (centreY: number, fontSize: number): number =>
+  centreY + fontSize * CAP_HALF_EM;
 
 const overlaps = (a: PlacedLabel, b: PlacedLabel): boolean =>
   Math.abs(a.x - b.x) < a.halfW + b.halfW && Math.abs(a.y - b.y) < a.halfH + b.halfH;

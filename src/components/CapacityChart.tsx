@@ -12,7 +12,7 @@ import {
   type ProductKey,
   type ProductCapacityPoint,
 } from '../lib/sop';
-import { dodgeLabels, estimateTextWidth } from '../lib/labelPlacement';
+import { centreToBaselineY, dodgeLabels, estimateTextWidth } from '../lib/labelPlacement';
 import { t, type Locale, type StringKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import OverlayDialog from './OverlayDialog';
@@ -211,7 +211,7 @@ function ProductAreaChart({
         {/* direct band labels at the right edge: code + final count */}
         {placedBandLabels.map(({ k, y: cy, text }) => (
           <ChartLabel key={`lbl${k}`} data-testid={`capacity-band-label-${k}`}
-            x={labelLeft} y={cy + labelFs * 0.32} fontSize={labelFs}
+            x={labelLeft} y={centreToBaselineY(cy, labelFs)} fontSize={labelFs}
             fontWeight={k === 'aaos' ? 600 : 400} fill={k === 'aaos' ? INK : 'var(--fg)'}>
             {text}
             <title>{t(locale, BAND_NAME_KEY[k])}</title>
