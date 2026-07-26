@@ -96,7 +96,7 @@
   content: '';
   flex: 1 1 var(--graticule-min-width);
   min-width: var(--graticule-min-width);
-  height: var(--graticule-height);
+  height: var(--graticule-scale-height);
   /* --graticule-lead is measured from the INK; subtract the flex gap the row already
      puts in front of this pseudo so the SEEN lead is the token, not token + gap (#25). */
   margin-left: calc(var(--graticule-lead) - var(--gr-gap));
@@ -104,6 +104,10 @@
      its bottom edge, so this rests the graticule on the heading's text baseline
      — identical across every heading regardless of size or row height. */
   align-self: baseline;
-  background-image: var(--graticule);
+  background-image: var(--graticule-scale);
+  background-size: var(--graticule-scale-size);
+  /* Both layers hang from the bottom edge so the major grows UP and the minor keeps
+     the height it always had; repeat-x tiles each at its own period. */
+  background-position: bottom left;
   background-repeat: repeat-x;
 }

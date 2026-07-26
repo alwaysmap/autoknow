@@ -185,10 +185,14 @@
      baseline so it sits identically across headings of any size or row
      height (a pseudo-element's synthesized baseline is its bottom edge). */
   align-self: baseline;
-  height: var(--graticule-height);
+  height: var(--graticule-scale-height);
   /* seen lead = --graticule-lead from the ⋯ menu's INK: the ⋯ is pulled ink-tight
      in KebabMenu.module.css, and this nets the row's flex gap out (#25). */
   margin-left: calc(var(--graticule-lead) - var(--gr-gap));
-  background-image: var(--graticule);
+  background-image: var(--graticule-scale);
+  background-size: var(--graticule-scale-size);
+  /* Both layers hang from the bottom edge so the major grows UP and the minor keeps
+     the height it always had; repeat-x tiles each at its own period. */
+  background-position: bottom left;
   background-repeat: repeat-x;
 }
