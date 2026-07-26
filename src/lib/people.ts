@@ -1,7 +1,11 @@
 import { deriveEmail, normalizeHandle } from './auth';
 
-// Shared person-resolution used by Programs, Partners, Project detail, and Me.
-// Previously this logic was copy-pasted in 4+ files, and each copy's email branch
+// Two things about a person that several surfaces each used to answer for themselves:
+// WHEN an affiliation applies (hasTakenEffect / coversDay — #124's half-open periods,
+// compared at UTC-day granularity), and WHICH person a name or handle means
+// (resolvePerson, below).
+//
+// Resolution came first. Previously this logic was copy-pasted in 4+ files, and each copy's email branch
 // was dead (it compared a full email against an already-stripped handle), so every
 // lookup fell through to a `name.includes(handle)` substring match — which linked
 // handles like 'jo' to unrelated people such as 'Joanne'. Resolve on the unique
@@ -14,12 +18,17 @@ export interface PersonLike {
 }
 
 /**
- * Has an effective date ARRIVED as of `at`? The intended single answer, so a scheduled
- * change cannot be judged "already applied" by one caller and "still pending" by
- * another — but not yet the ONLY one: `/people/:id` still decides current-vs-history
- * inline from `!a.endDate` (page.tsx), which is why a scheduled move currently files
- * today's job under History. That is #127 E2a, tracked separately; route new callers
- * here rather than copying the inline rule.
+ * Has an effective date ARRIVED as of `at`? The single answer IN JAVASCRIPT, so a
+ * scheduled change cannot be judged "already applied" by one caller and "still pending"
+ * by another. `coversDay` below is the period-shaped question built on it; route new
+ * callers to one of the two rather than writing a third date comparison.
+ *
+ * Two callers still cannot: `src/app/people/page.tsx` (the list's Role column) and
+ * `src/app/partners/[id]/page.tsx` (the roster) ask the same question as a Prisma
+ * `where: { endDate: null }`, which on a person with a scheduled move selects the job
+ * they have NOT started. Those are query-shaped and belong to #127 E5's `profilesAsOf` /
+ * `partnerRosterAsOf`, where the rule can be pushed into SQL against E4's indexes; both
+ * are named on that issue so the sweep is not left to memory.
  *
  * THE SAME-DAY BOUNDARY BELONGS TO THE FUTURE. Employment periods are half-open
  * (#124 §2, `start <= t < end`), so `t === start` falls INSIDE the new period:
@@ -38,6 +47,28 @@ export interface PersonLike {
 export function hasTakenEffect(effective: Date | string, at: Date = new Date()): boolean {
   const utcDay = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   return utcDay(new Date(effective)) <= utcDay(at);
+}
+
+/**
+ * Does an employment period contain `at` — i.e. is this the job held THEN? Half-open on
+ * both ends by construction, since it is `hasTakenEffect` asked twice: the period has
+ * started, and its end has not arrived. A period ending today therefore does NOT contain
+ * today; its successor, starting today, does. `endDate: null` is an open period.
+ *
+ * THIS IS NOT `endDate == null`, and the difference is the whole of #127 E2a. That test
+ * answers "is this period open-ended?", which coincides with "is it current?" only while
+ * nothing is scheduled. Record a future-dated move and the two diverge: today's period
+ * gains an endDate (so it looks like history) while the scheduled one is open (so it
+ * looks current). On the seeded fixture that read as Alice Waters' role vanishing from
+ * the identity line, the job she actually holds filed under History, and a job she starts
+ * in November labelled "Present".
+ */
+export function coversDay(
+  period: { startDate: Date | string; endDate: Date | string | null },
+  at: Date = new Date(),
+): boolean {
+  if (!hasTakenEffect(period.startDate, at)) return false;
+  return period.endDate == null || !hasTakenEffect(period.endDate, at);
 }
 
 /**

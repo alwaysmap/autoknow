@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import PersonAdminControls from '../../../components/PersonEditor';
-import { initialsOf } from '../../../lib/people';
+import { coversDay, initialsOf } from '../../../lib/people';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
@@ -121,8 +121,14 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
               {person.currentPartner.name}
             </Link>
             {(() => {
-              // current role rides the identity line — History below is PRIOR companies
-              const active = person.affiliations.find((a) => !a.endDate && a.partnerId === person.currentPartnerId);
+              // The role held TODAY rides the identity line — the period containing today,
+              // not the open one (see `coversDay`). The partner check keeps the pair
+              // honest: the line prints currentPartner's NAME, so a role taken from some
+              // other partner's period would read as a title held at the wrong company.
+              // Without a match we print no role rather than the wrong one.
+              const active = person.affiliations.find(
+                (a) => coversDay(a) && a.partnerId === person.currentPartnerId,
+              );
               return active?.role ? (
                 <>
                   <span className={styles.identSep}>·</span>
@@ -157,17 +163,25 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
               {t(locale, 'historyLabel')}
             </AnchorHeading>
             {(() => {
-              // prior companies only — the current post lives in the identity line
-              const prior = person.affiliations.filter(
-                (a) => a.endDate != null || a.partnerId !== person.currentPartnerId,
-              );
-              if (prior.length === 0) {
+              // Everything except the job held today, which lives in the identity line.
+              // Keyed on coversDay for the same reason as the line above: filtering by
+              // `endDate != null` put TODAY's period here the moment a move was scheduled.
+              //
+              // A period that has not started yet lists here too — so this is NOT "prior"
+              // companies — and its open end still renders as "Present", wrong for a job
+              // beginning in November. Left alone on purpose: #124 §3 gives a scheduled
+              // period its own affordance ("moves to Honda on 1 Nov 2026", with
+              // edit/cancel), which is #127 E14. Dropping the row in the meantime would
+              // read as the move having been cancelled — a worse lie than an early
+              // "Present".
+              const otherPeriods = person.affiliations.filter((a) => !coversDay(a));
+              if (otherPeriods.length === 0) {
                 return <p className={styles.empty}>{t(locale, 'noPriorCompanies', { c: person.currentPartner.name })}</p>;
               }
               return (
                 <PersonHistoryTable
                   locale={locale}
-                  rows={prior.map((aff) => ({
+                  rows={otherPeriods.map((aff) => ({
                     id: aff.id,
                     partnerId: aff.partnerId,
                     partnerName: aff.partner.name,
