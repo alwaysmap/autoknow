@@ -46,7 +46,10 @@ already applied, dating a new fixture, or writing a backfill script that reuses
      reads old.
   2. **Backfill**: copy old → new; app reads new, still writes both. Backfill
      scripts are separate from `migrate deploy`, idempotent, batched,
-     resumable, guarded by `DESTRUCTIVE_DB_ALLOWED` semantics.
+     resumable, guarded by `DESTRUCTIVE_DB_ALLOWED` semantics. **Against prod
+     they run one way only** — the manual `Run DB backfill` workflow, whose
+     allowlist (`scripts/db/backfill.sh`) your new `db:backfill:*` script must
+     join to be runnable at all ([ADR](../../../docs/adr/2026-07-26-a-backfill-reaches-prod-through-an-allowlisted-dispatch-runner.md)).
   3. **Contract**: nothing reads/writes old → a new migration drops it (this
      one carries the reviewed `-- allow-destructive: <reason>` tag CI demands).
   Why: the old revision keeps serving during every rollout window — a one-step

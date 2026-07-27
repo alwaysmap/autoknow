@@ -78,8 +78,14 @@ start_proxy() {
 
 stop_proxy() { [ -n "${CSP_PID:-}" ] && kill "$CSP_PID" 2>/dev/null || true; }
 
-# db_password <project> — the app password, read from the database-url secret.
+# db_password <project> [secret] — a database password, read out of a Secret Manager
+# secret that holds a whole connection URL. Default `database-url` (the `app` migration
+# role); pass `runtime-database-url` for the DML-only `app_runtime` role.
+#
+# Only the PASSWORD comes back, never the URL, because the stored URLs are in Cloud SQL
+# SOCKET form (`…@localhost/autoknow?host=/cloudsql/…`) while every caller here reaches
+# the database through the Auth Proxy on 127.0.0.1 — so each rebuilds its own URL.
 db_password() {
-  gcloud secrets versions access latest --secret=database-url --project "$1" \
+  gcloud secrets versions access latest --secret="${2:-database-url}" --project "$1" \
     | sed -E 's#.*://[^:]+:([^@]+)@.*#\1#'
 }

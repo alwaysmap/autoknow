@@ -17,7 +17,7 @@ PORT=5432
 start_proxy "$CONN" "$PORT"
 trap stop_proxy EXIT
 
-APP_PW="$(gcloud secrets versions access latest --secret=database-url --project "$PROJECT" | sed -E 's#.*://[^:]+:([^@]+)@.*#\1#')"
+APP_PW="$(db_password "$PROJECT")"
 APP_URL="postgresql://app:${APP_PW}@127.0.0.1:${PORT}/autoknow"
 
 echo "==================== DIAGNOSIS (connected as app) ===================="
@@ -43,7 +43,7 @@ if [ "$MODE" != "apply" ]; then
   exit 0
 fi
 
-RUNTIME_PW="$(gcloud secrets versions access latest --secret=runtime-database-url --project "$PROJECT" | sed -E 's#.*://[^:]+:([^@]+)@.*#\1#')"
+RUNTIME_PW="$(db_password "$PROJECT" runtime-database-url)"
 RUNTIME_URL="postgresql://app_runtime:${RUNTIME_PW}@127.0.0.1:${PORT}/autoknow"
 
 echo "==================== APPLY harden-roles.sql (as app) ===================="

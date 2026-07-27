@@ -42,5 +42,5 @@ full original playbook is in git history.
 | Removing a secret/env/API/role | app PR → infra PR + apply | `infra-terraform` skill |
 | Adding a table / nullable column / index | 1 PR (migration + app) | `db-change` skill |
 | Dropping/renaming/retyping a column | 3 merges: expand → backfill → contract | `db-change` skill |
-| Backfilling data | separate idempotent script, never inside `migrate deploy` | `db-change` skill |
+| Backfilling data | separate idempotent script, never inside `migrate deploy`; against prod it runs ONLY via the manual **Run DB backfill** workflow | `db-change` skill |
 | Migration failed in CI | rollout is blocked; fix forward; if `_prisma_migrations` disagrees with the schema, stop and get a human | `db-change` skill |
