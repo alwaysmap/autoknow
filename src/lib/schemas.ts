@@ -48,15 +48,19 @@ export const zIdOrNull = z.preprocess(
  */
 const zHillProgress = z.coerce.number().int().min(0).max(100);
 
-/** `zHillProgress` where blank means "leave the dot where it is" — every form writer
- *  carries the previous position forward rather than resetting it to zero. */
-export const zHillProgressOrNull = z.preprocess(
+/** `zHillProgress` where a blank field is not an answer but an ABSTENTION: it parses to
+ *  null and each writer says what null means for it. The two status dialogs carry the
+ *  previous position forward; the metadata dialog, whose form always posts the current
+ *  value in a hidden field, treats it as zero. */
+const zHillProgressOrNull = z.preprocess(
   (v) => (v === '' || v == null ? null : v),
   zHillProgress.nullable(),
 );
 
 /** An HTML checkbox. Ticked posts the browser's default 'on'; unticked posts NOTHING,
- *  so absence is a real answer here (false) rather than a missing field. */
+ *  so absence is a real answer here (false) rather than a missing field. TOTAL by
+ *  construction — the preprocess answers for every input, so the `z.boolean()` behind it
+ *  rejects nothing and is there for the output type, not as a gate. */
 const zCheckbox = z.preprocess((v) => v === 'on' || v === true, z.boolean());
 
 /**
@@ -131,9 +135,7 @@ export const relationshipUpdateSchema = z.object({
 
 // Status is written at three grains — a program or partner (the needle dialog), one
 // phase (the hill dialog), and the program metadata dialog, which edits the header's
-// facts and appends a status row in the same submit. They share the hill bound above,
-// and they share it BY REFERENCE: each of these used to spell 0..100 for itself, and the
-// one that spelled it in hand-rolled `parseInt` instead spelled nothing.
+// facts and appends a status row in the same submit.
 
 export const statusUpdateSchema = z.object({
   scope: z.enum(['project', 'partner']),
@@ -220,10 +222,17 @@ export const personCreateSchema = z.object({
   role: zTextOrNull,
 });
 
-/** Self-provisioning from /me. The caller picks only the ORGANIZATION: name and address
- *  come from the session and are deliberately absent here, because a form that could
- *  supply them would be a form that could spoof them (AGENTS lesson 13). That is why this
- *  is not simply `personCreateSchema` — the asymmetry with its sibling is the point. */
+/**
+ * Self-provisioning from /me. The caller picks only the ORGANIZATION.
+ *
+ * THE CANONICAL ACCOUNT of why this is not simply `personCreateSchema` above, since the
+ * asymmetry is exactly what a later reader will try to tidy away: name and address are
+ * absent because a form that could supply them would be a form that could spoof them. The
+ * login is the identity (AGENTS lesson 13, ADR
+ * 2026-07-21-session-is-the-only-source-of-who-i-am), so completing the symmetry here
+ * would be the bug, not the fix. `createMyProfile` and tests/createMyProfile.test.ts point
+ * back here rather than restating it.
+ */
 export const myProfileSchema = z.object({
   partnerId: zId,
   /** Stub-mode identity override (`?user=`), ignored whenever real auth is configured. */

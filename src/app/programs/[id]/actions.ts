@@ -10,10 +10,11 @@ import { getCurrentUser } from '../../../lib/session';
 import { requireOwner } from '../../../lib/owner';
 
 // The program metadata dialog: the header's editable facts, plus the ProjectState row the
-// same submit appends. One zod gate (lib/schemas), like its neighbour
-// `setProjectLifecycle` — and like `updateNeedleStatus`, which appends that same state row
-// through `statusUpdateSchema`, whose bound on the progress this one wrote raw is now the
-// shared one both read (autoknow-9l4).
+// same submit appends. One zod gate (lib/schemas), like its neighbour `setProjectLifecycle`.
+//
+// `updateNeedleStatus` appends that same state row, through `statusUpdateSchema`. This
+// action wrote the row's progress straight from `parseInt`, with no bound at all; both now
+// read the one shared bound (autoknow-9l4).
 export async function updateProjectMetrics(formData: FormData) {
   const {
     projectId, theNeedle: needleLabel, ownerName, sopDate: sopMonth, volumeFirstYear,

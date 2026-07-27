@@ -30,14 +30,14 @@ let updateProjectMetrics: Actions['updateProjectMetrics'];
 let seeded: SeededProgram;
 let ownerEmail: string;
 
-/** The dialog's fields, minus whatever a case is varying. Checkboxes are omitted rather
- *  than set false — that is how a browser posts an unticked box. */
 const form = (fields: Record<string, string | number>) => {
   const fd = new FormData();
   for (const [k, v] of Object.entries(fields)) fd.set(k, String(v));
   return fd;
 };
 
+/** The dialog's fields, minus whatever a case is varying. Checkboxes are omitted rather
+ *  than set false — that is how a browser posts an unticked box. */
 const base = () => ({
   projectId: seeded.projectId,
   theNeedle: 'On Track',
@@ -53,8 +53,7 @@ const project = () => prisma.project.findUniqueOrThrow({ where: { id: seeded.pro
 const latestProjectState = () =>
   prisma.projectState.findFirstOrThrow({
     where: { projectId: seeded.projectId },
-    // `id` breaks the tie `timestamp` alone cannot: Prisma stores DateTime at millisecond
-    // precision and two appends in one test land inside one millisecond often enough.
+    // `id` breaks the millisecond tie timestamp alone cannot — see the note in helpers/db.
     orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
   });
 

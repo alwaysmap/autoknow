@@ -1,13 +1,10 @@
 /** @jest-environment node */
-// `createMyProfile` — self-provisioning from /me. Its sibling `createPerson` takes name,
-// address, organization and role from one form through `personCreateSchema`; this one
-// takes ONLY the organization from the form, because the login is the identity
-// (AGENTS lesson 13 / ADR: the signed-in session is the only source of "who I am").
+// `createMyProfile` — self-provisioning from /me. It takes ONLY the organization from the
+// form, unlike its sibling `createPerson`; `myProfileSchema` in lib/schemas argues why.
 //
-// That asymmetry is the whole reason `myProfileSchema` is a separate, smaller schema
-// rather than a reuse of its sibling — and it is the kind of asymmetry a later reader
-// "tidies up". So the point of this file is the negative case: a form that posts a name
-// and an address must still create the SESSION's person, not the form's.
+// This file is the ENFORCEMENT of that argument, which is the half prose cannot do: the
+// negative case, where a form posting a name and an address must still create the
+// SESSION's person, not the form's.
 import { testDatabaseUrl } from './helpers/testDatabaseUrl';
 process.env.DATABASE_URL = testDatabaseUrl(); // bind lib/db to the *_test database
 

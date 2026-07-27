@@ -24,7 +24,7 @@
 // claim about it.
 
 import { readFileSync } from 'node:fs';
-import { sourceFiles, stripComments } from './helpers/sourceFiles';
+import { stripComments, tsFiles } from './helpers/sourceFiles';
 
 /**
  * Files that still hold both philosophies, each with the bead that resolves it. This
@@ -43,27 +43,25 @@ const readsFormByHand = (file: string): boolean => {
   return code.includes('parseForm(') && code.includes('formData.get(');
 };
 
-const actionFiles = sourceFiles('src/app').filter((f) => f.endsWith('.ts'));
+// Every `.ts` under src/app — action modules, route handlers and server-side page code
+// alike. Not narrowed to `actions/`: a server action is defined by `'use server'`, not by
+// its directory, and `createProject` lives in a page module today.
+const appModules = tsFiles('src/app');
 
 describe('a file that uses parseForm does not also read the form by hand', () => {
-  it('finds action files at all', () => {
+  it('finds modules to scan at all', () => {
     // A scan whose corpus is empty passes vacuously and pins nothing — assert the walk
     // works before believing anything it reports.
-    expect(actionFiles.some((f) => f.includes('actions'))).toBe(true);
-    expect(actionFiles.length).toBeGreaterThan(5);
+    expect(appModules.some((f) => f.includes('actions'))).toBe(true);
+    expect(appModules.length).toBeGreaterThan(5);
   });
 
-  it('has no mixed file outside the tracked list', () => {
-    const mixed = actionFiles.filter(readsFormByHand).sort();
+  // EQUALITY, not containment, which is what makes the list a ratchet in both directions:
+  // a newly mixed file shows up on the left, and a file whose bead landed without deleting
+  // its line here drops off the left. Without the second half a stale exemption would sit
+  // there forever and the next regression in that file would pass.
+  it('has no mixed file outside the tracked list, and no stale entry in it', () => {
+    const mixed = appModules.filter(readsFormByHand).sort();
     expect(mixed).toEqual(Object.keys(KNOWN_MIXED).sort());
-  });
-
-  it('does not carry an entry for a file that is already clean', () => {
-    // The other direction, which is what makes the list a RATCHET: a bead that lands
-    // without deleting its line here leaves a stale exemption behind, and the next
-    // regression in that file passes.
-    for (const file of Object.keys(KNOWN_MIXED)) {
-      expect({ file, mixed: readsFormByHand(file) }).toEqual({ file, mixed: true });
-    }
   });
 });

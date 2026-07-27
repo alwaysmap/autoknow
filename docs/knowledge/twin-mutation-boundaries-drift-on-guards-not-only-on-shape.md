@@ -1,5 +1,5 @@
 ---
-title: When two mutation boundaries write the same row, the shape audit is also the cheapest authorization audit — check the GUARDS, not only the fields
+title: The shape audit between twin mutation boundaries is also the cheapest authorization audit
 status: current
 updated: 2026-07-27
 applies_to:
@@ -13,7 +13,7 @@ symptoms:
 verified_by: 'tests/phaseHill.test.ts "refuses a real phase hung off the WRONG program"; tests/actionFormGate.test.ts; autoknow-679 / autoknow-9l4'
 ---
 
-# The shape audit between twins is also the cheapest authorization audit
+# The shape audit between twin mutation boundaries is also the cheapest authorization audit
 
 **The lesson.** Several rows here are written from two places at once — a form
 server action and a JSON API route, or a person action and its partner mirror.

@@ -40,9 +40,7 @@ const form = (fields: Record<string, string | number>) => {
 
 const countStates = (phaseId: number) => prisma.phaseState.count({ where: { phaseId } });
 
-// `id` breaks the tie the action's own `orderBy: { timestamp: 'desc' }` cannot: Prisma
-// stores DateTime at millisecond precision, and two appends inside one test land inside
-// one millisecond often enough to matter.
+// `id` breaks the millisecond tie timestamp alone cannot — see the note in helpers/db.
 const latestState = (phaseId: number) =>
   prisma.phaseState.findFirstOrThrow({ where: { phaseId }, orderBy: [{ timestamp: 'desc' }, { id: 'desc' }] });
 
@@ -132,10 +130,13 @@ describe('updatePhaseHill', () => {
     expect(await countStates(seeded.phases.integration)).toBe(before);
   });
 
-  // `guarded` is not in this path — the hill dialogs catch the throw themselves — but the
-  // wording still has to be the readable one, because the same actions are reachable from
-  // surfaces that DO go through `guarded`, which forwards a message only when it
-  // startsWith('Invalid input') OR includes(' — ').
+  // Both call sites of this action catch the throw themselves (PhaseHillGauge, PhaseTrack),
+  // so `guarded` is not in THIS path. The prefix is pinned here anyway because it is not
+  // this action's wording — it is `parseForm`'s, shared with every action that DOES run
+  // under `guarded`, which forwards a message only when it startsWith('Invalid input') OR
+  // includes(' — '). A reword missing both branches would degrade all of those to
+  // "Something went wrong", and pinning the contract wherever it is cheap is what catches
+  // that early.
   it('refuses readably', async () => {
     await expect(
       updatePhaseHill(form({ phaseId: seeded.phases.audio, projectId: seeded.projectId, hillChartProgress: '150', notes: 'x' })),

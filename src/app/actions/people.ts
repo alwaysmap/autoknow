@@ -28,11 +28,9 @@ export async function createPerson(formData: FormData) {
 }
 
 /** Self-provisioning from /me: the LOGIN is the identity source (name/email come
- *  from the session, never the form); the caller only picks the organization.
- *
- *  So `myProfileSchema` covers the FORM half and nothing more — the asymmetry with
- *  `createPerson`'s `personCreateSchema` above is deliberate, and routing name and
- *  address through a form schema here would be the bug, not the fix (AGENTS lesson 13). */
+ *  from the session, never the form); the caller only picks the organization. So
+ *  `myProfileSchema` covers the form half and nothing more — its docblock in lib/schemas
+ *  argues why that asymmetry with `createPerson`'s schema is deliberate. */
 export async function createMyProfile(formData: FormData) {
   const { partnerId, user: override } = parseForm(myProfileSchema, formData);
   const current = await getCurrentUser();

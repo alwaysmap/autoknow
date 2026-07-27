@@ -13,12 +13,12 @@ import { getPartnerDeleteBlockers, partnerDeleteRefusal } from '../../lib/partne
 // owns programs or is someone's current employer cannot be deleted — reassign first.
 // (Person.currentPartnerId is a required FK, and silently cascading programs away
 // would destroy the portfolio history.)
-
+//
 // Zod is the single gate (lib/schemas): trims, coerces ids, requires region, validates
-// URLs — malformed input throws before Prisma ever sees it. The three schemas are the
-// three shapes: the editable fields, those fields plus the id they belong to, and the id
-// alone. That mirrors the person actions, whose `personDeleteSchema` exists for exactly
-// the same one-id job (autoknow-9l4).
+// URLs — malformed input throws before Prisma ever sees it. Three schemas for the three
+// shapes: the editable fields, those fields plus the id they belong to, and the id alone.
+// That mirrors the person actions, whose `personDeleteSchema` exists for exactly the same
+// one-id job (autoknow-9l4).
 
 export async function createPartner(formData: FormData): Promise<ActionResult> {
   return guarded(async () => {
