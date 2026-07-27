@@ -1,5 +1,5 @@
 import { prisma } from './db';
-import { resolvePersonCandidates } from './people';
+import { personDirectorySelect, resolvePersonCandidates } from './people';
 
 // #127 E6 — fill `Project.ownerPersonId` from the `ownerName` text that predates it.
 // Run it with `npm run db:backfill:owner-person`; it is deliberately NOT part of the
@@ -22,18 +22,19 @@ import { resolvePersonCandidates } from './people';
 //   attached at all — `ownerName` still says who it is, and stays the read path until
 //   E7. So NULL is a safe, re-runnable answer here and a wrong id is not.
 //
-// THE AS-OF INSTANT: the RUN instant, resolved against each Person's CURRENT `email`
-// and `name`. That is not a shortcut around #127's temporality — it is the only
-// question the data can answer today. `email` and `name` are person-level columns
-// (#124 §2: name is latest-wins; email becomes period-scoped only in Phase 3), so
-// there are no historical addresses to resolve against and no date at which the
-// directory would look different. Nothing here reads `PersonAffiliation`, so the
-// as-of resolvers and their lint guard are not involved at all.
+// THE AS-OF INSTANT: the RUN instant, and it stays that way — but what the run instant
+// SEES widened at #127 E8. `name` is still a person-level column (#124 §2, latest-wins),
+// and addresses are now period-scoped, so the directory below is fetched with
+// `personDirectorySelect` and the matcher searches every address a person has ever held.
+// There is still no date at which this would answer differently: resolution is not
+// temporal (the argument is at `resolvePersonCandidates`), so the as-of resolvers and
+// their lint guard remain uninvolved.
 //
-// The consequence to know: a program whose `ownerName` holds an address its owner has
-// since left resolves to nobody today — that is #124 Class 4 itself, and it is why the
-// script is idempotent and re-runnable rather than one-shot. When Phase 3 lands
-// historical addresses, running it again picks those rows up.
+// This is why the script was written idempotent and re-runnable rather than one-shot.
+// Before E8, a program whose `ownerName` held an address its owner had since left
+// resolved to nobody — #124 Class 4 itself, and it showed up as UNMATCHED lines in the
+// report. Re-running it after `db:backfill:affiliation-email` has recorded those
+// addresses is what clears them, and clearing them is E7's gate.
 
 export interface OwnerBackfillRow {
   id: number;
@@ -57,7 +58,7 @@ export interface OwnerBackfillReport {
 }
 
 export async function backfillProjectOwnerPerson(): Promise<OwnerBackfillReport> {
-  const people = await prisma.person.findMany({ select: { id: true, name: true, email: true } });
+  const people = await prisma.person.findMany({ select: personDirectorySelect });
   const projects = await prisma.project.findMany({
     where: { ownerPersonId: null, ownerName: { not: null } },
     select: { id: true, name: true, ownerName: true },

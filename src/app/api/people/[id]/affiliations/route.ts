@@ -19,7 +19,7 @@ export async function POST(
 
     const parsed = parseBody(affiliationApiSchema, await req.json().catch(() => null));
     if (!parsed.ok) return jsonError(parsed.error, 400);
-    const { partnerId, role, startDate, endDate } = parsed.data;
+    const { partnerId, role, startDate, endDate, email } = parsed.data;
 
     // FK targets checked up front: an unknown person/partner is a 404, never a
     // Prisma P2003 surfacing as a 500.
@@ -36,7 +36,11 @@ export async function POST(
         partnerId,
         role,
         startDate,
-        endDate: endDate ?? null
+        endDate: endDate ?? null,
+        // The address held during this period (#127 E8). Omitting it records a period
+        // whose address is UNKNOWN, which is the honest state for most history and what
+        // `db:backfill:affiliation-email` reports rather than guesses at.
+        email: email ?? null
       }
     });
 

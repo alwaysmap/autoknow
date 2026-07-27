@@ -51,7 +51,8 @@ ROLE_SECRET=runtime-database-url
 # needs repo write access, and a dispatch names its own ref, so anyone who can fire it
 # could equally push a branch that widens the list. Run it from `main`.
 ALLOWED=(
-  owner-person # #127 E6 — Project.ownerName -> ownerPersonId
+  owner-person      # #127 E6 — Project.ownerName -> ownerPersonId
+  affiliation-email # #127 E8 — Person.email -> the PersonAffiliation period covering now
 )
 allowed=0
 for name in "${ALLOWED[@]}"; do [ "$name" = "$BACKFILL" ] && allowed=1; done

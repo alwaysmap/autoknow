@@ -27,6 +27,7 @@ on:
         required: true
         options:
           - owner-person # #127 E6 — Project.ownerName -> ownerPersonId
+          - affiliation-email # #127 E8 — Person.email -> the PersonAffiliation period covering now
       confirm:
         description: 'Type the Cloud SQL instance name (autoknow-pg) — this WRITES to production'
         required: true

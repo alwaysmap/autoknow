@@ -18,7 +18,7 @@ import KebabMenu from './KebabMenu';
 import PersonCell from './PersonCell';
 import { partnerHref } from '../lib/entityHref';
 import { localDate } from '../lib/dates';
-import { resolvePerson } from '../lib/people';
+import { resolvePerson, type PersonLike } from '../lib/people';
 
 // Project metadata lives in the page HEADER — one strip, no sidebar card, no
 // duplication. Quiet facts on the left (OEM · suppliers · owner, all links per
@@ -36,11 +36,6 @@ interface PartnerOption {
   isOem: boolean;
 }
 
-interface PersonOption {
-  id: number;
-  name: string;
-  email: string;
-}
 
 interface ProjectMetaHeaderProps {
   projectId: number;
@@ -72,7 +67,10 @@ interface ProjectMetaHeaderProps {
   leadPartnerId?: number;
   partnerOptions?: PartnerOption[];
   /** Existing people — the owner is picked from these, never typed freeform. */
-  peopleOptions?: PersonOption[];
+  /** The owner picker's options AND the directory `resolvePerson` narrows to seed its
+   *  default — hence `PersonLike`, which since #127 E8 carries the addresses a person
+   *  has left, so a legacy owner who has moved still preselects. */
+  peopleOptions?: PersonLike[];
 }
 
 /** One right-aligned figure: an uppercase label over a large value, sharing the

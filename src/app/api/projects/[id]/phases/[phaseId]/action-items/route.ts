@@ -3,7 +3,7 @@ import { prisma } from '../../../../../../../lib/db';
 import { jsonError, serverError } from '../../../../../../../lib/api';
 import { requireRouteAuth } from '../../../../../../../lib/routeAuth';
 import { parseBody, actionItemApiSchema } from '../../../../../../../lib/schemas';
-import { resolvePerson } from '../../../../../../../lib/people';
+import { personDirectorySelect, resolvePerson } from '../../../../../../../lib/people';
 
 export async function POST(
   req: Request,
@@ -35,7 +35,7 @@ export async function POST(
     // free-text handle is kept either way.
     let assignedToPersonId: number | null = null;
     if (assignedTo) {
-      const people = await prisma.person.findMany({ select: { id: true, name: true, email: true } });
+      const people = await prisma.person.findMany({ select: personDirectorySelect });
       assignedToPersonId = resolvePerson(people, assignedTo)?.id ?? null;
     }
 

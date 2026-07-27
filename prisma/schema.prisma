@@ -450,6 +450,19 @@ model PersonAffiliation {
   role      String
   startDate DateTime
   endDate   DateTime? // null means current
+  // The address held DURING this period (#124 §2, #127 E8). An email belongs to a JOB,
+  // not to a human: leaving Qualcomm for Google means a new address, and a mention
+  // written in 2025 quotes the old one forever. `Person.email` stays the CURRENT
+  // canonical address (and stays `@unique` until #127 E9 replaces that with the
+  // unique-at-an-instant EXCLUDE constraint); this column is what makes a past address
+  // still resolve to the human who held it — #124 Class 4.
+  //
+  // NULLABLE, and it stays nullable: nothing knows what address somebody used at a
+  // company they left before this column existed. `db:backfill:affiliation-email` fills
+  // in only the period covering the run instant (the one `Person.email` demonstrably
+  // belongs to) and leaves every other period NULL with a line in its report — NULL
+  // means "not recorded", never "no address". `lib/people`'s matcher skips nulls.
+  email     String?
 
   // Superseded for READS by the composites below, which have these as strict
   // prefixes — kept only because dropping an index is not additive. Owned by bead
@@ -471,6 +484,15 @@ model PersonAffiliation {
   // claim about which half is a bound.
   @@index([personId, startDate, endDate])
   @@index([partnerId, startDate, endDate])
+  // Resolution now asks this table "who has EVER held this address" (#127 E8,
+  // lib/personDirectory), which without an index is a full scan of a table that grows
+  // as people × jobs — and it runs on every page that renders a stored person string.
+  // Equality is what this serves: the exact-address tier lands in Index Cond. The
+  // local-part tier is `ILIKE 'handle@%'`, which no btree in a non-C collation can
+  // answer, so it stays a scan — the same as the `Person` arm beside it in
+  // lib/personDirectory, and honest at hundreds of rows. Do not "fix" that with a
+  // functional index without EXPLAIN saying the scan actually costs something.
+  @@index([email])
 }
 
 model ProjectState {

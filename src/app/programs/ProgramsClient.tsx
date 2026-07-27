@@ -12,7 +12,7 @@ import styles from '../ecosystem-summary/EcosystemSummaryClient.module.css';
 import local from './page.module.css';
 import { formatNeedleValue } from '../../lib/needle';
 import { healthKey, healthColor, healthOrder } from '../../lib/health';
-import { resolvePerson } from '../../lib/people';
+import { resolvePerson, type PersonLike } from '../../lib/people';
 import { deriveProgramStatus } from '../../lib/lifecycle';
 import type { SopBufferCategory } from '../../lib/sop';
 import { t, type StringKey } from '../../lib/i18n';
@@ -62,15 +62,12 @@ interface Project {
   }[];
 }
 
-interface Person {
-  id: number;
-  name: string;
-  email: string;
-}
-
 interface ProgramsClientProps {
   initialProjects: Project[];
-  people: Person[];
+  /** The directory the owner column resolves against — `PersonLike`, so the addresses a
+   *  person has LEFT come with it (#127 E8) and an owner who moved still renders as a
+   *  name. A local `{ id, name, email }` would type-check and silently not. */
+  people: PersonLike[];
   regions?: string[];
   partnerTypes?: string[];
   /** Deep-link support (legacy ?minRisk / ?filter=active). */

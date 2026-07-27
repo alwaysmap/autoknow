@@ -168,7 +168,7 @@ async function createPerson(body: {
 
 async function addAffiliation(
   personId: number,
-  body: { partnerId: number; role: string; startDate: string; endDate?: string },
+  body: { partnerId: number; role: string; startDate: string; endDate?: string; email?: string },
 ): Promise<void> {
   await apiPost(postAffiliationRoute, `/api/people/${personId}/affiliations`, body, {
     id: String(personId),
@@ -1124,12 +1124,11 @@ export async function seedMockData() {
   // ---------------------------------------------------------------------------
   console.log('Seeding the Alice Waters temporal-profile fixture (four periods, one human)...');
 
-  // Her address changes WITH the company (#124 §2) — but email is still a
-  // person-level column, so only the current period's address is storable on the
-  // row. The historical two are authored here because they are half the point of
-  // the fixture, and they do reach the database: they are the free-text
-  // `assignedTo` on the era action items below, which is exactly how a real
-  // action item captured at the time would carry them.
+  // Her address changes WITH the company (#124 §2), and since #127 E8 each period
+  // STORES the address held during it — so all three are real columns, not just prose.
+  // That is what makes the era action items below resolve: each is addressed to the
+  // account she actually held at the time, exactly as a real one captured then would
+  // be, and the Qualcomm one used to strand off her entirely (#124 Class 4).
   const ALICE = {
     bosch: { role: 'Platform Engineer', email: 'alice.waters@bosch.com', start: '2022-01-01', end: '2024-03-01' },
     qualcomm: { role: 'Staff Engineer', email: 'awaters@qualcomm.com', start: '2024-03-01', end: '2026-07-01' },
@@ -1176,11 +1175,11 @@ export async function seedMockData() {
   // anywhere in the career — including into the Google period opened above, whose start
   // is exactly the Qualcomm period's end.
   await addAffiliation(aliceWatersId, {
-    partnerId: boschId, role: ALICE.bosch.role,
+    partnerId: boschId, role: ALICE.bosch.role, email: ALICE.bosch.email,
     startDate: ALICE.bosch.start, endDate: ALICE.bosch.end,
   });
   await addAffiliation(aliceWatersId, {
-    partnerId: qualcommId, role: ALICE.qualcomm.role,
+    partnerId: qualcommId, role: ALICE.qualcomm.role, email: ALICE.qualcomm.email,
     startDate: ALICE.qualcomm.start, endDate: ALICE.qualcomm.end,
   });
 
@@ -1246,10 +1245,10 @@ export async function seedMockData() {
       states: [{ at: '2022-11-15', p: 40 }, { at: '2023-06-01', p: 100 }] },
   ]);
   await involvePerson(aliceBoschProjectId, aliceBoschPhases['Modem integration'], aliceWatersId, ALICE.bosch.role);
-  // Addressed to the account she actually held in 2022. It links to her only
-  // because resolvePerson falls back to the email LOCAL PART and hers happens to
-  // have survived the moves — which is the accident #124 Class 4 is about, not a
-  // guarantee. The Qualcomm-era item below shows what happens when it doesn't.
+  // Addressed to the account she actually held in 2022. Until #127 E8 it linked to
+  // her only by ACCIDENT — resolvePerson fell back to the email local part, and hers
+  // ('alice.waters') happened to survive both moves. Now it links for the reason it
+  // should: the Bosch period records that address, so the exact-email tier finds it.
   await createActionItem(aliceBoschProjectId, aliceBoschPhases['Modem integration'], {
     description: 'Close out LTE modem thermal throttling on the Gen-2 board',
     assignedTo: ALICE.bosch.email, status: 'Completed', nextStep: 'Resolved',
@@ -1280,10 +1279,12 @@ export async function seedMockData() {
       states: [{ at: '2025-07-15', p: 50 }, { at: '2025-11-03', p: 100 }] },
   ]);
   await involvePerson(aliceQualcommProjectId, aliceQualcommPhases['Cockpit validation suite'], aliceWatersId, ALICE.qualcomm.role);
-  // The same artifact, addressed to the account she held in 2025 — and this one
-  // strands: `awaters@qualcomm.com` matches no Person, because a Person holds ONE
-  // address and hers has since changed (#124 Class 4). Seeded deliberately so the
-  // defect is visible in data instead of only in prose; tests/seedMock pins it.
+  // The same artifact, addressed to the account she held in 2025 — and this is the
+  // one that used to strand. `awaters@qualcomm.com` shares nothing with her current
+  // address, so while a Person held exactly ONE address it matched nobody at all
+  // (#124 Class 4). It was seeded to make that defect visible in data rather than
+  // only in prose; #127 E8 records the address on the Qualcomm period, and
+  // tests/seedMock now pins that it resolves.
   await createActionItem(aliceQualcommProjectId, aliceQualcommPhases['Cockpit validation suite'], {
     description: 'Sign off cockpit validation suite for the SA8155P reference',
     assignedTo: ALICE.qualcomm.email, status: 'Completed', nextStep: 'Resolved',

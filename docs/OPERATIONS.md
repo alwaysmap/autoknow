@@ -638,6 +638,51 @@ gh workflow run db-backfill.yml --ref main -f backfill=owner-person -f confirm=a
 gh run watch   # or read the summary page for the report
 ```
 
+#### The backfills, and what their reports mean
+
+| `backfill=` | Fills | Ships with | Its gate |
+|---|---|---|---|
+| `owner-person` | `Project.ownerPersonId` from the `ownerName` text | #127 E6, migration `20260726232108_project_owner_person_id` | zero unmatched + zero ambiguous before E7 retires the `ownerName` readers |
+| `affiliation-email` | `PersonAffiliation.email` from `Person.email` | #127 E8, migration `20260727020837_affiliation_email` | zero uncovered + zero ambiguous before E9 adds the unique-at-an-instant constraint |
+
+**`affiliation-email` — reading the report.** The preflight and the stop conditions are
+the ones above; what is specific to this one is what its numbers MEAN.
+
+```bash
+gh workflow run db-backfill.yml --ref main -f backfill=affiliation-email -f confirm=autoknow-pg
+```
+
+The report on the run's summary page looks like this, and every line of it is expected:
+
+```
+People with an address-less employment period: 12
+  linked:          9
+  already had one: 1
+  uncovered:       1
+  ambiguous:       1
+  UNCOVERED  #4 Carla Reyes — no period covers today, so “carla@…” belongs to none of them
+  AMBIGUOUS  #7 Dan Ito — 2 periods cover today: Google LLC (period #18), Bosch (period #22)
+
+Past/future periods still with no address: 31.
+```
+
+Read it in this order:
+
+- **`Past/future periods still with no address` is NOT a leftover to chase.** Nothing
+  ever recorded what address those jobs used, and NULL says so honestly. Expect it to be
+  the largest number on the page and to shrink only as people are edited from here on.
+- **`AMBIGUOUS` is the one that means STOP.** Two periods covering the same day is
+  overlapping affiliation data — a bug in its own right (bead `autoknow-2of`), not a
+  naming problem. Fix the overlap on `/people/<id>`, then re-run.
+- **`UNCOVERED` means look, not stop.** That person's career has a gap over today, or is
+  entirely past or entirely future, so their current address belongs to none of the
+  periods on file. Usually a missing period; sometimes simply true. Fix at source and
+  re-run, or accept it.
+- **A non-zero `linked` on a re-run is normal, not a bug.** The target is whichever
+  period covers the RUN instant, so somebody who has changed jobs since the last run
+  gets their new period stamped. The script only ever writes where the column is still
+  NULL, so re-running is always safe.
+
 ---
 
 ## 10. Monitoring & logs — where to look, what to run

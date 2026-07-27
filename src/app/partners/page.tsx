@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/db';
+import { personDirectorySelect } from '../../lib/people';
 import { getAllPartners } from '../../lib/partnerQueries';
 import { getCurrentUser } from '../../lib/session';
 import { deriveScore } from '../../lib/relationship';
@@ -22,13 +23,7 @@ export default async function PartnersPage(props: { searchParams: Promise<Search
   const partners = await getAllPartners();
 
   // Fetch all people to resolve TEL links
-  const people = await prisma.person.findMany({
-    select: {
-      id: true,
-      name: true,
-      email: true
-    }
-  });
+  const people = await prisma.person.findMany({ select: personDirectorySelect });
 
   // Relationship health per partner: latest state → score, previous → ghost ring.
   // One query, newest-first, reduced to the first two rows per partner.

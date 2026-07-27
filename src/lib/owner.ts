@@ -1,5 +1,5 @@
 import { prisma } from './db';
-import { resolvePerson } from './people';
+import { personDirectorySelect, resolvePerson } from './people';
 
 /**
  * The two owner columns on `Project`, shaped so they can be spread straight into a
@@ -34,7 +34,7 @@ export type OwnerFieldsOrNone = OwnerFields | typeof NO_OWNER;
  * returns the person's canonical email plus their id.
  */
 export async function requireOwner(input: string): Promise<OwnerFields> {
-  const people = await prisma.person.findMany({ select: { id: true, name: true, email: true } });
+  const people = await prisma.person.findMany({ select: personDirectorySelect });
   const person = resolvePerson(people, input);
   if (!person) throw new Error(`Owner must be an existing person — no match for “${input}”`);
   return { ownerName: person.email, ownerPersonId: person.id };

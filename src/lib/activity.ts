@@ -55,7 +55,15 @@ async function personActor(personId: number) {
     select: {
       id: true, name: true, email: true,
       affiliations: {
-        select: { role: true, startDate: true, endDate: true, partner: { select: { name: true } } },
+        // `email` is for `personAliases`, not for the labelling: a row written under an
+        // address this person has since left is still a row they wrote (#127 E8), and
+        // dropping the column here would silently narrow the feed back to their current
+        // address. `role`, `startDate`, `endDate` and `partner.name` are
+        // `labelWithJobHeldThen`'s.
+        select: {
+          email: true, role: true, startDate: true, endDate: true,
+          partner: { select: { name: true } },
+        },
         // Newest start first — the ordering contract `labelWithJobHeldThen` depends on.
         orderBy: { startDate: 'desc' },
       },

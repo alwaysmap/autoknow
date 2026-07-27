@@ -14,7 +14,7 @@ process.env.DATABASE_URL = testDatabaseUrl(); // bind lib/db to the *_test datab
 
 import { prisma, disconnectTestDb } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
-import { personAliases, resolvePerson } from '../src/lib/people';
+import { personAliases, resolvePerson, type PersonLike } from '../src/lib/people';
 
 jest.mock('server-only', () => ({}));
 
@@ -88,23 +88,59 @@ afterAll(async () => {
 });
 
 describe('personAliases', () => {
+  /** The contract itself: every string `personAliases` emits must come back through
+   *  `resolvePerson`. Shared, so each case below carries only its fixture and the
+   *  aliases it specifically claims — which is all that differs between them. */
+  const expectRoundTrip = (person: PersonLike) => {
+    for (const alias of personAliases(person)) {
+      expect(resolvePerson([person], alias)?.id).toBe(person.id);
+    }
+  };
+
   // The round trip is the contract: `personAliases` is only sound if every string it
   // emits comes back through `resolvePerson`. A new branch in one and not the other is
   // exactly the drift the two-functions-one-file arrangement exists to catch.
   it('emits only strings that resolvePerson maps back to the same person', () => {
-    const person = { id: 7, name: 'Alice Waters', email: 'awaters@qualcomm.com' };
-    const aliases = personAliases(person);
-    expect(aliases).toEqual(expect.arrayContaining([
+    const person = {
+      id: 7, name: 'Alice Waters', email: 'awaters@qualcomm.com', affiliations: [],
+    };
+    expect(personAliases(person)).toEqual(expect.arrayContaining([
       'awaters@qualcomm.com', 'awaters', '@awaters', 'alice waters',
     ]));
-    for (const alias of aliases) {
-      expect(resolvePerson([person], alias)?.id).toBe(7);
-    }
+    expectRoundTrip(person);
+  });
+
+  // #127 E8. Addresses became period-scoped, so the forward direction searches the ones
+  // a person has LEFT — and this inverse has to widen with it or the feed keeps hiding
+  // the rows those addresses signed, which on a career page is the whole point.
+  it('emits every address the person has HELD, and each still round-trips', () => {
+    const person = {
+      id: 8,
+      name: 'Alice Waters',
+      email: 'alice.waters@google.com',
+      affiliations: [
+        { email: 'alice.waters@bosch.com' },
+        { email: 'awaters@qualcomm.com' },
+        { email: null }, // a period whose address nobody recorded — contributes nothing
+      ],
+    };
+    expect(personAliases(person)).toEqual(expect.arrayContaining([
+      'alice.waters@google.com', 'alice.waters@bosch.com', 'awaters@qualcomm.com',
+      'awaters', '@awaters', 'alice waters',
+    ]));
+    expectRoundTrip(person);
   });
 
   it('emits no empties and no duplicates, so an OR over it cannot match everything', () => {
-    expect(personAliases({ id: 1, name: '', email: '' })).toEqual([]);
-    const same = personAliases({ id: 2, name: 'awaters', email: 'awaters@google.com' });
+    expect(personAliases({ id: 1, name: '', email: '', affiliations: [] })).toEqual([]);
+    // Both addresses share the local part 'awaters', and one repeats the current one —
+    // three sources of the same alias, one entry.
+    const same = personAliases({
+      id: 2,
+      name: 'awaters',
+      email: 'awaters@google.com',
+      affiliations: [{ email: 'awaters@google.com' }, { email: 'awaters@bosch.com' }],
+    });
     expect(new Set(same).size).toBe(same.length);
   });
 });

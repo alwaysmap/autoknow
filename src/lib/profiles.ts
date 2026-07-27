@@ -1,5 +1,6 @@
 import 'server-only';
 import { Prisma } from '@prisma/client';
+import { normalizeAddress } from './auth';
 import { prisma } from './db';
 
 // EMPLOYMENT PERIODS: the as-of resolvers, and the two writes that open one (#127 E5,
@@ -164,6 +165,12 @@ export async function rostersByPartnerAsOf(at: Date = new Date()) {
  *
  * `startDate` defaults to now — a person added today started today. Laying down the rest
  * of a career is what the affiliations endpoint is for.
+ *
+ * The period it opens CARRIES THE ADDRESS (#127 E8). Person and period are created in
+ * the same breath from the same argument, so this is the one moment where "which address
+ * did they use in this job" is known for certain rather than inferred — and stamping it
+ * here is what keeps the column true for everyone added from now on, leaving
+ * `db:backfill:affiliation-email` to deal only with the careers that predate it.
  */
 export async function createPersonAt(person: {
   name: string;
@@ -181,7 +188,7 @@ export async function createPersonAt(person: {
       notes: notes ?? null,
       // eslint-disable-next-line no-restricted-syntax -- writes the cache; this IS its maintainer
       currentPartnerId: partnerId,
-      affiliations: { create: { partnerId, role, startDate } },
+      affiliations: { create: { partnerId, role, startDate, email: normalizeAddress(email) } },
     },
   });
 }
