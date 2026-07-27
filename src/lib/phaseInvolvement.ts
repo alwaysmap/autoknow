@@ -28,7 +28,8 @@ import { prisma } from './db';
 // `requirePhaseInProject` has outgrown the module name: autoknow-9l4 gave it a third
 // caller in `updatePhaseHill`, which is a phase STATUS update rather than involvement at
 // all. It lives here because this is where the question "does this phase sit in that
-// program" was first answered (d3773c1 / #219) and one answer is the point; if a fourth
+// program" was first factored into ONE answer (d3773c1 / #219) — the JSON route had been
+// asking it in its own words since 1add972 — and one answer is the point; if a fourth
 // unrelated caller appears, that is the signal to move it somewhere its name covers.
 
 /** A user-readable failure. `guarded` forwards a message only when it starts with

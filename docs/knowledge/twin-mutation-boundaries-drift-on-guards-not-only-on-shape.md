@@ -53,5 +53,8 @@ twin's schema and found three redundant shape guards. Its sweep produced
 `autoknow-9l4`, whose conversion of `updatePhaseHill` found two things the shape
 audit was not looking for: an unbounded percentage (150 was writable and drew a
 dot off the end of the hill), and no parentage check at all, where the JSON twin
-had refused a mismatched phase/program pair since #219. Tests were green
-throughout — both gaps were absences, and nothing tests an absence.
+had refused a mismatched phase/program pair since the API-hardening pass
+(1add972), nine days earlier. That gap is the lesson in miniature: the twins were
+written apart, only one was hardened, and nothing since had cause to open both.
+Tests were green throughout — both gaps were absences, and nothing tests an
+absence.
