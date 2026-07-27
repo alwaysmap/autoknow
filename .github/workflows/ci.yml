@@ -199,8 +199,36 @@ jobs:
       # Sets `workers`, the `webServer` array length and the number of databases at once
       # (tests/helpers/worktree.ts). See the matrix above for why it differs per leg.
       E2E_WORKERS: ${{ matrix.workers }}
+      # DISK THRESHOLDS, set from MEASUREMENT and overriding the script defaults.
+      #
+      # WARN at 8 GiB, deliberately ABOVE webkit's measured 6.0-6.1 GiB low-water rather
+      # than below it: a 6 GiB line (tried first, run 30302815906) sat just UNDER where that
+      # leg actually sits and so never fired — instrumentation calibrated to miss the exact
+      # thing it was built to catch. At 8 GiB the webkit leg warns and its job-end report
+      # escalates itself to a deep scan; a healthy leg stays quiet.
+      #
+      # FLOOR at 2 GiB stops the suite with room left to write the report the next fill
+      # gets diagnosed from.
+      #
+      # Job-level, not step-level, because the probes read WARN too. The measurements, and
+      # why the reclaim step below exists, are in
+      # docs/knowledge/an-out-of-disk-runner-fails-as-the-test-it-was-running.md — re-read
+      # it, and the job's own DISK lines, before changing either.
+      CI_DISK_FLOOR_MB: 2048
+      CI_DISK_WARN_MB: 8192
     steps:
       - uses: actions/checkout@v4
+      # DISK. Three probes and the guard on the test step below; why, in
+      # scripts/ci/disk-guard.sh and bead autoknow-by9.
+      - name: Disk after checkout
+        run: npm run --silent ci:disk-report -- "after checkout"
+      # The webkit leg's transient peak is ~10 GiB against the ~12 GiB the runner has left
+      # after installs, and run 30304111252 spent that margin down to 31 MB. Buy headroom
+      # back from toolchains this job cannot use; scripts/ci/disk-reclaim.sh says what it
+      # will not touch and why. Measured on run 30305706777 it costs ~60s on what IS the
+      # critical-path leg; the numbers and the trade are in the note cited above.
+      - name: Reclaim disk from preinstalled toolchains
+        run: npm run --silent ci:disk-reclaim
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -230,10 +258,22 @@ jobs:
       # the cached browser payload and webkit genuinely needs them, but chromium's set is
       # much smaller than the combined install this replaced.
       - run: npx playwright install --with-deps ${{ matrix.project }}
+      # Everything this job installs is now on disk: node_modules, the Prisma client, the
+      # browser payload and webkit's apt dependency set. What the guard below watches is
+      # what the RUN itself adds on top of this — the `next build`, the test databases and
+      # any per-test output.
+      - name: Disk after installs
+        run: npm run --silent ci:disk-report -- "after installs"
       # global-setup connects to the DB the instant the run starts, so prove the mapped
       # port is reachable first — same gate as the quality job.
       - uses: ./.github/actions/wait-for-postgres
-      - run: npm run test:e2e:${{ matrix.project }}
+      - name: Run the suite (under the disk guard)
+        run: npm run --silent ci:disk-guard -- npm run test:e2e:${{ matrix.project }}
+      # always(): report even when the suite fails. It does NOT run when the runner itself
+      # dies — which is exactly why the guard above exists.
+      - name: Disk at job end
+        if: always()
+        run: npm run --silent ci:disk-report -- "job end"
 
   image:
     name: image (Dockerfile builds; deps-stage postinstall contract)

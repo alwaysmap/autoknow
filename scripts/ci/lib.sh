@@ -38,6 +38,23 @@ commit_message_lines() {
   git log --format=%B "$base..HEAD" | grep -iE "^[[:space:]]*${key}:" || true
 }
 
+# --- shared by the e2e disk report and disk guard ----------------------------
+
+# Free kibibytes on /, which is the only filesystem a GitHub runner has and the one that
+# fills.
+#
+# `df -Pk` and not `df --output=avail`: the latter is GNU-only, and these scripts have to
+# behave the same when a developer runs them on macOS to understand a CI failure. -P pins
+# the one-line-per-filesystem POSIX format, so field 4 is Available on both.
+disk_avail_kb() { df -Pk / | awk 'NR==2 {print $4}'; }
+
+# Percent-used string ("70%") for the same filesystem.
+disk_used_pct() { df -Pk / | awk 'NR==2 {print $5}'; }
+
+# Kibibytes -> a GiB number, one decimal. Disk numbers are read by humans deciding whether
+# a job has headroom; kibibytes are not.
+disk_gib() { awk -v k="${1:-0}" 'BEGIN { printf "%.1f", k / 1048576 }'; }
+
 # Detect platform for the Cloud SQL Auth Proxy download.
 csp_platform() {
   local os arch
