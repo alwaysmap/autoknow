@@ -8,8 +8,8 @@ import { deriveEmail, normalizeAddress, normalizeHandle } from './auth';
 // Resolution came first. Previously this logic was copy-pasted in 4+ files, and each copy's email branch
 // was dead (it compared a full email against an already-stripped handle), so every
 // lookup fell through to a `name.includes(handle)` substring match — which linked
-// handles like 'jo' to unrelated people such as 'Joanne'. Resolve on the unique
-// email instead, with exact (non-substring) fallbacks only.
+// handles like 'jo' to unrelated people such as 'Joanne'. Resolve on the ADDRESS
+// instead, with exact (non-substring) fallbacks only.
 
 export interface PersonLike {
   id: number;
@@ -141,8 +141,10 @@ function recordedAddresses(person: PersonLike): string[] {
  *
  * The split is not cosmetic — it is what keeps `resolvePerson` (first match wins)
  * deterministic now that a tier can match on more than one person's addresses. Before
- * #127 E8 the email tier could not be ambiguous at all, because `Person.email` is
- * unique; an address pool that includes former addresses removes that guarantee, and
+ * #127 E8 the email tier could not be ambiguous at all, because `Person.email` was then
+ * `@unique`; an address pool that includes former addresses removes that guarantee — and
+ * E9's replacement does not restore it, because it forbids two people holding one
+ * address at ONE MOMENT and a handover is not that — and
  * without an order the winner would be whatever order `findMany` happened to return.
  * "The person who holds this address TODAY" is the only defensible tie-break: an
  * address someone left in 2022 names them less strongly than it names whoever answers

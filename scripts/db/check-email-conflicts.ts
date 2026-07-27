@@ -1,17 +1,14 @@
 // Read-only preflight for #127 E9's unique-at-an-instant constraint —
-// `npm run db:check:email-conflicts`. Ask a database whether anything in it already
-// violates the constraint BEFORE `prisma migrate deploy` finds out the expensive way; an
-// exclusion constraint cannot be added `NOT VALID`, so a single offender fails the
-// migration and blocks the deploy of everything merged with it.
+// `npm run db:check:email-conflicts`. WHY a constraint needs a preflight at all is
+// argued once, in src/lib/emailConflictCheck.ts, which this file is a runner for — same
+// division as the two backfill runners beside it, and the reason for the
+// `--compilerOptions` override on the npm script is the same too (knowledge note
+// a-ts-node-script-cannot-import-src-lib-without-a-compileroptions-override).
 //
-// SELECT and nothing else. The rule it applies is in src/lib/emailConflictCheck.ts, which
-// this file is a runner for — same division as the two backfill runners beside it, and
-// the reason for the `--compilerOptions` override on the npm script is the same too
-// (knowledge note a-ts-node-script-cannot-import-src-lib-without-a-compileroptions-override).
-//
-// Exit code is 1 when conflicts exist, unlike the backfills next door: their leftovers
-// are a report to act on later, whereas this answers a yes/no question that gates a
-// merge, and a green tick on a run that found conflicts is exactly how one gets missed.
+// SELECT and nothing else. Exit code is 1 when conflicts exist, unlike the backfills next
+// door: their leftovers are a report to act on later, whereas this answers a yes/no
+// question that gates a merge, and a green tick on a run that found conflicts is exactly
+// how one gets missed.
 
 import 'dotenv/config';
 import { findEmailConflicts, formatEmailConflictReport } from '../../src/lib/emailConflictCheck';

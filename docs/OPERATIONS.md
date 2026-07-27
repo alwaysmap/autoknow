@@ -667,17 +667,12 @@ gh run watch   # or read the summary page for the report
 constraint cannot be added `NOT VALID`: `ALTER TABLE … ADD CONSTRAINT … EXCLUDE`
 validates every existing row at once, and one offender fails `prisma migrate deploy` —
 which runs BEFORE the deploy job, so it would block the release of everything merged
-alongside it. Run it BEFORE merging anything that adds the constraint.
+alongside it. Run it BEFORE merging anything that adds the constraint (which is the
+branch-ref case above: while that PR is open, `main` does not offer this option yet).
 
 ```bash
 gh workflow run db-backfill.yml --ref main -f backfill=email-conflicts -f confirm=autoknow-pg
 ```
-
-**Before #216 merged, that had to be `--ref feat/127-e9-unique-at-an-instant`** — the arm
-ships inside the PR it gates, so `main` did not offer it yet. That is the branch-ref case
-above, and it is the shape every future pre-merge check will have: the gate arrives with
-the change it guards, which means the FIRST person who needs it is the one person who
-cannot run it from `main`.
 
 A green run reporting `No conflicts` is the go-ahead. A **red run is the answer, not a
 breakage**: this arm exits non-zero when it finds something, and the report on the summary
@@ -706,6 +701,11 @@ npx prisma migrate resolve --rolled-back 20260727040058_unique_at_an_instant
 That is safe HERE specifically because the migration runs in one transaction and raised
 before any statement committed. It is not a general remedy — a migration that failed
 part-way needs a human who knows what landed (the `db-change` skill).
+
+It is also the one place these docs invoke `prisma` directly rather than through an npm
+script, and deliberately: AGENTS.md's rule exists so routine work goes through reviewed,
+repeatable scripts, and wrapping this would make a one-off recovery — which must be typed
+by someone who has read the failure and understands what did NOT land — look routine.
 
 **`affiliation-email` — reading the report.** The preflight and the stop conditions are
 the ones above; what is specific to this one is what its numbers MEAN.

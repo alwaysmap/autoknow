@@ -51,7 +51,7 @@ describe('the backfill runner refuses before it connects', () => {
   it('rejects a backfill name that is not on the allowlist', () => {
     const { code, output } = run({ BACKFILL: 'drop-everything', CONFIRM: 'autoknow-pg' });
     expect(code).toBe(1);
-    expect(output).toContain("'drop-everything' is not an allowed backfill");
+    expect(output).toContain("'drop-everything' is not an allowed arm");
     expectNothingWasOpened(output);
   });
 
@@ -60,7 +60,7 @@ describe('the backfill runner refuses before it connects', () => {
     expect(code).toBe(1);
     // QUOTED, not executed: the refusal echoes the name back, so the assertion is that
     // `echo PWNED` never RAN — i.e. no line of output is the word on its own.
-    expect(output).toContain("'owner-person; echo PWNED' is not an allowed backfill");
+    expect(output).toContain("'owner-person; echo PWNED' is not an allowed arm");
     expect(output).not.toMatch(/^PWNED$/m);
     expectNothingWasOpened(output);
   });

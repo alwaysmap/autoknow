@@ -1,6 +1,7 @@
 name: Run DB backfill
 
-# THE prod invocation path for `npm run db:backfill:*` (scripts/db/backfill.sh).
+# THE prod invocation path for `npm run db:backfill:*` and `npm run db:check:*`
+# (scripts/db/backfill.sh).
 #
 # A backfill is a separate, idempotent script rather than a statement inside
 # `migrate deploy` (docs/CHANGE_PLAYBOOK.md) — it makes judgements whose leftovers a

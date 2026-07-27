@@ -62,6 +62,17 @@ Nobody working on this repo can query production to find out whether it has one.
   likely to fail on data nobody has looked at, and it would report a career-shape bug
   through an identity constraint.
 
+**What this reverses in the record it extends.**
+`resolution-searches-every-address-and-takes-no-date` says a date on resolution would only
+matter for one address naming two humans in two periods, "which is exactly what #127 E9's
+unique-at-an-instant constraint exists to make impossible". It does the opposite: a
+handover across two *separate* periods is expressly legal, and only the same INSTANT is
+forbidden. That record's tie-break — current holder first — is therefore permanent rather
+than a stopgap, which strengthens it. Its present-tense "`Person.email` is `@unique`" is
+simply now false. (`a-move-is-an-insert-into-a-timeline` carries the pointer too: it
+rejects an EXCLUDE constraint as "still wanted (#127 E9)", and E9's constraint
+deliberately does not close the overlap hole it means.)
+
 **Consequences.** Two people may now share one address across time, so `resolvePerson`
 stays legitimately ambiguous for a handover and keeps its current-holder-first tie-break;
 this constraint does NOT make `autoknow-2of` impossible and that bead still needs its own

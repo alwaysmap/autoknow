@@ -1145,8 +1145,8 @@ export async function seedMockData() {
     // §7 says alice@google.com. That address already belongs to the 'Alice PM'
     // persona seeded above, who is employed over the same window, so the
     // unique-at-an-instant constraint (#127 E9) would refuse this period outright —
-    // the fixture takes the dotted form, the same shape as her Bosch address. Its local part
-    // ('alice.waters') is distinct from 'alice', so resolvePerson still sends the
+    // the fixture takes the dotted form, the same shape as her Bosch address. Its
+    // local part ('alice.waters') is distinct from 'alice', so resolvePerson sends the
     // bare handle 'alice' to Alice PM and nothing else moves.
     google: { role: 'Lead Program Manager', email: 'alice.waters@google.com', start: '2026-07-01' },
     honda: { role: 'Cockpit Platform Lead' },

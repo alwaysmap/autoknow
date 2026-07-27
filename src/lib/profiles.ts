@@ -235,11 +235,12 @@ export async function rostersByPartnerAsOf(at: Date = new Date()) {
  * `db:backfill:affiliation-email` to deal only with the careers that predate it.
  *
  * Which is also why the clash check is HERE and not in the two callers (`createPerson`,
- * `POST /api/people`): stamping the address is what can now collide, so the sentence
- * naming the collision belongs beside the stamp. Both callers used to hand a duplicate
- * straight to Postgres and surface `P2002` as a 500; since #127 E9 it would be an
- * exclusion violation instead, which is the same unreadable outcome wearing a longer
- * message (AGENTS lesson 7 — one defect, two call sites, one fix).
+ * `POST /api/people`): stamping the address is what can now collide, so the refusal
+ * belongs beside the stamp — and `correctPersonRecord`, the other stamper, guards itself
+ * for the same reason. Both callers used to hand a duplicate straight to Postgres and
+ * surface `P2002` as a 500; since #127 E9 it would be an exclusion violation instead,
+ * which is the same unreadable outcome wearing a longer message (AGENTS lesson 7 — one
+ * defect, two call sites, one fix).
  */
 export async function createPersonAt(person: {
   name: string;
@@ -429,7 +430,10 @@ export async function assertAddressFree(
  * Here rather than in the action for the same reason `movePersonTo` is: the address is a
  * property of a PERIOD (#124 §2), so correcting it is a decision about a day, and the
  * period it lands on has to be chosen with the same `asOfWhere` every resolver reads
- * with. Doing it in the action would be a fourth spelling of the predicate.
+ * with. Doing it in the action would be another spelling of the predicate.
+ *
+ * It guards ITSELF, like `createPersonAt` — both stamp an address onto a period, so both
+ * own the refusal, and a second caller of either cannot arrive unguarded.
  *
  * `updateMany`, and it may legitimately touch more than one row: a career with an
  * overlap (autoknow-2of, still authorable through the affiliations API) has two periods
@@ -447,6 +451,7 @@ export async function correctPersonRecord({ personId, name, email, notes, at = n
   notes: string | null;
   at?: Date;
 }) {
+  await assertAddressFree(email, { exceptPersonId: personId, at });
   const address = normalizeAddress(email);
   return prisma.$transaction(async (tx) => {
     await tx.person.update({ where: { id: personId }, data: { name, email: address, notes } });

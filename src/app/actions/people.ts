@@ -9,7 +9,7 @@ import { authConfigured } from '../../auth';
 import { userFromHandle } from '../../lib/auth';
 import { parseForm, personCreateSchema, personDeleteSchema, personMoveSchema, personUpdateSchema } from '../../lib/schemas';
 import { coversDay } from '../../lib/people';
-import { assertAddressFree, correctPersonRecord, createPersonAt, movePersonTo } from '../../lib/profiles';
+import { correctPersonRecord, createPersonAt, movePersonTo } from '../../lib/profiles';
 import { guarded, type ActionResult } from '../../lib/actionResult';
 
 // Person maintenance (move / delete), zod-gated (lib/schemas). Lives here —
@@ -113,19 +113,13 @@ export async function updatePerson(formData: FormData): Promise<ActionResult> {
   return guarded(async () => {
     const { personId, name, email, notes } = parseForm(personUpdateSchema, formData);
 
-    // ONE `at` for the check and the write. Each defaults to `new Date()` on its own, and
-    // two reads of the clock either side of a period boundary is the kind of bug that
-    // reproduces once a year, at midnight.
-    const at = new Date();
-
-    // Name the clash rather than letting the raw constraint failure speak: `guarded`
-    // would flatten it into its generic "something went wrong" line, which is no help
-    // when the duplicate is a person you could go and look at. Since #127 E9 the question
-    // is temporal — who holds this address TODAY — because `Person.email` is no longer
-    // unique and an address someone LEFT is legitimately recorded against them.
-    await assertAddressFree(email, { exceptPersonId: personId, at });
-
-    await correctPersonRecord({ personId, name, email, notes: notes ?? null, at });
+    // `correctPersonRecord` refuses an address somebody else holds today, and NAMES them:
+    // `guarded` would otherwise flatten the raw constraint failure into its generic
+    // "something went wrong" line, which is no help when the duplicate is a person you
+    // could go and look at. Since #127 E9 that question is temporal — who holds this
+    // address TODAY — because `Person.email` is no longer unique and an address someone
+    // LEFT is legitimately recorded against them.
+    await correctPersonRecord({ personId, name, email, notes: notes ?? null });
     // The directory answers on name and address; a correction nobody can search for is
     // half a correction.
     await indexEntity('person', personId);

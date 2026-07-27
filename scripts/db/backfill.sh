@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Run ONE reviewed data backfill against an instance's Cloud SQL database — the prod
-# invocation path for `npm run db:backfill:*`, driven by .github/workflows/db-backfill.yml.
+# Run ONE reviewed ARM against an instance's Cloud SQL database — the prod invocation path
+# for `npm run db:backfill:*` and `npm run db:check:*`, driven by
+# .github/workflows/db-backfill.yml.
 #
 # WHY THIS EXISTS: a backfill is deliberately NOT part of `migrate deploy`
 # (docs/CHANGE_PLAYBOOK.md — it needs a report an operator reads), and the runtime image
@@ -9,12 +10,18 @@
 # production password onto a laptop, which is exactly what the keyless WIF setup exists
 # to prevent. No human holds a connection string at any point below.
 #
+# A `db:check:*` arm has the identical problem for the opposite reason: it WRITES nothing,
+# but it asks a question only production can answer — "would this constraint apply here?"
+# — and there was nowhere to ask it from either. So it rides the same three refusals
+# rather than getting a laxer path of its own; the cost is typing an instance name to run
+# a SELECT, which is not a cost.
+#
 # THE SHAPE, copied from the two paths that already work:
 #   - scripts/ci/migrate.sh  — proxy + `db_password` + npm ci'd node_modules + ts-node
 #   - scripts/db/harden.sh   — a manual, dispatch-only, confirmed write to prod
 #
-# WHAT IT IS NOT: a "run an npm script against prod" hatch. The set of runnable backfills
-# is the allowlist below and nothing else — one arm per backfill, added in a reviewed PR.
+# WHAT IT IS NOT: a "run an npm script against prod" hatch. The set of runnable arms is
+# the allowlist below and nothing else — one entry per arm, added in a reviewed PR.
 #
 # Env: INSTANCE_PROJECT, INSTANCE_SQL_CONNECTION, BACKFILL, CONFIRM.
 #      Optional: DB_PROXY_PORT (default 5432), DB_NAME (default autoknow).
@@ -25,37 +32,35 @@ cd "$(dirname "$0")/../.."
 
 PROJECT="${INSTANCE_PROJECT:?set INSTANCE_PROJECT}"
 CONN="${INSTANCE_SQL_CONNECTION:?set INSTANCE_SQL_CONNECTION}"
-BACKFILL="${BACKFILL:?set BACKFILL (the name after db:backfill: — see the allowlist)}"
+BACKFILL="${BACKFILL:?set BACKFILL (an arm name — see the allowlist)}"
 CONFIRM="${CONFIRM-}"
 PORT="${DB_PROXY_PORT:-5432}"
 DB_NAME="${DB_NAME:-autoknow}"
 
-# The DML-only role, not the `app` migration role. A backfill is SELECT + UPDATE, and
-# least privilege is the entire point of the two-role split (scripts/db/harden-roles.sql):
-# connected as app_runtime, a stray DDL statement in a script dies with "permission
-# denied" instead of altering prod's schema. Nothing needs granting for a new backfill:
+# The DML-only role, not the `app` migration role. A backfill is SELECT + UPDATE and a
+# check is SELECT alone, and least privilege is the entire point of the two-role split
+# (scripts/db/harden-roles.sql): connected as app_runtime, a stray DDL statement in a
+# script dies with "permission denied" instead of altering prod's schema. Nothing needs
+# granting for a new arm:
 # `GRANT … ON ALL TABLES` is table-level, so a column added by a later migration is
 # already writable, and `ALTER DEFAULT PRIVILEGES` covers tables added by one.
 ROLE=app_runtime
 ROLE_SECRET=runtime-database-url
 
-# --- 1. Allowlist: which backfills may run here at all -------------------------------
+# --- 1. Allowlist: which arms may run here at all -------------------------------------
 #
-# ONE LIST, and it is DATA so the error message cannot drift from it. The workflow's
-# `choice` input mirrors these names, but that is only the dropdown; this is the
-# enforcement, and it is what makes "add a backfill" a reviewed one-line diff here rather
-# than a standing licence to run arbitrary code against production (AGENTS lesson 2 — the
-# guard ships in software, not in the description).
+# ONE LIST, of `name=npm-script` pairs, and it is DATA — so it is the single source of
+# both what may run and what that runs, and the error message cannot drift from either.
+# The workflow's `choice` input mirrors these names, but that is only the dropdown; this
+# is the enforcement, and it is what makes "add an arm" a reviewed one-line diff here
+# rather than a standing licence to run arbitrary code against production (AGENTS lesson 2
+# — the guard ships in software, not in the description).
 #
 # The list is a control against MISTAKES, not against people: dispatching this workflow
 # needs repo write access, and a dispatch names its own ref, so anyone who can fire it
-# could equally push a branch that widens the list. Run it from `main`.
-# `name=npm-script` pairs, so the list stays the single source of both the allowlist and
-# what each name RUNS. It carries two namespaces now: `db:backfill:*` writes, and
-# `db:check:*` only SELECTs — a read-only question that has to be asked of production and
-# has nowhere else to be asked from, for exactly the reasons in this file's header. The
-# check rides the same three refusals as the writes rather than getting a laxer path of
-# its own; the cost is typing the instance name to run a SELECT, which is not a cost.
+# could equally push a branch that widens the list. Run it from `main` — with the one
+# documented exception that a `db:check:*` arm gating a PR only exists on that PR's
+# branch, which docs/OPERATIONS.md argues is safe for a SELECT and never for a write.
 ALLOWED=(
   "owner-person=db:backfill:owner-person"           # #127 E6 — Project.ownerName -> ownerPersonId
   "affiliation-email=db:backfill:affiliation-email" # #127 E8 — Person.email -> the PersonAffiliation period covering now
@@ -64,20 +69,23 @@ ALLOWED=(
 NPM_SCRIPT=""
 names=()
 for entry in "${ALLOWED[@]}"; do
-  names+=("${entry%%=*}")
-  [ "${entry%%=*}" = "$BACKFILL" ] && NPM_SCRIPT="${entry#*=}"
+  name="${entry%%=*}"
+  names+=("$name")
+  [ "$name" = "$BACKFILL" ] && NPM_SCRIPT="${entry#*=}"
 done
 if [ -z "$NPM_SCRIPT" ]; then
-  echo "::error::'${BACKFILL}' is not an allowed backfill. Allowed: ${names[*]}." >&2
+  echo "::error::'${BACKFILL}' is not an allowed arm. Allowed: ${names[*]}." >&2
   echo "Add it to ALLOWED in scripts/db/backfill.sh (and to the workflow's options) to introduce one." >&2
   exit 1
 fi
 
 # --- 2. Typed confirmation -----------------------------------------------------------
 #
-# This job WRITES to production. Requiring the operator to type the instance name means a
-# stray click on "Run workflow" — which otherwise runs with every input pre-filled —
-# cannot reach the database.
+# A `db:backfill:*` arm WRITES to production. Requiring the operator to type the instance
+# name means a stray click on "Run workflow" — which otherwise runs with every input
+# pre-filled — cannot reach the database. A `db:check:*` arm is held to the same bar
+# rather than being waved through: one gate, no arm-by-arm judgement about which
+# connection to production is the harmless one.
 INSTANCE="${CONN##*:}"
 if [ "$CONFIRM" != "$INSTANCE" ]; then
   echo "::error::confirm must be exactly the Cloud SQL instance name '${INSTANCE}' (got '${CONFIRM}'). Nothing ran; no connection was opened." >&2
@@ -87,8 +95,8 @@ fi
 # --- 3. Preflight the script exists BEFORE opening a connection ----------------------
 #
 # `npm run <missing>` fails anyway, but 40 lines later and after a proxy and a password
-# fetch. The likeliest cause is worth naming: the PR that ships the backfill has not
-# merged to the ref this workflow ran from.
+# fetch. The likeliest cause is worth naming: the PR that ships the arm has not merged
+# to the ref this workflow ran from.
 if ! NPM_SCRIPT="$NPM_SCRIPT" node -e 'process.exit(require("./package.json").scripts[process.env.NPM_SCRIPT] ? 0 : 1)'; then
   echo "::error::Could not find a '${NPM_SCRIPT}' script in package.json on this ref (or package.json could not be read). Has the PR that ships it merged?" >&2
   exit 1
@@ -98,7 +106,7 @@ echo "===================== TARGET ====================="
 echo "  instance : ${CONN}"
 echo "  database : ${DB_NAME}"
 echo "  role     : ${ROLE} (DML-only; secret ${ROLE_SECRET})"
-echo "  backfill : npm run ${NPM_SCRIPT}"
+echo "  arm      : npm run ${NPM_SCRIPT}"
 echo "=================================================="
 
 # --- 4. Proxy + credentials ----------------------------------------------------------
@@ -138,14 +146,16 @@ actual_db="$(printf '%s' "$identity" | sed -n 1p)"
 actual_role="$(printf '%s' "$identity" | sed -n 2p)"
 echo "-- connected as (reported by the server): database=${actual_db} role=${actual_role}"
 if [ "$actual_db" != "$DB_NAME" ] || [ "$actual_role" != "$ROLE" ]; then
-  echo "::error::Connected to '${actual_db}' as '${actual_role}', expected '${DB_NAME}' as '${ROLE}'. Refusing to write." >&2
+  echo "::error::Connected to '${actual_db}' as '${actual_role}', expected '${DB_NAME}' as '${ROLE}'. Refusing to run." >&2
   exit 1
 fi
 
 # --- 6. Run it -----------------------------------------------------------------------
 #
-# Leftovers (unmatched / ambiguous rows) are a REPORT, not a failure — the script exits 0
-# and the numbers are the gate a human reads. Only a real error fails the job.
+# For a BACKFILL, leftovers (unmatched / ambiguous rows) are a REPORT, not a failure — it
+# exits 0 and the numbers are the gate a human reads. Only a real error fails the job.
+# A CHECK is the other way round: it answers a yes/no question that gates a merge, so
+# finding something IS a non-zero exit, and the epilogues below say so on both paths.
 echo "===================== RUNNING npm run ${NPM_SCRIPT} ====================="
 if npm run "$NPM_SCRIPT" 2>&1 | tee "$OUT"; then
   status=ok
@@ -164,7 +174,7 @@ fi
 # silently missing report is worse than a truncated one.
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
-    echo "### backfill \`${BACKFILL}\` — ${status} (\`${actual_db}\` as \`${actual_role}\`)"
+    echo "### \`${BACKFILL}\` — ${status} (\`${actual_db}\` as \`${actual_role}\`)"
     echo
     # Four backticks: a report quoting a fenced block of its own would otherwise close
     # this one early. `|| true` because `head` closing the pipe SIGPIPEs sed, and under
@@ -201,9 +211,21 @@ if [ "$status" = failed ]; then
 fi
 
 echo "===================== NOW READ THE REPORT ABOVE ====================="
-echo "  * unmatched / ambiguous > 0 — rows this backfill REFUSED to guess at. They are"
-echo "    still unset and safe; fix the source data and run this again. Zero on both is"
-echo "    the gate for retiring the old column's readers."
-echo "  * skipped > 0 — rows a concurrent write claimed mid-run. Expected to be small or"
-echo "    zero; a LARGE count means something else was writing, so re-run and compare."
-echo "  * re-running is always safe: it only touches rows that are still unset."
+# Per NAMESPACE, because the two say opposite things and printing a backfill's advice
+# after a check is how an operator learns to skim past this block entirely.
+case "$NPM_SCRIPT" in
+  db:check:*)
+    echo "  * a check WROTE NOTHING. Exit 0 means it found nothing, which is the answer"
+    echo "    it exists to give — a non-zero exit would have printed what it found."
+    echo "  * that answer ages: it describes the database as of NOW. Re-run it if the"
+    echo "    change it gates does not merge promptly."
+    ;;
+  *)
+    echo "  * unmatched / ambiguous > 0 — rows this backfill REFUSED to guess at. They are"
+    echo "    still unset and safe; fix the source data and run this again. Zero on both is"
+    echo "    the gate for retiring the old column's readers."
+    echo "  * skipped > 0 — rows a concurrent write claimed mid-run. Expected to be small or"
+    echo "    zero; a LARGE count means something else was writing, so re-run and compare."
+    echo "  * re-running is always safe: it only touches rows that are still unset."
+    ;;
+esac
