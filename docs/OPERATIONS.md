@@ -633,12 +633,13 @@ gh workflow run db-backfill.yml --ref <the-PR-branch> -f backfill=<check> -f con
 ```
 
 Run-from-`main` exists because a dispatch runs whatever code the ref carries, and a
-`db:backfill:*` arm WRITES. A `db:check:*` arm only `SELECT`s, as the DML-only
-`app_runtime` role, so the thing the rule protects is not at stake — and the alternative
-(land the constraint, discover the conflict from a failed `migrate deploy`) is the outcome
-the check exists to prevent. Read the branch's diff of `scripts/db/backfill.sh` and the
-script the arm names before dispatching, exactly as you would trust any other code you are
-about to point at production. **Never** use `--ref <branch>` for a `db:backfill:*` arm.
+`db:backfill:*` or `db:remediate:*` arm WRITES. A `db:check:*` arm only `SELECT`s, as the
+DML-only `app_runtime` role, so the thing the rule protects is not at stake — and the
+alternative (land the constraint, discover the conflict from a failed `migrate deploy`) is
+the outcome the check exists to prevent. Read the branch's diff of `scripts/db/backfill.sh`
+and the script the arm names before dispatching, exactly as you would trust any other code
+you are about to point at production. **Never** use `--ref <branch>` for an arm that
+WRITES — today that is every arm except `email-conflicts`.
 
 Before you fire it, the migration that adds the target column must already be in prod
 (`curl -s https://autoknow.alwaysmap.com/api/health` for the serving sha). Afterwards the
@@ -658,10 +659,10 @@ gh run watch   # or read the summary page for the report
 
 #### The arms, and what their reports mean
 
-| `backfill=` | Fills | Ships with | Its gate |
+| `backfill=` | Does what | Ships with | Its gate |
 |---|---|---|---|
-| `owner-person` | `Project.ownerPersonId` from the `ownerName` text | #127 E6, migration `20260726232108_project_owner_person_id` | zero unmatched + zero ambiguous before E7 retires the `ownerName` readers |
-| `affiliation-email` | `PersonAffiliation.email` from `Person.email` | #127 E8, migration `20260727020837_affiliation_email` | zero uncovered + zero ambiguous before E9 adds the unique-at-an-instant constraint |
+| `owner-person` | Fills `Project.ownerPersonId` from the `ownerName` text | #127 E6, migration `20260726232108_project_owner_person_id` | zero unmatched + zero ambiguous before E7 retires the `ownerName` readers |
+| `affiliation-email` | Fills `PersonAffiliation.email` from `Person.email` | #127 E8, migration `20260727020837_affiliation_email` | zero uncovered + zero ambiguous before E9 adds the unique-at-an-instant constraint |
 | `email-conflicts` | **nothing — READ-ONLY.** Reports addresses recorded against two people over overlapping periods | #127 E9, migration `20260727040058_unique_at_an_instant` | zero conflicts, or that migration fails and blocks the deploy |
 | `unmatched-owners` | **repoints, not fills.** Gives the ≤2 programs whose `ownerName` names nobody a real owner, by a documented rule | #127 E7's gate, bead `autoknow-pro.2` — no migration | `owner-person` then reporting zero unmatched |
 
@@ -784,7 +785,7 @@ columns before and after. This is the SHAPE, captured from the rehearsal against
 database seeded to prod's shape; the person and the counts prod prints will be prod's own:
 
 ```
-Programs with an ownerName and no ownerPersonId: 2
+Projects with an ownerName and no ownerPersonId: 2
   unresolvable: 2 (ownerName matches no person — this arm's targets)
   resolvable:   0 (left to db:backfill:owner-person)
 
@@ -810,7 +811,7 @@ first one says.
   the refusal happens before the first UPDATE, so there is no partial state to clean up.
   It refuses when more than **2** rows qualify (prod has exactly two; a third is by
   definition something nobody reviewed) or when there is no Person to choose from. The
-  `FOUND` lines above the refusal name every row it saw. The fix is never to widen the
+  `UNMATCHED` lines above the refusal name every row it saw. The fix is never to widen the
   bound and re-run — go find out why prod stopped looking the way this was reviewed for.
 - **`skipped:` above zero.** Something wrote to those rows between the scan and the
   UPDATE. Nothing was corrupted (each UPDATE requires the owner id to still be NULL and

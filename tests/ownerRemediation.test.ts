@@ -17,54 +17,6 @@ let MAX_REPOINTED: RemediationLib['MAX_REPOINTED'];
 // happy path — it is every way it must decline: rows it may not touch, a count it may not
 // exceed, and a second run that must change nothing.
 
-let google: number;
-const person: Record<string, number> = {};
-const project: Record<string, number> = {};
-
-const partner = async (name: string) =>
-  (await prisma.partner.create({
-    data: {
-      name,
-      type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } },
-      region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } },
-    },
-  })).id;
-
-const newPerson = async (key: string, name: string, email: string) => {
-  person[key] = (await prisma.person.create({
-    data: { name, email, currentPartnerId: google },
-  })).id;
-};
-
-const newProject = async (key: string, ownerName: string | null, ownerPersonId?: number) => {
-  project[key] = (await prisma.project.create({
-    data: { name: key, partnerId: google, ownerName, ownerPersonId: ownerPersonId ?? null },
-  })).id;
-};
-
-const ownerOf = async (key: string) =>
-  prisma.project.findUniqueOrThrow({
-    where: { id: project[key] },
-    select: { ownerName: true, ownerPersonId: true },
-  });
-
-/** Prod's shape: two programs whose owner is a display name matching nobody, some
- *  programs already owned, and one row the E6 backfill can still resolve itself. */
-const seedProdShape = async () => {
-  await wipeAll();
-  google = await partner('Google LLC');
-  // Ids ascend in creation order, which is what the tie-break below rides on.
-  await newPerson('jane', 'Jane Smith', 'jsmith@google.com'); // lowest id
-  await newPerson('raj', 'Raj Patel', 'rpatel@google.com');
-  await newProject('ownedByRaj1', 'rpatel@google.com', person.raj);
-  await newProject('ownedByRaj2', 'rpatel@google.com', person.raj);
-  await newProject('ownedByJane', 'jsmith@google.com', person.jane);
-  await newProject('alicePM', 'Alice PM');
-  await newProject('claraOps', 'Clara Operations');
-  await newProject('resolvable', 'jsmith@google.com'); // E6's job, not this arm's
-  await newProject('noOwner', null);
-};
-
 beforeAll(async () => {
   ({ repointUnresolvableOwners, formatOwnerRemediationReport, MAX_REPOINTED } = await import(
     '../src/lib/ownerRemediation'
@@ -77,7 +29,53 @@ afterAll(async () => {
 });
 
 describe('repointUnresolvableOwners', () => {
-  beforeEach(seedProdShape);
+  let google: number;
+  const person: Record<string, number> = {};
+  const project: Record<string, number> = {};
+
+  const partner = async (name: string) =>
+    (await prisma.partner.create({
+      data: {
+        name,
+        type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } },
+        region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } },
+      },
+    })).id;
+
+  const newPerson = async (key: string, name: string, email: string) => {
+    person[key] = (await prisma.person.create({
+      data: { name, email, currentPartnerId: google },
+    })).id;
+  };
+
+  const newProject = async (key: string, ownerName: string | null, ownerPersonId?: number) => {
+    project[key] = (await prisma.project.create({
+      data: { name: key, partnerId: google, ownerName, ownerPersonId: ownerPersonId ?? null },
+    })).id;
+  };
+
+  const ownerOf = async (key: string) =>
+    prisma.project.findUniqueOrThrow({
+      where: { id: project[key] },
+      select: { ownerName: true, ownerPersonId: true },
+    });
+
+  /** Prod's shape: two programs whose owner is a display name matching nobody, some
+   *  programs already owned, and one row the E6 backfill can still resolve itself. */
+  beforeEach(async () => {
+    await wipeAll();
+    google = await partner('Google LLC');
+    // Ids ascend in creation order, which is what the tie-break below rides on.
+    await newPerson('jane', 'Jane Smith', 'jsmith@google.com'); // lowest id
+    await newPerson('raj', 'Raj Patel', 'rpatel@google.com');
+    await newProject('ownedByRaj1', 'rpatel@google.com', person.raj);
+    await newProject('ownedByRaj2', 'rpatel@google.com', person.raj);
+    await newProject('ownedByJane', 'jsmith@google.com', person.jane);
+    await newProject('alicePM', 'Alice PM');
+    await newProject('claraOps', 'Clara Operations');
+    await newProject('resolvable', 'jsmith@google.com'); // E6's job, not this arm's
+    await newProject('noOwner', null);
+  });
 
   it('repoints exactly the rows whose ownerName names nobody, and reports both columns before and after', async () => {
     const report = await repointUnresolvableOwners();
@@ -238,11 +236,13 @@ describe('formatOwnerRemediationReport', () => {
         { id: 3, name: 'Ford Explorer VHAL Integration (Bosch)', ownerName: 'Clara Operations' },
         { id: 4, name: 'GM Ultium Infotainment', ownerName: 'Nobody At All' },
       ],
-      refused: '3 programs have an ownerName matching nobody, and this arm refuses above 2. Nothing was written.',
+      refused: '3 projects have an ownerName matching nobody, and this arm refuses above 2. Nothing was written.',
     });
 
-    expect(text).toContain('REFUSED: 3 programs have an ownerName matching nobody');
-    expect(text).toContain('FOUND      #4 GM Ultium Infotainment');
+    expect(text).toContain('REFUSED: 3 projects have an ownerName matching nobody');
+    // The row label the E6 backfill uses for the identical predicate — one vocabulary
+    // across the two reports an operator reads back to back.
+    expect(text).toContain('UNMATCHED  #4 GM Ultium Infotainment — ownerName “Nobody At All” matches no person');
     // Nothing that could be mistaken for a write.
     expect(text).not.toContain('REPOINTED');
     expect(text).not.toContain('Owner chosen by rule');

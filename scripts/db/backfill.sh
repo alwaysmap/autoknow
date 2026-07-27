@@ -205,9 +205,9 @@ if [ "$status" = failed ]; then
     echo "    and that deploy.yml's migrate job went green for that commit." >&2
   fi
   # Namespaced like the success epilogue, and for the sharper version of the same reason:
-  # a check that genuinely BROKE has already been diagnosed by one of the greps above, and
-  # following that with "it did not break, it found something" is how a reader stops
-  # trusting either line.
+  # a check or a remediation that genuinely BROKE has already been diagnosed by one of the
+  # greps above, and following that with "it did not break, it found something" is how a
+  # reader stops trusting either line.
   case "$NPM_SCRIPT" in
     db:check:*)
       echo "  * if neither of those matched, this arm did not break: a db:check:* exits" >&2
@@ -232,8 +232,9 @@ if [ "$status" = failed ]; then
 fi
 
 echo "===================== NOW READ THE REPORT ABOVE ====================="
-# Per NAMESPACE, because the two say opposite things and printing a backfill's advice
-# after a check is how an operator learns to skim past this block entirely.
+# Per NAMESPACE, because the three say different things and printing a backfill's advice
+# after a check or a remediation is how an operator learns to skim past this block
+# entirely.
 case "$NPM_SCRIPT" in
   db:check:*)
     echo "  * a check WROTE NOTHING. Exit 0 means it found nothing, which is the answer"
