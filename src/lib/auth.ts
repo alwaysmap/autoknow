@@ -36,14 +36,15 @@ function nameFromHandle(handle: string): string {
  * `lib/people`'s resolver. Four call sites were doing `.trim().toLowerCase()` inline,
  * which is fine right up until one of them stops.
  *
- * KNOWN ASYMMETRY, named here rather than left to be discovered: `PersonAffiliation.email`
- * is canonicalized on write (`lib/schemas`' affiliation schema, `createPersonAt`, the
- * backfill) and `Person.email` is NOT — its schema takes `z.email()` as typed. Reads
- * compensate, because everything goes through this function, so nothing is wrong today.
- * It becomes a real question at #127 E9, whose unique-at-an-instant constraint spans the
- * two: a DB-level `=` does not lower-case anything. Deciding it there is deliberate —
- * lower-casing `Person.email` retroactively is a data migration against a `@unique`
- * column, not a one-line schema edit.
+ * THE ASYMMETRY IS GONE, and this records the answer because the question was recorded
+ * here first: `PersonAffiliation.email` was canonicalized on write from the day it
+ * existed (#127 E8) and `Person.email` was not — its schema took `z.email()` as typed,
+ * and reads compensated, so nothing was wrong while equality was decided in JavaScript.
+ * #127 E9 moved equality into Postgres, where `=` folds no case, so both columns are now
+ * canonical on write (`lib/schemas`' `zEmail`) and E9's migration folded the rows that
+ * predate it. Folding them was safe THERE and nowhere earlier: the same migration drops
+ * the `@unique` index first, so the one way the rewrite could collide is gone before it
+ * runs.
  */
 export function normalizeAddress(input: string | null | undefined): string {
   return (input ?? '').trim().toLowerCase();

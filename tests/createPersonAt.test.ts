@@ -68,14 +68,18 @@ describe('createPersonAt', () => {
   });
 
   it('creates the person and the period as ONE write, so neither can exist alone', async () => {
-    // A duplicate email fails the unique constraint. If this were two statements the
-    // affiliation could still land (or the person could), leaving the orphan the whole
-    // function exists to prevent.
+    // A duplicate address is refused, and NAMES its holder — since #127 E9 by the clash
+    // check here rather than by `Person.email @unique`, which is a better message and an
+    // earlier stop but a weaker proof of atomicity, so the row counts stay asserted: if
+    // this were two statements the affiliation could still land (or the person could),
+    // leaving the orphan the whole function exists to prevent.
     const before = await prisma.personAffiliation.count();
+    const people = await prisma.person.count();
     await expect(
       createPersonAt({ name: 'Ada Again', email: 'ada@example.com', partnerId: google }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/already belongs to/);
     expect(await prisma.personAffiliation.count()).toBe(before);
+    expect(await prisma.person.count()).toBe(people);
   });
 });
 

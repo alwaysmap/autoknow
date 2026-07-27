@@ -10,10 +10,12 @@ name: Run DB backfill
 # Federation setup exists to prevent. This is that missing path, and nobody holds a
 # connection string on it.
 #
-# ONE RUNNER FOR EVERY BACKFILL, not one workflow each: the next two (#127 E8/E9) are the
-# same migration in different columns. What keeps that from being a "run anything against
-# prod" hatch is that WHICH backfills exist is an allowlist in scripts/db/backfill.sh —
-# the dropdown below only mirrors it, the script enforces it.
+# ONE RUNNER FOR EVERY ARM, not one workflow each: #127 E6 and E8 are the same migration
+# in different columns, and E9's is not a backfill at all but a READ-ONLY check that has
+# the identical problem — a question only production can answer, asked from a place where
+# nobody holds a connection string. What keeps that from being a "run anything against
+# prod" hatch is that WHICH arms exist is an allowlist in scripts/db/backfill.sh — the
+# dropdown below only mirrors it, the script enforces it.
 #
 # Manual only, and confirmed: `workflow_dispatch` with no push/schedule trigger, plus a
 # required typed confirmation, so a stray click on "Run workflow" writes nothing.
@@ -22,14 +24,15 @@ on:
   workflow_dispatch:
     inputs:
       backfill:
-        description: 'Which backfill to run'
+        description: 'Which backfill or check to run'
         type: choice
         required: true
         options:
           - owner-person # #127 E6 — Project.ownerName -> ownerPersonId
           - affiliation-email # #127 E8 — Person.email -> the PersonAffiliation period covering now
+          - email-conflicts # #127 E9 — READ-ONLY: can the unique-at-an-instant constraint be applied to prod?
       confirm:
-        description: 'Type the Cloud SQL instance name (autoknow-pg) — this WRITES to production'
+        description: 'Type the Cloud SQL instance name (autoknow-pg) — a backfill arm WRITES to production'
         required: true
 
 permissions:

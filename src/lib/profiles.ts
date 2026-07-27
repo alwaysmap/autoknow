@@ -35,9 +35,12 @@ import { prisma } from './db';
  * NULL OR endDate > at)`. Half-open — a period ENDING on `at` does not cover it, its
  * successor starting that day does. A contiguous career therefore matches exactly ONE
  * period per person — but that is the shape the data is MEANT to have, not something
- * this predicate enforces: there is no exclusion constraint, and the affiliations API
- * can still author an overlap (autoknow-2of). The resolvers below order deterministically
- * so an overlap picks the same row on every render rather than flickering.
+ * this predicate enforces: the affiliations API can still author an overlap
+ * (autoknow-2of), and #127 E9's exclusion constraint does NOT close that hole — it
+ * forbids two DIFFERENT people recording one address over overlapping periods, which is
+ * a statement about identity, not about one career's shape. The resolvers below order
+ * deterministically so an overlap picks the same row on every render rather than
+ * flickering.
  * `movePersonTo` used to be the other author of one; since autoknow-pvn it HEALS an
  * overlap it finds, because it closes every period covering the move date.
  *
@@ -230,6 +233,13 @@ export async function rostersByPartnerAsOf(at: Date = new Date()) {
  * did they use in this job" is known for certain rather than inferred — and stamping it
  * here is what keeps the column true for everyone added from now on, leaving
  * `db:backfill:affiliation-email` to deal only with the careers that predate it.
+ *
+ * Which is also why the clash check is HERE and not in the two callers (`createPerson`,
+ * `POST /api/people`): stamping the address is what can now collide, so the sentence
+ * naming the collision belongs beside the stamp. Both callers used to hand a duplicate
+ * straight to Postgres and surface `P2002` as a 500; since #127 E9 it would be an
+ * exclusion violation instead, which is the same unreadable outcome wearing a longer
+ * message (AGENTS lesson 7 — one defect, two call sites, one fix).
  */
 export async function createPersonAt(person: {
   name: string;
@@ -240,10 +250,20 @@ export async function createPersonAt(person: {
   startDate?: Date;
 }) {
   const { name, email, notes, partnerId, role = 'Member', startDate = new Date() } = person;
+  // Asked as of the day the period OPENS, which is the first instant the new row claims
+  // the address. The period is open-ended, so it also claims every instant after that —
+  // one question cannot cover them all, and the constraint is what does. This is the
+  // message, not the enforcement.
+  const clash = await addressHolderAsOf(email, { at: startDate });
+  if (clash) {
+    throw new Error(
+      `${normalizeAddress(email)} already belongs to ${clash.name} — correct their record first, or use a different address`,
+    );
+  }
   return prisma.person.create({
     data: {
       name,
-      email,
+      email: normalizeAddress(email),
       notes: notes ?? null,
       // eslint-disable-next-line no-restricted-syntax -- writes the cache; this IS its maintainer
       currentPartnerId: partnerId,
@@ -334,6 +354,85 @@ export async function movePersonTo({ personId, partnerId, role, at }: {
     }
     return tx.personAffiliation.create({
       data: { personId, partnerId, role, startDate: at, endDate: next?.startDate ?? null },
+    });
+  });
+}
+
+/**
+ * The OTHER person who holds `email` on `at`, or null. The app's reading of the
+ * unique-at-an-instant invariant #127 E9 put in the database, kept here so a clash can
+ * be NAMED before Postgres refuses it — "already belongs to Alice Waters" is a sentence
+ * someone can act on; "conflicting key value violates exclusion constraint" is not.
+ *
+ * Two places record an address and both count, and they are asked DIFFERENTLY on purpose:
+ *
+ *   * `PersonAffiliation.email` is asked as of `at`, because a period is dated and a
+ *     handover — she leaves on the 1st, he starts on the 1st — is legal.
+ *   * `Person.email` is asked with NO date, because it has none. It means "the address
+ *     this person uses now", full stop, and nothing about leaving a job rewrites it. So a
+ *     row still claiming an address blocks handing it to somebody else, and that is
+ *     STRICTER than the database constraint, deliberately: two Person rows both claiming
+ *     one address as current is exactly what `@unique` used to prevent and nothing else
+ *     now does. It is also fixable — correct the previous holder's record first — which
+ *     is why every message built from this names that remedy rather than only the clash.
+ *
+ * This is a courtesy, not the enforcement — it reads and then the caller writes, so two
+ * concurrent corrections can both pass it. The constraint is what cannot be raced
+ * (AGENTS lesson 2: the guard is in software the DB runs, and this is the message).
+ *
+ * Exact match, not `mode: 'insensitive'`: both columns are canonical, on write since
+ * #127 E9's `zEmail` and in the rows since its migration folded them. That is a claim
+ * worth checking if this ever appears to miss a clash Postgres then refuses.
+ */
+export async function addressHolderAsOf(
+  email: string,
+  { exceptPersonId, at = new Date() }: { exceptPersonId?: number; at?: Date } = {},
+) {
+  const address = normalizeAddress(email);
+  if (address === '') return null;
+  return prisma.person.findFirst({
+    where: {
+      ...(exceptPersonId === undefined ? {} : { id: { not: exceptPersonId } }),
+      OR: [
+        { email: address },
+        { affiliations: { some: { email: address, ...asOfWhere(at) } } },
+      ],
+    },
+    select: { id: true, name: true },
+  });
+}
+
+/**
+ * Correct a person's current record — name, address, notes — as ONE write, stamping the
+ * address onto the employment period covering `at` as well as onto the person.
+ *
+ * Here rather than in the action for the same reason `movePersonTo` is: the address is a
+ * property of a PERIOD (#124 §2), so correcting it is a decision about a day, and the
+ * period it lands on has to be chosen with the same `asOfWhere` every resolver reads
+ * with. Doing it in the action would be a fourth spelling of the predicate.
+ *
+ * `updateMany`, and it may legitimately touch more than one row: a career with an
+ * overlap (autoknow-2of, still authorable through the affiliations API) has two periods
+ * covering today, and both of them are jobs this person holds today, so both carry the
+ * corrected address. Zero rows is also normal and not an error — a person in a GAP
+ * (#124 §2) works nowhere today, and there is no period for the address to sit on.
+ *
+ * One transaction, because a person whose row says one address while the period they are
+ * in says another is precisely the state #127 E8 and E9 exist to remove.
+ */
+export async function correctPersonRecord({ personId, name, email, notes, at = new Date() }: {
+  personId: number;
+  name: string;
+  email: string;
+  notes: string | null;
+  at?: Date;
+}) {
+  const address = normalizeAddress(email);
+  return prisma.$transaction(async (tx) => {
+    await tx.person.update({ where: { id: personId }, data: { name, email: address, notes } });
+    await tx.personAffiliation.updateMany({
+      where: { personId, ...asOfWhere(at) },
+      data: { email: address },
     });
   });
 }

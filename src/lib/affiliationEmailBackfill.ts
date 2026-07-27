@@ -99,9 +99,11 @@ export async function backfillAffiliationEmail(
     unrecordedHistory: 0,
   };
   // One UPDATE per distinct address rather than per period — the batching the playbook
-  // asks for. Keyed by address because that is what is written; two people never share
-  // one while `Person.email` is still `@unique` (#127 E9), so in practice each entry
-  // holds a single id, and the shape survives E9 dropping that.
+  // asks for. Keyed by address because that is what is written. Since #127 E9 two people
+  // MAY share one address across their careers — just not over overlapping periods — and
+  // every period this writes covers the same instant, so an entry holding two ids is a
+  // batch the database will reject as a whole. That is the correct outcome: it means the
+  // source data has one address on two people at once, which is the thing to fix.
   const byAddress = new Map<string, number[]>();
 
   for (const person of people) {

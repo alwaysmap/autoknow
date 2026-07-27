@@ -35,6 +35,29 @@ export const zIdOrNull = z.preprocess(
   zId.nullable(),
 );
 
+/**
+ * A required address, STORED CANONICAL — trimmed and lower-cased by `normalizeAddress`,
+ * the one definition of the stored form.
+ *
+ * `z.email()` alone (what every `Person.email` boundary took until #127 E9) accepts
+ * 'Alice@Google.com' as typed, which was harmless only for as long as equality was
+ * decided in JavaScript. The unique-at-an-instant EXCLUDE constraint decides it in
+ * Postgres now, where `=` does not fold case — so an address typed with a capital could
+ * sit beside its own lower-cased twin and the database would see two different people.
+ * The migration folded the rows that predate this; this keeps them folded.
+ */
+export const zEmail = z.preprocess(
+  (v) => (typeof v === 'string' ? normalizeAddress(v) : v),
+  z.email(),
+);
+
+/** `zEmail` where nothing is also an answer: '', null and undefined all become null,
+ *  which on `PersonAffiliation.email` means "not recorded", never "no address". */
+export const zEmailOrNull = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() !== '' ? normalizeAddress(v) : null),
+  z.email().nullable(),
+);
+
 // ---- partner --------------------------------------------------------------------
 
 /** Partner create/update via the in-app form (server action). Region is part of a
@@ -102,7 +125,7 @@ export const personDeleteSchema = z.object({
 export const personUpdateSchema = z.object({
   personId: zId,
   name: zText.max(200),
-  email: z.email(),
+  email: zEmail,
   notes: zTextOrNull,
 });
 
@@ -112,7 +135,7 @@ export const personUpdateSchema = z.object({
  *  contacts), and a Login needs no Person until they claim one (/me). */
 export const personCreateSchema = z.object({
   name: zText.max(200),
-  email: z.email(),
+  email: zEmail,
   partnerId: zId,
   role: zTextOrNull,
 });
@@ -142,7 +165,7 @@ export const projectLifecycleSchema = z.object({
 // person and then posting a SECOND period that overlaps the default.
 export const personApiSchema = z.object({
   name: zText.max(200),
-  email: z.email(),
+  email: zEmail,
   currentPartnerId: zId,
   notes: zTextOrNull.optional(),
   role: zText.max(100).optional(),
@@ -214,15 +237,11 @@ export const affiliationApiSchema = z.object({
     (v) => (v === '' || v == null ? null : v),
     z.coerce.date().nullable(),
   ).optional(),
-  // The address held during THIS period (#127 E8). Optional and nullable because most
-  // periods predate the column and nothing knows what address they used — a null here
-  // means "not recorded", never "no address". Canonicalized through `normalizeAddress`,
-  // the one definition of the stored form (which also records why `Person.email` is
-  // NOT canonicalized on write, and where that gets decided).
-  email: z.preprocess(
-    (v) => (typeof v === 'string' && v.trim() !== '' ? normalizeAddress(v) : null),
-    z.email().nullable(),
-  ).optional(),
+  // The address held during THIS period (#127 E8). Optional because most periods predate
+  // the column and nothing knows what address they used — a null means "not recorded",
+  // never "no address". Both address columns share `zEmail`'s canonicalization since
+  // #127 E9, which is what lets the unique-at-an-instant constraint compare them.
+  email: zEmailOrNull.optional(),
 });
 
 // ---- helpers --------------------------------------------------------------------

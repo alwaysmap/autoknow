@@ -17,8 +17,15 @@ npm run db:up                                        # postgres + pgvector conta
 npm run db:migrate -- --name <change> --create-only  # writes prisma/migrations/<ts>_<change>/
 # → open the generated migration.sql and read EVERY statement
 npm run db:migrate                                   # apply locally
+npm run db:generate                                  # NOT implied by the line above — see below
 npm run test                                         # jest incl. DB tests (own *_test database)
 ```
+
+**`db:generate` is not optional and not implied.** `prisma migrate dev` leaves the
+generated client untouched, so until you run it `npm run typecheck` is checking
+your code against the schema you just changed away from — green locally, red in CI,
+and green *specifically* for the readers your change should have broken
+([note](../../../docs/knowledge/db-migrate-does-not-regenerate-the-client-so-typecheck-lies.md)).
 
 `npm run db:push` syncs the LOCAL throwaway DB only. `npm run db:studio` to
 inspect. Seeding is the `/admin` console (idempotent core seed vs destructive

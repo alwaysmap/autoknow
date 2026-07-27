@@ -5,7 +5,11 @@ generator client {
 
 datasource db {
   provider   = "postgresql"
-  extensions = [vector]
+  // btree_gist is what lets a GiST exclusion constraint compare scalars (`=` on text,
+  // `<>` on an int) alongside a range — see PersonAffiliation's unique-at-an-instant
+  // constraint (#127 E9). Declared here so `migrate dev` reports drift if the extension
+  // is ever missing; the migration that needs it creates it itself.
+  extensions = [vector, btree_gist]
 }
 
 // Semantic search (lib/search, lib/vector) scans the vector(768) columns exactly —
@@ -388,7 +392,17 @@ model IngestionSettings {
 model Person {
   id               Int                 @id @default(autoincrement())
   name             String
-  email            String              @unique
+  // NOT `@unique` since #127 E9, and the removal is the point rather than a relaxation.
+  // `@unique` said "one address, one human, forever", which is false: addresses are
+  // recycled, and a person who leaves keeps the row that quotes theirs. What is actually
+  // true is UNIQUE AT AN INSTANT — no two people hold one address at the same moment —
+  // and that is a statement about employment PERIODS, which no column-level constraint
+  // can make. It lives on PersonAffiliation as an EXCLUDE constraint (below).
+  //
+  // This column is the CURRENT canonical address, kept canonical: lower-cased and
+  // trimmed on write (lib/schemas, via `normalizeAddress`) and by the E9 migration for
+  // every row that predates it, so a DB-level `=` means the same thing as the app's.
+  email            String
   currentPartnerId Int
   currentPartner   Partner             @relation("CurrentPartner", fields: [currentPartnerId], references: [id])
   notes            String?
@@ -453,15 +467,32 @@ model PersonAffiliation {
   // The address held DURING this period (#124 §2, #127 E8). An email belongs to a JOB,
   // not to a human: leaving Qualcomm for Google means a new address, and a mention
   // written in 2025 quotes the old one forever. `Person.email` stays the CURRENT
-  // canonical address (and stays `@unique` until #127 E9 replaces that with the
-  // unique-at-an-instant EXCLUDE constraint); this column is what makes a past address
-  // still resolve to the human who held it — #124 Class 4.
+  // canonical address; this column is what makes a past address still resolve to the
+  // human who held it — #124 Class 4.
   //
   // NULLABLE, and it stays nullable: nothing knows what address somebody used at a
   // company they left before this column existed. `db:backfill:affiliation-email` fills
   // in only the period covering the run instant (the one `Person.email` demonstrably
   // belongs to) and leaves every other period NULL with a line in its report — NULL
   // means "not recorded", never "no address". `lib/people`'s matcher skips nulls.
+  //
+  // UNIQUE AT AN INSTANT, DB-enforced (#127 E9, spec #124 §2). Prisma cannot express an
+  // exclusion constraint, so the migration writes it by hand and this comment is the
+  // only place the schema says it exists:
+  //
+  //   CONSTRAINT "PersonAffiliation_email_unique_at_an_instant"
+  //     EXCLUDE USING gist (lower(email) WITH =, "personId" WITH <>,
+  //                         tsrange("startDate", "endDate") WITH &&)
+  //     WHERE (email IS NOT NULL)
+  //
+  // Read it as: two DIFFERENT people may not have recorded the same address over
+  // overlapping periods. `lower()` because the app's notion of equality is
+  // case-insensitive (`normalizeAddress`) and a DB-level `=` is not. `tsrange` is
+  // half-open `[)`, which is the interval convention the whole of #124 uses, and an open
+  // period (`endDate` NULL) becomes unbounded above, which is what "still there" means.
+  // `personId WITH <>` because one person's own periods overlapping is a DIFFERENT
+  // defect with a different fix (bead autoknow-2of, at the mutation boundary) — folding
+  // it in here would make one constraint answer two questions and report the wrong one.
   email     String?
 
   // Superseded for READS by the composites below, which have these as strict

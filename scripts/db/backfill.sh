@@ -50,18 +50,28 @@ ROLE_SECRET=runtime-database-url
 # The list is a control against MISTAKES, not against people: dispatching this workflow
 # needs repo write access, and a dispatch names its own ref, so anyone who can fire it
 # could equally push a branch that widens the list. Run it from `main`.
+# `name=npm-script` pairs, so the list stays the single source of both the allowlist and
+# what each name RUNS. It carries two namespaces now: `db:backfill:*` writes, and
+# `db:check:*` only SELECTs — a read-only question that has to be asked of production and
+# has nowhere else to be asked from, for exactly the reasons in this file's header. The
+# check rides the same three refusals as the writes rather than getting a laxer path of
+# its own; the cost is typing the instance name to run a SELECT, which is not a cost.
 ALLOWED=(
-  owner-person      # #127 E6 — Project.ownerName -> ownerPersonId
-  affiliation-email # #127 E8 — Person.email -> the PersonAffiliation period covering now
+  "owner-person=db:backfill:owner-person"           # #127 E6 — Project.ownerName -> ownerPersonId
+  "affiliation-email=db:backfill:affiliation-email" # #127 E8 — Person.email -> the PersonAffiliation period covering now
+  "email-conflicts=db:check:email-conflicts"        # #127 E9 — READ-ONLY: can the unique-at-an-instant constraint be applied here?
 )
-allowed=0
-for name in "${ALLOWED[@]}"; do [ "$name" = "$BACKFILL" ] && allowed=1; done
-if [ "$allowed" -ne 1 ]; then
-  echo "::error::'${BACKFILL}' is not an allowed backfill. Allowed: ${ALLOWED[*]}." >&2
+NPM_SCRIPT=""
+names=()
+for entry in "${ALLOWED[@]}"; do
+  names+=("${entry%%=*}")
+  [ "${entry%%=*}" = "$BACKFILL" ] && NPM_SCRIPT="${entry#*=}"
+done
+if [ -z "$NPM_SCRIPT" ]; then
+  echo "::error::'${BACKFILL}' is not an allowed backfill. Allowed: ${names[*]}." >&2
   echo "Add it to ALLOWED in scripts/db/backfill.sh (and to the workflow's options) to introduce one." >&2
   exit 1
 fi
-NPM_SCRIPT="db:backfill:${BACKFILL}"
 
 # --- 2. Typed confirmation -----------------------------------------------------------
 #
@@ -181,8 +191,11 @@ if [ "$status" = failed ]; then
     echo "    has not reached this database. Check what prod is running (gcp-debug skill)" >&2
     echo "    and that deploy.yml's migrate job went green for that commit." >&2
   fi
-  echo "  Nothing partial was left behind by design: the backfill is idempotent and its" >&2
-  echo "  WHERE clause requires the target to still be unset, so a re-run resumes safely." >&2
+  echo "  * a db:check:* arm exits non-zero because it FOUND SOMETHING, not because it" >&2
+  echo "    broke. Read its report above: that is the answer you asked for." >&2
+  echo "  Nothing partial was left behind by design: a check writes nothing at all, and a" >&2
+  echo "  backfill is idempotent with a WHERE clause requiring the target to still be" >&2
+  echo "  unset, so a re-run resumes safely." >&2
   echo "::error::npm run ${NPM_SCRIPT} failed against ${actual_db}." >&2
   exit 1
 fi

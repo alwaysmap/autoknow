@@ -21,7 +21,14 @@ cd "$(dirname "$0")/../.."
 # statements — a column literally named "truncated" tripped the TRUNCATE rule (#56), which
 # is the worst kind of guard failure because the honest fix looks like adding an
 # `-- allow-destructive` tag to a migration that destroys nothing.
-DESTRUCTIVE='\bDROP[[:space:]]+TABLE\b|\bDROP[[:space:]]+COLUMN\b|\bDROP[[:space:]]+SCHEMA\b|\bTRUNCATE\b|\bALTER[[:space:]]+COLUMN\b[^;]*\bSET[[:space:]]+DATA[[:space:]]+TYPE\b|\bALTER[[:space:]]+COLUMN\b[^;]*\bSET[[:space:]]+NOT[[:space:]]+NULL\b|\bDROP[[:space:]]+DATABASE\b'
+#
+# DROP INDEX and UPDATE joined the list with #127 E9, which was the first migration to do
+# either. Neither destroys a table, and that is the point: dropping a UNIQUE index retires
+# an invariant the whole application has been trusting, and an UPDATE rewrites live data
+# inside `migrate deploy` — the thing backfills are kept OUT of it to avoid (they make
+# judgements whose leftovers a human reads; docs/CHANGE_PLAYBOOK.md). Both are legitimate
+# now and then. Neither should ever be typed without a reviewer noticing.
+DESTRUCTIVE='\bDROP[[:space:]]+TABLE\b|\bDROP[[:space:]]+COLUMN\b|\bDROP[[:space:]]+SCHEMA\b|\bTRUNCATE\b|\bALTER[[:space:]]+COLUMN\b[^;]*\bSET[[:space:]]+DATA[[:space:]]+TYPE\b|\bALTER[[:space:]]+COLUMN\b[^;]*\bSET[[:space:]]+NOT[[:space:]]+NULL\b|\bDROP[[:space:]]+DATABASE\b|\bDROP[[:space:]]+INDEX\b|^[[:space:]]*UPDATE[[:space:]]'
 
 files=("$@")
 if [ "${#files[@]}" -eq 0 ]; then

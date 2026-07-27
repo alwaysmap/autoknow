@@ -84,13 +84,16 @@ describe('the allowlist and the workflow dropdown agree', () => {
   // Two lists, deliberately: the script enforces, the workflow offers. They are useless
   // apart — an option the script rejects wastes a production dispatch, and a name only
   // the script knows is unreachable from the UI. Nothing but this notices them diverging.
-  const readAllowed = (): string[] => {
+  // Entries are `"name=npm-script"` pairs since #127 E9 gave the runner a read-only
+  // `db:check:*` arm — so both halves are read, and both are asserted below.
+  const readAllowed = (): { name: string; script: string }[] => {
     const sh = readFileSync(SCRIPT, 'utf8');
     const block = sh.match(/ALLOWED=\(([^)]*)\)/)?.[1] ?? '';
     return block
       .split('\n')
-      .map((line) => line.replace(/#.*$/, '').trim())
-      .filter(Boolean);
+      .map((line) => line.replace(/#.*$/, '').trim().replace(/^"|"$/g, ''))
+      .filter(Boolean)
+      .map((entry) => ({ name: entry.split('=')[0], script: entry.split('=').slice(1).join('=') }));
   };
 
   const readOptions = (): string[] => {
@@ -103,8 +106,20 @@ describe('the allowlist and the workflow dropdown agree', () => {
   };
 
   it('offers exactly the backfills the script will run', () => {
-    expect(readAllowed().length).toBeGreaterThan(0);
-    expect(readOptions().sort()).toEqual(readAllowed().sort());
+    const allowed = readAllowed();
+    expect(allowed.length).toBeGreaterThan(0);
+    expect(readOptions().sort()).toEqual(allowed.map((a) => a.name).sort());
+  });
+
+  // The script preflights this too, but only AFTER a dispatch has been fired at
+  // production and rejected — which is a wasted trip to discover a typo in a shell
+  // string. The likelier miss is the one this catches: an arm added here and the npm
+  // script it names never added, or renamed later by someone who never opens this file.
+  it('names an npm script that exists for every arm', () => {
+    const scripts = JSON.parse(readFileSync('package.json', 'utf8')).scripts as Record<string, string>;
+    for (const { name, script } of readAllowed()) {
+      expect(`${name} -> ${script in scripts}`).toBe(`${name} -> true`);
+    }
   });
 });
 

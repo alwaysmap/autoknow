@@ -14,7 +14,8 @@ import { deriveEmail, normalizeAddress, normalizeHandle } from './auth';
 export interface PersonLike {
   id: number;
   name: string;
-  /** The CURRENT canonical address. Still `@unique` on the row until #127 E9. */
+  /** The CURRENT canonical address. NOT `@unique` since #127 E9 — uniqueness became a
+   *  statement about instants and moved to the affiliation timeline. */
   email: string;
   /**
    * Every employment period's address (#127 E8) — the addresses this human has ALSO
@@ -177,10 +178,12 @@ function matchTier<T extends PersonLike>(people: T[], matches: (address: string)
  * which company, which title, which address — and `lib/profiles`' as-of resolvers own
  * that question. WHO the string names is not temporal: it is the same human before and
  * after the move, and the link this resolves to (`/people/:id`) is right on every day.
- * Passing a date here would only matter if one address named two different humans in
- * two different periods, which is exactly what #127 E9's unique-at-an-instant
- * constraint exists to make impossible; until then such a pair is genuinely ambiguous
- * and comes back as two candidates, below.
+ * Passing a date here would only matter if one address named two different humans AT
+ * ONE INSTANT, and #127 E9's exclusion constraint makes that unwritable. Two humans in
+ * two SEPARATE periods — a handover — stays perfectly legal and stays ambiguous to this
+ * function; it comes back as two candidates, current holder first, below. Nothing here
+ * changed at E9: the constraint removed the case that a date would have to arbitrate,
+ * not the case that needs ordering.
  *
  * More than one comes back only when a tier is genuinely AMBIGUOUS — two addresses
  * sharing a local part at different domains ('alice@google.com', 'alice@bosch.com'
@@ -264,9 +267,11 @@ export function resolvePerson<T extends PersonLike>(
  * part is somebody else's current handle now pulls their rows in. The alternative —
  * emitting held addresses but not their local parts — would round-trip fine and leave
  * the inverse permanently narrower than the forward matcher, which is the asymmetry this
- * function exists to prevent. #127 E9's unique-at-an-instant constraint is what shrinks
- * the collision space; until then the honest answer is that this is a filter, not a
- * proof, exactly as it was before.
+ * function exists to prevent. #127 E9's unique-at-an-instant constraint shrank the
+ * collision space but did not close it — it forbids one address naming two people at one
+ * MOMENT, and says nothing about a local part shared across two domains, which is where
+ * most of this approximation lives. The honest answer is still that this is a filter,
+ * not a proof.
  */
 export function personAliases(person: PersonLike): string[] {
   const addresses = [normalizeAddress(person.email), ...recordedAddresses(person)];
