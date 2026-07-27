@@ -106,8 +106,10 @@ describe('updatePhaseHill', () => {
     const good = { phaseId, projectId: seeded.projectId, hillChartProgress: '50', notes: 'progress' };
 
     await expect(updatePhaseHill(form({ ...good, phaseId: 'nope' }))).rejects.toThrow(/phaseId/);
-    // Unvalidated, this one reached `revalidatePath('/programs/NaN')` — a cache purge of a
-    // path no program has, silently doing nothing for the program that was edited.
+    // Unvalidated, this one was guarded downstream by `if (!isNaN(projectId))`, so junk
+    // SKIPPED the revalidation rather than corrupting the path: the update was written and
+    // the program's page went on serving the old HTML. Its twin `updateProjectMetrics`
+    // failed the other way, interpolating the raw string — see tests/projectMetrics.test.ts.
     await expect(updatePhaseHill(form({ ...good, projectId: 'nope' }))).rejects.toThrow(/projectId/);
     await expect(updatePhaseHill(form({ ...good, projectId: '0' }))).rejects.toThrow(/projectId/);
   });

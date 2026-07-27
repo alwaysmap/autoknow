@@ -158,8 +158,10 @@ export const statusUpdateSchema = z.object({
  *
  *  `projectId` carries two jobs, so do not read it as decoration: it is the surface to
  *  refresh, AND the program the phase must belong to (`requirePhaseInProject` in the
- *  action). Unvalidated it did neither — a NaN made `revalidatePath('/programs/NaN')`, a
- *  purge of a path no program has, and the parentage check did not exist. */
+ *  action). Unvalidated it did neither. The action guarded the refresh with
+ *  `if (!isNaN(projectId))`, so junk did not corrupt the path — it SKIPPED the
+ *  revalidation entirely, leaving the edited program's page serving stale HTML while the
+ *  dialog reported a save. And the parentage check did not exist at all. */
 export const phaseHillSchema = z.object({
   phaseId: zId,
   projectId: zId,
