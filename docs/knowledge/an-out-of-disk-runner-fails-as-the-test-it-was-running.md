@@ -11,7 +11,7 @@ symptoms:
   - one browser leg is red while every other job in the run is green
   - the step log simply stops, with no assertion and no stack
   - a job stuck `in_progress` with no conclusion, or `No space left on device` naming a path under `actions-runner/*/_diag/`
-verified_by: 'runs 30239195026 and 30288543059 (attempt 1 webkit `failure`, everything else `success`); measurements in runs 30300083981 and 30301180776; PR #226'
+verified_by: 'runs 30239195026 and 30288543059 (attempt 1 webkit `failure`, everything else `success`); measurements in runs 30300083981, 30301180776 and 30302815906; PR #226'
 ---
 
 # An out-of-disk CI runner fails as whatever test it happened to be running
@@ -40,15 +40,17 @@ why it borrows the identity of the test underneath it.
    all unnecessary here, and the first costs wall clock on the measured critical path (see
    [ci-wall-clock-is-one-job-find-it-before-optimizing](ci-wall-clock-is-one-job-find-it-before-optimizing.md)).
    Measured on run 30300083981, an e2e leg starts with **14.1 GiB free** on a 72 GiB disk
-   (81% already used by the image) and its low-water mark is **11.9 GiB**: the whole job
+   (81% already used by the image) and a HEALTHY leg's low-water mark is **11.9 GiB**: the job
    costs ~2.2 GiB — `node_modules` 924 MB, the browser payload 295 MB (webkit) / 646 MB
    (chromium), the apt archive `--with-deps` fills 221 MB / 132 MB, `.next-test` 93 MB. The
    retained Playwright artifacts everyone suspects are **584 KB**.
-3. **So a fill is an anomaly, not growth.** Confirmed on the very next run (30301180776):
-   the same webkit leg bottomed out at **6.0 GiB** and ended at 5.9 GiB / 92% used, while
-   every path in the list above was byte-for-byte what it is on a healthy run. ~6 GiB went
-   somewhere a targeted `du` does not look. Chase the writer with the deep scan — any report
-   taken below `CI_DISK_WARN_MB` escalates to one automatically — not with the budget.
+3. **So a fill is not growth — and on webkit it is not rare either.** Low-water over runs
+   30300083981 / 30301180776 / 30302815906: chromium 12.0 / 11.8 / 11.8 GiB, webkit
+   **11.9 / 6.0 / 6.1** GiB — and on the low runs every path above was byte-for-byte what it
+   is on a healthy one, so ~6 GiB goes where a targeted `du` does not look. **Set the warn
+   line ABOVE where the leg actually sits:** 6 GiB was tried first and never fired, because
+   webkit lands at 6.0-6.1. Chase the writer with the deep scan — any report below
+   `CI_DISK_WARN_MB` escalates to one automatically — not with the budget.
 
 **How we found out.** Nothing measured it and nothing could afterwards: the job never
 printed its free disk, and both failing job logs had already expired from the Actions API

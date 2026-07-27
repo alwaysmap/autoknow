@@ -199,16 +199,23 @@ jobs:
       # Sets `workers`, the `webServer` array length and the number of databases at once
       # (tests/helpers/worktree.ts). See the matrix above for why it differs per leg.
       E2E_WORKERS: ${{ matrix.workers }}
-      # DISK THRESHOLDS, set from MEASUREMENT and overriding the script defaults. WARN at
-      # 6 GiB is roughly half the 11.9 GiB low-water mark of a healthy leg (run 30300083981);
-      # FLOOR at 2 GiB stops the suite with room left to write the report the next fill gets
-      # diagnosed from. Both are job-level and not step-level because the probes use WARN
-      # too: any report taken below it escalates itself to a deep scan. The measurement
-      # behind the numbers, and why no headroom fix was needed, are in
+      # DISK THRESHOLDS, set from MEASUREMENT and overriding the script defaults.
+      #
+      # WARN at 8 GiB, deliberately ABOVE webkit's measured 6.0-6.1 GiB low-water rather
+      # than below it: a 6 GiB line (tried first, run 30302815906) sat just UNDER where that
+      # leg actually sits and so never fired — instrumentation calibrated to miss the exact
+      # thing it was built to catch. At 8 GiB the webkit leg warns and its job-end report
+      # escalates itself to a deep scan; a healthy leg stays quiet.
+      #
+      # FLOOR at 2 GiB stops the suite with room left to write the report the next fill
+      # gets diagnosed from.
+      #
+      # Job-level, not step-level, because the probes read WARN too. The measurements, and
+      # why no headroom fix was needed, are in
       # docs/knowledge/an-out-of-disk-runner-fails-as-the-test-it-was-running.md — re-read
       # it, and the job's own DISK lines, before changing either.
       CI_DISK_FLOOR_MB: 2048
-      CI_DISK_WARN_MB: 6144
+      CI_DISK_WARN_MB: 8192
     steps:
       - uses: actions/checkout@v4
       # DISK. Three probes and the guard on the test step below; why, in
