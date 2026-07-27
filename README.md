@@ -90,13 +90,14 @@ local use):
 | `db:backfill:owner-person` | Fill `Project.ownerPersonId` from the legacy `ownerName` text (#127 E6). Idempotent; writes only unambiguous matches and reports the rest |
 | `db:backfill:affiliation-email` | Fill `PersonAffiliation.email` from `Person.email`, for the period covering the run instant only (#127 E8). Idempotent; leaves every other period NULL and reports it |
 | `db:check:email-conflicts` | READ-ONLY: does this database hold an address recorded against two people over overlapping periods? The gate for #127 E9's unique-at-an-instant constraint — exits non-zero when it finds one |
+| `db:remediate:unmatched-owners` | Repoint the programs whose `ownerName` names nobody onto a real Person, by a documented rule (#127 E7's gate). Refuses above two rows and writes nothing; idempotent |
 | `infra:plan` / `infra:apply` | Terraform against the `alwaysmap` instance, with the backend, tfvars and **identity** handled for you — `.env`'s service-account key would otherwise hijack the provider ([note](docs/knowledge/env-service-account-key-hijacks-terraform.md)). Apply is human-run and prompts |
 | `infra:output` | Terraform outputs (service URL, share address, WIF provider…) |
 | `ci:lint-migrations` | PR gate: block destructive migrations (used by `ci.yml`) |
 | `ci:migrate` | Forward-only `prisma migrate deploy` to Cloud SQL (used by `deploy.yml`) |
 | `ci:deploy` | Build → push image → roll Cloud Run (used by `deploy.yml`) |
 | `ci:harden-db` | Diagnose/apply the least-privilege DB role (used by `harden-db.yml`) |
-| `ci:backfill` | Run one allowlisted `db:backfill:*` / `db:check:*` script against Cloud SQL as the DML-only `app_runtime` role (used by `db-backfill.yml`). Manual, confirmed, and the ONLY prod path for either |
+| `ci:backfill` | Run one allowlisted `db:backfill:*` / `db:check:*` / `db:remediate:*` script against Cloud SQL as the DML-only `app_runtime` role (used by `db-backfill.yml`). Manual, confirmed, and the ONLY prod path for any of them |
 
 ### 1. Prerequisites
 - Node.js (v18+)

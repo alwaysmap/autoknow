@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run ONE reviewed ARM against an instance's Cloud SQL database — the prod invocation path
-# for `npm run db:backfill:*` and `npm run db:check:*`, driven by
+# for `npm run db:backfill:*`, `npm run db:check:*` and `npm run db:remediate:*`, driven by
 # .github/workflows/db-backfill.yml.
 #
 # WHY THIS EXISTS: a backfill is deliberately NOT part of `migrate deploy`
@@ -65,6 +65,7 @@ ALLOWED=(
   "owner-person=db:backfill:owner-person"           # #127 E6 — Project.ownerName -> ownerPersonId
   "affiliation-email=db:backfill:affiliation-email" # #127 E8 — Person.email -> the PersonAffiliation period covering now
   "email-conflicts=db:check:email-conflicts"        # #127 E9 — READ-ONLY: can the unique-at-an-instant constraint be applied here?
+  "unmatched-owners=db:remediate:unmatched-owners"  # #127 E7 gate — repoint the ≤2 programs whose ownerName names nobody
 )
 NPM_SCRIPT=""
 names=()
@@ -155,7 +156,9 @@ fi
 # For a BACKFILL, leftovers (unmatched / ambiguous rows) are a REPORT, not a failure — it
 # exits 0 and the numbers are the gate a human reads. Only a real error fails the job.
 # A CHECK is the other way round: it answers a yes/no question that gates a merge, so
-# finding something IS a non-zero exit, and the epilogues below say so on both paths.
+# finding something IS a non-zero exit. A REMEDIATION is a third thing again: it has one
+# job and either did it (0) or REFUSED and wrote nothing (non-zero). The epilogues below
+# switch on the namespace so exactly one of those three readings is ever printed.
 echo "===================== RUNNING npm run ${NPM_SCRIPT} ====================="
 if npm run "$NPM_SCRIPT" 2>&1 | tee "$OUT"; then
   status=ok
@@ -211,6 +214,13 @@ if [ "$status" = failed ]; then
       echo "    non-zero because it FOUND SOMETHING. Its report above IS the answer." >&2
       echo "  Nothing was left behind either way — a check writes nothing at all." >&2
       ;;
+    db:remediate:*)
+      echo "  * if neither of those matched, this arm did not break: a db:remediate:*" >&2
+      echo "    exits non-zero because it REFUSED. Its report above says on which" >&2
+      echo "    guard, and the answer is never to widen the guard and rerun — go find" >&2
+      echo "    out why the database no longer looks the way the arm was reviewed for." >&2
+      echo "  NOTHING WAS WRITTEN. A refusal happens before the first UPDATE." >&2
+      ;;
     *)
       echo "  Nothing partial was left behind by design: a backfill is idempotent and its" >&2
       echo "  WHERE clause requires the target to still be unset, so a re-run resumes" >&2
@@ -230,6 +240,14 @@ case "$NPM_SCRIPT" in
     echo "    it exists to give — a non-zero exit would have printed what it found."
     echo "  * that answer ages: it describes the database as of NOW. Re-run it if the"
     echo "    change it gates does not merge promptly."
+    ;;
+  db:remediate:*)
+    echo "  * exit 0 means it wrote exactly the rows listed above as REPOINTED, with the"
+    echo "    before and after of BOTH owner columns on each, and touched nothing else."
+    echo "  * 'repointed: 0' with no REFUSED line is also success: there was nothing left"
+    echo "    to fix, which is what every run after the first one should say."
+    echo "  * re-running is safe: a repointed row no longer matches the scan, and every"
+    echo "    UPDATE requires the owner id to still be NULL."
     ;;
   *)
     echo "  * unmatched / ambiguous > 0 — rows this backfill REFUSED to guess at. They are"
