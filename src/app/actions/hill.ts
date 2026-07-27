@@ -4,27 +4,37 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '../../lib/db';
 import { getCurrentUser } from '../../lib/session';
 import { hillStatus } from '../../lib/phase';
+import { parseForm, phaseHillSchema } from '../../lib/schemas';
+import { requirePhaseInProject } from '../../lib/phaseInvolvement';
 
 // A single-phase hill-chart update: move the dot (progress) + a REQUIRED note — a
 // position change without words is unreadable later, and the AI brief digests the
 // words. Records a new PhaseState row — 0..100 progress, timestamp, notes, phaseId,
 // and the person who made it. The previous update is recovered by ordering on
 // timestamp. Status is inferred from progress, never picked.
+//
+// One zod gate (lib/schemas), as its program twin `updateNeedleStatus` already had.
+// Hand-parsing here carried no 0..100 bound at all — `parseInt` has no range — so a
+// percentage of 150 was writable, and it drew a dot half a curve past the end of the
+// scale (autoknow-9l4).
 export async function updatePhaseHill(formData: FormData) {
-  const phaseId = parseInt(formData.get('phaseId') as string, 10);
-  const projectIdStr = formData.get('projectId') as string;
-  const progressStr = formData.get('hillChartProgress') as string;
-  const notes = ((formData.get('notes') as string) || '').trim() || null;
+  const { phaseId, projectId, hillChartProgress, notes } = parseForm(phaseHillSchema, formData);
 
-  if (isNaN(phaseId)) throw new Error('Invalid phase ID');
-  if (!notes) throw new Error('A note is required with a hill update');
+  // Parentage, which the schema cannot answer: the phase must sit in the program the form
+  // names. The JSON twin asks (a mismatched pair is its 404, added in 1add972); this
+  // action did not, so a crafted post could append an update to ANY phase in the database
+  // and then revalidate an unrelated program's page. That is the hole d3773c1 (#219)
+  // closed for phase involvement, which is why the resolver IT added is the one reused
+  // here rather than a second spelling of the same query.
+  await requirePhaseInProject(phaseId, projectId);
 
   const latest = await prisma.phaseState.findFirst({
     where: { phaseId },
     orderBy: { timestamp: 'desc' },
   });
 
-  const progress = progressStr ? parseInt(progressStr, 10) : latest?.hillChartProgress ?? 0;
+  // A blank dot means "no movement" — carry the last position rather than resetting it.
+  const progress = hillChartProgress ?? latest?.hillChartProgress ?? 0;
   // The status column is kept populated for continuity, but it is derived from progress —
   // not a user choice — so display never depends on the stored value.
   const status = hillStatus(progress);
@@ -45,8 +55,7 @@ export async function updatePhaseHill(formData: FormData) {
     },
   });
 
-  const projectId = parseInt(projectIdStr, 10);
-  if (!isNaN(projectId)) revalidatePath(`/programs/${projectId}`);
+  revalidatePath(`/programs/${projectId}`);
   revalidatePath('/ecosystem'); // the dashboard
   revalidatePath('/'); // the landing page's latest-updates teasers
   revalidatePath('/ecosystem-summary');

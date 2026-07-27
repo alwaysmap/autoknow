@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '../../lib/db';
 import { indexEntity } from '../../lib/search';
-import { parseForm, partnerFieldsSchema } from '../../lib/schemas';
+import { parseForm, partnerDeleteSchema, partnerFieldsSchema, partnerUpdateSchema } from '../../lib/schemas';
 import { guarded, type ActionResult } from '../../lib/actionResult';
 import { getPartnerDeleteBlockers, partnerDeleteRefusal } from '../../lib/partnerDeletion';
 
@@ -14,60 +14,56 @@ import { getPartnerDeleteBlockers, partnerDeleteRefusal } from '../../lib/partne
 // (Person.currentPartnerId is a required FK, and silently cascading programs away
 // would destroy the portfolio history.)
 
-// Zod is the single gate (lib/schemas): trims, coerces ids, requires region,
-// validates URLs — malformed input throws before Prisma ever sees it.
-function readFields(formData: FormData) {
-  return parseForm(partnerFieldsSchema, formData);
-}
+// Zod is the single gate (lib/schemas): trims, coerces ids, requires region, validates
+// URLs — malformed input throws before Prisma ever sees it. The three schemas are the
+// three shapes: the editable fields, those fields plus the id they belong to, and the id
+// alone. That mirrors the person actions, whose `personDeleteSchema` exists for exactly
+// the same one-id job (autoknow-9l4).
 
 export async function createPartner(formData: FormData): Promise<ActionResult> {
   return guarded(async () => {
-  const fields = readFields(formData);
-  const partner = await prisma.partner.create({ data: fields });
-  await indexEntity('partner', partner.id);
-  revalidatePath('/partners');
-  redirect(`/partners/${partner.id}`);
+    const partner = await prisma.partner.create({ data: parseForm(partnerFieldsSchema, formData) });
+    await indexEntity('partner', partner.id);
+    revalidatePath('/partners');
+    redirect(`/partners/${partner.id}`);
   });
 }
 
 export async function updatePartner(formData: FormData): Promise<ActionResult> {
   return guarded(async () => {
-  const partnerId = parseInt((formData.get('partnerId') as string) || '', 10);
-  if (Number.isNaN(partnerId)) throw new Error('Invalid partner ID');
-  const fields = readFields(formData);
-  await prisma.partner.update({ where: { id: partnerId }, data: fields });
-  await indexEntity('partner', partnerId);
-  revalidatePath(`/partners/${partnerId}`);
-  revalidatePath('/partners');
+    const { partnerId, ...fields } = parseForm(partnerUpdateSchema, formData);
+    await prisma.partner.update({ where: { id: partnerId }, data: fields });
+    await indexEntity('partner', partnerId);
+    revalidatePath(`/partners/${partnerId}`);
+    revalidatePath('/partners');
   });
 }
 
 export async function deletePartner(formData: FormData): Promise<ActionResult> {
   return guarded(async () => {
-  const partnerId = parseInt((formData.get('partnerId') as string) || '', 10);
-  if (Number.isNaN(partnerId)) throw new Error('Invalid partner ID');
+    const { partnerId } = parseForm(partnerDeleteSchema, formData);
 
-  // The preconditions are counted in ONE place — `lib/partnerDeletion` — because the
-  // confirmation dialog pre-flights them, and a dialog that counts differently from the
-  // guard offers deletes the guard then refuses (`autoknow-aa7`). That module also carries
-  // the reasoning for counting the `currentPartnerId` FK here rather than the as-of roster.
-  const refusal = partnerDeleteRefusal(await getPartnerDeleteBlockers(partnerId));
-  if (refusal) throw new Error(refusal);
+    // The preconditions are counted in ONE place — `lib/partnerDeletion` — because the
+    // confirmation dialog pre-flights them, and a dialog that counts differently from the
+    // guard offers deletes the guard then refuses (`autoknow-aa7`). That module also carries
+    // the reasoning for counting the `currentPartnerId` FK here rather than the as-of roster.
+    const refusal = partnerDeleteRefusal(await getPartnerDeleteBlockers(partnerId));
+    if (refusal) throw new Error(refusal);
 
-  // Atomic: relationship history, affiliations, context, phase involvements, lead
-  // links, and cached summaries all go with the record.
-  await prisma.$transaction([
-    prisma.partnerState.deleteMany({ where: { partnerId } }),
-    prisma.personAffiliation.deleteMany({ where: { partnerId } }),
-    prisma.contextRevision.deleteMany({ where: { contextUrl: { partnerId } } }),
-    prisma.contextUrl.deleteMany({ where: { partnerId } }),
-    prisma.phasePartner.deleteMany({ where: { partnerId } }),
-    prisma.phase.updateMany({ where: { leadPartnerId: partnerId }, data: { leadPartnerId: null } }),
-    prisma.summary.deleteMany({ where: { scope: 'partner', targetId: partnerId } }),
-    prisma.partner.delete({ where: { id: partnerId } }),
-  ]);
+    // Atomic: relationship history, affiliations, context, phase involvements, lead
+    // links, and cached summaries all go with the record.
+    await prisma.$transaction([
+      prisma.partnerState.deleteMany({ where: { partnerId } }),
+      prisma.personAffiliation.deleteMany({ where: { partnerId } }),
+      prisma.contextRevision.deleteMany({ where: { contextUrl: { partnerId } } }),
+      prisma.contextUrl.deleteMany({ where: { partnerId } }),
+      prisma.phasePartner.deleteMany({ where: { partnerId } }),
+      prisma.phase.updateMany({ where: { leadPartnerId: partnerId }, data: { leadPartnerId: null } }),
+      prisma.summary.deleteMany({ where: { scope: 'partner', targetId: partnerId } }),
+      prisma.partner.delete({ where: { id: partnerId } }),
+    ]);
 
-  revalidatePath('/partners');
-  redirect('/partners');
+    revalidatePath('/partners');
+    redirect('/partners');
   });
 }
