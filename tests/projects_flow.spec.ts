@@ -1,4 +1,4 @@
-import { test, expect } from './helpers/e2e';
+import { test, expect, clickUntilNavigated } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -50,13 +50,14 @@ test.describe('Projects and Partners Flow', () => {
     await page.goto('/programs');
 
     // Hydration-guarded first interaction (the suite's #1 flake source): open the
-    // ⋯ menu and click "Create Program", which is a real link to /programs/new.
+    // ⋯ menu and click "Create Program", which is a real link to /programs/new. The
+    // guard is `clickUntilNavigated` rather than a bare toPass because this one NAVIGATES —
+    // see tests/helpers/e2e.ts for what a retry costs once it has.
     const item = page.getByTestId('new-program');
-    await expect(async () => {
+    await clickUntilNavigated(page, /\/programs\/new$/, async () => {
       if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
       await item.click({ timeout: 2000 });
-      await page.waitForURL(/\/programs\/new$/, { timeout: 1500 });
-    }).toPass({ timeout: 20000 });
+    });
 
     // Landed on the full-page create form (name + template picker present).
     await expect(page.locator('input[name="name"]')).toBeVisible();
@@ -72,11 +73,10 @@ test.describe('Projects and Partners Flow', () => {
       .locator('section', { has: page.locator('h2#programs') })
       .getByTestId('kebab-menu');
     const item = page.getByTestId('new-program');
-    await expect(async () => {
+    await clickUntilNavigated(page, new RegExp(`/programs/new\\?partnerId=${fordId}$`), async () => {
       if (!(await item.isVisible())) await programsKebab.click({ timeout: 2000 });
       await item.click({ timeout: 2000 });
-      await page.waitForURL(new RegExp(`/programs/new\\?partnerId=${fordId}$`), { timeout: 1500 });
-    }).toPass({ timeout: 20000 });
+    });
 
     // The deep link pre-selects THIS partner in the create form.
     await expect(page.locator('select[name="partnerId"]')).toHaveValue(String(fordId));

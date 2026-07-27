@@ -13,6 +13,7 @@ import { addPhaseDependency, removePhaseDependency } from '../app/actions/depend
 import styles from './PhaseGraph.module.css';
 import { localDate } from '../lib/dates';
 import { useLocale } from './LocaleProvider';
+import { useSteadyPageScroll } from '../lib/useSteadyPageScroll';
 
 // The program's phase surface (spec §2.13): a vertical tube-map of the phase DAG.
 // Rectilinear edges (90° jogs, small corner radii — never curves), one node per phase in
@@ -117,6 +118,7 @@ const LANE_W = 16, RAIL_PAD = 14, NODE_R = 5.5;
 
 export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGraphProps) {
   const locale = useLocale();
+  const scrollPageTo = useSteadyPageScroll();
   const { ordered, lane, maxLane } = layout(phases);
   const gutterW = RAIL_PAD * 2 + maxLane * LANE_W;
   const byId = new Map(phases.map((p) => [p.id, p]));
@@ -158,7 +160,7 @@ export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGrap
   const jumpTo = (id: number) => {
     const target = byId.get(id);
     if (target && stateOf(target) === 'collapsed') setRowState((s) => ({ ...s, [id]: 'minimal' }));
-    headRefs.current.get(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    scrollPageTo(headRefs.current.get(id), { behavior: 'smooth', block: 'center' });
     setFlashId(id);
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlashId(null), 1400);

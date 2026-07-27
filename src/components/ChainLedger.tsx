@@ -11,6 +11,7 @@ import OverlayDialog from './OverlayDialog';
 import ConstraintRing from './ConstraintRing';
 import PersonCell, { type PersonRef } from './PersonCell';
 import { ChainSchedule, CARD_W } from './ChainSchedule';
+import { useSteadyPageScroll } from '../lib/useSteadyPageScroll';
 import type { RowCard } from './ChainSchedule';
 import { isForecastOver, isSevereOverrun } from '../lib/chainLedger';
 import { phasesEditHref } from '../lib/phase';
@@ -58,6 +59,7 @@ const CARD_GAP = 16; // px between the pointer and the summary card's near edge
 export default function ChainLedger({
   projectId, locale, now, ledger, sopDate, volumeFirstYear, owner, ownerPerson, ownerOtherActive,
 }: ChainLedgerProps) {
+  const scrollPageTo = useSteadyPageScroll();
   const [legendOpen, setLegendOpen] = useState(false);
   const wrapRef = useRef<HTMLElement>(null);
   const sopMs = sopDate ? +new Date(sopDate) : null;
@@ -281,7 +283,7 @@ export default function ChainLedger({
     nextSteps.push(
       <>
         <button type="button" className={styles.declareBtn}
-          onClick={() => document.getElementById('program-status')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
+          onClick={() => scrollPageTo(document.getElementById('program-status'), { behavior: 'smooth', block: 'center' })}>
           {t(locale, 'clLeverDeclare', { month: monthLong(`${overshoot.proposedSopMonth}-01`, locale) })}
         </button>
         {overshoot.unitsDelayed != null && (

@@ -51,6 +51,13 @@ open only the rows that match what you are about to touch.
   component exists to protect. Adding `onClick={close}` to a link is re-authoring the
   variant that caused `autoknow-6mn`
   ([ADR: Navigation is the one inner activation that dismisses a popover](../../../docs/adr/2026-07-26-navigation-is-the-one-inner-activation-that-dismisses.md)).
+- **Scrolling the PAGE goes through `useSteadyPageScroll` (`src/lib/useSteadyPageScroll.ts`).**
+  `html { scroll-behavior: smooth }` makes every document scroll an animation, and one
+  whose frame lands between a press and its release hands that click to a common
+  ancestor — the handler never runs and nothing errors
+  ([note](../../../docs/knowledge/a-page-scroll-between-press-and-release-loses-the-click.md)).
+  An inner scrollport (a listbox keeping its option in view) is instant and needs none
+  of this.
 - **Entity displays are links; entity inputs are pickers.** People →
   `/people/:id`, partners → `/partners/:id`. A field naming another entity is a
   `<select>` over existing rows + server-side resolution (`requireOwnerEmail` /
