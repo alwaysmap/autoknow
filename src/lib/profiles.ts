@@ -254,12 +254,7 @@ export async function createPersonAt(person: {
   // the address. The period is open-ended, so it also claims every instant after that —
   // one question cannot cover them all, and the constraint is what does. This is the
   // message, not the enforcement.
-  const clash = await addressHolderAsOf(email, { at: startDate });
-  if (clash) {
-    throw new Error(
-      `${normalizeAddress(email)} already belongs to ${clash.name} — correct their record first, or use a different address`,
-    );
-  }
+  await assertAddressFree(email, { at: startDate });
   return prisma.person.create({
     data: {
       name,
@@ -400,6 +395,31 @@ export async function addressHolderAsOf(
     },
     select: { id: true, name: true },
   });
+}
+
+/**
+ * `addressHolderAsOf` as a GUARD: throws the sentence a user reads, or returns quietly.
+ *
+ * Both writers of an address need the identical refusal — `createPersonAt` before it
+ * stamps a new period, `updatePerson` before it corrects one — and a message spelled
+ * twice is a message that drifts once (AGENTS lesson 7). The remedy is named because
+ * there IS one: the previous holder's record can be corrected, and "use a different
+ * address" alone sends someone away from the fix.
+ *
+ * Thrown with an em-dash because that is how `guarded` tells a message written for a user
+ * from a raw internal one (lib/actionResult). `createPersonAt`'s callers do not run under
+ * `guarded`, so there it surfaces as an ordinary error — still readable, which is the
+ * whole gain over the exclusion violation it replaces.
+ */
+export async function assertAddressFree(
+  email: string,
+  options: { exceptPersonId?: number; at?: Date } = {},
+): Promise<void> {
+  const clash = await addressHolderAsOf(email, options);
+  if (!clash) return;
+  throw new Error(
+    `${normalizeAddress(email)} already belongs to ${clash.name} — correct their record first, or use a different address`,
+  );
 }
 
 /**

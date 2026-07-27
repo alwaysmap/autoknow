@@ -483,10 +483,13 @@ model PersonAffiliation {
   //   CONSTRAINT "PersonAffiliation_email_unique_at_an_instant"
   //     EXCLUDE USING gist (lower(email) WITH =, "personId" WITH <>,
   //                         tsrange("startDate", "endDate") WITH &&)
-  //     WHERE (email IS NOT NULL)
+  //     WHERE (email IS NOT NULL AND (endDate IS NULL OR endDate > startDate))
   //
   // Read it as: two DIFFERENT people may not have recorded the same address over
-  // overlapping periods. `lower()` because the app's notion of equality is
+  // overlapping periods. The `WHERE` exempts rows that name nobody at any moment — a
+  // NULL address says nothing, and a period ending at or before its own start covers no
+  // instant (`tsrange` is not even constructible for an inverted one). `lower()` because
+  // the app's notion of equality is
   // case-insensitive (`normalizeAddress`) and a DB-level `=` is not. `tsrange` is
   // half-open `[)`, which is the interval convention the whole of #124 uses, and an open
   // period (`endDate` NULL) becomes unbounded above, which is what "still there" means.

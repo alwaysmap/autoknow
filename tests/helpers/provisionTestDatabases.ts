@@ -39,8 +39,9 @@ export function unmanagedConstraintSql(): string[] {
     } catch {
       continue; // migration_lock.toml and anything else that is not a migration directory
     }
-    // Comment lines first: a `--` line inside the statement would otherwise swallow the
-    // rest of it once the newlines are collapsed.
+    // Comments first, because these migrations explain themselves at length and a header
+    // paragraph QUOTING the DDL below it would otherwise be extracted as a statement and
+    // executed against every test database.
     const stripped = sql.replace(/^\s*--.*$/gm, '');
     // `[^;]*` and not `[\s\S]*?`, which is the same pattern with a hole in it: a lazy run
     // crosses statement boundaries happily, so `ALTER TABLE … DROP COLUMN …; … ALTER TABLE

@@ -3,7 +3,7 @@ status: accepted
 date: 2026-07-27
 supersedes: ""
 superseded-by: ""
-extends: ""
+extends: "resolution-searches-every-address-and-takes-no-date"
 extended-by: ""
 tags: [identity, affiliations, temporal, data-integrity, migrations, deploy]
 ---

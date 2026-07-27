@@ -93,7 +93,10 @@ describe('the allowlist and the workflow dropdown agree', () => {
       .split('\n')
       .map((line) => line.replace(/#.*$/, '').trim().replace(/^"|"$/g, ''))
       .filter(Boolean)
-      .map((entry) => ({ name: entry.split('=')[0], script: entry.split('=').slice(1).join('=') }));
+      .map((entry) => {
+        const [name, ...script] = entry.split('=');
+        return { name, script: script.join('=') };
+      });
   };
 
   const readOptions = (): string[] => {
@@ -117,9 +120,10 @@ describe('the allowlist and the workflow dropdown agree', () => {
   // script it names never added, or renamed later by someone who never opens this file.
   it('names an npm script that exists for every arm', () => {
     const scripts = JSON.parse(readFileSync('package.json', 'utf8')).scripts as Record<string, string>;
-    for (const { name, script } of readAllowed()) {
-      expect(`${name} -> ${script in scripts}`).toBe(`${name} -> true`);
-    }
+    // The whole entry, not a boolean: a failure then prints which arm and what it asked
+    // for, which is the entire diagnostic value of running this here rather than
+    // discovering it from a rejected production dispatch.
+    expect(readAllowed().filter(({ script }) => !(script in scripts))).toEqual([]);
   });
 });
 

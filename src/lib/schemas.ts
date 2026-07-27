@@ -51,8 +51,10 @@ export const zEmail = z.preprocess(
   z.email(),
 );
 
-/** `zEmail` where nothing is also an answer: '', null and undefined all become null,
- *  which on `PersonAffiliation.email` means "not recorded", never "no address". */
+/** `zEmail` where nothing is also an answer: '' and null become null, which on
+ *  `PersonAffiliation.email` means "not recorded", never "no address". A field ABSENT
+ *  from the body stays absent — its `.optional()` short-circuits before this runs — so
+ *  the route leaves the column alone rather than clearing it. */
 export const zEmailOrNull = z.preprocess(
   (v) => (typeof v === 'string' && v.trim() !== '' ? normalizeAddress(v) : null),
   z.email().nullable(),
