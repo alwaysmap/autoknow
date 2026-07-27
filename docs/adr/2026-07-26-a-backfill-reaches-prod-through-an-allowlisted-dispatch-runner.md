@@ -4,7 +4,7 @@ date: 2026-07-26
 supersedes: ""
 superseded-by: ""
 extends: ""
-extended-by: ""
+extended-by: "a-remediation-arm-is-bounded-and-picks-by-rule"
 tags: [ci, database, security, backfill, deploy]
 ---
 

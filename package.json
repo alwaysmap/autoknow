@@ -33,6 +33,7 @@
     "db:backfill:owner-person": "ts-node --compilerOptions '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' scripts/db/backfill-owner-person.ts",
     "db:backfill:affiliation-email": "ts-node --compilerOptions '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' scripts/db/backfill-affiliation-email.ts",
     "db:check:email-conflicts": "ts-node --compilerOptions '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' scripts/db/check-email-conflicts.ts",
+    "db:remediate:unmatched-owners": "ts-node --compilerOptions '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' scripts/db/remediate-unmatched-owners.ts",
     "infra:plan": "scripts/infra/terraform.sh plan",
     "infra:apply": "scripts/infra/terraform.sh apply",
     "infra:output": "scripts/infra/terraform.sh output",

@@ -633,12 +633,13 @@ gh workflow run db-backfill.yml --ref <the-PR-branch> -f backfill=<check> -f con
 ```
 
 Run-from-`main` exists because a dispatch runs whatever code the ref carries, and a
-`db:backfill:*` arm WRITES. A `db:check:*` arm only `SELECT`s, as the DML-only
-`app_runtime` role, so the thing the rule protects is not at stake — and the alternative
-(land the constraint, discover the conflict from a failed `migrate deploy`) is the outcome
-the check exists to prevent. Read the branch's diff of `scripts/db/backfill.sh` and the
-script the arm names before dispatching, exactly as you would trust any other code you are
-about to point at production. **Never** use `--ref <branch>` for a `db:backfill:*` arm.
+`db:backfill:*` or `db:remediate:*` arm WRITES. A `db:check:*` arm only `SELECT`s, as the
+DML-only `app_runtime` role, so the thing the rule protects is not at stake — and the
+alternative (land the constraint, discover the conflict from a failed `migrate deploy`) is
+the outcome the check exists to prevent. Read the branch's diff of `scripts/db/backfill.sh`
+and the script the arm names before dispatching, exactly as you would trust any other code
+you are about to point at production. **Never** use `--ref <branch>` for an arm that
+WRITES — today that is every arm except `email-conflicts`.
 
 Before you fire it, the migration that adds the target column must already be in prod
 (`curl -s https://autoknow.alwaysmap.com/api/health` for the serving sha). Afterwards the
@@ -647,7 +648,9 @@ report is on the run's **summary page**, not just in the log. Stop conditions: a
 never retry as `app`), a missing column (the migration has not landed), or a large
 `skipped:` count (something was writing concurrently — re-run and compare). Unmatched or
 ambiguous rows are not failures: they are rows the script refused to guess at, left
-untouched for you to fix at source. Re-running is always safe.
+untouched for you to fix at source. Re-running is always safe. (`unmatched-owners` is a
+`db:remediate:*` arm and reads differently — a red run there means it REFUSED and wrote
+nothing; its own subsection below is the contract.)
 
 ```bash
 gh workflow run db-backfill.yml --ref main -f backfill=owner-person -f confirm=autoknow-pg
@@ -656,11 +659,12 @@ gh run watch   # or read the summary page for the report
 
 #### The arms, and what their reports mean
 
-| `backfill=` | Fills | Ships with | Its gate |
+| `backfill=` | Does what | Ships with | Its gate |
 |---|---|---|---|
-| `owner-person` | `Project.ownerPersonId` from the `ownerName` text | #127 E6, migration `20260726232108_project_owner_person_id` | zero unmatched + zero ambiguous before E7 retires the `ownerName` readers |
-| `affiliation-email` | `PersonAffiliation.email` from `Person.email` | #127 E8, migration `20260727020837_affiliation_email` | zero uncovered + zero ambiguous before E9 adds the unique-at-an-instant constraint |
+| `owner-person` | Fills `Project.ownerPersonId` from the `ownerName` text | #127 E6, migration `20260726232108_project_owner_person_id` | zero unmatched + zero ambiguous before E7 retires the `ownerName` readers |
+| `affiliation-email` | Fills `PersonAffiliation.email` from `Person.email` | #127 E8, migration `20260727020837_affiliation_email` | zero uncovered + zero ambiguous before E9 adds the unique-at-an-instant constraint |
 | `email-conflicts` | **nothing — READ-ONLY.** Reports addresses recorded against two people over overlapping periods | #127 E9, migration `20260727040058_unique_at_an_instant` | zero conflicts, or that migration fails and blocks the deploy |
+| `unmatched-owners` | **repoints, not fills.** Gives the ≤2 programs whose `ownerName` names nobody a real owner, by a documented rule | #127 E7's gate, bead `autoknow-pro.2` — no migration | `owner-person` then reporting zero unmatched |
 
 **`email-conflicts` — the one arm that writes nothing.** It runs
 `npm run db:check:email-conflicts`, which only SELECTs. It exists because an exclusion
@@ -747,6 +751,84 @@ Read it in this order:
   period covers the RUN instant, so somebody who has changed jobs since the last run
   gets their new period stamped. The script only ever writes where the column is still
   NULL, so re-running is always safe.
+
+**`unmatched-owners` — the remediation arm, and how to read a run that WROTE.** This is
+the only arm that repoints data a human already put there, so read this section before
+firing it rather than after
+([ADR](adr/2026-07-27-a-remediation-arm-is-bounded-and-picks-by-rule.md)).
+
+```bash
+gh workflow run db-backfill.yml --ref main -f backfill=unmatched-owners -f confirm=autoknow-pg
+gh run watch   # then read the summary page
+```
+
+`--ref main`, no exceptions. The branch-ref licence above is for `db:check:*` arms only,
+because they `SELECT` and nothing else; this one WRITES, so running it from a branch would
+point unreviewed code at production.
+
+**What it is for.** `owner-person`'s run against prod reported `linked: 9 / unmatched: 2 /
+ambiguous: 0`, and the two leftovers are mock display names from the initial seed —
+`Alice PM` on program #2 and `Clara Operations` on #3 — that never named a Person in that
+database. Re-running `owner-person` cannot clear them, because the strings still match
+nobody. This arm gives those two rows a real owner, which is the gate for #127 E7.
+
+**Who it picks, and why that is not arbitrary.** The person owning the most programs
+already; ties, and the case where no program has an owner at all, break to the lowest
+`Person.id`. Both keys come from the database and the second is unique, so exactly one
+person wins for a given database state and the report names them with the count they won
+on. Dylan authorised the choice ("just pick someone for that mock data in production, i
+don't care who"); the rule exists so the run is reproducible rather than a hardcoded id
+nobody can check.
+
+**What SUCCESS looks like** — exit 0, and a `REPOINTED` block per row showing both owner
+columns before and after. This is the SHAPE, captured from the rehearsal against a scratch
+database seeded to prod's shape; the person and the counts prod prints will be prod's own:
+
+```
+Projects with an ownerName and no ownerPersonId: 2
+  unresolvable: 2 (ownerName matches no person — this arm's targets)
+  resolvable:   0 (left to db:backfill:owner-person)
+
+Owner chosen by rule: Dylan Thomas <dylan@alwaysmap.com> (person #1), who already owns 4 program(s).
+RULE: the person owning the most programs; ties and an all-zero field break to the lowest Person.id.
+
+  REPOINTED  #2 Toyota Highlander Digital Key
+               before: ownerName “Alice PM”, ownerPersonId NULL
+               after:  ownerName “dylan@alwaysmap.com”, ownerPersonId #1
+  REPOINTED  #3 Ford Explorer VHAL Integration (Bosch)
+               before: ownerName “Clara Operations”, ownerPersonId NULL
+               after:  ownerName “dylan@alwaysmap.com”, ownerPersonId #1
+  repointed: 2
+```
+
+Two REPOINTED lines naming programs #2 and #3 is the expected run. `Nothing to do — every
+ownerName here names a real person.` is *also* success, and is what every run after the
+first one says.
+
+**What means STOP.**
+
+- **A `REFUSED:` line, and a red run.** The arm exits non-zero and **writes nothing** —
+  the refusal happens before the first UPDATE, so there is no partial state to clean up.
+  It refuses when more than **2** rows qualify (prod has exactly two; a third is by
+  definition something nobody reviewed) or when there is no Person to choose from. The
+  `UNMATCHED` lines above the refusal name every row it saw. The fix is never to widen the
+  bound and re-run — go find out why prod stopped looking the way this was reviewed for.
+- **`skipped:` above zero.** Something wrote to those rows between the scan and the
+  UPDATE. Nothing was corrupted (each UPDATE requires the owner id to still be NULL and
+  the stale name to still be there), but re-run and compare.
+- **`repointed: 2` on a run you expected to be a no-op.** Two rows went unowned again
+  since the last run, which is a different problem from this one.
+
+**Afterwards**, re-run `owner-person` and confirm `unmatched: 0 / ambiguous: 0` — that is
+E7's gate, and this arm is only useful insofar as it moves that number:
+
+```bash
+gh workflow run db-backfill.yml --ref main -f backfill=owner-person -f confirm=autoknow-pg
+```
+
+**Re-running is safe.** A repointed row no longer matches the scan (its `ownerPersonId`
+is set), and every UPDATE requires that column to still be NULL — so a second run finds
+nothing and changes nothing, and a non-NULL owner can never be overwritten by it.
 
 ---
 
