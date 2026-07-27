@@ -78,6 +78,15 @@ recorded against two people over CLOSED periods has no in-app remedy (bead
 every future constraint of this shape inherits part 3: the check is the merge gate, the
 preflight is the safety net.
 
+And it inherits part 3's one awkwardness, which is worth stating rather than rediscovering:
+**a gate that ships inside the PR it gates cannot be dispatched from `main`.** The runner's
+standing rule is to run from `main`, because a dispatch executes whatever code the ref
+carries — but the `email-conflicts` option did not exist on `main` until this merged, so
+the first and only run that mattered went out as `--ref feat/127-e9-unique-at-an-instant`.
+That is acceptable for a `db:check:*` arm specifically: it only `SELECT`s, as the DML-only
+role, so what run-from-`main` protects is not at stake. It is not acceptable for a
+`db:backfill:*` arm, and `docs/OPERATIONS.md` now draws that line where the runbook is.
+
 **Receipts.** #127 E9, spec #124 §2 and §5 row 4. Migration
 `prisma/migrations/20260727040058_unique_at_an_instant`. Verified by
 `tests/uniqueAtAnInstant.test.ts`; the failure path was rehearsed against a scratch

@@ -624,6 +624,22 @@ stale backfill. Nothing else can reach the prod database with it, and nobody nee
 password
 ([ADR](adr/2026-07-26-a-backfill-reaches-prod-through-an-allowlisted-dispatch-runner.md)).
 
+**The one arm you must run from a BRANCH, and why that is not a hole.** A `db:check:*`
+arm that gates a PR ships *inside* that PR, so on `main` the option does not exist yet and
+the dropdown will not offer it. Dispatch it with an explicit ref:
+
+```bash
+gh workflow run db-backfill.yml --ref <the-PR-branch> -f backfill=<check> -f confirm=autoknow-pg
+```
+
+Run-from-`main` exists because a dispatch runs whatever code the ref carries, and a
+`db:backfill:*` arm WRITES. A `db:check:*` arm only `SELECT`s, as the DML-only
+`app_runtime` role, so the thing the rule protects is not at stake — and the alternative
+(land the constraint, discover the conflict from a failed `migrate deploy`) is the outcome
+the check exists to prevent. Read the branch's diff of `scripts/db/backfill.sh` and the
+script the arm names before dispatching, exactly as you would trust any other code you are
+about to point at production. **Never** use `--ref <branch>` for a `db:backfill:*` arm.
+
 Before you fire it, the migration that adds the target column must already be in prod
 (`curl -s https://autoknow.alwaysmap.com/api/health` for the serving sha). Afterwards the
 report is on the run's **summary page**, not just in the log. Stop conditions: a
@@ -656,6 +672,12 @@ alongside it. Run it BEFORE merging anything that adds the constraint.
 ```bash
 gh workflow run db-backfill.yml --ref main -f backfill=email-conflicts -f confirm=autoknow-pg
 ```
+
+**Before #216 merged, that had to be `--ref feat/127-e9-unique-at-an-instant`** — the arm
+ships inside the PR it gates, so `main` did not offer it yet. That is the branch-ref case
+above, and it is the shape every future pre-merge check will have: the gate arrives with
+the change it guards, which means the FIRST person who needs it is the one person who
+cannot run it from `main`.
 
 A green run reporting `No conflicts` is the go-ahead. A **red run is the answer, not a
 breakage**: this arm exits non-zero when it finds something, and the report on the summary
