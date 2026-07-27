@@ -84,9 +84,9 @@ describe('seedMockData through the API', () => {
     expect((await byName('Ford Evos AAOS Bring-up')).ownerName).toBe('dev@google.com');
     // Unchanged, and that is the point: the route stores the resolved email, not the
     // string the seed passes, so retiring the persona that used to hold this address
-    // moves the owner (it is Alice Waters now) without moving the value. Not true of
-    // PROD, seeded before that resolution existed — which is what the knowledge note in
-    // this PR is about.
+    // moves the owner (it is Alice Waters now) without moving the value. NOT true of
+    // prod, seeded when neither the resolution nor the Person rows existed — see
+    // docs/knowledge/a-backfills-unmatched-rows-may-name-people-who-never-existed.md.
     expect((await byName('Toyota Highlander Digital Key')).ownerName).toBe('alice@google.com');
     expect((await byName('Ford Explorer VHAL Integration (Bosch)')).ownerName).toBe('clara@google.com');
     expect((await byName('Honda Accord AAOS Bring-up')).ownerName).toBe('marcusw@google.com');
@@ -325,8 +325,9 @@ describe('seedMockData through the API', () => {
     ]);
     // Ownership is matched on the ID, not on the address, because that is the column the
     // demo will actually read once #127 E7 moves the readers onto the FK — and it is the
-    // one that would survive her next move. Both programs are hers now: the Toyota one
-    // the retired persona owned outright, plus her own Google era, which already was.
+    // one that would survive her next move. Two programs, from two directions: the Toyota
+    // one she inherits from the retired persona, and her Google-era program, already hers
+    // before this change.
     const owned = await prisma.project.findMany({
       where: { ownerPersonId: alice.id },
       select: { name: true, ownerName: true },

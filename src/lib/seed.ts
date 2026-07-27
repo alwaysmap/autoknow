@@ -1226,8 +1226,10 @@ export async function seedMockData() {
   // SHE wrote the era updates below, and `source` records that the way the app itself
   // does: `getCurrentUser().handle`, a bare handle (actions/needle.ts, actions/hill.ts).
   // The handle is stable across her moves — the ADDRESS is not, which is what the era
-  // action items carry — so one string spans all three eras and `resolvePerson` maps it
-  // back through her email's local part.
+  // action items carry — so one string spans all three eras, and `personAliases` is what
+  // maps it back to her when a person-scoped feed asks. (`deriveEmail('alice')` is her
+  // canonical address exactly, so it also resolves on the first tier, not the local-part
+  // one — true of the dotted form before this too.)
   //
   // `'seed'`, which every other fixture uses, names no human, so with it the whole
   // career was invisible to a person-scoped feed (#176's limit swallowing the fixture
@@ -1239,7 +1241,7 @@ export async function seedMockData() {
   // finds these rows at all depends on all three agreeing.
   const ALICE_SOURCE = normalizeHandle(ALICE.google.email);
 
-  // The two CLOSED periods before the Google one `createPerson` opened up in the people
+  // The two CLOSED periods before the Google one `createPerson` opened, up in the people
   // block. Contiguous and half-open (`start <= t < end`): each period's end IS the next
   // one's start, so there is no gap and no overlap anywhere in the career — including
   // into that Google period, whose start is exactly the Qualcomm period's end.
@@ -1317,8 +1319,9 @@ export async function seedMockData() {
   // Addressed to the account she actually held in 2022. Until #127 E8 it linked to her
   // only by ACCIDENT — resolvePerson fell back to the email local part, and her
   // then-Google local part ('alice.waters', before this fixture took alice@google.com)
-  // happened to survive both moves. That accident would not work at all now, which is
-  // the point: the Bosch period records the address, so the exact-email tier finds it.
+  // happened to survive both moves. Her canonical local part no longer carries that
+  // coincidence, which is the point: what links this item is the Bosch period recording
+  // the address, so the exact-email tier finds it.
   await createActionItem(aliceBoschProjectId, aliceBoschPhases['Modem integration'], {
     description: 'Close out LTE modem thermal throttling on the Gen-2 board',
     assignedTo: ALICE.bosch.email, status: 'Completed', nextStep: 'Resolved',
