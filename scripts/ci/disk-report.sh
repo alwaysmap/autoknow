@@ -28,7 +28,19 @@ if [ "${1:-}" = "--deep" ]; then
 fi
 label="${1:?usage: disk-report.sh [--deep] <label>}"
 
-echo "DISK ${label}: $(disk_gib "$(disk_avail_kb)") GiB free on / ($(disk_used_pct) used)"
+avail_kb="$(disk_avail_kb)"
+
+# ESCALATE TO --deep AUTOMATICALLY under CI_DISK_WARN_MB, the same knob the guard warns on.
+# The targeted list below has been observed reading byte-for-byte normal on a run that had
+# nonetheless lost ~6 GiB, so a shallow report can announce a drain without attributing it;
+# only the deep scan can name the writer, and a healthy run never crosses the line to
+# pay for it. Measurement: docs/knowledge/an-out-of-disk-runner-fails-as-the-test-it-was-running.md
+if [ "$deep" -eq 0 ] && [ -n "${CI_DISK_WARN_MB:-}" ] && [ "$avail_kb" -lt $((CI_DISK_WARN_MB * 1024)) ]; then
+  deep=1
+  echo "DISK: below the ${CI_DISK_WARN_MB}MB warn line — escalating this report to a deep scan."
+fi
+
+echo "DISK ${label}: $(disk_gib "$avail_kb") GiB free on / ($(disk_used_pct) used)"
 df -Ph / | sed 's/^/  /'
 
 # The paths this job is known to grow, plus the ones that would explain a fill nobody

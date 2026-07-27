@@ -5,12 +5,13 @@ updated: 2026-07-27
 applies_to:
   - .github/workflows/ci.yml
   - scripts/ci/disk-guard.sh
+  - scripts/ci/disk-report.sh
   - a red browser/e2e check you are about to re-run
 symptoms:
   - one browser leg is red while every other job in the run is green
   - the step log simply stops, with no assertion and no stack
   - a job stuck `in_progress` with no conclusion, or `No space left on device` naming a path under `actions-runner/*/_diag/`
-verified_by: 'runs 30239195026 and 30288543059 (attempt 1 webkit `failure`, everything else `success`); measurement in run 30300083981; PR #226'
+verified_by: 'runs 30239195026 and 30288543059 (attempt 1 webkit `failure`, everything else `success`); measurements in runs 30300083981 and 30301180776; PR #226'
 ---
 
 # An out-of-disk CI runner fails as whatever test it happened to be running
@@ -43,8 +44,11 @@ why it borrows the identity of the test underneath it.
    costs ~2.2 GiB — `node_modules` 924 MB, the browser payload 295 MB (webkit) / 646 MB
    (chromium), the apt archive `--with-deps` fills 221 MB / 132 MB, `.next-test` 93 MB. The
    retained Playwright artifacts everyone suspects are **584 KB**.
-3. **So a fill is an anomaly, not growth** — something wrote the other ~12 GiB. Chase the
-   writer with the guard's deep scan, not the budget.
+3. **So a fill is an anomaly, not growth.** Confirmed on the very next run (30301180776):
+   the same webkit leg bottomed out at **6.0 GiB** and ended at 5.9 GiB / 92% used, while
+   every path in the list above was byte-for-byte what it is on a healthy run. ~6 GiB went
+   somewhere a targeted `du` does not look. Chase the writer with the deep scan — any report
+   taken below `CI_DISK_WARN_MB` escalates to one automatically — not with the budget.
 
 **How we found out.** Nothing measured it and nothing could afterwards: the job never
 printed its free disk, and both failing job logs had already expired from the Actions API

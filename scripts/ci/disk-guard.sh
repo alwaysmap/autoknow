@@ -75,7 +75,7 @@ watch_disk() {
     if [ "$avail" -lt "$floor_kb" ]; then
       touch "$tripped_file"
       echo "::error::OUT OF DISK at $(disk_gib "$avail") GiB free — stopping the command." >&2
-      # Stop the writer FIRST, diagnose second: the deep report walks the filesystem, and
+      # Stop the writer FIRST, diagnose second: the deep scan walks the filesystem, and
       # running it before the kill leaves the suite writing for that whole window — which
       # is how the first draft of this let a 60s command run to completion after the floor
       # was crossed.

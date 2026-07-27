@@ -199,6 +199,16 @@ jobs:
       # Sets `workers`, the `webServer` array length and the number of databases at once
       # (tests/helpers/worktree.ts). See the matrix above for why it differs per leg.
       E2E_WORKERS: ${{ matrix.workers }}
+      # DISK THRESHOLDS, set from MEASUREMENT and overriding the script defaults. WARN at
+      # 6 GiB is roughly half the 11.9 GiB low-water mark of a healthy leg (run 30300083981);
+      # FLOOR at 2 GiB stops the suite with room left to write the report the next fill gets
+      # diagnosed from. Both are job-level and not step-level because the probes use WARN
+      # too: any report taken below it escalates itself to a deep scan. The measurement
+      # behind the numbers, and why no headroom fix was needed, are in
+      # docs/knowledge/an-out-of-disk-runner-fails-as-the-test-it-was-running.md — re-read
+      # it, and the job's own DISK lines, before changing either.
+      CI_DISK_FLOOR_MB: 2048
+      CI_DISK_WARN_MB: 6144
     steps:
       - uses: actions/checkout@v4
       # DISK. Three probes and the guard on the test step below; why, in
@@ -243,17 +253,7 @@ jobs:
       # global-setup connects to the DB the instant the run starts, so prove the mapped
       # port is reachable first — same gate as the quality job.
       - uses: ./.github/actions/wait-for-postgres
-      # Thresholds set from MEASUREMENT, not intuition, and they override the script's own
-      # defaults. WARN at 6 GiB is roughly half the measured 11.9 GiB low-water mark — an
-      # anomaly worth a line in the log. FLOOR at 2 GiB stops the suite with room left to
-      # write the deep report the next fill will be diagnosed from. The measurement they
-      # come from, and why no headroom fix was needed, are in
-      # docs/knowledge/an-out-of-disk-runner-fails-as-the-test-it-was-running.md — re-read
-      # it, and the job's own DISK lines, before changing either number.
       - name: Run the suite (under the disk guard)
-        env:
-          CI_DISK_FLOOR_MB: 2048
-          CI_DISK_WARN_MB: 6144
         run: npm run --silent ci:disk-guard -- npm run test:e2e:${{ matrix.project }}
       # always(): report even when the suite fails. It does NOT run when the runner itself
       # dies — which is exactly why the guard above exists.
