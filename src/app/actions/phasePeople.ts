@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { parseForm, phaseAssignSchema } from '../../lib/schemas';
+import { parseForm, phasePersonAssignSchema } from '../../lib/schemas';
 import { prisma } from '../../lib/db';
 import { guarded, type ActionResult } from '../../lib/actionResult';
 import {
@@ -15,7 +15,7 @@ import {
 
 export async function addPhasePerson(formData: FormData): Promise<ActionResult> {
   return guarded(async () => {
-    const { phaseId, personId, projectId, role } = parseForm(phaseAssignSchema, formData);
+    const { phaseId, personId, projectId, role } = parseForm(phasePersonAssignSchema, formData);
 
     await requirePhaseInProject(phaseId, projectId);
     await requirePerson(personId);

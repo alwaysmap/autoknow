@@ -142,9 +142,23 @@ export const personCreateSchema = z.object({
   role: zTextOrNull,
 });
 
-/** Self/any assignment onto a phase (program derives from the phase). */
-export const phaseAssignSchema = z.object({
+// ---- phase involvement -----------------------------------------------------------
+
+// Two symmetric forms, differing in one id. Shape is all a schema can settle here:
+// whether the phase really sits in the program the form names, and whether the person
+// or partner exists, is resolved against the database by lib/phaseInvolvement.
+
+/** Self/any assignment of a PERSON onto a phase (program derives from the phase). */
+export const phasePersonAssignSchema = z.object({
   personId: zId,
+  projectId: zId,
+  phaseId: zId,
+  role: zTextOrNull,
+});
+
+/** The same, for a PARTNER involved in one phase rather than owning the program. */
+export const phasePartnerAssignSchema = z.object({
+  partnerId: zId,
   projectId: zId,
   phaseId: zId,
   role: zTextOrNull,

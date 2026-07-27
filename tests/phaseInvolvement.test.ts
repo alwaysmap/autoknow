@@ -16,6 +16,11 @@ let requirePerson: Lib['requirePerson'];
 // the picker is the affordance and THIS is the guarantee (AGENTS lesson 3). A refusal
 // must also be a readable sentence: `guarded` only forwards a message containing ' — ',
 // so a raw failure would reach the user as "Something went wrong".
+//
+// Shape — "is this even an id" — is settled before these run, by the zod schemas both
+// add actions parse through; tests/schemas.test.ts owns that half. What is proven here
+// is the half only the database can answer: the row exists, and the phase really sits
+// in the program the form claims.
 describe('phase involvement resolvers', () => {
   let projectId: number;
   let otherProjectId: number;
@@ -66,16 +71,10 @@ describe('phase involvement resolvers', () => {
     await expect(requirePhaseInProject(phaseId + 9999, projectId)).rejects.toThrow(/ — /);
   });
 
-  it('refuses a non-integer phase reference before it reaches the database', async () => {
-    await expect(requirePhaseInProject(NaN, projectId)).rejects.toThrow(/Invalid input — /);
-  });
-
   it('accepts an existing partner and person; refuses ids that name no row', async () => {
     await expect(requirePartner(partnerId)).resolves.toBeUndefined();
     await expect(requirePerson(personId)).resolves.toBeUndefined();
     await expect(requirePartner(partnerId + 9999)).rejects.toThrow(/ — /);
     await expect(requirePerson(personId + 9999)).rejects.toThrow(/ — /);
-    await expect(requirePartner(NaN)).rejects.toThrow(/Invalid input — /);
-    await expect(requirePerson(NaN)).rejects.toThrow(/Invalid input — /);
   });
 });
