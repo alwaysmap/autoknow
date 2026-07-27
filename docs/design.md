@@ -39,6 +39,15 @@ Every entity displayed in a dashboard view or detail card must serve as an activ
   half of it right. Enforced by `tests/dataTableConvention.test.ts`.
 * **Interactive Cells**: Count fields (e.g. "Active Programs") must link to pre-filtered lists (e.g., `/partners/[id]?filter=active`). Phase names must link to that phase's record — `/programs/[id]#phase-[phaseId]-detail`, the DETAILS popover (§5).
 * **No Plain-Text Dead Ends**: Sighted users must never be presented with static, non-clickable entity names when a corresponding detail route is available in the application.
+* **A stable name RENDERS; it never redirects to a volatile id** (2026-07-27,
+  autoknow-6q3). If a link is the unit of sharing, the address has to survive being
+  copied. `/me` is the address for a moving target: `/people/16` is correct today and
+  wrong once that row is deleted and re-created, or once somebody else signs in on this
+  machine — so `/me` must still read `/me` after it loads. It renders the SAME component
+  `/people/:id` does (`PersonProfile`); a stable alias is one route more, never one page
+  more. Both addresses stay live: `/people/:id` is a real page for a real person, and
+  every table links there. Redirecting a legacy or misspelled path ONTO a stable one
+  (`/my-projects` → `/me`, `/search?q=` → `/?q=`) is the opposite move and stays right.
 
 ---
 

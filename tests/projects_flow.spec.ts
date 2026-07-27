@@ -23,7 +23,7 @@ test.describe('Projects and Partners Flow', () => {
       data: { name: 'Toyota', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } }
     });
 
-    // /my-projects → /me → the person page; @dylan needs a Person record.
+    // /my-projects → /me, which RENDERS the person page; @dylan needs a Person record.
     await prisma.person.create({
       data: { name: 'Dylan Lead', email: 'dylan@google.com', currentPartnerId: ford.id }
     });

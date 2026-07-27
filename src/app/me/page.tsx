@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { prisma } from '../../lib/db';
+import PersonProfile from '../people/[id]/PersonProfile';
 import { createMyProfile } from '../actions/people';
 import { deriveEmail, normalizeHandle } from '../../lib/auth';
 import { getCurrentUser } from '../../lib/session';
@@ -9,8 +9,14 @@ import { t } from '../../lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
-// /me is a SHORTCUT: resolve the signed-in user (or the ?user= override) to their
-// Person record and land on the one canonical person page. No second profile UI.
+// /me is a REAL PAGE, not a shortcut: it resolves the signed-in user (or the ?user=
+// override) to their Person record and RENDERS that person's page here, at /me.
+//
+// It used to redirect() to /people/:id, which threw its own address away the moment you
+// arrived: the link you then copied was to yourself-as-a-row, and a row id is right only
+// until that row is deleted and re-created, or until somebody else signs in on this
+// machine. /me is the one address that survives both (design.md §2, autoknow-6q3). There
+// is still no second profile UI — PersonProfile is the SAME component /people/:id renders.
 
 interface SearchParams {
   user?: string;
@@ -21,7 +27,6 @@ export default async function MePage(props: { searchParams: Promise<SearchParams
   const me = await getCurrentUser();
   const override = searchParams.user;
   const user = override || me.display;
-  const locale = await getLocale();
 
   const userClean = normalizeHandle(user);
   // The session's own email is authoritative and used VERBATIM. Going through
@@ -42,12 +47,15 @@ export default async function MePage(props: { searchParams: Promise<SearchParams
   });
 
   if (person) {
-    redirect(`/people/${person.id}`);
+    return <PersonProfile personId={person.id} />;
   }
 
   // No Person yet for this login — offer self-provisioning: the session supplies
   // name/email (Logins are identity; People are domain records); the user only
   // picks their organization. A Person without a login stays equally valid.
+  // The locale and the partner list belong to THIS branch only (PersonProfile reads its
+  // own locale), so they are fetched here rather than above the person lookup.
+  const locale = await getLocale();
   const partners = await prisma.partner.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } });
 
   return (
