@@ -4,35 +4,43 @@ import { revalidatePath } from 'next/cache';
 import { parseForm, phaseAssignSchema } from '../../lib/schemas';
 import { prisma } from '../../lib/db';
 import { guarded, type ActionResult } from '../../lib/actionResult';
+import {
+  parseInvolvementLinkId, requirePerson, requirePhaseInProject, revalidateInvolvement,
+} from '../../lib/phaseInvolvement';
 
-// CRUD for per-phase people involvement (PhasePerson) — mirrors phasePartners.
+// CRUD for per-phase people involvement (PhasePerson) — mirrors phasePartners,
+// including its mutation boundary: the shape comes from the schema, the RESOLUTION
+// (does this phase belong to this program, does this person exist) from
+// lib/phaseInvolvement, which also owns the revalidation list both files share.
 
 export async function addPhasePerson(formData: FormData): Promise<ActionResult> {
   return guarded(async () => {
-  const { phaseId, personId, projectId, role } = parseForm(phaseAssignSchema, formData);
-  const projectIdStr = String(projectId);
+    const { phaseId, personId, projectId, role } = parseForm(phaseAssignSchema, formData);
 
-  await prisma.phasePerson.upsert({
-    where: { phaseId_personId: { phaseId, personId } },
-    update: { role },
-    create: { phaseId, personId, role },
-  });
+    await requirePhaseInProject(phaseId, projectId);
+    await requirePerson(personId);
 
-  revalidatePath(`/programs/${projectIdStr}`);
-  revalidatePath(`/people/${personId}`);
+    await prisma.phasePerson.upsert({
+      where: { phaseId_personId: { phaseId, personId } },
+      update: { role },
+      create: { phaseId, personId, role },
+    });
+
+    revalidateInvolvement(projectId);
+    revalidatePath(`/people/${personId}`);
   });
 }
 
-export async function removePhasePerson(formData: FormData) {
-  const id = parseInt(formData.get('id') as string, 10);
-  const projectIdStr = formData.get('projectId') as string;
+export async function removePhasePerson(formData: FormData): Promise<ActionResult> {
+  return guarded(async () => {
+    const id = parseInvolvementLinkId(formData.get('id'));
+    const projectId = parseInt(formData.get('projectId') as string, 10);
 
-  if (isNaN(id)) throw new Error('Invalid involvement id');
-
-  const existing = await prisma.phasePerson.findUnique({ where: { id } });
-  if (existing) {
-    await prisma.phasePerson.delete({ where: { id } });
-    revalidatePath(`/people/${existing.personId}`);
-  }
-  revalidatePath(`/programs/${projectIdStr}`);
+    const existing = await prisma.phasePerson.findUnique({ where: { id } });
+    if (existing) {
+      await prisma.phasePerson.delete({ where: { id } });
+      revalidatePath(`/people/${existing.personId}`);
+    }
+    revalidateInvolvement(projectId);
+  });
 }

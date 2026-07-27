@@ -1,29 +1,44 @@
 'use client';
 
-import React, { useMemo, useRef, useState, useTransition } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
 import PhaseTable, { PhaseTableRow } from './PhaseTable';
+import PhaseInvolvementEditor, {
+  INVOLVEMENT_KINDS, type InvolvementKind, type InvolvementLink,
+} from './PhaseInvolvementEditor';
 import { validateTemplateDag } from '../lib/templateDag';
 import { deriveEndPhase } from '../lib/programDag';
 import { computeDagLayout } from '../lib/dagLayout';
+import { phaseHash, parsePhaseHash } from '../lib/phase';
+import { subscribeLocationChange } from '../lib/locationHash';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import chrome from './TemplateEditor.module.css';
 import styles from './ProgramPhaseEditor.module.css';
 
-// THE phase-structure editor — one surface for building template phase layouts and
-// for updating a live program's layout. Small name-only nodes on a snap grid, flowing
-// TOP → BOTTOM by dependency depth, with drawn edges. General DAGs are first-class:
-// any node may have many concurrent upstreams (fan-in) and many downstreams
-// (fan-out); the ONLY structural constraints are acyclic + a single final node, and
-// they're enforced live (banner + disabled Save) and again server-side on save.
+// THE phase editor — one surface for building template phase layouts and for changing
+// a live program's phases. Since #crw.1 it owns EVERY field of a phase a human
+// changes: structure, name, forecast, Goal & DoD, and who is involved. That
+// single-owner rule is the point. Involvement used to live only in the program page's
+// About pane and nothing edited both, so "change this phase" meant first knowing which
+// of two surfaces held the field you wanted.
+//
+// Small name-only nodes on a snap grid, flowing TOP → BOTTOM by dependency depth, with
+// drawn edges. General DAGs are first-class: any node may have many concurrent
+// upstreams (fan-in) and many downstreams (fan-out); the ONLY structural constraints
+// are acyclic + a single final node, and they're enforced live (banner + disabled
+// Save) and again server-side on save.
 // Interactions:
-//   · click a node → detail panel (rename, WEEKS, disconnect, remove; templates add
-//     lead role / description / Google focus)
+//   · click a node → detail panel (rename, WEEKS, disconnect, remove; programs add
+//     Goal & DoD and involvement; templates add lead role / description / Google focus)
 //   · rewire by drag/drop (drop a node onto its new upstream; the ghost snaps to the
 //     grid), or click a second node and CONNECT in EITHER direction — "X after Y"
 //     (X depends on Y) or "X before Y" (Y depends on X) — so a new phase can be
 //     wired in upstream of existing work just as easily as downstream
+//
+// The open panel IS a URL (`#phase-:id`, lib/phase) — the same rule the program page's
+// popover follows. Arriving with the fragment opens that phase's panel, so an Edit
+// affordance on a phase can land on the phase, not merely on the editor.
 
 export interface DagEditorNode {
   id: number; // real id; new nodes get negative ids client-side
@@ -36,11 +51,27 @@ export interface DagEditorNode {
   googleFocus?: string | null;
 }
 
+/**
+ * Who is involved in each phase, for the editors that have real phases to involve
+ * anyone in. Deliberately NOT part of `initial`: involvement is written straight
+ * through its own server actions (the rows already exist), while `initial` is the
+ * draft the Save button commits. Folding it in would make every add re-sync the draft
+ * and close the panel the user is working in.
+ */
+export interface PhaseInvolvement {
+  projectId: number;
+  /** phase id → its current links, keyed the same way the control is */
+  byPhase: Map<number, Record<InvolvementKind, InvolvementLink[]>>;
+  /** the picker's canonical option set, per kind */
+  options: Record<InvolvementKind, { id: number; name: string }[]>;
+}
+
 interface PhaseDagEditorProps {
   initial: DagEditorNode[];
   onSave: (draft: DagEditorNode[]) => Promise<{ error?: string }>;
   templateFields?: boolean; // show leadRole/description/googleFocus in the panel
   descriptionField?: boolean; // show ONLY the Goal & DoD markdown (program editors)
+  involvement?: PhaseInvolvement; // partners + people (program editors)
   leadRoles?: string[];
   defaultWeeks?: number;
 }
@@ -51,7 +82,21 @@ const GRID = 24;
 const CARD_W = GRID * 6, CARD_H = GRID * 1.5, GAP_X = GRID, GAP_Y = GRID * 2.5, PAD = GRID;
 const snapTo = (v: number) => Math.round(v / GRID) * GRID;
 
-export default function PhaseDagEditor({ initial, onSave, templateFields, descriptionField, leadRoles, defaultWeeks = 4 }: PhaseDagEditorProps) {
+// The open panel IS a URL. replaceState, never push: the panel is a mode of this page,
+// and a trail of entries would make Back mean "close the thing I already closed". A
+// node that has never been saved has no id to name, so it writes nothing.
+const writeHash = (id: number | null) => {
+  const current = window.location.hash;
+  if (id == null || id < 0) {
+    if (parsePhaseHash(current) == null) return;
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    return;
+  }
+  const want = `#${phaseHash(id)}`;
+  if (current !== want) window.history.replaceState(null, '', want);
+};
+
+export default function PhaseDagEditor({ initial, onSave, templateFields, descriptionField, involvement, leadRoles, defaultWeeks = 4 }: PhaseDagEditorProps) {
   const locale = useLocale();
   const [draft, setDraft] = useState<DagEditorNode[]>(initial);
   const [nextNewId, setNextNewId] = useState(-1);
@@ -75,6 +120,30 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
   const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(initial), [draft, initial]);
   const byId = new Map(draft.map((d) => [d.id, d]));
   const selected = selectedId != null ? byId.get(selectedId) : null;
+
+  // Opening a phase's panel: the selection, the cleared CONNECT candidate and the
+  // fragment move together, because they are one act. Every USER-driven selection goes
+  // through here; bare `setSelectedId` survives in exactly two places where the URL is
+  // already right — opening FROM the hash, and the post-save re-sync (a render-phase
+  // reset, where a history write would be a side effect in render; the effect below
+  // re-opens the phase from the fragment on the next pass).
+  const openPanel = (id: number | null) => { setSelectedId(id); setOtherId(null); writeHash(id); };
+
+  // Arriving at /programs/:id/phases#phase-:phaseId opens that phase's panel, so an
+  // Edit affordance on a phase lands on the phase. The already-open guard makes the
+  // re-runs (one per draft edit) no-ops, and keeps a re-render from yanking a panel
+  // someone is working in. Next <Link> navigates via pushState, which does not fire
+  // `hashchange` (#40) — subscribe to both.
+  useEffect(() => {
+    const openFromHash = () => {
+      const id = parsePhaseHash(window.location.hash);
+      if (id == null || id === selectedId || !draft.some((d) => d.id === id)) return;
+      setSelectedId(id);
+      setOtherId(null);
+    };
+    openFromHash();
+    return subscribeLocationChange(openFromHash);
+  }, [draft, selectedId]);
 
   // ---- validation: acyclic + single final node (the end is the derived sink) ----
   const withEnd = useMemo(
@@ -123,15 +192,13 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
     const id = nextNewId;
     setDraft((ds) => [...ds, { id, name: '', weeks: defaultWeeks, dependsOn: [] }]);
     setNextNewId((n) => n - 1);
-    setSelectedId(id);
-    setOtherId(null);
+    openPanel(id);
   };
   const removePhase = (id: number) => {
     const p = byId.get(id);
     if (p && p.id > 0 && (p.progress ?? 0) > 0 && !confirm(t(locale, 'removePhaseHistoryConfirm', { name: p.name }))) return;
     setDraft((ds) => ds.filter((d) => d.id !== id).map((d) => ({ ...d, dependsOn: d.dependsOn.filter((x) => x !== id) })));
-    setSelectedId(null);
-    setOtherId(null);
+    openPanel(null);
   };
 
   // ---- click / drag plumbing ----
@@ -173,8 +240,7 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
   const onCardClick = (id: number) => () => {
     if (suppressClick.current) { suppressClick.current = false; return; }
     if (selectedId == null || selectedId === id) {
-      setSelectedId(id);
-      setOtherId(null);
+      openPanel(id);
     } else {
       setOtherId((u) => (u === id ? null : id)); // second click arms CONNECT
     }
@@ -287,7 +353,7 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
       <div className={styles.wrap}>
         <div className={styles.canvasWrap}>
           <div className={styles.canvas} style={{ width: layout.w, height: layout.h }}
-            onClick={() => { setSelectedId(null); setOtherId(null); }}>
+            onClick={() => openPanel(null)}>
             <svg className={styles.edges} width={layout.w} height={layout.h} aria-hidden>
               <defs>
                 <marker id="dagArrow" viewBox="0 0 8 8" refX={7} refY={4} markerWidth={7} markerHeight={7} orient="auto">
@@ -337,7 +403,7 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
         {selected && (
           <div className={styles.panel} data-testid="phase-panel">
             <button type="button" className={styles.panelClose} aria-label={t(locale, 'closeEdit')}
-              onClick={() => { setSelectedId(null); setOtherId(null); }}>✕</button>
+              onClick={() => openPanel(null)}>✕</button>
 
             <label className={styles.panelLabel}>{t(locale, 'phaseNameLabel')}
               <input
@@ -389,6 +455,31 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
                     onChange={(md) => patch(selected.id, { googleFocus: md || null })} />
                 </div>
               </>
+            )}
+
+            {/* WHO — the other half of "change this phase", and until #crw.1 the half
+                this surface could not touch. A phase that has never been saved has no
+                row to hang involvement off, so it says so rather than offering a
+                picker whose submit could only fail. */}
+            {involvement && (
+              selected.id > 0 ? (
+                (Object.keys(INVOLVEMENT_KINDS) as InvolvementKind[]).map((kind) => (
+                  <div key={kind} className={styles.panelSection} data-testid={`panel-${kind}s`}>
+                    <span className={styles.panelHead}>
+                      {t(locale, INVOLVEMENT_KINDS[kind].sectionLabel)}
+                    </span>
+                    <PhaseInvolvementEditor kind={kind} phaseId={selected.id}
+                      projectId={involvement.projectId}
+                      involved={involvement.byPhase.get(selected.id)?.[kind] ?? []}
+                      options={involvement.options[kind]} />
+                  </div>
+                ))
+              ) : (
+                <div className={styles.panelSection}>
+                  <span className={styles.panelHead}>{t(locale, 'involvementLabel')}</span>
+                  <span className={styles.panelMuted}>{t(locale, 'involvementAfterSave')}</span>
+                </div>
+              )
             )}
 
             <div className={styles.panelSection}>
@@ -457,7 +548,7 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
         )}
       </div>
 
-      <PhaseTable rows={tableRows} showLead={!!templateFields} selectedId={selectedId} onSelect={setSelectedId} />
+      <PhaseTable rows={tableRows} showLead={!!templateFields} selectedId={selectedId} onSelect={openPanel} />
     </div>
   );
 }

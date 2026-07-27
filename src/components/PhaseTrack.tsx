@@ -27,8 +27,7 @@ import QuickIngest from './QuickIngest';
 import HillHistoryList from './HillHistoryList';
 import type { HillChange } from '../lib/history';
 import { updatePhaseHill, setPhaseStarted, getPhaseLog, type PhaseLogEntry } from '../app/actions/hill';
-import { addPhasePartner, removePhasePartner } from '../app/actions/phasePartners';
-import { addPhasePerson, removePhasePerson } from '../app/actions/phasePeople';
+import PhaseInvolvementEditor from './PhaseInvolvementEditor';
 import type { PhaseGraphRow } from './PhaseGraph';
 import styles from './PhaseTrack.module.css';
 import { localDate } from '../lib/dates';
@@ -710,9 +709,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [noteError, setNoteError] = useState(false);
-  // Involvement add-forms are on-demand: chips at rest, a ghost "+" reveals the
-  // small form for exactly one of partner/person at a time.
-  const [addOpen, setAddOpen] = useState<'partner' | 'person' | null>(null);
   // The work-started date commits the moment it's picked — unlike the rest of the
   // pane, which commits on Save Update. That asymmetry must be visible: a quiet
   // transient "✓ Saved" confirms the write; a persistent error says it failed.
@@ -735,7 +731,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     catch (err) { console.error(err); }
   };
   const openDetails = (p: PhaseTrackRow) => {
-    setDrag(p.progress); setNoteError(false); setAddOpen(null); setEditing(false);
+    setDrag(p.progress); setNoteError(false); setEditing(false);
     if (startedTimer.current) clearTimeout(startedTimer.current);
     setStartedSave(null);
     setFullLog(null);
@@ -810,8 +806,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     const p = details;
     const dot = hillCoordinates(drag);
     const isConstraint = chain.constraintId === p.id;
-    const availablePartners = allPartners.filter((a) => !p.partners.some((pp) => pp.partnerId === a.id));
-    const availablePeople = allPeople.filter((a) => !p.people.some((pp) => pp.personId === a.id));
     const upstream = p.parents.filter((par) => byId.has(par.id));
     const downstream = enables.get(p.id) ?? [];
     // The complete log once it arrives, the page's preloaded 6 until then.
@@ -1075,7 +1069,8 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
               ) : (
                 <p className={styles.noGoal}>
                   {t(locale, 'noGoalYet')}{' '}
-                  <Link href={phasesEditHref(projectId)}>{t(locale, 'editPhases')}</Link>
+                  {/* the doorway lands on THIS phase's panel, not merely on the editor */}
+                  <Link href={phasesEditHref(projectId, p.id)}>{t(locale, 'editPhases')}</Link>
                 </p>
               )}
               {p.googleFocus && (
@@ -1085,93 +1080,39 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                 </div>
               )}
               <div className={styles.aboutMeta}>
-              {/* who's involved: partners and people. Chips at rest; the ghost "+"
-                  reveals the small add-form on demand (roles kept here, where the
-                  free-text function is actually edited — the rail shows type-coloured
-                  pills) */}
+              {/* who's involved: partners and people, through the ONE involvement
+                  control (PhaseInvolvementEditor) that the phase editor also uses —
+                  this pane and that panel cannot drift apart because they are the same
+                  component. Chips at rest; the ghost "+" reveals the picker on demand.
+                  Roles are edited here, where the free-text function is written — the
+                  rail itself shows type-coloured pills. */}
               <div className={styles.detailsSection}>
                 <span className={styles.depsLabel}>{t(locale, 'partnersLabel')}</span>
                 <span className={styles.chipCell}>
-                {p.partners.map((pp) => (
-                  <span key={pp.linkId} className={styles.partnerChip}>
-                    <Link href={`/partners/${pp.partnerId}`} className={styles.partnerLink}>{pp.name}</Link>
-                    {pp.role && <span className={styles.partnerRole}>{pp.role}</span>}
-                    <form action={removePhasePartner} className={styles.inlineForm}>
-                      <input type="hidden" name="id" value={pp.linkId} />
-                      <input type="hidden" name="projectId" value={projectId} />
-                      <button type="submit" className={styles.chipRemove}
-                        title={t(locale, 'removeName', { name: pp.name })}
-                        aria-label={t(locale, 'removeName', { name: pp.name })}>✕</button>
-                    </form>
-                  </span>
-                ))}
-                {addOpen === 'partner' ? (
-                  <form action={async (fd) => { await addPhasePartner(fd); setAddOpen(null); }}
-                    className={styles.addInlineForm}>
-                    <input type="hidden" name="phaseId" value={p.id} />
-                    <input type="hidden" name="projectId" value={projectId} />
-                    <select name="partnerId" className={styles.quietSelect} defaultValue="" required autoFocus
-                      aria-label={t(locale, 'partnerToInvolve')}>
-                      <option value="" disabled>{t(locale, 'addPartner')}</option>
-                      {availablePartners.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
-                    <input name="role" className={styles.roleInput} placeholder={t(locale, 'role')}
-                      aria-label={t(locale, 'roleOptional')} />
-                    <button type="submit" className={styles.miniBtn}>{t(locale, 'add')}</button>
-                    <button type="button" className={styles.chipRemove} onClick={() => setAddOpen(null)}
-                      aria-label={t(locale, 'cancel')} title={t(locale, 'cancel')}>✕</button>
-                  </form>
-                ) : availablePartners.length > 0 ? (
-                  <button type="button" className={styles.addReveal} onClick={() => setAddOpen('partner')}
-                    title={t(locale, 'partnerToInvolve')} aria-label={t(locale, 'partnerToInvolve')}>+</button>
-                ) : p.partners.length === 0 ? (
-                  // never leave the section affordance-less: say WHY there's nothing to add
-                  <span className={styles.depNone}>{t(locale, 'allPartnersInvolved')}</span>
-                ) : null}
+                  <PhaseInvolvementEditor
+                    kind="partner"
+                    phaseId={p.id}
+                    projectId={projectId}
+                    involved={p.partners.map((pp) => ({
+                      linkId: pp.linkId, entityId: pp.partnerId, name: pp.name, role: pp.role,
+                    }))}
+                    options={allPartners}
+                  />
                 </span>
               </div>
 
               <div className={styles.detailsSection}>
                 <span className={styles.depsLabel}>{t(locale, 'peopleLabel')}</span>
                 <span className={styles.chipCell}>
-                {p.people.map((pp) => (
-                  <span key={pp.linkId} className={styles.partnerChip}>
-                    {/* A person, through the one person cell (#153) — the chip's own
-                        ink, but the name/route rule lives in one place. */}
-                    <PersonCell person={{ id: pp.personId, name: pp.name }} className={styles.partnerLink} />
-                    {pp.role && <span className={styles.partnerRole}>{pp.role}</span>}
-                    <form action={removePhasePerson} className={styles.inlineForm}>
-                      <input type="hidden" name="id" value={pp.linkId} />
-                      <input type="hidden" name="projectId" value={projectId} />
-                      <button type="submit" className={styles.chipRemove}
-                        title={t(locale, 'removeName', { name: pp.name })}
-                        aria-label={t(locale, 'removeName', { name: pp.name })}>✕</button>
-                    </form>
-                  </span>
-                ))}
-                {addOpen === 'person' ? (
-                  <form action={async (fd) => { await addPhasePerson(fd); setAddOpen(null); }}
-                    className={styles.addInlineForm}>
-                    <input type="hidden" name="phaseId" value={p.id} />
-                    <input type="hidden" name="projectId" value={projectId} />
-                    <select name="personId" className={styles.quietSelect} defaultValue="" required autoFocus
-                      aria-label={t(locale, 'personToInvolve')}>
-                      <option value="" disabled>{t(locale, 'addPerson')}</option>
-                      {availablePeople.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
-                    <input name="role" className={styles.roleInput} placeholder={t(locale, 'role')}
-                      aria-label={t(locale, 'roleOptional')} />
-                    <button type="submit" className={styles.miniBtn}>{t(locale, 'add')}</button>
-                    <button type="button" className={styles.chipRemove} onClick={() => setAddOpen(null)}
-                      aria-label={t(locale, 'cancel')} title={t(locale, 'cancel')}>✕</button>
-                  </form>
-                ) : availablePeople.length > 0 ? (
-                  <button type="button" className={styles.addReveal} onClick={() => setAddOpen('person')}
-                    title={t(locale, 'personToInvolve')} aria-label={t(locale, 'personToInvolve')}>+</button>
-                ) : p.people.length === 0 ? (
-                  // never leave the section affordance-less: say WHY there's nothing to add
-                  <span className={styles.depNone}>{t(locale, 'allPeopleInvolved')}</span>
-                ) : null}
+                  <PhaseInvolvementEditor
+                    kind="person"
+                    phaseId={p.id}
+                    projectId={projectId}
+                    involved={p.people.map((pp) => ({
+                      linkId: pp.linkId, entityId: pp.personId, name: pp.name, role: pp.role,
+                    }))}
+                    options={allPeople}
+                  />
                 </span>
               </div>
 

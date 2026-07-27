@@ -272,6 +272,13 @@ const STRINGS = {
   peopleLabel: { en: 'People', de: 'Personen', ja: '担当者', ko: '관련 인원' },
   details: { en: 'Details', de: 'Details', ja: '詳細', ko: '상세' },
   involved: { en: 'Involved', de: 'Beteiligt', ja: '関係者', ko: '참여' },
+  involvementLabel: { en: 'Involvement', de: 'Beteiligung', ja: '関与', ko: '참여' },
+  involvementAfterSave: {
+    en: 'Save the phase before adding partners or people.',
+    de: 'Phase speichern, bevor Partner oder Personen hinzugefügt werden.',
+    ja: 'パートナーや担当者を追加する前にフェーズを保存してください。',
+    ko: '파트너나 사람을 추가하기 전에 단계를 저장하세요.',
+  },
   personToInvolve: {
     en: 'Person to involve',
     de: 'Zu beteiligende Person',

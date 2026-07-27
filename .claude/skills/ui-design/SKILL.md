@@ -29,12 +29,16 @@ open only the rows that match what you are about to touch.
   (sortable, per-column funnel filters, shareable URL state — design.md §6),
   **`AnchorHeading`** (a deep-linkable `<h2>` with an `actions` slot for its ⋯/ⓘ),
   **`StatTile`** (the ecosystem-strip figure grammar, §1/§7), **`SearchField`** (the
-  one live-filter box look), **`DateCell`** (ISO + calendar-week-on-hover), and
+  one live-filter box look), **`DateCell`** (ISO + calendar-week-on-hover),
+  **`PhaseInvolvementEditor`** (changing WHO is on a phase — partner or person, chips
+  + picker + role, on any of the three surfaces that offer the edit), and
   **`OverlayDialog`** (every modal — it owns `max-height`, the single scroll region,
   the body-scroll lock and one dismiss contract). That these were worth consolidating
   is recorded in their own headers: `AnchoredPopover` replaced FOUR hand-rolled
   popovers (two opened off-screen at ordinary widths), `SearchField` replaced THREE
-  drifted copies of one input, and `initialsOf`/avatars each had two divergent copies.
+  drifted copies of one input, `PhaseInvolvementEditor` replaced THREE (only one of
+  which said why a section was empty, and none of which could show a server refusal),
+  and `initialsOf`/avatars each had two divergent copies.
   If a primitive is close but not exact, **add a prop — never fork it.** This is
   AGENTS lesson 7's creation-side twin: the fix for "the same control exists in three
   hand-rolled variants" is to not author the third.
