@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { createPartner, updatePartner, deletePartner } from '../app/actions/partners';
+import type { PartnerDeleteBlockers } from '../lib/partnerDeletion';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import dash from './ProjectStatusDashboard.module.css';
@@ -14,6 +15,10 @@ import OverlayDialog from './OverlayDialog';
 // small Edit · Delete links beside the name (same quiet grammar as programs), the
 // /partners list gets a New partner button. Delete refuses honestly while the partner
 // still owns programs or people — the dialog explains instead of offering the confirm.
+//
+// Those blockers arrive PRE-COUNTED, in a shape only `lib/partnerDeletion` can mint, so
+// this dialog cannot form a second opinion about what the server action will allow — it
+// once did, and offered deletes that were then refused (`autoknow-aa7`).
 
 interface Option {
   id: number;
@@ -126,13 +131,12 @@ export function NewPartnerButton({ types, regions }: { types: Option[]; regions:
 
 /** Edit · Delete quiet links beside the partner name, with their dialogs. */
 export default function PartnerAdminControls({
-  partner, types, regions, programCount, employeeCount,
+  partner, types, regions, blockers,
 }: {
   partner: PartnerRecord;
   types: Option[];
   regions: Option[];
-  programCount: number;
-  employeeCount: number;
+  blockers: PartnerDeleteBlockers;
 }) {
   const locale = useLocale();
   const [editOpen, setEditOpen] = useState(false);
@@ -164,7 +168,10 @@ export default function PartnerAdminControls({
   const errorLine = error && <p role="alert" className={admin.warningText}>{error}</p>;
 
 
-  const blocked = programCount > 0 || employeeCount > 0;
+  // `blocked` is the SERVER's answer to "may this be deleted", not this component's —
+  // re-deriving it from the two counts would be a third place deciding that. The counts
+  // below are read only to choose which sentence to print, never to gate.
+  const { blocked, programCount, employeeCount } = blockers;
   const isConfirmed = confirmName.trim() === partner.name;
 
   return (

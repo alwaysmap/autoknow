@@ -78,3 +78,4 @@ skill routes between them.
 | 2026-07-26 | [A dated row is labelled as of ITS OWN date; a list of dated rows resolves per row](2026-07-26-a-dated-row-is-labelled-as-of-its-own-date.md) | accepted | identity, affiliations, feed, activity |
 | 2026-07-27 | [Resolution searches every address a person has held, and takes no date](2026-07-27-resolution-searches-every-address-and-takes-no-date.md) | accepted | identity, affiliations, temporal, data-integrity, resolution |
 | 2026-07-27 | [A partner's roster is three buckets from ONE call, and the buckets are the as-of predicate complemented](2026-07-27-a-roster-is-three-buckets-from-one-call.md) | accepted | identity, affiliations, temporal, ui, tables |
+| 2026-07-27 | [A confirmation dialog states the GUARD's count, in a shape only the guard can mint](2026-07-27-a-confirmation-dialog-states-the-guards-own-count.md) | accepted | ui, dialogs, data-integrity, actions, types |

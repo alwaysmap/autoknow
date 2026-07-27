@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import { partnerRosterAsOf, type PartnerRoster } from '../../../lib/profiles';
+import { getPartnerDeleteBlockers } from '../../../lib/partnerDeletion';
 import styles from './page.module.css';
 import RelationshipScale from '../../../components/RelationshipScale';
 import PartnerAdminControls from '../../../components/PartnerEditor';
@@ -122,12 +123,16 @@ export default async function PartnerDetailPage(props: PageProps) {
   // honest about.
   // `roster` carries all three of #124 §4's buckets AS OF THIS REQUEST — the page is
   // `force-dynamic`, so "now" is the instant the page renders, and the resolver's default
-  // `at` is that instant. Everything people-shaped on the page derives from this one
-  // call: the headline employee figure is `current.length` and the table's default view
-  // is that same bucket, so the page cannot print "12 people" above a list of 11 (#127
-  // E5, E12).
-  const [roster, recentStates, relHistory, types, regions, allPartners] = await Promise.all([
+  // `at` is that instant. Everything that DISPLAYS people derives from this one call: the
+  // headline employee figure is `current.length` and the table's default view is that same
+  // bucket, so the page cannot print "12 people" above a list of 11 (#127 E5, E12).
+  const [roster, deleteBlockers, recentStates, relHistory, types, regions, allPartners] = await Promise.all([
     partnerRosterAsOf(partner.id),
+    // The one number on this page that is NOT a display and so does not come from the
+    // roster: what a DELETE would break, counted by the module the server action refuses
+    // with. It may differ from the figure above — the roster answers "who works here", this
+    // answers "what would this delete break" (`autoknow-aa7`, and `lib/partnerDeletion`).
+    getPartnerDeleteBlockers(partner.id),
     // Two newest — the header card shows the prior score alongside the current one.
     prisma.partnerState.findMany({
       where: { partnerId: partner.id },
@@ -149,7 +154,6 @@ export default async function PartnerDetailPage(props: PageProps) {
   // Programs this partner OWNS plus programs they're INVOLVED in via phase links.
   const allPrograms = await getPartnerPrograms(partner.id);
   const programs = activeOnly ? allPrograms.filter((p) => !p.isArchived) : allPrograms;
-  const ownedCount = allPrograms.filter((p) => p.relationship === 'owner').length;
 
   // Unified activity for this partner and its programs.
   const activity = await getActivity({ kind: 'partner', id: partner.id });
@@ -204,8 +208,7 @@ export default async function PartnerDetailPage(props: PageProps) {
             }}
             types={types}
             regions={regions}
-            programCount={ownedCount}
-            employeeCount={roster.current.length}
+            blockers={deleteBlockers}
           />
         </div>
         {/* Classification is navigation (design.md §2/§6): type and region jump to
