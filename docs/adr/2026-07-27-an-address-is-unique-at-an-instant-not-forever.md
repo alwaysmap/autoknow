@@ -78,7 +78,7 @@ stays legitimately ambiguous for a handover and keeps its current-holder-first t
 this constraint does NOT make `autoknow-2of` impossible and that bead still needs its own
 fix at the API boundary. `updatePerson` writes the address onto the period covering today
 as well as onto the person, in one transaction, or the two halves would disagree about the
-present; `createPersonAt` names a clash for both creation paths at once, because stamping
+present; `createPersonAt` names a clash for every creation path at once, because stamping
 the address is what can now collide. `btree_gist` becomes a required extension — same
 privilege as `vector` in `0_init`, so no infra change and no change to the DDL-less runtime
 role. `scripts/ci/lint-migrations.sh` gained `DROP INDEX` and `UPDATE`, so this migration

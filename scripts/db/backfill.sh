@@ -201,11 +201,22 @@ if [ "$status" = failed ]; then
     echo "    has not reached this database. Check what prod is running (gcp-debug skill)" >&2
     echo "    and that deploy.yml's migrate job went green for that commit." >&2
   fi
-  echo "  * a db:check:* arm exits non-zero because it FOUND SOMETHING, not because it" >&2
-  echo "    broke. Read its report above: that is the answer you asked for." >&2
-  echo "  Nothing partial was left behind by design: a check writes nothing at all, and a" >&2
-  echo "  backfill is idempotent with a WHERE clause requiring the target to still be" >&2
-  echo "  unset, so a re-run resumes safely." >&2
+  # Namespaced like the success epilogue, and for the sharper version of the same reason:
+  # a check that genuinely BROKE has already been diagnosed by one of the greps above, and
+  # following that with "it did not break, it found something" is how a reader stops
+  # trusting either line.
+  case "$NPM_SCRIPT" in
+    db:check:*)
+      echo "  * if neither of those matched, this arm did not break: a db:check:* exits" >&2
+      echo "    non-zero because it FOUND SOMETHING. Its report above IS the answer." >&2
+      echo "  Nothing was left behind either way — a check writes nothing at all." >&2
+      ;;
+    *)
+      echo "  Nothing partial was left behind by design: a backfill is idempotent and its" >&2
+      echo "  WHERE clause requires the target to still be unset, so a re-run resumes" >&2
+      echo "  safely." >&2
+      ;;
+  esac
   echo "::error::npm run ${NPM_SCRIPT} failed against ${actual_db}." >&2
   exit 1
 fi

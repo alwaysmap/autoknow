@@ -654,7 +654,7 @@ gh workflow run db-backfill.yml --ref main -f backfill=owner-person -f confirm=a
 gh run watch   # or read the summary page for the report
 ```
 
-#### The backfills, and what their reports mean
+#### The arms, and what their reports mean
 
 | `backfill=` | Fills | Ships with | Its gate |
 |---|---|---|---|
@@ -667,10 +667,13 @@ gh run watch   # or read the summary page for the report
 constraint cannot be added `NOT VALID`: `ALTER TABLE … ADD CONSTRAINT … EXCLUDE`
 validates every existing row at once, and one offender fails `prisma migrate deploy` —
 which runs BEFORE the deploy job, so it would block the release of everything merged
-alongside it. Run it BEFORE merging anything that adds the constraint (which is the
-branch-ref case above: while that PR is open, `main` does not offer this option yet).
+alongside it. Run it BEFORE merging anything that adds the constraint — which is the
+branch-ref case above, so while that PR is open the ref is the PR's branch and not `main`:
 
 ```bash
+# while the PR that adds the constraint is open — `main` does not offer the arm yet
+gh workflow run db-backfill.yml --ref <the-PR-branch> -f backfill=email-conflicts -f confirm=autoknow-pg
+# once it has merged, every re-run goes from main like everything else
 gh workflow run db-backfill.yml --ref main -f backfill=email-conflicts -f confirm=autoknow-pg
 ```
 

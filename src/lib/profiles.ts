@@ -234,8 +234,8 @@ export async function rostersByPartnerAsOf(at: Date = new Date()) {
  * here is what keeps the column true for everyone added from now on, leaving
  * `db:backfill:affiliation-email` to deal only with the careers that predate it.
  *
- * Which is also why the clash check is HERE and not in the two callers (`createPerson`,
- * `POST /api/people`): stamping the address is what can now collide, so the refusal
+ * Which is also why the clash check is HERE and not in its callers (`createPerson`,
+ * `createMyProfile`, `POST /api/people`): stamping the address is what can now collide, so the refusal
  * belongs beside the stamp — and `correctPersonRecord`, the other stamper, guards itself
  * for the same reason. Both callers used to hand a duplicate straight to Postgres and
  * surface `P2002` as a 500; since #127 E9 it would be an exclusion violation instead,
@@ -402,8 +402,8 @@ export async function addressHolderAsOf(
  * `addressHolderAsOf` as a GUARD: throws the sentence a user reads, or returns quietly.
  *
  * Both writers of an address need the identical refusal — `createPersonAt` before it
- * stamps a new period, `updatePerson` before it corrects one — and a message spelled
- * twice is a message that drifts once (AGENTS lesson 7). The remedy is named because
+ * stamps a new period, `correctPersonRecord` before it corrects one — and a message
+ * spelled twice is a message that drifts once (AGENTS lesson 7). The remedy is named because
  * there IS one: the previous holder's record can be corrected, and "use a different
  * address" alone sends someone away from the fix.
  *

@@ -37,10 +37,10 @@ DROP INDEX "Person_email_key";
 
 -- Canonicalize BOTH columns that hold an address, so the constraint below compares like
 -- with like and so the app's exact-match clash check (`addressHolderAsOf`) finds what the
--- constraint's `lower()` would. `Person.email` was never canonicalized on write — the
--- asymmetry is recorded in `normalizeAddress`'s docstring as E9's call to make, and this
--- is that call, taken here because this is the one migration where there is no unique
--- index left for the fold to violate. `PersonAffiliation.email` HAS been canonical on
+-- constraint's `lower()` would. `Person.email` was never canonicalized on write, and
+-- folding it retroactively is taken HERE because this is the one migration where there is
+-- no unique index left for the fold to violate (ADR
+-- an-address-is-unique-at-an-instant-not-forever). `PersonAffiliation.email` HAS been canonical on
 -- write since it existed (#127 E8), so its statement should touch nothing; it is here
 -- because "should" is not "does", and a claim the schema relies on is worth making true
 -- rather than believing.

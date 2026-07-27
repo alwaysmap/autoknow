@@ -48,7 +48,7 @@ const expectNothingWasOpened = (output: string): void => {
 };
 
 describe('the backfill runner refuses before it connects', () => {
-  it('rejects a backfill name that is not on the allowlist', () => {
+  it('rejects an arm name that is not on the allowlist', () => {
     const { code, output } = run({ BACKFILL: 'drop-everything', CONFIRM: 'autoknow-pg' });
     expect(code).toBe(1);
     expect(output).toContain("'drop-everything' is not an allowed arm");
@@ -108,7 +108,7 @@ describe('the allowlist and the workflow dropdown agree', () => {
       .filter(Boolean);
   };
 
-  it('offers exactly the backfills the script will run', () => {
+  it('offers exactly the arms the script will run', () => {
     const allowed = readAllowed();
     expect(allowed.length).toBeGreaterThan(0);
     expect(readOptions().sort()).toEqual(allowed.map((a) => a.name).sort());
