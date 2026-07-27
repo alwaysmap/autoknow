@@ -249,7 +249,10 @@ async function addDependency(projectId: number, phaseId: number, dependsOnPhaseI
 }
 
 async function involvePartner(projectId: number, phaseId: number, partnerId: number, role?: string): Promise<void> {
-  await addPhasePartner(fd({ phaseId, partnerId, projectId, role: role ?? '' }));
+  const result = await addPhasePartner(fd({ phaseId, partnerId, projectId, role: role ?? '' }));
+  if (result.error) {
+    throw new Error(`Seed phase-partner involvement failed: ${result.error}`);
+  }
 }
 
 async function involvePerson(projectId: number, phaseId: number, personId: number, role?: string): Promise<void> {

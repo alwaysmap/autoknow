@@ -87,14 +87,32 @@ export const phaseDetailHash = (phaseId: number): string => `phase-${phaseId}-de
 export const phaseDetailHref = (projectId: number, phaseId: number): string =>
   `/programs/${projectId}#${phaseDetailHash(phaseId)}`;
 
-/** Where a phase's plan is EDITED — durations, dependencies, add/remove. Distinct
- *  from phaseDetailHref, which opens one phase's record to READ. Owned here for the
- *  same reason as the rest of this family: it was hand-built at four call sites, and
- *  a URL in this app is data as well as code (AGENTS lesson 15). */
-export const phasesEditHref = (projectId: number): string => `/programs/${projectId}/phases`;
+/**
+ * The bare phase fragment — the prefix `phaseDetailHash` extends. It names the rail's
+ * row on the program page and, on the phase editor, the node whose panel opens. One
+ * phase, one fragment, whichever page is reading it.
+ */
+export const phaseHash = (phaseId: number): string => `phase-${phaseId}`;
+
+/** Where a phase's plan is EDITED — name, forecast, dependencies, Goal & DoD, and who
+ *  is involved: since #crw.1 this is the ONE editor of a phase, so an Edit affordance
+ *  anywhere has exactly one target. Distinct from phaseDetailHref, which opens one
+ *  phase's record to READ. Pass a phaseId to land with that phase's panel already
+ *  open — a phase editor is a place, not a mode. Owned here for the same reason as
+ *  the rest of this family: it was hand-built at four call sites, and a URL in this
+ *  app is data as well as code (AGENTS lesson 15). */
+export const phasesEditHref = (projectId: number, phaseId?: number): string =>
+  `/programs/${projectId}/phases${phaseId != null ? `#${phaseHash(phaseId)}` : ''}`;
 
 /** Phase id out of a `#phase-:id-detail` fragment (with or without the `#`), or null. */
 export const parsePhaseDetailHash = (hash: string): number | null => {
   const m = /^#?phase-(\d+)-detail$/.exec(hash);
+  return m ? parseInt(m[1], 10) : null;
+};
+
+/** Phase id out of a bare `#phase-:id` fragment, or null. Deliberately does NOT match
+ *  `#phase-:id-detail`: the two fragments open different things on different pages. */
+export const parsePhaseHash = (hash: string): number | null => {
+  const m = /^#?phase-(\d+)$/.exec(hash);
   return m ? parseInt(m[1], 10) : null;
 };

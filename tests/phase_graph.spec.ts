@@ -332,7 +332,7 @@ test.describe('PhaseTrack rail', () => {
     await openDetails(page, 'Integration');
 
     // Seeded involvement is visible with its role (roles live HERE, not on the rail).
-    const densoChip = details(page).locator('[class*="partnerChip"]').filter({ hasText: 'Denso' });
+    const densoChip = details(page).locator('[data-testid="involvement-chip"]').filter({ hasText: 'Denso' });
     await expect(densoChip).toContainText('Supplier');
 
     // Add another partner with a role — the ghost "+" reveals the small form.
@@ -340,15 +340,15 @@ test.describe('PhaseTrack rail', () => {
     await details(page).locator('select[aria-label="Partner to involve"]').selectOption({ label: 'Rivian' });
     await details(page).locator('input[aria-label="Role (optional)"]').first().fill('OEM');
     await details(page).getByRole('button', { name: 'Add', exact: true }).first().click();
-    await expect(details(page).locator('[class*="partnerChip"]').filter({ hasText: 'Rivian' })).toBeVisible();
+    await expect(details(page).locator('[data-testid="involvement-chip"]').filter({ hasText: 'Rivian' })).toBeVisible();
 
     // Remove it again.
     await details(page)
-      .locator('[class*="partnerChip"]')
+      .locator('[data-testid="involvement-chip"]')
       .filter({ hasText: 'Rivian' })
       .locator('button[aria-label^="Remove"]')
       .click();
-    await expect(details(page).locator('[class*="partnerChip"]').filter({ hasText: 'Rivian' })).toHaveCount(0);
+    await expect(details(page).locator('[data-testid="involvement-chip"]').filter({ hasText: 'Rivian' })).toHaveCount(0);
   });
 
   test('people involvement is editable on the popover', async ({ page }) => {
@@ -356,10 +356,10 @@ test.describe('PhaseTrack rail', () => {
     await openDetails(page, 'Integration');
 
     // Seeded person is visible with role; remove them.
-    const kenji = details(page).locator('[class*="partnerChip"]').filter({ hasText: 'Kenji Sato' });
+    const kenji = details(page).locator('[data-testid="involvement-chip"]').filter({ hasText: 'Kenji Sato' });
     await expect(kenji).toContainText('FAE');
     await kenji.locator('button[aria-label^="Remove"]').click();
-    await expect(details(page).locator('[class*="partnerChip"]').filter({ hasText: 'Kenji Sato' })).toHaveCount(0);
+    await expect(details(page).locator('[data-testid="involvement-chip"]').filter({ hasText: 'Kenji Sato' })).toHaveCount(0);
 
     // Add them back with a new role via the People picker (behind the ghost "+").
     await details(page).getByRole('button', { name: 'Person to involve' }).click();
@@ -368,7 +368,7 @@ test.describe('PhaseTrack rail', () => {
       .locator('xpath=following-sibling::input[1]').fill('Audio lead');
     await details(page).locator('select[aria-label="Person to involve"]')
       .locator('xpath=following-sibling::button[1]').click();
-    const restored = details(page).locator('[class*="partnerChip"]').filter({ hasText: 'Kenji Sato' });
+    const restored = details(page).locator('[data-testid="involvement-chip"]').filter({ hasText: 'Kenji Sato' });
     await expect(restored).toBeVisible();
     await expect(restored).toContainText('Audio lead');
   });
@@ -534,5 +534,42 @@ test.describe('Program phase editor', () => {
     // rows default collapsed — expand the constraint card before reading evidence
     await expandCard(railRow(page, 'Integration'));
     await expect(railRow(page, 'Integration')).toContainText('gates ≈74 days of downstream chain work');
+  });
+
+  // #crw.1: one editor owns every field of a phase. The fragment lands on the phase,
+  // and involvement — which used to be reachable ONLY from the program page's popover —
+  // is changed right here, beside the name, the forecast and Goal & DoD.
+  test('a phase fragment opens that phase, and involvement is editable in the panel', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}/phases#phase-${seeded.phases.integration}`);
+
+    // Arriving with the fragment opens Integration's panel — no click needed. The
+    // hydration guard is still required: the fragment is read once React attaches.
+    await expect(async () => {
+      await expect(panel(page)).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+    await expect(panel(page).getByLabel('Phase name')).toHaveValue('Integration');
+
+    // The seeded involvement is here, with its role.
+    const chip = (name: string) =>
+      panel(page).locator('[data-testid="involvement-chip"]').filter({ hasText: name });
+    await expect(chip('Denso')).toContainText('Supplier');
+    await expect(chip('Kenji Sato')).toContainText('FAE');
+
+    // Add a partner through the picker — the option set IS the partner directory.
+    await panel(page).getByTestId('add-partner').click();
+    await panel(page).locator('select[aria-label="Partner to involve"]').selectOption({ label: 'Rivian' });
+    await panel(page).locator('input[aria-label="Role (optional)"]').first().fill('OEM');
+    await panel(page).getByRole('button', { name: 'Add', exact: true }).first().click();
+    await expect(chip('Rivian')).toBeVisible();
+    expect(await prisma.phasePartner.count({
+      where: { phaseId: seeded.phases.integration, partnerId: seeded.oemId },
+    })).toBe(1);
+
+    // …and remove them again, without leaving the editor.
+    await chip('Rivian').locator('button[aria-label^="Remove"]').click();
+    await expect(chip('Rivian')).toHaveCount(0);
+    expect(await prisma.phasePartner.count({
+      where: { phaseId: seeded.phases.integration, partnerId: seeded.oemId },
+    })).toBe(0);
   });
 });

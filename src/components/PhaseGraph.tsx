@@ -8,7 +8,7 @@ import Markdown from './Markdown';
 import { hillStatus, hillStatusColor, phaseColor, phaseDetailHref } from '../lib/phase';
 import { computeCriticalChain } from '../lib/criticalChain';
 import { addPhase, deletePhase } from '../app/programs/[id]/actions';
-import { addPhasePartner, removePhasePartner } from '../app/actions/phasePartners';
+import PhaseInvolvementEditor from './PhaseInvolvementEditor';
 import { addPhaseDependency, removePhaseDependency } from '../app/actions/dependencies';
 import styles from './PhaseGraph.module.css';
 import { localDate } from '../lib/dates';
@@ -337,34 +337,19 @@ export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGrap
 
                     {state === 'expanded' && (
                       <>
+                        {/* the ONE involvement control, shared with the rail and the
+                            phase editor — this row used to carry a drifted, English-only
+                            third copy of it (AGENTS lesson 7) */}
                         <div className={styles.partners}>
-                          {p.partners.map((pp) => (
-                            <span key={pp.linkId} className={styles.partnerChip}>
-                              <Link href={`/partners/${pp.partnerId}`} className={styles.partnerLink}>{pp.name}</Link>
-                              {pp.role && <span className={styles.partnerRole}>{pp.role}</span>}
-                              <form action={removePhasePartner} className={styles.inlineForm}>
-                                <input type="hidden" name="id" value={pp.linkId} />
-                                <input type="hidden" name="projectId" value={projectId} />
-                                <button type="submit" className={styles.chipRemove} title={`Remove ${pp.name} from this phase`} aria-label={`Remove ${pp.name}`}>✕</button>
-                              </form>
-                            </span>
-                          ))}
-                          {(() => {
-                            const available = allPartners.filter((a) => !p.partners.some((pp) => pp.partnerId === a.id));
-                            if (available.length === 0) return null;
-                            return (
-                              <form action={addPhasePartner} className={styles.addInlineForm}>
-                                <input type="hidden" name="phaseId" value={p.id} />
-                                <input type="hidden" name="projectId" value={projectId} />
-                                <select name="partnerId" className={styles.quietSelect} defaultValue="" required aria-label="Partner to involve">
-                                  <option value="" disabled>+ partner…</option>
-                                  {available.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                                </select>
-                                <input name="role" className={styles.roleInput} placeholder="role" aria-label="Role (optional)" />
-                                <button type="submit" className={styles.miniBtn}>Add</button>
-                              </form>
-                            );
-                          })()}
+                          <PhaseInvolvementEditor
+                            kind="partner"
+                            phaseId={p.id}
+                            projectId={projectId}
+                            involved={p.partners.map((pp) => ({
+                              linkId: pp.linkId, entityId: pp.partnerId, name: pp.name, role: pp.role,
+                            }))}
+                            options={allPartners}
+                          />
                         </div>
 
                         {/* dependencies: upstream editable, downstream removable, chips jump */}
