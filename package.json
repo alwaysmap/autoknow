@@ -36,6 +36,7 @@
     "infra:plan": "scripts/infra/terraform.sh plan",
     "infra:apply": "scripts/infra/terraform.sh apply",
     "infra:output": "scripts/infra/terraform.sh output",
+    "ci:disk-reclaim": "scripts/ci/disk-reclaim.sh",
     "ci:disk-report": "scripts/ci/disk-report.sh",
     "ci:disk-guard": "scripts/ci/disk-guard.sh",
     "ci:lint-migrations": "scripts/ci/lint-migrations.sh",

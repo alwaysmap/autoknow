@@ -211,7 +211,7 @@ jobs:
       # gets diagnosed from.
       #
       # Job-level, not step-level, because the probes read WARN too. The measurements, and
-      # why no headroom fix was needed, are in
+      # why the reclaim step below exists, are in
       # docs/knowledge/an-out-of-disk-runner-fails-as-the-test-it-was-running.md — re-read
       # it, and the job's own DISK lines, before changing either.
       CI_DISK_FLOOR_MB: 2048
@@ -222,6 +222,12 @@ jobs:
       # scripts/ci/disk-guard.sh and bead autoknow-by9.
       - name: Disk after checkout
         run: npm run --silent ci:disk-report -- "after checkout"
+      # The webkit leg's transient peak is ~10 GiB against the ~12 GiB the runner has left
+      # after installs, and run 30304111252 spent that margin down to 31 MB. Buy headroom
+      # back from toolchains this job cannot use; scripts/ci/disk-reclaim.sh says what it
+      # will not touch and why.
+      - name: Reclaim disk from preinstalled toolchains
+        run: npm run --silent ci:disk-reclaim
       - uses: actions/setup-node@v4
         with:
           node-version: 22

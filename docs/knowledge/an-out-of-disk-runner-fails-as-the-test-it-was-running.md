@@ -6,12 +6,13 @@ applies_to:
   - .github/workflows/ci.yml
   - scripts/ci/disk-guard.sh
   - scripts/ci/disk-report.sh
+  - scripts/ci/disk-reclaim.sh
   - a red browser/e2e check you are about to re-run
 symptoms:
   - one browser leg is red while every other job in the run is green
   - the step log simply stops, with no assertion and no stack
   - a job stuck `in_progress` with no conclusion, or `No space left on device` naming a path under `actions-runner/*/_diag/`
-verified_by: 'runs 30239195026 and 30288543059 (attempt 1 webkit `failure`, everything else `success`); measurements in runs 30300083981, 30301180776 and 30302815906; PR #226'
+verified_by: 'runs 30239195026 and 30288543059 (attempt 1 webkit `failure`, everything else `success`); measurements in runs 30300083981, 30301180776, 30302815906 and 30304111252; PR #226'
 ---
 
 # An out-of-disk CI runner fails as whatever test it happened to be running
@@ -35,25 +36,24 @@ why it borrows the identity of the test underneath it.
 1. **Read the `DISK` lines the e2e job now prints** (`scripts/ci/disk-report.sh` at three
    points, plus the low-water mark from `scripts/ci/disk-guard.sh`). If the guard tripped,
    the failure says so and carries a filesystem breakdown taken at the moment of the fill.
-2. **Do not add headroom without measuring.** The obvious fixes — reclaiming the runner's
-   preinstalled toolchains, dropping test artifacts, splitting the browser engines — were
-   all unnecessary here, and the first costs wall clock on the measured critical path (see
-   [ci-wall-clock-is-one-job-find-it-before-optimizing](ci-wall-clock-is-one-job-find-it-before-optimizing.md)).
-   Measured on run 30300083981, an e2e leg starts with **14.1 GiB free** on a 72 GiB disk
-   (81% already used by the image) and a HEALTHY leg's low-water mark is **11.9 GiB**: the job
-   costs ~2.2 GiB — `node_modules` 924 MB, the browser payload 295 MB (webkit) / 646 MB
-   (chromium), the apt archive `--with-deps` fills 221 MB / 132 MB, `.next-test` 93 MB. The
-   retained Playwright artifacts everyone suspects are **584 KB**.
-3. **So a fill is not growth — and on webkit it is not rare either.** Low-water over runs
-   30300083981 / 30301180776 / 30302815906: chromium 12.0 / 11.8 / 11.8 GiB, webkit
-   **11.9 / 6.0 / 6.1** GiB — and on the low runs every path above was byte-for-byte what it
-   is on a healthy one, so ~6 GiB goes where a targeted `du` does not look. **Set the warn
-   line ABOVE where the leg actually sits:** 6 GiB was tried first and never fired, because
-   webkit lands at 6.0-6.1. Chase the writer with the deep scan — any report below
-   `CI_DISK_WARN_MB` escalates to one automatically — not with the budget.
+2. **Measure before adding headroom — then keep measuring.** Two candidate fixes stay
+   rejected on numbers: retained test artifacts are **584 KB**, and the engines already run
+   on separate runners. An e2e leg starts with **14.1 GiB free** of 72 GiB (81% is the
+   runner image) and costs ~2.2 GiB of files: `node_modules` 924 MB, browser payload
+   295/646 MB, the `--with-deps` apt archive 221/132 MB, `.next-test` 93 MB.
+3. **A fill is not growth, and on webkit it is not rare.** Low-water over runs 30300083981 /
+   30301180776 / 30302815906: chromium 12.0 / 11.8 / 11.8 GiB, webkit **11.9 / 6.0 / 6.1**
+   GiB — with every path above byte-for-byte normal on the low runs. **Set the warn line
+   ABOVE where the leg actually sits:** 6 GiB was tried first and never fired, because webkit
+   lands at 6.0-6.1. Any report below `CI_DISK_WARN_MB` escalates to a deep scan.
+4. **The writer holds the space open rather than leaving it on disk.** Run 30304111252:
+   webkit fell to **1.9 GiB (98% used)** — GitHub's own warning read "Free space left:
+   31 MB" — and once the guard killed the suite the disk was back to **11.9 GiB**. ~10 GiB
+   lived in unlinked-but-open files of the running processes, which no `du` can see. Peak
+   ~10 GiB against ~12 GiB available is why this fails intermittently, and why
+   `scripts/ci/disk-reclaim.sh` buys margin back. The writer itself is still unidentified.
 
-**How we found out.** Nothing measured it and nothing could afterwards: the job never
-printed its free disk, and both failing job logs had already expired from the Actions API
-(HTTP 404 `BlobNotFound`) within a day. That is the second lesson — for an infrastructure
-failure, the evidence has to be printed in-line while it happens, because the log you plan
-to read later may not be there.
+**How we found out.** Nothing measured it, and nothing could afterwards: the job never
+printed its free disk, and both failing job logs had expired from the Actions API (HTTP 404
+`BlobNotFound`) within a day. For an infrastructure failure the evidence has to be printed
+in-line while it happens, because the log you plan to read later may not be there.
