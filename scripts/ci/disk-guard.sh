@@ -18,7 +18,8 @@
 #
 # Usage:
 #   scripts/ci/disk-guard.sh <command> [args...]
-# Env:
+# Env (the defaults are for direct invocation; ci.yml sets its own, from measurement —
+# see docs/knowledge/an-out-of-disk-runner-fails-as-the-test-it-was-running.md):
 #   CI_DISK_FLOOR_MB  fail below this much free space (default 1024)
 #   CI_DISK_WARN_MB   warn if the run ever dips below this (default 2× floor)
 #   CI_DISK_POLL_S    seconds between samples (default 5)
