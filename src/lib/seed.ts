@@ -171,7 +171,10 @@ async function createPerson(body: {
 }): Promise<SeededPerson> {
   const { person } = await apiPost<CreatedPerson>(postPersonRoute, '/api/people', body);
   // The address as STORED, not as submitted — the route is free to canonicalize, and an
-  // owner reference built from the request body would then quietly name nobody.
+  // owner reference built from the request body would then quietly name nobody. Copied
+  // field by field rather than returned whole: the route really sends the entire Person
+  // row, and `CreatedPerson` narrowing it on paper would not stop the rest riding along
+  // inside every fixture variable at runtime.
   return { id: person.id, email: person.email };
 }
 
@@ -192,11 +195,12 @@ async function addAffiliation(
  * written down at all.
  *
  * That tier is not hypothetical: this seed used to pass `ownerName: 'Alice PM'` and
- * `ownerName: 'Clara Operations'`, and it got away with it for two years because the
- * matcher falls back to an exact full display name. It stopped getting away with it in
- * PROD, where those two programs were seeded before either Person row existed — so the
- * strings named nobody, and #127 E6's backfill reported exactly them as UNMATCHED. The
- * general shape of that trap, and how to tell it from a matcher bug, is in
+ * `ownerName: 'Clara Operations'`, and it went unnoticed because the matcher falls back
+ * to an exact full display name — a fresh seed creates both people before it creates the
+ * programs, so it always matched locally. It did not match in PROD, seeded in the window
+ * between 4ded811 and 30952e6 when neither Person row existed yet: the strings named
+ * nobody, and #127 E6's backfill reported exactly them as UNMATCHED. The general shape
+ * of that trap, and how to tell it from a matcher bug, is in
  * docs/knowledge/a-backfills-unmatched-rows-may-name-people-who-never-existed.md.
  */
 async function createProject(body: {
@@ -204,10 +208,11 @@ async function createProject(body: {
 }): Promise<number> {
   const { owner, ...rest } = body;
   const { project } = await apiPost<CreatedProject>(postProjectRoute, '/api/projects', {
+    ...rest,
     // `owner.email`, not `owner.id`: the route takes only the address and resolves it
     // itself, returning the `{ ownerName, ownerPersonId }` pair (#127 E6). There is no
     // `ownerPersonId` input, and deliberately no second way to fill those two columns.
-    ...rest, ownerName: owner.email,
+    ownerName: owner.email,
   });
   return project.id;
 }
@@ -655,16 +660,19 @@ export async function seedMockData() {
   // 'Toyota Highlander Digital Key' below and the owner has to exist first. The rest of
   // her fixture — three more employment periods, three era programs, the scheduled Honda
   // move — stays together further down, where the partners it needs exist; only the row
-  // itself has to be early. She is therefore the one person here who DOES get
+  // itself has to be early. She is therefore the one person in THIS block who gets
   // `addAffiliation` calls, and they are posted with that fixture.
   //
   // There used to be a second Alice: an 'Alice PM' persona at alice@google.com, seeded
   // only because `Person.email` was `@unique` and this fixture wanted the address spec
   // #124 §7 assigns it. Two people existed so that one address could be spelled two ways,
   // which is the tail wagging the dog — one made-up human is enough, and she is the
-  // richer one. #127 E9 (open, PR #216) replaces the outright `@unique` with a constraint
-  // that still forbids two people holding one address AT AN INSTANT, so retiring the
-  // persona is what makes this address hers, not a rule that quietly went away.
+  // richer one. #127 E9 replaced the outright `@unique` with `PersonAffiliation`'s
+  // unique-at-an-instant EXCLUDE constraint, which still forbids two people holding one
+  // address over overlapping periods — so retiring the persona is what makes this address
+  // hers, not a rule that quietly went away. Her periods are contiguous and half-open, so
+  // the Google one carrying 'alice@google.com' overlaps nothing, here or anywhere else in
+  // the seed.
   //
   // Her address changes WITH the company (#124 §2), and since #127 E8 each period STORES
   // the address held during it — so the three addresses below are real columns, not
