@@ -141,25 +141,17 @@ function fd(fields: Record<string, string | number>): FormData {
   return f;
 }
 
-interface CreatedPartner { partner: { id: number } }
-interface CreatedPerson { person: { id: number; email: string } }
-interface CreatedProject { project: { id: number } }
-interface CreatedPhase { phase: { id: number } }
-
 /**
- * A person the seed has created, as everything downstream refers to them: the id the
- * involvement actions take, and the CANONICAL address the row actually landed with.
- *
- * Returning the pair is the reason a seeded program owner is now a REFERENCE and not a
- * typed name (AGENTS lesson 3). `ownerName: 'Alice PM'` used to work only because
- * `resolvePersonCandidates`' last tier matches a full display name — so the seed could
- * name an owner who did not exist, and for two programs it did: 'Alice PM' and
- * 'Clara Operations' were authored in the initial commit against a people list that
- * contained neither, and those are exactly the two rows #127 E6's production backfill
- * reported UNMATCHED. Handing back the created row makes that unwritable: you cannot
- * name an owner the seed did not create, because you have to be holding them.
+ * A person THIS SEED created: the id the involvement actions take, and the CANONICAL
+ * address the row actually landed with. Why a program owner is one of these rather than
+ * a string is on `createProject` below.
  */
 interface SeededPerson { id: number; email: string }
+
+interface CreatedPartner { partner: { id: number } }
+interface CreatedPerson { person: SeededPerson }
+interface CreatedProject { project: { id: number } }
+interface CreatedPhase { phase: { id: number } }
 
 async function createPartner(body: {
   name: string; type: string; region: string;
@@ -197,15 +189,24 @@ async function addAffiliation(
  * behind this refuses freeform text (`requireOwner`, #127 E6), but only at RUNTIME and
  * only via tiers loose enough to accept a display name. Taking the created row instead
  * moves the same rule to compile time, where an owner who does not exist cannot be
- * written down at all. The route still resolves it and still returns the
- * `{ ownerName, ownerPersonId }` pair — there is deliberately no second way to fill
- * those two columns.
+ * written down at all.
+ *
+ * That tier is not hypothetical: this seed used to pass `ownerName: 'Alice PM'` and
+ * `ownerName: 'Clara Operations'`, and it got away with it for two years because the
+ * matcher falls back to an exact full display name. It stopped getting away with it in
+ * PROD, where those two programs were seeded before either Person row existed — so the
+ * strings named nobody, and #127 E6's backfill reported exactly them as UNMATCHED. The
+ * general shape of that trap, and how to tell it from a matcher bug, is in
+ * docs/knowledge/a-backfills-unmatched-rows-may-name-people-who-never-existed.md.
  */
 async function createProject(body: {
   name: string; partnerId: number; owner: SeededPerson; sopDate?: string; volumeFirstYear?: number;
 }): Promise<number> {
   const { owner, ...rest } = body;
   const { project } = await apiPost<CreatedProject>(postProjectRoute, '/api/projects', {
+    // `owner.email`, not `owner.id`: the route takes only the address and resolves it
+    // itself, returning the `{ ownerName, ownerPersonId }` pair (#127 E6). There is no
+    // `ownerPersonId` input, and deliberately no second way to fill those two columns.
     ...rest, ownerName: owner.email,
   });
   return project.id;
@@ -610,7 +611,11 @@ export async function seedMockData() {
   // against existing people and refuses freeform names. Everyone who is later NAMED —
   // as a program owner, or on a partner's Google-team roster — is bound to a variable
   // here, so those references are the created row rather than a re-typed address.
-  const lead = await createPerson({
+  //
+  // `me` is the SESSION (AGENTS lesson 13, argued at the top of this function);
+  // `mePerson` is the row it produced. Downstream references take the ROW, so they carry
+  // the address the route actually stored rather than the one this file submitted.
+  const mePerson = await createPerson({
     name: me.name, email: me.email, currentPartnerId: googlePartnerId,
     role: 'Lead Program Manager', startDate: '2024-01-01',
     notes: 'Lead Program Manager for AutoKnow ecosystem and Ford relationship.',
@@ -641,24 +646,32 @@ export async function seedMockData() {
     notes: 'Qualcomm Snapdragon Cockpit product manager.',
   });
 
-  // ALICE WATERS IS CREATED HERE, with the rest of the Googlers, because she OWNS a
-  // program below and the owner has to exist first. The rest of her fixture — three more
-  // employment periods, three era programs, the scheduled Honda move — stays together
-  // further down, where the partners it needs exist; only the row itself has to be early.
+  // None of the people above needs an `addAffiliation` call: their current period is the
+  // one `createPerson` opened. `addAffiliation` is now only for PRIOR periods and
+  // SCHEDULED moves — a second post naming the same job would overlap it, and the as-of
+  // resolvers would then have two rows to choose between for one day.
+
+  // ALICE WATERS IS CREATED HERE, with the rest of the Googlers, because she OWNS
+  // 'Toyota Highlander Digital Key' below and the owner has to exist first. The rest of
+  // her fixture — three more employment periods, three era programs, the scheduled Honda
+  // move — stays together further down, where the partners it needs exist; only the row
+  // itself has to be early. She is therefore the one person here who DOES get
+  // `addAffiliation` calls, and they are posted with that fixture.
   //
   // There used to be a second Alice: an 'Alice PM' persona at alice@google.com, seeded
   // only because `Person.email` was `@unique` and this fixture wanted the address spec
   // #124 §7 assigns it. Two people existed so that one address could be spelled two ways,
   // which is the tail wagging the dog — one made-up human is enough, and she is the
-  // richer one. #127 E9 drops the outright `@unique`, but its replacement still forbids
-  // two people holding one address AT AN INSTANT, so retiring the persona is what makes
-  // this address hers, not a constraint that quietly went away.
+  // richer one. #127 E9 (open, PR #216) replaces the outright `@unique` with a constraint
+  // that still forbids two people holding one address AT AN INSTANT, so retiring the
+  // persona is what makes this address hers, not a rule that quietly went away.
   //
   // Her address changes WITH the company (#124 §2), and since #127 E8 each period STORES
-  // the address held during it — so the three addresses below are real columns, not prose.
-  // That is what makes the era action items resolve: each is addressed to the account she
-  // actually held at the time, exactly as a real one captured then would be, and the
-  // Qualcomm one used to strand off her entirely (#124 Class 4).
+  // the address held during it — so the three addresses below are real columns, not
+  // prose. That is what makes the era action items (in her fixture below) resolve: each
+  // is addressed to the account she actually held at the time, exactly as a real one
+  // captured then would be, and the Qualcomm one used to strand off her entirely
+  // (#124 Class 4).
   const ALICE = {
     bosch: { role: 'Platform Engineer', email: 'alice.waters@bosch.com', start: '2022-01-01', end: '2024-03-01' },
     qualcomm: { role: 'Staff Engineer', email: 'awaters@qualcomm.com', start: '2024-03-01', end: '2026-07-01' },
@@ -678,22 +691,21 @@ export async function seedMockData() {
     notes: 'Telematics platform engineer who moved to the Google side of the same programs.',
   });
 
-  // No `addAffiliation` calls for the six above: their current period is the one
-  // `createPerson` opened. `addAffiliation` is now only for PRIOR periods and
-  // SCHEDULED moves — a second post naming the same job would overlap it, and the
-  // as-of resolvers would then have two rows to choose between for one day. (Alice
-  // Waters is the exception, and her prior periods are posted with the fixture.)
-
   // Contact phone and the googleTeam roster are display-only fields with no
   // mutation surface (API or action) — patched directly onto the API-created rows.
   // AFTER the people, so each roster entry is a person the seed just created: the blob
   // stores bare addresses with no Person relation (#127 E13 is what deletes it), and a
   // re-typed one is a reference that resolves by luck. Retiring 'Alice PM' is exactly
   // the day that luck would have run out on the Toyota row.
+  //
+  // A roster `role` is the role held ON THIS RELATIONSHIP, not the person's job title —
+  // which is why mePerson appears twice below under two different ones, and why Alice
+  // Waters is Toyota's 'Partner Engineering Manager' while her Person row says Lead
+  // Program Manager.
   const contactPatches: Array<{ id: number; phone: string; googleTeam: { email: string; role: string }[] }> = [
     { id: googlePartnerId, phone: '+1-650-253-0000', googleTeam: [] },
     { id: fordId, phone: '+1-313-322-3000', googleTeam: [
-      { email: lead.email, role: 'Relationship Lead' },
+      { email: mePerson.email, role: 'Relationship Lead' },
       { email: bob.email, role: 'Cloud Account Manager' },
     ] },
     { id: toyotaId, phone: '+81-565-28-2121', googleTeam: [
@@ -703,7 +715,7 @@ export async function seedMockData() {
       { email: clara.email, role: 'Supplier Operations Lead' },
     ] },
     { id: qualcommId, phone: '+1-858-587-1121', googleTeam: [
-      { email: lead.email, role: 'Silicon Alignment Engineer' },
+      { email: mePerson.email, role: 'Silicon Alignment Engineer' },
     ] },
   ];
   for (const patch of contactPatches) {
@@ -725,7 +737,7 @@ export async function seedMockData() {
 
   // 1. Ford Evos AAOS Bring-up
   const fordProjectId = await createProject({
-    name: 'Ford Evos AAOS Bring-up', partnerId: fordId, owner: lead,
+    name: 'Ford Evos AAOS Bring-up', partnerId: fordId, owner: mePerson,
     sopDate: await sopForPlan(AAOS_T, FORD_THROUGH, 8), volumeFirstYear: 180000,
   });
   // Dated program history through the needle route, oldest first — the final post
@@ -815,7 +827,7 @@ export async function seedMockData() {
 
   // 4. Qualcomm Snapdragon Support (SA8295P cockpit)
   const qualcommProjectId = await createProject({
-    name: 'Qualcomm Snapdragon Cockpit Support', partnerId: qualcommId, owner: lead,
+    name: 'Qualcomm Snapdragon Cockpit Support', partnerId: qualcommId, owner: mePerson,
     sopDate: await sopForPlan(AAOS_T, QUALCOMM_THROUGH, 10), volumeFirstYear: 500000,
   });
   await postProjectState(qualcommProjectId, {
@@ -941,7 +953,7 @@ export async function seedMockData() {
       gas: true, gbi: true, dk: false, needle: 'On Track', hill: 30,
       phases: [ { n: 'Architecture Lock', d: 25, p: 100 }, { n: 'Compute Board Bring-up', d: 40, p: 40 }, { n: 'App Platform Port', d: 50, p: 0 }, { n: 'Fleet Validation', d: 45, p: 0 } ],
       suppliers: [lgeId], people: [carlos.id, minji.id, marcus.id] },
-    { name: 'Volvo EX90 AAOS Refresh', partnerId: volvoCarsId, owner: lead, sop: '2026-12-31', vol: 90000,
+    { name: 'Volvo EX90 AAOS Refresh', partnerId: volvoCarsId, owner: mePerson, sop: '2026-12-31', vol: 90000,
       gas: true, gbi: false, dk: false, needle: 'Concerned', hill: 70,
       phases: [ { n: 'Platform Rebase', d: 30, p: 100 }, { n: 'Driver Update Pass', d: 25, p: 80 }, { n: 'Regression & Cert', d: 35, p: 0 } ],
       suppliers: [continentalId], people: [lena.id, sven.id] },
@@ -955,11 +967,11 @@ export async function seedMockData() {
       phases: [ { n: 'Brand Matrix Scoping', d: 20, p: 100 }, { n: 'Reference Head Unit', d: 45, p: 30 }, { n: 'Per-brand Skinning', d: 40, p: 0 }, { n: 'Rollout Wave 1', d: 50, p: 0 } ],
       suppliers: [harmanId], people: [priya.id] },
     // --- Digital Key programs ---
-    { name: 'Honda Digital Key CCC', partnerId: hondaId, owner: lead, sop: '2027-01-31', vol: 150000,
+    { name: 'Honda Digital Key CCC', partnerId: hondaId, owner: mePerson, sop: '2027-01-31', vol: 150000,
       gas: false, gbi: false, dk: true, needle: 'Some Risk', hill: 50,
       phases: [ { n: 'NFC Driver Bring-up', d: 20, p: 100 }, { n: 'Secure Element Config', d: 30, p: 60 }, { n: 'CCC Spec Compliance', d: 40, p: 0 } ],
       suppliers: [densoId], people: [aiko.id] },
-    { name: 'Volvo Digital Key', partnerId: volvoCarsId, owner: lead, sop: '2027-08-31', vol: 70000,
+    { name: 'Volvo Digital Key', partnerId: volvoCarsId, owner: mePerson, sop: '2027-08-31', vol: 70000,
       gas: false, gbi: false, dk: true, needle: 'On Track', hill: 25,
       phases: [ { n: 'Key Architecture', d: 25, p: 100 }, { n: 'UWB Ranging', d: 35, p: 25 }, { n: 'Companion App', d: 30, p: 0 }, { n: 'CCC Certification', d: 30, p: 0 } ],
       suppliers: [continentalId], people: [sven.id, lena.id] },
@@ -1071,7 +1083,7 @@ export async function seedMockData() {
     // Bosch was multiplexed; 6 idle days before SW integration AND before Cert;
     // Cert (constraint, Priya + Marcus) trending ~5d over; Production readiness
     // (Bosch) is the upcoming handoff. Buffer 35 → 12 of a 45-day guideline.
-    { name: 'Gemini X Cockpit', partnerId: gmId, owner: lead, sopInDays: 101, vol: 120000,
+    { name: 'Gemini X Cockpit', partnerId: gmId, owner: mePerson, sopInDays: 101, vol: 120000,
       gas: true, gbi: true, needle: 'Some Risk', hill: 55,
       note: 'Cert is moving but slower than planned; watching the buffer weekly.',
       phases: [
@@ -1086,7 +1098,7 @@ export async function seedMockData() {
       ] },
     // SOP overshoot: certification forecast lands ~13 days past the SOP — the
     // "declare Concerned, propose the SOP move" example, with delayed units.
-    { name: 'Polaris EV Digital Key', partnerId: volvoCarsId, owner: lead, sopInDays: 5, vol: 60000,
+    { name: 'Polaris EV Digital Key', partnerId: volvoCarsId, owner: mePerson, sopInDays: 5, vol: 60000,
       dk: true, needle: 'Concerned', hill: 60,
       note: 'UWB ranging overran and certification is pacing behind plan.',
       phases: [
@@ -1179,10 +1191,10 @@ export async function seedMockData() {
   // Alice Waters — the temporal-profile fixture (spec #124 §7).
   //
   // ONE human across FOUR employment periods, so the person and partner pages have
-  // a real multi-company career to get right. She is also the only Alice: the row and
-  // the `ALICE` constant are up in the people block, because she OWNS the Toyota Digital
-  // Key program and an owner has to exist before the program does. Everything that needs
-  // Honda, Bosch or Qualcomm to exist is here. Everything rides the same
+  // a real multi-company career to get right. She is also the only Alice: the row and the
+  // `ALICE` constant are up in the people block, because she OWNS 'Toyota Highlander
+  // Digital Key' and an owner has to exist before the program does. Everything that needs
+  // Honda, Bosch or Qualcomm to exist stays here, and all of it rides the same
   // mutation boundaries as the rest of the seed (createPerson, the affiliations
   // route, createProject/createPhase, the involvement actions), INCLUDING the
   // scheduled Honda move, which goes through `movePersonCompany` itself rather than
@@ -1221,11 +1233,10 @@ export async function seedMockData() {
   // finds these rows at all depends on all three agreeing.
   const ALICE_SOURCE = normalizeHandle(ALICE.google.email);
 
-  // The two CLOSED periods before the Google one `createPerson` opened. Contiguous and
-  // half-open (`start <= t < end`):
-  // each period's end IS the next one's start, so there is no gap and no overlap
-  // anywhere in the career — including into the Google period opened above, whose start
-  // is exactly the Qualcomm period's end.
+  // The two CLOSED periods before the Google one `createPerson` opened up in the people
+  // block. Contiguous and half-open (`start <= t < end`): each period's end IS the next
+  // one's start, so there is no gap and no overlap anywhere in the career — including
+  // into that Google period, whose start is exactly the Qualcomm period's end.
   await addAffiliation(aliceWaters.id, {
     partnerId: boschId, role: ALICE.bosch.role, email: ALICE.bosch.email,
     startDate: ALICE.bosch.start, endDate: ALICE.bosch.end,
