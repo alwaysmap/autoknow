@@ -14,7 +14,7 @@
 // worker then seeds fixtures it cannot reach. tests/e2eWorkerIsolation.test.ts fails on the
 // import rather than leaving it to review.
 
-import { test as base, expect, type Page } from '@playwright/test';
+import { test as base, expect, type Locator, type Page } from '@playwright/test';
 import { testServerPort } from './worktree';
 
 export { expect, type Page, type Locator } from '@playwright/test';
@@ -51,3 +51,25 @@ export async function clickUntilNavigated(page: Page, url: RegExp, open: () => P
     await page.waitForURL(url, { timeout: 1500 });
   }).toPass({ timeout: 20000 });
 }
+
+/**
+ * A phase card on the PhaseTrack rail: `expandCard` TOGGLES its size, `openCard`
+ * ensures it is open. THE CARD IS THE CONTROL — rows default collapsed and there is
+ * no chevron, so a click anywhere on the card sizes it (and selects and traces it);
+ * the title is the stable, keyboard-reachable part, so tests drive it there. Two
+ * helpers because the click is a toggle and half the call sites want a STATE: opening
+ * the popover opens the card on the way (min is one line, so the zoom button is not
+ * there yet), and a later blind toggle would close it again.
+ *
+ * They live here rather than in one spec because a third spec wanted them and reached
+ * for `[class*="body"]` to read the open state — a hashed-class substring, which
+ * starts matching the day someone adds another class with `body` in its name
+ * (docs/knowledge/global-class-substring-selector-catches-module-classes.md). The
+ * title carries `aria-expanded` precisely so nobody has to guess.
+ */
+export const expandCard = (rowLocator: Locator) => rowLocator.locator('a[data-card-title]').click();
+
+export const openCard = async (rowLocator: Locator) => {
+  const title = rowLocator.locator('a[data-card-title]');
+  if ((await title.getAttribute('aria-expanded')) !== 'true') await title.click();
+};

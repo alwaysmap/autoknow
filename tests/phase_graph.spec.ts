@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Locator } from './helpers/e2e';
+import { test, expect, expandCard, openCard, type Page } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
@@ -8,18 +8,8 @@ import { seedProgram, type SeededProgram } from './helpers/fixtures';
 // popover (required-note status update, involvement editing, read-only dependencies),
 // and structural editing gated behind whole-graph DAG validation.
 
-// THE CARD IS THE CONTROL: rows default collapsed and there is no chevron any more,
-// so a click anywhere on the card sizes it (and selects and traces it). The title is
-// the stable, keyboard-reachable part of that card, so tests drive it there.
-//
-// Two helpers, because the click is a TOGGLE and half the call sites want a state.
-// Opening the popover now opens the card on the way (min is one line, so the zoom
-// button is not there yet), which means a later blind toggle would close it again.
-const expandCard = (rowLocator: Locator) => rowLocator.locator('a[data-card-title]').click();
-const openCard = async (rowLocator: Locator) => {
-  const title = rowLocator.locator('a[data-card-title]');
-  if ((await title.getAttribute('aria-expanded')) !== 'true') await title.click();
-};
+// `expandCard` (toggle) and `openCard` (ensure open) come from tests/helpers/e2e —
+// three specs wanted them, so they are not hand-rolled per file.
 
 test.describe('PhaseTrack rail', () => {
   test.describe.configure({ mode: 'serial' });
@@ -235,9 +225,9 @@ test.describe('PhaseTrack rail', () => {
   test('cards are compact: typed pills without role labels, no status words', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
 
-    // MIN is a single line: the name and the plan, and nothing else. No zoom button,
-    // and the Goal never rides the card at all — it lives only in the popover, so it
-    // is absent at both sizes.
+    // MIN is a single line: the name and the plan, and nothing else. No zoom button
+    // and no Goal — the min size is untouched by the standard card's dossier
+    // (autoknow-crw.2), which is what keeps a 15-phase program scannable.
     const bringUp = row(page, 'Bring-up');
     await expect(bringUp.getByRole('button', { name: 'Details' })).toHaveCount(0);
     await expect(bringUp).not.toContainText('Goal:');
@@ -253,12 +243,27 @@ test.describe('PhaseTrack rail', () => {
     await expect(integration).toContainText('Denso');
     await expect(integration).toContainText('Kenji Sato');
     await expect(integration).not.toContainText('FAE');
-    // The zoom button appears at standard size; the Goal does NOT — it is popover-only.
+    // The zoom button appears at standard size, and so does the Goal & definition of
+    // done — the standard card is the phase's dossier, so what it is FOR is readable
+    // without opening anything (autoknow-crw.2).
     await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
-    await expect(integration).not.toContainText('Goal:');
+    await expect(integration).toContainText('Goal:');
+    // …the latest update whole, beside it: the words, the date and the author.
+    await expect(integration).toContainText('Codec drops blocking the DSP path.');
+    await expect(integration).toContainText('testbot');
+    // …and the involvement metadata PINNED to the foot: whichever reading column runs
+    // longer, the pills are the last thing on the card. Compared as boxes rather than
+    // as DOM order, because "pinned to the foot" is a claim about where it RENDERS.
+    const footTop = await integration.locator('a', { hasText: 'Denso' }).first()
+      .evaluate((el) => el.getBoundingClientRect().top);
+    for (const above of ['Goal:', 'Codec drops blocking the DSP path.']) {
+      const bottom = await integration.getByText(above, { exact: false }).first()
+        .evaluate((el) => el.getBoundingClientRect().bottom);
+      expect(footTop).toBeGreaterThanOrEqual(bottom);
+    }
 
-    // Clicking the card again folds it back to one line, taking the pills and the
-    // zoom button with it.
+    // Clicking the card again folds it back to one line, taking the goal, the pills
+    // and the zoom button with it.
     await expandCard(integration);
     await expect(integration).not.toContainText('Denso');
     await expect(integration.getByRole('button', { name: 'Details' })).toHaveCount(0);
