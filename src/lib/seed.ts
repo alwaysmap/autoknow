@@ -141,8 +141,15 @@ function fd(fields: Record<string, string | number>): FormData {
   return f;
 }
 
+/**
+ * A person THIS SEED created: the id the involvement actions take, and the CANONICAL
+ * address the row actually landed with. Why a program owner is one of these rather than
+ * a string is on `createProject` below.
+ */
+interface SeededPerson { id: number; email: string }
+
 interface CreatedPartner { partner: { id: number } }
-interface CreatedPerson { person: { id: number } }
+interface CreatedPerson { person: SeededPerson }
 interface CreatedProject { project: { id: number } }
 interface CreatedPhase { phase: { id: number } }
 
@@ -161,9 +168,11 @@ async function createPartner(body: {
 async function createPerson(body: {
   name: string; email: string; currentPartnerId: number; notes?: string;
   role?: string; startDate?: string;
-}): Promise<number> {
+}): Promise<SeededPerson> {
   const { person } = await apiPost<CreatedPerson>(postPersonRoute, '/api/people', body);
-  return person.id;
+  // The address as STORED, not as submitted — `createPersonAt` normalizes it, so an owner
+  // reference built from the request body could quietly name nobody.
+  return { id: person.id, email: person.email };
 }
 
 async function addAffiliation(
@@ -175,10 +184,30 @@ async function addAffiliation(
   });
 }
 
+/**
+ * The owner is a `SeededPerson`, never a string, and that is the whole guard: the route
+ * behind this refuses freeform text (`requireOwner`, #127 E6), but only at RUNTIME and
+ * only via tiers loose enough to accept a display name. Taking the created row instead
+ * moves the same rule to compile time, where an owner who does not exist cannot be
+ * written down at all.
+ *
+ * That tier is not hypothetical: this seed used to pass `ownerName: 'Alice PM'` and
+ * `ownerName: 'Clara Operations'`, and the display-name tier hid it locally while #127
+ * E6's backfill reported exactly those two rows UNMATCHED in prod. Why that happened,
+ * and how to tell it apart from a matcher bug, is in
+ * docs/knowledge/a-backfills-unmatched-rows-may-name-people-who-never-existed.md.
+ */
 async function createProject(body: {
-  name: string; partnerId: number; ownerName: string; sopDate?: string; volumeFirstYear?: number;
+  name: string; partnerId: number; owner: SeededPerson; sopDate?: string; volumeFirstYear?: number;
 }): Promise<number> {
-  const { project } = await apiPost<CreatedProject>(postProjectRoute, '/api/projects', body);
+  const { owner, ...rest } = body;
+  const { project } = await apiPost<CreatedProject>(postProjectRoute, '/api/projects', {
+    ...rest,
+    // `owner.email`, not `owner.id`: the route takes only the address and resolves it
+    // itself, returning the `{ ownerName, ownerPersonId }` pair (#127 E6). There is no
+    // `ownerPersonId` input, and deliberately no second way to fill those two columns.
+    ownerName: owner.email,
+  });
   return project.id;
 }
 
@@ -576,50 +605,32 @@ export async function seedMockData() {
     summary: 'Silicon provider alignment for optimizing Snapdragon Cockpit platforms (SA8155P/SA8295P) with Google Automotive Services (GAS).',
   });
 
-  // Contact phone and the googleTeam roster are display-only fields with no
-  // mutation surface (API or action) — patched directly onto the API-created rows.
-  const contactPatches: Array<{ id: number; phone: string; googleTeam: { email: string; role: string }[] }> = [
-    { id: googlePartnerId, phone: '+1-650-253-0000', googleTeam: [] },
-    { id: fordId, phone: '+1-313-322-3000', googleTeam: [
-      { email: me.email, role: 'Relationship Lead' },
-      { email: 'bob@google.com', role: 'Cloud Account Manager' },
-    ] },
-    { id: toyotaId, phone: '+81-565-28-2121', googleTeam: [
-      { email: 'alice@google.com', role: 'Partner Engineering Manager' },
-    ] },
-    { id: boschId, phone: '+49-711-400-40290', googleTeam: [
-      { email: 'clara@google.com', role: 'Supplier Operations Lead' },
-    ] },
-    { id: qualcommId, phone: '+1-858-587-1121', googleTeam: [
-      { email: me.email, role: 'Silicon Alignment Engineer' },
-    ] },
-  ];
-  for (const patch of contactPatches) {
-    await prisma.partner.update({
-      where: { id: patch.id },
-      data: { phone: patch.phone, googleTeam: patch.googleTeam },
-    });
-  }
-
   console.log('Seeding people...');
   // People come BEFORE programs: the projects route resolves each program's owner
-  // against existing people and refuses freeform names.
-  await createPerson({
+  // against existing people and refuses freeform names. Everyone who is later NAMED —
+  // as a program owner, or on a partner's Google-team roster — is bound to a variable at
+  // its creation site, so those references are the created row, not a re-typed address.
+  // (The enrichment Googlers `marcus` and `priya` own programs too, and are bound the
+  // same way where they are created — in the enrichment block, via `mkPerson`.)
+  //
+  // `me` is the SESSION (AGENTS lesson 13, argued at the top of this function);
+  // `mePerson` is the row it produced. The owner and roster references below take the
+  // ROW, so they carry the address the route actually stored rather than the one this
+  // file submitted. Action-item assignees deliberately do NOT: the assignee route links
+  // to a Person best-effort and keeps the handle either way, because an assignee may
+  // legitimately be someone not in the people table yet — which is the whole difference
+  // between it and an owner (api/projects/[id]/phases/[phaseId]/action-items).
+  const mePerson = await createPerson({
     name: me.name, email: me.email, currentPartnerId: googlePartnerId,
     role: 'Lead Program Manager', startDate: '2024-01-01',
     notes: 'Lead Program Manager for AutoKnow ecosystem and Ford relationship.',
   });
-  await createPerson({
+  const bob = await createPerson({
     name: 'Bob AccountManager', email: 'bob@google.com', currentPartnerId: googlePartnerId,
     role: 'Cloud Account Manager', startDate: '2024-03-15',
     notes: 'Cloud Account Manager supervising OEM contract executions.',
   });
-  await createPerson({
-    name: 'Alice PM', email: 'alice@google.com', currentPartnerId: googlePartnerId,
-    role: 'Partner Engineering Manager', startDate: '2023-02-01',
-    notes: 'Partner Engineering Manager for the Toyota relationship.',
-  });
-  await createPerson({
+  const clara = await createPerson({
     name: 'Clara Operations', email: 'clara@google.com', currentPartnerId: googlePartnerId,
     role: 'Supplier Operations Lead', startDate: '2023-07-01',
     notes: 'Supplier Operations Lead covering Bosch programs.',
@@ -640,10 +651,85 @@ export async function seedMockData() {
     notes: 'Qualcomm Snapdragon Cockpit product manager.',
   });
 
-  // No `addAffiliation` calls for these seven: their current period is the one
-  // `createPerson` opened above. `addAffiliation` is now only for PRIOR periods and
-  // SCHEDULED moves — a second post naming the same job would overlap it, and the
-  // as-of resolvers would then have two rows to choose between for one day.
+  // None of the people above needs an `addAffiliation` call: their current period is the
+  // one `createPerson` opened. `addAffiliation` is now only for PRIOR periods and
+  // SCHEDULED moves — a second post naming the same job would overlap it, and the as-of
+  // resolvers would then have two rows to choose between for one day.
+
+  // ALICE WATERS IS CREATED HERE, with the rest of the Googlers, because she OWNS
+  // 'Toyota Highlander Digital Key' below and the owner has to exist first. The rest of
+  // her fixture — three more employment periods, three era programs, the scheduled Honda
+  // move — stays together further down, where the partners it needs exist; only the row
+  // itself has to be early. She is therefore the one person in THIS block who gets
+  // `addAffiliation` calls, and they are posted with that fixture.
+  //
+  // She is the only Alice. A second one — an 'Alice PM' persona — used to hold
+  // alice@google.com, so this fixture took the dotted form while `Person.email` was still
+  // `@unique`. #127 E9 replaced that with a constraint forbidding two people holding one
+  // address over OVERLAPPING periods, so retiring the persona is what makes the address
+  // #124 §7 assigns her actually hers. Why the persona existed, and what its free-text
+  // ownership cost in prod, is in
+  // docs/knowledge/a-backfills-unmatched-rows-may-name-people-who-never-existed.md.
+  //
+  // Her address changes WITH the company (#124 §2), and since #127 E8 each period STORES
+  // the address held during it — so the three addresses below are real columns, not
+  // prose. That is what makes the era action items (in her fixture below) resolve: each
+  // is addressed to the account she actually held at the time, exactly as a real one
+  // captured then would be, and the Qualcomm one used to strand off her entirely
+  // (#124 Class 4).
+  const ALICE = {
+    bosch: { role: 'Platform Engineer', email: 'alice.waters@bosch.com', start: '2022-01-01', end: '2024-03-01' },
+    qualcomm: { role: 'Staff Engineer', email: 'awaters@qualcomm.com', start: '2024-03-01', end: '2026-07-01' },
+    google: { role: 'Lead Program Manager', email: 'alice@google.com', start: '2026-07-01' },
+    honda: { role: 'Cockpit Platform Lead' },
+  };
+  // Creation opens the CURRENT period (Google, from 2026-07-01) — the third of the four.
+  // It is authored here rather than posted afterwards because /api/people opens one
+  // regardless (#127 E5): a second post naming the same job would sit ON TOP of it, and
+  // the fixture's "no overlap anywhere" would stop being true the moment it was written.
+  const aliceWaters = await createPerson({
+    name: 'Alice Waters',
+    email: ALICE.google.email,
+    currentPartnerId: googlePartnerId,
+    role: ALICE.google.role, startDate: ALICE.google.start,
+    // Company and title live in the periods, so the note does not repeat them.
+    notes: 'Telematics platform engineer who moved to the Google side of the same programs.',
+  });
+
+  // Contact phone and the googleTeam roster are display-only fields with no
+  // mutation surface (API or action) — patched directly onto the API-created rows.
+  // AFTER the people, so each roster entry is a person the seed just created: the blob
+  // stores bare addresses with no Person relation (#127 E13 is what deletes it), so a
+  // re-typed one resolves by luck. This roster is where that already happened: at
+  // 4ded811 the Toyota entry was a literal 'alice@google.com' and NO person by that
+  // address existed at all — it named nobody until 30952e6 created one, three weeks later.
+  //
+  // A roster `role` is the role held ON THIS RELATIONSHIP, not the person's job title —
+  // which is why mePerson appears twice below under two different ones, and why Alice
+  // Waters is Toyota's 'Partner Engineering Manager' while her Person row says Lead
+  // Program Manager.
+  const contactPatches: Array<{ id: number; phone: string; googleTeam: { email: string; role: string }[] }> = [
+    { id: googlePartnerId, phone: '+1-650-253-0000', googleTeam: [] },
+    { id: fordId, phone: '+1-313-322-3000', googleTeam: [
+      { email: mePerson.email, role: 'Relationship Lead' },
+      { email: bob.email, role: 'Cloud Account Manager' },
+    ] },
+    { id: toyotaId, phone: '+81-565-28-2121', googleTeam: [
+      { email: aliceWaters.email, role: 'Partner Engineering Manager' },
+    ] },
+    { id: boschId, phone: '+49-711-400-40290', googleTeam: [
+      { email: clara.email, role: 'Supplier Operations Lead' },
+    ] },
+    { id: qualcommId, phone: '+1-858-587-1121', googleTeam: [
+      { email: mePerson.email, role: 'Silicon Alignment Engineer' },
+    ] },
+  ];
+  for (const patch of contactPatches) {
+    await prisma.partner.update({
+      where: { id: patch.id },
+      data: { phone: patch.phone, googleTeam: patch.googleTeam },
+    });
+  }
 
   // Demo programs instantiate these real templates, so their phases carry the
   // researched Goal/"Done when" content and the full DAG. `through` is how far into
@@ -657,7 +743,7 @@ export async function seedMockData() {
 
   // 1. Ford Evos AAOS Bring-up
   const fordProjectId = await createProject({
-    name: 'Ford Evos AAOS Bring-up', partnerId: fordId, ownerName: me.email,
+    name: 'Ford Evos AAOS Bring-up', partnerId: fordId, owner: mePerson,
     sopDate: await sopForPlan(AAOS_T, FORD_THROUGH, 8), volumeFirstYear: 180000,
   });
   // Dated program history through the needle route, oldest first — the final post
@@ -695,7 +781,7 @@ export async function seedMockData() {
 
   // 2. Toyota Highlander Digital Key
   const toyotaProjectId = await createProject({
-    name: 'Toyota Highlander Digital Key', partnerId: toyotaId, ownerName: 'Alice PM',
+    name: 'Toyota Highlander Digital Key', partnerId: toyotaId, owner: aliceWaters,
     sopDate: await sopForPlan(DK_T, TOYOTA_THROUGH, 4), volumeFirstYear: 250000,
   });
   await postProjectState(toyotaProjectId, {
@@ -718,7 +804,7 @@ export async function seedMockData() {
 
   // 3. Ford Explorer VHAL Integration (Bosch)
   const boschProjectId = await createProject({
-    name: 'Ford Explorer VHAL Integration (Bosch)', partnerId: boschId, ownerName: 'Clara Operations',
+    name: 'Ford Explorer VHAL Integration (Bosch)', partnerId: boschId, owner: clara,
     sopDate: await sopForPlan(AAOS_T, BOSCH_THROUGH, 6), volumeFirstYear: 120000,
   });
   await postProjectState(boschProjectId, {
@@ -747,7 +833,7 @@ export async function seedMockData() {
 
   // 4. Qualcomm Snapdragon Support (SA8295P cockpit)
   const qualcommProjectId = await createProject({
-    name: 'Qualcomm Snapdragon Cockpit Support', partnerId: qualcommId, ownerName: me.email,
+    name: 'Qualcomm Snapdragon Cockpit Support', partnerId: qualcommId, owner: mePerson,
     sopDate: await sopForPlan(AAOS_T, QUALCOMM_THROUGH, 10), volumeFirstYear: 500000,
   });
   await postProjectState(qualcommProjectId, {
@@ -832,76 +918,76 @@ export async function seedMockData() {
   const mkPerson = (name: string, email: string, currentPartnerId: number, role: string, startDate: string, notes: string) =>
     createPerson({ name, email, currentPartnerId, role, startDate, notes });
 
-  const priyaId = await mkPerson('Priya Sharma', 'priyash@google.com', googlePartnerId, 'Partner Engineer', '2023-04-01', 'Partner engineer across GAS integrations.');
-  const marcusId = await mkPerson('Marcus Webb', 'marcusw@google.com', googlePartnerId, 'Technical Program Manager', '2022-09-01', 'TPM for the AAOS bring-up portfolio.');
-  const aikoId = await mkPerson('Aiko Tanaka', 'aiko@honda.example', hondaId, 'Cockpit Software Lead', '2021-04-01', 'Honda cockpit software lead.');
-  const lenaId = await mkPerson('Lena Fischer', 'lena@continental.example', continentalId, 'Integration Architect', '2023-05-01', 'Continental integration architect.');
-  const carlosId = await mkPerson('Carlos Ruiz', 'carlos@gm.example', gmId, 'Ultifi Platform Owner', '2022-02-01', 'GM Ultifi platform owner.');
-  const minjiId = await mkPerson('Min-ji Park', 'minji@lge.example', lgeId, 'Head-unit Delivery Manager', '2024-08-01', 'LGE head-unit delivery manager.');
-  const svenId = await mkPerson('Sven Larsson', 'sven@volvocars.example', volvoCarsId, 'Digital Key Security Lead', '2021-11-01', 'Volvo Digital Key security lead.');
-  const deepakId = await mkPerson('Deepak Rao', 'deepak@mediatek.example', mediatekId, 'Automotive FAE', '2022-01-01', 'MediaTek automotive FAE.');
+  const priya = await mkPerson('Priya Sharma', 'priyash@google.com', googlePartnerId, 'Partner Engineer', '2023-04-01', 'Partner engineer across GAS integrations.');
+  const marcus = await mkPerson('Marcus Webb', 'marcusw@google.com', googlePartnerId, 'Technical Program Manager', '2022-09-01', 'TPM for the AAOS bring-up portfolio.');
+  const aiko = await mkPerson('Aiko Tanaka', 'aiko@honda.example', hondaId, 'Cockpit Software Lead', '2021-04-01', 'Honda cockpit software lead.');
+  const lena = await mkPerson('Lena Fischer', 'lena@continental.example', continentalId, 'Integration Architect', '2023-05-01', 'Continental integration architect.');
+  const carlos = await mkPerson('Carlos Ruiz', 'carlos@gm.example', gmId, 'Ultifi Platform Owner', '2022-02-01', 'GM Ultifi platform owner.');
+  const minji = await mkPerson('Min-ji Park', 'minji@lge.example', lgeId, 'Head-unit Delivery Manager', '2024-08-01', 'LGE head-unit delivery manager.');
+  const sven = await mkPerson('Sven Larsson', 'sven@volvocars.example', volvoCarsId, 'Digital Key Security Lead', '2021-11-01', 'Volvo Digital Key security lead.');
+  const deepak = await mkPerson('Deepak Rao', 'deepak@mediatek.example', mediatekId, 'Automotive FAE', '2022-01-01', 'MediaTek automotive FAE.');
 
   // PRIOR periods only — each ends exactly where the NEXT period in that career begins,
   // so every career is contiguous and half-open with no day covered twice.
-  await addAffiliation(lenaId, { partnerId: boschId, role: 'Platform engineer', startDate: '2019-02-01', endDate: '2023-05-01' });
-  await addAffiliation(deepakId, { partnerId: qualcommId, role: 'FAE', startDate: '2018-06-01', endDate: '2022-01-01' });
-  await addAffiliation(minjiId, { partnerId: harmanId, role: 'Delivery lead', startDate: '2020-03-01', endDate: '2024-08-01' });
+  await addAffiliation(lena.id, { partnerId: boschId, role: 'Platform engineer', startDate: '2019-02-01', endDate: '2023-05-01' });
+  await addAffiliation(deepak.id, { partnerId: qualcommId, role: 'FAE', startDate: '2018-06-01', endDate: '2022-01-01' });
+  await addAffiliation(minji.id, { partnerId: harmanId, role: 'Delivery lead', startDate: '2020-03-01', endDate: '2024-08-01' });
   // Min-ji's FIRST job, and the only reason it is Honda: without it no partner in the
   // demo has all three of #124 §4's buckets at once, so the surface that exists to show
   // them (#127 E12) could not be seen doing it. Honda already has Aiko sitting there
   // (current) and Alice arriving on the scheduled move (incoming); this is the leaver.
   // Contiguous with Harman above — her career runs Honda → Harman → LGE with no gap and
   // no overlap, like every other one here.
-  await addAffiliation(minjiId, { partnerId: hondaId, role: 'Cockpit QA Lead', startDate: '2018-01-01', endDate: '2020-03-01' });
+  await addAffiliation(minji.id, { partnerId: hondaId, role: 'Cockpit QA Lead', startDate: '2018-01-01', endDate: '2020-03-01' });
 
   // Program specs: name, OEM, owner, SOP (month-end), 12-month volume, products,
   // health, hill position, phases (name, days, progress) chained linearly, and the
   // suppliers/people involved in the currently active phase.
   interface MockPhase { n: string; d: number; p: number }
   interface MockProgram {
-    name: string; partnerId: number; owner: string; sop: string; vol: number;
+    name: string; partnerId: number; owner: SeededPerson; sop: string; vol: number;
     gas: boolean; gbi: boolean; dk: boolean; aap?: boolean; needle: string; hill: number;
     phases: MockPhase[]; suppliers: number[]; people: number[];
   }
   const programs: MockProgram[] = [
     // --- AAOS bring-ups ---
-    { name: 'Honda Accord AAOS Bring-up', partnerId: hondaId, owner: 'marcusw', sop: '2027-04-30', vol: 220000,
+    { name: 'Honda Accord AAOS Bring-up', partnerId: hondaId, owner: marcus, sop: '2027-04-30', vol: 220000,
       gas: true, gbi: true, dk: false, needle: 'Some Risk', hill: 45,
       phases: [ { n: 'BSP & Power-on', d: 30, p: 100 }, { n: 'HAL Integration', d: 45, p: 55 }, { n: 'Cluster Bring-up', d: 30, p: 0 }, { n: 'Certification', d: 40, p: 0 } ],
-      suppliers: [densoId, mediatekId], people: [aikoId, deepakId, marcusId] },
-    { name: 'GM Ultifi AAOS Migration', partnerId: gmId, owner: 'marcusw', sop: '2027-09-30', vol: 340000,
+      suppliers: [densoId, mediatekId], people: [aiko.id, deepak.id, marcus.id] },
+    { name: 'GM Ultifi AAOS Migration', partnerId: gmId, owner: marcus, sop: '2027-09-30', vol: 340000,
       gas: true, gbi: true, dk: false, needle: 'On Track', hill: 30,
       phases: [ { n: 'Architecture Lock', d: 25, p: 100 }, { n: 'Compute Board Bring-up', d: 40, p: 40 }, { n: 'App Platform Port', d: 50, p: 0 }, { n: 'Fleet Validation', d: 45, p: 0 } ],
-      suppliers: [lgeId], people: [carlosId, minjiId, marcusId] },
-    { name: 'Volvo EX90 AAOS Refresh', partnerId: volvoCarsId, owner: me.email, sop: '2026-12-31', vol: 90000,
+      suppliers: [lgeId], people: [carlos.id, minji.id, marcus.id] },
+    { name: 'Volvo EX90 AAOS Refresh', partnerId: volvoCarsId, owner: mePerson, sop: '2026-12-31', vol: 90000,
       gas: true, gbi: false, dk: false, needle: 'Concerned', hill: 70,
       phases: [ { n: 'Platform Rebase', d: 30, p: 100 }, { n: 'Driver Update Pass', d: 25, p: 80 }, { n: 'Regression & Cert', d: 35, p: 0 } ],
-      suppliers: [continentalId], people: [lenaId, svenId] },
+      suppliers: [continentalId], people: [lena.id, sven.id] },
     // --- GAS integrations ---
-    { name: 'Hyundai Ioniq GAS Integration', partnerId: hyundaiId, owner: 'priyash', sop: '2027-06-30', vol: 260000,
+    { name: 'Hyundai Ioniq GAS Integration', partnerId: hyundaiId, owner: priya, sop: '2027-06-30', vol: 260000,
       gas: true, gbi: false, dk: false, needle: 'On Track', hill: 35,
       phases: [ { n: 'GMS Core Enablement', d: 30, p: 100 }, { n: 'Play Store Config', d: 20, p: 45 }, { n: 'Assistant Tuning', d: 25, p: 0 }, { n: 'GAS Certification', d: 30, p: 0 } ],
-      suppliers: [lgeId], people: [minjiId, priyaId] },
-    { name: 'Stellantis STLA GAS Rollout', partnerId: stellantisId, owner: 'priyash', sop: '2028-03-31', vol: 410000,
+      suppliers: [lgeId], people: [minji.id, priya.id] },
+    { name: 'Stellantis STLA GAS Rollout', partnerId: stellantisId, owner: priya, sop: '2028-03-31', vol: 410000,
       gas: true, gbi: true, dk: false, needle: 'Some Risk', hill: 20,
       phases: [ { n: 'Brand Matrix Scoping', d: 20, p: 100 }, { n: 'Reference Head Unit', d: 45, p: 30 }, { n: 'Per-brand Skinning', d: 40, p: 0 }, { n: 'Rollout Wave 1', d: 50, p: 0 } ],
-      suppliers: [harmanId], people: [priyaId] },
+      suppliers: [harmanId], people: [priya.id] },
     // --- Digital Key programs ---
-    { name: 'Honda Digital Key CCC', partnerId: hondaId, owner: me.email, sop: '2027-01-31', vol: 150000,
+    { name: 'Honda Digital Key CCC', partnerId: hondaId, owner: mePerson, sop: '2027-01-31', vol: 150000,
       gas: false, gbi: false, dk: true, needle: 'Some Risk', hill: 50,
       phases: [ { n: 'NFC Driver Bring-up', d: 20, p: 100 }, { n: 'Secure Element Config', d: 30, p: 60 }, { n: 'CCC Spec Compliance', d: 40, p: 0 } ],
-      suppliers: [densoId], people: [aikoId] },
-    { name: 'Volvo Digital Key', partnerId: volvoCarsId, owner: me.email, sop: '2027-08-31', vol: 70000,
+      suppliers: [densoId], people: [aiko.id] },
+    { name: 'Volvo Digital Key', partnerId: volvoCarsId, owner: mePerson, sop: '2027-08-31', vol: 70000,
       gas: false, gbi: false, dk: true, needle: 'On Track', hill: 25,
       phases: [ { n: 'Key Architecture', d: 25, p: 100 }, { n: 'UWB Ranging', d: 35, p: 25 }, { n: 'Companion App', d: 30, p: 0 }, { n: 'CCC Certification', d: 30, p: 0 } ],
-      suppliers: [continentalId], people: [svenId, lenaId] },
+      suppliers: [continentalId], people: [sven.id, lena.id] },
   ];
 
   for (const spec of programs) {
     const projectId = await createProject({
       name: spec.name,
       partnerId: spec.partnerId,
-      ownerName: spec.owner,
+      owner: spec.owner,
       sopDate: spec.sop,
       volumeFirstYear: spec.vol,
     });
@@ -994,7 +1080,7 @@ export async function seedMockData() {
     personIds?: number[];
   }
   interface ShowProgram {
-    name: string; partnerId: number; owner: string; sopInDays: number; vol: number;
+    name: string; partnerId: number; owner: SeededPerson; sopInDays: number; vol: number;
     gas?: boolean; gbi?: boolean; dk?: boolean; needle: string; hill: number; note: string;
     phases: ShowPhase[];
   }
@@ -1003,7 +1089,7 @@ export async function seedMockData() {
     // Bosch was multiplexed; 6 idle days before SW integration AND before Cert;
     // Cert (constraint, Priya + Marcus) trending ~5d over; Production readiness
     // (Bosch) is the upcoming handoff. Buffer 35 → 12 of a 45-day guideline.
-    { name: 'Gemini X Cockpit', partnerId: gmId, owner: me.email, sopInDays: 101, vol: 120000,
+    { name: 'Gemini X Cockpit', partnerId: gmId, owner: mePerson, sopInDays: 101, vol: 120000,
       gas: true, gbi: true, needle: 'Some Risk', hill: 55,
       note: 'Cert is moving but slower than planned; watching the buffer weekly.',
       phases: [
@@ -1012,24 +1098,24 @@ export async function seedMockData() {
           states: [{ ago: 173, p: 10 }, { ago: 150, p: 30 }, { ago: 130, p: 60 }, { ago: 110, p: 85 }, { ago: 104, p: 100 }] },
         { n: 'SW integration', d: 70, startedAgo: 98,
           states: [{ ago: 98, p: 15 }, { ago: 70, p: 45 }, { ago: 45, p: 80 }, { ago: 28, p: 100 }] },
-        { n: 'Cert', d: 56, startedAgo: 22, personIds: [priyaId, marcusId],
+        { n: 'Cert', d: 56, startedAgo: 22, personIds: [priya.id, marcus.id],
           states: [{ ago: 22, p: 10 }, { ago: 10, p: 20 }, { ago: 3, p: 30 }] },
         { n: 'Production readiness', d: 50, startedAgo: null, partnerIds: [boschId], states: [{ ago: 1, p: 0 }] },
       ] },
     // SOP overshoot: certification forecast lands ~13 days past the SOP — the
     // "declare Concerned, propose the SOP move" example, with delayed units.
-    { name: 'Polaris EV Digital Key', partnerId: volvoCarsId, owner: me.email, sopInDays: 5, vol: 60000,
+    { name: 'Polaris EV Digital Key', partnerId: volvoCarsId, owner: mePerson, sopInDays: 5, vol: 60000,
       dk: true, needle: 'Concerned', hill: 60,
       note: 'UWB ranging overran and certification is pacing behind plan.',
       phases: [
         { n: 'Key Architecture', d: 30, startedAgo: 120, states: [{ ago: 120, p: 20 }, { ago: 110, p: 70 }, { ago: 95, p: 100 }] },
         { n: 'UWB Ranging', d: 45, startedAgo: 95,
           states: [{ ago: 95, p: 15 }, { ago: 75, p: 50 }, { ago: 60, p: 80 }, { ago: 40, p: 100 }] },
-        { n: 'CCC Certification', d: 50, startedAgo: 40, personIds: [priyaId],
+        { n: 'CCC Certification', d: 50, startedAgo: 40, personIds: [priya.id],
           states: [{ ago: 40, p: 10 }, { ago: 20, p: 20 }, { ago: 7, p: 25 }] },
       ] },
     // Healthy buffer but a falling trend, with Bosch gating this one SOP.
-    { name: 'Meridian Van GAS', partnerId: stellantisId, owner: 'priyash', sopInDays: 150, vol: 45000,
+    { name: 'Meridian Van GAS', partnerId: stellantisId, owner: priya, sopInDays: 150, vol: 45000,
       gas: true, needle: 'On Track', hill: 45,
       note: 'Integration slower than the last four weeks suggested; still roomy.',
       phases: [
@@ -1040,14 +1126,14 @@ export async function seedMockData() {
       ] },
     // All clear: every phase on plan, no gaps, buffer untouched — the
     // nothing-to-do example AND Priya's movable slack in the portfolio view.
-    { name: 'Nova Compact AAOS', partnerId: hondaId, owner: 'marcusw', sopInDays: 110, vol: 80000,
+    { name: 'Nova Compact AAOS', partnerId: hondaId, owner: marcus, sopInDays: 110, vol: 80000,
       gas: true, needle: 'On Track', hill: 60,
       note: 'Running to plan.',
       phases: [
         { n: 'Bring-up', d: 40, startedAgo: 80, states: [{ ago: 80, p: 30 }, { ago: 60, p: 70 }, { ago: 40, p: 100 }] },
         { n: 'Integration', d: 50, startedAgo: 40,
           states: [{ ago: 40, p: 20 }, { ago: 25, p: 50 }, { ago: 10, p: 70 }, { ago: 2, p: 80 }] },
-        { n: 'Certification', d: 35, startedAgo: null, personIds: [priyaId], states: [{ ago: 1, p: 0 }] },
+        { n: 'Certification', d: 35, startedAgo: null, personIds: [priya.id], states: [{ ago: 1, p: 0 }] },
       ] },
   ];
 
@@ -1055,7 +1141,7 @@ export async function seedMockData() {
     const projectId = await createProject({
       name: spec.name,
       partnerId: spec.partnerId,
-      ownerName: spec.owner,
+      owner: spec.owner,
       sopDate: aheadMonthEnd(spec.sopInDays).toISOString(),
       volumeFirstYear: spec.vol,
     });
@@ -1111,7 +1197,10 @@ export async function seedMockData() {
   // Alice Waters — the temporal-profile fixture (spec #124 §7).
   //
   // ONE human across FOUR employment periods, so the person and partner pages have
-  // a real multi-company career to get right. Everything below rides the same
+  // a real multi-company career to get right. She is also the only Alice: the row and the
+  // `ALICE` constant are up in the people block, because she OWNS 'Toyota Highlander
+  // Digital Key' and an owner has to exist before the program does. Everything that needs
+  // Honda, Bosch or Qualcomm to exist stays here, and all of it rides the same
   // mutation boundaries as the rest of the seed (createPerson, the affiliations
   // route, createProject/createPhase, the involvement actions), INCLUDING the
   // scheduled Honda move, which goes through `movePersonCompany` itself rather than
@@ -1134,29 +1223,13 @@ export async function seedMockData() {
   // ---------------------------------------------------------------------------
   console.log('Seeding the Alice Waters temporal-profile fixture (four periods, one human)...');
 
-  // Her address changes WITH the company (#124 §2), and since #127 E8 each period
-  // STORES the address held during it — so all three are real columns, not just prose.
-  // That is what makes the era action items below resolve: each is addressed to the
-  // account she actually held at the time, exactly as a real one captured then would
-  // be, and the Qualcomm one used to strand off her entirely (#124 Class 4).
-  const ALICE = {
-    bosch: { role: 'Platform Engineer', email: 'alice.waters@bosch.com', start: '2022-01-01', end: '2024-03-01' },
-    qualcomm: { role: 'Staff Engineer', email: 'awaters@qualcomm.com', start: '2024-03-01', end: '2026-07-01' },
-    // §7 says alice@google.com. That address already belongs to the 'Alice PM'
-    // persona seeded above, who is employed over the same window, so the
-    // unique-at-an-instant constraint (#127 E9) would refuse this period outright —
-    // the fixture takes the dotted form, the same shape as her Bosch address. Its
-    // local part ('alice.waters') is distinct from 'alice', so resolvePerson sends the
-    // bare handle 'alice' to Alice PM and nothing else moves.
-    google: { role: 'Lead Program Manager', email: 'alice.waters@google.com', start: '2026-07-01' },
-    honda: { role: 'Cockpit Platform Lead' },
-  };
-
   // SHE wrote the era updates below, and `source` records that the way the app itself
   // does: `getCurrentUser().handle`, a bare handle (actions/needle.ts, actions/hill.ts).
   // The handle is stable across her moves — the ADDRESS is not, which is what the era
-  // action items carry — so one string spans all three eras and `resolvePerson` maps it
-  // back through her email's local part.
+  // action items carry — so one string spans all three eras, and `personAliases` is what
+  // maps it back to her when a person-scoped feed asks. (`deriveEmail('alice')` is her
+  // canonical address exactly, so it also resolves on the first tier, not the local-part
+  // one — true of the dotted form before this too.)
   //
   // `'seed'`, which every other fixture uses, names no human, so with it the whole
   // career was invisible to a person-scoped feed (#176's limit swallowing the fixture
@@ -1168,28 +1241,15 @@ export async function seedMockData() {
   // finds these rows at all depends on all three agreeing.
   const ALICE_SOURCE = normalizeHandle(ALICE.google.email);
 
-  // Creation opens the CURRENT period (Google, from 2026-07-01) — the third of the four.
-  // It is authored here rather than posted afterwards because /api/people opens one
-  // regardless (#127 E5): a second post naming the same job would sit ON TOP of it, and
-  // "no overlap anywhere" below would stop being true the moment it was written.
-  const aliceWatersId = await createPerson({
-    name: 'Alice Waters',
-    email: ALICE.google.email,
-    currentPartnerId: googlePartnerId,
-    role: ALICE.google.role, startDate: ALICE.google.start,
-    // Company and title live in the periods, so the note does not repeat them.
-    notes: 'Telematics platform engineer who moved to the Google side of the same programs.',
-  });
-
-  // The two CLOSED periods before it. Contiguous and half-open (`start <= t < end`):
-  // each period's end IS the next one's start, so there is no gap and no overlap
-  // anywhere in the career — including into the Google period opened above, whose start
-  // is exactly the Qualcomm period's end.
-  await addAffiliation(aliceWatersId, {
+  // The two CLOSED periods before the Google one `createPerson` opened, up in the people
+  // block. Contiguous and half-open (`start <= t < end`): each period's end IS the next
+  // one's start, so there is no gap and no overlap anywhere in the career — including
+  // into that Google period, whose start is exactly the Qualcomm period's end.
+  await addAffiliation(aliceWaters.id, {
     partnerId: boschId, role: ALICE.bosch.role, email: ALICE.bosch.email,
     startDate: ALICE.bosch.start, endDate: ALICE.bosch.end,
   });
-  await addAffiliation(aliceWatersId, {
+  await addAffiliation(aliceWaters.id, {
     partnerId: qualcommId, role: ALICE.qualcomm.role, email: ALICE.qualcomm.email,
     startDate: ALICE.qualcomm.start, endDate: ALICE.qualcomm.end,
   });
@@ -1234,7 +1294,7 @@ export async function seedMockData() {
   // (a) INSIDE THE BOSCH WINDOW (2022-01 → 2024-03): a finished 2022–23 program
   // with her in it, so that period owns real work and not just a date range.
   const aliceBoschProjectId = await createProject({
-    name: 'Bosch TCU Gen-2 Platform', partnerId: boschId, ownerName: 'clara@google.com',
+    name: 'Bosch TCU Gen-2 Platform', partnerId: boschId, owner: clara,
     sopDate: '2023-09-30', volumeFirstYear: 95000,
   });
   await postProjectState(aliceBoschProjectId, {
@@ -1255,11 +1315,13 @@ export async function seedMockData() {
     { n: 'Field validation', d: 50, startedOn: '2022-11-15',
       states: [{ at: '2022-11-15', p: 40 }, { at: '2023-06-01', p: 100 }] },
   ]);
-  await involvePerson(aliceBoschProjectId, aliceBoschPhases['Modem integration'], aliceWatersId, ALICE.bosch.role);
-  // Addressed to the account she actually held in 2022. Until #127 E8 it linked to
-  // her only by ACCIDENT — resolvePerson fell back to the email local part, and hers
-  // ('alice.waters') happened to survive both moves. Now it links for the reason it
-  // should: the Bosch period records that address, so the exact-email tier finds it.
+  await involvePerson(aliceBoschProjectId, aliceBoschPhases['Modem integration'], aliceWaters.id, ALICE.bosch.role);
+  // Addressed to the account she actually held in 2022. Until #127 E8 it linked to her
+  // only by ACCIDENT — resolvePerson fell back to the email local part, and her
+  // then-Google local part ('alice.waters', before this fixture took alice@google.com)
+  // happened to survive both moves. Her canonical local part no longer carries that
+  // coincidence, which is the point: what links this item is the Bosch period recording
+  // the address, so the exact-email tier finds it.
   await createActionItem(aliceBoschProjectId, aliceBoschPhases['Modem integration'], {
     description: 'Close out LTE modem thermal throttling on the Gen-2 board',
     assignedTo: ALICE.bosch.email, status: 'Completed', nextStep: 'Resolved',
@@ -1268,7 +1330,7 @@ export async function seedMockData() {
 
   // (b) INSIDE THE QUALCOMM WINDOW (2024-03 → 2026-07): a 2024–25 silicon program.
   const aliceQualcommProjectId = await createProject({
-    name: 'Qualcomm SA8155P Cockpit Validation', partnerId: qualcommId, ownerName: 'marcusw@google.com',
+    name: 'Qualcomm SA8155P Cockpit Validation', partnerId: qualcommId, owner: marcus,
     sopDate: '2025-12-31', volumeFirstYear: 140000,
   });
   await postProjectState(aliceQualcommProjectId, {
@@ -1289,7 +1351,7 @@ export async function seedMockData() {
     { n: 'OEM handover', d: 30, startedOn: '2025-07-15',
       states: [{ at: '2025-07-15', p: 50 }, { at: '2025-11-03', p: 100 }] },
   ]);
-  await involvePerson(aliceQualcommProjectId, aliceQualcommPhases['Cockpit validation suite'], aliceWatersId, ALICE.qualcomm.role);
+  await involvePerson(aliceQualcommProjectId, aliceQualcommPhases['Cockpit validation suite'], aliceWaters.id, ALICE.qualcomm.role);
   // The same artifact, addressed to the account she held in 2025 — and this is the
   // one that used to strand. `awaters@qualcomm.com` shares nothing with her current
   // address, so while a Person held exactly ONE address it matched nobody at all
@@ -1313,7 +1375,7 @@ export async function seedMockData() {
   // Relative dates here, not literal — a current program must always read as "now",
   // and anything a few weeks old is inside the Google period whenever it is seeded.
   const aliceGoogleProjectId = await createProject({
-    name: 'Honda CR-V Cockpit Bring-up', partnerId: hondaId, ownerName: ALICE.google.email,
+    name: 'Honda CR-V Cockpit Bring-up', partnerId: hondaId, owner: aliceWaters,
     sopDate: aheadMonthEnd(300).toISOString(), volumeFirstYear: 130000,
   });
   await prisma.project.update({
@@ -1336,7 +1398,7 @@ export async function seedMockData() {
     { n: 'CCC + GAS certification', d: 35, startedOn: null, states: [{ at: agoIso(2), p: 0 }] },
   ]);
   await involvePerson(
-    aliceGoogleProjectId, aliceGooglePhases['Cockpit integration'], aliceWatersId, ALICE.google.role,
+    aliceGoogleProjectId, aliceGooglePhases['Cockpit integration'], aliceWaters.id, ALICE.google.role,
   );
 
   // (d) THE SCHEDULED MOVE. Four months out, through the real action — which records
@@ -1350,7 +1412,7 @@ export async function seedMockData() {
   // guard against Class 1 coming back.
   const hondaMoveDate = aheadMonthStart(4);
   const moved = await movePersonCompany(fd({
-    personId: aliceWatersId,
+    personId: aliceWaters.id,
     newPartnerId: hondaId,
     newRole: ALICE.honda.role,
     startDate: hondaMoveDate.toISOString(),

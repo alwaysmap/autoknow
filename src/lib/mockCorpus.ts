@@ -778,19 +778,19 @@ in the room.`,
         daysAgo: 26,
         text: `#toyota-highlander-dk
 
-Alice PM: NFC driver bring-up is done and passed the internal antenna characterisation
+Alice Waters: NFC driver bring-up is done and passed the internal antenna characterisation
 on the e-TNGA chassis. Nothing dramatic to report, which is the good outcome.
 
 Kenji Sato: agreed. The antenna placement work we did in the pre-study paid off — no
 surprises at bring-up, which is not usually how this goes.
 
-Alice PM: moving to secure element configuration next. Kenji, your team is reviewing the
+Alice Waters: moving to secure element configuration next. Kenji, your team is reviewing the
 key exchange protocol document this week?
 
 Kenji Sato: yes, review is scheduled. I do not expect issues but I would rather find them
 in review than in conformance.
 
-Alice PM: exactly right. Thanks.`,
+Alice Waters: exactly right. Thanks.`,
       },
     ],
   },

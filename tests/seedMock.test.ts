@@ -36,9 +36,10 @@ describe('seedMockData through the API', () => {
   it('lands the full entity graph', async () => {
     // 1 Google + 4 classic + 10 enrichment partners.
     expect(await prisma.partner.count()).toBe(15);
-    // 7 classic-era people (incl. Alice PM + Clara, the once-freeform owners)
-    // + 8 enrichment + Alice Waters, the temporal-profile fixture.
-    expect(await prisma.person.count()).toBe(16);
+    // 6 classic-era people + Alice Waters (created with them because she owns a classic
+    // program) + 8 enrichment. FIFTEEN, not sixteen: the 'Alice PM' persona is retired,
+    // and there is now exactly one Alice.
+    expect(await prisma.person.count()).toBe(15);
     // 4 classic + 7 enrichment + 4 showcase + 3 Alice-era programs.
     expect(await prisma.project.count()).toBe(18);
     expect(await prisma.phaseDependency.count()).toBeGreaterThan(0);
@@ -81,6 +82,11 @@ describe('seedMockData through the API', () => {
     // The lead-PM persona is bound to the SIGNED-IN identity (mocked to dev@google.com
     // above), not to a literal in the seed — see 'the lead PM is the signed-in user'.
     expect((await byName('Ford Evos AAOS Bring-up')).ownerName).toBe('dev@google.com');
+    // Unchanged, and that is the point: the route stores the resolved email, not the
+    // string the seed passes, so retiring the persona that used to hold this address
+    // moves the owner (it is Alice Waters now) without moving the value. NOT true of
+    // prod, seeded when neither the resolution nor the Person rows existed — see
+    // docs/knowledge/a-backfills-unmatched-rows-may-name-people-who-never-existed.md.
     expect((await byName('Toyota Highlander Digital Key')).ownerName).toBe('alice@google.com');
     expect((await byName('Ford Explorer VHAL Integration (Bosch)')).ownerName).toBe('clara@google.com');
     expect((await byName('Honda Accord AAOS Bring-up')).ownerName).toBe('marcusw@google.com');
@@ -252,7 +258,7 @@ describe('seedMockData through the API', () => {
       where: { assignedTo: 'awaters@qualcomm.com' },
     });
     const alice = await prisma.person.findFirstOrThrow({
-      where: { email: 'alice.waters@google.com' },
+      where: { email: 'alice@google.com' },
     });
     expect(qualcommEraItem.assignedToPersonId).toBe(alice.id);
   });
@@ -262,7 +268,7 @@ describe('seedMockData through the API', () => {
   // and a fixture that silently loses a boundary would make the demos lie.
   it('Alice Waters carries four contiguous periods, with Honda still in the future', async () => {
     const alice = await prisma.person.findFirstOrThrow({
-      where: { email: 'alice.waters@google.com' },
+      where: { email: 'alice@google.com' },
       include: { affiliations: { include: { partner: true }, orderBy: { startDate: 'asc' } } },
     });
     const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
@@ -317,11 +323,18 @@ describe('seedMockData through the API', () => {
     expect(involvements.map((i) => i.phase.project.name).sort()).toEqual([
       'Bosch TCU Gen-2 Platform', 'Honda CR-V Cockpit Bring-up', 'Qualcomm SA8155P Cockpit Validation',
     ]);
+    // Ownership is matched on the ID, not on the address, because that is the column the
+    // demo will actually read once #127 E7 moves the readers onto the FK — and it is the
+    // one that would survive her next move. Two programs, from two directions: the Toyota
+    // one she inherits from the retired persona, and her Google-era program, already hers
+    // before this change.
     const owned = await prisma.project.findMany({
-      where: { ownerName: 'alice.waters@google.com' },
-      select: { name: true },
+      where: { ownerPersonId: alice.id },
+      select: { name: true, ownerName: true },
     });
-    expect(owned.map((p) => p.name)).toEqual(['Honda CR-V Cockpit Bring-up']);
+    expect(owned.map((p) => p.name).sort())
+      .toEqual(['Honda CR-V Cockpit Bring-up', 'Toyota Highlander Digital Key']);
+    expect(new Set(owned.map((p) => p.ownerName))).toEqual(new Set(['alice@google.com']));
   });
 
   it('relationship journal keeps the ghost-ring pair with canonical derived health', async () => {
