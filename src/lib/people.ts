@@ -60,11 +60,13 @@ export function hasTakenEffect(effective: Date | string, at: Date = new Date()):
  * the identity line, the job she actually holds filed under History, and a job she starts
  * in November labelled "Present".
  *
- * NO production caller as of #127 E5: /people/:id was the last one, and it now asks
- * `profileAsOf` so its identity line and its History section cannot disagree. Staged,
- * not dead — it is still the right answer the moment a surface has the periods in hand
- * and no reason to re-query, and the lint rule names it as one of the two sanctioned
- * spellings. Delete it only if that stops being true.
+ * TWO production callers, and both are the case this exists for — a surface that already
+ * HOLDS the periods: `movePersonCompany` (app/actions/people), which holds the one it
+ * just wrote, and `labelWithJobHeldThen` (lib/activity), which holds a whole career and
+ * resolves 25 feed rows against it. The second is why re-querying is not an option here:
+ * `profileAsOf` per row would be 25 round trips a page. /people/:id's identity line still
+ * asks `profileAsOf`, because it has to FETCH — that is the whole division, and the lint
+ * rule names both spellings so no third one gets written.
  */
 export function coversDay(
   period: { startDate: Date | string; endDate: Date | string | null },
@@ -142,4 +144,40 @@ export function resolvePerson<T extends PersonLike>(
   handleOrEmail: string | null | undefined,
 ): T | null {
   return resolvePersonCandidates(people, handleOrEmail)[0] ?? null;
+}
+
+/**
+ * The INVERSE of `resolvePerson`: every string that would resolve TO this person. Here,
+ * beside it, because the two are one rule read in two directions and a second file would
+ * let them drift (AGENTS lesson 7).
+ *
+ * `tests/personActivityScope.test.ts` pins ONE direction: every string this emits
+ * resolves back to the same person. The reverse is NOT pinned and cannot be — add a
+ * fourth tier to `resolvePersonCandidates` and leave this alone, and every existing alias
+ * still round-trips while the new tier silently goes unqueried. Mirror by hand, here.
+ *
+ * It exists because the actor columns are FREE TEXT with no Person relation to join
+ * through: `ProjectState.source`, `PhaseState.source` and `PartnerState.source` hold the
+ * signed-in handle, `ContextUrl.addedBy` holds an address or a Drive display name (#176).
+ * `resolvePerson` answers "whose row is this?" one row at a time, which a feed cannot
+ * afford — it needs the set up front, for one OR of case-insensitive equals.
+ *
+ * The entries are `resolvePersonCandidates`' three tiers in order: full address, its
+ * local part (twice — bare, and with the '@' the display form carries), then the full
+ * name. Match them case-insensitively at the call site; the strings here are lowered.
+ *
+ * NOT a claim that every row it matches was written by this person, and not a claim that
+ * every row they wrote is matched: an address they no longer hold matches nobody (#124
+ * Class 4), and 'seed'/'API'-written rows name no human at all. Both are stated in the
+ * UI copy rather than papered over.
+ */
+export function personAliases(person: PersonLike): string[] {
+  const email = (person.email || '').trim().toLowerCase();
+  // `normalizeHandle`, not a local `split('@')[0]`: this is the other end of the round
+  // trip `resolvePersonCandidates` normalizes its INPUT with, and two spellings of one
+  // rule is how the two directions start disagreeing.
+  const local = normalizeHandle(person.email);
+  const name = (person.name || '').trim().toLowerCase();
+  const candidates = [email, local, local ? `@${local}` : '', name];
+  return [...new Set(candidates.filter(Boolean))];
 }

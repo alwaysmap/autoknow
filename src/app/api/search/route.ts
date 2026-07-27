@@ -24,10 +24,14 @@ export async function GET(request: Request) {
 
     const partnerId = toInt(searchParams.get('partnerId'));
     const projectId = toInt(searchParams.get('projectId'));
+    // `personId` narrows by ACTOR, not by subject. Without `q` that is their activity
+    // feed; WITH `q` only the `person` type has a defined answer (see lib/search).
+    const personId = toInt(searchParams.get('personId'));
     const scope: FeedScope =
       partnerId != null ? { kind: 'partner', id: partnerId }
         : projectId != null ? { kind: 'project', id: projectId }
-          : { kind: 'ecosystem' };
+          : personId != null ? { kind: 'person', id: personId }
+            : { kind: 'ecosystem' };
 
     const items = await getFeed({ q, types, scope });
     return NextResponse.json({ items });

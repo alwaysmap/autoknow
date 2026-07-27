@@ -1272,6 +1272,19 @@ const STRINGS = {
     ja: 'この担当者が名前を連ねているプログラム — TEL として、フェーズ上、またはアクションアイテムの担当として。進行中の作業に限定されません。',
     ko: '이 사람이 이름을 올린 프로그램 — TEL로서, 단계에서, 또는 액션 아이템 보유. 진행 중인 작업으로 제한되지 않습니다.',
   },
+  // Two sentences, both load-bearing. The first says what the company beside each entry
+  // MEANS — the job held then, not the job held now (#127 E10). The second states the
+  // limit rather than absorbing it: the actor on an update is a free-text handle, so
+  // seeded, API-written and machine re-checked entries name no human and are absent by
+  // construction. "Degrade with an honest message, never a faked result" is the rule; an
+  // unexplained short list is a faked result, because it reads as this person having
+  // done nothing.
+  personActivityIntro: {
+    en: 'What this person recorded, each entry showing the company and role they held on that day. Entries written by the seed, an API client or an automated re-check carry no author, so they cannot appear here.',
+    de: 'Was diese Person erfasst hat — jeder Eintrag zeigt Unternehmen und Rolle, die sie an diesem Tag innehatte. Einträge von Seed-Daten, einem API-Client oder einer automatischen Prüfung haben keinen Autor und können hier nicht erscheinen.',
+    ja: 'この担当者が記録した内容です。各エントリには、その日に所属していた会社と役割が表示されます。シード、API クライアント、自動再チェックによるエントリには作成者がないため、ここには表示されません。',
+    ko: '이 사람이 기록한 내용이며, 각 항목에는 그날 재직한 회사와 역할이 표시됩니다. 시드, API 클라이언트 또는 자동 재확인으로 작성된 항목은 작성자가 없어 여기에 표시될 수 없습니다.',
+  },
   filterByType: { en: 'Filter by {t}', de: 'Nach {t} filtern', ja: '{t}で絞り込み', ko: '{t}(으)로 필터링' },
   // Accessible names for the Partners table count cells (design.md §6, one measure
   // per cell): the visible cell is the bare number, the noun it counts lives here.

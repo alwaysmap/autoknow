@@ -6,6 +6,7 @@ import { scoreToHealth } from './relationship';
 import { ensureBuiltinTemplates } from './programTemplates';
 import { assertDestructiveDbAllowed } from './dbSafety';
 import { getCurrentUser } from './session';
+import { normalizeHandle } from './auth';
 import { localDate } from './dates';
 
 // The mock seeder creates its data THROUGH the application's own mutation
@@ -1141,6 +1142,22 @@ export async function seedMockData() {
     honda: { role: 'Cockpit Platform Lead' },
   };
 
+  // SHE wrote the era updates below, and `source` records that the way the app itself
+  // does: `getCurrentUser().handle`, a bare handle (actions/needle.ts, actions/hill.ts).
+  // The handle is stable across her moves — the ADDRESS is not, which is what the era
+  // action items carry — so one string spans all three eras and `resolvePerson` maps it
+  // back through her email's local part.
+  //
+  // `'seed'`, which every other fixture uses, names no human, so with it the whole
+  // career was invisible to a person-scoped feed (#176's limit swallowing the fixture
+  // that exists to disprove #124 Class 2). Attributed, her Activity section spans Bosch
+  // 2022 → Qualcomm 2025 → Google now, each row labelled with the job held THEN.
+  // Through `normalizeHandle`, the same function `personAliases` builds the local-part
+  // alias with and `resolvePersonCandidates` strips its input with — a hand-rolled
+  // `split('@')[0]` here would be a third spelling of one rule, and whether her feed
+  // finds these rows at all depends on all three agreeing.
+  const ALICE_SOURCE = normalizeHandle(ALICE.google.email);
+
   // Creation opens the CURRENT period (Google, from 2026-07-01) — the third of the four.
   // It is authored here rather than posted afterwards because /api/people opens one
   // regardless (#127 E5): a second post naming the same job would sit ON TOP of it, and
@@ -1193,7 +1210,7 @@ export async function seedMockData() {
           theNeedle: 'On Track',
           hillChartProgress: s.p,
           notes: s.p > 0 && s.p < 100 ? `${ph.n}: progress update.` : null,
-          source: 'seed',
+          source: ALICE_SOURCE,
           timestamp: new Date(s.at).toISOString(),
         });
       }
@@ -1213,12 +1230,12 @@ export async function seedMockData() {
   await postProjectState(aliceBoschProjectId, {
     theNeedle: 'On Track', hillChartProgress: 20,
     notes: 'Gen-2 telematics board kickoff with the Bosch platform team.',
-    source: 'seed', timestamp: '2022-03-01',
+    source: ALICE_SOURCE, timestamp: '2022-03-01',
   });
   await postProjectState(aliceBoschProjectId, {
     theNeedle: 'On Track', hillChartProgress: 100,
     notes: 'Gen-2 shipped; field validation closed out.',
-    source: 'seed', timestamp: '2023-06-01',
+    source: ALICE_SOURCE, timestamp: '2023-06-01',
   });
   const aliceBoschPhases = await seedEraPhases(aliceBoschProjectId, [
     { n: 'Telematics board bring-up', d: 60, startedOn: '2022-03-01',
@@ -1247,12 +1264,12 @@ export async function seedMockData() {
   await postProjectState(aliceQualcommProjectId, {
     theNeedle: 'On Track', hillChartProgress: 25,
     notes: 'Validation programme opened against the SA8155P cockpit reference.',
-    source: 'seed', timestamp: '2024-09-02',
+    source: ALICE_SOURCE, timestamp: '2024-09-02',
   });
   await postProjectState(aliceQualcommProjectId, {
     theNeedle: 'On Track', hillChartProgress: 100,
     notes: 'Reference cockpit signed off; validation suite handed to the OEM programs.',
-    source: 'seed', timestamp: '2025-11-03',
+    source: ALICE_SOURCE, timestamp: '2025-11-03',
   });
   const aliceQualcommPhases = await seedEraPhases(aliceQualcommProjectId, [
     { n: 'Reference board enablement', d: 45, startedOn: '2024-09-02',
@@ -1294,7 +1311,7 @@ export async function seedMockData() {
   await postProjectState(aliceGoogleProjectId, {
     theNeedle: 'On Track', hillChartProgress: 40,
     notes: 'Bring-up opened on the CR-V cockpit; rebase landed, integration under way.',
-    source: 'seed', timestamp: agoIso(2),
+    source: ALICE_SOURCE, timestamp: agoIso(2),
   });
   // Same helper as the two closed eras — relative dates because this program is LIVE and
   // has to stay live on every re-seed. The involvement is attached off the returned id

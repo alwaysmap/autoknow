@@ -18,9 +18,10 @@ import { prisma } from './db';
 // in the database: the predicate goes into SQL so the wrong row never comes back to be
 // filtered, which is what E4's composite indexes were added for. #127 E5 left `coversDay`
 // with no production caller — /people/:id was the last and now asks in SQL — and
-// autoknow-pvn gave it one back: `movePersonCompany` holds the period it just wrote, so
-// asking here would be a needless round trip. That is the division. Writing a third date
-// comparison instead of either is the bug.
+// autoknow-pvn plus #127 E10 gave it two: `movePersonCompany` holds the period it just
+// wrote, and `labelWithJobHeldThen` (lib/activity) holds a whole CAREER and resolves a
+// page of feed rows against it, where asking here would be a round trip per row. That is
+// the division. Writing a third date comparison instead of either is the bug.
 //
 // "Profile" is #124 §4's word for a person's affiliation as of a date — not the
 // account-shaped sense in `createMyProfile`.
@@ -64,7 +65,9 @@ const withPartner = { include: { partner: { include: { type: true } } } } as con
  * would work — the reason to come here instead is that this is the SAME spelling of the
  * predicate every other surface uses, in SQL, rather than a second rendering of it that
  * can drift. Either way the page must decide once and define History as the complement
- * of the answer; asking here is what lets E10 change the day by passing one argument.
+ * of the answer. `at` is what lets any surface ask about a day other than today — the
+ * page's own Activity feed asks about many, but through `coversDay`, because it holds
+ * the career and a query per row is the thing that division exists to avoid.
  */
 export async function profileAsOf(personId: number, at: Date = new Date()) {
   return prisma.personAffiliation.findFirst({

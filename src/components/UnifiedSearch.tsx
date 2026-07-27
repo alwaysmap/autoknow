@@ -98,6 +98,9 @@ export default function UnifiedSearch({
       const params = new URLSearchParams({ q, types: [...types].join(',') });
       if (scope?.kind === 'partner') params.set('partnerId', String(scope.id));
       if (scope?.kind === 'project') params.set('projectId', String(scope.id));
+      // No caller passes a person scope today; serialized so the union has one spelling
+      // on the wire rather than a variant this component drops in silence.
+      if (scope?.kind === 'person') params.set('personId', String(scope.id));
       const res = await fetch(`/api/search?${params.toString()}`, { signal: ctrl.signal });
       if (res.ok) {
         const data = await res.json();

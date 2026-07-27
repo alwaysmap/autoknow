@@ -5,6 +5,7 @@ import { deriveScore } from './relationship';
 import { hillStatus, phaseColor } from './phase';
 import { phaseDetailHref, programHref, relationshipUpdateHref } from './entityHref';
 import { isoDateTime } from './dates';
+import { coversDay, personAliases } from './people';
 import type { FeedItem, FeedScope, FeedKind } from './feed';
 
 // The unified activity stream as FeedItem[]: ingested context AND core system-of-record
@@ -40,14 +41,92 @@ function previousByGroup<T>(items: T[], keyOf: (item: T) => number): (T | null)[
 // loads more than this many cards.
 export const ACTIVITY_PAGE_SIZE = 25;
 
+/**
+ * PERSON SCOPE needs two things the other scopes do not, and both come from one query:
+ * the strings that count as "written by them" in the free-text actor columns, and the
+ * CAREER, for `labelWithJobHeldThen` below.
+ *
+ * The career is fetched WHOLE rather than asked per item; the argument for that is on
+ * `labelWithJobHeldThen`, where the comparison happens.
+ */
+async function personActor(personId: number) {
+  const person = await prisma.person.findUnique({
+    where: { id: personId },
+    select: {
+      id: true, name: true, email: true,
+      affiliations: {
+        select: { role: true, startDate: true, endDate: true, partner: { select: { name: true } } },
+        // Newest start first — the ordering contract `labelWithJobHeldThen` depends on.
+        orderBy: { startDate: 'desc' },
+      },
+    },
+  });
+  if (!person) return null;
+  return { aliases: personAliases(person), career: person.affiliations };
+}
+
+type Career = NonNullable<Awaited<ReturnType<typeof personActor>>>['career'];
+
+/**
+ * EACH ITEM AS OF ITS OWN DAY — ADR `a-dated-row-is-labelled-as-of-its-own-date`, which
+ * carries the decision and the readings rejected. A person's company and title are
+ * properties of an employment PERIOD, so a feed spanning a career resolves them per row:
+ * the 2022 update says Bosch because that is where she was in 2022, and the row above it
+ * says Google. Stamping every row with the job held TODAY is #124 Class 2.
+ *
+ * Compared in JS by `coversDay` against a career already in hand, not asked per item
+ * through `profileAsOf` — `lib/profiles`' header draws exactly that line, and 25 items
+ * would otherwise be 25 round trips. That inherits autoknow-yid: `coversDay` compares
+ * UTC DAYS while `profileAsOf` compares raw INSTANTS, so on a boundary date a row here
+ * can disagree with the identity line above it, which asks `profileAsOf`. /people/:id is
+ * the first page to render both; fixing it is that bead's job, in one place, not a third
+ * date comparison here.
+ *
+ * A row in a GAP between jobs — or older than the first period — keeps its subtitle
+ * unchanged rather than borrowing the nearest company. Null is a real answer here too.
+ *
+ * `career` MUST be newest-start-first (`personActor` orders it so). A contiguous career
+ * has exactly one covering period, but the affiliations API can still author an overlap
+ * (autoknow-2of), and taking the FIRST match of that ordering is what makes this pick the
+ * same row `profileAsOf` would. Reorder the query and the two silently disagree.
+ */
+function labelWithJobHeldThen(items: FeedItem[], career: Career): FeedItem[] {
+  return items.map((item) => {
+    const at = item.timestamp;
+    if (!at) return item;
+    const heldPeriod = career.find((period) => coversDay(period, new Date(at)));
+    if (!heldPeriod) return item;
+    const heldLabel = [heldPeriod.partner.name, heldPeriod.role].filter(Boolean).join(' · ');
+    return { ...item, subtitle: [item.subtitle, heldLabel].filter(Boolean).join(' · ') };
+  });
+}
+
 export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): Promise<FeedItem[]> {
+  let actor: Awaited<ReturnType<typeof personActor>> = null;
+  if (scope.kind === 'person') {
+    actor = await personActor(scope.id);
+    // An id naming nobody yields an empty alias list, and `{ OR: [] }` already matches no
+    // rows — so this is not load-bearing for correctness. It is here to skip four queries
+    // that cannot return anything, and to say that outright at the top.
+    if (!actor) return [];
+  }
+  // PERSON SCOPE ONLY — the actor filter, per column: `source` on the three state tables,
+  // `addedBy` on ContextUrl (what those columns hold is on `personAliases`, lib/people).
+  // An OR of case-insensitive equals rather than an `IN`, because nothing normalizes
+  // these on the way in and `IN` cannot be case-insensitive.
+  const aliases = actor?.aliases ?? [];
+  const wroteStateWhere = { OR: aliases.map((a) => ({ source: { equals: a, mode: 'insensitive' as const } })) };
+  const addedContextWhere = { OR: aliases.map((a) => ({ addedBy: { equals: a, mode: 'insensitive' as const } })) };
+
   // Name the program/partner on each item except when the page IS that program —
   // a partner page spans many programs, so items there stay ambiguous without it.
   const showEntity = scope.kind !== 'project';
   const meta = (entityLabel: string | null, source: string | null, withSource: boolean): string | null => {
     const parts: string[] = [];
     if (showEntity && entityLabel) parts.push(entityLabel);
-    if (withSource && source) parts.push(`by ${source}`);
+    // On a person's own feed every row is theirs, so "by <handle>" is the same word 25
+    // times. The attribution that DOES vary comes from `labelWithJobHeldThen`.
+    if (withSource && scope.kind !== 'person' && source) parts.push(`by ${source}`);
     return parts.length ? parts.join(' · ') : null;
   };
   const push = (
@@ -63,7 +142,9 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
       ? { OR: [{ partnerId: scope.id }, { project: { partnerId: scope.id } }] }
       : scope.kind === 'project'
         ? { OR: [{ projectId: scope.id }, { phase: { projectId: scope.id } }] }
-        : {};
+        : scope.kind === 'person'
+          ? addedContextWhere
+          : {};
   const context = await prisma.contextUrl.findMany({
     where: contextWhere,
     select: {
@@ -101,33 +182,39 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
   }
 
   // ---- Source updates: one event per re-distillation with a real delta (plan §7) ----
-  const revisions = await prisma.contextRevision.findMany({
-    where: { delta: { not: null }, contextUrl: contextWhere },
-    select: {
-      id: true, delta: true, checkedAt: true, sourceStatus: true,
-      contextUrl: {
-        select: {
-          url: true, title: true,
-          project: { select: { name: true } },
-          partner: { select: { name: true } },
+  // Skipped in person scope: `ContextRevision` has no actor column, because a
+  // re-distillation is MACHINE-driven — there is no human to attribute it to (#176).
+  // Filtering it by `contextWhere` here would attribute the re-check to whoever added
+  // the document, which is a different person and a different act.
+  if (scope.kind !== 'person') {
+    const revisions = await prisma.contextRevision.findMany({
+      where: { delta: { not: null }, contextUrl: contextWhere },
+      select: {
+        id: true, delta: true, checkedAt: true, sourceStatus: true,
+        contextUrl: {
+          select: {
+            url: true, title: true,
+            project: { select: { name: true } },
+            partner: { select: { name: true } },
+          },
         },
       },
-    },
-    orderBy: { checkedAt: 'desc' },
-    take,
-  });
-  for (const r of revisions) {
-    const resolvedTag = r.sourceStatus === 'resolved' ? ' (resolved)' : '';
-    push(events, {
-      id: `rev-${r.id}`,
-      kind: 'context',
-      title: `Updated: ${r.contextUrl.title || 'Ingested document'}${resolvedTag}`,
-      subtitle: meta(r.contextUrl.project?.name ?? r.contextUrl.partner?.name ?? null, null, false),
-      detail: clampDetail(r.delta),
-      href: r.contextUrl.url,
-      external: true,
-      timestamp: r.checkedAt.toISOString(),
+      orderBy: { checkedAt: 'desc' },
+      take,
     });
+    for (const r of revisions) {
+      const resolvedTag = r.sourceStatus === 'resolved' ? ' (resolved)' : '';
+      push(events, {
+        id: `rev-${r.id}`,
+        kind: 'context',
+        title: `Updated: ${r.contextUrl.title || 'Ingested document'}${resolvedTag}`,
+        subtitle: meta(r.contextUrl.project?.name ?? r.contextUrl.partner?.name ?? null, null, false),
+        detail: clampDetail(r.delta),
+        href: r.contextUrl.url,
+        external: true,
+        timestamp: r.checkedAt.toISOString(),
+      });
+    }
   }
 
   // ---- Project status events (needle / hill-chart / program created) ----
@@ -136,7 +223,9 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
       ? { project: { partnerId: scope.id } }
       : scope.kind === 'project'
         ? { projectId: scope.id }
-        : {};
+        : scope.kind === 'person'
+          ? wroteStateWhere
+          : {};
   const projectStates = await prisma.projectState.findMany({
     where: projectStateWhere,
     select: {
@@ -178,7 +267,9 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
       ? { phase: { project: { partnerId: scope.id } } }
       : scope.kind === 'project'
         ? { phase: { projectId: scope.id } }
-        : {};
+        : scope.kind === 'person'
+          ? wroteStateWhere
+          : {};
   const phaseStates = await prisma.phaseState.findMany({
     where: phaseStateWhere,
     select: {
@@ -212,7 +303,12 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
 
   // ---- Partner relationship events (skip in project scope) ----
   if (scope.kind !== 'project') {
-    const partnerStateWhere = scope.kind === 'partner' ? { partnerId: scope.id } : {};
+    const partnerStateWhere =
+      scope.kind === 'partner'
+        ? { partnerId: scope.id }
+        : scope.kind === 'person'
+          ? wroteStateWhere
+          : {};
     const partnerStates = await prisma.partnerState.findMany({
       where: partnerStateWhere,
       select: {
@@ -231,9 +327,10 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
       push(events, {
         id: `pas-${s.id}`,
         kind: 'relationship',
-        // On the partner's own page the name is redundant — only label at ecosystem scope.
         title: 'Relationship update',
-        subtitle: meta(scope.kind === 'ecosystem' ? s.partner.name : null, s.source, true),
+        // On the partner's own page the name is redundant; every OTHER scope spans
+        // partners (a person's feed as much as the ecosystem's), so it labels.
+        subtitle: meta(scope.kind === 'partner' ? null : s.partner.name, s.source, true),
         detail: clampDetail(s.notes),
         // Deep-link to THIS update inside the partner-health popover, the way the
         // status and phase rows above already deep-link (#111). The bare partner
@@ -250,5 +347,7 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
   }
 
   events.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
-  return events.slice(0, take);
+  const pageItems = events.slice(0, take);
+  // After the slice, so the career is walked `take` times and not once per candidate.
+  return actor ? labelWithJobHeldThen(pageItems, actor.career) : pageItems;
 }
