@@ -196,8 +196,8 @@ async function addAffiliation(
  *
  * That tier is not hypothetical: this seed used to pass `ownerName: 'Alice PM'` and
  * `ownerName: 'Clara Operations'`, and the display-name tier hid it locally while #127
- * E6's backfill reported exactly those two rows UNMATCHED in prod. Why, and how to tell
- * that apart from a matcher bug, is in
+ * E6's backfill reported exactly those two rows UNMATCHED in prod. Why that happened,
+ * and how to tell it apart from a matcher bug, is in
  * docs/knowledge/a-backfills-unmatched-rows-may-name-people-who-never-existed.md.
  */
 async function createProject(body: {
@@ -615,10 +615,12 @@ export async function seedMockData() {
   // here, so those references are the created row rather than a re-typed address.
   //
   // `me` is the SESSION (AGENTS lesson 13, argued at the top of this function);
-  // `mePerson` is the row it produced. The owner and roster references above take the
+  // `mePerson` is the row it produced. The owner and roster references below take the
   // ROW, so they carry the address the route actually stored rather than the one this
-  // file submitted. Action-item assignees still pass `me.email` — those are free-text
-  // columns with no picker behind them, and #127 has not reached them yet.
+  // file submitted. Action-item assignees deliberately do NOT: the assignee route links
+  // to a Person best-effort and keeps the handle either way, because an assignee may
+  // legitimately be someone not in the people table yet — which is the whole difference
+  // between it and an owner (api/projects/[id]/phases/[phaseId]/action-items).
   const mePerson = await createPerson({
     name: me.name, email: me.email, currentPartnerId: googlePartnerId,
     role: 'Lead Program Manager', startDate: '2024-01-01',
@@ -662,12 +664,12 @@ export async function seedMockData() {
   // itself has to be early. She is therefore the one person in THIS block who gets
   // `addAffiliation` calls, and they are posted with that fixture.
   //
-  // There used to be a second Alice: an 'Alice PM' persona that had held alice@google.com
-  // since the initial seed. When this fixture arrived (#127 E1, 6f8094c) `Person.email`
-  // was still `@unique`, so Alice Waters could not take the address #124 §7 assigns her
-  // and got the dotted form instead. Two people existed so that one address could be
-  // spelled two ways, which is the tail wagging the dog — one made-up human is enough,
-  // and she is the richer one. #127 E9 replaced the outright `@unique` with `PersonAffiliation`'s
+  // There used to be a second Alice: an 'Alice PM' persona holding alice@google.com since
+  // 30952e6. When this fixture arrived (#127 E1, 6f8094c) `Person.email` was still
+  // `@unique`, so Alice Waters could not take the address #124 §7 assigns her and got the
+  // dotted form instead. Two people existed so that one address could be spelled two
+  // ways, which is the tail wagging the dog — one made-up human is enough, and she is the
+  // richer one. #127 E9 replaced the outright `@unique` with `PersonAffiliation`'s
   // unique-at-an-instant EXCLUDE constraint, which still forbids two people holding one
   // address over overlapping periods — so retiring the persona is what makes this address
   // hers, not a rule that quietly went away. Her periods are contiguous and half-open, so
@@ -702,11 +704,13 @@ export async function seedMockData() {
   // Contact phone and the googleTeam roster are display-only fields with no
   // mutation surface (API or action) — patched directly onto the API-created rows.
   // AFTER the people, so each roster entry is a person the seed just created: the blob
-  // stores bare addresses with no Person relation (#127 E13 is what deletes it), and a
-  // re-typed one is a reference that resolves by luck — luck that runs out the moment an
-  // address changes hands, which is exactly what retiring 'Alice PM' does to the Toyota
-  // row. It survives here only because Alice Waters inherited the address; had she kept
-  // the dotted form, that literal would now name nobody.
+  // stores bare addresses with no Person relation (#127 E13 is what deletes it), so a
+  // re-typed one resolves by luck. This roster is where that already happened: at
+  // 4ded811 the Toyota entry was a literal 'alice@google.com' and NO person by that
+  // address existed at all — it named nobody for the 22 days until 30952e6 created one.
+  // Retiring 'Alice PM' is the second chance to make that same literal dangle, survived
+  // only because Alice Waters inherits the address; deriving it from her row is what
+  // stops there being a third.
   //
   // A roster `role` is the role held ON THIS RELATIONSHIP, not the person's job title —
   // which is why mePerson appears twice below under two different ones, and why Alice
