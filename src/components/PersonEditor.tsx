@@ -212,7 +212,8 @@ export default function PersonAdminControls({
 
 /** "New person" ⋯ menu + create dialog, self-contained (own KebabMenu, like the
  *  PersonAdminControls/PartnerAdminControls above) and shared by the /people list header
- *  and the partner page's People card — so the two never drift into hand-rolled variants.
+ *  and the partner page's People SECTION heading — so the two never drift into hand-rolled
+ *  variants. (It rode in a sidebar card until #127 E12 moved that list to a DataTable.)
  *  The create action lives in app/actions/people.ts precisely so this client dialog can
  *  call it. `defaultPartnerId` pre-selects the organization: a partner page passes its own
  *  id so the new contact lands on THAT partner — the same "create from context" the

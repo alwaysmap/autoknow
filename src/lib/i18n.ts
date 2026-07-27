@@ -957,6 +957,17 @@ const STRINGS = {
   phaseLabel: { en: 'Phase', de: 'Phase', ja: 'フェーズ', ko: '단계' },
   ownerLabel: { en: 'Owner', de: 'Verantwortlich', ja: 'オーナー', ko: '담당자' },
   teamLabel: { en: 'Team', de: 'Team', ja: 'チーム', ko: '팀' },
+  // ---- partner people: #124 §4's three buckets, as the Status column reads them ----
+  // These are the READING form only. The filter's value stays the English token
+  // ('current' / 'past' / 'incoming'), so a Status funnel means the same thing in every
+  // locale — a locale-stable shareable token, read as a name only in `filterLabel`
+  // (design.md §6).
+  rosterStatusCurrent: { en: 'Current', de: 'Aktuell', ja: '在籍中', ko: '재직 중' },
+  rosterStatusPast: { en: 'Past', de: 'Ehemalig', ja: '在籍終了', ko: '퇴사' },
+  rosterStatusIncoming: { en: 'Incoming', de: 'Kommend', ja: '着任予定', ko: '입사 예정' },
+  // The `Partner.googleTeam` JSON blob, named for what it is now that the dated roster
+  // is a table of its own (#127 E12). Retired by E13.
+  googleTeamLabel: { en: 'Google team', de: 'Google-Team', ja: 'Google チーム', ko: 'Google 팀' },
   progressLabel: { en: 'Progress', de: 'Fortschritt', ja: '進捗', ko: '진행률' },
   needleLabel: { en: 'Needle', de: 'Nadel', ja: 'ニードル', ko: '니들' },
   searchHeading: { en: 'Search', de: 'Suche', ja: '検索', ko: '검색' },

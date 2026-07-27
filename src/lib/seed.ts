@@ -841,11 +841,18 @@ export async function seedMockData() {
   const svenId = await mkPerson('Sven Larsson', 'sven@volvocars.example', volvoCarsId, 'Digital Key Security Lead', '2021-11-01', 'Volvo Digital Key security lead.');
   const deepakId = await mkPerson('Deepak Rao', 'deepak@mediatek.example', mediatekId, 'Automotive FAE', '2022-01-01', 'MediaTek automotive FAE.');
 
-  // PRIOR periods only — each ends exactly where the current one above begins, so every
-  // career is contiguous and half-open with no day covered twice.
+  // PRIOR periods only — each ends exactly where the NEXT period in that career begins,
+  // so every career is contiguous and half-open with no day covered twice.
   await addAffiliation(lenaId, { partnerId: boschId, role: 'Platform engineer', startDate: '2019-02-01', endDate: '2023-05-01' });
   await addAffiliation(deepakId, { partnerId: qualcommId, role: 'FAE', startDate: '2018-06-01', endDate: '2022-01-01' });
   await addAffiliation(minjiId, { partnerId: harmanId, role: 'Delivery lead', startDate: '2020-03-01', endDate: '2024-08-01' });
+  // Min-ji's FIRST job, and the only reason it is Honda: without it no partner in the
+  // demo has all three of #124 §4's buckets at once, so the surface that exists to show
+  // them (#127 E12) could not be seen doing it. Honda already has Aiko sitting there
+  // (current) and Alice arriving on the scheduled move (incoming); this is the leaver.
+  // Contiguous with Harman above — her career runs Honda → Harman → LGE with no gap and
+  // no overlap, like every other one here.
+  await addAffiliation(minjiId, { partnerId: hondaId, role: 'Cockpit QA Lead', startDate: '2018-01-01', endDate: '2020-03-01' });
 
   // Program specs: name, OEM, owner, SOP (month-end), 12-month volume, products,
   // health, hill position, phases (name, days, progress) chained linearly, and the

@@ -32,6 +32,7 @@ const TODAY = d('2026-07-26');
 
 let alice: number;
 let bob: number;
+let carla: number;
 let bosch: number;
 let google: number;
 let honda: number;
@@ -53,6 +54,10 @@ beforeAll(async () => {
   // A second person at Google today, so the roster has someone to be right about
   // besides Alice — a one-row roster passes for the wrong reason.
   bob = await person('Bob Miller', 'bob@example.com', google);
+  // Bosch's third body, so that on ONE day (2021-09-01) Bosch has a leaver, a sitting
+  // employee and a hire who has not arrived — the three-bucket case #127 E12 renders,
+  // which no partner in the two-person fixture could produce.
+  carla = await person('Carla Nunes', 'carla@example.com', bosch);
 
   const period = (personId: number, partnerId: number, role: string, start: string, end: string | null) =>
     prisma.personAffiliation.create({
@@ -63,6 +68,11 @@ beforeAll(async () => {
   await period(alice, google, 'Lead Program Manager', '2024-03-01', '2026-11-01');
   await period(alice, honda, 'Cockpit Platform Lead', '2026-11-01', null);
   await period(bob, google, 'Staff Engineer', '2025-01-01', null);
+  // Both closed well before today, so every "nobody is at Bosch now" assertion below
+  // still means what it did — and Bob's is a genuine GAP before Google, which the spec
+  // calls legal (#124 §2), not an oversight.
+  await period(bob, bosch, 'Firmware Engineer', '2020-06-01', '2021-01-01');
+  await period(carla, bosch, 'Toolchain Lead', '2021-06-01', '2023-01-01');
 });
 
 afterAll(async () => {
@@ -116,27 +126,85 @@ describe('profilesAsOf', () => {
 });
 
 describe('partnerRosterAsOf', () => {
+  const names = (rows: { person: { name: string } }[]) => rows.map((r) => r.person.name);
+
   // The old `where: { endDate: null }` was wrong in BOTH directions here, which is why
   // both are asserted: Alice belongs on Google's roster today and must NOT be on
   // Honda's, even though Honda is the only partner her open period names.
   it('lists who is there on the day', async () => {
-    const roster = await partnerRosterAsOf(google, TODAY);
-    expect(roster.map((r) => r.person.name)).toEqual(['Alice Waters', 'Bob Miller']);
+    expect(names((await partnerRosterAsOf(google, TODAY)).current))
+      .toEqual(['Alice Waters', 'Bob Miller']);
   });
 
-  it('does not list someone whose period there has not begun', async () => {
-    expect(await partnerRosterAsOf(honda, TODAY)).toEqual([]);
+  it('does not list someone whose period there has not begun as CURRENT', async () => {
+    expect((await partnerRosterAsOf(honda, TODAY)).current).toEqual([]);
   });
 
   it('lists them once it has', async () => {
-    const roster = await partnerRosterAsOf(honda, d('2027-01-01'));
-    expect(roster.map((r) => r.person.name)).toEqual(['Alice Waters']);
+    expect(names((await partnerRosterAsOf(honda, d('2027-01-01'))).current))
+      .toEqual(['Alice Waters']);
   });
 
   it('drops someone whose period there has ended', async () => {
-    expect(await partnerRosterAsOf(bosch, TODAY)).toEqual([]);
-    expect((await partnerRosterAsOf(bosch, d('2023-06-01'))).map((r) => r.person.name))
+    expect((await partnerRosterAsOf(bosch, TODAY)).current).toEqual([]);
+    expect(names((await partnerRosterAsOf(bosch, d('2023-06-01'))).current))
       .toEqual(['Alice Waters']);
+  });
+
+  // ---- The two buckets the predecessor could not express at all (#127 E12) ----
+
+  it('files a departed person under past, carrying the date they left', async () => {
+    const roster = await partnerRosterAsOf(bosch, TODAY);
+    expect(names(roster.past)).toEqual(['Alice Waters', 'Bob Miller', 'Carla Nunes']);
+    expect(roster.past.find((r) => r.person.name === 'Alice Waters')?.endDate)
+      .toEqual(d('2024-03-01'));
+  });
+
+  it('files a future hire under incoming, carrying the date they arrive — never current', async () => {
+    const roster = await partnerRosterAsOf(honda, TODAY);
+    expect(names(roster.incoming)).toEqual(['Alice Waters']);
+    expect(roster.incoming[0].startDate).toEqual(d('2026-11-01'));
+    expect(roster.current).toEqual([]);
+    expect(roster.past).toEqual([]);
+  });
+
+  // One day, one partner, all three buckets — the surface E12 renders, and the only
+  // arrangement in which a bucket can steal a row from its neighbour.
+  it('splits one partner three ways on a single day', async () => {
+    const roster = await partnerRosterAsOf(bosch, d('2021-09-01'));
+    expect(names(roster.past)).toEqual(['Bob Miller']);
+    expect(names(roster.current)).toEqual(['Carla Nunes']);
+    expect(names(roster.incoming)).toEqual(['Alice Waters']);
+  });
+
+  // Half-open, on both edges: the day a period ENDS it is already past, and the day one
+  // STARTS it is already current. An off-by-one here is a person shown at the wrong
+  // company for a day, which is exactly what #124 §4's interval table exists to prevent.
+  it('turns over on the boundary day itself, at both ends', async () => {
+    expect(names((await partnerRosterAsOf(bosch, d('2024-02-29'))).current)).toEqual(['Alice Waters']);
+    expect(names((await partnerRosterAsOf(bosch, d('2024-03-01'))).past)).toContain('Alice Waters');
+    expect(names((await partnerRosterAsOf(honda, d('2026-10-31'))).incoming)).toEqual(['Alice Waters']);
+    expect(names((await partnerRosterAsOf(honda, d('2026-11-01'))).current)).toEqual(['Alice Waters']);
+  });
+
+  it('puts every affiliation in exactly one bucket, and loses none', async () => {
+    const roster = await partnerRosterAsOf(bosch, d('2021-09-01'));
+    const total = roster.current.length + roster.past.length + roster.incoming.length;
+    expect(total).toBe(await prisma.personAffiliation.count({ where: { partnerId: bosch } }));
+  });
+
+  // The current bucket is decided in JS while `profileAsOf` decides the same sentence in
+  // SQL, and nothing static can compare two renderings of one rule — the same hole
+  // `personIsAtPartnerAsOfSql` has, closed the same way.
+  it('agrees with profileAsOf about who is at the partner, on every day tried', async () => {
+    for (const day of [d('2021-09-01'), d('2023-06-01'), TODAY, d('2027-01-01')]) {
+      const bucketed = (await partnerRosterAsOf(bosch, day)).current.map((r) => r.personId).sort();
+      const resolved: number[] = [];
+      for (const personId of [alice, bob, carla]) {
+        if ((await profileAsOf(personId, day))?.partnerId === bosch) resolved.push(personId);
+      }
+      expect(bucketed).toEqual(resolved.sort());
+    }
   });
 });
 
@@ -147,7 +215,7 @@ describe('rostersByPartnerAsOf', () => {
     const all = await rostersByPartnerAsOf(TODAY);
     expect(all.get(google)?.map((p) => p.name)).toEqual(['Alice Waters', 'Bob Miller']);
     const single = await partnerRosterAsOf(google, TODAY);
-    expect(all.get(google)?.map((p) => p.id)).toEqual(single.map((r) => r.person.id));
+    expect(all.get(google)?.map((p) => p.id)).toEqual(single.current.map((r) => r.person.id));
   });
 
   it('drops a leaver rather than keeping them forever', async () => {
