@@ -76,3 +76,4 @@ skill routes between them.
 | 2026-07-26 | [A name→FK backfill writes only the unambiguous match, and reports the rest](2026-07-26-a-name-to-fk-backfill-writes-only-the-unambiguous.md) | accepted | data-integrity, identity, migrations, backfill |
 | 2026-07-26 | [A backfill reaches production through one allowlisted dispatch runner, as the DML-only role](2026-07-26-a-backfill-reaches-prod-through-an-allowlisted-dispatch-runner.md) | accepted | ci, database, security, backfill, deploy |
 | 2026-07-26 | [A dated row is labelled as of ITS OWN date; a list of dated rows resolves per row](2026-07-26-a-dated-row-is-labelled-as-of-its-own-date.md) | accepted | identity, affiliations, feed, activity |
+| 2026-07-27 | [Resolution searches every address a person has held, and takes no date](2026-07-27-resolution-searches-every-address-and-takes-no-date.md) | accepted | identity, affiliations, temporal, data-integrity, resolution |

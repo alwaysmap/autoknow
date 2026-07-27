@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/db';
+import { personDirectorySelect } from '../../lib/people';
 import { computeCriticalChain } from '../../lib/criticalChain';
 import { sopBufferCategory } from '../../lib/sop';
 import { getLocale } from '../../lib/locale';
@@ -102,13 +103,7 @@ export default async function ProgramsPage(props: {
     };
   });
 
-  const people = await prisma.person.findMany({
-    select: {
-      id: true,
-      name: true,
-      email: true
-    }
-  });
+  const people = await prisma.person.findMany({ select: personDirectorySelect });
 
   const regions = await prisma.region.findMany({ select: { name: true } });
   const partnerTypes = await prisma.partnerType.findMany({ select: { name: true } });

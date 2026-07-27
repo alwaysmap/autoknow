@@ -11,6 +11,7 @@ import { linkify, type EntityLink, type Segment } from './summaryLinkify';
 import { sopOutlook } from './sop';
 import { localDate } from './dates';
 import { profilesAsOf } from './profiles';
+import { resolvePeople } from './personDirectory';
 
 // The leadership-summary engine, one machine for three scopes (ecosystem / partner /
 // program): gather what AutoKnow already stores — needle updates, hill updates,
@@ -212,12 +213,16 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
 
   // The program's Google-side (internal) owner — the person an "owner works WITH the
   // partner" action names. ownerName is stored as the canonical email (requireOwner);
-  // resolve it to a Person for their name + /people link (match name too, defensively).
+  // resolve it to a Person for their name + /people link.
+  //
+  // Through `resolvePeople`, not a hand-rolled `findFirst` on email-or-name. This was
+  // the fourth private copy of the matcher, and its email branch was exact-only — so a
+  // program whose owner had changed address lost its owner from the AI brief entirely
+  // (#124 Class 4, swept at #127 E8). The shared matcher searches the addresses that
+  // owner has HELD, and there is now exactly one place that decides what a person
+  // string means (AGENTS lesson 7).
   if (project.ownerName) {
-    const owner = await prisma.person.findFirst({
-      where: { OR: [{ email: project.ownerName }, { name: project.ownerName }] },
-      select: { id: true, name: true },
-    });
+    const owner = (await resolvePeople([project.ownerName]))[project.ownerName] ?? null;
     if (owner) {
       reg.add(owner.name, personHref(owner.id));
       ev.push(

@@ -232,18 +232,29 @@ describe('seedMockData through the API', () => {
     });
     expect(cluster.assignedToPersonId).toBe(kenji.id);
 
-    // Exactly ONE seeded assignee fails to link, and it is the fixture's point:
-    // Alice Waters' 2025 item is addressed to `awaters@qualcomm.com`, the account
-    // she held at the time. A Person carries ONE address, so resolvePerson has
-    // nothing to match and the item strands off the human who owns it — spec #124
-    // Class 4, in data. Pinned by exact address rather than by a count, so a
-    // genuinely sloppy assignee elsewhere still fails this. The period-scoped
-    // email work (#127 E3) flips this to zero; that is the change that should edit this line.
+    // NOTHING seeded strands any more, and that is #127 E8's whole point in data.
+    // The case that used to fail is Alice Waters' 2025 item, addressed to
+    // `awaters@qualcomm.com` — the account she held at the time and shares no local
+    // part with her current one. While a Person carried ONE address, resolvePerson had
+    // nothing to match and the item detached from the only human it could mean (spec
+    // #124 Class 4). Her Qualcomm period now records that address, so it resolves.
+    //
+    // Asserted as an empty LIST, not a count of zero: when this regresses, the failure
+    // names the address that stopped resolving, which is the whole diagnosis.
     const unlinked = await prisma.actionItem.findMany({
       where: { assignedToPersonId: null },
       select: { assignedTo: true },
     });
-    expect(unlinked.map((a) => a.assignedTo)).toEqual(['awaters@qualcomm.com']);
+    expect(unlinked.map((a) => a.assignedTo)).toEqual([]);
+
+    // And it resolves to HER, not to some near-miss the local-part tier reached for.
+    const qualcommEraItem = await prisma.actionItem.findFirstOrThrow({
+      where: { assignedTo: 'awaters@qualcomm.com' },
+    });
+    const alice = await prisma.person.findFirstOrThrow({
+      where: { email: 'alice.waters@google.com' },
+    });
+    expect(qualcommEraItem.assignedToPersonId).toBe(alice.id);
   });
 
   // The temporal-profile fixture (spec #124 §7): one human, four periods. Guarded

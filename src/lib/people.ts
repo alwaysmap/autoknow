@@ -1,4 +1,4 @@
-import { deriveEmail, normalizeHandle } from './auth';
+import { deriveEmail, normalizeAddress, normalizeHandle } from './auth';
 
 // Two things about a person that several surfaces each used to answer for themselves:
 // WHEN an affiliation applies (hasTakenEffect / coversDay — #124's half-open periods,
@@ -14,8 +14,38 @@ import { deriveEmail, normalizeHandle } from './auth';
 export interface PersonLike {
   id: number;
   name: string;
+  /** The CURRENT canonical address. Still `@unique` on the row until #127 E9. */
   email: string;
+  /**
+   * Every employment period's address (#127 E8) — the addresses this human has ALSO
+   * held, so a mention written before they moved still finds them (#124 Class 4).
+   * `email` is null on a period whose address was never recorded, and those are simply
+   * skipped; an affiliation row that happens to repeat the current address is harmless.
+   *
+   * REQUIRED, not optional, and that is the whole enforcement (AGENTS lesson 2). A
+   * directory built without it resolves current addresses only — i.e. it silently keeps
+   * the defect this field exists to fix — and an optional field would let a new call
+   * site do that while staying green. Everything that resolves a person now fetches
+   * with `personDirectorySelect` below, and the compiler is what says so.
+   */
+  affiliations: { email: string | null }[];
 }
+
+/**
+ * The Prisma `select` for any directory handed to `resolvePersonCandidates`. It lives
+ * beside the matcher rather than at the ~9 call sites so the columns fetched and the
+ * columns matched on cannot drift apart — the failure mode being silent (a person just
+ * stops resolving), not loud.
+ *
+ * Plain data, no Prisma import, so this module stays importable by the client
+ * components that call `resolvePerson` (ProgramsClient, PersonCell, ProjectMetaHeader).
+ */
+export const personDirectorySelect = {
+  id: true,
+  name: true,
+  email: true,
+  affiliations: { select: { email: true } },
+} as const;
 
 /**
  * Has an effective date ARRIVED as of `at`? The single answer IN JAVASCRIPT, so a
@@ -96,15 +126,70 @@ export function initialsOf(name: string): string {
   return (chars(words[0])[0] + chars(words[words.length - 1])[0]).toUpperCase();
 }
 
+/** Every address recorded against a person's employment periods, canonicalized, with
+ *  unrecorded periods dropped. Order is not meaningful; only membership is. Periods
+ *  repeating the current address are left in — both callers are indifferent: `matchTier`
+ *  has already answered for that address before it looks here, and `personAliases`
+ *  de-dupes. */
+function recordedAddresses(person: PersonLike): string[] {
+  return person.affiliations.map((a) => normalizeAddress(a.email)).filter((a) => a !== '');
+}
+
+/**
+ * One tier, over every address each person has ever held, CURRENT HOLDERS FIRST.
+ *
+ * The split is not cosmetic — it is what keeps `resolvePerson` (first match wins)
+ * deterministic now that a tier can match on more than one person's addresses. Before
+ * #127 E8 the email tier could not be ambiguous at all, because `Person.email` is
+ * unique; an address pool that includes former addresses removes that guarantee, and
+ * without an order the winner would be whatever order `findMany` happened to return.
+ * "The person who holds this address TODAY" is the only defensible tie-break: an
+ * address someone left in 2022 names them less strongly than it names whoever answers
+ * it now.
+ */
+function matchTier<T extends PersonLike>(people: T[], matches: (address: string) => boolean): T[] {
+  const holdsNow: T[] = [];
+  const heldOnce: T[] = [];
+  for (const person of people) {
+    // `current`, not `now` — half this module is date logic (`at`, `hasTakenEffect`),
+    // and a `now` here would read as a timestamp until you reached its use.
+    const current = normalizeAddress(person.email);
+    if (current !== '' && matches(current)) holdsNow.push(person);
+    else if (recordedAddresses(person).some(matches)) heldOnce.push(person);
+  }
+  return [...holdsNow, ...heldOnce];
+}
+
 /**
  * EVERY person a handle or email could mean, taken from the FIRST tier that matches
  * anything: exact email, then email local-part, then exact (case-insensitive) full
  * name. Empty when nothing matches. No substring matching by design.
  *
+ * THE FIRST TWO TIERS SEARCH HISTORICAL ADDRESSES (#127 E8, spec #124 §2). An address
+ * belongs to a JOB, so the moment someone changes company every artifact that quotes
+ * the old one — an action item's `assignedTo`, a program's `ownerName`, a Drive file's
+ * `addedBy` — stops naming a human at all. That is #124 Class 4, and it is not a
+ * display bug: the row simply strands. Matching `PersonAffiliation.email` as well as
+ * `Person.email` is the fix, and it is why the directory must be fetched with
+ * `personDirectorySelect` and not a hand-written `{ id, name, email }`.
+ *
+ * RESOLUTION TAKES NO DATE, deliberately. What is temporal is a person's PROFILE —
+ * which company, which title, which address — and `lib/profiles`' as-of resolvers own
+ * that question. WHO the string names is not temporal: it is the same human before and
+ * after the move, and the link this resolves to (`/people/:id`) is right on every day.
+ * Passing a date here would only matter if one address named two different humans in
+ * two different periods, which is exactly what #127 E9's unique-at-an-instant
+ * constraint exists to make impossible; until then such a pair is genuinely ambiguous
+ * and comes back as two candidates, below.
+ *
  * More than one comes back only when a tier is genuinely AMBIGUOUS — two addresses
  * sharing a local part at different domains ('alice@google.com', 'alice@bosch.com'
- * for the input 'alice'), or two people with the same name. `Person.email` is unique,
- * so the email tier can never be ambiguous.
+ * for the input 'alice'), two people with the same name, or (new with E8) one address
+ * held by two people at different times. Within a tier, whoever holds the address NOW
+ * sorts ahead of whoever merely held it once; see `matchTier`.
+ *
+ * Every address on both sides of the comparison goes through `normalizeAddress`, which
+ * is the one place the stored form is defined.
  *
  * `resolvePerson` below is this with the ambiguity discarded, which is the right
  * trade for a live form: the pickers only offer real people, so a near-miss is worth
@@ -122,10 +207,10 @@ export function resolvePersonCandidates<T extends PersonLike>(
   const handle = normalizeHandle(handleOrEmail);
   if (!handle) return [];
 
-  const byEmail = people.filter((p) => p.email?.toLowerCase() === email);
+  const byEmail = matchTier(people, (address) => address === email);
   if (byEmail.length > 0) return byEmail;
 
-  const byLocalPart = people.filter((p) => p.email?.toLowerCase().split('@')[0] === handle);
+  const byLocalPart = matchTier(people, (address) => address.split('@')[0] === handle);
   if (byLocalPart.length > 0) return byLocalPart;
 
   return people.filter((p) => p.name?.toLowerCase() === handle);
@@ -162,22 +247,38 @@ export function resolvePerson<T extends PersonLike>(
  * `resolvePerson` answers "whose row is this?" one row at a time, which a feed cannot
  * afford — it needs the set up front, for one OR of case-insensitive equals.
  *
- * The entries are `resolvePersonCandidates`' three tiers in order: full address, its
- * local part (twice — bare, and with the '@' the display form carries), then the full
- * name. Match them case-insensitively at the call site; the strings here are lowered.
+ * The entries are `resolvePersonCandidates`' three tiers in order, for EVERY address the
+ * person has held (#127 E8): full address, its local part (twice — bare, and with the
+ * '@' the display form carries), then the full name once. Match them case-insensitively
+ * at the call site; the strings here are lowered.
  *
  * NOT a claim that every row it matches was written by this person, and not a claim that
- * every row they wrote is matched: an address they no longer hold matches nobody (#124
- * Class 4), and 'seed'/'API'-written rows name no human at all. Both are stated in the
- * UI copy rather than papered over.
+ * every row they wrote is matched: a period whose address was never recorded contributes
+ * nothing (there is nothing to contribute), and 'seed'/'API'-written rows name no human
+ * at all. Both are stated in the UI copy rather than papered over. What is no longer a
+ * gap: an address they have LEFT but which IS recorded on its period — that used to
+ * match nobody, and was #124 Class 4 on the actor side.
+ *
+ * That widening WIDENS THE APPROXIMATION TOO, and it is worth being clear-eyed about:
+ * the local-part entries are a guess in both directions, so a former address whose local
+ * part is somebody else's current handle now pulls their rows in. The alternative —
+ * emitting held addresses but not their local parts — would round-trip fine and leave
+ * the inverse permanently narrower than the forward matcher, which is the asymmetry this
+ * function exists to prevent. #127 E9's unique-at-an-instant constraint is what shrinks
+ * the collision space; until then the honest answer is that this is a filter, not a
+ * proof, exactly as it was before.
  */
 export function personAliases(person: PersonLike): string[] {
-  const email = (person.email || '').trim().toLowerCase();
-  // `normalizeHandle`, not a local `split('@')[0]`: this is the other end of the round
-  // trip `resolvePersonCandidates` normalizes its INPUT with, and two spellings of one
-  // rule is how the two directions start disagreeing.
-  const local = normalizeHandle(person.email);
+  const addresses = [normalizeAddress(person.email), ...recordedAddresses(person)];
+  // Not `normalizeAddress`: a name is not an address, and that helper exists for the
+  // one-column-in-two-places problem. Same two operations, different reason.
   const name = (person.name || '').trim().toLowerCase();
-  const candidates = [email, local, local ? `@${local}` : '', name];
-  return [...new Set(candidates.filter(Boolean))];
+  const candidates = addresses.flatMap((address) => {
+    // `normalizeHandle`, not a local `split('@')[0]`: this is the other end of the round
+    // trip `resolvePersonCandidates` normalizes its INPUT with, and two spellings of one
+    // rule is how the two directions start disagreeing.
+    const local = normalizeHandle(address);
+    return [address, local, local ? `@${local}` : ''];
+  });
+  return [...new Set([...candidates, name].filter(Boolean))];
 }

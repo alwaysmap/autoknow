@@ -10,6 +10,7 @@ import SopOutlookCell from '../../components/SopOutlookCell';
 import type { LiveConstraint } from '../../lib/dashboardData';
 import { healthKey, healthColor, healthOrder } from '../../lib/health';
 import PersonCell, { personFilterLabel } from '../../components/PersonCell';
+import type { PersonLike } from '../../lib/people';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 import { useTableUrlSync } from '../../lib/useTableUrlSync';
@@ -43,12 +44,6 @@ interface Project {
   }[];
 }
 
-interface Person {
-  id: number;
-  name: string;
-  email: string;
-}
-
 interface EcosystemSummaryClientProps {
   liveConstraints: LiveConstraint[];
   /** Funnel selections restored from the query string (design.md §2). */
@@ -57,7 +52,9 @@ interface EcosystemSummaryClientProps {
   /** Snapshotted server-side so SSR and hydration agree (see the page). */
   now: number;
   initialProjects: Project[];
-  people: Person[];
+  /** The directory the owner column resolves against — `PersonLike`, so an address its
+   *  owner has left still names them (#127 E8). Same as ProgramsClient's. */
+  people: PersonLike[];
 }
 
 export default function EcosystemSummaryClient({

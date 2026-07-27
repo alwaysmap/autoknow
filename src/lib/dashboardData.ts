@@ -1,4 +1,5 @@
 import { prisma } from './db';
+import { personDirectorySelect, type PersonLike } from './people';
 import { percentile } from './stats';
 import { computeCriticalChain } from './criticalChain';
 import { deriveScore } from './relationship';
@@ -37,11 +38,6 @@ export interface DashboardProject {
   }[];
 }
 
-export interface DashboardPerson {
-  id: number;
-  name: string;
-  email: string;
-}
 
 /**
  * A phase that is ON a live critical chain right now — i.e. actually gating an SOP,
@@ -57,7 +53,9 @@ export interface LiveConstraint {
 
 export interface EcosystemDashboardData {
   serializedProjects: DashboardProject[];
-  people: DashboardPerson[];
+  /** The directory /ecosystem-summary hands to `PersonCell` to resolve a program's
+   *  stored `ownerName`. `PersonLike`, so the addresses an owner has LEFT come with it. */
+  people: PersonLike[];
   cycleTimeData: CycleTimeData[];
   cycleTimeStats: Record<string, CycleTimeStats>;
   /** Cross-portfolio constraint resources (docs/CRITICAL_CHAIN_VIEW_PLAN.md §4c). */
@@ -170,9 +168,7 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
     .map(([phaseName, programs]) => ({ phaseName, programs }))
     .sort((a, b) => b.programs.length - a.programs.length);
 
-  const people = await prisma.person.findMany({
-    select: { id: true, name: true, email: true },
-  });
+  const people = await prisma.person.findMany({ select: personDirectorySelect });
 
   // Cycle times per phase: elapsed days from the first in-flight state (progress moved
   // off zero) to the first completed state (progress reached 100), or to now if still

@@ -1,10 +1,13 @@
 import { z } from 'zod';
+// Pure string helpers, no Node imports — see the client-safety note below.
+import { normalizeAddress } from './auth';
 
 // Central runtime validation for mutation boundaries — API routes and server
 // actions. The Prisma schema is the LAST line of defense; these are the first:
 // malformed input becomes a 400 / readable error instead of a 500, and they
 // encode invariants the database can't express (trimmed non-empty notes, the
-// 1..5 score range, health labels). Client-safe: zod only, no Node imports.
+// 1..5 score range, health labels). Client-safe: zod plus lib/auth's pure string
+// helpers, no Node imports.
 
 // ---- primitives -----------------------------------------------------------------
 
@@ -210,6 +213,15 @@ export const affiliationApiSchema = z.object({
   endDate: z.preprocess(
     (v) => (v === '' || v == null ? null : v),
     z.coerce.date().nullable(),
+  ).optional(),
+  // The address held during THIS period (#127 E8). Optional and nullable because most
+  // periods predate the column and nothing knows what address they used — a null here
+  // means "not recorded", never "no address". Canonicalized through `normalizeAddress`,
+  // the one definition of the stored form (which also records why `Person.email` is
+  // NOT canonicalized on write, and where that gets decided).
+  email: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() !== '' ? normalizeAddress(v) : null),
+    z.email().nullable(),
   ).optional(),
 });
 

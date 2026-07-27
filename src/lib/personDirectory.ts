@@ -1,7 +1,7 @@
 import 'server-only';
 import { prisma } from './db';
 import { normalizeHandle } from './auth';
-import { resolvePerson, type PersonLike } from './people';
+import { personDirectorySelect, resolvePerson, type PersonLike } from './people';
 
 // Server half of `resolvePerson` (issue #153), for the two surfaces that store a person
 // as a BARE STRING with no Person relation to join through:
@@ -19,6 +19,12 @@ import { resolvePerson, type PersonLike } from './people';
 //   resolvePerson tries exact email, then email local-part, then exact full name;
 //   `email STARTS WITH '<handle>@'` covers the first two, `name = <raw>` the third.
 //
+// SINCE #127 E8 the first two tiers also search addresses a person HELD but has left
+// (`PersonAffiliation.email`), so the narrowing WHERE has to reach those too — the same
+// prefix, one relation over. Miss this arm and the superset stops being one: the row
+// never comes back, so the in-memory resolver never gets the chance to match it and a
+// pre-move Drive file silently keeps naming nobody.
+//
 // A page with no person strings issues no query at all.
 
 /** Person rows that could match any of `keys`, for `resolvePerson` to narrow. */
@@ -32,10 +38,15 @@ export async function getPersonDirectory(
     where: {
       OR: [
         ...handles.map((h) => ({ email: { startsWith: `${h}@`, mode: 'insensitive' as const } })),
+        ...handles.map((h) => ({
+          affiliations: {
+            some: { email: { startsWith: `${h}@`, mode: 'insensitive' as const } },
+          },
+        })),
         ...wanted.map((w) => ({ name: { equals: w, mode: 'insensitive' as const } })),
       ],
     },
-    select: { id: true, name: true, email: true },
+    select: personDirectorySelect,
   });
 }
 
