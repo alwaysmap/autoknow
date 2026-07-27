@@ -14,7 +14,7 @@
 import { testDatabaseUrl } from './helpers/testDatabaseUrl';
 process.env.DATABASE_URL = testDatabaseUrl(); // bind lib/db to the *_test database
 
-import { prisma, disconnectTestDb } from './helpers/db';
+import { prisma, disconnectTestDb, newestFirst } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
 jest.mock('server-only', () => ({}));
@@ -40,9 +40,8 @@ const form = (fields: Record<string, string | number>) => {
 
 const countStates = (phaseId: number) => prisma.phaseState.count({ where: { phaseId } });
 
-// `id` breaks the millisecond tie timestamp alone cannot — see the note in helpers/db.
 const latestState = (phaseId: number) =>
-  prisma.phaseState.findFirstOrThrow({ where: { phaseId }, orderBy: [{ timestamp: 'desc' }, { id: 'desc' }] });
+  prisma.phaseState.findFirstOrThrow({ where: { phaseId }, orderBy: newestFirst });
 
 beforeAll(async () => {
   ({ updatePhaseHill } = await import('../src/app/actions/hill'));

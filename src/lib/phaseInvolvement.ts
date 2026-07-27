@@ -18,13 +18,18 @@ import { prisma } from './db';
 // pane) post the same fields and refresh the same two surfaces, so the resolvers AND
 // the revalidation list live here — one boundary, not one per action file.
 //
-// The resolvers take numbers because the SHAPE is already settled upstream: both ADD
-// actions parse their form through `parseForm` (phasePersonAssignSchema /
-// phasePartnerAssignSchema), whose `zId` admits only a positive integer, and any new
-// caller owes the same. What is left here is the half a schema cannot do — asking the
+// The resolvers take numbers because the SHAPE is settled upstream, by every caller: each
+// parses its form through `parseForm`, whose `zId` admits only a positive integer, and any
+// new caller owes the same. What is left here is the half a schema cannot do — asking the
 // database whether the row exists and whether the phase really sits in the program the
 // form claims. The REMOVE path is the deliberate exception: it posts a bare join-row id
 // rather than a form shape, so `parseInvolvementLinkId` below is its own shape check.
+//
+// `requirePhaseInProject` has outgrown the module name: autoknow-9l4 gave it a third
+// caller in `updatePhaseHill`, which is a phase STATUS update rather than involvement at
+// all. It lives here because this is where the question "does this phase sit in that
+// program" was first answered (d3773c1 / #219) and one answer is the point; if a fourth
+// unrelated caller appears, that is the signal to move it somewhere its name covers.
 
 /** A user-readable failure. `guarded` forwards a message only when it starts with
  *  'Invalid input' OR contains ' — ', so every sentence here carries the dash. A

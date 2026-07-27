@@ -24,7 +24,7 @@
 // claim about it.
 
 import { readFileSync } from 'node:fs';
-import { stripComments, tsFiles } from './helpers/sourceFiles';
+import { sourceFiles, stripComments } from './helpers/sourceFiles';
 
 /**
  * Files that still hold both philosophies, each with the bead that resolves it. This
@@ -38,21 +38,27 @@ const KNOWN_MIXED: Record<string, string> = {
   'src/app/programs/[id]/actions.ts': 'autoknow-iwb — archive/delete/addPhase/deletePhase, beside two converted neighbours',
 };
 
-const readsFormByHand = (file: string): boolean => {
+/** Both philosophies in one file — NOT "hand-parses", which is a different and much
+ *  larger set this scan says nothing about. A file with no `parseForm` at all is
+ *  uniformly hand-rolled, which is a judgement call rather than a contradiction. */
+const holdsBothPhilosophies = (file: string): boolean => {
   const code = stripComments(readFileSync(file, 'utf8'));
   return code.includes('parseForm(') && code.includes('formData.get(');
 };
 
-// Every `.ts` under src/app — action modules, route handlers and server-side page code
-// alike. Not narrowed to `actions/`: a server action is defined by `'use server'`, not by
-// its directory, and `createProject` lives in a page module today.
-const appModules = tsFiles('src/app');
+// `.ts` AND `.tsx` under src/app. A server action is defined by `'use server'`, not by its
+// directory or its extension — `createProject` is inline in `programs/new/page.tsx` — so a
+// walk that filtered to `.ts` would carry a blind spot exactly where the next instance is
+// most likely to appear. No `.tsx` file uses `parseForm` today, which is why widening the
+// corpus adds no entries below and costs nothing.
+const appModules = sourceFiles('src/app');
 
 describe('a file that uses parseForm does not also read the form by hand', () => {
   it('finds modules to scan at all', () => {
     // A scan whose corpus is empty passes vacuously and pins nothing — assert the walk
     // works before believing anything it reports.
     expect(appModules.some((f) => f.includes('actions'))).toBe(true);
+    expect(appModules.some((f) => f.endsWith('.tsx'))).toBe(true);
     expect(appModules.length).toBeGreaterThan(5);
   });
 
@@ -61,7 +67,7 @@ describe('a file that uses parseForm does not also read the form by hand', () =>
   // its line here drops off the left. Without the second half a stale exemption would sit
   // there forever and the next regression in that file would pass.
   it('has no mixed file outside the tracked list, and no stale entry in it', () => {
-    const mixed = appModules.filter(readsFormByHand).sort();
+    const mixed = appModules.filter(holdsBothPhilosophies).sort();
     expect(mixed).toEqual(Object.keys(KNOWN_MIXED).sort());
   });
 });

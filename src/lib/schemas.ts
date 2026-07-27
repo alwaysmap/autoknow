@@ -29,11 +29,15 @@ export const zUrlOrNull = z.preprocess(
   z.url({ protocol: /^https?$/ }).nullish().transform((v) => v ?? null),
 );
 
+/** The blank-means-nothing preprocess the numeric optionals here share: '', null and
+ *  undefined all become null; anything else reaches `inner` untouched. `zTextOrNull` and
+ *  `zUrlOrNull` deliberately stay out — they TRIM before deciding, which is a different
+ *  question, and folding them in would make one helper answer two. */
+const blankToNull = <S extends z.ZodType>(inner: S) =>
+  z.preprocess((v) => (v === '' || v == null ? null : v), inner.nullable());
+
 /** Optional id: '', null, undefined normalize to null. */
-export const zIdOrNull = z.preprocess(
-  (v) => (v === '' || v == null ? null : v),
-  zId.nullable(),
-);
+export const zIdOrNull = blankToNull(zId);
 
 /**
  * A hill position: an integer 0..100, and the ONE place that bound is written.
@@ -52,10 +56,10 @@ const zHillProgress = z.coerce.number().int().min(0).max(100);
  *  null and each writer says what null means for it. The two status dialogs carry the
  *  previous position forward; the metadata dialog, whose form always posts the current
  *  value in a hidden field, treats it as zero. */
-const zHillProgressOrNull = z.preprocess(
-  (v) => (v === '' || v == null ? null : v),
-  zHillProgress.nullable(),
-);
+const zHillProgressOrNull = blankToNull(zHillProgress);
+
+/** A non-negative count where blank means "not stated" — the annual-volume field. */
+const zCountOrNull = blankToNull(z.coerce.number().int().min(0));
 
 /** An HTML checkbox. Ticked posts the browser's default 'on'; unticked posts NOTHING,
  *  so absence is a real answer here (false) rather than a missing field. TOTAL by
@@ -101,8 +105,9 @@ export const partnerFieldsSchema = z.object({
   summary: zTextOrNull,
 });
 
-/** Update targets ONE partner and carries the same editable fields as create — the id
- *  is the only difference, exactly as `personUpdateSchema` differs from its create. */
+/** Update targets ONE partner and carries the same editable fields as create, so it is
+ *  literally those fields plus the id — a partner has no field that only creation may
+ *  set, which is what makes the `.extend` honest rather than merely short. */
 export const partnerUpdateSchema = partnerFieldsSchema.extend({ partnerId: zId });
 
 /** Delete needs only the id. The preconditions — programs still owned, people still
@@ -133,9 +138,9 @@ export const relationshipUpdateSchema = z.object({
 
 // ---- program / partner / phase status --------------------------------------------
 
-// Status is written at three grains — a program or partner (the needle dialog), one
-// phase (the hill dialog), and the program metadata dialog, which edits the header's
-// facts and appends a status row in the same submit.
+// Status is written at two grains from three surfaces: a program or partner (the needle
+// dialog), one phase (the hill dialog), and the program again from the metadata dialog,
+// which edits the header's facts and appends a status row in the same submit.
 
 export const statusUpdateSchema = z.object({
   scope: z.enum(['project', 'partner']),
@@ -149,9 +154,12 @@ export const statusUpdateSchema = z.object({
 
 /** The PHASE half of the same concern (app/actions/hill.ts): move one phase's dot, with
  *  the note that explains the move. No needle — health lives on the program, and the
- *  phase's own status is derived from the position rather than picked. `projectId` is
- *  the surface to refresh, and it is an id like any other: unvalidated it reached
- *  `revalidatePath('/programs/NaN')`, a cache purge of a path no program has. */
+ *  phase's own status is derived from the position rather than picked.
+ *
+ *  `projectId` carries two jobs, so do not read it as decoration: it is the surface to
+ *  refresh, AND the program the phase must belong to (`requirePhaseInProject` in the
+ *  action). Unvalidated it did neither — a NaN made `revalidatePath('/programs/NaN')`, a
+ *  purge of a path no program has, and the parentage check did not exist. */
 export const phaseHillSchema = z.object({
   phaseId: zId,
   projectId: zId,
@@ -173,10 +181,9 @@ export const projectMetricsSchema = z.object({
   ownerName: zText.max(200),
   /** yyyy-MM from a month picker; `parseSopInput` turns it into that month's last day. */
   sopDate: zTextOrNull,
-  volumeFirstYear: z.preprocess(
-    (v) => (v === '' || v == null ? null : v),
-    z.coerce.number().int().min(0).nullable(),
-  ),
+  /** Units in the first year. Blank is "not stated", which the action stores as 0 — the
+   *  header renders 0 as "Not set", so the two agree without a nullable column. */
+  volumeFirstYear: zCountOrNull,
   /** Optional here, unlike the needle dialog's — editing metadata is not itself news. */
   notes: zTextOrNull,
   hillChartProgress: zHillProgressOrNull,

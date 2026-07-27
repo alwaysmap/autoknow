@@ -22,7 +22,8 @@ import { getPartnerDeleteBlockers, partnerDeleteRefusal } from '../../lib/partne
 
 export async function createPartner(formData: FormData): Promise<ActionResult> {
   return guarded(async () => {
-    const partner = await prisma.partner.create({ data: parseForm(partnerFieldsSchema, formData) });
+    const fields = parseForm(partnerFieldsSchema, formData);
+    const partner = await prisma.partner.create({ data: fields });
     await indexEntity('partner', partner.id);
     revalidatePath('/partners');
     redirect(`/partners/${partner.id}`);

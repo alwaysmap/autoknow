@@ -13,10 +13,9 @@ import { requirePhaseInProject } from '../../lib/phaseInvolvement';
 // and the person who made it. The previous update is recovered by ordering on
 // timestamp. Status is inferred from progress, never picked.
 //
-// One zod gate (lib/schemas), as its program twin `updateNeedleStatus` already had.
-// Hand-parsing here carried no 0..100 bound at all — `parseInt` has no range — so a
-// percentage of 150 was writable, and it drew a dot half a curve past the end of the
-// scale (autoknow-9l4).
+// One zod gate (lib/schemas), as its program twin `updateNeedleStatus` already had; the
+// hand-parsing this replaced carried no range at all, and `zHillProgress` holds that
+// history (autoknow-9l4).
 export async function updatePhaseHill(formData: FormData) {
   const { phaseId, projectId, hillChartProgress, notes } = parseForm(phaseHillSchema, formData);
 

@@ -13,7 +13,7 @@
 import { testDatabaseUrl } from './helpers/testDatabaseUrl';
 process.env.DATABASE_URL = testDatabaseUrl(); // bind lib/db to the *_test database
 
-import { prisma, disconnectTestDb } from './helpers/db';
+import { prisma, disconnectTestDb, newestFirst } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
 jest.mock('server-only', () => ({}));
@@ -53,8 +53,7 @@ const project = () => prisma.project.findUniqueOrThrow({ where: { id: seeded.pro
 const latestProjectState = () =>
   prisma.projectState.findFirstOrThrow({
     where: { projectId: seeded.projectId },
-    // `id` breaks the millisecond tie timestamp alone cannot — see the note in helpers/db.
-    orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+    orderBy: newestFirst,
   });
 
 beforeAll(async () => {

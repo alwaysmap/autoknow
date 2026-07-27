@@ -17,9 +17,6 @@ export function sourceFiles(dir: string): string[] {
 /** The `.tsx` subset — the common narrowing, once, rather than in every caller. */
 export const tsxFiles = (dir: string): string[] => sourceFiles(dir).filter((f) => f.endsWith('.tsx'));
 
-/** The other half: plain `.ts` only, for scans about server code rather than components. */
-export const tsFiles = (dir: string): string[] => sourceFiles(dir).filter((f) => f.endsWith('.ts'));
-
 /**
  * Source with comments removed — a comment ABOUT a thing is not that thing, and a
  * comment explaining a conversion is exactly what a naive scan trips on.

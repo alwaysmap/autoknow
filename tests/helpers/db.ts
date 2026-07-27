@@ -22,12 +22,15 @@ const pool = createResilientPool({ connectionString: url });
 export const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 /**
- * Reading back "the newest row" in a test: order by `[{ timestamp: 'desc' }, { id: 'desc' }]`,
- * not by timestamp alone. Prisma maps DateTime to millisecond precision, and two appends
- * inside one test land in the same millisecond often enough to flake — the `id` tiebreak is
- * what makes the answer deterministic. The ACTIONS order by timestamp alone, correctly:
- * they are asking a question about history, where a tie is genuinely ambiguous and rare.
+ * `orderBy` for reading back "the newest row this test just wrote" — timestamp, then id.
+ *
+ * The `id` tiebreak is not belt-and-braces: Prisma maps DateTime to MILLISECOND precision,
+ * and two appends inside one test land in the same millisecond often enough to flake, at
+ * which point `findFirst` may return either. The ACTIONS order by timestamp alone and are
+ * right to — they ask a question about history, where a tie is rare and genuinely
+ * ambiguous. A test that wrote both rows is not asking that question.
  */
+export const newestFirst = [{ timestamp: 'desc' as const }, { id: 'desc' as const }];
 
 /** Full teardown for unit tests — closes the client AND the pg pool so jest exits. */
 export async function disconnectTestDb() {

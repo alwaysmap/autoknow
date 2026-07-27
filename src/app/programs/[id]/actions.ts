@@ -16,6 +16,9 @@ import { requireOwner } from '../../../lib/owner';
 // action wrote the row's progress straight from `parseInt`, with no bound at all; both now
 // read the one shared bound (autoknow-9l4).
 export async function updateProjectMetrics(formData: FormData) {
+  // Two fields are renamed here and one is not, on a rule rather than a whim: a field is
+  // renamed when the value DERIVED from it reclaims the field's own name (`theNeedle`,
+  // `sopDate`), and left alone when the derivation gets a different name (`progress`).
   const {
     projectId, theNeedle: needleLabel, ownerName, sopDate: sopMonth, volumeFirstYear,
     notes, hillChartProgress, partnerId, hasGas, hasGbi, hasDigitalKey, hasAap,
