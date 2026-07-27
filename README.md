@@ -94,6 +94,7 @@ local use):
 | `ci:migrate` | Forward-only `prisma migrate deploy` to Cloud SQL (used by `deploy.yml`) |
 | `ci:deploy` | Build → push image → roll Cloud Run (used by `deploy.yml`) |
 | `ci:harden-db` | Diagnose/apply the least-privilege DB role (used by `harden-db.yml`) |
+| `ci:backfill` | Run one allowlisted `db:backfill:*` script against Cloud SQL as the DML-only `app_runtime` role (used by `db-backfill.yml`). Manual, confirmed, and the ONLY prod path for a backfill |
 
 ### 1. Prerequisites
 - Node.js (v18+)

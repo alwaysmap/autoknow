@@ -614,6 +614,30 @@ the old revision; fix forward (playbook §"If a migration fails in CI").
 `workflow_dispatch` once the cause (quota, registry, the old parallel-deploy race)
 is addressed.
 
+### Running a data backfill against production
+
+A backfill is never part of `migrate deploy` — it makes judgements whose leftovers
+somebody has to read. Run it from **Actions → Run DB backfill**, **with the branch left on
+`main`**: pick the backfill, type `autoknow-pg` to confirm, Run workflow. A dispatch runs
+the workflow AND the scripts from whatever ref you select, so a stale branch would run a
+stale backfill. Nothing else can reach the prod database with it, and nobody needs a
+password
+([ADR](adr/2026-07-26-a-backfill-reaches-prod-through-an-allowlisted-dispatch-runner.md)).
+
+Before you fire it, the migration that adds the target column must already be in prod
+(`curl -s https://autoknow.alwaysmap.com/api/health` for the serving sha). Afterwards the
+report is on the run's **summary page**, not just in the log. Stop conditions: a
+*permission denied* (the role model drifted — run `Harden DB role` with `MODE=diagnose`,
+never retry as `app`), a missing column (the migration has not landed), or a large
+`skipped:` count (something was writing concurrently — re-run and compare). Unmatched or
+ambiguous rows are not failures: they are rows the script refused to guess at, left
+untouched for you to fix at source. Re-running is always safe.
+
+```bash
+gh workflow run db-backfill.yml --ref main -f backfill=owner-person -f confirm=autoknow-pg
+gh run watch   # or read the summary page for the report
+```
+
 ---
 
 ## 10. Monitoring & logs — where to look, what to run

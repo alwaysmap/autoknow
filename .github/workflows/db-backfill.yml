@@ -1,0 +1,78 @@
+name: Run DB backfill
+
+# THE prod invocation path for `npm run db:backfill:*` (scripts/db/backfill.sh).
+#
+# A backfill is a separate, idempotent script rather than a statement inside
+# `migrate deploy` (docs/CHANGE_PLAYBOOK.md) — it makes judgements whose leftovers a
+# human has to read. That leaves it with nowhere to run against production: the runtime
+# image has no scripts/ and no ts-node, and running it from a workstation would mean
+# pulling a production password onto a laptop, which the keyless Workload Identity
+# Federation setup exists to prevent. This is that missing path, and nobody holds a
+# connection string on it.
+#
+# ONE RUNNER FOR EVERY BACKFILL, not one workflow each: the next two (#127 E8/E9) are the
+# same migration in different columns. What keeps that from being a "run anything against
+# prod" hatch is that WHICH backfills exist is an allowlist in scripts/db/backfill.sh —
+# the dropdown below only mirrors it, the script enforces it.
+#
+# Manual only, and confirmed: `workflow_dispatch` with no push/schedule trigger, plus a
+# required typed confirmation, so a stray click on "Run workflow" writes nothing.
+# All logic lives in scripts/db/backfill.sh; this file only wires inputs (AGENTS.md).
+on:
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: 'Which backfill to run'
+        type: choice
+        required: true
+        options:
+          - owner-person # #127 E6 — Project.ownerName -> ownerPersonId
+      confirm:
+        description: 'Type the Cloud SQL instance name (autoknow-pg) — this WRITES to production'
+        required: true
+
+permissions:
+  contents: read
+  id-token: write # keyless auth to GCP via WIF; no long-lived key anywhere
+
+# One backfill at a time. Each is idempotent and re-runnable, so an overlap would not
+# corrupt anything — but two runs interleaving would split the report that IS the output,
+# and a half-read report is how a "did it work?" question gets answered wrongly.
+concurrency:
+  group: db-backfill
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    name: backfill ${{ inputs.backfill }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/1009926574065/locations/global/workloadIdentityPools/github/providers/github
+          service_account: autoknow-ci@autoknow-prod-1895f1.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      # Unlike harden-db.yml (psql and nothing else), a backfill is a ts-node script that
+      # imports src/lib and needs the generated Prisma client — so this is deploy.yml's
+      # `migrate` job shape: real node_modules, then the script.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Deliberately explicit, though npm ci's postinstall also generates it: nothing may
+      # depend on a lifecycle-script side effect (ADR npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it).
+      - run: npm run db:generate
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Backfill
+        # Inputs travel as ENV, never interpolated into the `run:` line — `${{ }}` is
+        # substituted into the shell source before bash sees it, so a crafted input
+        # would otherwise be executable text in a job holding prod credentials.
+        env:
+          INSTANCE_PROJECT: autoknow-prod-1895f1
+          INSTANCE_SQL_CONNECTION: autoknow-prod-1895f1:us-central1:autoknow-pg
+          BACKFILL: ${{ inputs.backfill }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: npm run ci:backfill
