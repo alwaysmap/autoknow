@@ -611,7 +611,7 @@ export async function seedMockData() {
   // as a program owner, or on a partner's Google-team roster — is bound to a variable at
   // its creation site, so those references are the created row, not a re-typed address.
   // (The enrichment Googlers `marcus` and `priya` own programs too, and are bound the
-  // same way where they are created, ~230 lines down.)
+  // same way where they are created — in the enrichment block, via `mkPerson`.)
   //
   // `me` is the SESSION (AGENTS lesson 13, argued at the top of this function);
   // `mePerson` is the row it produced. The owner and roster references below take the
@@ -1314,10 +1314,11 @@ export async function seedMockData() {
       states: [{ at: '2022-11-15', p: 40 }, { at: '2023-06-01', p: 100 }] },
   ]);
   await involvePerson(aliceBoschProjectId, aliceBoschPhases['Modem integration'], aliceWaters.id, ALICE.bosch.role);
-  // Addressed to the account she actually held in 2022. Until #127 E8 it linked to
-  // her only by ACCIDENT — resolvePerson fell back to the email local part, and hers
-  // ('alice.waters') happened to survive both moves. Now it links for the reason it
-  // should: the Bosch period records that address, so the exact-email tier finds it.
+  // Addressed to the account she actually held in 2022. Until #127 E8 it linked to her
+  // only by ACCIDENT — resolvePerson fell back to the email local part, and her
+  // then-Google local part ('alice.waters', before this fixture took alice@google.com)
+  // happened to survive both moves. That accident would not work at all now, which is
+  // the point: the Bosch period records the address, so the exact-email tier finds it.
   await createActionItem(aliceBoschProjectId, aliceBoschPhases['Modem integration'], {
     description: 'Close out LTE modem thermal throttling on the Gen-2 board',
     assignedTo: ALICE.bosch.email, status: 'Completed', nextStep: 'Resolved',
