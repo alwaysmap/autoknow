@@ -10,7 +10,7 @@ symptoms:
   - a backfill reports a row UNMATCHED whose value is plainly a person's name, and that person is right there in the seed
   - the same value resolves fine against a freshly seeded database and matches nobody in prod
   - you are about to widen a resolver tier so that one stubborn row links
-verified_by: 'tests/resolvePerson.test.ts "falls back to an exact case-insensitive full name"; tests/seedMock.test.ts "program owners are canonical emails of existing people"; git log -S over src/lib/seed.ts (4ded811 vs 30952e6); PR #222'
+verified_by: 'the "Run DB backfill" workflow run 30230033333 (owner-person, prod): linked 9 / unmatched 2 / ambiguous 0, naming both rows; tests/resolvePerson.test.ts "falls back to an exact case-insensitive full name"; tests/seedMock.test.ts "program owners are canonical emails of existing people"; git log -S over src/lib/seed.ts (4ded811 vs 30952e6)'
 ---
 
 # A backfill's UNMATCHED rows may hold values that never named anybody

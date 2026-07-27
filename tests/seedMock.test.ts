@@ -82,10 +82,8 @@ describe('seedMockData through the API', () => {
     // The lead-PM persona is bound to the SIGNED-IN identity (mocked to dev@google.com
     // above), not to a literal in the seed — see 'the lead PM is the signed-in user'.
     expect((await byName('Ford Evos AAOS Bring-up')).ownerName).toBe('dev@google.com');
-    // alice@google.com is ALICE WATERS now (spec #124 §7's address), not a second
-    // 'Alice PM' persona invented to hold it. The address is unchanged here because it
-    // was always what landed — the seed passed the display name 'Alice PM' and the
-    // route resolved it — and that is the tier this change stopped depending on.
+    // Unchanged, and that is the point: the route always stored the resolved email, so
+    // retiring the persona that used to hold this address moves the owner, not the value.
     expect((await byName('Toyota Highlander Digital Key')).ownerName).toBe('alice@google.com');
     expect((await byName('Ford Explorer VHAL Integration (Bosch)')).ownerName).toBe('clara@google.com');
     expect((await byName('Honda Accord AAOS Bring-up')).ownerName).toBe('marcusw@google.com');

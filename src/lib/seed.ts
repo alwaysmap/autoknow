@@ -170,11 +170,8 @@ async function createPerson(body: {
   role?: string; startDate?: string;
 }): Promise<SeededPerson> {
   const { person } = await apiPost<CreatedPerson>(postPersonRoute, '/api/people', body);
-  // The address as STORED, not as submitted — the route is free to canonicalize, and an
-  // owner reference built from the request body would then quietly name nobody. Copied
-  // field by field rather than returned whole: the route really sends the entire Person
-  // row, and `CreatedPerson` narrowing it on paper would not stop the rest riding along
-  // inside every fixture variable at runtime.
+  // The address as STORED, not as submitted — `createPersonAt` normalizes it, so an owner
+  // reference built from the request body could quietly name nobody.
   return { id: person.id, email: person.email };
 }
 
@@ -611,8 +608,10 @@ export async function seedMockData() {
   console.log('Seeding people...');
   // People come BEFORE programs: the projects route resolves each program's owner
   // against existing people and refuses freeform names. Everyone who is later NAMED —
-  // as a program owner, or on a partner's Google-team roster — is bound to a variable
-  // here, so those references are the created row rather than a re-typed address.
+  // as a program owner, or on a partner's Google-team roster — is bound to a variable at
+  // its creation site, so those references are the created row, not a re-typed address.
+  // (The enrichment Googlers `marcus` and `priya` own programs too, and are bound the
+  // same way where they are created, ~230 lines down.)
   //
   // `me` is the SESSION (AGENTS lesson 13, argued at the top of this function);
   // `mePerson` is the row it produced. The owner and roster references below take the
@@ -664,17 +663,13 @@ export async function seedMockData() {
   // itself has to be early. She is therefore the one person in THIS block who gets
   // `addAffiliation` calls, and they are posted with that fixture.
   //
-  // There used to be a second Alice: an 'Alice PM' persona holding alice@google.com since
-  // 30952e6. When this fixture arrived (#127 E1, 6f8094c) `Person.email` was still
-  // `@unique`, so Alice Waters could not take the address #124 §7 assigns her and got the
-  // dotted form instead. Two people existed so that one address could be spelled two
-  // ways, which is the tail wagging the dog — one made-up human is enough, and she is the
-  // richer one. #127 E9 replaced the outright `@unique` with `PersonAffiliation`'s
-  // unique-at-an-instant EXCLUDE constraint, which still forbids two people holding one
-  // address over overlapping periods — so retiring the persona is what makes this address
-  // hers, not a rule that quietly went away. Her periods are contiguous and half-open, so
-  // the Google one carrying 'alice@google.com' overlaps nothing, here or anywhere else in
-  // the seed.
+  // She is the only Alice. A second one — an 'Alice PM' persona — used to hold
+  // alice@google.com, so this fixture took the dotted form while `Person.email` was still
+  // `@unique`. #127 E9 replaced that with a constraint forbidding two people holding one
+  // address over OVERLAPPING periods, so retiring the persona is what makes the address
+  // #124 §7 assigns her actually hers. Why the persona existed, and what its free-text
+  // ownership cost in prod, is in
+  // docs/knowledge/a-backfills-unmatched-rows-may-name-people-who-never-existed.md.
   //
   // Her address changes WITH the company (#124 §2), and since #127 E8 each period STORES
   // the address held during it — so the three addresses below are real columns, not
@@ -707,10 +702,7 @@ export async function seedMockData() {
   // stores bare addresses with no Person relation (#127 E13 is what deletes it), so a
   // re-typed one resolves by luck. This roster is where that already happened: at
   // 4ded811 the Toyota entry was a literal 'alice@google.com' and NO person by that
-  // address existed at all — it named nobody for the 22 days until 30952e6 created one.
-  // Retiring 'Alice PM' is the second chance to make that same literal dangle, survived
-  // only because Alice Waters inherits the address; deriving it from her row is what
-  // stops there being a third.
+  // address existed at all — it named nobody until 30952e6 created one, three weeks later.
   //
   // A roster `role` is the role held ON THIS RELATIONSHIP, not the person's job title —
   // which is why mePerson appears twice below under two different ones, and why Alice
