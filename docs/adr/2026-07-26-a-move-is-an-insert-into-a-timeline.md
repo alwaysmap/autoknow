@@ -4,7 +4,7 @@ date: 2026-07-26
 supersedes: ""
 superseded-by: ""
 extends: ""
-extended-by: ""
+extended-by: "an-address-is-unique-at-an-instant-not-forever"
 tags: [people, affiliations, temporal, data-integrity, actions]
 ---
 

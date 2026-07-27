@@ -5,9 +5,9 @@
 // so nothing is appended to the career and there is no effective date. That is what
 // separates it from `movePersonCompany`, which takes one.
 //
-// The email is the interesting field — `Person.email` is unique AND `resolvePerson`
-// matches on it — so these pin what happens at the edges of that, not the happy path
-// alone.
+// The email is the interesting field — `resolvePerson` matches on it, and since #127 E9
+// it is one half of a DB-enforced "no two people hold one address at one instant" — so
+// these pin what happens at the edges of that, not the happy path alone.
 import { testDatabaseUrl } from './helpers/testDatabaseUrl';
 process.env.DATABASE_URL = testDatabaseUrl(); // bind lib/db to the *_test database
 
@@ -93,6 +93,25 @@ describe('updatePerson', () => {
     }));
     expect(res.error).toBeUndefined();
     expect((await prisma.person.findUniqueOrThrow({ where: { id: bobId } })).name).toBe('Bob M.');
+  });
+
+  // #127 E9. Equality is decided in Postgres now, by an `=` that folds no case — so an
+  // address typed with a capital would sit beside its own lower-cased twin and the
+  // database would see two different people holding two different addresses.
+  it('stores an address typed with capitals in its canonical form', async () => {
+    const res = await updatePerson(form({
+      personId: String(aliceId), name: 'Alice', email: '  Alice@Example.COM ', notes: '',
+    }));
+    expect(res.error).toBeUndefined();
+    expect((await prisma.person.findUniqueOrThrow({ where: { id: aliceId } })).email)
+      .toBe('alice@example.com');
+  });
+
+  it('refuses a taken address however it is capitalised', async () => {
+    const res = await updatePerson(form({
+      personId: String(aliceId), name: 'Alice', email: 'BOB@example.com', notes: '',
+    }));
+    expect(res.error).toContain('Bob Miller');
   });
 
   it('rejects a malformed address at the boundary instead of writing it', async () => {

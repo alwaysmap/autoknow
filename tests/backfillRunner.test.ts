@@ -48,10 +48,10 @@ const expectNothingWasOpened = (output: string): void => {
 };
 
 describe('the backfill runner refuses before it connects', () => {
-  it('rejects a backfill name that is not on the allowlist', () => {
+  it('rejects an arm name that is not on the allowlist', () => {
     const { code, output } = run({ BACKFILL: 'drop-everything', CONFIRM: 'autoknow-pg' });
     expect(code).toBe(1);
-    expect(output).toContain("'drop-everything' is not an allowed backfill");
+    expect(output).toContain("'drop-everything' is not an allowed arm");
     expectNothingWasOpened(output);
   });
 
@@ -60,7 +60,7 @@ describe('the backfill runner refuses before it connects', () => {
     expect(code).toBe(1);
     // QUOTED, not executed: the refusal echoes the name back, so the assertion is that
     // `echo PWNED` never RAN — i.e. no line of output is the word on its own.
-    expect(output).toContain("'owner-person; echo PWNED' is not an allowed backfill");
+    expect(output).toContain("'owner-person; echo PWNED' is not an allowed arm");
     expect(output).not.toMatch(/^PWNED$/m);
     expectNothingWasOpened(output);
   });
@@ -84,13 +84,19 @@ describe('the allowlist and the workflow dropdown agree', () => {
   // Two lists, deliberately: the script enforces, the workflow offers. They are useless
   // apart — an option the script rejects wastes a production dispatch, and a name only
   // the script knows is unreachable from the UI. Nothing but this notices them diverging.
-  const readAllowed = (): string[] => {
+  // Entries are `"name=npm-script"` pairs since #127 E9 gave the runner a read-only
+  // `db:check:*` arm — so both halves are read, and both are asserted below.
+  const readAllowed = (): { name: string; script: string }[] => {
     const sh = readFileSync(SCRIPT, 'utf8');
     const block = sh.match(/ALLOWED=\(([^)]*)\)/)?.[1] ?? '';
     return block
       .split('\n')
-      .map((line) => line.replace(/#.*$/, '').trim())
-      .filter(Boolean);
+      .map((line) => line.replace(/#.*$/, '').trim().replace(/^"|"$/g, ''))
+      .filter(Boolean)
+      .map((entry) => {
+        const [name, ...script] = entry.split('=');
+        return { name, script: script.join('=') };
+      });
   };
 
   const readOptions = (): string[] => {
@@ -102,9 +108,22 @@ describe('the allowlist and the workflow dropdown agree', () => {
       .filter(Boolean);
   };
 
-  it('offers exactly the backfills the script will run', () => {
-    expect(readAllowed().length).toBeGreaterThan(0);
-    expect(readOptions().sort()).toEqual(readAllowed().sort());
+  it('offers exactly the arms the script will run', () => {
+    const allowed = readAllowed();
+    expect(allowed.length).toBeGreaterThan(0);
+    expect(readOptions().sort()).toEqual(allowed.map((a) => a.name).sort());
+  });
+
+  // The script preflights this too, but only AFTER a dispatch has been fired at
+  // production and rejected — which is a wasted trip to discover a typo in a shell
+  // string. The likelier miss is the one this catches: an arm added here and the npm
+  // script it names never added, or renamed later by someone who never opens this file.
+  it('names an npm script that exists for every arm', () => {
+    const scripts = JSON.parse(readFileSync('package.json', 'utf8')).scripts as Record<string, string>;
+    // The whole entry, not a boolean: a failure then prints which arm and what it asked
+    // for, which is the entire diagnostic value of running this here rather than
+    // discovering it from a rejected production dispatch.
+    expect(readAllowed().filter(({ script }) => !(script in scripts))).toEqual([]);
   });
 });
 

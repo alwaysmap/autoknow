@@ -36,14 +36,10 @@ function nameFromHandle(handle: string): string {
  * `lib/people`'s resolver. Four call sites were doing `.trim().toLowerCase()` inline,
  * which is fine right up until one of them stops.
  *
- * KNOWN ASYMMETRY, named here rather than left to be discovered: `PersonAffiliation.email`
- * is canonicalized on write (`lib/schemas`' affiliation schema, `createPersonAt`, the
- * backfill) and `Person.email` is NOT — its schema takes `z.email()` as typed. Reads
- * compensate, because everything goes through this function, so nothing is wrong today.
- * It becomes a real question at #127 E9, whose unique-at-an-instant constraint spans the
- * two: a DB-level `=` does not lower-case anything. Deciding it there is deliberate —
- * lower-casing `Person.email` retroactively is a data migration against a `@unique`
- * column, not a one-line schema edit.
+ * BOTH columns are canonical ON WRITE (`lib/schemas`' `zEmail`), and E9's migration
+ * folded the rows that predate that. It has to be both, because #127 E9 moved equality
+ * into Postgres — where `=` folds no case — and the argument is in ADR
+ * an-address-is-unique-at-an-instant-not-forever.
  */
 export function normalizeAddress(input: string | null | undefined): string {
   return (input ?? '').trim().toLowerCase();

@@ -9,7 +9,7 @@ import { authConfigured } from '../../auth';
 import { userFromHandle } from '../../lib/auth';
 import { parseForm, personCreateSchema, personDeleteSchema, personMoveSchema, personUpdateSchema } from '../../lib/schemas';
 import { coversDay } from '../../lib/people';
-import { createPersonAt, movePersonTo } from '../../lib/profiles';
+import { correctPersonRecord, createPersonAt, movePersonTo } from '../../lib/profiles';
 import { guarded, type ActionResult } from '../../lib/actionResult';
 
 // Person maintenance (move / delete), zod-gated (lib/schemas). Lives here —
@@ -39,11 +39,16 @@ export async function createMyProfile(formData: FormData) {
   const partnerId = parseInt((formData.get('partnerId') as string) || '', 10);
   if (Number.isNaN(partnerId) || partnerId <= 0) throw new Error('Pick an organization');
 
-  const existing = await prisma.person.findUnique({ where: { email } });
+  // `findFirst`, not `findUnique`: `Person.email` lost `@unique` at #127 E9, because the
+  // true invariant is unique AT AN INSTANT and lives on the affiliation timeline. The
+  // question here is unchanged — "has this login already claimed a person?" — and one
+  // answer is all a redirect can use. `email` came through `deriveEmail`, so it is
+  // already in the canonical stored form this compares against.
+  const existing = await prisma.person.findFirst({ where: { email } });
   if (existing) redirect(`/people/${existing.id}`);
 
   // The person's NAME is the human name ('Dylan Thomas'), not the handle — the
-  // directory is read by people, and resolvePerson matches on the unique email.
+  // directory is read by people, and resolvePerson matches on the address.
   const person = await createPersonAt({ name: identity.name, email, partnerId });
   await indexEntity('person', person.id);
   redirect(`/people/${person.id}`);
@@ -91,32 +96,30 @@ export async function movePersonCompany(formData: FormData): Promise<ActionResul
  * career. Moving employer is `movePersonCompany`, which DOES take a date; #127 E14
  * unifies the two behind one dialog.
  *
- * Email is the identity key here — `Person.email` is unique and `resolvePerson` matches
- * on it — so it is the one field with reach beyond the row, and the reach is not all
- * handled: `Project.ownerName` still stores an address as FREE TEXT, so programs owned
- * under the old one keep pointing at it. #127 E6 has added `Project.ownerPersonId`
- * alongside it and every write path now fills both, but the READERS still match on the
- * text — so renaming an owner's address still hides their programs until E7 moves those
- * lookups onto the FK.
+ * Email is the identity key here — `resolvePerson` matches on it — so it is the one
+ * field with reach beyond the row, and the reach is not all handled: `Project.ownerName`
+ * still stores an address as FREE TEXT, so programs owned under the old one keep
+ * pointing at it. #127 E6 has added `Project.ownerPersonId` alongside it and every write
+ * path now fills both, but the READERS still match on the text — so renaming an owner's
+ * address still hides their programs until E7 moves those lookups onto the FK.
+ *
+ * The correction reaches the EMPLOYMENT PERIOD too since #127 E9: an address is a
+ * property of the job, so correcting "their address" and leaving the period they are in
+ * saying the old one would leave the two halves disagreeing about today. `lib/profiles`
+ * does both in one transaction and picks the period with the same as-of predicate the
+ * resolvers read with.
  */
 export async function updatePerson(formData: FormData): Promise<ActionResult> {
   return guarded(async () => {
     const { personId, name, email, notes } = parseForm(personUpdateSchema, formData);
 
-    // Name the clash rather than letting the raw constraint failure speak: `guarded`
-    // would flatten a P2002 into its generic "something went wrong" line, which is no
-    // help when the duplicate is a person you could go and look at.
-    // Thrown with an em-dash because that is how `guarded` tells a message written for
-    // a user from a raw internal one (lib/actionResult).
-    const clash = await prisma.person.findUnique({ where: { email }, select: { id: true, name: true } });
-    if (clash && clash.id !== personId) {
-      throw new Error(`${email} already belongs to ${clash.name} — use a different address`);
-    }
-
-    await prisma.person.update({
-      where: { id: personId },
-      data: { name, email, notes: notes ?? null },
-    });
+    // `correctPersonRecord` refuses an address somebody else holds today, and NAMES them:
+    // `guarded` would otherwise flatten the raw constraint failure into its generic
+    // "something went wrong" line, which is no help when the duplicate is a person you
+    // could go and look at. Since #127 E9 that question is temporal — who holds this
+    // address TODAY — because `Person.email` is no longer unique and an address someone
+    // LEFT is legitimately recorded against them.
+    await correctPersonRecord({ personId, name, email, notes: notes ?? null });
     // The directory answers on name and address; a correction nobody can search for is
     // half a correction.
     await indexEntity('person', personId);

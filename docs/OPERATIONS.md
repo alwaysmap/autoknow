@@ -624,6 +624,22 @@ stale backfill. Nothing else can reach the prod database with it, and nobody nee
 password
 ([ADR](adr/2026-07-26-a-backfill-reaches-prod-through-an-allowlisted-dispatch-runner.md)).
 
+**The one arm you must run from a BRANCH, and why that is not a hole.** A `db:check:*`
+arm that gates a PR ships *inside* that PR, so on `main` the option does not exist yet and
+the dropdown will not offer it. Dispatch it with an explicit ref:
+
+```bash
+gh workflow run db-backfill.yml --ref <the-PR-branch> -f backfill=<check> -f confirm=autoknow-pg
+```
+
+Run-from-`main` exists because a dispatch runs whatever code the ref carries, and a
+`db:backfill:*` arm WRITES. A `db:check:*` arm only `SELECT`s, as the DML-only
+`app_runtime` role, so the thing the rule protects is not at stake — and the alternative
+(land the constraint, discover the conflict from a failed `migrate deploy`) is the outcome
+the check exists to prevent. Read the branch's diff of `scripts/db/backfill.sh` and the
+script the arm names before dispatching, exactly as you would trust any other code you are
+about to point at production. **Never** use `--ref <branch>` for a `db:backfill:*` arm.
+
 Before you fire it, the migration that adds the target column must already be in prod
 (`curl -s https://autoknow.alwaysmap.com/api/health` for the serving sha). Afterwards the
 report is on the run's **summary page**, not just in the log. Stop conditions: a
@@ -638,12 +654,61 @@ gh workflow run db-backfill.yml --ref main -f backfill=owner-person -f confirm=a
 gh run watch   # or read the summary page for the report
 ```
 
-#### The backfills, and what their reports mean
+#### The arms, and what their reports mean
 
 | `backfill=` | Fills | Ships with | Its gate |
 |---|---|---|---|
 | `owner-person` | `Project.ownerPersonId` from the `ownerName` text | #127 E6, migration `20260726232108_project_owner_person_id` | zero unmatched + zero ambiguous before E7 retires the `ownerName` readers |
 | `affiliation-email` | `PersonAffiliation.email` from `Person.email` | #127 E8, migration `20260727020837_affiliation_email` | zero uncovered + zero ambiguous before E9 adds the unique-at-an-instant constraint |
+| `email-conflicts` | **nothing — READ-ONLY.** Reports addresses recorded against two people over overlapping periods | #127 E9, migration `20260727040058_unique_at_an_instant` | zero conflicts, or that migration fails and blocks the deploy |
+
+**`email-conflicts` — the one arm that writes nothing.** It runs
+`npm run db:check:email-conflicts`, which only SELECTs. It exists because an exclusion
+constraint cannot be added `NOT VALID`: `ALTER TABLE … ADD CONSTRAINT … EXCLUDE`
+validates every existing row at once, and one offender fails `prisma migrate deploy` —
+which runs BEFORE the deploy job, so it would block the release of everything merged
+alongside it. Run it BEFORE merging anything that adds the constraint — which is the
+branch-ref case above, so while that PR is open the ref is the PR's branch and not `main`:
+
+```bash
+# while the PR that adds the constraint is open — `main` does not offer the arm yet
+gh workflow run db-backfill.yml --ref <the-PR-branch> -f backfill=email-conflicts -f confirm=autoknow-pg
+# once it has merged, every re-run goes from main like everything else
+gh workflow run db-backfill.yml --ref main -f backfill=email-conflicts -f confirm=autoknow-pg
+```
+
+A green run reporting `No conflicts` is the go-ahead. A **red run is the answer, not a
+breakage**: this arm exits non-zero when it finds something, and the report on the summary
+page names each address with both people and both periods. Nothing about the check changes
+any data, so it can be run as often as you like.
+
+Fixing what it finds depends on which periods clash, and only one case has an in-app path
+today:
+
+- **Both periods are CURRENT** (both `→ open`, or both covering today): edit the losing
+  person on `/people/<id>` and give them the address they actually use. That corrects the
+  period covering today along with the record (`updatePerson` since #127 E9).
+- **Either period is CLOSED**: there is no editor for a historical period's address.
+  Bead `autoknow-164` covers giving the dispatch runner a remediation arm; until it lands
+  this needs a hand-written statement run by someone with database access, so **check
+  before you merge** rather than discovering it from a failed deploy.
+
+**If the migration already failed on it**, the failure is atomic — no data changed, the
+constraint was not created — but `prisma migrate deploy` has recorded the attempt, so
+every later deploy dies with **P3009 on this same migration** until you clear it:
+
+```bash
+npx prisma migrate resolve --rolled-back 20260727040058_unique_at_an_instant
+```
+
+That is safe HERE specifically because the migration runs in one transaction and raised
+before any statement committed. It is not a general remedy — a migration that failed
+part-way needs a human who knows what landed (the `db-change` skill).
+
+It is also the one place these docs invoke `prisma` directly rather than through an npm
+script, and deliberately: AGENTS.md's rule exists so routine work goes through reviewed,
+repeatable scripts, and wrapping this would make a one-off recovery — which must be typed
+by someone who has read the failure and understands what did NOT land — look routine.
 
 **`affiliation-email` — reading the report.** The preflight and the stop conditions are
 the ones above; what is specific to this one is what its numbers MEAN.

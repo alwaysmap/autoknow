@@ -151,9 +151,10 @@ describe('historical addresses', () => {
 
   it('prefers whoever HOLDS the address now over whoever merely held it', () => {
     // One address, two humans, different decades — the case `Person.email @unique`
-    // used to make impossible and #127 E9's unique-at-an-instant constraint will
-    // police. Both are candidates, because it IS ambiguous; the ORDER is the
-    // tie-break, so resolvePerson's guess is the incumbent and not array order.
+    // used to make impossible and #127 E9's unique-at-an-instant constraint expressly
+    // permits: a handover is not two people at one moment. Both are candidates, because
+    // it IS ambiguous; the ORDER is the tie-break, so resolvePerson's guess is the
+    // incumbent and not array order.
     const successor = person(60, 'Ravi Patel', 'platform.lead@bosch.com');
     const predecessor = person(61, 'Ines Dupont', 'ines@qualcomm.com', 'platform.lead@bosch.com');
     expect(resolvePersonCandidates([predecessor, successor], 'platform.lead@bosch.com')

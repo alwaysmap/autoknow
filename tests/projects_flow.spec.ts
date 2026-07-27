@@ -149,7 +149,9 @@ test.describe('Projects and Partners Flow', () => {
     // the person it names. This is the only owner-writing path the unit tests do not
     // reach, and an id missing here means the seam that makes writing one column without
     // the other impossible has a hole on the surface a human actually uses.
-    const owner = await prisma.person.findUniqueOrThrow({ where: { email: 'dylan@google.com' } });
+    // `findFirst`, not `findUnique`: `Person.email` lost `@unique` at #127 E9 — the seed
+    // still gives this address to exactly one person, so the assertion is unchanged.
+    const owner = await prisma.person.findFirstOrThrow({ where: { email: 'dylan@google.com' } });
     expect(project!.ownerName).toBe('dylan@google.com');
     expect(project!.ownerPersonId).toBe(owner.id);
 
