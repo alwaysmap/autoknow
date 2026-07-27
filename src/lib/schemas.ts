@@ -29,11 +29,43 @@ export const zUrlOrNull = z.preprocess(
   z.url({ protocol: /^https?$/ }).nullish().transform((v) => v ?? null),
 );
 
+/** The blank-means-nothing preprocess the numeric optionals here share: '', null and
+ *  undefined all become null; anything else reaches `inner` untouched. `zTextOrNull` and
+ *  `zUrlOrNull` deliberately stay out — they TRIM before deciding, which is a different
+ *  question, and folding them in would make one helper answer two. */
+const blankToNull = <S extends z.ZodType>(inner: S) =>
+  z.preprocess((v) => (v === '' || v == null ? null : v), inner.nullable());
+
 /** Optional id: '', null, undefined normalize to null. */
-export const zIdOrNull = z.preprocess(
-  (v) => (v === '' || v == null ? null : v),
-  zId.nullable(),
-);
+export const zIdOrNull = blankToNull(zId);
+
+/**
+ * A hill position: an integer 0..100, and the ONE place that bound is written.
+ *
+ * It is written once because the number is DRAWN — `progress` is the dot's x on the hill
+ * curve — so a value off the scale is not a bad record, it is a chart that lies (AGENTS
+ * lesson 18). Four boundaries write this column. Two used to spell the range out for
+ * themselves and two hand-parsed with `parseInt`, which spells no range at all — so a
+ * percentage of 150 was writable through either of the latter (autoknow-9l4). A bound
+ * copied per boundary is a bound that can go missing from one of them silently; shared by
+ * reference, it cannot.
+ */
+const zHillProgress = z.coerce.number().int().min(0).max(100);
+
+/** `zHillProgress` where a blank field is not an answer but an ABSTENTION: it parses to
+ *  null and each writer says what null means for it. The two status dialogs carry the
+ *  previous position forward; the metadata dialog, whose form always posts the current
+ *  value in a hidden field, treats it as zero. */
+const zHillProgressOrNull = blankToNull(zHillProgress);
+
+/** A non-negative count where blank means "not stated" — the annual-volume field. */
+const zCountOrNull = blankToNull(z.coerce.number().int().min(0));
+
+/** An HTML checkbox. Ticked posts the browser's default 'on'; unticked posts NOTHING,
+ *  so absence is a real answer here (false) rather than a missing field. TOTAL by
+ *  construction — the preprocess answers for every input, so the `z.boolean()` behind it
+ *  rejects nothing and is there for the output type, not as a gate. */
+const zCheckbox = z.preprocess((v) => v === 'on' || v === true, z.boolean());
 
 /**
  * A required address, STORED CANONICAL — trimmed and lower-cased by `normalizeAddress`,
@@ -73,6 +105,16 @@ export const partnerFieldsSchema = z.object({
   summary: zTextOrNull,
 });
 
+/** Update targets ONE partner and carries the same editable fields as create, so it is
+ *  literally those fields plus the id — a partner has no field that only creation may
+ *  set, which is what makes the `.extend` honest rather than merely short. */
+export const partnerUpdateSchema = partnerFieldsSchema.extend({ partnerId: zId });
+
+/** Delete needs only the id. The preconditions — programs still owned, people still
+ *  employed — are counted by lib/partnerDeletion, which is the half a schema cannot do.
+ *  Twin of `personDeleteSchema`. */
+export const partnerDeleteSchema = z.object({ partnerId: zId });
+
 /** Partner create via the JSON API: type/region arrive as NAMES and are resolved
  *  to ids by the route (unknown names are a 400, never a silent null). */
 export const partnerApiSchema = z.object({
@@ -94,7 +136,11 @@ export const relationshipUpdateSchema = z.object({
   notes: zText.max(20_000),
 });
 
-// ---- program / partner status (the needle dialog) -------------------------------
+// ---- program / partner / phase status --------------------------------------------
+
+// Status is written at two grains from three surfaces: a program or partner (the needle
+// dialog), one phase (the hill dialog), and the program again from the metadata dialog,
+// which edits the header's facts and appends a status row in the same submit.
 
 export const statusUpdateSchema = z.object({
   scope: z.enum(['project', 'partner']),
@@ -103,10 +149,53 @@ export const statusUpdateSchema = z.object({
   theNeedle: zText.max(40),
   /** Every status update carries its note (dialogs require one). */
   notes: zText.max(20_000),
-  hillChartProgress: z.preprocess(
-    (v) => (v === '' || v == null ? null : v),
-    z.coerce.number().int().min(0).max(100).nullable(),
-  ),
+  hillChartProgress: zHillProgressOrNull,
+});
+
+/** The PHASE half of the same concern (app/actions/hill.ts): move one phase's dot, with
+ *  the note that explains the move. No needle — health lives on the program, and the
+ *  phase's own status is derived from the position rather than picked.
+ *
+ *  `projectId` carries two jobs, so do not read it as decoration: it is the surface to
+ *  refresh, AND the program the phase must belong to (`requirePhaseInProject` in the
+ *  action). Unvalidated it did neither. The action guarded the refresh with
+ *  `if (!isNaN(projectId))`, so junk did not corrupt the path — it SKIPPED the
+ *  revalidation entirely, leaving the edited program's page serving stale HTML while the
+ *  dialog reported a save. And the parentage check did not exist at all. */
+export const phaseHillSchema = z.object({
+  phaseId: zId,
+  projectId: zId,
+  /** Required: a position change without words is unreadable later, and the AI brief
+   *  digests the words. Both hill dialogs enforce it client-side too. */
+  notes: zText.max(20_000),
+  hillChartProgress: zHillProgressOrNull,
+});
+
+/** The program metadata dialog. Twin of `projectLifecycleSchema`, its neighbour in the
+ *  same action file, and it appends the same ProjectState row `statusUpdateSchema` does. */
+export const projectMetricsSchema = z.object({
+  projectId: zId,
+  /** Raw label; the action maps legacy risk values via parseHealth, as above. */
+  theNeedle: zText.max(40),
+  /** The assigned Googler — required, because every program must have one: it is the
+   *  resource half of CCPM and the "who do I ask" answer. That it is SOMEBODY is all a
+   *  schema can say; `requireOwner` resolves the pick to an existing Person. */
+  ownerName: zText.max(200),
+  /** yyyy-MM from a month picker; `parseSopInput` turns it into that month's last day. */
+  sopDate: zTextOrNull,
+  /** Units in the first year. Blank is "not stated", which the action stores as 0 — the
+   *  header renders 0 as "Not set", so the two agree without a nullable column. */
+  volumeFirstYear: zCountOrNull,
+  /** Optional here, unlike the needle dialog's — editing metadata is not itself news. */
+  notes: zTextOrNull,
+  hillChartProgress: zHillProgressOrNull,
+  /** Lead partner (OEM), editable post-creation. Null — no pick, or no picker rendered
+   *  at all — means "leave it alone", never "clear it". */
+  partnerId: zIdOrNull,
+  hasGas: zCheckbox,
+  hasGbi: zCheckbox,
+  hasDigitalKey: zCheckbox,
+  hasAap: zCheckbox,
 });
 
 // ---- person maintenance (server actions) ----------------------------------------
@@ -140,6 +229,23 @@ export const personCreateSchema = z.object({
   email: zEmail,
   partnerId: zId,
   role: zTextOrNull,
+});
+
+/**
+ * Self-provisioning from /me. The caller picks only the ORGANIZATION.
+ *
+ * THE CANONICAL ACCOUNT of why this is not simply `personCreateSchema` above, since the
+ * asymmetry is exactly what a later reader will try to tidy away: name and address are
+ * absent because a form that could supply them would be a form that could spoof them. The
+ * login is the identity (AGENTS lesson 13, ADR
+ * 2026-07-21-session-is-the-only-source-of-who-i-am), so completing the symmetry here
+ * would be the bug, not the fix. `createMyProfile` and tests/createMyProfile.test.ts point
+ * back here rather than restating it.
+ */
+export const myProfileSchema = z.object({
+  partnerId: zId,
+  /** Stub-mode identity override (`?user=`), ignored whenever real auth is configured. */
+  user: zTextOrNull,
 });
 
 // ---- phase involvement -----------------------------------------------------------
@@ -221,9 +327,13 @@ export const phaseCreateApiSchema = z.object({
  *  latest recorded progress when the dot isn't being moved. */
 export const phaseStateApiSchema = z.object({
   theNeedle: zTextOrNull.optional(),
+  /** `zHillProgress`, not `zHillProgressOrNull`: the empty case here is UNDEFINED, because
+   *  a field absent from a PATCH body means "don't touch it" — which is a different
+   *  sentence from the forms' "leave the dot where it is", even though both end up
+   *  preserving the stored value. The BOUND is the same object either way. */
   hillChartProgress: z.preprocess(
     (v) => (v === '' || v == null ? undefined : v),
-    z.coerce.number().int().min(0).max(100).optional(),
+    zHillProgress.optional(),
   ),
   notes: zTextOrNull.optional(),
   source: zTextOrNull.optional(),

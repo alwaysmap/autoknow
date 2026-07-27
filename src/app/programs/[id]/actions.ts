@@ -2,69 +2,64 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { parseForm, projectLifecycleSchema } from '../../../lib/schemas';
+import { parseForm, projectLifecycleSchema, projectMetricsSchema } from '../../../lib/schemas';
 import { prisma } from '../../../lib/db';
 import { parseHealth } from '../../../lib/health';
 import { parseSopInput } from '../../../lib/sop';
 import { getCurrentUser } from '../../../lib/session';
 import { requireOwner } from '../../../lib/owner';
 
+// The program metadata dialog: the header's editable facts, plus the ProjectState row the
+// same submit appends. One zod gate (lib/schemas), like its neighbour `setProjectLifecycle`.
+//
+// `updateNeedleStatus` appends that same state row, through `statusUpdateSchema`. This
+// action wrote the row's progress straight from `parseInt`, with no bound at all; both now
+// read the one shared bound (autoknow-9l4).
 export async function updateProjectMetrics(formData: FormData) {
-  const projectIdStr = formData.get('projectId') as string;
-  const theNeedleVal = formData.get('theNeedle') as string;
-  const hillChartProgressStr = formData.get('hillChartProgress') as string;
-  const ownerInput = ((formData.get('ownerName') as string) || '').trim();
-  // Every program MUST have an assigned Googler — the resource half of CCPM and
-  // the "who do I ask" answer. Enforced here, not just by the form's required flag.
-  if (!ownerInput) throw new Error('An assigned Googler (owner) is required');
-  // …and the owner must be an existing Person, stored by canonical email AND by id.
-  const owner = await requireOwner(ownerInput);
-  const sopDateStr = formData.get('sopDate') as string;
-  const volumeFirstYearStr = formData.get('volumeFirstYear') as string;
-  const notes = formData.get('notes') as string || null;
-  const partnerId = parseInt((formData.get('partnerId') as string) || '', 10);
+  // Two fields are renamed here and one is not, on a rule rather than a whim: a field is
+  // renamed when the value DERIVED from it reclaims the field's own name (`theNeedle`,
+  // `sopDate`), and left alone when the derivation gets a different name (`progress`).
+  const {
+    projectId, theNeedle: needleLabel, ownerName, sopDate: sopMonth, volumeFirstYear,
+    notes, hillChartProgress, partnerId, hasGas, hasGbi, hasDigitalKey, hasAap,
+  } = parseForm(projectMetricsSchema, formData);
 
-  const theNeedle = parseHealth(theNeedleVal);
-
-  const projectId = parseInt(projectIdStr);
-  const hillChartProgress = parseInt(hillChartProgressStr);
-  const volumeFirstYear = parseInt(volumeFirstYearStr);
+  // The owner must be an existing Person, stored by canonical email AND by id. The schema
+  // settles that a name was submitted; only the directory settles that it names somebody.
+  const owner = await requireOwner(ownerName);
+  const theNeedle = parseHealth(needleLabel);
+  const progress = hillChartProgress ?? 0;
   // SOP arrives as yyyy-MM (month picker) — stored as the LAST day of that month.
-  const sopDate = sopDateStr ? parseSopInput(sopDateStr) : null;
-  const hasGas = formData.get('hasGas') === 'on';
-  const hasGbi = formData.get('hasGbi') === 'on';
-  const hasDigitalKey = formData.get('hasDigitalKey') === 'on';
-  const hasAap = formData.get('hasAap') === 'on';
+  const sopDate = sopMonth ? parseSopInput(sopMonth) : null;
 
-  if (!isNaN(projectId)) {
-    await prisma.project.update({
-      where: { id: projectId },
-      data: {
-        theNeedle,
-        hillChartProgress: !isNaN(hillChartProgress) ? hillChartProgress : 0,
-        ...owner,
-        sopDate,
-        volumeFirstYear: !isNaN(volumeFirstYear) ? volumeFirstYear : 0,
-        hasGas,
-        hasGbi,
-        hasDigitalKey,
-        hasAap,
-        // Lead partner (OEM) is editable post-creation; ignore junk ids.
-        ...(Number.isNaN(partnerId) ? {} : { partnerId }),
-      }
-    });
+  await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      theNeedle,
+      hillChartProgress: progress,
+      ...owner,
+      sopDate,
+      volumeFirstYear: volumeFirstYear ?? 0,
+      hasGas,
+      hasGbi,
+      hasDigitalKey,
+      hasAap,
+      // Lead partner (OEM) is editable post-creation; no pick leaves it alone.
+      ...(partnerId == null ? {} : { partnerId }),
+    }
+  });
 
-    await prisma.projectState.create({
-      data: {
-        projectId,
-        theNeedle,
-        hillChartProgress: !isNaN(hillChartProgress) ? hillChartProgress : 0,
-        notes,
-        source: (await getCurrentUser()).handle
-      }
-    });
-  }
-  revalidatePath(`/programs/${projectIdStr}`);
+  await prisma.projectState.create({
+    data: {
+      projectId,
+      theNeedle,
+      hillChartProgress: progress,
+      notes,
+      source: (await getCurrentUser()).handle
+    }
+  });
+
+  revalidatePath(`/programs/${projectId}`);
 }
 
 export async function setProjectLifecycle(formData: FormData) {

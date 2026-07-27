@@ -7,7 +7,7 @@ import { indexEntity } from '../../lib/search';
 import { getCurrentUser } from '../../lib/session';
 import { authConfigured } from '../../auth';
 import { userFromHandle } from '../../lib/auth';
-import { parseForm, personCreateSchema, personDeleteSchema, personMoveSchema, personUpdateSchema } from '../../lib/schemas';
+import { myProfileSchema, parseForm, personCreateSchema, personDeleteSchema, personMoveSchema, personUpdateSchema } from '../../lib/schemas';
 import { coversDay } from '../../lib/people';
 import { correctPersonRecord, createPersonAt, movePersonTo } from '../../lib/profiles';
 import { guarded, type ActionResult } from '../../lib/actionResult';
@@ -28,16 +28,16 @@ export async function createPerson(formData: FormData) {
 }
 
 /** Self-provisioning from /me: the LOGIN is the identity source (name/email come
- *  from the session, never the form); the caller only picks the organization. */
+ *  from the session, never the form); the caller only picks the organization. So
+ *  `myProfileSchema` covers the form half and nothing more — its docblock in lib/schemas
+ *  argues why that asymmetry with `createPerson`'s schema is deliberate. */
 export async function createMyProfile(formData: FormData) {
+  const { partnerId, user: override } = parseForm(myProfileSchema, formData);
   const current = await getCurrentUser();
   // With real auth, the SESSION is the identity — the form can't spoof it. The
   // ?user= override only exists in stub mode (no auth configured: dev, e2e).
-  const override = ((formData.get('user') as string) || '').trim();
   const identity = !authConfigured && override ? userFromHandle(override) : current;
   const email = identity.email;
-  const partnerId = parseInt((formData.get('partnerId') as string) || '', 10);
-  if (Number.isNaN(partnerId) || partnerId <= 0) throw new Error('Pick an organization');
 
   // `findFirst`, not `findUnique`: `Person.email` lost `@unique` at #127 E9, because the
   // true invariant is unique AT AN INSTANT and lives on the affiliation timeline. The
