@@ -9,24 +9,35 @@ import { prisma } from './db';
 // a form body. AGENTS lesson 3: an entity reference is a picker plus a canonical key,
 // and the NON-MATCH is rejected here, at the boundary, not merely hidden from the
 // picker. A foreign key would also reject it, but only as an opaque constraint error
-// the user can do nothing with; these resolvers fail with a sentence instead.
+// the user can do nothing with; these resolvers fail with a sentence instead — one
+// `guarded` can hand back as { error }. That matters because both editors are INLINE
+// forms inside a panel: a server action that throws takes the whole surface to the
+// route error boundary, and the user's half-filled input with it.
 //
 // Both editors of involvement (the phase editor's detail panel and the rail's About
 // pane) post the same fields and refresh the same two surfaces, so the resolvers AND
 // the revalidation list live here — one boundary, not one per action file.
+//
+// The resolvers take numbers because the SHAPE is already settled upstream: both ADD
+// actions parse their form through `parseForm` (phasePersonAssignSchema /
+// phasePartnerAssignSchema), whose `zId` admits only a positive integer, and any new
+// caller owes the same. What is left here is the half a schema cannot do — asking the
+// database whether the row exists and whether the phase really sits in the program the
+// form claims. The REMOVE path is the deliberate exception: it posts a bare join-row id
+// rather than a form shape, so `parseInvolvementLinkId` below is its own shape check.
 
-/** A user-readable failure. `guarded` only forwards messages containing ' — '. A
+/** A user-readable failure. `guarded` forwards a message only when it starts with
+ *  'Invalid input' OR contains ' — ', so every sentence here carries the dash. A
  *  `function` declaration, not an arrow: only that form gives TypeScript the
  *  never-returns narrowing, so code written after a `fail(…)` is seen as dead. */
 function fail(message: string): never {
   throw new Error(message);
 }
 
-// The two refusals a bad reference can earn. Shared so the resolvers below cannot
+// The refusal an unresolvable reference earns. Shared so the resolvers below cannot
 // drift into several wordings of the same sentence — the prisma delegates themselves
 // stay spelled out, because the per-model `findUnique` overloads do not unify into one
 // callable type.
-const notAReference = (noun: string) => `Invalid input — that ${noun} reference is not a ${noun}.`;
 const noSuchRow = (noun: string) => `No such ${noun} — pick one from the list.`;
 
 /**
@@ -35,10 +46,6 @@ const noSuchRow = (noun: string) => `No such ${noun} — pick one from the list.
  * database and revalidate an unrelated program's page.
  */
 export async function requirePhaseInProject(phaseId: number, projectId: number): Promise<void> {
-  // Separate guards, separate sentences: a single "that phase reference" message for
-  // both halves sends whoever is debugging to the wrong form field.
-  if (!Number.isInteger(phaseId)) fail(notAReference('phase'));
-  if (!Number.isInteger(projectId)) fail(notAReference('program'));
   const phase = await prisma.phase.findFirst({
     where: { id: phaseId, projectId },
     select: { id: true },
@@ -48,14 +55,12 @@ export async function requirePhaseInProject(phaseId: number, projectId: number):
 
 /** The partner a PhasePartner row names, or a readable refusal. */
 export async function requirePartner(partnerId: number): Promise<void> {
-  if (!Number.isInteger(partnerId)) fail(notAReference('partner'));
   const partner = await prisma.partner.findUnique({ where: { id: partnerId }, select: { id: true } });
   if (!partner) fail(noSuchRow('partner'));
 }
 
 /** The person a PhasePerson row names, or a readable refusal. */
 export async function requirePerson(personId: number): Promise<void> {
-  if (!Number.isInteger(personId)) fail(notAReference('person'));
   const person = await prisma.person.findUnique({ where: { id: personId }, select: { id: true } });
   if (!person) fail(noSuchRow('person'));
 }

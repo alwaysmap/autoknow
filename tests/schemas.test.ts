@@ -3,6 +3,8 @@ import {
   parseForm,
   partnerApiSchema,
   partnerFieldsSchema,
+  phasePartnerAssignSchema,
+  phasePersonAssignSchema,
   relationshipUpdateSchema,
   statusUpdateSchema,
 } from '../src/lib/schemas';
@@ -58,6 +60,30 @@ describe('schemas', () => {
     expect(() =>
       parseForm(statusUpdateSchema, fd({ scope: 'project', targetId: '12', theNeedle: 'On Track', notes: 'x', hillChartProgress: '250' })),
     ).toThrow(/hillChartProgress/);
+  });
+
+  // The two involvement forms are twins and must stay twins: lib/phaseInvolvement no
+  // longer re-checks the shape, so a non-id that got past HERE would reach prisma. One
+  // shared body is what makes that mechanical — a field added to one schema and not the
+  // other fails right here.
+  test.each([
+    ['personId', phasePersonAssignSchema],
+    ['partnerId', phasePartnerAssignSchema],
+  ] as const)('phase involvement (%s): ids must be positive integers, blank role becomes null', (idField, schema) => {
+    const good = { [idField]: '4', projectId: '2', phaseId: '9', role: '  ' };
+    expect(parseForm(schema, fd(good))).toEqual({ [idField]: 4, projectId: 2, phaseId: 9, role: null });
+
+    // Named per field, so a refusal that blames the WRONG field still fails — which is
+    // the whole value of the message to someone staring at the form.
+    for (const field of [idField, 'projectId', 'phaseId']) {
+      expect(() => parseForm(schema, fd({ ...good, [field]: 'nope' }))).toThrow(new RegExp(field));
+      expect(() => parseForm(schema, fd({ ...good, [field]: '0' }))).toThrow(new RegExp(field));
+    }
+
+    // …and readable. `guarded` forwards on `startsWith('Invalid input') || includes(' — ')`;
+    // parseForm's prefix satisfies both, so pinning it once pins the whole contract — a
+    // rewording that missed BOTH branches would reach the user as "Something went wrong".
+    expect(() => parseForm(schema, fd({ ...good, phaseId: 'nope' }))).toThrow(/^Invalid input — /);
   });
 
   test('API bodies: readable refusals, not exceptions', () => {
