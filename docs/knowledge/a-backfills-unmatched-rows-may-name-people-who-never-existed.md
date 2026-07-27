@@ -18,10 +18,10 @@ verified_by: 'tests/resolvePerson.test.ts "falls back to an exact case-insensiti
 **The lesson.** When a one-shot backfill reports rows UNMATCHED, the first
 question is not "which tier is the matcher missing?" but **"did this value ever
 name a row, on the day it was written?"** Prod is older than the seed. A free-text
-value the seed authored two years ago was matched against the roster that existed
-*then*, and that roster is not the one you are reading in `src/lib/seed.ts` today.
-Answer that with `git log -S '<the exact value>' -- src/lib/seed.ts` before
-changing any resolution code.
+value the seed authored before the roster it names existed was matched against
+that day's roster, not the one you are reading in `src/lib/seed.ts` today. Answer
+it with `git log -S '<the exact value>' -- src/lib/seed.ts` before changing any
+resolution code.
 
 **Why it bites.** `resolvePersonCandidates` has a full-display-name tier, so a
 value like `Clara Operations` resolves the moment a Person by that name exists.
@@ -30,9 +30,9 @@ matcher bug, and the obvious fix — widen a tier — is both wrong and permanen
 resolution feeds pickers and dual-writes, so a looser tier silently attaches
 owners everywhere, to fix two rows in one table. The real cause here was that
 `ownerName: 'Alice PM'` and `ownerName: 'Clara Operations'` were authored in the
-initial commit against a people list that contained neither name; the Person rows
-arrived 30-odd commits later. Prod was seeded in between, so those two programs
-have carried a string that named nobody from the day they were created.
+initial commit (4ded811) against a people list that contained neither name; the
+Person rows arrived in 30952e6. Prod was seeded in that window, so those two
+programs have carried a string that named nobody from the day they were created.
 
 **What to do.** Date the value first (`git log -S`, against the file that wrote
 it). If it never named anything, the remediation is DATA — re-pick the owner, or

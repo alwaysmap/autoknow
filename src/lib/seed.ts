@@ -195,12 +195,9 @@ async function addAffiliation(
  * written down at all.
  *
  * That tier is not hypothetical: this seed used to pass `ownerName: 'Alice PM'` and
- * `ownerName: 'Clara Operations'`, and it went unnoticed because the matcher falls back
- * to an exact full display name — a fresh seed creates both people before it creates the
- * programs, so it always matched locally. It did not match in PROD, seeded in the window
- * between 4ded811 and 30952e6 when neither Person row existed yet: the strings named
- * nobody, and #127 E6's backfill reported exactly them as UNMATCHED. The general shape
- * of that trap, and how to tell it from a matcher bug, is in
+ * `ownerName: 'Clara Operations'`, and the display-name tier hid it locally while #127
+ * E6's backfill reported exactly those two rows UNMATCHED in prod. Why, and how to tell
+ * that apart from a matcher bug, is in
  * docs/knowledge/a-backfills-unmatched-rows-may-name-people-who-never-existed.md.
  */
 async function createProject(body: {
@@ -618,8 +615,10 @@ export async function seedMockData() {
   // here, so those references are the created row rather than a re-typed address.
   //
   // `me` is the SESSION (AGENTS lesson 13, argued at the top of this function);
-  // `mePerson` is the row it produced. Downstream references take the ROW, so they carry
-  // the address the route actually stored rather than the one this file submitted.
+  // `mePerson` is the row it produced. The owner and roster references above take the
+  // ROW, so they carry the address the route actually stored rather than the one this
+  // file submitted. Action-item assignees still pass `me.email` — those are free-text
+  // columns with no picker behind them, and #127 has not reached them yet.
   const mePerson = await createPerson({
     name: me.name, email: me.email, currentPartnerId: googlePartnerId,
     role: 'Lead Program Manager', startDate: '2024-01-01',
@@ -663,11 +662,12 @@ export async function seedMockData() {
   // itself has to be early. She is therefore the one person in THIS block who gets
   // `addAffiliation` calls, and they are posted with that fixture.
   //
-  // There used to be a second Alice: an 'Alice PM' persona at alice@google.com, seeded
-  // only because `Person.email` was `@unique` and this fixture wanted the address spec
-  // #124 §7 assigns it. Two people existed so that one address could be spelled two ways,
-  // which is the tail wagging the dog — one made-up human is enough, and she is the
-  // richer one. #127 E9 replaced the outright `@unique` with `PersonAffiliation`'s
+  // There used to be a second Alice: an 'Alice PM' persona that had held alice@google.com
+  // since the initial seed. When this fixture arrived (#127 E1, 6f8094c) `Person.email`
+  // was still `@unique`, so Alice Waters could not take the address #124 §7 assigns her
+  // and got the dotted form instead. Two people existed so that one address could be
+  // spelled two ways, which is the tail wagging the dog — one made-up human is enough,
+  // and she is the richer one. #127 E9 replaced the outright `@unique` with `PersonAffiliation`'s
   // unique-at-an-instant EXCLUDE constraint, which still forbids two people holding one
   // address over overlapping periods — so retiring the persona is what makes this address
   // hers, not a rule that quietly went away. Her periods are contiguous and half-open, so
@@ -703,8 +703,10 @@ export async function seedMockData() {
   // mutation surface (API or action) — patched directly onto the API-created rows.
   // AFTER the people, so each roster entry is a person the seed just created: the blob
   // stores bare addresses with no Person relation (#127 E13 is what deletes it), and a
-  // re-typed one is a reference that resolves by luck. Retiring 'Alice PM' is exactly
-  // the day that luck would have run out on the Toyota row.
+  // re-typed one is a reference that resolves by luck — luck that runs out the moment an
+  // address changes hands, which is exactly what retiring 'Alice PM' does to the Toyota
+  // row. It survives here only because Alice Waters inherited the address; had she kept
+  // the dotted form, that literal would now name nobody.
   //
   // A roster `role` is the role held ON THIS RELATIONSHIP, not the person's job title —
   // which is why mePerson appears twice below under two different ones, and why Alice
