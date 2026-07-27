@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '../../../lib/db';
-import { partnerRosterAsOf } from '../../../lib/profiles';
+import { partnerRosterAsOf, type PartnerRoster } from '../../../lib/profiles';
 import styles from './page.module.css';
 import RelationshipScale from '../../../components/RelationshipScale';
 import PartnerAdminControls from '../../../components/PartnerEditor';
@@ -21,14 +21,22 @@ import AnchorHeading from '../../../components/AnchorHeading';
 import KebabMenu from '../../../components/KebabMenu';
 import { NewPersonButton } from '../../../components/PersonEditor';
 import PersonCell from '../../../components/PersonCell';
+import PartnerPeopleTable, { type PartnerPersonRow } from './PartnerPeopleTable';
 import { resolvePeople } from '../../../lib/personDirectory';
 
 export const dynamic = 'force-dynamic';
 
 // The partner page is a briefing: a reading column (AI briefing first, programs as
-// condensed disclosure rows, activity last) beside a persistent sticky rail of key
-// metadata — relationship health, facts, people. Chosen over full-card and tabbed
-// variants (2026-07); the rail stays in view while the column scrolls.
+// condensed disclosure rows, then people, activity last) beside a persistent sticky rail
+// of key metadata — relationship health and contact facts. Chosen over full-card and
+// tabbed variants (2026-07); the rail stays in view while the column scrolls.
+//
+// PEOPLE MOVED OUT OF THE RAIL in #127 E12. They were a hand-rolled list of names in a
+// 16.875rem sticky column, which is the one shape that cannot say WHEN — and "when" is
+// the whole of #124: the same list has to carry who works here, who used to (with the
+// date they left) and who is transferring in (with the date they arrive), each filterable.
+// That is a table, design.md §6 forbids re-implementing one, and the shared DataTable does
+// not read in a rail. The rail keeps the facts that are one line long.
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -67,6 +75,29 @@ function FactsInline({
   );
 }
 
+/**
+ * The three buckets flattened into one list for the table, each row tagged with the bucket
+ * the RESOLVER put it in — the component classifies nothing.
+ *
+ * Bucket order is inert (the table sorts by name), so it follows `PartnerRoster`'s own
+ * declaration order rather than inviting a reader to hunt for a significance it has not
+ * got. Dates cross the Server→Client boundary as ISO strings: `DateCell` wants one anyway,
+ * and a `Date` would arrive at the client as a string regardless.
+ */
+function toRosterRows(roster: PartnerRoster): PartnerPersonRow[] {
+  return (['current', 'past', 'incoming'] as const).flatMap((status) =>
+    roster[status].map((aff) => ({
+      id: aff.id,
+      personId: aff.personId,
+      name: aff.person.name,
+      role: aff.role,
+      status,
+      startDate: aff.startDate.toISOString(),
+      endDate: aff.endDate?.toISOString() ?? null,
+    })),
+  );
+}
+
 export default async function PartnerDetailPage(props: PageProps) {
   const params = await props.params;
   const searchParams = await props.searchParams;
@@ -89,8 +120,12 @@ export default async function PartnerDetailPage(props: PageProps) {
 
   // Latest relationship state, plus what the edit/delete affordances need to be
   // honest about.
-  // `roster` is who is HERE today, and the headline employee figure is its length —
-  // ONE source, so the page cannot print "12 people" above a list of 11 (#127 E5).
+  // `roster` carries all three of #124 §4's buckets AS OF THIS REQUEST — the page is
+  // `force-dynamic`, so "now" is the instant the page renders, and the resolver's default
+  // `at` is that instant. Everything people-shaped on the page derives from this one
+  // call: the headline employee figure is `current.length` and the table's default view
+  // is that same bucket, so the page cannot print "12 people" above a list of 11 (#127
+  // E5, E12).
   const [roster, recentStates, relHistory, types, regions, allPartners] = await Promise.all([
     partnerRosterAsOf(partner.id),
     // Two newest — the header card shows the prior score alongside the current one.
@@ -125,6 +160,8 @@ export default async function PartnerDetailPage(props: PageProps) {
   // through — so the join happens at read time, through the shared server resolver
   // (#153). Keyed by the stored string, so the render hands its own value straight back.
   const teamPeople = await resolvePeople(googleTeam.map((m) => m.email));
+
+  const rosterRows = toRosterRows(roster);
 
   // No phone here: phone numbers belong to PEOPLE, not companies (the People
   // block is where you find someone to call).
@@ -168,7 +205,7 @@ export default async function PartnerDetailPage(props: PageProps) {
             types={types}
             regions={regions}
             programCount={ownedCount}
-            employeeCount={roster.length}
+            employeeCount={roster.current.length}
           />
         </div>
         {/* Classification is navigation (design.md §2/§6): type and region jump to
@@ -224,6 +261,20 @@ export default async function PartnerDetailPage(props: PageProps) {
           </section>
 
           <section className={styles.projectsSection}>
+            {/* The create affordance rides INSIDE the heading (§8c), the same shape the
+                Programs section above uses — `NewPersonButton` IS a KebabMenu, so it
+                drops in unchanged from the rail card it used to sit in. */}
+            <AnchorHeading
+              id="people"
+              linkLabel={t(locale, 'anchorLink')}
+              actions={<NewPersonButton partners={allPartners} defaultPartnerId={partner.id} />}
+            >
+              {t(locale, 'peopleLabel')}
+            </AnchorHeading>
+            <PartnerPeopleTable rows={rosterRows} locale={locale} />
+          </section>
+
+          <section className={styles.projectsSection}>
             <AnchorHeading id="activity" linkLabel={t(locale, 'anchorLink')}>
               {t(locale, 'navActivity')}
             </AnchorHeading>
@@ -238,8 +289,9 @@ export default async function PartnerDetailPage(props: PageProps) {
           </section>
         </div>
 
-        {/* The persistent rail: health → narrative → facts, then people. Sticky so key
-            metadata stays in view while the briefing scrolls. */}
+        {/* The persistent rail: health → narrative → facts, then the `googleTeam` blob
+            (people proper moved to the reading column in #127 E12 — see the header).
+            Sticky so key metadata stays in view while the briefing scrolls. */}
         <aside className={styles.sidebar}>
           <div className={styles.sidebarCard}>
             {/* health · updated · Update — one horizontal cluster (§7), no label:
@@ -255,20 +307,20 @@ export default async function PartnerDetailPage(props: PageProps) {
             <FactsInline facts={contactFacts} />
           </div>
 
-          <div className={styles.sidebarCard}>
-            {/* Create-from-context: the ⋯ opens the shared New-person dialog with THIS
-                partner pre-selected — the People-card analog of the Programs section's
-                "Create Program" (both live on this partner's page). */}
-            <div className={styles.cardHeader}>
-              <h3>{t(locale, 'peopleLabel')}</h3>
-              <NewPersonButton partners={allPartners} defaultPartnerId={partner.id} />
-            </div>
-            {googleTeam.length === 0 && roster.length === 0 ? (
-              <p className={styles.empty}>{t(locale, 'noAssociatedPeople')}</p>
-            ) : (
+          {/* What is left of the old People card: the `googleTeam` JSON blob, which is a
+              parallel people store with NO DATES and keyed on an email, so it can never be
+              bucketed and cannot join the table (#124 §7, last bullet). Naming it for what
+              it is, in its own card, is the honest interim state until #127 E13 migrates
+              it to real Person rows and deletes the mechanism — folding it into the table
+              under a made-up status would be inventing the fact the column asserts.
+              Absent entirely when the blob is empty; the People table below the programs
+              owns the empty state for people who have periods. */}
+          {googleTeam.length > 0 && (
+            <div className={styles.sidebarCard}>
+              <h3>{t(locale, 'googleTeamLabel')}</h3>
               <div className={styles.peopleList}>
-                {/* Both halves are names through PersonCell (#153) — `.personItem` in the
-                    module carries why the Google team's own twin class went away. */}
+                {/* Names through PersonCell (#153) — `.personItem` in the module carries
+                    why the Google team's own twin class went away. */}
                 {googleTeam.map((member, i) => (
                   <div key={`g-${i}`} className={styles.personItem}>
                     <PersonCell person={teamPeople[member.email]} value={member.email}
@@ -276,16 +328,9 @@ export default async function PartnerDetailPage(props: PageProps) {
                     {member.role && <span className={styles.personRole}>{member.role}</span>}
                   </div>
                 ))}
-                {roster.map((aff) => (
-                  <div key={aff.id} className={styles.personItem}>
-                    <PersonCell person={{ id: aff.personId, name: aff.person.name }}
-                      className={styles.personLink} />
-                    {aff.role && <span className={styles.personRole}>{aff.role}</span>}
-                  </div>
-                ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </aside>
       </main>
     </div>

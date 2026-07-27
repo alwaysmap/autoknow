@@ -97,20 +97,79 @@ export async function profilesAsOf(personIds: number[], at: Date = new Date()) {
   return new Map(rows.map((r) => [r.personId, r]));
 }
 
+/** An affiliation with the person holding it — one row of a partner's roster. */
+const withPerson = { include: { person: true } } as const;
+export type RosterAffiliation = Prisma.PersonAffiliationGetPayload<typeof withPerson>;
+
+/** #124 §4's three buckets, and the only names for them. */
+export type RosterBucket = 'current' | 'past' | 'incoming';
+export type PartnerRoster = Record<RosterBucket, RosterAffiliation[]>;
+
 /**
- * Everyone at `partnerId` on `at`, with the person — the roster. Ordered by name so the
- * caller does not re-sort; a roster is read as a list of people, not of affiliations.
+ * Which bucket a period falls in, relative to `at` — #124 §4's table as a TOTAL
+ * function, so a caller cannot land in two buckets or in none:
  *
- * The old form was wrong in BOTH directions, which is why the test asserts both: it
- * listed a person on the partner they move to NEXT, and omitted them from the one they
- * are at today.
+ *   (c) incoming — `start > at`            transferring in, and `start` is the **from**
+ *   (b) past     — `end <= at`             used to work here, and `end` is the **until**
+ *   (a) current  — everything else         works here
+ *
+ * The `current` arm is `asOfWhere` COMPLEMENTED, not a second opinion about it: strike
+ * the two arms above and what remains is exactly `start <= at AND (end IS NULL OR end >
+ * at)`. That equivalence is the whole reason the buckets can be decided here in JS while
+ * `profileAsOf` decides the same question in SQL, and it is pinned by a test
+ * (`tests/profilesAsOf.test.ts`, "the current bucket is the as-of roster") rather than
+ * left to the reader — the same treatment `personIsAtPartnerAsOfSql` gets, and for the
+ * same reason: nothing static can compare two renderings of one sentence.
+ *
+ * It compares raw INSTANTS, matching `asOfWhere` and deliberately NOT `coversDay`, which
+ * compares UTC days. The two agree on every row stored at UTC midnight, which is all of
+ * them today; `autoknow-yid` is where that difference gets resolved once, for both.
+ *
+ * Module-private, exactly like `asOfWhere`: `partnerRosterAsOf` below is the only way to
+ * ask, so a caller cannot bucket half a roster with it and the other half some other way.
  */
-export async function partnerRosterAsOf(partnerId: number, at: Date = new Date()) {
-  return prisma.personAffiliation.findMany({
-    where: { partnerId, ...asOfWhere(at) },
-    include: { person: true },
+const rosterBucketOf = (
+  period: { startDate: Date; endDate: Date | null },
+  at: Date,
+): RosterBucket => {
+  if (period.startDate > at) return 'incoming';
+  if (period.endDate !== null && period.endDate <= at) return 'past';
+  return 'current';
+};
+
+/**
+ * The partner's roster as of `at`, split into #124 §4's three buckets — who works here,
+ * who used to, and who is transferring in. Ordered by person name inside each bucket, so
+ * the caller does not re-sort; a roster is read as a list of people, not of affiliations.
+ *
+ * It returns all three because a partner page needs all three AND needs them to agree:
+ * the headline employee figure is `current.length`, so the number above the list and the
+ * list itself come from one query and one predicate. Two calls could not be made to
+ * disagree by construction, only by test — and "12 people" over a list of 11 is precisely
+ * the defect #124 §7 opens with.
+ *
+ * The predecessor answered only bucket (a), and the one before THAT was wrong in both
+ * directions at once (`where: { endDate: null }` listed a person on the partner they move
+ * to NEXT and omitted them from the one they are at today). A departed person could not
+ * be shown at all, which is why (b) is here rather than derived by a caller.
+ *
+ * Every affiliation the partner has ever held is fetched, because two of the three
+ * buckets are defined by rows OUTSIDE the as-of window and there is no predicate that
+ * returns them pre-split. Bounded by the partner's own headcount-over-time; the
+ * `@@index([partnerId, startDate, endDate])` prefix serves it.
+ */
+export async function partnerRosterAsOf(
+  partnerId: number,
+  at: Date = new Date(),
+): Promise<PartnerRoster> {
+  const rows = await prisma.personAffiliation.findMany({
+    where: { partnerId },
     orderBy: { person: { name: 'asc' } },
+    ...withPerson,
   });
+  const roster: PartnerRoster = { current: [], past: [], incoming: [] };
+  for (const row of rows) roster[rosterBucketOf(row, at)].push(row);
+  return roster;
 }
 
 /** One row of a roster, reduced to what a LIST needs — a person, not an affiliation. */

@@ -93,10 +93,34 @@
   margin: 0 0 0.75rem;
 }
 
-.empty {
-  font-size: 0.875rem;
+/* The Status cell's ClassBox is a BUTTON: a class filters its own column and never
+   navigates (design.md §6). Chromeless, so what the reader sees is the box, not a
+   control around it — the same treatment /partners gives its Type and Region cells.
+
+   The FOURTH copy of that block (`.typeFilterBtn`, `.classFilterBtn`, `.badgeFilterBtn`
+   are the others), and the third of `.classInk`. §6's own answer is the DataTable
+   column-kind version tracked with #29 — declare the column's kind once and derive both
+   decoration and behaviour — which subsumes all four; until then §6 says the rule is
+   enforced by review. `autoknow-dul` names the four call sites so that sweep is
+   mechanical rather than a grep for four different class names (AGENTS lesson 7). */
+.statusFilterBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.2s ease;
+}
+.statusFilterBtn:hover {
+  opacity: 0.8;
+}
+
+/* One ink for all three buckets. A status here is a CLASS, not a verdict, and the
+   palette's colours already mean health (design.md §6/§8b) — painting "past" red would
+   say a person leaving was a problem. */
+.classInk {
   color: var(--muted);
-  font-style: italic;
 }
 
 /* The rail: sticky so relationship, facts, and people stay in view — but it sticks
@@ -119,7 +143,7 @@
 .sidebarCard {
   padding: 0 0 0.25rem;
 }
-/* The People card is headed (its <h3>), so it too gets no rule above it — the
+/* The Google-team card is headed (its <h3>), so it too gets no rule above it — the
    heading separates it from the relationship/facts card (design.md §7 rule 3).
    The card gap (the sidebar's flex `gap`) plus this padding carry the boundary. */
 .sidebarCard + .sidebarCard {
@@ -140,20 +164,6 @@
   letter-spacing: 0.05em;
   color: var(--muted);
   margin: 0 0 0.625rem 0;
-}
-
-/* The People card's heading shares its row with a ⋯ create menu. The row carries the
-   card's title-to-content spacing so the h3 can drop its own bottom margin — a
-   margin-bottom on a flex item offsets the line and would float the label above the
-   kebab. The affordance clusters right of the title (design.md §8c), not far-right. */
-.cardHeader {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-bottom: 0.625rem;
-}
-.cardHeader h3 {
-  margin: 0;
 }
 
 /* The human-written one-liner about the partner (edit dialog), NOT the AI briefing. */

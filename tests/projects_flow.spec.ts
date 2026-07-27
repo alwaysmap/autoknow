@@ -82,16 +82,19 @@ test.describe('Projects and Partners Flow', () => {
     await expect(page.locator('select[name="partnerId"]')).toHaveValue(String(fordId));
   });
 
-  test('the partner page People card creates a person pre-selecting that partner', async ({ page }) => {
+  test('the partner page People section creates a person pre-selecting that partner', async ({ page }) => {
     await page.goto(`/partners/${fordId}`);
 
-    // The People card's ⋯ lives in the sidebar rail — the only kebab there (the partner
-    // name and Programs section carry their own in the main column).
+    // The People ⋯ rides inside the People SECTION's heading (design.md §8c), which is
+    // where the list moved when it became a DataTable (#127 E12) — it used to be the
+    // sidebar rail's only kebab. Scoped to that section because the partner title and the
+    // Programs heading carry their own.
+    const people = page.locator('section').filter({ has: page.locator('h2#people') });
     const dialog = page.locator('dialog[open]');
     await expect(async () => {
       if (!(await dialog.isVisible())) {
         const item = page.getByTestId('new-person');
-        if (!(await item.isVisible())) await page.locator('aside').getByTestId('kebab-menu').click({ timeout: 2000 });
+        if (!(await item.isVisible())) await people.getByTestId('kebab-menu').click({ timeout: 2000 });
         await item.click({ timeout: 2000 });
       }
       await expect(dialog).toBeVisible({ timeout: 1500 });
