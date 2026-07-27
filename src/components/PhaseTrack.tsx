@@ -65,11 +65,21 @@ import { localDate } from '../lib/dates';
 // yet leveled into the chain math).
 //
 // A phase reads at one of two rest states on the rail: collapsed (header only) or
-// standard (mini hill, latest note, and who's involved as company-typed pills — no
-// role labels, the pill colour carries the type). The DETAILS affordance lifts the
-// phase into a focused popover over a scrim (status update with a REQUIRED note, full
-// history, partner/people involvement editing) — clearly a different mode, not a
-// third inline density. That popover is a phase's ONLY home: the standalone
+// standard. STANDARD is the phase's dossier, in design.md §4's two-column detail
+// grammar (autoknow-crw.2): the Goal & definition of done on the left (the template
+// markdown the phase editor owns, plus where Google leans in), the most recent update
+// on the right — the hill graphic, the note's own words, its date and its author, none
+// of them excerpts — and a metadata footing spanning both columns with who is involved,
+// as company-typed pills (no role labels; the pill colour carries the type, and +n
+// marks a person or partner active on phases in other programs). The COLLAPSED state
+// is deliberately untouched by that: a 15-phase program stays scannable precisely
+// because every card but the one you clicked is a single line.
+//
+// The DETAILS affordance lifts the phase into a focused popover over a scrim (status
+// update with a REQUIRED note, full history, partner/people involvement editing) —
+// clearly a different mode, not a third inline density. It still holds the phase's
+// complete record; what it no longer holds ALONE is the goal and the latest update,
+// which the card now states. That popover is a phase's ONLY home: the standalone
 // /history/phase/:id page was retired 2026-07-21, so the popover is itself a URL
 // (`#phase-:id-detail`, lib/phase) and carries the COMPLETE log, not an excerpt.
 // STRUCTURE is not editable here: phases and dependencies are added/removed only in
@@ -225,6 +235,35 @@ function MiniHill({ progress, previousProgress }: { progress: number; previousPr
       {prev && <circle cx={prev.x} cy={prev.y} r={5} fill="var(--paper)" stroke="var(--muted)" strokeWidth={2} />}
       <circle cx={c.x} cy={c.y} r={8} fill={INK} stroke="var(--paper)" strokeWidth={1.6} />
     </svg>
+  );
+}
+
+// What a phase is FOR: the template-sourced Goal & definition of done, and where
+// Google leans in. Absent content still gets a doorway, and that doorway lands on
+// THIS phase's panel in the editor rather than merely on the editor.
+// ONE component, two surfaces: the standard card's left column and the popover's
+// About pane render it from the same source, so a copy edit or a new locale key
+// cannot land on one and miss the other (AGENTS lesson 7). It stays here rather than
+// becoming a file of its own because it is markup over `PhaseTrackRow` — the same
+// reason Station, StationGlyph and MiniHill live here.
+function PhaseGoal({ phase, projectId, locale }: { phase: PhaseTrackRow; projectId: number; locale: Locale }) {
+  return (
+    <>
+      {phase.description ? (
+        <div className={styles.templateDoc}><Markdown>{phase.description}</Markdown></div>
+      ) : (
+        <p className={styles.noGoal}>
+          {t(locale, 'noGoalYet')}{' '}
+          <Link href={phasesEditHref(projectId, phase.id)}>{t(locale, 'editPhases')}</Link>
+        </p>
+      )}
+      {phase.googleFocus && (
+        <div className={styles.metaLine}>
+          <span className={styles.metaLabel}>{t(locale, 'googleFocusLabel')}</span>
+          <span className={styles.templateFocus}><Markdown>{phase.googleFocus}</Markdown></span>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1062,23 +1101,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                   )}
                 </div>
               )}
-              {/* template-sourced content: what this phase is, and where Google leans in.
-                  Absent content still gets a doorway — the field lives in Edit phases. */}
-              {p.description ? (
-                <div className={styles.templateDoc}><Markdown>{p.description}</Markdown></div>
-              ) : (
-                <p className={styles.noGoal}>
-                  {t(locale, 'noGoalYet')}{' '}
-                  {/* the doorway lands on THIS phase's panel, not merely on the editor */}
-                  <Link href={phasesEditHref(projectId, p.id)}>{t(locale, 'editPhases')}</Link>
-                </p>
-              )}
-              {p.googleFocus && (
-                <div className={styles.metaLine}>
-                  <span className={styles.metaLabel}>{t(locale, 'googleFocusLabel')}</span>
-                  <span className={styles.templateFocus}><Markdown>{p.googleFocus}</Markdown></span>
-                </div>
-              )}
+              <PhaseGoal phase={p} projectId={projectId} locale={locale} />
               <div className={styles.aboutMeta}>
               {/* who's involved: partners and people, through the ONE involvement
                   control (PhaseInvolvementEditor) that the phase editor also uses —
@@ -1420,11 +1443,11 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                   {p.name}
                 </a>
                 {/* The head is name on the left, plan + zoom right-justified on the SAME
-                    line (headRight is margin-left:auto). The goal excerpt used to ride
-                    here; it is gone — the full Goal lives in the popover, and a clamped
-                    half-sentence per row was noise between the two things that matter,
-                    the name and the schedule. The zoom button shows only at standard
-                    size, so min stays a single clean line. */}
+                    line (headRight is margin-left:auto). A clamped goal EXCERPT used to
+                    ride here and is gone for good: a half-sentence per row was noise
+                    between the two things that matter, the name and the schedule, and
+                    the whole Goal now has a column of its own in the body below. The
+                    zoom button shows only at standard size, so min stays one clean line. */}
                 <span className={styles.headRight}>
                   <span className={styles.plan}>{planWords(p)}</span>
                   {paceChip(p)}
@@ -1445,13 +1468,20 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
 
               {open && (
                 <div className={styles.body}>
-                  <div className={styles.hillCol}>
-                    <MiniHill progress={p.progress} previousProgress={p.previousProgress} />
+                  {/* LEFT — what this phase is FOR, which used to be reachable only
+                      through the editor or the popover's About pane. */}
+                  <div className={styles.goalCol}>
+                    <PhaseGoal phase={p} projectId={projectId} locale={locale} />
                   </div>
-                  <div className={styles.detailCol}>
-                    {/* THE update is the card's headline — what happened, who said so, when */}
+
+                  {/* RIGHT — the most recent update, WHOLE: the graphic, the words,
+                      and who said so when. The note used to be clamped to two lines
+                      beside a thumbnail hill; here the update is the column's point,
+                      so neither is an excerpt. */}
+                  <div className={styles.updateCol}>
+                    <MiniHill progress={p.progress} previousProgress={p.previousProgress} />
                     {p.note
-                      ? <div className={`${styles.note} ${styles.noteClamp}`}>{p.note}</div>
+                      ? <div className={styles.note}>{p.note}</div>
                       : <div className={styles.noteEmpty}>{t(locale, 'noNote')}</div>}
                     {p.updatedAt && (
                       <div className={styles.noteBy}>
@@ -1460,39 +1490,42 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                       </div>
                     )}
 
-                    {/* problems, if any: ONE clamped line of evidence (full text on hover) */}
+                    {/* problems, if any: ONE clamped line of evidence (full text on
+                        hover). It rides with the update it qualifies, unchanged. */}
                     {isConstraint && (
                       <p className={styles.constraintWhy} title={constraintWhy(p).join(' · ')}>
                         {constraintWhy(p).join(' · ')}
                       </p>
                     )}
-
-                    {/* who's involved: quiet company-typed pills; +n = active elsewhere */}
-                    {involved.length > 0 && (
-                      <div className={styles.pillRow}>
-                        {involved.map((it) => {
-                          const load = it.load > 0
-                            ? <span className={styles.pillLoad}>+{it.load}</span>
-                            : null;
-                          const title = it.load > 0
-                            ? t(locale, 'contendedTitle', { name: it.name, n: it.load })
-                            : undefined;
-                          const cls = `${styles.pill} ${it.cls}`;
-                          return it.kind === 'person' ? (
-                            <PersonCell key={it.key} person={{ id: it.personId, name: it.name }}
-                              className={cls} title={title}>
-                              {load}
-                            </PersonCell>
-                          ) : (
-                            <Link key={it.key} href={it.href} className={cls} title={title}>
-                              {it.name}
-                              {load}
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    )}
                   </div>
+
+                  {/* BOTTOM — who is on this phase, as quiet company-typed pills; +n
+                      marks someone active on phases in OTHER programs. `.rowFoot`
+                      owns the pinning (and explains it). */}
+                  {involved.length > 0 && (
+                    <div className={`${styles.rowFoot} ${styles.pillRow}`}>
+                      {involved.map((it) => {
+                        const load = it.load > 0
+                          ? <span className={styles.pillLoad}>+{it.load}</span>
+                          : null;
+                        const title = it.load > 0
+                          ? t(locale, 'contendedTitle', { name: it.name, n: it.load })
+                          : undefined;
+                        const cls = `${styles.pill} ${it.cls}`;
+                        return it.kind === 'person' ? (
+                          <PersonCell key={it.key} person={{ id: it.personId, name: it.name }}
+                            className={cls} title={title}>
+                            {load}
+                          </PersonCell>
+                        ) : (
+                          <Link key={it.key} href={it.href} className={cls} title={title}>
+                            {it.name}
+                            {load}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

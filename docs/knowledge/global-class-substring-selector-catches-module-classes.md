@@ -1,7 +1,7 @@
 ---
 title: A global `[class*="foo"]` selector styles ANY CSS-module class whose hashed name contains "foo"
 status: current
-updated: 2026-07-26
+updated: 2026-07-27
 applies_to:
   - src/**/*.module.css
   - src/app/globals.css
@@ -9,7 +9,7 @@ symptoms:
   - an element has an unexpected background / border / padding / margin nobody wrote for it
   - a compact control (a single input, a small row) renders as a full-width bordered card
   - the surprise style has !important and no matching rule in that component's module
-verified_by: 'globals.css `[class*="filterSection"], [class*="filterBar"]` vs the .filterBar→.filterRow rename (#86); `[class*="card"]` erasing the addressed-update highlight in NeedleHistoryList (#111)'
+verified_by: 'globals.css `[class*="filterSection"], [class*="filterBar"]` vs the .filterBar→.filterRow rename (#86); `[class*="card"]` erasing the addressed-update highlight in NeedleHistoryList (#111); the phase card''s foot named `.rowFoot` rather than `.cardFoot` to stay out of `[class*="card"]` (autoknow-crw.2)'
 ---
 
 # A global `[class*="foo"]` selector styles ANY CSS-module class whose name contains "foo"
@@ -34,11 +34,12 @@ inspector shows only your one module class; the extra chrome comes from a rule
 that never names your file.
 
 **What to do.** When you add a component class, avoid the substrings globals.css
-matches — grep it for `[class*=` first (today: `filterBar`, `filterSection`).
-Pick a name outside them (`.filterRow`, not `.filterBar`). Do not try to
-out-specify it — the rule is `!important` and renaming is a one-word fix. If you
-genuinely want that global card, opt in *deliberately* by naming into it, don't
-back into it.
+matches — grep it for `[class*=` first (today: `filterBar`, `filterSection`,
+`card`, `tableWrapper`, `tableSection`, `scorecards`, `pagination`). `card` is
+the one that catches people out: it is the natural word for a thing that IS a
+card. Pick a name outside the set (`.filterRow`, not `.filterBar`; `.rowFoot`,
+not `.cardFoot`). Do not out-specify it — the rule is `!important` and renaming
+is a one-word fix. If you want that global card, name into it deliberately.
 
 **When you cannot rename — use a property the blanket does not claim.** Renaming
 works when *you* name the element. It is unavailable when the global is
@@ -56,5 +57,4 @@ had long described an appearance the page never had.
 `getComputedStyle` showed a `--surface` background + border + radius the module
 never declared, from `[class*="filterBar"]`. Caught by looking at the page, not
 the DOM — a class audit reports one correctly-applied class (AGENTS lesson 18).
-#111 hit the subtractive half: a highlight with correct markup and a matching
-rule computed `box-shadow: none`, identical to its neighbours.
+#111 hit the subtractive half: correct markup, matching rule, `box-shadow: none`.
