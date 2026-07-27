@@ -201,6 +201,10 @@ jobs:
       E2E_WORKERS: ${{ matrix.workers }}
     steps:
       - uses: actions/checkout@v4
+      # DISK. Three probes and the guard on the test step below; why, in
+      # scripts/ci/disk-guard.sh and bead autoknow-by9.
+      - name: Disk after checkout
+        run: npm run --silent ci:disk-report -- "after checkout"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -230,10 +234,24 @@ jobs:
       # the cached browser payload and webkit genuinely needs them, but chromium's set is
       # much smaller than the combined install this replaced.
       - run: npx playwright install --with-deps ${{ matrix.project }}
+      # Everything this job installs is now on disk: node_modules, the Prisma client, the
+      # browser payload and webkit's apt dependency set. What the guard below watches is
+      # what the RUN itself adds on top of this — the `next build`, the test databases and
+      # any per-test output.
+      - name: Disk after installs
+        run: npm run --silent ci:disk-report -- "after installs"
       # global-setup connects to the DB the instant the run starts, so prove the mapped
       # port is reachable first — same gate as the quality job.
       - uses: ./.github/actions/wait-for-postgres
-      - run: npm run test:e2e:${{ matrix.project }}
+      # Tune with CI_DISK_FLOOR_MB / CI_DISK_WARN_MB here; defaults and reasoning in
+      # scripts/ci/disk-guard.sh.
+      - name: Run the suite (under the disk guard)
+        run: npm run --silent ci:disk-guard -- npm run test:e2e:${{ matrix.project }}
+      # always(): report even when the suite fails. It does NOT run when the runner itself
+      # dies — which is exactly why the guard above exists.
+      - name: Disk at job end
+        if: always()
+        run: npm run --silent ci:disk-report -- "job end"
 
   image:
     name: image (Dockerfile builds; deps-stage postinstall contract)
