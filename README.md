@@ -87,6 +87,7 @@ local use):
 | `db:studio` | Prisma Studio on :5555 |
 | `db:test:clean` | Drop stray per-worktree `autoknow…_test` DBs (skips in-use; never the dev/demo DBs) |
 | `db:embeddings:audit` | Find rows holding the fallback embedding instead of a real one (by L2 norm — see the script). Read-only; `-- --fix` clears them so re-ingestion rebuilds them |
+| `db:backfill:owner-person` | Fill `Project.ownerPersonId` from the legacy `ownerName` text (#127 E6). Idempotent; writes only unambiguous matches and reports the rest |
 | `infra:plan` / `infra:apply` | Terraform against the `alwaysmap` instance, with the backend, tfvars and **identity** handled for you — `.env`'s service-account key would otherwise hijack the provider ([note](docs/knowledge/env-service-account-key-hijacks-terraform.md)). Apply is human-run and prompts |
 | `infra:output` | Terraform outputs (service URL, share address, WIF provider…) |
 | `ci:lint-migrations` | PR gate: block destructive migrations (used by `ci.yml`) |

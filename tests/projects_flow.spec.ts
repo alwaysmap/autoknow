@@ -141,6 +141,23 @@ test.describe('Projects and Partners Flow', () => {
 
     // leadRole "OEM" resolved unambiguously to the program's OEM partner.
     const project = await prisma.project.findFirst({ where: { name: 'Ford F-150 AAOS Bring-up' } });
+
+    // The form DUAL-WRITES the owner (#127 E6): the email that the picker submitted AND
+    // the person it names. This is the only owner-writing path the unit tests do not
+    // reach, and an id missing here means the seam that makes writing one column without
+    // the other impossible has a hole on the surface a human actually uses.
+    const owner = await prisma.person.findUniqueOrThrow({ where: { email: 'dylan@google.com' } });
+    expect(project!.ownerName).toBe('dylan@google.com');
+    expect(project!.ownerPersonId).toBe(owner.id);
+
+    // Same pair on the action item the first phase gets — that path used to write the
+    // text alone (AGENTS lesson 7: the same defect, one model over).
+    const firstAction = await prisma.actionItem.findFirstOrThrow({
+      where: { phase: { projectId: project!.id } },
+    });
+    expect(firstAction.assignedTo).toBe('dylan@google.com');
+    expect(firstAction.assignedToPersonId).toBe(owner.id);
+
     const p0 = await prisma.phase.findFirst({ where: { projectId: project!.id, name: 'Architecture lock' } });
     expect(p0!.leadPartnerId).toBe(fordId);
     const end = await prisma.phase.findFirst({ where: { projectId: project!.id, isEndPhase: true } });

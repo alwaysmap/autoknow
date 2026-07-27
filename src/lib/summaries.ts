@@ -211,7 +211,7 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
   reg.add(project.partner.name, partnerHref(project.partnerId));
 
   // The program's Google-side (internal) owner — the person an "owner works WITH the
-  // partner" action names. ownerName is stored as the canonical email (requireOwnerEmail);
+  // partner" action names. ownerName is stored as the canonical email (requireOwner);
   // resolve it to a Person for their name + /people link (match name too, defensively).
   if (project.ownerName) {
     const owner = await prisma.person.findFirst({

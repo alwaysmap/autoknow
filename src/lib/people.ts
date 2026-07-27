@@ -95,25 +95,51 @@ export function initialsOf(name: string): string {
 }
 
 /**
+ * EVERY person a handle or email could mean, taken from the FIRST tier that matches
+ * anything: exact email, then email local-part, then exact (case-insensitive) full
+ * name. Empty when nothing matches. No substring matching by design.
+ *
+ * More than one comes back only when a tier is genuinely AMBIGUOUS — two addresses
+ * sharing a local part at different domains ('alice@google.com', 'alice@bosch.com'
+ * for the input 'alice'), or two people with the same name. `Person.email` is unique,
+ * so the email tier can never be ambiguous.
+ *
+ * `resolvePerson` below is this with the ambiguity discarded, which is the right
+ * trade for a live form: the pickers only offer real people, so a near-miss is worth
+ * guessing at. A ONE-SHOT data migration is the opposite case — it cannot ask, its
+ * guess is permanent, and a wrong owner is worse than no owner — so the backfill in
+ * lib/ownerBackfill asks HERE and writes only when the answer is unique. One matcher,
+ * two questions; a second, subtly-different matcher is what AGENTS lesson 7 forbids.
+ */
+export function resolvePersonCandidates<T extends PersonLike>(
+  people: T[],
+  handleOrEmail: string | null | undefined,
+): T[] {
+  if (!handleOrEmail) return [];
+  const email = deriveEmail(handleOrEmail);
+  const handle = normalizeHandle(handleOrEmail);
+  if (!handle) return [];
+
+  const byEmail = people.filter((p) => p.email?.toLowerCase() === email);
+  if (byEmail.length > 0) return byEmail;
+
+  const byLocalPart = people.filter((p) => p.email?.toLowerCase().split('@')[0] === handle);
+  if (byLocalPart.length > 0) return byLocalPart;
+
+  return people.filter((p) => p.name?.toLowerCase() === handle);
+}
+
+/**
  * Resolve a handle or email ('@jdoe', 'jdoe', 'jdoe@google.com') to a Person, or
  * null when there is no confident match. Order: exact email, then email local-part,
  * then exact (case-insensitive) full name. No substring matching by design.
+ *
+ * First candidate wins, which is what it has always done (`Array.find` over the same
+ * three tiers) — see `resolvePersonCandidates` for when that is not good enough.
  */
 export function resolvePerson<T extends PersonLike>(
   people: T[],
   handleOrEmail: string | null | undefined,
 ): T | null {
-  if (!handleOrEmail) return null;
-  const email = deriveEmail(handleOrEmail);
-  const handle = normalizeHandle(handleOrEmail);
-  if (!handle) return null;
-
-  const byEmail = people.find((p) => p.email?.toLowerCase() === email);
-  if (byEmail) return byEmail;
-
-  const byLocalPart = people.find((p) => p.email?.toLowerCase().split('@')[0] === handle);
-  if (byLocalPart) return byLocalPart;
-
-  const byName = people.find((p) => p.name?.toLowerCase() === handle);
-  return byName || null;
+  return resolvePersonCandidates(people, handleOrEmail)[0] ?? null;
 }
