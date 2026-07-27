@@ -16,6 +16,28 @@ jest, e2e, prod build against a pgvector service container) — but run
 `evidence` locally first; a red PR check is a slower feedback loop, not a
 substitute for one.
 
+**A rebase invalidates the green run** — the new base is a different program, so
+the default is the full gate again. Narrow it to `typecheck` + `lint` + the repo gate scripts
+(`ci:lint-migrations`, `ci:lint-ordering`, `ci:lint-compound`), leaving CI's full
+suite as the backstop, ONLY when all four hold:
+
+1. conflict resolution touched only non-executing files (`docs/**`, `*.md` index
+   tables, `.claude/skills/**`);
+2. the rebased diff against the NEW base — restricted to `src/**`, `prisma/**`,
+   `tests/**`, `package.json` and config — is BYTE-IDENTICAL to the pre-rebase
+   diff against the OLD base. Prove it (`git diff <old-base>...<old-head>` vs
+   `git diff <new-base>...HEAD` over those paths); do not assume it;
+3. the PR rests on no whole-tree claim — no sweep receipt, no "all N call sites",
+   no lint guard asserted to cover every site;
+4. the files the new base changed do not intersect the files this PR touches.
+
+Any one failing means the full gate, and a rebase carrying a migration re-verifies
+forward-only from `0_init` regardless. Condition 3 is the one that bites: PR #207
+added a `scrollIntoView` that did not exist at #208's branch point, falsifying
+#208's "appears in `src/` exactly twice" receipt while #208's own diff never
+changed. A moving base can falsify a claim about the whole tree without touching
+a line of your diff.
+
 Individually: `npm run lint` · `npm run typecheck` · `npm run test`
 (`:watch`, `:coverage`) · `npm run test:e2e` (`:ui`). Zero lint errors AND
 warnings is the bar — the suite was once left red on main and it hid real bugs.
