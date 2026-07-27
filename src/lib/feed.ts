@@ -6,10 +6,16 @@ import { getActivity } from './activity';
 // and a single component serve both. Search fills `score` (relevance); activity fills
 // `timestamp` (recency). Same list, two orderings.
 
+// `partner` and `project` narrow by SUBJECT — what an item is about. `person` is the odd
+// one and narrows by ACTOR — who recorded it (#127 E10, #176). That difference is
+// why it reads the free-text `source`/`addedBy` columns rather than a foreign key, and
+// why `lib/activity` labels its items with the job held on each item's OWN day instead
+// of a single company for the whole list.
 export type FeedScope =
   | { kind: 'ecosystem' }
   | { kind: 'partner'; id: number }
-  | { kind: 'project'; id: number };
+  | { kind: 'project'; id: number }
+  | { kind: 'person'; id: number };
 
 /** Entity/context types that search can filter by. */
 export type FeedType = 'partner' | 'program' | 'person' | 'context';

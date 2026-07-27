@@ -2,7 +2,9 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import PersonAdminControls from '../../../components/PersonEditor';
+import ActivityFeed from '../../../components/ActivityFeed';
 import { initialsOf } from '../../../lib/people';
+import { getActivity } from '../../../lib/activity';
 import { profileAsOf } from '../../../lib/profiles';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
@@ -65,6 +67,11 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
     select: { id: true, name: true },
     orderBy: { name: 'asc' },
   });
+
+  // What this person RECORDED — the same shared feed the partner and program pages
+  // render, scoped by actor instead of subject, each row labelled with the job held on
+  // ITS OWN day (ADR a-dated-row-is-labelled-as-of-its-own-date).
+  const activity = await getActivity({ kind: 'person', id: person.id });
 
   const partners = await prisma.partner.findMany({
     orderBy: { name: 'asc' },
@@ -206,6 +213,16 @@ export default async function PersonProfilePage(props: { params: Promise<{ id: s
                 />
               );
             })()}
+          </section>
+
+          <section className={styles.section}>
+            <AnchorHeading id="activity" linkLabel={t(locale, 'anchorLink')}>
+              {t(locale, 'navActivity')}
+            </AnchorHeading>
+            {/* The intro states the feed's limit rather than absorbing it — see
+                `personActivityIntro` in lib/i18n for why it has to. */}
+            <p className={styles.sectionIntro}>{t(locale, 'personActivityIntro')}</p>
+            <ActivityFeed items={activity} />
           </section>
         </div>
       </main>

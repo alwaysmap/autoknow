@@ -75,3 +75,4 @@ skill routes between them.
 | 2026-07-26 | [Navigation is the one inner activation that dismisses a popover, and the popover decides it](2026-07-26-navigation-is-the-one-inner-activation-that-dismisses.md) | accepted | ui, popover, menus, navigation, components |
 | 2026-07-26 | [A name→FK backfill writes only the unambiguous match, and reports the rest](2026-07-26-a-name-to-fk-backfill-writes-only-the-unambiguous.md) | accepted | data-integrity, identity, migrations, backfill |
 | 2026-07-26 | [A backfill reaches production through one allowlisted dispatch runner, as the DML-only role](2026-07-26-a-backfill-reaches-prod-through-an-allowlisted-dispatch-runner.md) | accepted | ci, database, security, backfill, deploy |
+| 2026-07-26 | [A dated row is labelled as of ITS OWN date; a list of dated rows resolves per row](2026-07-26-a-dated-row-is-labelled-as-of-its-own-date.md) | accepted | identity, affiliations, feed, activity |

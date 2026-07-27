@@ -182,10 +182,26 @@ function blend(
   };
 }
 
+// An explicitly empty scope. A scope with no defined predicate must match NOTHING; the
+// failure mode this exists to prevent is falling through to `TRUE` and silently widening
+// a narrowed query to the whole ecosystem.
+const MATCHES_NOTHING = Prisma.sql`FALSE`;
+
 function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope, semantic: boolean): Prisma.Sql {
   const v = Prisma.sql`${vec}::vector`;
   const partnerId = scope.kind === 'partner' ? scope.id : undefined;
   const projectId = scope.kind === 'project' ? scope.id : undefined;
+  // A person scope narrows by ACTOR, and only ONE of the four searchable types has a
+  // defined answer to "…within this person": the person themself. The other three would
+  // each need a rule nobody has agreed (every partner she has been at? every program she
+  // touched?), and the alias filter the activity feed uses is not expressible here
+  // without a second query per search — so they match nothing.
+  //
+  // No in-app surface reaches these arms: the person page has no scoped entity search,
+  // because design.md §2b allows exactly one search surface and it is `/`. The real
+  // caller is `/api/search?personId=` WITHOUT a `q`, and that path is activity, not this
+  // function. autoknow-0f8 covers giving the three a meaning, or deleting these arms.
+  const personId = scope.kind === 'person' ? scope.id : undefined;
 
   switch (type) {
     case 'partner': {
@@ -194,7 +210,9 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope, sem
           ? Prisma.sql`p.id = ${partnerId}`
           : projectId != null
             ? Prisma.sql`p.id = (SELECT "partnerId" FROM "Project" WHERE id = ${projectId})`
-            : Prisma.sql`TRUE`;
+            : personId != null
+              ? MATCHES_NOTHING
+              : Prisma.sql`TRUE`;
       const lex = lexSql(q, Prisma.sql`p.name`, [Prisma.sql`pt.name`, Prisma.sql`p.summary`]);
       const { score, eligible } = blend(lex, Prisma.sql`p.embedding`, v, semantic);
       return Prisma.sql`
@@ -209,7 +227,9 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope, sem
           ? Prisma.sql`pr.id = ${projectId}`
           : partnerId != null
             ? Prisma.sql`pr."partnerId" = ${partnerId}`
-            : Prisma.sql`TRUE`;
+            : personId != null
+              ? MATCHES_NOTHING
+              : Prisma.sql`TRUE`;
       const lex = lexSql(q, Prisma.sql`pr.name`, [Prisma.sql`pr."ownerName"`, Prisma.sql`pa.name`]);
       const { score, eligible } = blend(lex, Prisma.sql`pr.embedding`, v, semantic);
       return Prisma.sql`
@@ -229,8 +249,11 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope, sem
         partnerId != null
           ? personIsAtPartnerAsOfSql(Prisma.sql`pe.id`, partnerId)
           : projectId != null
-            ? Prisma.sql`FALSE`
-            : Prisma.sql`TRUE`;
+            ? MATCHES_NOTHING
+            : personId != null
+              // The one type a person scope CAN answer: themself.
+              ? Prisma.sql`pe.id = ${personId}`
+              : Prisma.sql`TRUE`;
       const lex = lexSql(q, Prisma.sql`pe.name`, [Prisma.sql`pe.email`, Prisma.sql`pe.notes`]);
       const { score, eligible } = blend(lex, Prisma.sql`pe.embedding`, v, semantic);
       return Prisma.sql`
@@ -245,7 +268,9 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope, sem
           ? Prisma.sql`(c."partnerId" = ${partnerId} OR c."projectId" IN (SELECT id FROM "Project" WHERE "partnerId" = ${partnerId}))`
           : projectId != null
             ? Prisma.sql`(c."projectId" = ${projectId} OR c."phaseId" IN (SELECT id FROM "Phase" WHERE "projectId" = ${projectId}))`
-            : Prisma.sql`TRUE`;
+            : personId != null
+              ? MATCHES_NOTHING
+              : Prisma.sql`TRUE`;
       const lex = lexSql(q, Prisma.sql`COALESCE(c.title, '')`, [Prisma.sql`c."ingestedText"`]);
       const { score, eligible } = blend(lex, Prisma.sql`c.embedding`, v, semantic);
       return Prisma.sql`

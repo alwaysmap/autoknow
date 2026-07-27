@@ -116,6 +116,22 @@ test.describe('People and Biographical History', () => {
         createdAt: new Date('2026-02-10T09:00:00Z')
       }
     });
+
+    // Two updates SHE wrote, one inside each employment window. `source` is the bare
+    // handle the app writes (getCurrentUser().handle) and does not change when she
+    // moves — which is why the person feed cannot read her company off it, and has to
+    // resolve the period covering each update's own timestamp (#127 E10).
+    for (const [projectId, at, notes] of [
+      [fordProject.id, '2025-06-20T12:00:00Z', 'Ford-era weekly note'],
+      [waymoProject.id, '2026-02-12T12:00:00Z', 'Waymo-era weekly note'],
+    ] as const) {
+      await prisma.projectState.create({
+        data: {
+          projectId, theNeedle: 'On Track', hillChartProgress: 40,
+          notes, source: 'asmith', timestamp: new Date(at),
+        },
+      });
+    }
   });
 
   test.afterAll(async () => {
@@ -131,6 +147,24 @@ test.describe('People and Biographical History', () => {
     await expect(page.getByRole('link', { name: 'Waymo Gen 6 Integration' })).toBeVisible();
     // The action-item prose itself is no longer a person-page concern.
     await expect(page.locator('body')).not.toContainText('Resolve CAN bus packet drops');
+  });
+
+  test('the activity feed labels each entry with the company held THEN, not today', async ({ page }) => {
+    await page.goto(`/people/${personId}`);
+
+    // One human, one feed, two employers — decided per ROW by when each update was
+    // written. Reading the same company on both rows is #124 Class 2 back again.
+    const feed = page.locator('section', { has: page.locator('#activity') });
+    const fordRow = feed.locator('article').filter({ hasText: 'Ford-era weekly note' });
+    const waymoRow = feed.locator('article').filter({ hasText: 'Waymo-era weekly note' });
+    await expect(fordRow).toContainText('Ford');
+    await expect(fordRow).toContainText('Embedded Software Engineer');
+    await expect(fordRow).not.toContainText('Waymo');
+    await expect(waymoRow).toContainText('Waymo');
+    await expect(waymoRow).toContainText('Systems Engineer');
+
+    // The limit is stated on the page rather than left to be inferred from a short list.
+    await expect(feed).toContainText('carry no author');
   });
 
   test('any login can create a Person from the directory kebab', async ({ page }) => {

@@ -4,7 +4,7 @@ date: 2026-07-26
 supersedes: ""
 superseded-by: ""
 extends: ""
-extended-by: ""
+extended-by: a-dated-row-is-labelled-as-of-its-own-date
 tags: [data-integrity, identity, affiliations, lint, prisma]
 ---
 
