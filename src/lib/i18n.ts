@@ -931,11 +931,14 @@ const STRINGS = {
     ja: 'このパートナーはまだ {n} 件のプログラムを所有しています。先に移管または削除してください。',
     ko: '이 파트너는 아직 {n}개의 프로그램을 소유하고 있습니다. 먼저 재할당하거나 삭제하세요.',
   },
+  // Counts person RECORDS pointing here, which is what the delete would break — so it can
+  // differ from the people table above, and says so rather than leaving the reader to
+  // wonder which number is lying (autoknow-aa7, lib/partnerDeletion).
   partnerHasPeople: {
-    en: 'This partner is still the current employer of {n} person(s) — reassign them first.',
-    de: 'Dieser Partner ist noch aktueller Arbeitgeber von {n} Person(en) — zuerst neu zuordnen.',
-    ja: 'このパートナーはまだ {n} 名の現所属先です。先に所属を変更してください。',
-    ko: '이 파트너는 아직 {n}명의 현재 소속사입니다. 먼저 재배정하세요.',
+    en: '{n} person record(s) still name this partner as their employer, including anyone whose move has not been recorded — reassign them first.',
+    de: '{n} Personendatensatz/-sätze nennen diesen Partner noch als Arbeitgeber, auch Personen, deren Wechsel noch nicht erfasst ist — zuerst neu zuordnen.',
+    ja: '{n} 件の担当者レコードがこのパートナーを勤務先として参照しています（異動が未登録の担当者を含む）。先に所属を変更してください。',
+    ko: '{n}명의 인물 레코드가 아직 이 파트너를 소속사로 지정하고 있습니다(이동이 기록되지 않은 사람 포함). 먼저 재배정하세요.',
   },
   statusPending: { en: 'Pending', de: 'Offen', ja: '未処理', ko: '대기 중' },
   statusCompleted: { en: 'Completed', de: 'Erledigt', ja: '完了済み', ko: '완료됨' },

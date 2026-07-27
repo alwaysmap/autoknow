@@ -183,4 +183,50 @@ test.describe('Ecosystem Partners Page', () => {
     await expect(dialog.locator('#confirmPartnerName')).toHaveCount(0);
   });
 
+  test('delete refuses for a person whose record still points here, though nobody works here today', async ({ page }) => {
+    // `autoknow-aa7`, end to end. The dialog used to count the AS-OF roster — who works
+    // here today — while the action counts the `currentPartnerId` FK. Here they differ:
+    // Zeta's only affiliation ended before today, so the roster is empty and the People
+    // table shows nobody current, but the person row still names Zeta. The old dialog
+    // offered the name-confirm; the action then refused it. It must now refuse up front.
+    const zeta = await prisma.partner.create({
+      data: {
+        name: 'Zeta Robotics',
+        type: { connectOrCreate: { where: { name: 'Supplier' }, create: { name: 'Supplier' } } },
+        region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } },
+      },
+    });
+    const person = await prisma.person.create({
+      data: { name: 'Mira Halden', email: 'mira@zeta.example', currentPartnerId: zeta.id },
+    });
+    await prisma.personAffiliation.create({
+      data: {
+        personId: person.id,
+        partnerId: zeta.id,
+        role: 'Systems lead',
+        startDate: new Date('2021-03-01'),
+        endDate: new Date('2025-08-31'),
+      },
+    });
+
+    await page.goto(`/partners/${zeta.id}`);
+
+    const dialog = page.locator('dialog[open]');
+    await expect(async () => {
+      if (!(await dialog.isVisible())) {
+        const item = page.getByTestId('delete-partner');
+        // Scope to the header kebab: the partner page also has ⋯ menus in its Programs
+        // section and People section, so an unscoped kebab-menu is ambiguous.
+        if (!(await item.isVisible())) await page.locator('header').getByTestId('kebab-menu').click({ timeout: 2000 });
+        await item.click({ timeout: 2000 });
+      }
+      await expect(dialog).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+
+    // The blocker the roster cannot see, and no confirm input to promise otherwise.
+    await expect(dialog).toContainText('1 person record(s) still name this partner');
+    await expect(dialog.locator('#confirmPartnerName')).toHaveCount(0);
+    // Fixtures are left for the suite wipe, as every other test in this file does.
+  });
+
 });

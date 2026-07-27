@@ -6,6 +6,7 @@ import { prisma } from '../../lib/db';
 import { indexEntity } from '../../lib/search';
 import { parseForm, partnerFieldsSchema } from '../../lib/schemas';
 import { guarded, type ActionResult } from '../../lib/actionResult';
+import { getPartnerDeleteBlockers, partnerDeleteRefusal } from '../../lib/partnerDeletion';
 
 // Partner CRUD. Partners used to be ingest/seed-only; these actions make the record
 // fully editable in the UI. Delete is deliberately conservative: a partner that still
@@ -46,20 +47,12 @@ export async function deletePartner(formData: FormData): Promise<ActionResult> {
   const partnerId = parseInt((formData.get('partnerId') as string) || '', 10);
   if (Number.isNaN(partnerId)) throw new Error('Invalid partner ID');
 
-  // This one counts off the CACHE on purpose, and it is the only place that should.
-  // The question here is not "who works here today" — it is "what would this DELETE
-  // break", and what it would break is the required `Person.currentPartnerId` FK. Asking
-  // as-of would let the delete through for a person whose cache still points here and
-  // whose affiliation has moved on, and Postgres would then refuse the transaction with
-  // a constraint violation the user cannot act on. Referential integrity is answered by
-  // the reference.
-  const [programCount, employeeCount] = await Promise.all([
-    prisma.project.count({ where: { partnerId } }),
-    // eslint-disable-next-line no-restricted-syntax -- FK integrity, not display; see above
-    prisma.person.count({ where: { currentPartnerId: partnerId } }),
-  ]);
-  if (programCount > 0) throw new Error(`Partner still owns ${programCount} program(s) — reassign or delete them first`);
-  if (employeeCount > 0) throw new Error(`Partner is still the current employer of ${employeeCount} person(s) — reassign them first`);
+  // The preconditions are counted in ONE place — `lib/partnerDeletion` — because the
+  // confirmation dialog pre-flights them, and a dialog that counts differently from the
+  // guard offers deletes the guard then refuses (`autoknow-aa7`). That module also carries
+  // the reasoning for counting the `currentPartnerId` FK here rather than the as-of roster.
+  const refusal = partnerDeleteRefusal(await getPartnerDeleteBlockers(partnerId));
+  if (refusal) throw new Error(refusal);
 
   // Atomic: relationship history, affiliations, context, phase involvements, lead
   // links, and cached summaries all go with the record.
