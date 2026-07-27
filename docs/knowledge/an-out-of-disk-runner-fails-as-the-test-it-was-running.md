@@ -12,7 +12,7 @@ symptoms:
   - one browser leg is red while every other job in the run is green
   - the step log simply stops, with no assertion and no stack
   - a job stuck `in_progress` with no conclusion, or `No space left on device` naming a path under `actions-runner/*/_diag/`
-verified_by: 'runs 30239195026 and 30288543059 (attempt 1 webkit `failure`, everything else `success`); measurements in runs 30300083981, 30301180776, 30302815906 and 30304111252; PR #226'
+verified_by: 'runs 30239195026 and 30288543059 (attempt 1 webkit `failure`, everything else `success`); measurements in runs 30300083981, 30301180776, 30302815906, 30304111252 and 30305706777; PR #226'
 ---
 
 # An out-of-disk CI runner fails as whatever test it happened to be running
@@ -38,20 +38,21 @@ why it borrows the identity of the test underneath it.
    the failure says so and carries a filesystem breakdown taken at the moment of the fill.
 2. **Measure before adding headroom — then keep measuring.** Two candidate fixes stay
    rejected on numbers: retained test artifacts are **584 KB**, and the engines already run
-   on separate runners. An e2e leg starts with **14.1 GiB free** of 72 GiB (81% is the
-   runner image) and costs ~2.2 GiB of files: `node_modules` 924 MB, browser payload
-   295/646 MB, the `--with-deps` apt archive 221/132 MB, `.next-test` 93 MB.
-3. **A fill is not growth, and on webkit it is not rare.** Low-water over runs 30300083981 /
-   30301180776 / 30302815906: chromium 12.0 / 11.8 / 11.8 GiB, webkit **11.9 / 6.0 / 6.1**
+   on separate runners. A leg starts with **14.1 GiB free** of 72 GiB (81% is the runner
+   image) and costs ~2.2 GiB of files — `node_modules` 924 MB, browsers 295/646 MB, apt
+   221/132 MB, `.next-test` 93 MB.
+3. **A fill is not growth, and on webkit it is not rare.** Low-water PRE-RECLAIM, over runs
+   30300083981 / 30301180776 / 30302815906: chromium 12.0 / 11.8 / 11.8, webkit **11.9/6.0/6.1**
    GiB — with every path above byte-for-byte normal on the low runs. **Set the warn line
    ABOVE where the leg actually sits:** 6 GiB was tried first and never fired, because webkit
    lands at 6.0-6.1. Any report below `CI_DISK_WARN_MB` escalates to a deep scan.
 4. **The writer holds the space open rather than leaving it on disk.** Run 30304111252:
    webkit fell to **1.9 GiB (98% used)** — GitHub's own warning read "Free space left:
    31 MB" — and once the guard killed the suite the disk was back to **11.9 GiB**. ~10 GiB
-   lived in unlinked-but-open files of the running processes, which no `du` can see. Peak
-   ~10 GiB against ~12 GiB available is why this fails intermittently, and why
-   `scripts/ci/disk-reclaim.sh` buys margin back. The writer itself is still unidentified.
+   lived in unlinked-but-open files no `du` can see. That peak against ~12 GiB available is
+   why it fails intermittently, so `scripts/ci/disk-reclaim.sh` buys margin: on run
+   30305706777 it freed **24 GiB** and lifted webkit's low-water off those 6.0-6.1 GiB to
+   **30.4 GiB**, for ~60s on the critical-path leg. The writer is still unidentified.
 
 **How we found out.** Nothing measured it, and nothing could afterwards: the job never
 printed its free disk, and both failing job logs had expired from the Actions API (HTTP 404

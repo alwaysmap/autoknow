@@ -225,7 +225,8 @@ jobs:
       # The webkit leg's transient peak is ~10 GiB against the ~12 GiB the runner has left
       # after installs, and run 30304111252 spent that margin down to 31 MB. Buy headroom
       # back from toolchains this job cannot use; scripts/ci/disk-reclaim.sh says what it
-      # will not touch and why.
+      # will not touch and why. Measured on run 30305706777 it costs ~60s on what IS the
+      # critical-path leg; the numbers and the trade are in the note cited above.
       - name: Reclaim disk from preinstalled toolchains
         run: npm run --silent ci:disk-reclaim
       - uses: actions/setup-node@v4
