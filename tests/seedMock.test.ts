@@ -128,11 +128,10 @@ describe('seedMockData through the API', () => {
     const ownedByMe = await prisma.project.count({ where: { ownerName: 'dev@google.com' } });
     expect(ownedByMe).toBeGreaterThan(0);
 
-    // Nothing anywhere reintroduced the literal the seed used to carry.
+    // Nothing anywhere reintroduced the literal the seed used to carry. (The third
+    // place it could hide, Partner.googleTeam, no longer gets seeded at all — #127 E13.)
     expect(await prisma.person.count({ where: { email: 'dylan@google.com' } })).toBe(0);
     expect(await prisma.project.count({ where: { ownerName: 'dylan@google.com' } })).toBe(0);
-    const teams = await prisma.partner.findMany({ select: { googleTeam: true } });
-    expect(JSON.stringify(teams)).not.toContain('dylan@google.com');
   });
 
   it('health labels are canonical — the routes normalized the legacy risk values', async () => {

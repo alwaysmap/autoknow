@@ -21,9 +21,7 @@ import { t } from '../../../lib/i18n';
 import AnchorHeading from '../../../components/AnchorHeading';
 import KebabMenu from '../../../components/KebabMenu';
 import { NewPersonButton } from '../../../components/PersonEditor';
-import PersonCell from '../../../components/PersonCell';
 import PartnerPeopleTable, { type PartnerPersonRow } from './PartnerPeopleTable';
-import { resolvePeople } from '../../../lib/personDirectory';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,11 +40,6 @@ export const dynamic = 'force-dynamic';
 interface PageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ filter?: string }>;
-}
-
-interface TeamMember {
-  email: string;
-  role?: string;
 }
 
 function hostOf(url: string): string {
@@ -158,12 +151,6 @@ export default async function PartnerDetailPage(props: PageProps) {
   // Unified activity for this partner and its programs.
   const activity = await getActivity({ kind: 'partner', id: partner.id });
   const summary = await getSummary('partner', partner.id);
-
-  const googleTeam = (partner.googleTeam as TeamMember[] | null) || [];
-  // `googleTeam` is a JSON blob of bare email strings — no Person relation to join
-  // through — so the join happens at read time, through the shared server resolver
-  // (#153). Keyed by the stored string, so the render hands its own value straight back.
-  const teamPeople = await resolvePeople(googleTeam.map((m) => m.email));
 
   const rosterRows = toRosterRows(roster);
 
@@ -292,9 +279,9 @@ export default async function PartnerDetailPage(props: PageProps) {
           </section>
         </div>
 
-        {/* The persistent rail: health → narrative → facts, then the `googleTeam` blob
-            (people proper moved to the reading column in #127 E12 — see the header).
-            Sticky so key metadata stays in view while the briefing scrolls. */}
+        {/* The persistent rail: health → narrative → facts (people proper moved to the
+            reading column in #127 E12 — see the header). Sticky so key metadata stays
+            in view while the briefing scrolls. */}
         <aside className={styles.sidebar}>
           <div className={styles.sidebarCard}>
             {/* health · updated · Update — one horizontal cluster (§7), no label:
@@ -310,30 +297,13 @@ export default async function PartnerDetailPage(props: PageProps) {
             <FactsInline facts={contactFacts} />
           </div>
 
-          {/* What is left of the old People card: the `googleTeam` JSON blob, which is a
-              parallel people store with NO DATES and keyed on an email, so it can never be
-              bucketed and cannot join the table (#124 §7, last bullet). Naming it for what
-              it is, in its own card, is the honest interim state until #127 E13 migrates
-              it to real Person rows and deletes the mechanism — folding it into the table
-              under a made-up status would be inventing the fact the column asserts.
-              Absent entirely when the blob is empty; the People table below the programs
-              owns the empty state for people who have periods. */}
-          {googleTeam.length > 0 && (
-            <div className={styles.sidebarCard}>
-              <h3>{t(locale, 'googleTeamLabel')}</h3>
-              <div className={styles.peopleList}>
-                {/* Names through PersonCell (#153) — `.personItem` in the module carries
-                    why the Google team's own twin class went away. */}
-                {googleTeam.map((member, i) => (
-                  <div key={`g-${i}`} className={styles.personItem}>
-                    <PersonCell person={teamPeople[member.email]} value={member.email}
-                      className={styles.personLink} />
-                    {member.role && <span className={styles.personRole}>{member.role}</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* The Google-team card is GONE (#127 E13, decided 2026-07-28): it rendered
+              `Partner.googleTeam`, a dateless email-keyed JSON people-store that could
+              never join the bucketed People table, and its one unique fact — a
+              relationship role like "Cloud Account Manager" — was deliberately dropped
+              rather than given a new mechanism. Who covers this partner reads from
+              program involvement (TELs on /partners, owners and phase people below).
+              The column itself is removed in the follow-up contract migration. */}
         </aside>
       </main>
     </div>

@@ -19,7 +19,7 @@ import { localDate } from './dates';
 // override, which is fail-closed on the same lib/dbSafety policy as the wipe below.
 //
 // Deliberate direct-write residue (each commented at the site): reference lookup
-// tables, Partner.phone/googleTeam, backdated relationship history, and the ingest
+// tables, Partner.phone, backdated relationship history, and the ingest
 // dates of the authored corpus.
 import { POST as postPartnerRoute } from '../app/api/partners/route';
 import { POST as postPersonRoute } from '../app/api/people/route';
@@ -607,14 +607,14 @@ export async function seedMockData() {
 
   console.log('Seeding people...');
   // People come BEFORE programs: the projects route resolves each program's owner
-  // against existing people and refuses freeform names. Everyone who is later NAMED —
-  // as a program owner, or on a partner's Google-team roster — is bound to a variable at
-  // its creation site, so those references are the created row, not a re-typed address.
+  // against existing people and refuses freeform names. Everyone who is later NAMED
+  // as a program owner is bound to a variable at its creation site, so those
+  // references are the created row, not a re-typed address.
   // (The enrichment Googlers `marcus` and `priya` own programs too, and are bound the
   // same way where they are created — in the enrichment block, via `mkPerson`.)
   //
   // `me` is the SESSION (AGENTS lesson 13, argued at the top of this function);
-  // `mePerson` is the row it produced. The owner and roster references below take the
+  // `mePerson` is the row it produced. The owner references below take the
   // ROW, so they carry the address the route actually stored rather than the one this
   // file submitted. Action-item assignees deliberately do NOT: the assignee route links
   // to a Person best-effort and keeps the handle either way, because an assignee may
@@ -625,7 +625,9 @@ export async function seedMockData() {
     role: 'Lead Program Manager', startDate: '2024-01-01',
     notes: 'Lead Program Manager for AutoKnow ecosystem and Ford relationship.',
   });
-  const bob = await createPerson({
+  // Binding-less since #127 E13: the googleTeam roster was his only referrer, but Bob
+  // stays seeded — he is a real directory Person, not a roster artifact.
+  await createPerson({
     name: 'Bob AccountManager', email: 'bob@google.com', currentPartnerId: googlePartnerId,
     role: 'Cloud Account Manager', startDate: '2024-03-15',
     notes: 'Cloud Account Manager supervising OEM contract executions.',
@@ -696,38 +698,22 @@ export async function seedMockData() {
     notes: 'Telematics platform engineer who moved to the Google side of the same programs.',
   });
 
-  // Contact phone and the googleTeam roster are display-only fields with no
-  // mutation surface (API or action) — patched directly onto the API-created rows.
-  // AFTER the people, so each roster entry is a person the seed just created: the blob
-  // stores bare addresses with no Person relation (#127 E13 is what deletes it), so a
-  // re-typed one resolves by luck. This roster is where that already happened: at
-  // 4ded811 the Toyota entry was a literal 'alice@google.com' and NO person by that
-  // address existed at all — it named nobody until 30952e6 created one, three weeks later.
-  //
-  // A roster `role` is the role held ON THIS RELATIONSHIP, not the person's job title —
-  // which is why mePerson appears twice below under two different ones, and why Alice
-  // Waters is Toyota's 'Partner Engineering Manager' while her Person row says Lead
-  // Program Manager.
-  const contactPatches: Array<{ id: number; phone: string; googleTeam: { email: string; role: string }[] }> = [
-    { id: googlePartnerId, phone: '+1-650-253-0000', googleTeam: [] },
-    { id: fordId, phone: '+1-313-322-3000', googleTeam: [
-      { email: mePerson.email, role: 'Relationship Lead' },
-      { email: bob.email, role: 'Cloud Account Manager' },
-    ] },
-    { id: toyotaId, phone: '+81-565-28-2121', googleTeam: [
-      { email: aliceWaters.email, role: 'Partner Engineering Manager' },
-    ] },
-    { id: boschId, phone: '+49-711-400-40290', googleTeam: [
-      { email: clara.email, role: 'Supplier Operations Lead' },
-    ] },
-    { id: qualcommId, phone: '+1-858-587-1121', googleTeam: [
-      { email: mePerson.email, role: 'Silicon Alignment Engineer' },
-    ] },
+  // Contact phone is a display-only field with no mutation surface (API or action) —
+  // patched directly onto the API-created rows. The googleTeam roster that used to be
+  // patched alongside it is GONE (#127 E13): the blob was a dateless email-keyed
+  // people-store, and its relationship-role fact was deliberately dropped rather than
+  // given a new mechanism.
+  const contactPatches: Array<{ id: number; phone: string }> = [
+    { id: googlePartnerId, phone: '+1-650-253-0000' },
+    { id: fordId, phone: '+1-313-322-3000' },
+    { id: toyotaId, phone: '+81-565-28-2121' },
+    { id: boschId, phone: '+49-711-400-40290' },
+    { id: qualcommId, phone: '+1-858-587-1121' },
   ];
   for (const patch of contactPatches) {
     await prisma.partner.update({
       where: { id: patch.id },
-      data: { phone: patch.phone, googleTeam: patch.googleTeam },
+      data: { phone: patch.phone },
     });
   }
 
