@@ -144,22 +144,25 @@ export const FORECAST_NOISE_DAYS = 2;
 
 // ---- the five waterfall predicates: did this row move the buffer, and how? ----
 //
-// The whole taxonomy, and the one place each of those five questions is asked. The
-// waterfall and the situation packets below are built from exactly these five tests,
-// and so is every other surface that reads a `ScheduleRow`: the buffer flow
-// (lib/bufferSeries), the day summary (lib/chainDay), the schedule chart and the row
-// card. They had been hand-copied outward as seven sites across five files — the
-// ledger's own waterfall and situations loops among them — which is AGENTS lesson 7
+// The whole taxonomy, and the one place each of those five questions is asked — with
+// ONE known exception, filed as autoknow-4dr.3: `chainDay.phaseDaySpans`'s `done`
+// branch still decides the realized-overrun question by millisecond geometry, which
+// is also why the lint family below cannot see it. The waterfall and the situation
+// packets are built from exactly these five tests, and so is every other surface that
+// reads a `ScheduleRow`: the buffer flow (lib/bufferSeries), the day summary
+// (lib/chainDay), the schedule chart and the row card. They had been hand-copied
+// outward as 20 comparisons across five files — seven of them here in the ledger,
+// whose waterfall and situations loops each carried a set — which is AGENTS lesson 7
 // in its literal form, and only ONE pair of those sites (the flow and the waterfall)
 // had a test that would notice a disagreement. Exported for the reason
 // `isForecastOver` already carried alone: every caller chooses from ONE predicate, so
 // they can never disagree about which rows count.
 //
 // Each takes a `Pick` of only the fields it tests, so a body cannot quietly start
-// depending on another one, and a test can pin a predicate with a bare two-field
-// literal rather than a whole fixture (tests/chainLedger.test.ts does exactly that).
+// depending on another one, and a test can pin a predicate with a literal of just
+// those fields rather than a whole fixture (tests/chainLedger.test.ts does that).
 // eslint's `chainPredicates` family blocks ORDERING comparisons against
-// `varianceDays`/`gapBeforeDays` anywhere but here, so a sixth copy fails
+// `varianceDays`/`gapBeforeDays` anywhere but here, so the next copy fails
 // `npm run lint` rather than review (AGENTS lesson 2). Reading either value to
 // DISPLAY it, or to pick singular/plural copy, stays legal.
 //
@@ -194,7 +197,8 @@ export const isRealizedUnderrun = (r: Pick<ScheduleRow, 'kind' | 'varianceDays'>
 
 /** A RUNNING phase forecast to finish meaningfully past its plan — a CLAIM about
  *  days not yet spent, which is why it clears FORECAST_NOISE_DAYS rather than the
- *  realized 1-day floor. */
+ *  realized 1-day floor. (Spelled `…Over`, not `…Overrun` — the same word as
+ *  `isRealizedOverrun`'s, one tense earlier; see the header.) */
 export const isForecastOver = (r: Pick<ScheduleRow, 'kind' | 'varianceDays'>): boolean =>
   r.kind === 'active' && r.varianceDays >= FORECAST_NOISE_DAYS;
 

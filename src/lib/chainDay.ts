@@ -70,8 +70,9 @@ export interface PhaseSpan {
  * NOT here: the days a phase handed back are not part of the phase (it is over),
  * they are a credit window, and they come back from `summaryAt` as one.
  *
- * This function does NOT yet go through the five chain predicates, and today it can
- * name a day differently from every other surface — see the `over` push below.
+ * Its `active` branch decides the forecast question through `isForecastOver`; its
+ * `done` branch goes through no predicate at all, and today it can name a day
+ * differently from the surfaces that do — see the `over` push in that branch below.
  */
 export function phaseDaySpans(r: ScheduleRow, now: number): PhaseSpan[] {
   const out: PhaseSpan[] = [];
@@ -85,6 +86,9 @@ export function phaseDaySpans(r: ScheduleRow, now: number): PhaseSpan[] {
     // the row card beside it says so. Left as-is only because autoknow-4dr.1 was
     // behaviour-preserving by contract; the fix is to gate this on the predicate.
     // docs/knowledge/a-shared-predicate-does-not-reach-the-surface-that-decides-by-geometry.md
+    // NOT the same defect as the `active` branch's `over` push below, which is bounded
+    // by `now` and so reports days genuinely already elapsed past the tick — a realized
+    // fact with no whole-day predicate over it. That one is deliberate; this one is not.
     push('over', r.plannedEndMs, r.endMs);
     return out;
   }

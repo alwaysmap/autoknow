@@ -148,12 +148,13 @@ const noOwnerNameReads = [
 //
 // `lib/chainLedger` answers that with exactly five tests over a ScheduleRow's
 // `varianceDays`/`gapBeforeDays`, and every chart surface asks the same five questions.
-// Seven sites across five files had hand-rolled their own copies (the ledger itself twice,
-// lib/bufferSeries, lib/chainDay, ChainSchedule.tsx, ChainLedger.tsx) — AGENTS lesson 7 in
-// its literal form, and only ONE pair of them had a test that would notice a disagreement
-// (the flow-vs-waterfall balance gate). autoknow-4dr.1 converged them onto the five exported
-// predicates; this family is what stops a sixth copy being written, because the next
-// chart author reaches for a comparison, not for a name (AGENTS lesson 2).
+// Twenty hand-rolled comparisons across five files had grown from it — 7 in lib/chainLedger
+// itself, 4 in lib/bufferSeries, 4 in ChainSchedule.tsx, 3 in ChainLedger.tsx, 2 in
+// lib/chainDay — AGENTS lesson 7 in its literal form, and only ONE pair of them had a test
+// that would notice a disagreement (the flow-vs-waterfall balance gate). autoknow-4dr.1
+// converged them onto the five exported predicates; this family is what stops the next
+// copy being written, because the next chart author reaches for a comparison, not for a
+// name (AGENTS lesson 2).
 //
 // Fifth family, and the FIRST anchored on the COMPARISON rather than on a name. Both fields
 // are numbers a chart legitimately DISPLAYS (`{ d: r.gapBeforeDays }`) and legitimately

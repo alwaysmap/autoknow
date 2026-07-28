@@ -531,11 +531,13 @@ directly; no chart needed.)*
   them. Comparing `varianceDays`/`gapBeforeDays` anywhere else fails `npm run
   lint` (`no-restricted-syntax`, the `chainPredicates` family), so the
   "+1-day phase" class of disagreement can no longer be re-introduced by hand.
-  A single-point projection dressed as certainty is worse than
-  useless; v1's forecasts state their simple basis (the hover shows the
-  arithmetic), direct "days left" answers override the formula when present
-  (open question 10), and the upgrade path to a *grounded* forecast with a
-  range is open question 6.
+  (One site is knowingly outstanding: `chainDay.phaseDaySpans`'s `done` branch
+  still decides by millisecond geometry — autoknow-4dr.3.)
+
+  A single-point projection dressed as certainty is worse than useless; v1's
+  forecasts state their simple basis (the hover shows the arithmetic), direct
+  "days left" answers override the formula when present (open question 10), and
+  the upgrade path to a *grounded* forecast with a range is open question 6.
 - **No buffer *sizing* doctrine (yet).** Orthodox CCPM cuts padded estimates in
   half and pools the savings as an explicit sized buffer. We have one estimate per
   phase and a hard SOP; the buffer is *whatever slack the SOP leaves*. The

@@ -181,14 +181,19 @@ describe('forecast-noise threshold', () => {
   });
 });
 
-// The whole taxonomy pinned in one table, because the names ARE the interface: the
-// next chart author reaches for one of these rather than writing a comparison. They
-// were hand-copied across seven sites until autoknow-4dr.1 converged them; eslint's
-// `chainPredicates` family stops a sixth copy being WRITTEN, and this stops the
-// shared one being quietly redefined — a lint rule cannot tell you the single
+// All five pinned in one table, because the names ARE the interface: the next chart
+// author reaches for one of these rather than writing a comparison. They were
+// hand-copied across 20 comparisons in five files until autoknow-4dr.1 converged them;
+// eslint's `chainPredicates` family stops the next copy being WRITTEN, and this stops
+// the shared one being quietly redefined — a lint rule cannot tell you the single
 // remaining definition changed its mind about which rows count.
 describe('the five waterfall predicates', () => {
   it('keeps the realized/forecast threshold asymmetry', () => {
+    // The FORECAST pair clears FORECAST_NOISE_DAYS; `isForecastOver` is also pinned
+    // against a real ledger row in the forecast-noise block above.
+    expect(isForecastOver({ kind: 'active', varianceDays: FORECAST_NOISE_DAYS })).toBe(true);
+    expect(isForecastOver({ kind: 'active', varianceDays: 1 })).toBe(false);
+
     // REALIZED variances are measured between two real dates: they count from 1 day.
     expect(isRealizedOverrun({ kind: 'done', varianceDays: 1 })).toBe(true);
     expect(isRealizedOverrun({ kind: 'done', varianceDays: 0 })).toBe(false);

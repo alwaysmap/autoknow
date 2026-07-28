@@ -12,7 +12,7 @@ symptoms:
   - a bar draws red beside a row card that says the phase is on plan
   - the day strip names a phase over its estimate but the waterfall has no row for it
   - a grep for the field the predicate tests finds every copy and the bug is still there
-verified_by: 'tests/chainLedger.test.ts "keeps the realized/forecast threshold asymmetry"; eslint chainPredicates family; autoknow-4dr.1 (935-case equivalence run), bug autoknow-4dr.3'
+verified_by: 'the BUG comment at src/lib/chainDay.ts phaseDaySpans `done` branch; tests/chainLedger.test.ts "the five waterfall predicates > keeps the realized/forecast threshold asymmetry"; eslint chainPredicates family; autoknow-4dr.1 (935-case equivalence run), bug autoknow-4dr.3'
 ---
 
 # Converging call sites onto a shared predicate misses the surface that asks the same question with a ruler
@@ -51,9 +51,9 @@ surface is deliberately finer-grained. Do not assume a lint rule covers it: the
 `gapBeforeDays` and cannot block `endMs` against `plannedEndMs`, legitimate
 geometry everywhere else in the same file.
 
-**How we found out.** `autoknow-4dr.1` converged hand-rolled copies of the five
-waterfall predicates across five files, proving all seven copy sites semantically
-identical over a 935-case grid before deleting them — a clean refactor by every
+**How we found out.** `autoknow-4dr.1` converged 20 hand-rolled comparisons of
+the five waterfall predicates across five files, proving every one semantically
+identical over a 935-case grid before deleting it — a clean refactor by every
 check it ran. The one real divergence sat in the file the bead already named, in
 the function next door to the one being fixed, and neither field is compared
 anywhere in it (`autoknow-4dr.3`).
