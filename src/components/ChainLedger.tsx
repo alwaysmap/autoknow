@@ -499,8 +499,10 @@ export default function ChainLedger({
       {/* the schedule key, consulted on demand */}
       <OverlayDialog open={legendOpen} onClose={() => setLegendOpen(false)} width="26rem"
         title={t(locale, 'clKeyTitle')} closeLabel={t(locale, 'close')}>
-        {/* one cell per meaning — the grid separates state by colour + position, no
-            textures (issue #75). */}
+        {/* one glyph per mark, drawn the way the chart draws it (issue #161, Option A):
+            each swatch is the SAME shape as the bar it names, with the plan tick where
+            the chart puts it — a legend whose glyph is a different shape from the ink
+            teaches the reader the wrong thing. */}
         <div className={styles.legendRow}>
           <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
             <rect x={2} y={2} width={8} height={10} rx={2} fill="var(--fg)" fillOpacity={0.42} />
@@ -510,13 +512,18 @@ export default function ChainLedger({
         </div>
         <div className={styles.legendRow}>
           <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <rect x={4} y={2} width={14} height={10} rx={2} fill="var(--bad)" />
+            <rect x={2} y={2} width={9} height={10} rx={2} fill="var(--fg)" fillOpacity={0.42} />
+            <rect x={11} y={2} width={9} height={10} rx={2} fill="var(--bad)" fillOpacity={0.94} />
+            <line x1={11} y1={1} x2={11} y2={13} stroke="var(--muted)" strokeWidth={1.5} />
           </svg>
           {t(locale, 'clKeyOver')}
         </div>
         <div className={styles.legendRow}>
           <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <rect x={4} y={2} width={14} height={10} rx={2} fill="var(--ok)" />
+            <rect x={2} y={2} width={9} height={10} rx={2} fill="var(--fg)" fillOpacity={0.42} />
+            <rect x={11} y={2} width={9} height={10} rx={2} fill="none" stroke="var(--ok)"
+              strokeWidth={1.25} strokeDasharray="2 1.5" />
+            <line x1={20} y1={1} x2={20} y2={13} stroke="var(--muted)" strokeWidth={1.5} />
           </svg>
           {t(locale, 'clKeyEarly')}
         </div>
@@ -528,14 +535,18 @@ export default function ChainLedger({
         </div>
         <div className={styles.legendRow}>
           <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <rect x={4} y={2} width={14} height={10} rx={2} fill="none" stroke="var(--muted)" strokeWidth={1.25} strokeDasharray="2 1.5" />
+            <rect x={2} y={2} width={9} height={10} rx={2} fill="none" stroke="var(--muted)"
+              strokeWidth={1.25} strokeDasharray="2 1.5" />
+            <rect x={11} y={2} width={9} height={10} rx={2} fill="none" stroke="var(--bad)"
+              strokeWidth={1.25} strokeDasharray="2 1.5" />
+            <line x1={11} y1={1} x2={11} y2={13} stroke="var(--muted)" strokeWidth={1.5} />
           </svg>
           {t(locale, 'clKeyForecast')}
         </div>
         <div className={styles.legendRow}>
           <svg viewBox="0 0 22 14" className={styles.legendGlyphWide} aria-hidden>
-            <rect x={4} y={3} width={10} height={8} rx={2} fill="var(--fg)" fillOpacity={0.86} />
-            <line x1={16} y1={1} x2={16} y2={13} stroke="var(--muted)" strokeWidth={1.5} />
+            <rect x={2} y={3} width={12} height={8} rx={2} fill="var(--fg)" fillOpacity={0.86} />
+            <line x1={14} y1={1} x2={14} y2={13} stroke="var(--muted)" strokeWidth={1.5} />
           </svg>
           {t(locale, 'clKeyTick')}
         </div>

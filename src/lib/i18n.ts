@@ -1678,22 +1678,22 @@ const STRINGS = {
   clZoomOut: { en: 'Zoom out', de: 'Verkleinern', ja: '縮小', ko: '축소' },
   clKeyTitle: { en: 'How to read the schedule', de: 'So liest du den Zeitplan', ja: 'スケジュールの読み方', ko: '일정 읽는 법' },
   clKeyOnPlan: {
-    en: 'A filled cell is on-plan work — soft once done, bold on the phase running now.',
-    de: 'Eine gefüllte Zelle ist planmäßige Arbeit — blass wenn erledigt, kräftig bei der laufenden Phase.',
-    ja: '塗りつぶしのセルは計画どおりの作業。完了済みは淡く、進行中フェーズは濃く表示。',
-    ko: '채워진 칸은 계획대로 진행한 작업 — 완료되면 옅게, 진행 중 단계는 진하게.',
+    en: 'A solid bar is work that happened — soft once the phase is done, bold on the phase running now.',
+    de: 'Ein ausgefüllter Balken ist geleistete Arbeit — blass wenn die Phase fertig ist, kräftig bei der laufenden Phase.',
+    ja: '塗りつぶしのバーは実際に行われた作業。完了したフェーズは淡く、進行中フェーズは濃く表示。',
+    ko: '채워진 막대는 실제로 진행한 작업 — 완료된 단계는 옅게, 진행 중 단계는 진하게.',
   },
   clKeyOver: {
-    en: 'Red: that week ran over the plan.',
-    de: 'Rot: diese Woche lag über dem Plan.',
-    ja: '赤: その週は計画を超過しました。',
-    ko: '빨강: 그 주는 계획을 초과했습니다.',
+    en: 'A red tail past the tick is days the phase ran over its own estimate, counted to the day.',
+    de: 'Ein roter Fortsatz hinter dem Strich sind Tage über der eigenen Schätzung der Phase, tagesgenau.',
+    ja: '目盛りを超える赤い延長は、フェーズが自身の見積もりを超過した日数を日単位で示します。',
+    ko: '눈금을 넘는 빨간 꼬리는 단계가 자체 추정을 초과한 일수로, 일 단위로 셉니다.',
   },
   clKeyEarly: {
-    en: 'Green: the phase finished early — days handed back to the buffer.',
-    de: 'Grün: die Phase wurde früher fertig — Tage gehen an den Puffer zurück.',
-    ja: '緑: フェーズが前倒しで完了 — バッファに日数を返却。',
-    ko: '초록: 단계가 일찍 끝나 버퍼에 일수를 반환했습니다.',
+    en: 'A dashed green ghost back to the tick is days the phase handed back to the buffer.',
+    de: 'Ein gestrichelter grüner Umriss zurück zum Strich sind Tage, die die Phase an den Puffer zurückgegeben hat.',
+    ja: '目盛りまで戻る緑の破線は、フェーズがバッファに返却した日数です。',
+    ko: '눈금까지 이어지는 초록 점선은 단계가 버퍼에 반환한 일수입니다.',
   },
   clKeyIdle: {
     en: 'Amber dashes mark idle days between phases — dead air the program pays for.',
@@ -1702,16 +1702,16 @@ const STRINGS = {
     ko: '호박색 점선은 단계 사이의 대기 일수 — 프로그램이 부담하는 공백입니다.',
   },
   clKeyForecast: {
-    en: 'A dashed outline is forecast, or not-yet-started, work.',
-    de: 'Eine gestrichelte Umrandung ist prognostizierte oder noch nicht begonnene Arbeit.',
-    ja: '破線の枠は予測または未着手の作業です。',
-    ko: '점선 윤곽은 예측이거나 아직 시작하지 않은 작업입니다.',
+    en: 'A dashed grey outline is forecast, or not-yet-started, work; dashed red past the tick is forecast to go over.',
+    de: 'Ein gestrichelter grauer Umriss ist prognostizierte oder noch nicht begonnene Arbeit; gestricheltes Rot hinter dem Strich ist die prognostizierte Überschreitung.',
+    ja: '灰色の破線の枠は予測または未着手の作業。目盛りを超える赤い破線は超過の予測です。',
+    ko: '회색 점선 윤곽은 예측이거나 아직 시작하지 않은 작업이며, 눈금을 넘는 빨간 점선은 초과 예측입니다.',
   },
   clKeyTick: {
-    en: 'The tick shows where the plan said the phase would end.',
-    de: 'Der Strich markiert das geplante Phasenende.',
-    ja: '目盛りは計画上のフェーズ終了点です。',
-    ko: '눈금은 계획된 단계 종료 지점입니다.',
+    en: 'The tick shows where the plan said the phase would end — every tail is measured from it, and the number beside a tail says how many days.',
+    de: 'Der Strich markiert das geplante Phasenende — jeder Fortsatz wird von dort gemessen, und die Zahl daneben nennt die Tage.',
+    ja: '目盛りは計画上のフェーズ終了点です。すべての延長はここから測られ、隣の数字が日数を示します。',
+    ko: '눈금은 계획된 단계 종료 지점입니다. 모든 꼬리는 여기서부터 재며, 옆의 숫자가 일수를 나타냅니다.',
   },
   clKeyRing: {
     en: 'The ring marks the phase gating the SOP.',
@@ -1770,8 +1770,14 @@ const STRINGS = {
   clDaysOfBuffer: { en: '{d} days of buffer', de: '{d} Tage Puffer', ja: 'バッファ{d}日', ko: '버퍼 {d}일' },
   clSopLabel: { en: 'SOP · end of {month}', de: 'SOP · Ende {month}', ja: 'SOP · {month}末', ko: 'SOP · {month} 말' },
   clTodayLabel: { en: 'today · {date}', de: 'heute · {date}', ja: '今日 · {date}', ko: '오늘 · {date}' },
-  // Schedule grid + buffer-lane compact labels (issue #75).
+  // Compact labels on the schedule's rows (issues #75, #161).
   clIdleDays: { en: '{d}d idle', de: '{d}T Leerlauf', ja: '待機{d}日', ko: '{d}일 대기' },
+  // The variance beside a bar's own tail: days past the plan tick, or days handed back.
+  // `{d}` is always a POSITIVE count and the sign is in the copy, so the two never read
+  // as one string with a sign glued on — and the minus is a real minus (U+2212), the
+  // same call the flow's negative axis makes: a hyphen there also means "range".
+  clBarOver: { en: '+{d}d', de: '+{d} T', ja: '+{d}日', ko: '+{d}일' },
+  clBarUnder: { en: '−{d}d', de: '−{d} T', ja: '−{d}日', ko: '−{d}일' },
   // Label under an axis-break glyph: how much empty time the seam compresses.
   clAxisBreak: { en: '{d} days', de: '{d} Tage', ja: '{d}日', ko: '{d}일' },
   // The two-tone buffer flow (issue #161). It replaced a stepped lane whose labels

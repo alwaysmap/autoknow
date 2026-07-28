@@ -18,16 +18,19 @@ import { focusWindow, panWindow, zoomWindow, type Span } from '../lib/focusWindo
 import styles from './ChainLedger.module.css';
 
 // The Critical Chain "Schedule" instrument (docs/CRITICAL_CHAIN_VIEW_PLAN.md §4a,
-// issue #75). Replaces the time-scaled Gantt + full-height texture bands with:
-//   • a phase × WEEK state grid — one row per chain phase, one cell per ISO week,
-//     each cell coloured by that phase's state that week (on-plan / over / early /
-//     idle / forecast). A column is a moment in time, so reading DOWN a column
-//     compares every phase at once — the question "did this over-run overlap an
-//     early finish elsewhere?" answered by position + hue, no textures.
-//   • DAY-ACCURATE transitions: cells clip to the phase's true start/end day at
-//     their ends, and idle handoffs draw to the day — the chart drives "start the
-//     next phase the day the baton lands", never "wait until Friday" (the whole
-//     point of critical chain / the relay runner).
+// issues #75 then #161). Two panels on one x-axis:
+//   • OPTION A BARS — one row per chain phase, and the phase's VARIANCE rides its own
+//     bar as a LENGTH (issue #161, decision 1). Every mark on a row is drawn from THAT
+//     ROW's own dates, so it can be traced back to the phase it describes. That is the
+//     whole argument: this replaced a phase × WEEK state grid, whose cell could only
+//     say "mostly over-running that week" — and before that, full-height bands, which
+//     belonged to no row at all. Critical chain is a relay-runner argument, so the DAY a
+//     phase went past its estimate is the fact you act on, and a week cell rounds it off.
+//     Marks, all day-accurate: solid ink for work that happened (soft once done, bold on
+//     the live phase), a solid --bad tail past the plan tick for days already lost, a
+//     dashed --ok ghost back to the tick for days handed back, a dashed --muted outline
+//     for forecast / not-yet-started work, a dashed --bad outline for forecast to go
+//     over, and a dashed --warn rule in the channel ABOVE the row for an idle handoff.
 //   • a two-tone buffer FLOW below, on the same x-axis (issue #161, decision 2):
 //     one value per day — buffer LEFT (green, in hand) against buffer SPENT (red) —
 //     with the boundary between them as the reading. It replaces a stepped lane
@@ -42,7 +45,11 @@ const WEEK_MS = 7 * DAY_MS;
 
 // ---- SVG user-space geometry (px here is viewBox coordinate space, design.md §9) ----
 const W = 900, PAD_R = 14, ROW_H = 34, TOP = 36;
-const CELL_H = 19, CELL_GAP = 1.5; // the coloured cell inside each row band
+const BAR_H = 19; // the bar inside each row band
+// Where the idle-handoff rule sits inside a row band, measured DOWN from the band's top.
+// One constant because the rule and the count that names it share the line — split into
+// two numbers they drift, and the drift shows up as a struck-through word.
+const IDLE_DY = 2;
 const FLOW_H = 112, FLOW_GAP = 28; // the two-tone buffer flow below the grid
 // EXTENTS of the flow's two short markers: the reserve stub in from the right edge, and
 // the blown-day tick either side of 0%.
@@ -99,42 +106,61 @@ function VRule({ cx, y0, y1, cut, ...stroke }: {
 /** A hovered/focused row plus where its card should sit, in px relative to the section. */
 export interface RowCard { row: ScheduleRow; left: number; top: number }
 
-type CellKind = 'done' | 'elapsed' | 'over' | 'under' | 'forecast' | 'fover' | 'sched';
+type BarKind = 'done' | 'elapsed' | 'over' | 'under' | 'forecast' | 'fover' | 'sched';
 // Nuance, not a wall of black (user call): settled/done work recedes (soft ink), the
 // LIVE phase's elapsed work carries the weight, and the red/green exceptions pop against
 // that calm baseline. All theme tokens (design.md §8b).
-const CELL_FILL: Record<CellKind, string> = {
-  done: 'var(--fg)', elapsed: 'var(--fg)', over: 'var(--bad)', under: 'var(--ok)',
-  forecast: 'none', fover: 'none', sched: 'none',
+//
+// A mark is FILLED when it happened and OUTLINED when it has not: the two ghosts (days
+// handed back, which are days nobody worked) and the two forecasts. Outlined and dashed
+// are the same set on purpose — `BAR_STROKE[k] != null` IS "this mark is a claim, not a
+// record", so a new kind cannot be added as a solid claim by forgetting a second table.
+const BAR_FILL: Record<BarKind, string> = {
+  done: 'var(--fg)', elapsed: 'var(--fg)', over: 'var(--bad)',
+  under: 'none', forecast: 'none', fover: 'none', sched: 'none',
 };
-const CELL_OPACITY: Record<CellKind, number> = {
-  done: 0.42, elapsed: 0.86, over: 0.94, under: 0.94, forecast: 1, fover: 1, sched: 1,
+const BAR_OPACITY: Record<BarKind, number> = {
+  done: 0.42, elapsed: 0.86, over: 0.94, under: 1, forecast: 1, fover: 1, sched: 1,
 };
-// forecast/scheduled cells are OUTLINED (nothing has happened yet); fover outlines in --bad.
-const CELL_STROKE: Record<CellKind, string | null> = {
-  done: null, elapsed: null, over: null, under: null,
-  forecast: 'var(--muted)', fover: 'var(--bad)', sched: 'var(--muted)',
+const BAR_STROKE: Record<BarKind, string | null> = {
+  done: null, elapsed: null, over: null,
+  under: 'var(--ok)', forecast: 'var(--muted)', fover: 'var(--bad)', sched: 'var(--muted)',
 };
 
-/** State sub-spans of a phase, in ms, so a week can be classified by the span it most overlaps. */
-function phaseSpans(r: ScheduleRow, now: number): { kind: CellKind; a: number; b: number }[] {
+/** The marks a phase draws, in ms, each one a span of ITS OWN dates — the encoding, in
+ *  one pure function. Option A's rule is that a mark has an owner, so nothing here reads
+ *  another row, a week boundary or the chart's geometry.
+ *
+ *  Which rows earn an over/under tail is decided by the exported waterfall predicates,
+ *  never by comparing the dates again: the chart, the buffer flow, the day summary and
+ *  "Where the buffer went" then cannot disagree about which phases moved the buffer
+ *  (chainLedger.ts's predicate header; the +1-day phase that drew a red mark with no
+ *  waterfall row behind it is the bug that rule exists for). */
+function barMarks(r: ScheduleRow, now: number): { kind: BarKind; a: number; b: number }[] {
   if (r.kind === 'done') {
-    const planEnd = Math.min(r.endMs, r.plannedEndMs);
-    const spans: { kind: CellKind; a: number; b: number }[] = [{ kind: 'done', a: r.startMs, b: planEnd }];
-    if (isRealizedOverrun(r)) spans.push({ kind: 'over', a: r.plannedEndMs, b: r.endMs });
-    if (isRealizedUnderrun(r)) spans.push({ kind: 'under', a: r.endMs, b: r.plannedEndMs }); // days handed back
-    return spans;
+    // The solid bar runs to whichever end came FIRST, and the tail past it says which
+    // way the phase missed. A phase that landed inside the predicates' 1-day noise floor
+    // has no tail at all, so its bar runs to its true end rather than stopping at a plan
+    // tick it did not quite meet — the chart would otherwise draw a few hours of work as
+    // no work.
+    if (isRealizedOverrun(r)) {
+      return [{ kind: 'done', a: r.startMs, b: r.plannedEndMs }, { kind: 'over', a: r.plannedEndMs, b: r.endMs }];
+    }
+    if (isRealizedUnderrun(r)) {
+      return [{ kind: 'done', a: r.startMs, b: r.endMs }, { kind: 'under', a: r.endMs, b: r.plannedEndMs }];
+    }
+    return [{ kind: 'done', a: r.startMs, b: r.endMs }];
   }
   if (r.kind === 'active') {
     const elapsedEnd = Math.min(now, r.endMs);
-    const spans: { kind: CellKind; a: number; b: number }[] = [{ kind: 'elapsed', a: r.startMs, b: elapsedEnd }];
+    const marks: { kind: BarKind; a: number; b: number }[] = [{ kind: 'elapsed', a: r.startMs, b: elapsedEnd }];
     if (isForecastOver(r)) {
-      spans.push({ kind: 'forecast', a: now, b: r.plannedEndMs });
-      spans.push({ kind: 'fover', a: r.plannedEndMs, b: r.endMs });
+      marks.push({ kind: 'forecast', a: now, b: r.plannedEndMs });
+      marks.push({ kind: 'fover', a: r.plannedEndMs, b: r.endMs });
     } else {
-      spans.push({ kind: 'forecast', a: now, b: r.endMs });
+      marks.push({ kind: 'forecast', a: now, b: r.endMs });
     }
-    return spans;
+    return marks;
   }
   return [{ kind: 'sched', a: r.startMs, b: r.endMs }]; // notStarted
 }
@@ -227,7 +253,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   const occupied = weeks.map((w0) => {
     const w1 = w0 + WEEK_MS;
     return rows.some((r, i) =>
-      phaseSpans(r, now).some((s) => s.b > w0 && s.a < w1)
+      barMarks(r, now).some((s) => s.b > w0 && s.a < w1)
       || (hasIdleGapBefore(r) && i > 0 && rows[i - 1].endMs < w1 && r.startMs > w0));
   });
   for (const ms of [now, sopMs]) {
@@ -359,27 +385,87 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   const topClash = sopMs != null && x(now) + todayHalfW + 4 > sopLabelRight - sopLabelW && x(now) - todayHalfW < sopLabelRight;
   const todayLabelY = topClash ? TOP - 4 : TOP - 18;
 
-  // one dominant cell state per (row, week), clipped to the phase's true day extent
-  const cellsFor = (r: ScheduleRow) => {
-    const spans = phaseSpans(r, now);
-    const cells: { k: CellKind; x1: number; x2: number }[] = [];
-    for (const wk of weeks) {
-      const w0 = wk, w1 = wk + WEEK_MS;
-      let best: { kind: CellKind; ov: number; a: number; b: number } | null = null;
-      for (const s of spans) {
-        const a = Math.max(w0, s.a), b = Math.min(w1, s.b);
-        const ov = b - a;
-        if (ov > 0 && (!best || ov > best.ov)) best = { kind: s.kind, ov, a, b };
-      }
-      if (!best) continue;
-      // clip the drawn cell to the WEEK, but keep the phase's true start/end day at
-      // the row's extremes (day-accurate transitions), leaving a hairline gutter so
-      // the cells read as a row of week blocks.
-      const x1 = Math.max(x(w0) + CELL_GAP / 2, x(Math.max(w0, r.startMs)));
-      const x2 = Math.min(x(w1) - CELL_GAP / 2, x(Math.min(w1, r.endMs)));
-      if (x2 > x1) cells.push({ k: best.kind, x1, x2 });
-    }
-    return cells;
+  // Option A's bars: each mark drawn straight from the row's own dates, at the day, and
+  // clipped to the FOCUS WINDOW rather than to a week. A mark entirely outside the window
+  // is dropped, not clamped — x() pins an out-of-range date to the frame edge, so a
+  // clamped mark would draw a sliver at the edge that claims work happened on a day the
+  // reader can see is empty.
+  const barsFor = (r: ScheduleRow) => barMarks(r, now)
+    .filter((m) => m.b > m.a && m.b > tMin && m.a < tMax)
+    .map((m) => ({ k: m.kind, x1: x(Math.max(m.a, tMin)), x2: x(Math.min(m.b, tMax)) }));
+
+  // ---- the row area's own labels: the per-bar variance number, and the idle-day count ----
+  //
+  // Neither goes through `dodgeLabels`, and that is a geometry fact rather than an
+  // omission: a row is ROW_H tall around a BAR_H bar, so the free channel either side of
+  // the bar is thinner than a label box (2 * halfHFor(FS_SMALL)). A nudge cannot clear the
+  // bar without leaving the row, and a variance number on a neighbouring row would say
+  // that neighbour ran over — the one thing Option A exists to prevent. So these labels
+  // de-collide in X, where they DO have room, and the y each one sits at is fixed by what
+  // it names.
+  //
+  // Two variance numbers are always ROW_H apart against boxes 2 * halfHFor(FS_SMALL)
+  // tall, so those can never meet. The pair that CAN is an idle count and the variance
+  // number of the row above it, and the data pairs them up: a gap usually opens precisely
+  // because the previous phase over-ran, so the count lands on the tail that number sits at
+  // the end of. `placeIdle` separates that pair — see there.
+  //
+  // Both labels are also clamped inside the frame and haloed, which are the two collisions
+  // no de-collider sees at all: a clipped label and a label on ink.
+  // tests/labelCollisionSweep.test.tsx §5 asserts all of it from the rendered geometry
+  // rather than from this paragraph.
+  const halfWOf = (text: string) => textWidth(text) / 2 + 3;
+  /** Where a row's variance number goes, and what colour it is — chosen from the same
+   *  three predicates that draw the tail it names, so the ink and the number can never
+   *  disagree about which rows moved the buffer. `endMs` reads the value only to PRINT
+   *  it, which is what the predicate rule leaves legal. */
+  const varianceLabel = (r: ScheduleRow): { text: string; fill: string; at: number } | null => {
+    if (isRealizedOverrun(r)) return { text: t(locale, 'clBarOver', { d: r.varianceDays }), fill: 'var(--bad)', at: r.endMs };
+    if (isRealizedUnderrun(r)) return { text: t(locale, 'clBarUnder', { d: -r.varianceDays }), fill: 'var(--ok)', at: r.plannedEndMs };
+    if (isForecastOver(r)) return { text: t(locale, 'clBarOver', { d: r.varianceDays }), fill: 'var(--bad)', at: r.endMs };
+    return null;
+  };
+  /** The variance number placed beside the END of the tail it names — flipped to the
+   *  tail's other side when it would run past the frame, which is not an edge case: the
+   *  axis reaches the SOP, so the live phase's forecast tail often ends near it. */
+  const placeVariance = (r: ScheduleRow, y: number) => {
+    const v = varianceLabel(r);
+    if (v == null || !inView(v.at)) return null;
+    const end = x(v.at), halfW = halfWOf(v.text);
+    const cx = end + 4 + halfW <= W - PAD_R - halfW ? end + 4 + halfW : end - 4 - halfW;
+    return { ...v, x: Math.max(labelW + halfW, Math.min(W - PAD_R - halfW, cx)), y, halfW };
+  };
+  /** The idle handoff before a row: the dashed rule in the channel ABOVE it, and the day
+   *  count ON that rule's own line — not stacked above it.
+   *
+   *  Above the rule is where this count used to sit, and the screenshot said no: it landed
+   *  a hair under the previous row's variance number, exactly 2 * halfHFor(FS_SMALL) away,
+   *  which is zero clearance — a gap no overlap test can fail and which reads as one clump
+   *  of two numbers about two different rows. Nudging it DOWN toward its rule is not
+   *  available either; that channel is ROW_H/2 − BAR_H/2 tall. Sitting it ON the line buys
+   *  IDLE_DY less than half a row of clearance and costs nothing, because the count is
+   *  haloed and the rule is dashed: the knockout reads as the conventional annotated rule.
+   *
+   *  Half a row is still tight, so the rest of the separation is taken in X, where there
+   *  is room. The count centres on the rule only when the rule is long enough to still
+   *  read either side of the knockout; on a SHORT gap it steps past the rule's right end
+   *  instead. Both halves of that rule earn their place: centring on a short rule would
+   *  delete the mark into its own label (AGENTS lesson 18), and it is also what put the
+   *  count under the previous row's number, because a short gap's midpoint is barely a
+   *  label's width from the tail that gap follows. It steps LEFT only when stepping right
+   *  would leave the frame — the number is the point of the mark, and half a number
+   *  outside the plot is not a number. */
+  const placeIdle = (r: ScheduleRow, i: number, y: number) => {
+    if (!hasIdleGapBefore(r) || i === 0 || rows[i - 1].endMs >= tMax || r.startMs <= tMin) return null;
+    const x1 = x(rows[i - 1].endMs), x2 = x(r.startMs);
+    const text = t(locale, 'clIdleDays', { d: r.gapBeforeDays }), halfW = halfWOf(text);
+    const beside = x2 + 4 + halfW <= W - PAD_R - halfW ? x2 + 4 + halfW : x1 - 4 - halfW;
+    const cx = x2 - x1 >= 2 * halfW + 16 ? (x1 + x2) / 2 : beside;
+    return {
+      text, x1, x2, halfW,
+      x: Math.max(labelW + halfW, Math.min(W - PAD_R - halfW, cx)),
+      y: y - ROW_H / 2 + IDLE_DY,
+    };
   };
 
   // ---- the two-tone buffer flow (issue #161, decisions 2/3/5/7) ----
@@ -687,12 +773,14 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
           </ChartLabel>
         ) : null))}
 
-        {/* rows: label + constraint ring + day-accurate state cells + plan tick + idle marker */}
+        {/* rows: label + constraint ring + Option A bars + plan tick + idle marker */}
         {rows.map((r, i) => {
           const y = rowY(i);
-          const cyTop = y - CELL_H / 2;
+          const barTop = y - BAR_H / 2;
           const isConstraint = ledger.liveConstraintId === r.id;
-          const cells = cellsFor(r);
+          const bars = barsFor(r);
+          const variance = placeVariance(r, y);
+          const idle = placeIdle(r, i, y);
           return (
             <g key={r.id}>
               {isConstraint && <ConstraintRing cx={constraintCx} cy={y} r={2} />}
@@ -711,32 +799,50 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
               </ChartLabel>
 
               {/* idle handoff, drawn TO THE DAY in the channel above this row (only when the
-                  gap overlaps the focus window) */}
-              {hasIdleGapBefore(r) && i > 0 && rows[i - 1].endMs < tMax && r.startMs > tMin && (
+                  gap overlaps the focus window). The count rides the rule's own line and is
+                  HALOED, so it knocks the dashes out behind itself rather than being struck
+                  through by them — see placeIdle for why it is not stacked above the rule. */}
+              {idle && (
                 <>
-                  <line x1={x(rows[i - 1].endMs)} y1={y - ROW_H / 2 + 3} x2={x(r.startMs)} y2={y - ROW_H / 2 + 3}
+                  <line x1={idle.x1} y1={idle.y} x2={idle.x2} y2={idle.y}
                     stroke="var(--warn)" strokeWidth={2} strokeDasharray="2 2" />
-                  <ChartLabel x={(x(rows[i - 1].endMs) + x(r.startMs)) / 2} y={y - ROW_H / 2 - 1} textAnchor="middle"
+                  {/* the DEFAULT halo, not the flow's --surface one: the rows sit straight
+                      on the page background (the section sets none), while the flow paints
+                      its own surface frame. A halo in the wrong background token is a pale
+                      rectangle around the word rather than a knockout. */}
+                  <ChartLabel x={idle.x} y={centreToBaselineY(idle.y, FS_SMALL)} textAnchor="middle"
                     fontSize={FS_SMALL} fill="var(--warn)">
-                    {t(locale, 'clIdleDays', { d: r.gapBeforeDays })}
+                    {idle.text}
                   </ChartLabel>
                 </>
               )}
 
-              {cells.map((c, ci) => {
-                const stroke = CELL_STROKE[c.k];
+              {/* the bars: solid where the work happened, dashed outline where it is a claim */}
+              {bars.map((b, bi) => {
+                const stroke = BAR_STROKE[b.k];
                 return (
-                  <rect key={ci} x={c.x1} y={cyTop} width={Math.max(0.75, c.x2 - c.x1)} height={CELL_H} rx={2}
-                    fill={CELL_FILL[c.k]} fillOpacity={CELL_OPACITY[c.k]}
+                  <rect key={bi} x={b.x1} y={barTop} width={Math.max(0.75, b.x2 - b.x1)} height={BAR_H} rx={2}
+                    fill={BAR_FILL[b.k]} fillOpacity={BAR_OPACITY[b.k]}
                     stroke={stroke ?? 'none'} strokeWidth={stroke ? 1.25 : 0}
-                    strokeDasharray={c.k === 'forecast' || c.k === 'sched' ? '2 1.5' : undefined} />
+                    strokeDasharray={stroke ? '2 1.5' : undefined} />
                 );
               })}
 
-              {/* plan tick — where the plan said this phase would end (day-accurate) */}
+              {/* plan tick — where the plan said this phase would end (day-accurate). It is
+                  the datum every tail is measured FROM, so it is drawn over the bars. */}
               {r.kind !== 'notStarted' && inView(r.plannedEndMs) && (
-                <line x1={x(r.plannedEndMs)} y1={cyTop - 2} x2={x(r.plannedEndMs)} y2={cyTop + CELL_H + 2}
+                <line x1={x(r.plannedEndMs)} y1={barTop - 2} x2={x(r.plannedEndMs)} y2={barTop + BAR_H + 2}
                   stroke="var(--muted)" strokeWidth={1.25} />
+              )}
+
+              {/* the variance as a NUMBER beside the tail that already says it as a length —
+                  the magnitude a length alone cannot be read off to the day (§4a's quiet
+                  `+9d` / `−4d`). Haloed for the flipped case, where it sits over its own bar. */}
+              {variance && (
+                <ChartLabel x={variance.x} y={centreToBaselineY(variance.y, FS_SMALL)} textAnchor="middle"
+                  fontSize={FS_SMALL} fill={variance.fill} data-testid={`chain-bar-variance-${r.id}`}>
+                  {variance.text}
+                </ChartLabel>
               )}
 
               {/* The row BODY reveals the status card — NEVER the jump (issue #22). It starts

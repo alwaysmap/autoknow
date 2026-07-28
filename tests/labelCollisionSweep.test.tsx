@@ -505,4 +505,169 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
     expect(debt.length).toBeGreaterThan(0);
     for (const b of debt) expect(b.text).toMatch(/^−\d+% · \d+d past SOP$/);
   });
+
+  // ---- 5. Option A's row area: the per-bar variance numbers and the idle counts ------
+  //
+  // The row area places its labels by ARITHMETIC — a flip at the frame's right edge and a
+  // halo — rather than through a y-nudging pass, because a row is 34 tall around a 19-tall
+  // bar and a nudge that cleared the bar would leave the row, putting a variance number on
+  // a phase that did not run over. That is a claim about geometry, so it is asserted from
+  // the rendered geometry here rather than trusted from the comment that makes it.
+  describe('Option A bars — the numbers beside the tails', () => {
+    const rowBoxes = (container: HTMLElement) =>
+      Array.from(container.querySelectorAll<SVGTextElement>('svg > g text'))
+        // The flow is its own <g> with its own §4 coverage above; this is the row area.
+        .filter((el) => !el.closest('[data-testid="chain-buffer-flow"]'))
+        .map((el) => boxOf(el, 10));
+
+    const varianceBoxes = (container: HTMLElement) =>
+      Array.from(container.querySelectorAll<SVGTextElement>('[data-testid^="chain-bar-variance-"]'))
+        .map((el) => boxOf(el, 10));
+
+    /** Every phase in the chain moves the buffer, in every direction the encoding has a
+     *  mark for: A hands 7 days back, B sat idle 6 days then ran 9 over, C is live and
+     *  forecast well over, D is queued behind it. The crowding case for this area is a
+     *  chain where EVERY row wants a number. */
+    const everyRowMoves: ChainLedgerInput = {
+      phases: [
+        phase(1, 'Design', 30, 100, [], iso(0), iso(23)),
+        phase(2, 'Build', 40, 100, [1], iso(29), iso(78)),
+        phase(3, 'Certification', 30, 20, [2], iso(78)),
+        phase(4, 'Launch prep', 20, 0, [3]),
+      ],
+      sopDate: iso(200),
+      now: day(100),
+    };
+
+    it('gives every row that moved the buffer a number, and no two of them collide', () => {
+      const container = drawChain(everyRowMoves);
+      const v = varianceBoxes(container);
+      // A −7d underrun, a +9d realized overrun and a forecast overrun on the live phase.
+      expect(v.map((b) => b.text).filter((s) => /^[+−]\d+d$/.test(s))).toHaveLength(3);
+      expect(collidingPairs(rowBoxes(container))).toEqual([]);
+    });
+
+    it('signs the numbers from the data: a phase that finished early reads −, one that ran over reads +', () => {
+      const texts = varianceBoxes(drawChain(everyRowMoves)).map((b) => b.text);
+      expect(texts).toContain('−7d');  // Design: 23 days against a 30-day estimate
+      expect(texts.filter((s) => s.startsWith('+'))).toHaveLength(2);
+    });
+
+    it('never lets a number run off the frame, however close to the SOP its tail ends', () => {
+      // The live phase's forecast tail is what reaches furthest right, and the axis reaches
+      // the SOP — so a number anchored to the tail's right is the one that clips. Three
+      // fixtures, because the flip must not trade a clip for an overlap.
+      //
+      // Scoped to the labels the ROW AREA places (the numbers and the idle counts), not to
+      // every <text> in it: the phase NAMES are clamped by a gutter ChainSchedule sizes
+      // with its own narrower width estimator (6.5px/char against this module's 0.59em),
+      // so measured here a long name reads a few px wider than the gutter reserved for it.
+      // That gap is bead autoknow-9xf and is called out in labelPlacement.ts's own header;
+      // asserting it from here would fail on a discrepancy this step neither caused nor
+      // can close, and would say nothing about the marks it added.
+      for (const input of [everyRowMoves, chain(105), chain(200)]) {
+        const container = drawChain(input);
+        const placed = [...varianceBoxes(container), ...rowBoxes(container).filter((b) => /idle$/.test(b.text))];
+        expect(placed.length).toBeGreaterThan(0);
+        for (const b of placed) {
+          expect(b.x - b.halfW).toBeGreaterThanOrEqual(0);
+          expect(b.x + b.halfW).toBeLessThanOrEqual(CHAIN_W);
+        }
+      }
+    });
+
+    it('gives no number to a phase that moved no buffer — the mark and the number agree', () => {
+      // Every phase lands on its estimate, so no row draws a tail and no row carries a
+      // number. The two are chosen from ONE set of predicates; a number with no tail (or
+      // the reverse) is the +1-day-phase bug that rule exists to prevent.
+      const onPlan: ChainLedgerInput = {
+        phases: [
+          phase(1, 'Design', 30, 100, [], iso(0), iso(30)),
+          phase(2, 'Build', 20, 100, [1], iso(30), iso(50)),
+        ],
+        sopDate: iso(200),
+        now: day(60),
+      };
+      expect(varianceBoxes(drawChain(onPlan))).toEqual([]);
+    });
+
+    it('keeps the idle count clear of the numbers around it', () => {
+      const container = drawChain(everyRowMoves);
+      const idle = rowBoxes(container).filter((b) => /idle$/.test(b.text));
+      expect(idle).toHaveLength(1); // Build sat idle 6 days after Design finished
+      const others = rowBoxes(container).filter((b) => !/idle$/.test(b.text));
+      expect(idle.flatMap((i) => others.filter((o) => intersects(i, o)).map((o) => `"${i.text}" ⟷ "${o.text}"`)))
+        .toEqual([]);
+    });
+
+    /** The shape that produced the defect: a phase over-runs, and the SHORT gap that opens
+     *  because of it starts at the end of the tail the number sits beside. The two labels
+     *  then land half a row apart — which is a couple of px of clearance against boxes
+     *  2 * halfHFor(FS_SMALL) tall — in the same column. That is why this is its own
+     *  fixture: on a chain whose gaps follow UNDER-runs the pair never meets, and the sweep
+     *  is green for a reason that has nothing to do with the placement. */
+    const overrunThenGap: ChainLedgerInput = {
+      phases: [
+        phase(1, 'Design', 30, 100, [], iso(0), iso(39)),
+        phase(2, 'Build', 40, 50, [1], iso(46)),
+        phase(3, 'Certification', 30, 0, [2]),
+      ],
+      sopDate: iso(200),
+      now: day(60),
+    };
+
+    it('separates an idle count from the variance number above it in X, not by a hair in Y', () => {
+      // Not intersecting is deliberately NOT the bar here. Two boxes that merely fail to
+      // intersect can be zero pixels apart — `overlaps()` is a strict test — and at that
+      // distance, in one column, they read as a single stacked pair of numbers about two
+      // different phases. No overlap test can say so, so this one asks for air: clear in x,
+      // or clear in y by MORE than the two boxes.
+      for (const input of [overrunThenGap, everyRowMoves]) {
+        const boxes = rowBoxes(drawChain(input));
+        const idle = boxes.filter((b) => /idle$/.test(b.text));
+        const numbers = boxes.filter((b) => /^[+−]\d+d$/.test(b.text));
+        expect(idle.length).toBeGreaterThan(0);
+        expect(numbers.length).toBeGreaterThan(0);
+        expect(idle.flatMap((i) => numbers
+          .filter((n) => Math.abs(i.x - n.x) < i.halfW + n.halfW && Math.abs(i.y - n.y) < i.halfH + n.halfH + 6)
+          .map((n) => `"${i.text}" crowds "${n.text}" (Δy ${Math.abs(i.y - n.y).toFixed(1)})`)))
+          .toEqual([]);
+      }
+    });
+
+    it('reproduces the crowding shape at all — the gap must follow the OVER-run', () => {
+      // A fixture that quietly stopped reproducing would turn the check above green for the
+      // wrong reason, so it states the two conditions it exists to exercise: the two labels
+      // are inside one row pitch of each other (so the pitch gives no relief), and the gap
+      // they describe is too short to hold the count (so the count cannot centre away).
+      const boxes = rowBoxes(drawChain(overrunThenGap));
+      const over = boxes.find((b) => b.text === '+9d');
+      const idle = boxes.find((b) => /idle$/.test(b.text));
+      expect(over).toBeDefined();
+      expect(idle).toBeDefined();
+      expect(Math.abs(idle!.y - over!.y)).toBeLessThan(34); // ChainSchedule's ROW_H
+      // The gap runs from the end of Design's tail to the start of Build's bar; the count is
+      // wider than it, which is why it steps beside the rule instead of centring on it.
+      const rule = Array.from(drawChain(overrunThenGap).querySelectorAll<SVGLineElement>('line'))
+        .filter(isHorizontal)
+        .map(lineBox)
+        .find((l) => Math.abs(l.y - idle!.y) < 2);
+      expect(rule).toBeDefined();
+      expect(rule!.halfW * 2).toBeLessThan(idle!.halfW * 2 + 16);
+    });
+
+    it('never swallows the idle rule into the label that names it', () => {
+      // The count rides its rule's line and is haloed, which knocks the dashes out behind
+      // it. On a gap shorter than the label that is the whole mark, so the count steps
+      // beside the rule instead of centring on it — otherwise the amber dashes vanish and
+      // the chart says nothing happened between the two phases (AGENTS lesson 18).
+      const container = drawChain(overrunThenGap);
+      const idle = rowBoxes(container).find((b) => /idle$/.test(b.text))!;
+      const rule = Array.from(container.querySelectorAll<SVGLineElement>('line'))
+        .filter(isHorizontal).map(lineBox).find((l) => Math.abs(l.y - idle.y) < 2)!;
+      const covered = Math.max(0,
+        Math.min(idle.x + idle.halfW, rule.x + rule.halfW) - Math.max(idle.x - idle.halfW, rule.x - rule.halfW));
+      expect(covered).toBeLessThan(rule.halfW); // less than half the rule knocked out
+    });
+  });
 });

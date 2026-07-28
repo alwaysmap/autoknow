@@ -53,6 +53,24 @@ omitted rather than clamped when it falls outside the frame. The phase × week g
 above is UNTOUCHED by this step; #161 steps 3–4 replace it with per-row bars and swap
 the row hover card for a docked day strip.
 
+UPDATE (2026-07-28, issue #161 step 3/4): the **phase × week grid is GONE**, replaced
+by **Option A bars** — §4a below is rewritten around them, and this line is here so
+nobody reads the paragraph above and concludes the grid is still on screen. Variance
+now rides the phase's OWN bar as a length: a solid `--bad` tail past the plan tick for
+days already spent, a dashed `--ok` ghost back to the tick for days handed back, a
+dashed `--bad` outline for a forecast overrun, and a quiet `+9d` / `−4d` beside each
+tail. A week cell could only ever say "mostly over-running that week", and the day a
+phase went past its estimate is the fact a relay-runner argument asks you to act on.
+Purely an encoding change: the row hit rects, the row hover card, the collapsing time
+axis, zoom/pan and the focus window are all untouched, and step 4/4 still owes the
+docked day strip that retires the card. This step also CLOSED OUT #75 (bead
+autoknow-c3z): the `--band-*` and `--forecast-fill` tokens were deleted from
+`globals.css` — nothing had read them since #75 removed the washes — the ⓘ key's copy
+and glyphs were rewritten for bars, and the acceptance screenshot pass runs against
+the NEW encoding in `tests/phase_screenshots.spec.ts` (both themes, four widths).
+Signing off the grid #75 was scoped to would have signed off a chart this step
+deletes, so #75 is superseded rather than abandoned.
+
 UPDATE (2026-07-24, user call): **an overrun against a phase's own estimate is now a
 LEVER, and past a threshold it is the program's headline.** The taxonomy always
 detected `sunkOverrun` / `forecastOverrun`, but only §4b spent them — the response
@@ -439,28 +457,59 @@ view is whole on templates alone (lesson 5, the `geminiConfigured` pattern).
 
 ### (a) Chain ledger — time-scaled chain vs. SOP
 
+STATUS: IMPLEMENTED as **Option A bars** (`src/components/ChainSchedule.tsx`,
+issue #161 decision 1, 2026-07-28). This section has now described three
+encodings; the two it used to describe are recorded under "What this replaced"
+below, because both of their failures are the reason for the rule this one
+follows.
+
 The instrument for "where does the time go." A single horizontal time axis from
 the earliest phase start to a bit past SOP; the SOP as a labeled vertical rule.
-One row per **planned-chain** phase, in chain order:
+One row per **planned-chain** phase, in chain order — and **every mark on a row
+is drawn from that row's own dates**, so it can be traced back to the phase it
+describes. That is the load-bearing rule, not a style: variance is a LENGTH on
+the phase's own bar, never a colour on a shared block.
 
-- **Done**: a solid bar from `S` to `C`; a thin tick at `S + D` marks where plan
-  said it would end. Bar past tick = loss, visible as overhang; the variance as a
-  quiet `+9d` / `−4d` label (the pace chip's numbers, now positioned in time).
-- **Active**: solid bar `S → now`, then an outlined (open) bar `now → now + R` —
-  the forecast remainder. The constraint ring/amber accent lives here.
-- **Not started**: outlined bar of length `D`, cascaded ASAP after its
-  predecessor's projected end (phases have no planned start dates — the cascade
-  *is* the schedule, and the doc/UI should say so plainly).
-- **Handoff gaps**: hatched span between an upstream `C` and downstream `S` (or
-  `now`) — dead air made visible.
-- **Buffer movement as full-height background bands** — the buffer matters
-  enough to shade the whole diagram, complementing the bars: each realized
-  overrun (plan tick → actual end) and each idle gap is a soft red band; each
-  underrun a soft green band; a *forecast* overrun on the active phase (its
-  outline running past its plan tick) a paler red band — visibly at risk, not
-  yet spent; and the remaining buffer (forecast end of work → SOP) is one soft
-  green band. The bars say what happened; the bands say what it cost or what's
-  left. Overshoot renders past the SOP rule in the warn color.
+Marks, all day-accurate:
+
+| Mark | Meaning |
+| --- | --- |
+| Solid bar, `--fg` @ .42 | finished work, up to the plan tick |
+| Solid bar, `--fg` @ .86 | the live phase's elapsed work |
+| Solid `--bad` tail past the plan tick | days past its own estimate, already spent |
+| Dashed `--ok` ghost, actual end → plan tick | days handed back to the buffer |
+| Dashed `--muted` outline | forecast remainder, or a not-started window |
+| Dashed `--bad` outline past the plan tick | forecast to go over |
+| Dashed `--warn` rule in the channel *above* the row | idle handoff, drawn to the day |
+| A thin `--muted` tick at `S + D` | where the plan said the phase would end |
+| A quiet `+9d` / `−4d` beside a tail | the same variance as a number |
+
+Filled means it happened; dashed-and-outlined means it is a claim — one rule,
+one table in the source, so a new mark cannot be added as a solid claim by
+forgetting a second lookup. **Which rows earn a tail is decided by the five
+exported waterfall predicates** (§5), never by comparing the dates a second
+time, so the bar, the number beside it, the buffer flow and §4b's waterfall
+cannot disagree about which phases moved the buffer.
+
+Not-started rows are cascaded ASAP after their predecessor's projected end:
+phases have no planned start dates, the cascade *is* the schedule, and the
+doc/UI says so plainly. Off-chain phases are not rows here.
+
+**What this replaced, and why neither is coming back.** The original encoding
+drew buffer movement as **full-height background bands** — a soft wash per
+realized overrun, idle gap, underrun, forecast overrun and remaining-buffer
+span, textured in Instrument. It was method-correct and unreadable: a band that
+describes ONE phase, drawn floor-to-ceiling across EVERY row, cannot be traced
+back to the phase it belongs to, and eight phases produced ten bands in four
+textures that vibrated where they abutted (AGENTS lessons 17/18). Issue #75
+replaced it with a **phase × ISO-week state grid**, which fixed attribution but
+rounded the thing the method is about: a week cell can only say "mostly
+over-running that week", so the DAY a phase went past its estimate — the fact a
+relay-runner argument asks you to act on — was never legible, and variance was
+back to being a colour on a block. Option A keeps the grid's attribution and
+gives the magnitude back its length. The grid's `--band-*` and `--forecast-fill`
+tokens were deleted from `globals.css` with this step; nothing had read them
+since #75.
 
 Off-chain phases are not rows here (the rail already shows the full DAG); a branch
 whose penetration is positive (§3) gets a one-line notice under the ledger, linking
@@ -515,13 +564,16 @@ directly; no chart needed.)*
   due Aug 4".
 - **No proportional fill on the rail.** The track's segments keep their binary
   done/not ink (the existing rule); time lives in this section's time-scaled bars.
+  True again as of #161 step 3/4 — it was written for the original Gantt, then
+  spent #75's grid being false (the grid's unit was an ISO week column, not a
+  scaled bar), and Option A puts a day-accurate scaled bar back on every row.
 - **No fabricated precision.** Remaining work is `D × (1 − p/100)` — a hill-chart
   guess times a forecast. Everything renders in days/weeks rounded, and the
   headline says ≈. Concretely: a *forecast* variance under
   `FORECAST_NOISE_DAYS` (2) is noise and is reported nowhere — one exported
-  predicate (`isForecastOver`) governs the chart band, the bar label, the
+  predicate (`isForecastOver`) governs the chart mark, the bar label, the
   waterfall row, and the situation packet, because when the chart and the
-  ledger each carried their own threshold a +1-day phase drew a red band and
+  ledger each carried their own threshold a +1-day phase drew a red mark and
   an "over plan" label with no waterfall row behind it. Realized (done)
   variances come from real dates and count from 1 day. That threshold rule
   generalized (2026-07-27, autoknow-4dr.1): `chainLedger` now exports all FIVE

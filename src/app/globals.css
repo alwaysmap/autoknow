@@ -145,20 +145,15 @@
   --ok-ring: rgba(19, 115, 51, 0.25);
   --bad-ring: rgba(197, 34, 31, 0.25);
 
-  /* Schedule buffer bands (Critical Chain, docs/CRITICAL_CHAIN_VIEW_PLAN.md §4a).
-     Four MEANINGS that must be told apart at a glance behind bars and text, so
-     they differ by HUE, not by opacity of one hue — spent loss and forecast loss
-     were both red and read as the same band. hsla keeps them translucent enough
-     that the ink on top stays legible. */
-  /* Forecast (outlined) schedule bars are hollow in Standard — the wash reads
-     through them. Instrument fills them with the near-white gauge face so they
-     pop opaque over the hatching (set in the instrument block). */
-  --forecast-fill: none;
-
-  --band-lost: hsla(4, 80%, 52%, 0.30);          /* days already lost — red */
-  --band-lost-forecast: hsla(33, 95%, 48%, 0.32); /* forecast to be lost — amber */
-  --band-gained: hsla(146, 62%, 40%, 0.30);       /* days handed back — green */
-  --band-buffer: hsla(178, 55%, 40%, 0.22);       /* room still in hand — teal */
+  /* The Critical Chain schedule's --band-* washes and --forecast-fill USED to live
+     here: four full-height buffer bands behind the bars, plus the fill that made an
+     outlined forecast bar opaque over Instrument's hatching. Both are gone with the
+     encoding that needed them — #75 replaced the bands (a band that describes ONE
+     phase, drawn across EVERY row, cannot be traced back to the phase it belongs to),
+     and #161's Option A gives each phase its variance as a length on its OWN bar,
+     drawn from the health tokens (--fg / --bad / --ok / --warn / --muted) like every
+     other chart. Nothing has read either token since; deleted rather than kept warm,
+     because a token with no consumer is a colour decision nobody can review. */
 
   /* Capacity product bands (CapacityChart's CFD stack). A CATEGORICAL palette,
      deliberately outside the health palette — amber/red/green JUDGE, these only
@@ -273,13 +268,6 @@
   --ok-ring: rgba(126, 216, 161, 0.35);
   --bad-ring: rgba(255, 143, 137, 0.35);
 
-  /* Bands on the dark paper: lighter and a touch stronger, since a translucent
-     wash over a dark background loses far more contrast than over white. */
-  --band-lost: hsla(4, 85%, 62%, 0.34);
-  --band-lost-forecast: hsla(36, 95%, 58%, 0.34);
-  --band-gained: hsla(146, 60%, 55%, 0.32);
-  --band-buffer: hsla(178, 55%, 55%, 0.24);
-
   /* Capacity bands on dark paper — see the light block for what they mean. Only
      the two that carry their own value need restating; GBI/GAS/DK alias tokens
      that already flip. AAOS drops to a warm neutral a step ABOVE --paper and
@@ -349,26 +337,6 @@
   --ok-ring: rgba(77, 124, 15, 0.28);
   --bad-ring: rgba(179, 45, 25, 0.28);
 
-  /* Buffer bands follow the same family — the chart and the health chips must
-     not disagree about what "lost" looks like. */
-  --band-lost: hsla(8, 72%, 52%, 0.30);
-  --band-lost-forecast: hsla(38, 90%, 46%, 0.32);
-  --band-gained: hsla(80, 60%, 38%, 0.30);
-  --band-buffer: hsla(150, 40%, 40%, 0.20);
-
-  /* Forecast bars pop opaque over the hatching, in the same near-white as the
-     gauge face — the one surface that stays light in both themes. */
-  --forecast-fill: var(--gauge-face);
-
-  /* Pattern inks for the hatched/stippled buffer bands (Instrument only). Solid,
-     readable hues: the TEXTURE tells the four meanings apart, the hue only
-     reinforces (warm = buffer lost, cool = buffer available), so the legend's
-     colour words stay true. */
-  --band-ink-loss: hsl(6, 62%, 46%);
-  --band-ink-forecast: hsl(36, 78%, 40%);
-  --band-ink-gain: hsl(84, 46%, 32%);
-  --band-ink-buffer: hsl(178, 44%, 34%);
-
   /* Graticule rules: a hairline made of ticks. Consumed as a background-image,
      so any border it replaces must also set border-color: transparent. */
   --graticule: repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px 0.5625rem);
@@ -422,16 +390,6 @@
   --ok-ring: rgba(168, 201, 64, 0.35);
   --bad-ring: rgba(245, 131, 106, 0.35);
 
-  --band-lost: hsla(10, 80%, 62%, 0.34);
-  --band-lost-forecast: hsla(40, 92%, 58%, 0.34);
-  --band-gained: hsla(78, 58%, 55%, 0.32);
-  --band-buffer: hsla(150, 45%, 52%, 0.24);
-
-  /* Lifted for the dark ground — the pattern strokes must read on roast brown. */
-  --band-ink-loss: hsl(8, 78%, 66%);
-  --band-ink-forecast: hsl(40, 88%, 62%);
-  --band-ink-gain: hsl(82, 52%, 58%);
-  --band-ink-buffer: hsl(178, 52%, 56%);
 }
 
 /* Digits line up in columns — the most characteristic thing a cluster does, and
