@@ -9,7 +9,7 @@
 // that are not phases and still cost buffer — the credit window a phase opened by
 // finishing early, and the idle gap between a baton landing and being picked up.
 
-import { isForecastOver } from './chainLedger';
+import { hasIdleGapBefore, isForecastOver, isRealizedUnderrun } from './chainLedger';
 import type { ScheduleRow } from './chainLedger';
 import { DAY_MS, dayFloor } from './sop';
 
@@ -127,10 +127,10 @@ export function summaryAt(rows: ScheduleRow[], atMs: number, now: number): DaySu
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const prev = rows[i - 1];
-    if (r.gapBeforeDays >= 1 && prev && overlap(day, prev.endMs, r.startMs) > 0) {
+    if (hasIdleGapBefore(r) && prev && overlap(day, prev.endMs, r.startMs) > 0) {
       gaps.push({ fromId: prev.id, toId: r.id, days: r.gapBeforeDays, fromMs: prev.endMs, toMs: r.startMs });
     }
-    if (r.kind === 'done' && r.varianceDays <= -1 && overlap(day, r.endMs, r.plannedEndMs) > 0) {
+    if (isRealizedUnderrun(r) && overlap(day, r.endMs, r.plannedEndMs) > 0) {
       credits.push({ phaseId: r.id, days: -r.varianceDays, fromMs: r.endMs, toMs: r.plannedEndMs });
     }
 

@@ -5,14 +5,14 @@
 // The stepped lane this replaces walked a hand-built event list inside the
 // component (ChainSchedule.tsx). Moving that walk here buys two things the lane
 // could not have:
-//   • ONE SET OF BOOKS. The moves below apply the same five predicates
-//     `computeChainLedger` uses to build its waterfall (chainLedger.ts:288-299).
-//     They are COPIED, not shared — only `isForecastOver` is imported. That is a
-//     deliberate, temporary duplication: chainLedger.ts is held to a zero-byte diff
-//     this step so #174 rebases onto it cleanly. What holds the two copies together
-//     until they are extracted is mechanical, not vigilance: `netDays` must equal
-//     `ledger.usedDays` (tests/bufferSeries.test.ts). Extracting the other four
-//     predicates is autoknow-4dr.1; do that before a third caller copies them again.
+//   • ONE SET OF BOOKS, now literally. The moves below apply the SAME five predicates
+//     `computeChainLedger` builds its waterfall from — imported, not copied, since
+//     autoknow-4dr.1. Two things hold the books together and neither is vigilance:
+//     the predicates are one definition, and `netDays` must still equal
+//     `ledger.usedDays` (tests/bufferSeries.test.ts). The second gate keeps its job
+//     even so — sharing the predicates makes the two files agree on WHICH rows moved
+//     the buffer, never on how many days each move is worth or when it lands, which
+//     is the arithmetic below and is exactly what the balance test measures.
 //   • A SLOPE WHERE THE LOSS WAS GRADUAL. A day of idle handoff costs a day of
 //     buffer, every day it lasts; a phase past its plan tick spends a day per day
 //     it keeps running. Those are RAMPS across their window, not cliffs at one end
@@ -22,7 +22,9 @@
 // the program started with, and below 0 when the buffer is blown; the renderer
 // derives its y-axis from the values it is handed (decision 3).
 
-import { isForecastOver, FORECAST_NOISE_DAYS } from './chainLedger';
+import {
+  hasIdleGapBefore, isRealizedOverrun, isRealizedUnderrun, isForecastOver, isForecastUnder,
+} from './chainLedger';
 import type { ChainLedgerResult, ScheduleRow } from './chainLedger';
 import { DAY_MS, dayFloor } from './sop';
 
@@ -88,20 +90,20 @@ function movesOf(schedule: ScheduleRow[], now: number): BufferMove[] {
   for (let i = 0; i < schedule.length; i++) {
     const r = schedule[i];
     const prev = schedule[i - 1];
-    if (r.gapBeforeDays >= 1 && prev) {
+    if (hasIdleGapBefore(r) && prev) {
       moves.push({ kind: 'gap', days: -r.gapBeforeDays, fromMs: prev.endMs, toMs: r.startMs, projected: false, fromId: prev.id, toId: r.id });
     }
-    if (r.kind === 'done' && r.varianceDays >= 1) {
+    if (isRealizedOverrun(r)) {
       moves.push({ kind: 'overrun', days: -r.varianceDays, fromMs: r.plannedEndMs, toMs: r.endMs, projected: false, phaseId: r.id });
     }
-    if (r.kind === 'done' && r.varianceDays <= -1) {
+    if (isRealizedUnderrun(r)) {
       moves.push({ kind: 'underrun', days: -r.varianceDays, fromMs: r.endMs, toMs: r.endMs, projected: false, phaseId: r.id });
     }
     if (isForecastOver(r)) {
       const fromMs = Math.max(now, r.plannedEndMs);
       moves.push({ kind: 'forecast', days: -r.varianceDays, fromMs, toMs: Math.max(fromMs, r.endMs), projected: true, phaseId: r.id });
     }
-    if (r.kind === 'active' && r.varianceDays <= -FORECAST_NOISE_DAYS) {
+    if (isForecastUnder(r)) {
       const at = Math.max(now, r.endMs);
       moves.push({ kind: 'forecast', days: -r.varianceDays, fromMs: at, toMs: at, projected: true, phaseId: r.id });
     }

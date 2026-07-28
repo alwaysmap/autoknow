@@ -142,9 +142,59 @@ const days = (ms: number) => ms / DAY_MS;
  */
 export const FORECAST_NOISE_DAYS = 2;
 
+/**
+ * THE FIVE WATERFALL PREDICATES — the whole taxonomy of "this schedule row moved
+ * the buffer", and the one place each of those five questions is asked.
+ *
+ * The waterfall and the situation packets below are built from exactly these five
+ * tests, and so is every other surface that reads a `ScheduleRow`: the buffer flow
+ * (lib/bufferSeries), the day summary (lib/chainDay), the schedule chart and the
+ * row card. They were hand-copied into five files, which is AGENTS lesson 7 in its
+ * literal form — the same control in five variants, agreeing only by vigilance, and
+ * only ONE pair of them (the flow and the waterfall) had a test that would notice.
+ * Exported for the reason `isForecastOver` already carried alone: every caller
+ * chooses from ONE predicate, so they can never disagree about which rows count.
+ *
+ * They take the FIELDS, not a whole row, so a caller cannot accidentally widen the
+ * question, and eslint's `chainPredicates` family blocks comparing `varianceDays`
+ * or `gapBeforeDays` anywhere but here — a sixth copy fails `npm run lint` rather
+ * than review (AGENTS lesson 2).
+ *
+ * REALIZED variances count from 1 day and FORECAST variances from
+ * FORECAST_NOISE_DAYS, and that asymmetry is the whole reason there are five
+ * predicates rather than a sign test: a done phase is measured between two real
+ * dates, while a live phase's remaining half is a hill-position guess.
+ */
+
+/**
+ * Idle days between the previous chain phase finishing and this one starting —
+ * buffer nobody was working through. A row with NO predecessor never has one
+ * (`scheduleAt` only accrues a gap after a row that is already `done`), so call
+ * sites that also test `i > 0` or `prev` are being defensive about an array index,
+ * not asking a narrower question than this.
+ */
+export const hasIdleGapBefore = (r: Pick<ScheduleRow, 'gapBeforeDays'>): boolean =>
+  r.gapBeforeDays >= 1;
+
+/** A FINISHED phase that ran past its plan tick: buffer already spent, measured
+ *  between two real dates. */
+export const isRealizedOverrun = (r: Pick<ScheduleRow, 'kind' | 'varianceDays'>): boolean =>
+  r.kind === 'done' && r.varianceDays >= 1;
+
+/** A FINISHED phase that beat its plan tick: buffer handed back, and the successor
+ *  could start early. */
+export const isRealizedUnderrun = (r: Pick<ScheduleRow, 'kind' | 'varianceDays'>): boolean =>
+  r.kind === 'done' && r.varianceDays <= -1;
+
 /** Is this row's forecast meaningfully past its plan? */
 export const isForecastOver = (r: Pick<ScheduleRow, 'kind' | 'varianceDays'>): boolean =>
   r.kind === 'active' && r.varianceDays >= FORECAST_NOISE_DAYS;
+
+/** A RUNNING phase forecast to finish meaningfully early — a CLAIM about buffer it
+ *  will hand back, not days it has handed back, which is why it clears the same
+ *  noise floor as `isForecastOver` rather than the realized 1-day one. */
+export const isForecastUnder = (r: Pick<ScheduleRow, 'kind' | 'varianceDays'>): boolean =>
+  r.kind === 'active' && r.varianceDays <= -FORECAST_NOISE_DAYS;
 
 /**
  * At or past this share of its own estimate, a running phase stops being a line
@@ -286,14 +336,14 @@ export function computeChainLedger(input: ChainLedgerInput): ChainLedgerResult {
   // ---- waterfall: where the buffer went (books balance or say so) ----
   const waterfall: WaterfallRow[] = [];
   for (const r of schedule) {
-    if (r.gapBeforeDays >= 1) {
+    if (hasIdleGapBefore(r)) {
       const idx = schedule.indexOf(r);
       waterfall.push({ kind: 'gap', days: r.gapBeforeDays, gain: false, fromId: schedule[idx - 1]?.id, toId: r.id });
     }
-    if (r.kind === 'done' && r.varianceDays >= 1) waterfall.push({ kind: 'overrun', days: r.varianceDays, gain: false, phaseId: r.id });
-    if (r.kind === 'done' && r.varianceDays <= -1) waterfall.push({ kind: 'underrun', days: -r.varianceDays, gain: true, phaseId: r.id });
+    if (isRealizedOverrun(r)) waterfall.push({ kind: 'overrun', days: r.varianceDays, gain: false, phaseId: r.id });
+    if (isRealizedUnderrun(r)) waterfall.push({ kind: 'underrun', days: -r.varianceDays, gain: true, phaseId: r.id });
     if (isForecastOver(r)) waterfall.push({ kind: 'forecast', days: r.varianceDays, gain: false, phaseId: r.id });
-    if (r.kind === 'active' && r.varianceDays <= -FORECAST_NOISE_DAYS) {
+    if (isForecastUnder(r)) {
       waterfall.push({ kind: 'forecast', days: -r.varianceDays, gain: true, phaseId: r.id });
     }
   }
@@ -314,8 +364,8 @@ export function computeChainLedger(input: ChainLedgerInput): ChainLedgerResult {
   for (let i = 0; i < schedule.length; i++) {
     const r = schedule[i];
     const p = byId.get(r.id)!;
-    if (r.gapBeforeDays >= 1) situations.push({ type: 'idleHandoff', fromId: schedule[i - 1].id, toId: r.id, days: r.gapBeforeDays });
-    if (r.kind === 'done' && r.varianceDays >= 1) {
+    if (hasIdleGapBefore(r)) situations.push({ type: 'idleHandoff', fromId: schedule[i - 1].id, toId: r.id, days: r.gapBeforeDays });
+    if (isRealizedOverrun(r)) {
       situations.push({
         type: 'sunkOverrun', phaseId: r.id, days: r.varianceDays, plannedDays: p.forecastedDuration,
         overPct: overPctOf(r.varianceDays, p.forecastedDuration),
@@ -325,7 +375,7 @@ export function computeChainLedger(input: ChainLedgerInput): ChainLedgerResult {
           .map((x) => ({ kind: x.kind, id: x.id, name: x.name })),
       });
     }
-    if (r.kind === 'done' && r.varianceDays <= -1) {
+    if (isRealizedUnderrun(r)) {
       situations.push({ type: 'underrun', phaseId: r.id, days: -r.varianceDays, plannedDays: p.forecastedDuration });
     }
     if (isForecastOver(r)) {

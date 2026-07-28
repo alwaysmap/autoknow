@@ -13,7 +13,7 @@ import PersonCell, { type PersonRef } from './PersonCell';
 import { ChainSchedule, CARD_W } from './ChainSchedule';
 import { useSteadyPageScroll } from '../lib/useSteadyPageScroll';
 import type { RowCard } from './ChainSchedule';
-import { isForecastOver, isSevereOverrun } from '../lib/chainLedger';
+import { hasIdleGapBefore, isForecastOver, isRealizedOverrun, isRealizedUnderrun, isSevereOverrun } from '../lib/chainLedger';
 import { phasesEditHref } from '../lib/phase';
 import { partnerHref, programHref } from '../lib/entityHref';
 import type { ChainLedgerResult, ResourceRef, ScheduleRow, Situation, WaterfallRow } from '../lib/chainLedger';
@@ -396,9 +396,9 @@ export default function ChainLedger({
             ? (isForecastOver(r)
                 ? { text: t(locale, r.remainingDays === 1 ? 'clWorkLeftOverOne' : 'clWorkLeftOver', { d: r.remainingDays, o: r.varianceDays }), bad: true }
                 : { text: t(locale, r.remainingDays === 1 ? 'clWorkLeftOnPaceOne' : 'clWorkLeftOnPace', { d: r.remainingDays }), bad: false })
-          : r.varianceDays >= 1
+          : isRealizedOverrun(r)
             ? { text: t(locale, r.varianceDays === 1 ? 'clRowSpentOne' : 'clRowSpent', { d: r.varianceDays }), bad: true }
-          : r.varianceDays <= -1
+          : isRealizedUnderrun(r)
             ? { text: t(locale, r.varianceDays === -1 ? 'clRowGaveOne' : 'clRowGave', { d: -r.varianceDays }), bad: false }
             : { text: t(locale, 'clRowOnPlan'), bad: false };
         return (
@@ -407,7 +407,7 @@ export default function ChainLedger({
             <div className={styles.hoverCardName}>{r.name}</div>
             <div className={styles.hoverCardLine}>{t(locale, status)} · {when}</div>
             <div className={claim.bad ? styles.hoverCardBad : styles.hoverCardLine}>{claim.text}</div>
-            {r.gapBeforeDays >= 1 && (
+            {hasIdleGapBefore(r) && (
               <div className={styles.hoverCardBad}>{t(locale, 'clSatIdle', { d: r.gapBeforeDays })}</div>
             )}
             {ledger.liveConstraintId === r.id && (
