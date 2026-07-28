@@ -9,7 +9,7 @@ symptoms:
   - the component state is untouched after a click Playwright reported as successful
   - the failure is indistinguishable from the regression the test exists to catch
   - a "fix" for that flake goes green in CI while the underlying press is still landing wrong
-verified_by: 'tests/phase_graph.spec.ts "a card click is not swallowed by page motion still under way" — CI run 30333850072 (chromium attempt 1: `pointerdown react=false`, scroll 1444→1674 unhalted, release on a `DIV` outside every row) vs run 30334474423 (both engines `react=true`, no retries); measured drift table; mutation-checked green→red on both engines; bead autoknow-dxa'
+verified_by: 'bead autoknow-dxa, PR #232 — CI run 30333850072 (chromium attempt 1: `pointerdown react=false`, scroll 1444→1674 unhalted, release on a `DIV` outside every row) vs run 30334474423 (both engines `react=true`, no retries); measured drift table. The spec it describes, tests/phase_graph.spec.ts "a card click is not swallowed by page motion still under way", was then DELETED for tests/documentScrollGoesThroughTheGuard.test.ts — see the last paragraph.'
 ---
 
 # A test that synthesises the hazard a guard defends against must first prove the guard is ARMED
@@ -47,4 +47,14 @@ skewed. The answer came from logging `mousedown`/`mouseup`/`click` targets plus
 `window.scrollY` **in CI** — one run, and `react=false` at `pointerdown` was the
 whole story. See also
 [a-page-scroll-between-press-and-release-loses-the-click](a-page-scroll-between-press-and-release-loses-the-click.md),
-the product defect this test exists to catch.
+the product defect that spec existed to catch.
+
+**And then we deleted it.** Reduced to asserting only the wiring — press, and
+check the scroll died — it flaked again: chromium froze at ≤11px, webkit at 115,
+317 and 551 across runs, every value CORRECT and differing only in where the press
+caught the animation. An absolute threshold picks an engine; a relative one needs
+a staging check that races too. The rule was static all along, so
+`tests/documentScrollGoesThroughTheGuard.test.ts` now asserts it over every call
+site at once, instantly. **If stabilising the staging costs more than the coverage
+is worth, the test is in the wrong medium** — that is the real lesson, and it took
+three PRs to reach.
