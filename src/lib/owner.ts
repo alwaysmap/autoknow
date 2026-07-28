@@ -7,8 +7,10 @@ import { personDirectorySelect, resolvePerson } from './people';
  * reference EVERY reader now goes through (#127 E7), and `ownerName` is the canonical
  * email kept beside it as legacy text — no longer read for display, still written, and
  * still the column the backfill and remediation arms reason about. The dual-write
- * continues because E7 is the read-side contract step, not the column drop; retiring
- * `ownerName` itself is a separate expand→backfill→contract merge (AGENTS.md).
+ * continues because E7 was the read-side contract step, not the column drop — and the
+ * drop is not pending: bead autoknow-p78 asked whether to retire `ownerName` and the
+ * answer was KEEP, argued at the column in prisma/schema.prisma. If that is ever
+ * reversed it is a separate expand→backfill→contract merge (AGENTS.md).
  * Handing back the PAIR is what makes the dual-write structural rather than remembered —
  * there is no seam here that yields an email alone, so no mutation path can write one
  * column and forget the other.
