@@ -281,6 +281,9 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write # keyless GCP auth (WIF) to PULL the AR-mirrored base image; nothing is pushed
     steps:
       - uses: actions/checkout@v4
       # Runs in parallel with `quality`/`e2e`, both far longer, so this is close to
@@ -289,7 +292,15 @@ jobs:
       #      Dockerfile used to surface as a red deploy rather than a red PR;
       #   2. the deps stage's contract — `npm ci` runs postinstall there WITHOUT the
       #      source tree, so the bootstrap must degrade to nothing (ADR npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it).
-      # No push, no registry credentials: building is the whole assertion.
+      # No push; the only credential is READ auth for the base image, which lives in
+      # our Artifact Registry Docker Hub mirror pinned by digest (autoknow-d1h) —
+      # docker.io is no longer on the build path, here or in the deploy.
+      # (WIF issues no token to fork PRs; this repo takes PRs from branches only.)
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/1009926574065/locations/global/workloadIdentityPools/github/providers/github
+          service_account: autoknow-ci@autoknow-prod-1895f1.iam.gserviceaccount.com
+      - run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
       #
       # Plain `docker build`, NOT buildx with a gha layer cache. That was tried and
       # measured worse: 96s uncached -> 113s warm-cached (91s build + 9s buildx setup),
