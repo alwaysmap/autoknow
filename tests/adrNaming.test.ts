@@ -9,8 +9,9 @@
 // Dates need no allocator, so that is the convention (docs/adr/README.md). This
 // keeps it true, and keeps the index honest, because neither is self-enforcing.
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { citingFiles } from './helpers/citations';
 
 const DIR = 'docs/adr';
 const NAME = /^(\d{4}-\d{2}-\d{2})-[a-z0-9]+(-[a-z0-9]+)*\.md$/;
@@ -47,17 +48,9 @@ describe('ADR naming and index', () => {
     // pointing developers at `0005-identity-accessor-carries-every-displayed-field.md`
     // — a file that never existed, shipped and unnoticed because nothing checked.
     const known = new Set([...records(), 'README.md']);
-    const roots = ['docs', 'src', 'tests', 'scripts', '.claude', '.github', 'AGENTS.md', 'README.md', 'eslint.config.mjs', 'Dockerfile'];
-    const files: string[] = [];
-    const walk = (p: string) => {
-      const s = statSync(p);
-      if (s.isDirectory()) for (const e of readdirSync(p)) walk(join(p, e));
-      else if (/\.(md|ts|tsx|mjs|js|yml)$/.test(p) || p.endsWith('Dockerfile')) files.push(p);
-    };
-    for (const r of roots) if (existsSync(r)) walk(r);
 
     const broken: string[] = [];
-    for (const f of files) {
+    for (const f of citingFiles()) {
       for (const m of readFileSync(f, 'utf8').matchAll(/adr\/([A-Za-z0-9._-]+\.md)/g)) {
         // Template placeholders (`YYYY-MM-DD-slug.md` in the compound skill) are
         // spelled with capitals; real slugs never are. Skip them, not the check.

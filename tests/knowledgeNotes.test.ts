@@ -12,6 +12,7 @@
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { citingFiles } from './helpers/citations';
 
 const DIR = 'docs/knowledge';
 /** Kebab slug, deliberately NOT dated: a note is current understanding, not a historical act. */
@@ -85,24 +86,9 @@ describe('knowledge notes', () => {
   it('resolves every knowledge path cited anywhere in the repo', () => {
     // Same rule as ADR citations: a pointer is only worth writing if it opens.
     const known = new Set([...notes(), 'README.md']);
-    const roots = ['docs', 'src', 'tests', 'scripts', '.claude', 'AGENTS.md', 'README.md'];
-    const files: string[] = [];
-    const walk = (p: string) => {
-      const s = readdirSync(p, { withFileTypes: true });
-      for (const e of s) {
-        const full = join(p, e.name);
-        if (e.isDirectory()) walk(full);
-        else if (/\.(md|ts|tsx|mjs)$/.test(full)) files.push(full);
-      }
-    };
-    for (const r of roots) {
-      if (!existsSync(r)) continue;
-      if (r.endsWith('.md')) files.push(r);
-      else walk(r);
-    }
 
     const broken: string[] = [];
-    for (const f of files) {
+    for (const f of citingFiles()) {
       // Template placeholders in the compound skill are written `<slug>.md`, and
       // `<` is outside the character class, so they never match in the first
       // place. That is deliberate: the exemption is in the placeholder's spelling
