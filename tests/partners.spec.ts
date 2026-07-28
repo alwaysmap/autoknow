@@ -27,12 +27,21 @@ test.describe('Ecosystem Partners Page', () => {
       }
     });
 
+    // The signed-in stub identity, as a real Person row. "My partners" tests program
+    // ownership through `Project.ownerPersonId` since #127 E7, so the human the scope is
+    // about has to exist — matching on the derived address is exactly what E7 retired.
+    const dylan = await prisma.person.create({
+      data: { name: 'Dylan Lead', email: 'dylan@google.com', currentPartnerId: partner.id },
+    });
+
     // Create a program under this partner
     await prisma.project.create({
       data: {
         name: 'Continental VHAL Integration',
         partnerId: partner.id,
+        // Both owner columns, as every write path produces them (lib/owner.requireOwner).
         ownerName: 'dylan@google.com',
+        ownerPersonId: dylan.id,
         sopDate: new Date('2027-06-01'),
         volumeFirstYear: 150000
       }

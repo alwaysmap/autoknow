@@ -36,7 +36,11 @@ test.describe('Me Landing Page', () => {
       data: {
         name: 'AAOS Google Integration',
         partnerId: partner.id,
+        // BOTH owner columns, as every write path produces them (`requireOwner` returns
+        // the pair). Since #127 E7 the person page finds owned programs through the FK,
+        // so a fixture setting only the text builds a program with no owner at all.
         ownerName: 'dylan@google.com',
+        ownerPersonId: person.id,
         sopDate: new Date('2026-12-01'),
         volumeFirstYear: 500000
       }

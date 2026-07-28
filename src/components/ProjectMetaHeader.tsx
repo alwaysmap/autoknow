@@ -15,10 +15,9 @@ import dash from './ProjectStatusDashboard.module.css';
 import pills from './PhaseTrack.module.css';
 import styles from './ProjectMetaHeader.module.css';
 import KebabMenu from './KebabMenu';
-import PersonCell from './PersonCell';
+import PersonCell, { type PersonRef } from './PersonCell';
 import { partnerHref } from '../lib/entityHref';
 import { localDate } from '../lib/dates';
-import { resolvePerson, type PersonLike } from '../lib/people';
 
 // Project metadata lives in the page HEADER — one strip, no sidebar card, no
 // duplication. Quiet facts on the left (OEM · suppliers · owner, all links per
@@ -37,6 +36,14 @@ interface PartnerOption {
 }
 
 
+/** One entry in the owner picker: the id it is selected by, the name it reads as, and
+ *  the address it submits (the form field is still `ownerName` — lib/owner). */
+interface PersonOption {
+  id: number;
+  name: string;
+  email: string;
+}
+
 interface ProjectMetaHeaderProps {
   projectId: number;
   projectName: string;
@@ -45,7 +52,10 @@ interface ProjectMetaHeaderProps {
   actions?: React.ReactNode;
   currentNeedle: string;
   currentHillChartProgress: number;
-  ownerName: string;
+  /** The program's Googler owner, resolved from `Project.ownerPersonId` (#127 E7).
+   *  Was the stored `ownerName` string, which this component re-matched against
+   *  `peopleOptions` in two places — the pill and the edit form's default. */
+  owner: PersonRef | null;
   sopDateString: string; // yyyy-mm-dd or ''
   /** Schedule forecast, from the same ChainLedger the Critical chain section reads,
    *  so the header and the ledger cannot disagree (#21). */
@@ -66,11 +76,11 @@ interface ProjectMetaHeaderProps {
    *  reader had to open the call site to learn it was a different table. */
   leadPartnerId?: number;
   partnerOptions?: PartnerOption[];
-  /** Existing people — the owner is picked from these, never typed freeform. */
-  /** The owner picker's options AND the directory `resolvePerson` narrows to seed its
-   *  default — hence `PersonLike`, which since #127 E8 carries the addresses a person
-   *  has left, so a legacy owner who has moved still preselects. */
-  peopleOptions?: PersonLike[];
+  /** Existing people — the owner is picked from these, never typed freeform. Just the
+   *  picker's options now: since #127 E7 the current owner is preselected BY ID off the
+   *  FK, so this no longer has to be a `PersonLike` directory for `resolvePerson` to
+   *  match a stored string against. */
+  peopleOptions?: PersonOption[];
 }
 
 /** One right-aligned figure: an uppercase label over a large value, sharing the
@@ -95,7 +105,7 @@ function Stat({ label, value, footer }: {
 
 export default function ProjectMetaHeader({
   projectId, projectName, archivedTag, actions, currentNeedle, currentHillChartProgress,
-  ownerName, sopDateString, projectedFinishMs, bufferDays, guidelineDays, now,
+  owner, sopDateString, projectedFinishMs, bufferDays, guidelineDays, now,
   volumeFirstYear, hasGas, hasGbi, hasDigitalKey, hasAap, oemPartner, suppliersList,
   leadPartnerId, partnerOptions, peopleOptions,
 }: ProjectMetaHeaderProps) {
@@ -172,12 +182,12 @@ export default function ProjectMetaHeader({
             {sup.name}
           </Link>
         ))}
-        {ownerName ? (
+        {owner ? (
           /* The owner reads by NAME and routes to /people/:id, through the one person
              cell (#153) — the OEM and supplier pills beside it were already links, so
              the owner was this strip's lone plain-text dead end (design.md §2). The
              pill's dotted ink rides on PersonCell's className, as on the phase rail. */
-          <PersonCell value={ownerName} people={peopleOptions ?? []}
+          <PersonCell person={owner}
             className={`${pills.pill} ${pills.pillGoogler}`} title={t(locale, 'googlerOwner')} />
         ) : (
           /* owner is REQUIRED — absence is a to-do, not a quiet fact */
@@ -245,10 +255,13 @@ export default function ProjectMetaHeader({
           )}
           <div className={dash.textInputGroup}>
             <label htmlFor="editOwner" className={dash.formLabel}>{t(locale, 'googlerOwner')}</label>
-            {/* Picked from existing people only — a legacy freeform owner that no
-                longer resolves to a Person shows as unassigned and must be re-picked. */}
+            {/* Picked from existing people only. The field NAME stays `ownerName`: that
+                is the write contract (`requireOwner` turns the submitted address back
+                into the {ownerName, ownerPersonId} pair, lib/owner). Only the DEFAULT
+                changed — it is now the owner's current address looked up BY ID (#127 E7),
+                not a string match, so an owner who has moved still shows as selected. */}
             <select id="editOwner" name="ownerName" required className={dash.textInput}
-              defaultValue={resolvePerson(peopleOptions ?? [], ownerName)?.email ?? ''}>
+              defaultValue={(peopleOptions ?? []).find((p) => p.id === owner?.id)?.email ?? ''}>
               <option value="" disabled>{t(locale, 'selectAPerson')}</option>
               {(peopleOptions ?? []).map((p) => (
                 <option key={p.id} value={p.email}>{p.name} ({p.email})</option>

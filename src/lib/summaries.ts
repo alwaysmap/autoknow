@@ -11,7 +11,6 @@ import { linkify, type EntityLink, type Segment } from './summaryLinkify';
 import { sopOutlook } from './sop';
 import { localDate } from './dates';
 import { profilesAsOf } from './profiles';
-import { resolvePeople } from './personDirectory';
 
 // The leadership-summary engine, one machine for three scopes (ecosystem / partner /
 // program): gather what AutoKnow already stores — needle updates, hill updates,
@@ -164,6 +163,8 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
     where: { id: projectId },
     include: {
       partner: { select: { name: true } },
+      // The Google-side owner as an ENTITY, on the FK (#127 E7).
+      ownerPerson: { select: { id: true, name: true } },
       states: { orderBy: { timestamp: 'desc' }, take: 6 },
       phases: {
         orderBy: { id: 'asc' },
@@ -212,25 +213,18 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
   reg.add(project.partner.name, partnerHref(project.partnerId));
 
   // The program's Google-side (internal) owner — the person an "owner works WITH the
-  // partner" action names. ownerName is stored as the canonical email (requireOwner);
-  // resolve it to a Person for their name + /people link.
-  //
-  // Through `resolvePeople`, not a hand-rolled `findFirst` on email-or-name. This was
-  // the fourth private copy of the matcher, and its email branch was exact-only — so a
-  // program whose owner had changed address lost its owner from the AI brief entirely
-  // (#124 Class 4, swept at #127 E8). The shared matcher searches the addresses that
-  // owner has HELD, and there is now exactly one place that decides what a person
-  // string means (AGENTS lesson 7).
-  if (project.ownerName) {
-    const owner = (await resolvePeople([project.ownerName]))[project.ownerName] ?? null;
-    if (owner) {
-      reg.add(owner.name, personHref(owner.id));
-      ev.push(
-        'owner',
-        `internal (Google-side) owner of "${project.name}": ${owner.name}`,
-        { label: owner.name, href: personHref(owner.id), external: false },
-      );
-    }
+  // partner" action names. Off the `ownerPersonId` FK (#127 E7), which matters more here
+  // than on a table: a brief cites its owner with a PERSISTED href, so naming the wrong
+  // person outlives the request (AGENTS lesson 15). The join cannot name a person the
+  // row does not reference; the string lookup this replaced could, and did.
+  const owner = project.ownerPerson;
+  if (owner) {
+    reg.add(owner.name, personHref(owner.id));
+    ev.push(
+      'owner',
+      `internal (Google-side) owner of "${project.name}": ${owner.name}`,
+      { label: owner.name, href: personHref(owner.id), external: false },
+    );
   }
 
   // Critical chain + SOP outlook — the on-track story in one record.

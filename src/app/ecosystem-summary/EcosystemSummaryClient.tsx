@@ -9,8 +9,7 @@ import { formatNeedleValue } from '../../lib/needle';
 import SopOutlookCell from '../../components/SopOutlookCell';
 import type { LiveConstraint } from '../../lib/dashboardData';
 import { healthKey, healthColor, healthOrder } from '../../lib/health';
-import PersonCell, { personFilterLabel } from '../../components/PersonCell';
-import type { PersonLike } from '../../lib/people';
+import PersonCell, { personRefFunnel, type PersonRef } from '../../components/PersonCell';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 import { useTableUrlSync } from '../../lib/useTableUrlSync';
@@ -25,7 +24,9 @@ interface Project {
   theNeedle: string;
   hillChartProgress: number;
   sopDate: string | null;
-  ownerName: string | null;
+  /** The owner as an ENTITY, resolved server-side from `Project.ownerPersonId`
+   *  (#127 E7) — this was the stored `ownerName` email, re-matched here. */
+  owner: PersonRef | null;
   volumeFirstYear: number;
   /** Remaining days along the REAL critical chain — the on-track signal vs SOP. */
   chainRemainingDays: number;
@@ -52,14 +53,10 @@ interface EcosystemSummaryClientProps {
   /** Snapshotted server-side so SSR and hydration agree (see the page). */
   now: number;
   initialProjects: Project[];
-  /** The directory the owner column resolves against — `PersonLike`, so an address its
-   *  owner has left still names them (#127 E8). Same as ProgramsClient's. */
-  people: PersonLike[];
 }
 
 export default function EcosystemSummaryClient({
   initialProjects,
-  people,
   liveConstraints,
   now,
   initialFilters,
@@ -156,8 +153,9 @@ export default function EcosystemSummaryClient({
             { key: 'partner.name', label: t(locale, 'partnerLabel') },
             { key: 'name', label: t(locale, 'programLabel') },
             {
-              key: 'ownerName', label: t(locale, 'ownerLabel'), filterable: true,
-              filterLabel: personFilterLabel(people),
+              // Keyed on the owner's id via the FK, not on the stored email (#127 E7).
+              key: 'owner', label: t(locale, 'ownerLabel'), filterable: true,
+              ...personRefFunnel(initialProjects, (p) => p.owner),
             },
             { key: 'sopDate', label: t(locale, 'sopDate') },
             { key: 'volumeFirstYear', label: t(locale, 'volume12m') },
@@ -193,9 +191,9 @@ export default function EcosystemSummaryClient({
                   {isEarlyStage && <span className={styles.earlyBadge}>{t(locale, 'earlyStage')}</span>}
                 </td>
                 <td>
-                  {/* By name, not by the stored LDAP email (#153); unresolvable owners
-                      stay plain text, and an absent one says so. */}
-                  <PersonCell value={p.ownerName} people={people} fallback={t(locale, 'unassigned')} />
+                  {/* By name, not by the stored LDAP email (#153). The person comes from
+                      the FK (#127 E7), so no directory match can miss them. */}
+                  <PersonCell person={p.owner} fallback={t(locale, 'unassigned')} />
                 </td>
                 <td><DateCell value={p.sopDate} fallback={t(locale, 'tbd')} /></td>
                 <td>{t(locale, 'unitsCount', { n: p.volumeFirstYear.toLocaleString(locale) })}</td>

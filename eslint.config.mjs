@@ -94,6 +94,56 @@ const noOpenPeriodAsCurrent = [
   },
 ];
 
+// `Project.ownerName` — the program owner asked as a STRING, where the FK was meant.
+//
+// #124 Class 4 in one line: `ownerName` is a bare `String?` holding an address, and an
+// address belongs to a JOB. Every surface that matched it therefore lost a person's
+// programs the moment they changed company — /people/:id resolved the owner by stripping
+// an email to its local part and comparing three spellings, and a colliding handle
+// matched the WRONG human. #127 E6 added `ownerPersonId` + FK and made every write path
+// fill both; E7 moved every reader across. The column survives as legacy text (the
+// dual-write continues, and the backfill still reasons about it) — so a rule, not a
+// deletion, is what keeps a new reader from appearing.
+//
+// Fourth family here, same shape and same trade as the three above: broad selectors,
+// exempted BY FILE, because the spellings a call site can reach for are open-ended
+// (`p.ownerName`, a Prisma `where`/`select` key, a destructure, a raw-SQL column) and a
+// narrow selector leaves the rest as silent bypasses.
+const OWNER_MESSAGE =
+  "Ask WHO owns a program through `Project.ownerPersonId` / the `ownerPerson` relation, " +
+  "never the `ownerName` text. The string is legacy: it holds an ADDRESS, and an address " +
+  "belongs to a job, so matching it loses every program its owner recorded under a " +
+  "previous one and can match a different human with the same handle (#124 Class 4, " +
+  "#127 E7). Writing it is fine and stays dual-written — `requireOwner` in lib/owner " +
+  "hands back the {ownerName, ownerPersonId} pair and nothing hands back the email alone.";
+
+const noOwnerNameReads = [
+  {
+    // `project.ownerName`, `p.ownerName`, `owner.ownerName`.
+    selector: "MemberExpression[property.name='ownerName']",
+    message: OWNER_MESSAGE,
+  },
+  {
+    // The Prisma shapes: an `include`/`select`/`where`/`data` key, a destructure, and a
+    // shorthand all land here as a Property key.
+    selector: "Property[key.name='ownerName']",
+    message: OWNER_MESSAGE,
+  },
+  {
+    // The quoted-key spelling — `{ "ownerName": v }` — which the selector above misses
+    // because a string key is `key.value`, not `key.name`.
+    selector: "Property[key.value='ownerName']",
+    message: OWNER_MESSAGE,
+  },
+  {
+    // Raw SQL: inside `Prisma.sql` a column name is just text. `lib/search.ts` lexically
+    // matched `pr."ownerName"` exactly that way, invisible to every selector above —
+    // the same hole the cache family's TemplateElement rule exists to close.
+    selector: "TemplateElement[value.raw=/ownerName/]",
+    message: OWNER_MESSAGE,
+  },
+];
+
 // The cache is still a column with a public name, so some files have to SAY it — which
 // is not the same as reading it for display, and mostly not even the same as writing it.
 // Only the first entry writes; the rest carry the name because the request contract does.
@@ -102,8 +152,66 @@ const noOpenPeriodAsCurrent = [
 const MAY_NAME_THE_CACHE = [
   "src/app/actions/people.ts", // movePersonCompany advances it on the effective day
   "src/app/api/people/route.ts", // destructures the request field of that name
-  "src/lib/schemas.ts", // the zod contract that request is parsed against
-  "src/lib/seed.ts", // puts it in the POST body it sends to that route
+];
+
+// Same idea for the owner TEXT: writing it, and the tooling that reads it precisely
+// BECAUSE it is the legacy column, are not the defect the rule is about.
+//
+// SPLIT IN TWO on purpose. Two files name the cache AND the owner text, and a flat-config
+// block REPLACES `no-restricted-syntax` rather than merging into it — so folding these
+// into one list placed after MAY_NAME_THE_CACHE would silently hand `schemas.ts` and
+// `seed.ts` back the cache family the block above just took away. The overlap is the
+// whole reason for the split; it is written down here so nobody "simplifies" it back.
+const MAY_NAME_THE_OWNER_TEXT = [
+  "src/lib/owner.ts", // DEFINES the pair — requireOwner is the only source of it
+  "src/lib/ownerBackfill.ts", // reads the text to fill the FK from it (#127 E6)
+  "src/lib/ownerRemediation.ts", // repoints the rows whose text names nobody
+  "src/app/api/projects/route.ts", // destructures the request field of that name
+  // Same, for the program-settings form action. The brackets are ESCAPED: a `files`
+  // entry is a glob, so the literal `[id]` of a Next dynamic segment otherwise reads as
+  // a character class matching one `i` or `d` — the path never matches, and the
+  // exemption silently does nothing. It fails loudly here (the file trips the rule), but
+  // an exemption that quietly widens a rule instead would not.
+  "src/app/programs/\\[id\\]/actions.ts",
+  "src/app/programs/new/page.tsx", // reads it back off requireOwner's returned pair
+  // DEAD CODE, exempted only so `npm run lint` is not red while it awaits deletion:
+  // referenced by nothing since the initial commit, and its Partner trigger still reads
+  // `NEW.type`/`NEW.region`, columns the schema replaced with `typeId`/`regionId`.
+  "prisma/seed-triggers.ts",
+];
+
+/** In BOTH exemption lists above — see the split note on MAY_NAME_THE_OWNER_TEXT. */
+const MAY_NAME_CACHE_AND_OWNER_TEXT = [
+  "src/lib/schemas.ts", // the zod contract both request shapes are parsed against
+  "src/lib/seed.ts", // puts both in the POST bodies it sends to those routes
+];
+
+/**
+ * The four families, and the one way a block names the ones it KEEPS.
+ *
+ * Every override below is an exemption, and every exemption's comment says which family
+ * it DROPS — so let the code say the same thing. Listing the kept families by hand meant
+ * four families times six blocks maintained by subtraction, and a fifth family would have
+ * had to be added to each of them: miss one and that file quietly stops being policed,
+ * which is the exact failure these guards exist to prevent. Here a new family is added in
+ * ONE place and is on everywhere until a block explicitly drops it.
+ *
+ * This does NOT flatten the exemption FILE lists — MAY_NAME_THE_CACHE /
+ * MAY_NAME_THE_OWNER_TEXT / MAY_NAME_CACHE_AND_OWNER_TEXT stay separate for the
+ * flat-config reason spelled out above them, which is a different problem.
+ */
+const FAMILIES = {
+  session: noSessionFieldReads,
+  cache: noCachedAffiliationReads,
+  openPeriod: noOpenPeriodAsCurrent,
+  ownerText: noOwnerNameReads,
+};
+
+const allFamiliesExcept = (...dropped) => [
+  "error",
+  ...Object.entries(FAMILIES)
+    .filter(([name]) => !dropped.includes(name))
+    .flatMap(([, selectors]) => selectors),
 ];
 
 const eslintConfig = defineConfig([
@@ -111,15 +219,8 @@ const eslintConfig = defineConfig([
   ...nextTs,
   {
     rules: {
-      // Every family. EVERY override below re-lists a subset, so a new family added here
-      // must be added to each of them too — that is the cost of exemptions that stay
-      // decisions, and it is why each override says which families it drops and why.
-      "no-restricted-syntax": [
-        "error",
-        ...noSessionFieldReads,
-        ...noCachedAffiliationReads,
-        ...noOpenPeriodAsCurrent,
-      ],
+      // Every family. Each override below names only what it drops, and why.
+      "no-restricted-syntax": allFamiliesExcept(),
       // Underscore-prefixed args/vars are an intentional "unused on purpose" marker
       // (e.g. a typed-but-ignored callback parameter). Standard convention.
       "@typescript-eslint/no-unused-vars": [
@@ -136,9 +237,7 @@ const eslintConfig = defineConfig([
     // SESSION family only — neither file touches affiliations, but spelling that out
     // beats `"off"`, which would silently absorb every family added later.
     files: ["src/lib/session.ts", "src/lib/routeAuth.ts"],
-    rules: {
-      "no-restricted-syntax": ["error", ...noCachedAffiliationReads, ...noOpenPeriodAsCurrent],
-    },
+    rules: { "no-restricted-syntax": allFamiliesExcept("session") },
   },
   {
     // See MAY_NAME_THE_CACHE. Drops the CACHE family only. `noOpenPeriodAsCurrent`
@@ -147,9 +246,23 @@ const eslintConfig = defineConfig([
     // does exactly that — it trips this selector and carries a justified disable naming
     // the bead that fixes it.
     files: MAY_NAME_THE_CACHE,
-    rules: {
-      "no-restricted-syntax": ["error", ...noSessionFieldReads, ...noOpenPeriodAsCurrent],
-    },
+    rules: { "no-restricted-syntax": allFamiliesExcept("cache") },
+  },
+  {
+    // See MAY_NAME_THE_OWNER_TEXT. Drops the OWNER-TEXT family only — naming the legacy
+    // column says nothing about being allowed to read the affiliation cache, and
+    // `lib/ownerBackfill` and `lib/ownerRemediation` both build people directories that
+    // the as-of families are exactly right to keep policing.
+    files: MAY_NAME_THE_OWNER_TEXT,
+    rules: { "no-restricted-syntax": allFamiliesExcept("ownerText") },
+  },
+  {
+    // The two files in both lists. Drops the CACHE and OWNER-TEXT families together —
+    // they are the request contract and the seed that fills it, and both name every
+    // column those requests carry. Spelled as its own block rather than as a later,
+    // broader list, because a flat-config block replaces the rule wholesale.
+    files: MAY_NAME_CACHE_AND_OWNER_TEXT,
+    rules: { "no-restricted-syntax": allFamiliesExcept("cache", "ownerText") },
   },
   {
     // The module that DEFINES the as-of predicate has to write it down once, and
@@ -159,19 +272,19 @@ const eslintConfig = defineConfig([
     // still trips the cache family and carries its own inline disable, because one
     // sanctioned write is worth naming at the line rather than at the file.
     files: ["src/lib/profiles.ts"],
-    rules: {
-      "no-restricted-syntax": ["error", ...noSessionFieldReads, ...noCachedAffiliationReads],
-    },
+    rules: { "no-restricted-syntax": allFamiliesExcept("openPeriod") },
   },
   {
-    // Tests are FIXTURE authors, and both families are unavoidable there:
+    // Tests are FIXTURE authors, and all three data families are unavoidable there:
     // `currentPartnerId` is a REQUIRED FK so no test can build a Person without naming
-    // it, and `endDate: null` is how you write down an open period you are about to
-    // assert on (tests/coversDay.test.ts does exactly that). Fifteen identical disable
-    // comments would teach nobody anything. What a test reads is also usually the
-    // POINT — tests/scheduledMove.test.ts asserts the cache does NOT advance early.
+    // it, `endDate: null` is how you write down an open period you are about to assert on
+    // (tests/coversDay.test.ts does exactly that), and a fixture must write `ownerName`
+    // to build a Project at all. Fifteen identical disable comments would teach nobody
+    // anything. What a test reads is also usually the POINT —
+    // tests/scheduledMove.test.ts asserts the cache does NOT advance early, and
+    // tests/ownerBackfill + tests/ownerRemediation exist to assert on the legacy column.
     files: ["tests/**"],
-    rules: { "no-restricted-syntax": ["error", ...noSessionFieldReads] },
+    rules: { "no-restricted-syntax": allFamiliesExcept("cache", "openPeriod", "ownerText") },
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([

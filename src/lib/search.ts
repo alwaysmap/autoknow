@@ -40,8 +40,17 @@ async function entityIndexText(kind: FeedType, id: number): Promise<{ table: 'Pa
       return p && { table: 'Partner', text: [p.name, p.type?.name, p.summary].filter(Boolean).join('. ') };
     }
     case 'program': {
-      const p = await prisma.project.findUnique({ where: { id }, select: { name: true, ownerName: true } });
-      return p && { table: 'Project', text: [p.name, p.ownerName].filter(Boolean).join('. ') };
+      // The owner through the FK (#127 E7): a program is findable by its owner's NAME,
+      // not only by the address that happened to be stored on it. Indexing the text
+      // meant a program stopped matching its owner the moment they changed address.
+      const p = await prisma.project.findUnique({
+        where: { id },
+        select: { name: true, ownerPerson: { select: { name: true, email: true } } },
+      });
+      return p && {
+        table: 'Project',
+        text: [p.name, p.ownerPerson?.name, p.ownerPerson?.email].filter(Boolean).join('. '),
+      };
     }
     case 'person': {
       const p = await prisma.person.findUnique({ where: { id }, select: { name: true, email: true, notes: true } });
@@ -77,7 +86,9 @@ export async function indexEntity(kind: FeedType, id: number): Promise<void> {
 export async function reindexAll(): Promise<{ partners: number; programs: number; people: number; context: number }> {
   const [partners, projects, people, context] = await Promise.all([
     prisma.partner.findMany({ select: { id: true, name: true, summary: true, type: { select: { name: true } } } }),
-    prisma.project.findMany({ select: { id: true, name: true, ownerName: true } }),
+    prisma.project.findMany({
+      select: { id: true, name: true, ownerPerson: { select: { name: true, email: true } } },
+    }),
     prisma.person.findMany({ select: { id: true, name: true, email: true, notes: true } }),
     prisma.contextUrl.findMany({ select: { id: true, title: true, ingestedText: true } }),
   ]);
@@ -85,7 +96,11 @@ export async function reindexAll(): Promise<{ partners: number; programs: number
   const joined = (parts: (string | null | undefined)[]) => parts.filter(Boolean).join('. ');
   const jobs: { table: 'Partner' | 'Project' | 'Person' | 'ContextUrl'; id: number; text: string }[] = [
     ...partners.map((p) => ({ table: 'Partner' as const, id: p.id, text: joined([p.name, p.type?.name, p.summary]) })),
-    ...projects.map((p) => ({ table: 'Project' as const, id: p.id, text: joined([p.name, p.ownerName]) })),
+    ...projects.map((p) => ({
+      table: 'Project' as const,
+      id: p.id,
+      text: joined([p.name, p.ownerPerson?.name, p.ownerPerson?.email]),
+    })),
     ...people.map((p) => ({ table: 'Person' as const, id: p.id, text: joined([p.name, p.email, p.notes]) })),
     ...context.map((c) => ({ table: 'ContextUrl' as const, id: c.id, text: joined([c.title, c.ingestedText]) })),
   ];
@@ -230,12 +245,18 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope, sem
             : personId != null
               ? MATCHES_NOTHING
               : Prisma.sql`TRUE`;
-      const lex = lexSql(q, Prisma.sql`pr.name`, [Prisma.sql`pr."ownerName"`, Prisma.sql`pa.name`]);
+      // Lexical match on the owner's NAME, joined on the FK — not on the stored
+      // `ownerName` address (#127 E7). Typing a person's name into search now finds the
+      // programs they own, and an owner who moves does not have to be reindexed for the
+      // lexical half to keep working.
+      const lex = lexSql(q, Prisma.sql`pr.name`, [Prisma.sql`po.name`, Prisma.sql`pa.name`]);
       const { score, eligible } = blend(lex, Prisma.sql`pr.embedding`, v, semantic);
       return Prisma.sql`
         SELECT 'program' AS type, pr.id, pr.name AS title, COALESCE(pa.name, 'Program') AS subtitle,
                ('/programs/' || pr.id) AS url, FALSE AS external, ${score} AS score, (${lex} > 0) AS "lexHit"
-        FROM "Project" pr LEFT JOIN "Partner" pa ON pa.id = pr."partnerId"
+        FROM "Project" pr
+        LEFT JOIN "Partner" pa ON pa.id = pr."partnerId"
+        LEFT JOIN "Person" po ON po.id = pr."ownerPersonId"
         WHERE ${eligible} AND ${where}`;
     }
     case 'person': {

@@ -8,7 +8,7 @@ export default async function EcosystemSummaryPage(
   props: { searchParams: Promise<Record<string, string | string[] | undefined>> },
 ) {
   const sp = await props.searchParams;
-  const { serializedProjects, people, liveConstraints } = await getEcosystemDashboardData();
+  const { serializedProjects, liveConstraints } = await getEcosystemDashboardData();
 
   // Snapshot "now" server-side so SSR and hydration agree. This is an async Server
   // Component — Date.now() runs once per request on the server, not on every client
@@ -24,10 +24,12 @@ export default async function EcosystemSummaryPage(
       // filtered) must not leave stale view state. Same reason as /programs.
       key={JSON.stringify(sp, Object.keys(sp).sort())}
       initialProjects={serializedProjects}
-      people={people}
       liveConstraints={liveConstraints}
       now={now}
-      initialFilters={parseFilterParams(sp, ['ownerName', 'theNeedle'])}
+      // `owner` (the person id), not the old `ownerName` email token — #127 E7 keys the
+      // owner funnel on the FK, so one human is one option however many addresses they
+      // have held (design.md §6).
+      initialFilters={parseFilterParams(sp, ['owner', 'theNeedle'])}
       initialTableSort={parseSortParams(sp)}
     />
   );

@@ -39,11 +39,11 @@ interface ChainLedgerProps {
   ledger: ChainLedgerResult;
   sopDate: string | null;
   volumeFirstYear: number;
-  owner: string | null; // the program's Googler owner, as stored (a handle or an email)
-  /** The Person that string names, when it names one — id AND name together, so the
-   *  sentence cannot end up with a route and no name to put on it (the pairing #153
-   *  drew out on the phase rail). Null when nothing resolves; PersonCell then reads the
-   *  stored string, and reads it as a name. */
+  /** The program's Googler owner, off the `ownerPersonId` FK (#127 E7) — id AND name
+   *  together, so the sentence cannot end up with a route and no name to put on it (the
+   *  pairing #153 drew out on the phase rail). Null when the program has no owner. The
+   *  stored `ownerName` string used to ride alongside as a fallback label; the FK makes
+   *  it dead weight — a resolved owner is exactly a program that HAS one. */
   ownerPerson: PersonRef | null;
   ownerOtherActive: OwnerOtherActive[];
 }
@@ -57,7 +57,7 @@ const CARD_GAP = 16; // px between the pointer and the summary card's near edge
 
 
 export default function ChainLedger({
-  projectId, locale, now, ledger, sopDate, volumeFirstYear, owner, ownerPerson, ownerOtherActive,
+  projectId, locale, now, ledger, sopDate, volumeFirstYear, ownerPerson, ownerOtherActive,
 }: ChainLedgerProps) {
   const scrollPageTo = useSteadyPageScroll();
   const [legendOpen, setLegendOpen] = useState(false);
@@ -251,7 +251,7 @@ export default function ChainLedger({
   }
 
   // the program owner's load elsewhere — a flag, not a proven constraint
-  if (owner && ownerOtherActive.length > 0) {
+  if (ownerPerson && ownerOtherActive.length > 0) {
     const byProgram = new Map<number, { name: string; phases: string[] }>();
     for (const o of ownerOtherActive) {
       const g = byProgram.get(o.projectId) ?? { name: o.projectName, phases: [] };
@@ -272,7 +272,7 @@ export default function ChainLedger({
       // LDAP address mid-prose is design.md §6's "reads as a machine wrote it". Same
       // PersonCell the tables use — the sentence and the cells cannot disagree about
       // what this person is called, or about where clicking them goes.
-      owner: <PersonCell person={ownerPerson} value={owner} className={styles.entityLink} />,
+      owner: <PersonCell person={ownerPerson} className={styles.entityLink} />,
       n: ownerOtherActive.length,
       items,
     }));

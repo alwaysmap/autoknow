@@ -60,15 +60,14 @@ export default async function PersonProfile({ personId }: { personId: number }) 
   // before. Null is a real answer: a gap between jobs, or a hire starting next month.
   const profile = await profileAsOf(person.id);
 
-  // Programs owned as TEL: ownerName is a free-text handle/email, so match the
-  // person's email and its bare local-part/handle forms.
-  const local = person.email.split('@')[0];
+  // Programs owned as TEL, by REFERENCE (#127 E7). This is #124's Class 4 defect and
+  // its fix in one place: the query used to take `person.email`, strip it to a
+  // local-part, and match those three spellings against the free-text `ownerName` —
+  // so changing an address made every program owned under the old one VANISH from this
+  // page, while another person whose handle happened to collide started matching. An
+  // indexed join on `ownerPersonId` cannot do either.
   const owned = await prisma.project.findMany({
-    where: {
-      OR: [person.email, `@${local}`, local].map((v) => ({
-        ownerName: { equals: v, mode: 'insensitive' as const },
-      })),
-    },
+    where: { ownerPersonId: person.id },
     select: { id: true, name: true },
     orderBy: { name: 'asc' },
   });

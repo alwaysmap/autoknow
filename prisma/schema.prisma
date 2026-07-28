@@ -75,13 +75,18 @@ model Project {
   hillChartProgress Int            @default(0)
   sopDate           DateTime? // target SOP — month/year minimum, stored as month-end
   // The assigned Googler, twice over — the same shape ActionItem.assignedTo /
-  // assignedToPersonId has carried since 0_init. `ownerName` holds the canonical
-  // email as TEXT and is still what every reader matches on; `ownerPersonId` is the
-  // entity reference that survives the owner changing address (#124 Class 4). No path
-  // that ASSIGNS an owner can write one without the other — `requireOwner` in lib/owner
-  // hands back exactly this pair and nothing hands back the email alone. Deleting the
-  // person is the deliberate exception: it clears the id and KEEPS the text, so the
-  // program still says who used to own it. #127 E7 moves the readers over.
+  // assignedToPersonId has carried since 0_init. `ownerPersonId` is the entity
+  // reference that survives the owner changing address (#124 Class 4), and since
+  // #127 E7 it is what EVERY reader goes through. `ownerName` holds the canonical
+  // email as TEXT and is now legacy: still written (the dual-write continues — E7 was
+  // the read-side contract step, not the column drop), still what the backfill and the
+  // unmatched-owner remediation arm reason about, but no longer read for display.
+  // Dropping it is a separate expand→backfill→contract merge. No path that ASSIGNS an
+  // owner can write one without the other — `requireOwner` in lib/owner hands back
+  // exactly this pair and nothing hands back the email alone. Deleting the person
+  // clears the id and KEEPS the text, so the row still records who used to own it —
+  // an audit trail, not a display fallback: the program now reads as unowned and asks
+  // for a new TEL, which is the honest state once the human is gone.
   ownerName         String?
   ownerPersonId     Int?
   // Back-relation: Person.ownedProjects. Named here because a grep for the forward

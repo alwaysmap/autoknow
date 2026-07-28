@@ -96,12 +96,11 @@ export async function movePersonCompany(formData: FormData): Promise<ActionResul
  * career. Moving employer is `movePersonCompany`, which DOES take a date; #127 E14
  * unifies the two behind one dialog.
  *
- * Email is the identity key here — `resolvePerson` matches on it — so it is the one
- * field with reach beyond the row, and the reach is not all handled: `Project.ownerName`
- * still stores an address as FREE TEXT, so programs owned under the old one keep
- * pointing at it. #127 E6 has added `Project.ownerPersonId` alongside it and every write
- * path now fills both, but the READERS still match on the text — so renaming an owner's
- * address still hides their programs until E7 moves those lookups onto the FK.
+ * Email used to be the identity key with reach BEYOND the row: `Project.ownerName`
+ * stores an address as free text, so correcting somebody's address hid every program
+ * owned under the old one. That is closed — E6 added `Project.ownerPersonId` and made
+ * every write path fill both, and E7 moved every READER onto the FK. Correcting an
+ * address is now a change to one row, and the programs follow the person.
  *
  * The correction reaches the EMPLOYMENT PERIOD too since #127 E9: an address is a
  * property of the job, so correcting "their address" and leaving the period they are in
@@ -134,8 +133,11 @@ export async function deletePerson(formData: FormData): Promise<ActionResult> {
 
   await prisma.personAffiliation.deleteMany({ where: { personId } });
   await prisma.phasePerson.deleteMany({ where: { personId } });
-  // Detach, don't cascade: an action item and a program outlive the person row, and
-  // the text column (`assignedTo` / `ownerName`) keeps saying who it used to be.
+  // Detach, don't cascade: an action item and a program outlive the person row. The
+  // text column (`assignedTo` / `ownerName`) keeps saying who it used to be, which is
+  // an AUDIT trail now rather than a display fallback — since #127 E7 the surfaces read
+  // the FK, so a program whose owner was deleted reads as unowned and prompts for a new
+  // one. That is the intended reading: the human is gone, the program still needs a TEL.
   await prisma.actionItem.updateMany({
     where: { assignedToPersonId: personId },
     data: { assignedToPersonId: null },

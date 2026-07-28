@@ -17,7 +17,7 @@ import { getNeedleHistory } from '../../../lib/history';
 import { getSummary } from '../../../lib/summaries';
 import { geminiConfigured } from '../../../lib/gemini';
 import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
-import { personDirectorySelect, resolvePerson } from '../../../lib/people';
+import { personDirectorySelect } from '../../../lib/people';
 import { profilesAsOf } from '../../../lib/profiles';
 import { effectiveStartedAt, phaseDetailHref, statusProgress } from '../../../lib/phase';
 import PhaseHillChart from '../../../components/PhaseHillChart';
@@ -60,6 +60,7 @@ export default async function ProjectDetailsPage(props: {
     where: { id: projectId },
     include: {
       partner: { include: { type: true, region: true } },
+      ownerPerson: { select: { id: true, name: true } }, // the owner by REFERENCE (#127 E7)
       states: {
         orderBy: { timestamp: 'desc' },
         take: 2
@@ -280,9 +281,12 @@ export default async function ProjectDetailsPage(props: {
   // programs — the cross-program contention on the one Googler. Surfaced in the
   // Critical Chain next-steps list (it used to sit on the phase rail).
   let otherActive: { projectId: number; projectName: string; phaseName: string }[] = [];
-  if (project.ownerName) {
+  if (project.ownerPersonId) {
     const others = await prisma.project.findMany({
-      where: { ownerName: project.ownerName, isArchived: false, id: { not: projectId } },
+      // Joined on the owner REFERENCE, not on a string equality against the stored
+      // email — which silently excluded the owner's programs recorded under any other
+      // address they have held (#127 E7).
+      where: { ownerPersonId: project.ownerPersonId, isArchived: false, id: { not: projectId } },
       include: { phases: { include: { states: { orderBy: { timestamp: 'desc' }, take: 1 } } } },
     });
     otherActive = others.flatMap((o) =>
@@ -294,9 +298,9 @@ export default async function ProjectDetailsPage(props: {
         .map((ph) => ({ projectId: o.id, projectName: o.name, phaseName: ph.name })),
     );
   }
-  // The owner is stored as a handle/email; resolve it to the Person so the
-  // mention links like every other person on the page (design.md §2).
-  const ownerPerson = resolvePerson(allPeople, project.ownerName);
+  // The owner Person, off the FK relation rather than matched out of the people
+  // directory (#127 E7) — named here because the header and the ledger both take it.
+  const ownerPerson = project.ownerPerson;
 
   // The program-level overrun flag (rendered in the header below). `count` includes
   // the named phase, so the copy's subject — how many OTHERS are also over — is
@@ -356,7 +360,7 @@ export default async function ProjectDetailsPage(props: {
           }
           currentNeedle={project.theNeedle}
           currentHillChartProgress={project.hillChartProgress}
-          ownerName={project.ownerName || ''}
+          owner={ownerPerson}
           sopDateString={sopDateString}
           projectedFinishMs={ledger.projectedFinishMs}
           bufferDays={ledger.bufferDays}
@@ -450,8 +454,7 @@ export default async function ProjectDetailsPage(props: {
               <ChainLedger projectId={projectId} locale={locale} now={now} ledger={ledger}
                 sopDate={project.sopDate ? project.sopDate.toISOString() : null}
                 volumeFirstYear={project.volumeFirstYear}
-                owner={project.ownerName}
-                ownerPerson={ownerPerson ? { id: ownerPerson.id, name: ownerPerson.name } : null}
+                ownerPerson={ownerPerson}
                 ownerOtherActive={otherActive} />
             </section>
 

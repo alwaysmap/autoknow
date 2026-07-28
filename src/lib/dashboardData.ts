@@ -1,5 +1,4 @@
 import { prisma } from './db';
-import { personDirectorySelect, type PersonLike } from './people';
 import { percentile } from './stats';
 import { computeCriticalChain } from './criticalChain';
 import { deriveScore } from './relationship';
@@ -7,6 +6,7 @@ import { deriveProgramStatus } from './lifecycle';
 import { buildBusiestResources, type BusiestRow } from './chainLedger';
 import { getProgramLedgers } from './chainLedgerData';
 import type { CycleTimeData, CycleTimeStats } from '../components/CycleTimeScatterPlot';
+import type { PersonRef } from '../components/PersonCell';
 
 // Shared loader for the ecosystem dashboards. The home page (`/`) and the
 // `/ecosystem-summary` page render different client components over the *same*
@@ -21,7 +21,9 @@ export interface DashboardProject {
   theNeedle: string;
   hillChartProgress: number;
   sopDate: string | null;
-  ownerName: string | null;
+  /** The program's Googler owner, resolved through `Project.ownerPersonId` (#127 E7).
+   *  Was the stored `ownerName` string, re-matched client-side against the directory. */
+  owner: PersonRef | null;
   volumeFirstYear: number;
   hasGas: boolean;
   hasGbi: boolean;
@@ -53,9 +55,6 @@ export interface LiveConstraint {
 
 export interface EcosystemDashboardData {
   serializedProjects: DashboardProject[];
-  /** The directory /ecosystem-summary hands to `PersonCell` to resolve a program's
-   *  stored `ownerName`. `PersonLike`, so the addresses an owner has LEFT come with it. */
-  people: PersonLike[];
   cycleTimeData: CycleTimeData[];
   cycleTimeStats: Record<string, CycleTimeStats>;
   /** Cross-portfolio constraint resources (docs/CRITICAL_CHAIN_VIEW_PLAN.md §4c). */
@@ -90,6 +89,7 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
   const projects = await prisma.project.findMany({
     include: {
       partner: true,
+      ownerPerson: { select: { id: true, name: true } }, // the owner by REFERENCE (#127 E7)
       phases: {
         include: {
           states: { orderBy: { timestamp: 'desc' }, take: 1 },
@@ -133,7 +133,7 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
       theNeedle: proj.theNeedle,
       hillChartProgress: proj.hillChartProgress,
       sopDate: proj.sopDate ? proj.sopDate.toISOString() : null,
-      ownerName: proj.ownerName,
+      owner: proj.ownerPerson,
       volumeFirstYear: proj.volumeFirstYear,
       hasGas: proj.hasGas,
       hasGbi: proj.hasGbi,
@@ -167,8 +167,6 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
   const liveConstraints: LiveConstraint[] = [...byPhaseName.entries()]
     .map(([phaseName, programs]) => ({ phaseName, programs }))
     .sort((a, b) => b.programs.length - a.programs.length);
-
-  const people = await prisma.person.findMany({ select: personDirectorySelect });
 
   // Cycle times per phase: elapsed days from the first in-flight state (progress moved
   // off zero) to the first completed state (progress reached 100), or to now if still
@@ -237,5 +235,5 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
     })),
   );
 
-  return { serializedProjects, liveConstraints, people, cycleTimeData, cycleTimeStats, busiest };
+  return { serializedProjects, liveConstraints, cycleTimeData, cycleTimeStats, busiest };
 }
