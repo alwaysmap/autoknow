@@ -1828,7 +1828,7 @@ const STRINGS = {
   // sitting at the frame's ceiling, which would read as the reserve itself, not a
   // marker of how far above the visible frame it actually sits.
   clBufferGuidelineOff: {
-    en: '{d}d reserve — above frame', de: '{d} T Reserve — über dem Rahmen',
+    en: '{d}d reserve — above frame', de: '{d}T Reserve — über dem Rahmen',
     ja: '予備{d}日 — 枠外', ko: '예비 {d}일 — 프레임 밖',
   },
   // Waterfall
