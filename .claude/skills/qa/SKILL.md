@@ -21,8 +21,8 @@ the default is the full gate again. Narrow it to `typecheck` + `lint` + the repo
 (`ci:lint-migrations`, `ci:lint-ordering`, `ci:lint-compound`), leaving CI's full
 suite as the backstop, ONLY when all four hold:
 
-1. conflict resolution touched only non-executing files (`docs/**`, `*.md` index
-   tables, `.claude/skills/**`);
+1. conflict resolution touched only non-executing files (`docs/**`,
+   `.claude/skills/**`);
 2. the rebased diff against the NEW base — restricted to `src/**`, `prisma/**`,
    `tests/**`, `package.json` and config — is BYTE-IDENTICAL to the pre-rebase
    diff against the OLD base. Prove it (`git diff <old-base>...<old-head>` vs

@@ -31,7 +31,8 @@ also sorts chronologically in `ls`, which is the order these are read in.
   case**: the old record still holds but no longer describes the whole system.
   Without the forward pointer it quietly starts lying. Filling in a forward field
   is additive, not a history edit.
-* `tests/adrNaming.test.ts` enforces the shape and keeps the index honest.
+* `tests/adrNaming.test.ts` enforces the shape, and that every ADR path cited
+  anywhere in the repo resolves.
 
 Related knowledge with other homes: **findings** — how the system actually
 behaves, learned the hard way, as opposed to anything we chose — live in
@@ -42,43 +43,3 @@ lives in the distilled plan docs ([INGEST_FRESHNESS_PLAN](../INGEST_FRESHNESS_PL
 is the model: decisions and invariants kept, narrative deleted). The `compound`
 skill routes between them.
 
-## Index
-
-| Date | Decision | Status | Tags |
-|---|---|---|---|
-| 2026-07-20 | [Decision records over detail documents; skills over bulk context](2026-07-20-decision-records-over-detail-documents.md) | accepted | docs, knowledge, agents |
-| 2026-07-20 | [E2E tests user/system flows only, on a deliberate browser matrix](2026-07-20-e2e-flows-only-deliberate-matrix.md) | accepted | testing, e2e |
-| 2026-07-20 | [Every PR runs the full quality gate, because merges auto-deploy](2026-07-20-premerge-quality-gate.md) | accepted | ci, testing, deploy |
-| 2026-07-20 | [Serialize deploys; newest queued merge wins](2026-07-20-serialize-deploys-newest-wins.md) | accepted | deploy, ci |
-| 2026-07-21 | [`npm ci` bootstraps a checkout — and CI and Docker never depend on that](2026-07-21-npm-ci-bootstraps-a-checkout-but-nothing-depends-on-it.md) | accepted | dev-loop, ci, docker, env |
-| 2026-07-21 | [Third-party images are proxied through our origin; `img-src` stays `'self'`](2026-07-21-proxy-third-party-images-keep-csp-self.md) | accepted | security, csp, ui, auth |
-| 2026-07-21 | [Retiring a URL deletes the route and migrates the data that cites it](2026-07-21-retiring-a-url-migrates-the-data-that-cites-it.md) | accepted | urls, data, ai, migrations |
-| 2026-07-21 | [The signed-in session is the only source of "who I am"](2026-07-21-session-is-the-only-source-of-who-i-am.md) | accepted | auth, identity, seed, demo, lint |
-| 2026-07-21 | [A trace paints direct neighbours; the closure only fades cards](2026-07-21-a-trace-paints-direct-neighbours-not-the-closure.md) | accepted | ui, rail, graph, tufte |
-| 2026-07-21 | [A semantic overlay derives from the data it means, never from the layer beneath](2026-07-21-semantic-overlays-derive-from-data-not-from-the-layer-beneath.md) | accepted | ui, rail, svg, motion, verification |
-| 2026-07-22 | [Findings get a third home, and the homes are priced by retrieval cost](2026-07-22-findings-get-a-third-home-priced-by-retrieval.md) | accepted | docs, knowledge, agents, context |
-| 2026-07-22 | [Containers own outer spacing; charts fill width and own their height](2026-07-22-containers-own-spacing-charts-own-height.md) | accepted | ui, layout, css, box-model, charts |
-| 2026-07-22 | [Ingestion is sized for hundreds of sources; declare the limits, gate the 10K rebuild](2026-07-22-ingestion-sized-for-hundreds-gate-the-10k-rebuild.md) | accepted | scaling, ingestion, vectors, freshness, architecture |
-| 2026-07-22 | [Poppable charts: a parameter for humans, a credentialed `/embed` for machines, one shared assembly](2026-07-22-poppable-charts-a-parameter-a-shared-assembly-and-a-token.md) | accepted | ui, charts, urls, auth, embed, kiosk |
-| 2026-07-23 | [Ingestion health is a serverless signal, not a growing table](2026-07-23-ingestion-health-is-a-serverless-signal-not-a-growing-table.md) | accepted | ingestion, infra, cost, observability, scaling |
-| 2026-07-23 | [Converge the hill charts on one drawing, two roles, and the Basecamp snapshot card](2026-07-23-converge-the-hill-charts-on-one-drawing.md) | accepted | ui, charts, hill, components, urls |
-| 2026-07-24 | [Compound records ride the PR that motivated them, and CI blocks the merge until the judgement is declared](2026-07-24-compound-records-ride-the-pr-that-motivated-them.md) | accepted | docs, knowledge, ci, agents, process |
-| 2026-07-24 | [A forecast on screen derives from the real plan; a synthetic model is deleted, not kept beside it](2026-07-24-forecasts-derive-from-the-real-chain-never-a-synthetic-model.md) | accepted | forecast, ui, data-integrity, charts, critical-chain |
-| 2026-07-25 | [Seeded content moves through the real connectors, and a demo may compress the schedule but never a timestamp](2026-07-25-seeded-content-runs-the-real-pipeline-and-fakes-only-the-schedule.md) | accepted | seed, demo, ingestion, freshness, data-integrity |
-| 2026-07-26 | [Parallel work builds in parallel and merges one at a time](2026-07-26-parallel-work-merges-serially.md) | accepted | deploy, ci, process, agents |
-| 2026-07-26 | [An insight is one envelope, and its symptom is separate from its action](2026-07-26-an-insight-separates-symptom-from-action.md) | accepted | insights, types, i18n, ui, chain |
-| 2026-07-26 | [One Gemini budget, spent by every automated consumer in priority order](2026-07-26-one-gemini-budget-pool-ordered-freshness-first.md) | accepted | ingestion, gemini, cost, budget, summaries |
-| 2026-07-26 | [A fact owned by infrastructure is supplied at runtime or declared unknown — never a literal](2026-07-26-infra-owned-facts-are-supplied-or-unknown.md) | accepted | infra, terraform, config, env, copy, budget |
-| 2026-07-26 | [A stored vector fails loud; a query vector fails soft](2026-07-26-a-stored-vector-fails-loud-a-query-vector-fails-soft.md) | accepted | ingestion, embeddings, data-integrity, gemini, search |
-| 2026-07-26 | [`Person.currentPartnerId` is a cache; the affiliation covering the day is the truth](2026-07-26-currentpartnerid-is-a-cache-affiliations-are-the-truth.md) | accepted | data-integrity, identity, affiliations, lint, prisma |
-| 2026-07-26 | [Recording a move INSERTS into a career timeline; it never appends to the end of it](2026-07-26-a-move-is-an-insert-into-a-timeline.md) | accepted | people, affiliations, temporal, data-integrity, actions |
-| 2026-07-26 | [Navigation is the one inner activation that dismisses a popover, and the popover decides it](2026-07-26-navigation-is-the-one-inner-activation-that-dismisses.md) | accepted | ui, popover, menus, navigation, components |
-| 2026-07-26 | [A name→FK backfill writes only the unambiguous match, and reports the rest](2026-07-26-a-name-to-fk-backfill-writes-only-the-unambiguous.md) | accepted | data-integrity, identity, migrations, backfill |
-| 2026-07-26 | [A backfill reaches production through one allowlisted dispatch runner, as the DML-only role](2026-07-26-a-backfill-reaches-prod-through-an-allowlisted-dispatch-runner.md) | accepted | ci, database, security, backfill, deploy |
-| 2026-07-26 | [A dated row is labelled as of ITS OWN date; a list of dated rows resolves per row](2026-07-26-a-dated-row-is-labelled-as-of-its-own-date.md) | accepted | identity, affiliations, feed, activity |
-| 2026-07-27 | [Resolution searches every address a person has held, and takes no date](2026-07-27-resolution-searches-every-address-and-takes-no-date.md) | accepted | identity, affiliations, temporal, data-integrity, resolution |
-| 2026-07-27 | [A partner's roster is three buckets from ONE call, and the buckets are the as-of predicate complemented](2026-07-27-a-roster-is-three-buckets-from-one-call.md) | accepted | identity, affiliations, temporal, ui, tables |
-| 2026-07-27 | [A confirmation dialog states the GUARD's count, in a shape only the guard can mint](2026-07-27-a-confirmation-dialog-states-the-guards-own-count.md) | accepted | ui, dialogs, data-integrity, actions, types |
-| 2026-07-27 | [An address is unique at an INSTANT, not forever — and a constraint that cannot be `NOT VALID` ships with the check that clears it](2026-07-27-an-address-is-unique-at-an-instant-not-forever.md) | accepted | identity, affiliations, temporal, data-integrity, migrations, deploy |
-| 2026-07-27 | [A one-shot production data fix is an arm with a row BOUND and a rule, never a statement someone types](2026-07-27-a-remediation-arm-is-bounded-and-picks-by-rule.md) | accepted | ci, database, security, backfill, data-integrity |
-| 2026-07-27 | [A person column's shareable URL token is the FK id wherever a relation exists](2026-07-27-a-person-funnels-url-token-is-the-fk-id-where-one-exists.md) | accepted | ui, tables, urls, people |

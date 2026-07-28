@@ -34,15 +34,6 @@ describe('ADR naming and index', () => {
     expect(mismatched).toEqual([]);
   });
 
-  it('lists every record in the index exactly once, and links nothing missing', () => {
-    const index = readFileSync(join(DIR, 'README.md'), 'utf8');
-    const linked = [...index.matchAll(/\]\((\d{4}-\d{2}-\d{2}-[a-z0-9-]+\.md)\)/g)].map((m) => m[1]);
-
-    expect([...new Set(linked)].sort()).toEqual(records().sort()); // none missing, none extra
-    expect(linked.length).toBe(new Set(linked).size); // none listed twice
-    expect(linked.filter((f) => !records().includes(f))).toEqual([]); // no dead links
-  });
-
   it('resolves every ADR path cited anywhere in the repo', () => {
     // A citation is only worth writing if it opens. This caught an ESLint message
     // pointing developers at `0005-identity-accessor-carries-every-displayed-field.md`
