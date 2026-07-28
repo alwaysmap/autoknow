@@ -350,7 +350,7 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
       sopMs={input.sopDate ? +new Date(input.sopDate) : null}
       now={input.now}
       locale="en"
-      onRowCard={() => {}}
+      onDay={() => {}}
       onJump={() => {}}
     />,
   ).container;
@@ -409,6 +409,32 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
 
   it('reads clean when the buffer is ABOVE the level it started at', () => {
     expectReadable(drawChain(aboveStart));
+  });
+
+  /** guidelineDays is remainingTotal/2 — a LONG remaining chain against a SHORT gap
+   *  between the original plan and the SOP puts the reserve marker well above 100% of
+   *  B₀ (autoknow-4dr.2's bug: B₀=62d, reserve=~150d, seeded demo). Design finishes
+   *  exactly on plan (no buffer moved by it), so B₀ is set purely by how tight the SOP
+   *  sits against the 430-day planned chain; Build and Certification carry the long
+   *  remaining work the 50%-rule halves. */
+  const bigReserve: ChainLedgerInput = {
+    phases: [
+      phase(1, 'Design', 30, 100, [], iso(0), iso(30)),
+      phase(2, 'Build', 200, 20, [1], iso(30)),
+      phase(3, 'Certification', 200, 0, [2]),
+    ],
+    sopDate: iso(450), // 430-day planned chain + 20-day B₀
+    now: day(40),
+  };
+
+  it('draws the reserve OFF the frame\'s top, in words, rather than dropping it (autoknow-4dr.2)', () => {
+    const container = drawChain(bigReserve);
+    const boxes = expectReadable(container);
+    const offScale = boxes.filter((b) => /reserve — above frame/.test(b.text));
+    expect(offScale).toHaveLength(1);
+    // Not the in-frame marker too — the two are mutually exclusive readings of the
+    // same value, and printing both would say it twice, differently.
+    expect(boxes.filter((b) => /^\d+d reserve$/.test(b.text))).toHaveLength(0);
   });
 
   it('reads clean with a NARROW name gutter, where the axis values have least room', () => {

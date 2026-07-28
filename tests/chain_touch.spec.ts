@@ -9,11 +9,14 @@ import { seedProgram } from './helpers/fixtures';
 // no way to read a row's card on a phone (issue #22).
 //
 // The fix splits the two onto two targets: the row BODY reveals the card (never jumps),
-// the row LABEL is the jump. This proves it from a TOUCH context — `isMobile` is
-// Chromium-only, so this spec is NOT in webkit's testMatch and runs on chromium alone.
+// the row LABEL is the jump. Issue #161 step 4/4 replaced the floating card with a
+// DOCKED day strip, but the same split still has to hold: the body must still drive it
+// (never navigate) and the label must still be the only jump — this proves that split
+// from a TOUCH context. `isMobile` is Chromium-only, so this spec is NOT in webkit's
+// testMatch and runs on chromium alone.
 test.use({ hasTouch: true, isMobile: true, viewport: { width: 1000, height: 900 } });
 
-test.describe('Chain schedule separates card (tap body) from jump (tap label) on touch (#22)', () => {
+test.describe('Chain schedule separates the day strip (tap body) from jump (tap label) on touch (#22)', () => {
   test.describe.configure({ mode: 'serial' });
 
   let projectId: number;
@@ -26,7 +29,7 @@ test.describe('Chain schedule separates card (tap body) from jump (tap label) on
     await prisma.$disconnect();
   });
 
-  test('tapping the body shows the card without navigating; tapping the label jumps; the card is dismissible', async ({ page }) => {
+  test('tapping the body updates the day strip without navigating; tapping the label jumps; the strip reverts to today', async ({ page }) => {
     await page.goto(`/programs/${projectId}`);
 
     // Record every phase jump. jumpToPhase dispatches a page-local CustomEvent (no URL
@@ -39,33 +42,48 @@ test.describe('Chain schedule separates card (tap body) from jump (tap label) on
     });
     const jumpCount = () => page.evaluate(() => (window as Window & { __jumps?: number[] }).__jumps!.length);
 
-    const bodies = page.locator('[class*="rowHit"]'); // the plot band — reveals the card
+    const bodies = page.locator('[class*="rowHit"]'); // the plot band — drives the day strip
     const labels = page.locator('[class*="rowLabel"]'); // the phase name — the jump
-    const card = page.getByTestId('chain-row-card');
+    const strip = page.getByTestId('chain-day-strip'); // ALWAYS mounted — docked, not floating
 
-    // The first schedule row, and the phase name the card must state.
+    // Every phase name the strip could legitimately state once tapped — the day strip
+    // reads the TAPPED DAY (issue #161 step 4/4), not which row's rect fired the
+    // gesture, so which of these lands depends on real wall-clock dates the chain is
+    // scheduled against, not a fixed offset. Several x fractions are tried until one
+    // lands on a day some phase actually spans, rather than the axis's own empty
+    // lead-in (the week-floored axis can start before the earliest phase does).
     await expect(labels.first()).toBeVisible({ timeout: 20000 });
-    const name = (await labels.first().textContent())!.trim();
+    const names = (await labels.allTextContents()).map((s) => s.trim());
+    const box = (await bodies.first().boundingBox())!;
+    const fractions = [0.02, 0.08, 0.18, 0.3, 0.45, 0.6, 0.75, 0.9];
 
-    // 1) TAP THE BODY → the status card opens, and NOTHING navigates. Hydration-guarded
-    //    first interaction (the repo's #1 e2e flake source otherwise).
+    // 1) TAP THE BODY → the day strip names a real phase, and NOTHING navigates.
+    //    Hydration-guarded first interaction (the repo's #1 e2e flake source otherwise).
+    let shownText = '';
     await expect(async () => {
-      await bodies.first().tap();
-      await expect(card).toBeVisible({ timeout: 1500 });
+      for (const f of fractions) {
+        await bodies.first().tap({ position: { x: Math.max(2, box.width * f), y: box.height / 2 } });
+        shownText = (await strip.textContent()) ?? '';
+        if (names.some((n) => shownText.includes(n))) break;
+      }
+      expect(names.some((n) => shownText.includes(n))).toBe(true);
     }).toPass({ timeout: 20000 });
-    await expect(card).toContainText(name);
-    expect(await jumpCount()).toBe(0); // the body tap did NOT jump — the card survives
+    expect(await jumpCount()).toBe(0); // the body tap did NOT jump
 
-    // 2) The card is DISMISSIBLE: a tap away from the chart clears it (the existing
-    //    dismiss — a coarse tap synthesizes mouseleave off the chart).
+    // 2) A tap away from the chart (a coarse tap synthesizes mouseleave off the chart)
+    //    reverts the strip to TODAY — it stays mounted (docked; unlike the retired
+    //    card, there is nothing to dismiss). Checked via the strip's own "(today)"
+    //    marker rather than by the tapped phase's name disappearing: a credit or gap
+    //    can legitimately span into today too, so the same name may honestly appear
+    //    in both days — the marker is what actually distinguishes "today" from
+    //    whatever day was tapped.
     await page.locator('h2#critical-chain').tap();
-    await expect(card).toHaveCount(0);
+    await expect(strip).toContainText('(today)');
 
     // 3) TAP THE LABEL → the jump fires. The label is now reachable (rowHit no longer
-    //    covers it) and it opens no card.
+    //    covers it) and it does not re-point the strip at this phase.
     await labels.first().tap();
     await expect.poll(jumpCount, { timeout: 5000 }).toBeGreaterThan(0);
-    await expect(card).toHaveCount(0);
   });
 
   // The reported root cause: rowHit spanned the full chart width INCLUDING the label and

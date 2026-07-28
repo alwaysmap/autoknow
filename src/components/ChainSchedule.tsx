@@ -65,7 +65,6 @@ const GUIDELINE_STUB_W = 20, BLOWN_TICK_H = 6;
 const BOUNDARY_W = 1.75, GRIDLINE_W = 1, GUIDELINE_W = 1.5, BLOWN_TICK_W = 2;
 const AXIS_H = 24; // week/month ticks under the grid
 const RING_PAD = 24, TEXT_PAD = 10, CHAR_W = 6.5, WIDE_CHAR_W = 12;
-const CARD_W = 272;
 // Type sizes (viewBox units — the SVG scales to the column, so these read a touch
 // larger overall than the old 8–11 range that was hard to read, issue #83). FS_ROW
 // (phase names) and FS_EMPH (today/SOP/now markers) share a value but are named apart
@@ -108,9 +107,6 @@ function VRule({ cx, y0, y1, cut, ...stroke }: {
   const spans = cut ? [[y0, cut.top], [cut.bottom, y1]] : [[y0, y1]];
   return <>{spans.map(([a, b], k) => <line key={k} x1={cx} y1={a} x2={cx} y2={b} {...stroke} />)}</>;
 }
-
-/** A hovered/focused row plus where its card should sit, in px relative to the section. */
-export interface RowCard { row: ScheduleRow; left: number; top: number }
 
 type BarKind = 'done' | 'elapsed' | 'over' | 'under' | 'forecast' | 'fover' | 'sched';
 // Nuance, not a wall of black (user call): settled/done work recedes (soft ink), the
@@ -197,9 +193,13 @@ function varianceLabel(r: ScheduleRow, locale: Locale): { text: string; fill: st
   return null;
 }
 
-export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }: {
+export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
   ledger: ChainLedgerResult; sopMs: number | null; now: number; locale: Locale;
-  onRowCard: (row: ScheduleRow | null, el: SVGRectElement | null, clientX?: number) => void;
+  /** The day the docked day strip should describe (issue #161 step 4/4) — always a
+   *  real day, never null: it tracks the same position as the crosshair below but
+   *  falls back to TODAY the moment nothing is hovered or focused, so the strip it
+   *  drives never goes blank the way the row card it replaced could. */
+  onDay: (dayMs: number) => void;
   onJump: (phaseId: number) => void;
 }) {
   // A hover crosshair synchronised across the grid AND the buffer lane, so the eye can
@@ -340,13 +340,17 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
     return collapsed[k] ? wStart : wStart + ((px - weekX0[k]) / (weekX1[k] - weekX0[k])) * WEEK_MS;
   };
   // Pointer clientX → hovered date, via the SVG's rendered box → viewBox units. Suppressed
-  // mid-pan: a drag is scrubbing the view, not scanning a date.
+  // mid-pan: a drag is scrubbing the view, not scanning a date. Drives the day strip
+  // (onDay) off the SAME date as the crosshair, so the two can never disagree about
+  // which day is under the pointer.
   const trackPointer = (clientX: number) => {
     if (drag.current) return;
     const r = svgRef.current?.getBoundingClientRect();
     if (!r) return;
     const px = Math.max(labelW, Math.min(W - PAD_R, ((clientX - r.left) / r.width) * W));
-    setHoverMs(msAtX(px));
+    const ms = msAtX(px);
+    setHoverMs(ms);
+    onDay(dayFloor(ms));
   };
 
   // ---- zoom / pan (#75) ----
@@ -549,13 +553,19 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
     // The 50%-of-remaining reserve is a value that only exists as of NOW
     // (chainLedger.ts defines it as remainingTotal / 2), so it is a marker, never a
     // rule across the chart — a full-width line would state a threshold that did not
-    // apply in the past (decision 7). Two cases drop it rather than distort something:
-    // a reserve OUTSIDE the frame (the frame is derived from the FLOW, and stretching
-    // it to hold a reserve far above B₀ would squash the reading this chart exists for
-    // — the headline's title states the reserve in words either way), and a reserve of
-    // ZERO days, which is not a threshold but a program with no work left.
+    // apply in the past (decision 7). A reserve of ZERO days is not a threshold but a
+    // program with no work left, so it draws nothing. A reserve ABOVE the frame is
+    // the COMMON case, not the rare one (guidelineDays is remainingTotal/2, so any
+    // program with more remaining work than B₀ pushes past 100% of it) — stretching
+    // the frame to hold it would squash the reading the chart exists for, so instead
+    // it draws an OFF-SCALE marker pinned to the frame's own top edge (autoknow-4dr.2,
+    // decided over clamping it there silently or rebasing it against remaining work:
+    // an explicit off-scale mark keeps the number honest without moving what it
+    // means). Below the frame is not reachable — `guidelineDays > 0` and `scale.min`
+    // is always ≤ 0.
     const guidelinePct = (ledger.guidelineDays * 100) / series.startBufferDays;
     const showGuideline = ledger.guidelineDays > 0 && guidelinePct > scale.min && guidelinePct < scale.max;
+    const guidelineAboveFrame = ledger.guidelineDays > 0 && guidelinePct >= scale.max;
 
     /** The boundary's highest and lowest y across a span of the plot, or null where the
      *  line does not reach. A label is a horizontal strip ~90px wide, and this line can
@@ -669,6 +679,12 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
     const nowSpent = nowAnchored(spentText, spentY, 2, FS_SMALL);
     const guidelineLabel = endAnchored(
       t(locale, 'clBufferGuideline', { d: ledger.guidelineDays }), W - PAD_R - 3, yOf(guidelinePct) - 8, 2);
+    // The off-scale case (autoknow-4dr.2): pinned to the frame's own TOP EDGE — the
+    // one y it always has, however far above the frame the real value sits — with
+    // copy that says so rather than a bare number a reader could mistake for the
+    // frame's own ceiling.
+    const offScaleLabel = endAnchored(
+      t(locale, 'clBufferGuidelineOff', { d: ledger.guidelineDays }), W - PAD_R - 3, flowTop + 9, 2);
     // Centred on the day it names, but never off the frame: a label half outside the
     // plot is one you cannot read, and its date is the point of it.
     const blownLabel = blown && inView(blown.ms)
@@ -681,7 +697,11 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
     // The anchors hide a loser; the readings all survive, nudged in y around whichever
     // anchors did. Bounds keep every dodged label inside the plot — below its floor is
     // where the crosshair's own date caption lives.
-    const anchors = [...axisTicks, ...(showGuideline ? [guidelineLabel] : [])];
+    const anchors = [
+      ...axisTicks,
+      ...(showGuideline ? [guidelineLabel] : []),
+      ...(guidelineAboveFrame ? [offScaleLabel] : []),
+    ];
     const anchorKeep = keepNonOverlapping(anchors);
     const readings = [...debtTicks, nowLeft, nowSpent, ...(blownLabel ? [blownLabel] : [])];
 
@@ -702,6 +722,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
     const ink: PlacedLabel[] = [
       ...scale.ticks.map((v) => inkBox(labelW, yOf(v), W - PAD_R, yOf(v), GRIDLINE_W)),
       ...(showGuideline ? [inkBox(W - PAD_R - GUIDELINE_STUB_W, yOf(guidelinePct), W - PAD_R, yOf(guidelinePct), GUIDELINE_W)] : []),
+      ...(guidelineAboveFrame ? [inkBox(W - PAD_R - 3, flowTop - BLOWN_TICK_H, W - PAD_R - 3, flowTop + BLOWN_TICK_H, BLOWN_TICK_W)] : []),
       ...(blown && blownLabel ? [inkBox(x(blown.ms), yOf(0) - BLOWN_TICK_H, x(blown.ms), yOf(0) + BLOWN_TICK_H, BLOWN_TICK_W)] : []),
       ...readings.flatMap(boundaryUnder),
     ];
@@ -711,7 +732,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
     const placed = readings.map((r, i) => ({ ...r, y: readingY[i] }));
 
     return {
-      scale, yOf, nowPt, blown, guidelinePct, showGuideline,
+      scale, yOf, nowPt, blown, guidelinePct, showGuideline, guidelineAboveFrame,
       areas: {
         leftPast: band(past, leftTop, ZERO), leftAhead: band(ahead, leftTop, ZERO),
         spentPast: band(past, FULL, spentBot), spentAhead: band(ahead, FULL, spentBot),
@@ -721,6 +742,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
       boundaryAhead: boundary(ahead),
       axisTicks: axisTicks.filter((_, i) => anchorKeep[i]),
       guidelineLabel: showGuideline && anchorKeep[anchors.length - 1] ? guidelineLabel : null,
+      offScaleLabel: guidelineAboveFrame && anchorKeep[anchors.length - 1] ? offScaleLabel : null,
       debtLabels: placed.slice(0, debtTicks.length),
       nowLeftLabel: placed[debtTicks.length],
       nowSpentLabel: placed[debtTicks.length + 1],
@@ -750,7 +772,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
       <div className={styles.scheduleScroll}>
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className={styles.scheduleSvg} role="img"
         aria-label={t(locale, 'clSchedule')} data-pannable={focus != null}
-        onMouseLeave={() => { setHoverMs(null); endPan(); onRowCard(null, null); }}
+        onMouseLeave={() => { setHoverMs(null); endPan(); onDay(dayFloor(now)); }}
         onMouseDown={(e) => startPan(e.clientX)}
         onMouseMove={(e) => { if (drag.current) panBy(e.clientX); }}
         onMouseUp={endPan}>
@@ -881,22 +903,25 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
                 </ChartLabel>
               )}
 
-              {/* The row BODY reveals the status card — NEVER the jump (issue #22). It starts
-                  at labelW, so it no longer covers the label (the jump target above); the plot
-                  band answers to one hover and drives the shared date crosshair (#75). On MOUSE,
-                  hover shows the card. On TOUCH there is no hover, so a tap's synthesized
-                  mouseenter shows it AND the click reveals it too (idempotent — some engines skip
+              {/* The row BODY drives the docked day strip — NEVER the jump (issue #22). It
+                  starts at labelW, so it no longer covers the label (the jump target above);
+                  the plot band answers to one hover and drives the shared date crosshair AND
+                  the strip off the SAME position (#75, #161 step 4/4). On MOUSE, hover tracks
+                  the pointer's day. On TOUCH there is no hover, so a tap's synthesized
+                  mouseenter tracks it AND the click does too (idempotent — some engines skip
                   the enter on a second tap of the same row); crucially the click does NOT
-                  navigate, so the card survives to be read and dismissed. KEYBOARD keeps two
-                  DISTINCT actions: focus shows the card, Enter/Space jumps. */}
+                  navigate, so the strip survives the tap to be read. KEYBOARD keeps two DISTINCT
+                  actions: focus points the strip at this row's OWN start day (there is no
+                  pointer x to read a day from), Enter/Space jumps. Blur reverts to today, same
+                  as leaving the whole chart, so the strip is never stranded on a row that lost
+                  focus. */}
               <rect className={styles.rowHit} x={labelW} y={y - ROW_H / 2} width={W - labelW} height={ROW_H} rx={4}
                 tabIndex={0} role="button" aria-label={r.name}
-                onMouseEnter={(e) => { if (drag.current) return; onRowCard(r, e.currentTarget, e.clientX); trackPointer(e.clientX); }}
-                onMouseMove={(e) => { if (drag.current) return; onRowCard(r, e.currentTarget, e.clientX); trackPointer(e.clientX); }}
-                onMouseLeave={() => onRowCard(null, null)}
-                onFocus={(e) => onRowCard(r, e.currentTarget)}
-                onBlur={() => onRowCard(null, null)}
-                onClick={(e) => { if (didPan.current) { didPan.current = false; return; } onRowCard(r, e.currentTarget, e.clientX); trackPointer(e.clientX); }}
+                onMouseEnter={(e) => { if (drag.current) return; trackPointer(e.clientX); }}
+                onMouseMove={(e) => { if (drag.current) return; trackPointer(e.clientX); }}
+                onFocus={() => { setHoverMs(r.startMs); onDay(dayFloor(r.startMs)); }}
+                onBlur={() => { setHoverMs(null); onDay(dayFloor(now)); }}
+                onClick={(e) => { if (didPan.current) { didPan.current = false; return; } trackPointer(e.clientX); }}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onJump(r.id); } }}
                 data-row-id={r.id} />
             </g>
@@ -954,6 +979,19 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
               <ChartLabel x={flow.guidelineLabel.x} y={centreToBaselineY(flow.guidelineLabel.y, FS_SMALL)}
                 textAnchor="middle" fontSize={FS_SMALL} fill="var(--muted)" halo="var(--surface)">
                 {flow.guidelineLabel.text}
+              </ChartLabel>
+            )}
+            {/* the reserve OFF the frame (autoknow-4dr.2) — pinned to the frame's own top
+                edge, a dashed stub poking past it to read as "keeps going up, past here",
+                paired with copy that says so rather than a bare number at the ceiling */}
+            {flow.guidelineAboveFrame && (
+              <line x1={W - PAD_R - 3} y1={flowTop} x2={W - PAD_R - 3} y2={flowTop - BLOWN_TICK_H * 1.5}
+                stroke="var(--muted)" strokeWidth={GUIDELINE_W} strokeDasharray="2 2" />
+            )}
+            {flow.offScaleLabel && (
+              <ChartLabel x={flow.offScaleLabel.x} y={centreToBaselineY(flow.offScaleLabel.y, FS_SMALL)}
+                textAnchor="middle" fontSize={FS_SMALL} fill="var(--muted)" halo="var(--surface)">
+                {flow.offScaleLabel.text}
               </ChartLabel>
             )}
             {/* the day the buffer ran out — usually in the forecast tail, which is why the
@@ -1026,4 +1064,4 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   );
 }
 
-export { CARD_W, W };
+export { W };

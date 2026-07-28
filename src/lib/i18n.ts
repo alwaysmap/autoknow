@@ -1732,6 +1732,20 @@ const STRINGS = {
   clDaysOverPlan: { en: '{d} days over plan', de: '{d} Tage über Plan', ja: '計画超過{d}日', ko: '계획 초과 {d}일' },
   clOneDayOverPlan: { en: '1 day over plan', de: '1 Tag über Plan', ja: '計画超過1日', ko: '계획 초과 1일' },
   clSatIdle: { en: 'sat idle {d} days', de: '{d} Tage Leerlauf', ja: '{d}日間待機', ko: '{d}일간 대기' },
+  // The docked day strip (issue #161 step 4/4) — replaces the per-row hover card below.
+  // Its per-phase lines reuse the clRow*/clWorkLeft* keys verbatim (a phase's own
+  // story does not change because a day strip asks about it instead of a hover); these
+  // four are the only new copy the strip needed: its title, the "today" marker, the
+  // day-index annotation, and the empty-day sentence.
+  cdTitle: { en: 'day summary', de: 'Tageszusammenfassung', ja: '日次サマリー', ko: '일별 요약' },
+  cdToday: { en: '(today)', de: '(heute)', ja: '（今日）', ko: '(오늘)' },
+  cdDayOf: { en: 'day {i} of {n}', de: 'Tag {i} von {n}', ja: '{n}日中{i}日目', ko: '{n}일 중 {i}일째' },
+  cdNothing: {
+    en: 'Nothing in flight — no phase, credit, or idle day here.',
+    de: 'Nichts in Arbeit — keine Phase, keine Gutschrift, kein Leerlauftag hier.',
+    ja: '進行中の作業なし — フェーズ、クレジット、待機日のいずれもありません。',
+    ko: '진행 중인 것 없음 — 이 날에는 단계도, 크레딧도, 대기일도 없습니다.',
+  },
   // Schedule-row hover card: what this phase did to the buffer, in one line each.
   clRowRan: { en: 'Ran {a} – {b}', de: 'Lief {a} – {b}', ja: '実績 {a}〜{b}', ko: '진행 {a} – {b}' },
   clRowRunning: { en: 'Started {a}, forecast to {b}', de: 'Start {a}, Prognose bis {b}', ja: '{a}開始・{b}完了見込み', ko: '{a} 시작 · {b} 완료 예상' },
@@ -1808,6 +1822,15 @@ const STRINGS = {
     ko: '나눌 버퍼가 없습니다: 이 프로그램은 처음부터 버퍼가 없었습니다.',
   },
   clBufferGuideline: { en: '{d}d reserve', de: '{d}T Reserve', ja: '予備{d}日', ko: '예비 {d}일' },
+  // The reserve marker off the top of the frame (autoknow-4dr.2) — the common case,
+  // since the reserve is remainingTotal/2 and any program with more remaining work
+  // than B₀ pushes past 100% of it. Says so explicitly rather than a bare number
+  // sitting at the frame's ceiling, which would read as the reserve itself, not a
+  // marker of how far above the visible frame it actually sits.
+  clBufferGuidelineOff: {
+    en: '{d}d reserve — above frame', de: '{d} T Reserve — über dem Rahmen',
+    ja: '予備{d}日 — 枠外', ko: '예비 {d}일 — 프레임 밖',
+  },
   // Waterfall
   clWhereBufferWent: { en: 'Where the buffer went', de: 'Wohin der Puffer ging', ja: 'バッファの行方', ko: '버퍼가 쓰인 곳' },
   clCostDays: { en: 'cost {d} days', de: 'kostete {d} Tage', ja: '{d}日を消費', ko: '{d}일 소모' },
