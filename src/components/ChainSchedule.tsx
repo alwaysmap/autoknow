@@ -433,20 +433,21 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
     if (v == null || !inView(v.at)) return null;
     const end = x(v.at), halfW = halfWOf(v.text);
     const cx = end + 4 + halfW <= W - PAD_R - halfW ? end + 4 + halfW : end - 4 - halfW;
-    return { ...v, x: Math.max(labelW + halfW, Math.min(W - PAD_R - halfW, cx)), y, halfW };
+    return { text: v.text, fill: v.fill, x: Math.max(labelW + halfW, Math.min(W - PAD_R - halfW, cx)), y };
   };
   /** The idle handoff before a row: the dashed rule in the channel ABOVE it, and the day
    *  count ON that rule's own line — not stacked above it.
    *
    *  Above the rule is where this count used to sit, and the screenshot said no: it landed
-   *  a hair under the previous row's variance number, exactly 2 * halfHFor(FS_SMALL) away,
-   *  which is zero clearance — a gap no overlap test can fail and which reads as one clump
-   *  of two numbers about two different rows. Nudging it DOWN toward its rule is not
-   *  available either; that channel is ROW_H/2 − BAR_H/2 tall. Sitting it ON the line buys
-   *  IDLE_DY less than half a row of clearance and costs nothing, because the count is
-   *  haloed and the rule is dashed: the knockout reads as the conventional annotated rule.
+   *  12.8px under the previous row's variance number, against the 12px those two boxes
+   *  reserve — 0.8px of clearance, which no overlap test can fail and which reads as one
+   *  clump of two numbers about two different rows. Nudging it DOWN toward its rule is not
+   *  available either; that channel is ROW_H/2 − BAR_H/2 tall, thinner than a label box.
+   *  Sitting it ON the line takes that pair to 19px apart — 7px of real clearance — and
+   *  costs nothing, because the count is haloed and the rule is dashed: the knockout reads
+   *  as the conventional annotated rule.
    *
-   *  Half a row is still tight, so the rest of the separation is taken in X, where there
+   *  7px is still not much, so the rest of the separation is taken in X, where there
    *  is room. The count centres on the rule only when the rule is long enough to still
    *  read either side of the knockout; on a SHORT gap it steps past the rule's right end
    *  instead. Both halves of that rule earn their place: centring on a short rule would
