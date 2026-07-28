@@ -7,7 +7,7 @@
 //
 // One list, so a widening lands everywhere at once (AGENTS lesson 7 — the same reason
 // `./sourceFiles` exists for the component-code ratchets).
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -15,22 +15,18 @@ import { join } from 'node:path';
  * intersection: a root scanned for one kind of citation and not another is exactly the
  * asymmetry that produced the gap.
  */
-const ROOTS = [
-  // Directories, walked.
-  'docs',
-  'src',
-  'tests',
-  'scripts',
-  '.claude',
-  '.github',
+const ROOTS = ['docs', 'src', 'tests', 'scripts', '.claude', '.github'];
 
-  // Individual files, taken as-is — including `Dockerfile`, which has no extension
-  // and so would never survive the walk's filter.
-  'AGENTS.md',
-  'README.md',
-  'eslint.config.mjs',
-  'Dockerfile',
-];
+/**
+ * Plus every file sitting at the repo root, which is where the configs live. Named
+ * individually until `playwright.config.ts` picked up a knowledge citation and the
+ * list did not have it — the same whack-a-mole that produced the original gap, so the
+ * root is enumerated instead. `Dockerfile` has no extension and is matched by name.
+ */
+const rootFiles = (): string[] =>
+  readdirSync('.', { withFileTypes: true })
+    .filter((e) => e.isFile() && (CITES.test(e.name) || e.name === 'Dockerfile'))
+    .map((e) => e.name);
 
 /**
  * Prose, code, workflows and shell — anything that carries a comment or a link.
@@ -45,9 +41,5 @@ const walk = (dir: string): string[] =>
     return e.isDirectory() ? walk(full) : CITES.test(e.name) ? [full] : [];
   });
 
-/**
- * Every file a citation check should read. Roots named as files are included whatever
- * they are called — they are on the list precisely because they cite.
- */
-export const citingFiles = (): string[] =>
-  ROOTS.filter((r) => existsSync(r)).flatMap((r) => (statSync(r).isDirectory() ? walk(r) : [r]));
+/** Every file a citation check should read. */
+export const citingFiles = (): string[] => [...ROOTS.filter(existsSync).flatMap(walk), ...rootFiles()];
