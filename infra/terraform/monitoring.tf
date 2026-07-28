@@ -43,29 +43,37 @@
 # failure, exactly like the missing-email precondition below.
 locals {
   # Cron fields, whitespace-normalised. Anything that is not the 5-field form is unknown.
-  cron_fields    = compact(split(" ", replace(trimspace(var.cron_schedule), "/\\s+/", " ")))
-  cron_is_5field = length(local.cron_fields) == 5
+  cron_fields          = compact(split(" ", replace(trimspace(var.cron_schedule), "/\\s+/", " ")))
+  cron_has_five_fields = length(local.cron_fields) == 5
 
-  # A schedule that skips days is not a daily cadence, and averaging one into cycles/day
-  # would report a fraction these windows cannot honour.
-  cron_is_daily = local.cron_is_5field && alltrue([for f in slice(local.cron_fields, 2, 5) : f == "*"])
+  # Day-of-month, month, day-of-week. Any narrowing there means "not a daily cadence", and
+  # averaging such a schedule into cycles/day would report a fraction these windows cannot
+  # honour. Named rather than sliced inline, so nothing here depends on counting positions.
+  cron_date_fields = local.cron_has_five_fields ? slice(local.cron_fields, 2, 5) : []
+  cron_is_daily    = local.cron_has_five_fields && alltrue([for f in local.cron_date_fields : f == "*"])
 
-  cron_field_values  = local.cron_is_5field ? { minute = local.cron_fields[0], hour = local.cron_fields[1] } : { minute = "", hour = "" }
+  # Not-5-field collapses to empty strings, which match none of the rules below and so land
+  # on 0 = unknown — the same answer as a field shape we refuse to guess at.
+  cron_field_values  = local.cron_has_five_fields ? { minute = local.cron_fields[0], hour = local.cron_fields[1] } : { minute = "", hour = "" }
   cron_field_domains = { minute = 60, hour = 24 }
 
-  # `*/n` → the step, else 0. `try` keeps a non-match from erroring instead of missing.
+  # Each field is read twice — once as a step, once as a value list — and `cron_field_counts`
+  # below picks whichever one matched. `try`/`regexall` keep a non-match from erroring.
+  # `*/n` → the step, else 0.
   cron_field_steps = { for f, v in local.cron_field_values : f => try(tonumber(regexall("^\\*/([0-9]+)$", v)[0][0]), 0) }
   # `7` or `0,12` → the values, else []. Anything else (ranges, names, `L`) stays unknown.
   cron_field_lists = { for f, v in local.cron_field_values : f => (
     length(regexall("^[0-9]+(?:,[0-9]+)*$", v)) > 0 ? [for x in split(",", v) : tonumber(x)] : []
   ) }
 
-  # How many times a day each field matches — 0 for "unrecognised".
+  # How many times a day each field matches — 0 for "unrecognised", which includes every
+  # in-shape-but-out-of-range value (a step past the domain, an hour of 25).
   cron_field_counts = {
     for f, domain in local.cron_field_domains : f => (
       local.cron_field_values[f] == "*" ? domain :
       local.cron_field_steps[f] >= 1 && local.cron_field_steps[f] <= domain ? ceil(domain / local.cron_field_steps[f]) :
-      length(local.cron_field_lists[f]) > 0 && alltrue([for v in local.cron_field_lists[f] : v < domain]) ? length(distinct(local.cron_field_lists[f])) :
+      length(local.cron_field_lists[f]) > 0 && alltrue([for v in local.cron_field_lists[f] : v < domain]) ?
+      length(distinct(local.cron_field_lists[f])) :
       0
     )
   }
@@ -78,17 +86,23 @@ locals {
     : 0
   )
 
-  cycle_seconds          = local.cron_cycles_per_day > 0 ? floor(86400 / local.cron_cycles_per_day) : 0
-  alarm_alignment_period = "${local.cycle_seconds}s"
-  alarm_drain_duration   = "${local.cycle_seconds * 3}s" # three cycles — see the policy below
+  cron_cycle_seconds = local.cron_cycles_per_day > 0 ? floor(86400 / local.cron_cycles_per_day) : 0
+
+  # How many cycles a backlog must persist for before it is a drain problem rather than a
+  # burst. Declared once and interpolated into the window, the condition name and the
+  # responder's documentation, so tuning it cannot leave a string behind saying otherwise —
+  # which is the same mistake as restating the cadence, one size down.
+  alarm_drain_cycles     = 3
+  alarm_alignment_period = "${local.cron_cycle_seconds}s"
+  alarm_drain_duration   = "${local.cron_cycle_seconds * local.alarm_drain_cycles}s"
 
   cron_unparsed_message = <<-EOT
     var.cron_schedule = "${var.cron_schedule}" is not a shape this config can turn into a
     cadence, so the ingestion alarm windows cannot be derived and would silently mean
-    something other than "one cycle" / "three cycles". Recognised: 5 fields, `*`, `*/n`, a
-    value, or a comma list, in minute and hour, with day/month/weekday all `*` (matching
-    src/lib/cronCadence.ts). Either use a schedule of that shape, or set
-    enable_ingestion_alarm = false and reason about the windows by hand.
+    something other than "one cycle" / "${local.alarm_drain_cycles} cycles". Recognised: 5
+    fields; minute and hour each `*`, `*/n`, a value, or a comma list, all in range for the
+    field; day/month/weekday all `*` (matching src/lib/cronCadence.ts). Either use a schedule
+    of that shape, or set enable_ingestion_alarm = false and reason about the windows by hand.
   EOT
 }
 
@@ -176,11 +190,11 @@ resource "google_logging_metric" "ingestion_quota_stopped" {
 }
 
 # ---- Alert policy: backlog not draining ----
-# Fires when backlog stays ABOVE 0 for 3 consecutive cron cycles.
-# Reasoning for the 3-cycle window: one cycle with backlog > 0 is routine (a burst of shared
+# Fires when backlog stays ABOVE 0 for local.alarm_drain_cycles consecutive cron cycles.
+# Reasoning for that window: one cycle with backlog > 0 is routine (a burst of shared
 # docs that the next cycle drains). What matters is a backlog that PERSISTS — that is the
-# scaling ADR's "the simple design stopped fitting" trigger. 3 cycles filters transient spikes
-# while still catching a real, sustained drain quickly. Both windows are derived from
+# scaling ADR's "the simple design stopped fitting" trigger. Three cycles filters transient
+# spikes while still catching a real, sustained drain quickly. Both windows are derived from
 # var.cron_schedule by the locals above, so "one cycle" stays true when the schedule changes;
 # at today's hourly default they are the 3600s / 10800s this policy has always used.
 # ALIGN_PERCENTILE_99 reduces the per-window distribution to a scalar (with one sample per
@@ -193,15 +207,15 @@ resource "google_monitoring_alert_policy" "ingestion_backlog" {
   combiner     = "OR"
 
   conditions {
-    display_name = "Backlog > 0 for 3 consecutive cron cycles"
+    display_name = "Backlog > 0 for ${local.alarm_drain_cycles} consecutive cron cycles"
     condition_threshold {
       filter          = "metric.type=\"logging.googleapis.com/user/${google_logging_metric.ingestion_backlog[0].name}\" AND resource.type=\"cloud_run_revision\""
       comparison      = "COMPARISON_GT"
       threshold_value = 0
-      duration        = local.alarm_drain_duration # three cron cycles
+      duration        = local.alarm_drain_duration
 
       aggregations {
-        alignment_period   = local.alarm_alignment_period # one cron cycle
+        alignment_period   = local.alarm_alignment_period
         per_series_aligner = "ALIGN_PERCENTILE_99"
       }
 
@@ -225,7 +239,7 @@ resource "google_monitoring_alert_policy" "ingestion_backlog" {
 
   documentation {
     content   = <<-EOT
-      Ingestion backlog has stayed above zero for 3+ consecutive cron cycles: documents are due
+      Ingestion backlog has stayed above zero for ${local.alarm_drain_cycles}+ consecutive cron cycles: documents are due
       for (re)ingestion faster than the per-cycle caps drain them.
 
       This is the drain alarm from issue #38 / the ingestion-health ADR (§2). It is the
@@ -258,7 +272,7 @@ resource "google_monitoring_alert_policy" "ingestion_quota_stopped" {
       duration        = "0s" # surface the first quota-stopped cycle
 
       aggregations {
-        alignment_period   = local.alarm_alignment_period # one cron cycle, derived above
+        alignment_period   = local.alarm_alignment_period
         per_series_aligner = "ALIGN_SUM"
       }
 
@@ -268,6 +282,7 @@ resource "google_monitoring_alert_policy" "ingestion_quota_stopped" {
     }
   }
 
+  # Same precondition as the drain policy, for the same reason.
   lifecycle {
     precondition {
       condition     = local.cron_cycles_per_day > 0

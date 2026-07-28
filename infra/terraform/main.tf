@@ -100,9 +100,9 @@ resource "google_artifact_registry_repository" "images" {
 # Docker Hub outage stops being a deploy outage, and pulls stop counting against Docker Hub's
 # anonymous rate limit.
 #
-# This is the infra half only. The Dockerfile still says `FROM node:22-alpine`; the app PR
-# that repoints it at this mirror — BY DIGEST, so a moved tag cannot silently change the
-# runtime — lands after this is applied (AGENTS infra ordering; bead autoknow-7dj).
+# The Dockerfile is repointed at this mirror BY DIGEST — a moved tag cannot then change the
+# runtime — in a separate app PR, because a combined one would deploy that Dockerfile before
+# anyone had applied this (AGENTS infra ordering; bead autoknow-7dj).
 #
 # No IAM here on purpose: the CI service account already holds project-level
 # roles/artifactregistry.writer (see google_project_iam_member.ci_roles), which includes the

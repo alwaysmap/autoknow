@@ -11,11 +11,11 @@
 # the honest scope is "the runtime surface", not "everything Terraform declares". Issue #156
 # measured the discovery on 2026-07-25: 13 services visible, 6 categories not.
 #
-# THREE THINGS THAT DECIDE THE SHAPE BELOW (all measured in #156, quoted, not re-derived
-# here — this session had no GCP credentials):
+# THREE THINGS THAT DECIDE THE SHAPE BELOW (measured in #156 on 2026-07-25, quoted here
+# rather than re-derived):
 #   1. Discovery is per-location and ours is split: the Cloud Run service and the SQL
-#      instance are discovered in us-central1, the secrets in `global`. So the Application
-#      must be scope GLOBAL — a REGIONAL one could not hold the secrets.
+#      instance are discovered in us-central1, the secret containers in `global`. So the
+#      Application must be scope GLOBAL — a REGIONAL one could not hold the secrets.
 #   2. `global` discovery is ~80% noise (a serviceusage entry per enabled API, plus urn:mcp
 #      handles). Services are therefore named one by one, never registered in bulk.
 #   3. Every discovered service is registrationType EXCLUSIVE — it can belong to exactly one
@@ -37,7 +37,7 @@ resource "google_apphub_application" "autoknow" {
   description    = "AI-maintained knowledge base for AlwaysMap — Cloud Run + Cloud SQL + Secret Manager. Declared in infra/terraform."
 
   scope {
-    type = "GLOBAL" # not REGIONAL: the ten secrets live in `global` (see note 1 above)
+    type = "GLOBAL" # not REGIONAL: the secret containers live in `global` (see note 1 above)
   }
 
   attributes {
@@ -88,7 +88,7 @@ data "google_apphub_discovered_service" "sql" {
   service_uri = "//sqladmin.googleapis.com/projects/${google_project.autoknow.project_id}/instances/${google_sql_database_instance.db.name}"
 }
 
-# The ten secret containers, from the same list main.tf creates them from — so a secret added
+# Every secret container, from the same list main.tf creates them from — so a secret added
 # there is registered here without anyone remembering to.
 data "google_apphub_discovered_service" "secret" {
   for_each    = toset(local.all_secret_ids)
@@ -124,5 +124,6 @@ resource "google_apphub_service" "secret" {
   application_id     = google_apphub_application.autoknow.application_id
   service_id         = "secret-${each.value}"
   display_name       = "Secret — ${each.value}"
+  description        = "Secret Manager container mounted into the Cloud Run service (or read out-of-band). Values are never in Terraform."
   discovered_service = data.google_apphub_discovered_service.secret[each.value].name
 }

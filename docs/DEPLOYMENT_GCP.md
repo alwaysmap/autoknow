@@ -184,7 +184,7 @@ Enable APIs with `google_project_service`: `run`, `sqladmin`, `secretmanager`,
 | IAM | `google_project_iam_member` (runtime → `secretmanager.secretAccessor`, `cloudsql.client`); scheduler SA → nothing extra when using a bearer header |
 | Keyless CI auth | `google_iam_workload_identity_pool` + `..._provider` (GitHub OIDC), `google_service_account_iam_member` binding the CI SA to the pool |
 | Networking | (optional) Serverless VPC connector only if you choose **private IP** Cloud SQL; the unix-socket path needs none |
-| Grouping | `google_apphub_application` + `google_apphub_service` — one App Hub Application (`autoknow`, scope GLOBAL, environment PRODUCTION) holding the runtime surface: Cloud Run, Cloud SQL, the ten secrets. Console: https://console.cloud.google.com/apphub?project=autoknow-prod-1895f1&authuser=dylan@alwaysmap.com |
+| Grouping | `google_apphub_application` + `google_apphub_service` — one App Hub Application (`autoknow`, scope GLOBAL, environment PRODUCTION) holding the runtime surface: Cloud Run, Cloud SQL, and every secret container. Console: https://console.cloud.google.com/apphub?project=autoknow-prod-1895f1&authuser=dylan@alwaysmap.com |
 
 **App Hub shows the runtime surface, not the whole stack.** It models services and
 workloads only, so the Scheduler job, both registries, the domain mapping, the

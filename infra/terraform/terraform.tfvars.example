@@ -1,5 +1,7 @@
-# Copy to terraform.tfvars and fill in. No secrets here — secret *values* are loaded
-# into Secret Manager out-of-band from the local .env (see deploy notes below).
+# Template for a NEW instance: copy to instances/<name>.tfvars and fill in (the wrapper
+# passes -var-file=instances/$INSTANCE.tfvars; the deployed one is instances/alwaysmap.tfvars).
+# No secrets here — secret *values* are loaded into Secret Manager out-of-band from the local
+# .env (see deploy notes below).
 #
 # project_id must be globally unique.
 project_id      = "autoknow-prod-XXXX"
