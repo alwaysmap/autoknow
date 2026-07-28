@@ -11,7 +11,7 @@ symptoms:
   - a spec passes alone and on re-run, and fails only under full-suite load
   - an assertion reads the state the PREVIOUS click set, as if this one never happened
   - the failure is webkit-only, in a different spec each run
-verified_by: 'tests/phase_graph.spec.ts "a card click is not swallowed by page motion still under way" — mutation-checked: disabling the halt in src/lib/useSteadyPageScroll.ts turns it red on BOTH engines (data-rel absent); tests/useSteadyPageScroll.test.tsx; bead autoknow-e1h'
+verified_by: 'tests/useSteadyPageScroll.test.tsx (every branch of the guard, including "stops page motion already under way on the press itself"); tests/documentScrollGoesThroughTheGuard.test.ts enforces that every document scroll uses it — mutation-checked, a raw scrollIntoView in PhaseTrack turns it red; bead autoknow-e1h'
 ---
 
 # A page scroll that steps between press and release hands the click to an ancestor, and nobody reports it

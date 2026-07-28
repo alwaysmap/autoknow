@@ -138,65 +138,6 @@ test.describe('PhaseTrack rail', () => {
     await expect(page.locator('button[aria-label^="Toggle detail"]')).toHaveCount(0);
   });
 
-  // A card click that lands while the PAGE IS STILL MOVING must still select the card.
-  // `html { scroll-behavior: smooth }` makes every in-page scroll an animation, and on a
-  // loaded machine its frames arrive late — late enough to step between a press and its
-  // release. The two then land on different elements and the browser delivers `click` to
-  // their common ancestor, so the card's handler never runs and NOTHING reports an error:
-  // the gesture just does nothing (autoknow-e1h, webkit under full-suite load).
-  //
-  // Reproduced deterministically rather than by loading the box: the scroll is requested
-  // from a CAPTURE-phase `pointerdown` listener, and `delay` then holds the button down
-  // long enough for a frame of it to land before the release. `addInitScript` runs at
-  // document start, so this listener is registered before the app's (which arms on
-  // mount, once React has hydrated) and therefore runs first — leaving a scroll pending
-  // at the instant `halt()` is asked to cancel one, which is the whole claim.
-  //
-  // AT the press, not from the `mousemove` before it: Playwright computes the press point
-  // once and never recomputes it, so motion begun any earlier drifts the page out from
-  // under it and mis-clicks wearing this bug's own signature — which is what made this the
-  // suite's worst flake (autoknow-dxa,
-  // docs/knowledge/a-test-that-starts-page-motion-before-the-press-races-its-own-press-point.md).
-  //
-  // The one place in this suite where the hydration-guarded retry is deliberately NOT
-  // used, and it has to be: the `once` listener is spent by the first attempt, so a
-  // retry would re-click a settled page and pass without reproducing anything — a guard
-  // that reports green whatever the code does. Hydration still has to be waited out, and
-  // this comment used to claim it "cannot be the variable here because the assertion is
-  // about what the click DID". CI disproved that: the press landed at `react=false`, the
-  // app's listener did not exist yet, and the unhalted scroll swallowed the click. So the
-  // wait below is a state assertion rather than a retried interaction — it costs the
-  // listener nothing.
-  test('a card click is not swallowed by page motion still under way', async ({ page }) => {
-    await page.addInitScript(() => {
-      window.addEventListener('pointerdown', () => window.scrollBy({ top: 400, behavior: 'smooth' }), {
-        once: true,
-        capture: true,
-      });
-    });
-
-    await page.goto(`/programs/${seeded.projectId}`);
-    const audio = row(page, 'Audio');
-    await expect(audio).toBeVisible();
-    // THE GUARD UNDER TEST ARMS ON MOUNT, so a press delivered before hydration is a
-    // press at a page that has no guard — it proves nothing, and the scroll this test
-    // starts is then free to run through the gesture and swallow the click. `toBeVisible`
-    // above is server-rendered HTML and says nothing about that. The stations do: they
-    // render only once the rail's post-mount measurement effect has populated `geom`, and
-    // that is the same commit `useSteadyPageScroll` arms on.
-    //
-    // Matched on the station GROUP, not on its `<title>`: with JS blocked the page still
-    // serves 8 `svg title` elements from server-rendered icons, so that selector is
-    // satisfied before hydration and gates nothing — which is exactly how the first
-    // version of this gate passed CI while the press still landed unhydrated. Measured
-    // with `**/*.js` aborted: `g[class*="station"]` is 0 without JS and non-zero with it.
-    await expect(page.locator('g[class*="station"]').first()).toBeAttached();
-
-    await audio.locator('a[data-card-title]').click({ delay: 150 });
-
-    await expect(audio).toHaveAttribute('data-rel', 'self');
-  });
-
   // Collapsing the DIAGRAM is one state: every card at min and the dependency track
   // ink put away, stations left standing. Collapsing only the cards left the densest
   // thing on screen untouched, and on a rail that already opens with collapsed cards
