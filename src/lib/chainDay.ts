@@ -9,7 +9,7 @@
 // that are not phases and still cost buffer — the credit window a phase opened by
 // finishing early, and the idle gap between a baton landing and being picked up.
 
-import { isForecastOver } from './chainLedger';
+import { hasIdleGapBefore, isForecastOver, isRealizedUnderrun } from './chainLedger';
 import type { ScheduleRow } from './chainLedger';
 import { DAY_MS, dayFloor } from './sop';
 
@@ -66,10 +66,13 @@ export interface PhaseSpan {
 }
 
 /**
- * A row's state sub-spans — the same decomposition the Option A bar draws, so the
- * strip and the bar can never name a day differently. Note what is NOT here: the
- * days a phase handed back are not part of the phase (it is over), they are a
- * credit window, and they come back from `summaryAt` as one.
+ * A row's state sub-spans — the decomposition the Option A bar draws. Note what is
+ * NOT here: the days a phase handed back are not part of the phase (it is over),
+ * they are a credit window, and they come back from `summaryAt` as one.
+ *
+ * Its `active` branch decides the forecast question through `isForecastOver`; its
+ * `done` branch goes through no predicate at all, and today it can name a day
+ * differently from the surfaces that do — see the `over` push in that branch below.
  */
 export function phaseDaySpans(r: ScheduleRow, now: number): PhaseSpan[] {
   const out: PhaseSpan[] = [];
@@ -78,6 +81,14 @@ export function phaseDaySpans(r: ScheduleRow, now: number): PhaseSpan[] {
   };
   if (r.kind === 'done') {
     push('done', r.startMs, Math.min(r.endMs, r.plannedEndMs));
+    // BUG, autoknow-4dr.3: `push` emits on any positive MILLISECOND, so this paints
+    // `over` for a phase `isRealizedOverrun` (a whole-day test) calls on plan — and
+    // the row card beside it says so. Left as-is only because autoknow-4dr.1 was
+    // behaviour-preserving by contract; the fix is to gate this on the predicate.
+    // docs/knowledge/a-shared-predicate-does-not-reach-the-surface-that-decides-by-geometry.md
+    // NOT the same defect as the `active` branch's `over` push below, which is bounded
+    // by `now` and so reports days genuinely already elapsed past the tick — a realized
+    // fact with no whole-day predicate over it. That one is deliberate; this one is not.
     push('over', r.plannedEndMs, r.endMs);
     return out;
   }
@@ -127,10 +138,10 @@ export function summaryAt(rows: ScheduleRow[], atMs: number, now: number): DaySu
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const prev = rows[i - 1];
-    if (r.gapBeforeDays >= 1 && prev && overlap(day, prev.endMs, r.startMs) > 0) {
+    if (hasIdleGapBefore(r) && prev && overlap(day, prev.endMs, r.startMs) > 0) {
       gaps.push({ fromId: prev.id, toId: r.id, days: r.gapBeforeDays, fromMs: prev.endMs, toMs: r.startMs });
     }
-    if (r.kind === 'done' && r.varianceDays <= -1 && overlap(day, r.endMs, r.plannedEndMs) > 0) {
+    if (isRealizedUnderrun(r) && overlap(day, r.endMs, r.plannedEndMs) > 0) {
       credits.push({ phaseId: r.id, days: -r.varianceDays, fromMs: r.endMs, toMs: r.plannedEndMs });
     }
 

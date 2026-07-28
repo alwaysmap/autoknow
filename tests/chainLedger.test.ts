@@ -1,7 +1,11 @@
 import {
   computeChainLedger,
   buildBusiestResources,
+  hasIdleGapBefore,
+  isRealizedOverrun,
+  isRealizedUnderrun,
   isForecastOver,
+  isForecastUnder,
   FORECAST_NOISE_DAYS,
   SEVERE_OVERRUN_PCT,
   isSevereOverrun,
@@ -174,6 +178,43 @@ describe('forecast-noise threshold', () => {
     expect(r.schedule[0].varianceDays).toBe(2);
     expect(r.waterfall.find((w) => w.kind === 'forecast')?.days).toBe(2);
     expect(r.situations.find((s) => s.type === 'forecastOverrun')).toMatchObject({ days: 2 });
+  });
+});
+
+// All five pinned in one table, because the names ARE the interface: the next chart
+// author reaches for one of these rather than writing a comparison. They were
+// hand-copied across 20 comparisons in five files until autoknow-4dr.1 converged them;
+// eslint's `chainPredicates` family stops the next copy being WRITTEN, and this stops
+// the shared one being quietly redefined — a lint rule cannot tell you the single
+// remaining definition changed its mind about which rows count.
+describe('the five waterfall predicates', () => {
+  it('keeps the realized/forecast threshold asymmetry', () => {
+    // The FORECAST pair clears FORECAST_NOISE_DAYS; `isForecastOver` is also pinned
+    // against a real ledger row in the forecast-noise block above.
+    expect(isForecastOver({ kind: 'active', varianceDays: FORECAST_NOISE_DAYS })).toBe(true);
+    expect(isForecastOver({ kind: 'active', varianceDays: 1 })).toBe(false);
+
+    // REALIZED variances are measured between two real dates: they count from 1 day.
+    expect(isRealizedOverrun({ kind: 'done', varianceDays: 1 })).toBe(true);
+    expect(isRealizedOverrun({ kind: 'done', varianceDays: 0 })).toBe(false);
+    expect(isRealizedUnderrun({ kind: 'done', varianceDays: -1 })).toBe(true);
+    expect(isRealizedUnderrun({ kind: 'done', varianceDays: 0 })).toBe(false);
+    // …and only for a phase that has actually finished. A live phase 9 days past its
+    // plan is a FORECAST claim; calling it realized would double-count it against the
+    // forecast row the waterfall already writes.
+    expect(isRealizedOverrun({ kind: 'active', varianceDays: 9 })).toBe(false);
+    expect(isRealizedOverrun({ kind: 'notStarted', varianceDays: 9 })).toBe(false);
+    expect(isRealizedUnderrun({ kind: 'active', varianceDays: -9 })).toBe(false);
+
+    // FORECAST variances clear the noise floor instead — the mirror of isForecastOver.
+    expect(isForecastUnder({ kind: 'active', varianceDays: -FORECAST_NOISE_DAYS })).toBe(true);
+    expect(isForecastUnder({ kind: 'active', varianceDays: -1 })).toBe(false);
+    expect(isForecastUnder({ kind: 'done', varianceDays: -9 })).toBe(false);
+
+    // A gap is a gap from one whole day; `kind` says nothing about it, because the day
+    // was lost BETWEEN phases rather than inside one.
+    expect(hasIdleGapBefore({ gapBeforeDays: 1 })).toBe(true);
+    expect(hasIdleGapBefore({ gapBeforeDays: 0 })).toBe(false);
   });
 });
 

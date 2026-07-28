@@ -6,7 +6,7 @@ import { t, Locale } from '../lib/i18n';
 import { localDate } from '../lib/dates';
 import { DAY_MS, dayFloor } from '../lib/sop';
 import ConstraintRing from './ConstraintRing';
-import { isForecastOver } from '../lib/chainLedger';
+import { hasIdleGapBefore, isForecastOver, isRealizedOverrun, isRealizedUnderrun } from '../lib/chainLedger';
 import type { ChainLedgerResult, ScheduleRow } from '../lib/chainLedger';
 import { bufferSeries, type BufferPoint } from '../lib/bufferSeries';
 import { flowScale, blownAt } from '../lib/bufferFlow';
@@ -121,8 +121,8 @@ function phaseSpans(r: ScheduleRow, now: number): { kind: CellKind; a: number; b
   if (r.kind === 'done') {
     const planEnd = Math.min(r.endMs, r.plannedEndMs);
     const spans: { kind: CellKind; a: number; b: number }[] = [{ kind: 'done', a: r.startMs, b: planEnd }];
-    if (r.varianceDays >= 1) spans.push({ kind: 'over', a: r.plannedEndMs, b: r.endMs });
-    if (r.varianceDays <= -1) spans.push({ kind: 'under', a: r.endMs, b: r.plannedEndMs }); // days handed back
+    if (isRealizedOverrun(r)) spans.push({ kind: 'over', a: r.plannedEndMs, b: r.endMs });
+    if (isRealizedUnderrun(r)) spans.push({ kind: 'under', a: r.endMs, b: r.plannedEndMs }); // days handed back
     return spans;
   }
   if (r.kind === 'active') {
@@ -228,7 +228,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
     const w1 = w0 + WEEK_MS;
     return rows.some((r, i) =>
       phaseSpans(r, now).some((s) => s.b > w0 && s.a < w1)
-      || (r.gapBeforeDays >= 1 && i > 0 && rows[i - 1].endMs < w1 && r.startMs > w0));
+      || (hasIdleGapBefore(r) && i > 0 && rows[i - 1].endMs < w1 && r.startMs > w0));
   });
   for (const ms of [now, sopMs]) {
     if (ms == null) continue;
@@ -712,7 +712,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
 
               {/* idle handoff, drawn TO THE DAY in the channel above this row (only when the
                   gap overlaps the focus window) */}
-              {r.gapBeforeDays >= 1 && i > 0 && rows[i - 1].endMs < tMax && r.startMs > tMin && (
+              {hasIdleGapBefore(r) && i > 0 && rows[i - 1].endMs < tMax && r.startMs > tMin && (
                 <>
                   <line x1={x(rows[i - 1].endMs)} y1={y - ROW_H / 2 + 3} x2={x(r.startMs)} y2={y - ROW_H / 2 + 3}
                     stroke="var(--warn)" strokeWidth={2} strokeDasharray="2 2" />

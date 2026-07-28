@@ -144,6 +144,50 @@ const noOwnerNameReads = [
   },
 ];
 
+// The five waterfall predicates — "did this schedule row move the buffer, and how?"
+//
+// `lib/chainLedger` answers that with exactly five tests over a ScheduleRow's
+// `varianceDays`/`gapBeforeDays`, and every chart surface asks the same five questions.
+// Twenty hand-rolled comparisons across five files had grown from it — 7 in lib/chainLedger
+// itself, 4 in lib/bufferSeries, 4 in ChainSchedule.tsx, 3 in ChainLedger.tsx, 2 in
+// lib/chainDay — AGENTS lesson 7 in its literal form, and only ONE pair of them had a test
+// that would notice a disagreement (the flow-vs-waterfall balance gate). autoknow-4dr.1
+// converged them onto the five exported predicates; this family is what stops the next
+// copy being written, because the next chart author reaches for a comparison, not for a
+// name (AGENTS lesson 2).
+//
+// Fifth family, and the FIRST anchored on the COMPARISON rather than on a name. Both fields
+// are numbers a chart legitimately DISPLAYS (`{ d: r.gapBeforeDays }`) and legitimately
+// picks grammar from (`r.varianceDays === 1 ? 'clRowSpentOne' : …`), so a name-shaped
+// selector like the four above would be wrong here. What the five predicates uniquely are
+// is ORDERING comparisons against these two fields — so that is the anchor, and `===`/`!==`
+// stay legal by node shape rather than by an exemption anyone has to maintain.
+const CHAIN_PREDICATE_MESSAGE =
+  "Choose from the five exported chain predicates — hasIdleGapBefore / isRealizedOverrun / " +
+  "isRealizedUnderrun / isForecastOver / isForecastUnder (src/lib/chainLedger.ts) — never a " +
+  "fresh comparison against varianceDays or gapBeforeDays. They are one taxonomy with a " +
+  "deliberate asymmetry (realized variances count from 1 day, forecast ones from " +
+  "FORECAST_NOISE_DAYS), and a hand-rolled copy is how a bar came to draw red beside a row " +
+  "card reading 'on plan'. Reading the value to display it, or to pick singular/plural " +
+  "copy, is fine — this only blocks re-deciding WHICH rows count.";
+
+const noHandRolledChainPredicates = [
+  {
+    // `r.varianceDays >= 1`, `row.gapBeforeDays >= 1`, and the mirrored operand order.
+    selector:
+      "BinaryExpression[operator=/^(<|>|<=|>=)$/] > MemberExpression[property.name=/^(varianceDays|gapBeforeDays)$/]",
+    message: CHAIN_PREDICATE_MESSAGE,
+  },
+  {
+    // The destructured spelling — `const { varianceDays } = r; if (varianceDays >= 1)` —
+    // which the selector above misses because the operand is a bare Identifier, not a
+    // MemberExpression.
+    selector:
+      "BinaryExpression[operator=/^(<|>|<=|>=)$/] > Identifier[name=/^(varianceDays|gapBeforeDays)$/]",
+    message: CHAIN_PREDICATE_MESSAGE,
+  },
+];
+
 // The cache is still a column with a public name, so some files have to SAY it — which
 // is not the same as reading it for display, and mostly not even the same as writing it.
 // Only the first entry writes; the rest carry the name because the request contract does.
@@ -187,7 +231,7 @@ const MAY_NAME_CACHE_AND_OWNER_TEXT = [
 ];
 
 /**
- * The four families, and the one way a block names the ones it KEEPS.
+ * The five families, and the one way a block names the ones it KEEPS.
  *
  * Every override below is an exemption, and every exemption's comment says which family
  * it DROPS — so let the code say the same thing. Listing the kept families by hand meant
@@ -205,6 +249,7 @@ const FAMILIES = {
   cache: noCachedAffiliationReads,
   openPeriod: noOpenPeriodAsCurrent,
   ownerText: noOwnerNameReads,
+  chainPredicates: noHandRolledChainPredicates,
 };
 
 const allFamiliesExcept = (...dropped) => [
@@ -275,6 +320,17 @@ const eslintConfig = defineConfig([
     rules: { "no-restricted-syntax": allFamiliesExcept("openPeriod") },
   },
   {
+    // Same shape as the profiles.ts block above: the module that DEFINES the five chain
+    // predicates has to write each comparison down once, and those five one-line bodies
+    // are that once — the correct use of the threshold, which is why the rule points
+    // every other file here. Drops the chain-predicate family only; chainLedger builds
+    // people-shaped resource rows too, and the as-of families are exactly right to keep
+    // policing them. ONE file, not `src/lib/**`: bufferSeries and chainDay are the two
+    // call sites this convergence exists for, so they stay policed.
+    files: ["src/lib/chainLedger.ts"],
+    rules: { "no-restricted-syntax": allFamiliesExcept("chainPredicates") },
+  },
+  {
     // Tests are FIXTURE authors, and all three data families are unavoidable there:
     // `currentPartnerId` is a REQUIRED FK so no test can build a Person without naming
     // it, `endDate: null` is how you write down an open period you are about to assert on
@@ -283,6 +339,10 @@ const eslintConfig = defineConfig([
     // anything. What a test reads is also usually the POINT —
     // tests/scheduledMove.test.ts asserts the cache does NOT advance early, and
     // tests/ownerBackfill + tests/ownerRemediation exist to assert on the legacy column.
+    // The chain-predicate family stays ON here: a test asserting on a fixture's
+    // varianceDays does it through `expect(...)`, never through a comparison, and a test
+    // that DID re-implement a predicate would be asserting its own copy is consistent
+    // with itself — the one place a hand-rolled copy is worst, not most excusable.
     files: ["tests/**"],
     rules: { "no-restricted-syntax": allFamiliesExcept("cache", "openPeriod", "ownerText") },
   },

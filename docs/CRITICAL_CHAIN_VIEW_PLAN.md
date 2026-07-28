@@ -523,11 +523,21 @@ directly; no chart needed.)*
   waterfall row, and the situation packet, because when the chart and the
   ledger each carried their own threshold a +1-day phase drew a red band and
   an "over plan" label with no waterfall row behind it. Realized (done)
-  variances come from real dates and count from 1 day. A single-point projection dressed as certainty is worse than
-  useless; v1's forecasts state their simple basis (the hover shows the
-  arithmetic), direct "days left" answers override the formula when present
-  (open question 10), and the upgrade path to a *grounded* forecast with a
-  range is open question 6.
+  variances come from real dates and count from 1 day. That threshold rule
+  generalized (2026-07-27, autoknow-4dr.1): `chainLedger` now exports all FIVE
+  waterfall predicates — `hasIdleGapBefore`, `isRealizedOverrun`,
+  `isRealizedUnderrun`, `isForecastOver`, `isForecastUnder` — and the buffer
+  flow, the day summary, the schedule chart and the row card all choose from
+  them. Comparing `varianceDays`/`gapBeforeDays` anywhere else fails `npm run
+  lint` (`no-restricted-syntax`, the `chainPredicates` family), so the
+  "+1-day phase" class of disagreement can no longer be re-introduced by hand.
+  (One site is knowingly outstanding: `chainDay.phaseDaySpans`'s `done` branch
+  still decides by millisecond geometry — autoknow-4dr.3.)
+
+  A single-point projection dressed as certainty is worse than useless; v1's
+  forecasts state their simple basis (the hover shows the arithmetic), direct
+  "days left" answers override the formula when present (open question 10), and
+  the upgrade path to a *grounded* forecast with a range is open question 6.
 - **No buffer *sizing* doctrine (yet).** Orthodox CCPM cuts padded estimates in
   half and pools the savings as an explicit sized buffer. We have one estimate per
   phase and a hard SOP; the buffer is *whatever slack the SOP leaves*. The
