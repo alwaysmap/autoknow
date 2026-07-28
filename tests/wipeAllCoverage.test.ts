@@ -110,6 +110,9 @@ describe('fixtures.wipeAll leaves an empty database', () => {
     });
     await prisma.ingestionCycleSummary.create({ data: {} });
     await prisma.ingestionSettings.create({ data: {} });
+    await prisma.ignoredAddress.create({
+      data: { address: 'android-team@google.com', dismissedBy: 'testbot' },
+    });
 
     // Vacuous-pass guard: assert the setup above really did fill EVERY table, so
     // "all zero afterwards" is evidence about the wipe and not about an empty database.

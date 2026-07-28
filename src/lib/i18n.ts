@@ -1412,6 +1412,37 @@ const STRINGS = {
   // dismisses a dialog. Identical in en/de/ko and deliberately different in ja
   // (取り消す = revoke, vs キャンセル = dismiss) — do not "deduplicate" these.
   cancelScheduledChange: { en: 'Cancel', de: 'Abbrechen', ja: '取り消す', ko: '취소' },
+  // The "track person" affordance (#126 / #127 E15). Deliberately a VERB and not a noun
+  // phrase: the offer is an action on a mention, never a claim about who the mention is.
+  trackPerson: { en: 'Track person', de: 'Person erfassen', ja: '担当者を登録', ko: '인물 등록' },
+  trackPersonHint: {
+    en: 'Create a person record for {a} — nobody is tracked under this address yet',
+    de: 'Personendatensatz für {a} anlegen — unter dieser Adresse ist noch niemand erfasst',
+    ja: '{a} の担当者レコードを作成します（このアドレスの担当者はまだ登録されていません）',
+    ko: '{a}에 대한 인물 레코드를 만듭니다 — 이 주소로 등록된 사람이 아직 없습니다',
+  },
+  trackPersonIntro: {
+    en: 'Creating a person for {a}. The company is a guess from the address domain and the date is when this was written — change either.',
+    de: 'Person für {a} anlegen. Das Unternehmen ist aus der Adressdomain geraten, das Datum ist der Zeitpunkt der Erfassung — beides änderbar.',
+    ja: '{a} の担当者を作成します。会社はアドレスのドメインからの推測、日付はこれが書かれた時点です。どちらも変更できます。',
+    ko: '{a}의 인물을 만듭니다. 회사는 주소 도메인에서 추정한 값이고 날짜는 작성 시점입니다 — 둘 다 변경할 수 있습니다.',
+  },
+  // Two dates, two honest sentences. #126 decision 3 is that a person first seen in a
+  // 2023 document becomes a 2023 fact; where the surface has no date to offer, saying so
+  // is better than letting "today" pass for the mention's date.
+  trackPersonDateFromMention: {
+    en: 'From the date this was written, not today.',
+    de: 'Vom Datum der Erfassung, nicht von heute.',
+    ja: 'これが書かれた日付です（本日ではありません）。',
+    ko: '작성된 날짜 기준이며, 오늘이 아닙니다.',
+  },
+  trackPersonDateUnknown: {
+    en: 'This surface carries no date, so today is a guess — set the real one if you know it.',
+    de: 'Diese Ansicht führt kein Datum, heute ist also geraten — tragen Sie das echte ein, wenn bekannt.',
+    ja: 'この画面には日付がないため本日を仮置きしています。正しい日付が分かる場合は入力してください。',
+    ko: '이 화면에는 날짜가 없어 오늘로 가정했습니다 — 실제 날짜를 알면 입력하세요.',
+  },
+  notAPerson: { en: 'Not a person', de: 'Keine Person', ja: '担当者ではない', ko: '인물 아님' },
   deletePersonProfile: { en: 'Delete Person Profile', de: 'Personenprofil löschen', ja: 'プロフィールを削除', ko: '프로필 삭제' },
   deleteProfileHelp: { en: 'Permanently removes this profile and career affiliations.', de: 'Entfernt dieses Profil und alle Zugehörigkeiten dauerhaft.', ja: 'このプロフィールと職歴を完全に削除します。', ko: '이 프로필과 경력 소속을 영구적으로 제거합니다.' },
   deleteProfileBtn: { en: 'Delete Profile', de: 'Profil löschen', ja: '削除する', ko: '프로필 삭제' },

@@ -16,6 +16,15 @@ jest.mock('../src/app/actions/summaries', () => ({
   regenerateSummary: (fd: FormData) => regenerateSummary(fd),
 }));
 
+// Mocked for the same reason as the module above, one import further out: the panel now
+// renders untracked-mention affordances (#127 E15), whose component imports the people
+// actions, whose transitive Next imports need APIs jsdom does not provide. This suite is
+// about what the PANEL renders; the actions have their own DB-backed tests.
+jest.mock('../src/app/actions/people', () => ({
+  trackPerson: jest.fn(async (): Promise<ActionResult> => ({})),
+  dismissAddress: jest.fn(async (): Promise<ActionResult> => ({})),
+}));
+
 /** Stands in for Next's global-error: if the auto-refresh's failure escapes the panel,
  *  this is what the reader gets instead of the page. */
 class Boundary extends React.Component<{ children: React.ReactNode }, { caught: boolean }> {

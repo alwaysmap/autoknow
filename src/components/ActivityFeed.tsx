@@ -6,6 +6,7 @@ import { feedCategory, FEED_CATEGORY_KEY, FEED_CATEGORY_ORDER, type FeedCategory
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import FeedList from './FeedList';
+import type { TrackPersonSurface } from './TrackPersonProse';
 import SearchField from './SearchField';
 import styles from './ActivityFeed.module.css';
 
@@ -25,11 +26,15 @@ export default function ActivityFeed({
   deletable = false,
   revalidate,
   emptyLabel,
+  untracked,
 }: {
   items: FeedItem[];
   deletable?: boolean;
   revalidate?: string;
   emptyLabel?: string;
+  /** Passed straight to FeedList — see there. A server page builds it with
+   *  `untrackedContext()`; omitted, the prose renders exactly as it always did. */
+  untracked?: TrackPersonSurface;
 }) {
   const locale = useLocale();
   const [active, setActive] = useState<'all' | FeedCategory>('all');
@@ -80,6 +85,7 @@ export default function ActivityFeed({
         </div>
       )}
       <FeedList
+        untracked={untracked}
         items={shown}
         emptyLabel={filtering ? t(locale, 'noMatchingUpdates') : defaultEmpty}
         deletable={deletable}

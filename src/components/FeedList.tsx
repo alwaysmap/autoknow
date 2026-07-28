@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { FeedItem } from '../lib/feed';
 import Markdown from './Markdown';
+import { TrackPersonProvider, type TrackPersonSurface } from './TrackPersonProse';
 import { NeedleGaugeSvg } from './NeedleGaugeSvg';
 import { RelationshipFace, RelationshipNoValue } from './RelationshipFace';
 import { parseScore } from '../lib/relationship';
@@ -35,10 +36,15 @@ export default function FeedList({
   emptyLabel,
   deletable = false,
   revalidate,
+  untracked,
 }: {
   items: FeedItem[];
   emptyLabel?: string;
   deletable?: boolean; // show a remove control per entry (activity surfaces only)
+  /** Turns the "track person" affordance on for this feed's digests (#127 E15). The
+   *  caller supplies it because the tracked/dismissed sets are a database question and
+   *  this is a client component. Absent, the prose renders exactly as before. */
+  untracked?: TrackPersonSurface;
   revalidate?: string; // path to revalidate after a delete
 }) {
   const locale = useLocale();
@@ -126,7 +132,14 @@ export default function FeedList({
               <div className={styles.detail}>
                 {/* context details are Gemini digests/deltas, never human prose (design.md §8) */}
                 {it.kind === 'context' && <div className={styles.aiMark}><AiBadge /></div>}
-                <Markdown>{it.detail}</Markdown>
+                {/* Each item carries its OWN date into the dialog, so a person first
+                    named in a 2023 digest becomes a 2023 fact (#126 decision 3). */}
+                <TrackPersonProvider config={{
+                  partners: untracked?.partners ?? [],
+                  mentionDate: it.timestamp ? it.timestamp.slice(0, 10) : null,
+                }}>
+                  <Markdown untracked={untracked?.ctx}>{it.detail}</Markdown>
+                </TrackPersonProvider>
               </div>
             )}
           </div>

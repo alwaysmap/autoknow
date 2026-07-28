@@ -6,7 +6,10 @@
 // there is one seam to replace with a real session/auth lookup.
 
 const DEFAULT_HANDLE = 'dylan';
-const EMAIL_DOMAIN = 'google.com';
+/** The org's own domain — what a bare `@handle` means. Exported since #127 E15, whose
+ *  untracked-mention detector has to resolve a handle to an address but is PURE and must
+ *  not reach for config itself; the caller hands it in. */
+export const EMAIL_DOMAIN = 'google.com';
 export interface CurrentUser {
   handle: string; // bare handle, e.g. 'dylan'
   display: string; // '@'-prefixed handle, e.g. '@dylan'
