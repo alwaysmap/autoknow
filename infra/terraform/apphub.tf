@@ -69,12 +69,31 @@ resource "google_apphub_application" "autoknow" {
   depends_on = [google_project_service.apis]
 }
 
+# App Hub only REGISTERS resources from attached service projects, and a single-project
+# setup is no exception: the project must be attached to itself. Discovery works without
+# this (which is how the plan resolved every URI and still failed), but every CreateService
+# then dies with "discovered_service does not exist or its project is not attached to this
+# project" — measured on the first apply, 2026-07-28, all 12 registrations (run, SQL and
+# the 10 secrets). This attachment
+# is the thing the console's "Finish setting up" wizard would have done.
+resource "google_apphub_service_project_attachment" "self" {
+  project                       = google_project.autoknow.project_id
+  service_project_attachment_id = google_project.autoknow.project_id
+
+  depends_on = [google_project_service.apis]
+}
+
 # ---- The registered services ----
 # Each `google_apphub_service` needs the DISCOVERED service's opaque handle
 # (projects/…/discoveredServices/apphub-00000000-…), which is not a stable name you can type.
 # The data sources below look each one up by its resource URI, so no generated id is pasted
-# into HCL. A URI that matches nothing fails at PLAN time — the safe direction: nothing is
-# created, and the fix is a one-line URI correction.
+# into HCL. A mistyped URI fails at PLAN time — the safe direction: nothing is created, and
+# the fix is a one-line URI correction. (An attachment-less project fails LATER, at create
+# time — that class is closed by the self-attachment above.)
+#
+# Every service below also depends_on the self-attachment: the discovered_service reference
+# only ties it to the data source, and registration fails without the attachment (see the
+# incident note above). A new service block must keep that line.
 
 data "google_apphub_discovered_service" "run" {
   project     = google_project.autoknow.project_id
@@ -105,6 +124,8 @@ resource "google_apphub_service" "run" {
   display_name       = "Cloud Run — ${var.service_name}"
   description        = "The app itself: browser UI, API routes, the Chat endpoint and the cron tick."
   discovered_service = data.google_apphub_discovered_service.run.name
+
+  depends_on = [google_apphub_service_project_attachment.self]
 }
 
 resource "google_apphub_service" "sql" {
@@ -115,6 +136,8 @@ resource "google_apphub_service" "sql" {
   display_name       = "Cloud SQL — ${google_sql_database_instance.db.name}"
   description        = "Postgres + pgvector. Reached over the Cloud SQL Auth Proxy; runtime connects as the DML-only app_runtime role."
   discovered_service = data.google_apphub_discovered_service.sql.name
+
+  depends_on = [google_apphub_service_project_attachment.self]
 }
 
 resource "google_apphub_service" "secret" {
@@ -126,4 +149,6 @@ resource "google_apphub_service" "secret" {
   display_name       = "Secret — ${each.value}"
   description        = "Secret Manager container mounted into the Cloud Run service (or read out-of-band). Values are never in Terraform."
   discovered_service = data.google_apphub_discovered_service.secret[each.value].name
+
+  depends_on = [google_apphub_service_project_attachment.self]
 }
