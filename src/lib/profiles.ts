@@ -265,6 +265,10 @@ export async function createPersonAt(person: {
       currentPartnerId: partnerId,
       affiliations: { create: { partnerId, role, startDate, email: normalizeAddress(email) } },
     },
+    // The period comes back WITH the person, so a caller laying down a real career can
+    // see — and delete — the auto-opened one instead of discovering it as an overlap
+    // refusal later (autoknow-2of). At creation there is exactly one.
+    include: { affiliations: true },
   });
 }
 
@@ -290,6 +294,42 @@ export function personIsAtPartnerAsOfSql(
     WHERE a."partnerId" = ${partnerId}
       AND a."startDate" <= ${at}
       AND (a."endDate" IS NULL OR a."endDate" > ${at}))`;
+}
+
+/**
+ * Every period of `personId`'s career that OVERLAPS `[startDate, endDate)`, with a null
+ * end meaning open. Two half-open intervals overlap iff each starts strictly before the
+ * other ends — so a period ending exactly where the new one starts does NOT collide,
+ * which is what makes a contiguous career (each end IS the next start) legal, and is the
+ * same boundary rule `asOfWhere` above draws for a single instant. This is that predicate
+ * generalized from an instant to an interval; the affiliations API asks it before
+ * authoring a period (autoknow-2of), and asks HERE because a second spelling in the route
+ * is a spelling that drifts.
+ *
+ * A read-then-write courtesy like `addressHolderAsOf`, not enforcement: #127 E9's
+ * exclusion constraint deliberately excludes one person's own periods (`personId <>`),
+ * so the mutation boundary is the only guard this invariant has, and two concurrent
+ * posts can still race past it.
+ *
+ * Selects what a refusal needs to NAME the clash — partner, role, dates, and the id the
+ * remedy (DELETE that period) takes.
+ */
+export async function overlappingPeriods(personId: number, startDate: Date, endDate: Date | null) {
+  return prisma.personAffiliation.findMany({
+    where: {
+      personId,
+      ...(endDate === null ? {} : { startDate: { lt: endDate } }),
+      OR: [{ endDate: null }, { endDate: { gt: startDate } }],
+    },
+    orderBy: { startDate: 'asc' },
+    select: {
+      id: true,
+      role: true,
+      startDate: true,
+      endDate: true,
+      partner: { select: { name: true } },
+    },
+  });
 }
 
 /**

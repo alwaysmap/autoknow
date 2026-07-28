@@ -368,6 +368,11 @@ export const affiliationApiSchema = z.object({
   // never "no address". Both address columns share `zEmail`'s canonicalization since
   // #127 E9, which is what lets the unique-at-an-instant constraint compare them.
   email: zEmailOrNull.optional(),
+}).refine((p) => p.endDate == null || p.endDate > p.startDate, {
+  path: ['endDate'],
+  // Strict: periods are half-open `[start, end)`, so an end ON the start covers no day
+  // at all — the shape `movePersonTo` deletes rather than keeps (autoknow-2of).
+  message: 'must be after startDate — a period ending on or before its start covers no day',
 });
 
 // ---- helpers --------------------------------------------------------------------

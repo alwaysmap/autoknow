@@ -26,10 +26,13 @@ export async function POST(req: Request) {
     // create the Person alone, so a person added through the API had no affiliation at
     // all — harmless while the cache was what surfaces displayed, and "no company
     // anywhere" once #127 E5 made the period the answer.
-    const person = await createPersonAt({ name, email, notes, partnerId: currentPartnerId, role, startDate });
+    const { affiliations, ...person } = await createPersonAt({ name, email, notes, partnerId: currentPartnerId, role, startDate });
     await indexEntity('person', person.id);
 
-    return NextResponse.json({ person }, { status: 201 });
+    // The auto-opened period rides along, id and all: a caller about to lay down a real
+    // career via the affiliations route needs to end or delete it, or every posted
+    // period covering today is an overlap refusal (autoknow-2of).
+    return NextResponse.json({ person, affiliation: affiliations[0] }, { status: 201 });
   } catch (error) {
     return serverError(error, 'POST /api/people');
   }
