@@ -2,15 +2,48 @@
 
 import { prisma } from './db';
 
-/** Wipe the TEST database in FK-safe order. */
+/**
+ * Wipe the TEST database — EVERY model, in FK-safe child→parent order.
+ *
+ * "Every" is the contract, not an aspiration: `tests/wipeAllCoverage.test.ts` reads the
+ * model list out of prisma/schema.prisma and fails when one of them is missing here, so
+ * a new model cannot be added without a decision about this function (AGENTS lesson 2).
+ *
+ * There are no exceptions, because a table this skips is state that survives the wipe and
+ * therefore leaks between runs — which is how the suite gets a bug that only appears the
+ * SECOND time you run it. Two have been paid for already:
+ *
+ *  - SkippedSource has no FKs, but it IS shared-DB state; omitting it is what pushed
+ *    driveSync.test.ts to hand-roll its own wipe and lose the FK-safe ordering below
+ *    (AGENTS lesson 9 flake).
+ *  - ProgramTemplate was skipped as "reference data", so the clones made by
+ *    phase_screenshots.spec.ts accumulated, and the second run of the `screens` e2e
+ *    project died on `@@unique([name, isBuiltIn])` — `Digital Key (copy)` already
+ *    existed, so cloneTemplate threw P2002 and never redirected (autoknow-93a).
+ *
+ * Nothing here needs to survive: the reference rows are all recreated on demand.
+ * Region/PartnerType are `connectOrCreate`d by the fixtures and specs that need them,
+ * the built-in templates by `ensureBuiltinTemplates()` on every /templates and
+ * /programs/new render, and the two singletons (IngestionSettings,
+ * IngestionCycleSummary) are upserted by their own writers.
+ *
+ * src/lib/seed.ts's `wipeAllData` is a SEPARATE and narrower list of the same shape,
+ * and the ratchet guards only THIS one. It spares the three template tables, plus
+ * SkippedSource and the two ingestion singletons — state somebody looking at a reseeded
+ * demo database may still want. So do not "align" the two on sight: this is the total
+ * wipe of a disposable database, and that one is a reseed of a database with a reader.
+ */
 export async function wipeAll() {
-  // SkippedSource has no FKs, but it IS shared-DB state, so a complete clean slate must
-  // clear it. Keep this line: omitting it is what pushed driveSync.test.ts to hand-roll its
-  // own wipe and lose the FK-safe child→parent ordering below (AGENTS lesson 9 flake).
+  // Standalone tables (no FKs in either direction) — order is irrelevant.
   await prisma.skippedSource.deleteMany();
+  await prisma.ingestionCycleSummary.deleteMany();
+  await prisma.ingestionSettings.deleteMany();
+  await prisma.summaryPrompt.deleteMany();
+  await prisma.summary.deleteMany();
+  await prisma.syncCursor.deleteMany();
+  // Program graph, child → parent.
   await prisma.actionItem.deleteMany();
   await prisma.contextRevision.deleteMany();
-  await prisma.syncCursor.deleteMany();
   await prisma.contextUrl.deleteMany();
   await prisma.phasePartner.deleteMany();
   await prisma.phasePerson.deleteMany();
@@ -18,13 +51,20 @@ export async function wipeAll() {
   await prisma.phaseDependency.deleteMany();
   await prisma.phase.deleteMany();
   await prisma.projectState.deleteMany();
-  await prisma.summary.deleteMany();
-  await prisma.summaryPrompt.deleteMany();
   await prisma.partnerState.deleteMany();
   await prisma.project.deleteMany();
   await prisma.personAffiliation.deleteMany();
   await prisma.person.deleteMany();
   await prisma.partner.deleteMany();
+  // The lookup tables Partner points at, so only after Partner is gone.
+  await prisma.region.deleteMany();
+  await prisma.partnerType.deleteMany();
+  // Program templates, child → parent. The two children would cascade from
+  // ProgramTemplate, but tests/wipeAllCoverage.test.ts requires every model to be NAMED
+  // here, so all three are deleted explicitly.
+  await prisma.phaseTemplateDep.deleteMany();
+  await prisma.phaseTemplate.deleteMany();
+  await prisma.programTemplate.deleteMany();
 }
 
 export interface SeededProgram {
