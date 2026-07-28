@@ -691,7 +691,8 @@ today:
 
 - **Both periods are CURRENT** (both `→ open`, or both covering today): edit the losing
   person on `/people/<id>` and give them the address they actually use. That corrects the
-  period covering today along with the record (`updatePerson` since #127 E9).
+  period covering today along with the record (`revisePerson` with NO effective date —
+  a correction, since #127 E14).
 - **Either period is CLOSED**: there is no editor for a historical period's address.
   Bead `autoknow-164` covers giving the dispatch runner a remediation arm; until it lands
   this needs a hand-written statement run by someone with database access, so **check

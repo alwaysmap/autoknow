@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '../../../lib/db';
-import PersonAdminControls from '../../../components/PersonEditor';
+import PersonAdminControls, { ScheduledChange } from '../../../components/PersonEditor';
 import ActivityFeed from '../../../components/ActivityFeed';
-import { initialsOf } from '../../../lib/people';
+import { hasTakenEffect, initialsOf } from '../../../lib/people';
 import { getActivity } from '../../../lib/activity';
 import { profileAsOf } from '../../../lib/profiles';
 import { getLocale } from '../../../lib/locale';
@@ -61,6 +61,14 @@ export default async function PersonProfile({ personId }: { personId: number }) 
   // before. Null is a real answer: a gap between jobs, or a hire starting next month.
   const profile = await profileAsOf(person.id);
 
+  // The NEXT scheduled change, if any — the soonest period that has not started
+  // (#127 E14). `hasTakenEffect` is the sanctioned JS spelling for "has this date
+  // arrived", so the line here and `cancelScheduledPeriod`'s refusal cannot disagree
+  // about whether a change is still cancellable. Affiliations are newest-start-first,
+  // so the LAST future row is the soonest one.
+  const scheduled = person.affiliations.filter((a) => !hasTakenEffect(a.startDate)).at(-1) ?? null;
+  const scheduledDay = scheduled?.startDate.toISOString().slice(0, 10) ?? '';
+
   // Programs owned as TEL, by REFERENCE (#127 E7). This is #124's Class 4 defect and
   // its fix in one place: the query used to take `person.email`, strip it to a
   // local-part, and match those three spellings against the free-text `ownerName` —
@@ -114,6 +122,7 @@ export default async function PersonProfile({ personId }: { personId: number }) 
             <h1>{person.name}</h1>
             <PersonAdminControls personId={person.id} personName={person.name}
               personEmail={person.email} personNotes={person.notes}
+              personPartnerId={profile?.partnerId ?? null} personRole={profile?.role ?? null}
               partners={partners} programs={assignablePrograms} />
           </div>
           <div className={styles.identLine}>
@@ -139,6 +148,28 @@ export default async function PersonProfile({ personId }: { personId: number }) 
             )}
             <a href={`mailto:${person.email}`} className={styles.identEmail}>{person.email}</a>
           </div>
+          {/* A SCHEDULED change, visible and cancellable (#127 E14, spec #124 §3): a
+              pending change nobody can see is Class 1 in a new costume. It sits under
+              the identity line it will replace, which is where the reader is already
+              looking to find out where this person works. */}
+          {scheduled && (
+            <div className={styles.scheduledLine}>
+              <ScheduledChange
+                personId={person.id}
+                affiliationId={scheduled.id}
+                partnerName={scheduled.partner.name}
+                dateIso={scheduledDay}
+                partners={partners}
+                seed={{
+                  name: person.name, email: person.email, notes: person.notes,
+                  partnerId: scheduled.partnerId, role: scheduled.role,
+                  // The SAME day the line prints: re-recording at the change's own
+                  // effective date is how it is corrected, so the dialog must open on it.
+                  effectiveDate: scheduledDay,
+                }}
+              />
+            </div>
+          )}
         </div>
       </header>
 

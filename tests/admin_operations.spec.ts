@@ -80,6 +80,10 @@ test.describe('Admin and Maintenance Operations', () => {
     await item.click();
   };
 
+  // Since #127 E14 a move IS the one Edit dialog with an effective date filled in —
+  // there is no separate Move door. The date is BACKDATED here so the change has
+  // already taken effect and the identity line must show it; a future date would
+  // correctly leave the page reading Waymo (that half is people.spec.ts's).
   test('should allow moving a person to a different company', async ({ page }) => {
     const person = await prisma.person.findFirst({ where: { name: 'Bob Miller' } });
     const ford = await prisma.partner.findFirst({ where: { name: 'Ford' } });
@@ -88,12 +92,12 @@ test.describe('Admin and Maintenance Operations', () => {
     // Verify Bob starts at Waymo
     await expect(page.locator('body')).toContainText('Waymo');
 
-    await viaPersonKebab(page, 'Move to Different Company');
+    await viaPersonKebab(page, 'Edit details');
     const dialog = page.locator('dialog[open]');
-    await dialog.locator('select[name="newPartnerId"]').selectOption(ford?.id.toString() || '');
-    await dialog.locator('input[name="newRole"]').fill('Lead Systems Architect');
-    await dialog.locator('input[name="startDate"]').fill('2026-06-01');
-    await dialog.locator('button:has-text("Move Partner")').click();
+    await dialog.locator('select[name="partnerId"]').selectOption(ford?.id.toString() || '');
+    await dialog.locator('input[name="role"]').fill('Lead Systems Architect');
+    await dialog.locator('input[name="effectiveDate"]').fill('2026-06-01');
+    await dialog.locator('button:has-text("Save changes")').click();
 
     // Verify updated details
     await expect(page.locator('dialog[open]')).toHaveCount(0);

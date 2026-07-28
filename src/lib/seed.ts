@@ -30,7 +30,7 @@ import { POST as postPhaseRoute } from '../app/api/projects/[id]/phases/route';
 import { POST as postPhaseStateRoute } from '../app/api/projects/[id]/phases/[phaseId]/state/route';
 import { POST as postActionItemRoute } from '../app/api/projects/[id]/phases/[phaseId]/action-items/route';
 import { addPhaseDependency } from '../app/actions/dependencies';
-import { movePersonCompany } from '../app/actions/people';
+import { revisePerson } from '../app/actions/people';
 import { addPhasePartner } from '../app/actions/phasePartners';
 import { addPhasePerson } from '../app/actions/phasePeople';
 import { setPhaseStarted } from '../app/actions/hill';
@@ -679,7 +679,14 @@ export async function seedMockData() {
   // is addressed to the account she actually held at the time, exactly as a real one
   // captured then would be, and the Qualcomm one used to strand off her entirely
   // (#124 Class 4).
+  // `name` and `notes` are person-level and belong here beside the periods for one
+  // reason: since #127 E14 the scheduled Honda move goes through `revisePerson`, whose
+  // form carries the whole record — so these are submitted twice (creation, then the
+  // move) and a literal typed twice is a fixture that can disagree with itself.
   const ALICE = {
+    name: 'Alice Waters',
+    // Company and title live in the periods, so the note does not repeat them.
+    notes: 'Telematics platform engineer who moved to the Google side of the same programs.',
     bosch: { role: 'Platform Engineer', email: 'alice.waters@bosch.com', start: '2022-01-01', end: '2024-03-01' },
     qualcomm: { role: 'Staff Engineer', email: 'awaters@qualcomm.com', start: '2024-03-01', end: '2026-07-01' },
     google: { role: 'Lead Program Manager', email: 'alice@google.com', start: '2026-07-01' },
@@ -1189,7 +1196,7 @@ export async function seedMockData() {
   // Honda, Bosch or Qualcomm to exist stays here, and all of it rides the same
   // mutation boundaries as the rest of the seed (createPerson, the affiliations
   // route, createProject/createPhase, the involvement actions), INCLUDING the
-  // scheduled Honda move, which goes through `movePersonCompany` itself rather than
+  // scheduled Honda move, which goes through `revisePerson` itself rather than
   // hand-writing the rows that action would write. That is the point: the fixture
   // inherits whatever the action really does. It was authored while the action
   // advanced Person.currentPartnerId unconditionally, so it RENDERED #124 Class 1 —
@@ -1390,18 +1397,26 @@ export async function seedMockData() {
   // (d) THE SCHEDULED MOVE. Four months out, through the real action — which records
   // the Honda affiliation but leaves currentPartnerId on Google until the date
   // arrives, so the identity line on /people/<alice> correctly reads Google LLC · Lead
-  // Program Manager. The Honda row lists under History, which is right — it is not the
-  // job held today — but its open end still renders "Present", which is not. That last
-  // residue is #127 E14's scheduled-move affordance, and this fixture is what keeps it
-  // visible until then. Deriving the date (never a
-  // literal) is what keeps it a FUTURE move on every re-seed, and therefore a live
-  // guard against Class 1 coming back.
+  // Program Manager, and #127 E14's scheduled-change line names Honda and the date
+  // beneath it with Edit and Cancel. The Honda row also lists under History, which is
+  // right — it is not the job held today. Deriving the date (never a literal) is what
+  // keeps it a FUTURE move on every re-seed, and therefore a live guard against Class 1
+  // coming back.
+  //
+  // `revisePerson` since E14 folded the Move dialog into the one editor: the same
+  // submit the UI makes, so the fixture keeps inheriting whatever the action really
+  // does. Name/address/notes ride along unchanged because a dated change carries the
+  // person-level fields too (latest-wins, #124 §2) — passing her current ones is what
+  // "nothing else about her changed" looks like through this form.
   const hondaMoveDate = aheadMonthStart(4);
-  const moved = await movePersonCompany(fd({
+  const moved = await revisePerson(fd({
     personId: aliceWaters.id,
-    newPartnerId: hondaId,
-    newRole: ALICE.honda.role,
-    startDate: hondaMoveDate.toISOString(),
+    name: ALICE.name,
+    email: ALICE.google.email,
+    notes: ALICE.notes,
+    partnerId: hondaId,
+    role: ALICE.honda.role,
+    effectiveDate: hondaMoveDate.toISOString(),
   }));
   if (moved.error) throw new Error(`Seed scheduled move to Honda failed: ${moved.error}`);
   console.log(

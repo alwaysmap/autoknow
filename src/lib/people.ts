@@ -91,10 +91,11 @@ export function hasTakenEffect(effective: Date | string, at: Date = new Date()):
  * the identity line, the job she actually holds filed under History, and a job she starts
  * in November labelled "Present".
  *
- * TWO production callers, and both are the case this exists for — a surface that already
- * HOLDS the periods: `movePersonCompany` (app/actions/people), which holds the one it
- * just wrote, and `labelWithJobHeldThen` (lib/activity), which holds a whole career and
- * resolves 25 feed rows against it. The second is why re-querying is not an option here:
+ * Every production caller is the case this exists for — a surface that already HOLDS
+ * the periods: `recordPersonChange` and `movePersonTo` (lib/profiles), which hold the
+ * period just written, and `labelWithJobHeldThen` (lib/activity), which holds a whole
+ * career and resolves 25 feed rows against it. The last is why re-querying is not an
+ * option here:
  * `profileAsOf` per row would be 25 round trips a page. /people/:id's identity line still
  * asks `profileAsOf`, because it has to FETCH — that is the whole division, and the lint
  * rule names both spellings so no third one gets written.

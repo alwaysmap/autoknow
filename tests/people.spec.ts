@@ -271,4 +271,52 @@ test.describe('People and Biographical History', () => {
     await expect(page.locator('body')).toContainText('Integration lead');
   });
 
+  // #127 E14, spec #124 §3. The dialog says what it is about to DO before it does it,
+  // and the date is what changes the answer — the safeguard that keeps a typo fix from
+  // writing a fake job change. Runs LAST in this serial file: it schedules a change on
+  // the shared person, which the assertions above would otherwise see.
+  test('the one editor states correct-vs-change as the effective date changes', async ({ page }) => {
+    await page.goto(`/people/${personId}`);
+
+    const dialog = page.locator('dialog[open]');
+    await expect(async () => {
+      if (!(await dialog.isVisible())) {
+        const item = page.getByTestId('edit-person');
+        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+        await item.click({ timeout: 2000 });
+      }
+      await expect(dialog).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+
+    // Empty date: a correction. The dialog opens seeded with today's employer and
+    // title, which is what makes correcting a typo'd title possible at all.
+    await expect(dialog).toContainText('corrects');
+    // By NAME, not by id: the dialog renders twice on a page with a scheduled change, so
+    // its field ids carry a useId() prefix. The name IS the form contract the action
+    // parses, which makes it the stable handle.
+    await expect(dialog.locator('input[name="role"]')).toHaveValue('Systems Engineer');
+
+    // A future date turns the same submit into a scheduled change — no extra control,
+    // only the date.
+    const future = new Date();
+    future.setUTCFullYear(future.getUTCFullYear() + 1);
+    await dialog.locator('input[name="effectiveDate"]').fill(future.toISOString().slice(0, 10));
+    await expect(dialog).toContainText('schedules');
+
+    await dialog.locator('select[name="partnerId"]').selectOption({ label: 'Ford' });
+    await dialog.locator('input[name="role"]').fill('Platform Lead');
+    await dialog.locator('button:has-text("Save changes")').click();
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+
+    // The scheduled change is VISIBLE — a pending change nobody can see is Class 1 in a
+    // new costume — and the identity line still reads the job held TODAY.
+    await expect(page.locator('body')).toContainText('Scheduled: moves to Ford');
+    await expect(page.locator('[class*="identLine"]')).toContainText('Waymo');
+
+    // …and cancellable, which puts the career back the way it was. By testid, not by
+    // text: the Edit dialog is a child of this line and has a Cancel of its own.
+    await page.getByTestId('cancel-scheduled').click();
+    await expect(page.locator('body')).not.toContainText('Scheduled: moves to Ford');
+  });
+
 });

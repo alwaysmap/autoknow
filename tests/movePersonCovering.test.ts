@@ -1,5 +1,5 @@
 /** @jest-environment node */
-// autoknow-pvn (#127 E14 follow-on). `movePersonCompany` used to close the OPEN period
+// autoknow-pvn (#127 E14 follow-on). The move used to close the OPEN period
 // rather than the period COVERING the move date. The two coincide only while nothing is
 // scheduled and nothing is backdated past an existing period — so every case below is a
 // career where they DIVERGE, and each one asserts the shape of the whole timeline
@@ -26,7 +26,7 @@ jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 // Dynamic import AFTER the env assignment above — a static import is hoisted and would
 // evaluate src/lib/db (binding its prisma client) before DATABASE_URL is set.
 type PeopleActions = typeof import('../src/app/actions/people');
-let movePersonCompany: PeopleActions['movePersonCompany'];
+let revisePerson: PeopleActions['revisePerson'];
 
 // Dates are stated as offsets from TODAY, never as literals, because the action asks
 // `coversDay` against the wall clock — a fixture with a hard-coded 2026 date stops
@@ -75,10 +75,14 @@ async function currentPartnerName() {
 const move = async (partnerId: number, offset: number) => {
   const f = new FormData();
   f.append('personId', String(personId));
-  f.append('newPartnerId', String(partnerId));
-  f.append('newRole', 'Cockpit Platform Lead');
-  f.append('startDate', isoDay(offset));
-  const result = await movePersonCompany(f);
+  // The whole record rides the form since #127 E14 folded the Move dialog into the one
+  // editor; name and address are her current ones, so this submit changes only the job.
+  f.append('name', 'Alice Waters');
+  f.append('email', 'alice.waters@example.com');
+  f.append('partnerId', String(partnerId));
+  f.append('role', 'Cockpit Platform Lead');
+  f.append('effectiveDate', isoDay(offset));
+  const result = await revisePerson(f);
   expect(result.error).toBeUndefined();
 };
 
@@ -97,7 +101,7 @@ async function career(...periods: [number, number, number | null][]) {
 }
 
 beforeAll(async () => {
-  ({ movePersonCompany } = await import('../src/app/actions/people'));
+  ({ revisePerson } = await import('../src/app/actions/people'));
   await wipeAll();
 
   const region = { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } };
@@ -129,7 +133,7 @@ afterAll(async () => {
   await disconnectTestDb();
 });
 
-describe('movePersonCompany closes the period COVERING the move date', () => {
+describe('a dated change closes the period COVERING its effective date', () => {
   // The bead's own scenario. Google runs until a move to Honda already recorded for
   // +100d. Under "close the open period" the Honda row — the one that has not started —
   // was closed today and Google was left running to +100d, so today had TWO employers.

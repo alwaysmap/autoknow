@@ -65,6 +65,24 @@
   line-height: 1.25rem;
   margin-top: 0.125rem;
 }
+
+/* The scheduled-change line under the identity line it will replace (#127 E14) — the
+   sentence and its two verbs on ONE row (§7: icon + fact + action cluster
+   horizontally, never a stack). The Cancel button is wrapped in a form, so the form is
+   a flex item too and must not introduce a line of its own. */
+.scheduledLine {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4375rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  margin-top: 0.125rem;
+  color: var(--muted);
+}
+.scheduledLine form {
+  display: contents;
+}
 .identCompany {
   font-weight: 400;
   color: var(--fg);

@@ -43,6 +43,26 @@
   margin-bottom: 1.25rem;
 }
 
+/* A verb sitting inside a line of prose — the scheduled-change line's Edit and Cancel
+   (#127 E14). A button, because it acts rather than navigates, but inked and sized like
+   the link beside it so the sentence reads as one line rather than as a toolbar. */
+.inlineAction {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  /* 13px × 1.5 = 19.5px, so the line box is pinned explicitly (design.md §8d rule 3) —
+     and at 1.25rem it matches the prose it sits inside rather than only landing whole. */
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--link);
+  cursor: pointer;
+}
+.inlineAction:hover {
+  color: var(--link-hover);
+  text-decoration: underline;
+}
+
 .dialogForm {
   display: flex;
   flex-direction: column;
