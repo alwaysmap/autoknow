@@ -175,7 +175,7 @@ Enable APIs with `google_project_service`: `run`, `sqladmin`, `secretmanager`,
 
 | Concern | Terraform resource(s) |
 |---|---|
-| Image registry | `google_artifact_registry_repository` (Docker) |
+| Image registry | `google_artifact_registry_repository` (Docker) — `autoknow` for our images, plus `dockerhub` in `REMOTE_REPOSITORY` mode, a proxy/cache of Docker Hub so a build never depends on docker.io being reachable |
 | Database | `google_sql_database_instance` (POSTGRES_16, no public IP), `google_sql_database`, `google_sql_user` |
 | App runtime | `google_cloud_run_v2_service` (+ `..._service_iam_member` `run.invoker=allUsers` for public ingress) |
 | Schedule | `google_cloud_scheduler_job` |
@@ -184,26 +184,34 @@ Enable APIs with `google_project_service`: `run`, `sqladmin`, `secretmanager`,
 | IAM | `google_project_iam_member` (runtime → `secretmanager.secretAccessor`, `cloudsql.client`); scheduler SA → nothing extra when using a bearer header |
 | Keyless CI auth | `google_iam_workload_identity_pool` + `..._provider` (GitHub OIDC), `google_service_account_iam_member` binding the CI SA to the pool |
 | Networking | (optional) Serverless VPC connector only if you choose **private IP** Cloud SQL; the unix-socket path needs none |
+| Grouping | `google_apphub_application` + `google_apphub_service` — one App Hub Application (`autoknow`, scope GLOBAL, environment PRODUCTION) holding the runtime surface: Cloud Run, Cloud SQL, and every secret container. Console: https://console.cloud.google.com/apphub?project=autoknow-prod-1895f1&authuser=dylan@alwaysmap.com |
 
-**File layout** (following terraforming-101: `main.tf` / `variables.tf` /
-`terraform.tfvars`, explicit provider version, **GCS remote state** for a real
-deployment rather than local):
+**App Hub shows the runtime surface, not the whole stack.** It models services and
+workloads only, so the Scheduler job, both registries, the domain mapping, the
+monitoring policies, the service accounts/IAM and the API enablements are invisible
+there by construction — read this inventory for those.
+
+**File layout — as built** (GCS remote state, provider versions pinned in
+`providers.tf`; values live per-instance under `instances/`, not in a root
+`terraform.tfvars`):
 
 ```
 infra/terraform/
-  backend.tf         # backend "gcs" { bucket = "autoknow-tfstate" }
-  providers.tf       # google + google-beta, pinned versions
-  variables.tf       # project_id, region, image, domains, oauth ids…
-  terraform.tfvars   # concrete values (secrets NOT here — see §5)
-  apis.tf            # google_project_service ×N
-  registry.tf        # artifact registry
-  database.tf        # cloud sql instance + db + user
-  secrets.tf         # secret manager + random_password
-  run.tf             # cloud run service + iam
-  scheduler.tf       # cloud scheduler job
-  iam.tf             # service accounts + role bindings + WIF pool
-  outputs.tf         # service URL, sql connection name, etc.
+  providers.tf       # google + google-beta + random + time, pinned; backend "gcs" (partial)
+  variables.tf       # project_id, region, image, domains, alarm toggles…
+  main.tf            # project, APIs, state bucket, registries, Cloud SQL, secrets,
+                     #   service accounts + IAM, Cloud Run, Scheduler, domain mapping, WIF
+  monitoring.tf      # log-based metrics + ingestion alert policies (cadence derived here)
+  apphub.tf          # App Hub application + the registered services
+  outputs.tf         # service URL, sql connection name, registry paths, etc.
+  instances/
+    alwaysmap.tfvars       # concrete values (secrets NOT here — see §5)
+    alwaysmap.backend.hcl  # state bucket + prefix, passed to `terraform init`
 ```
+
+Run it through the wrapper (`npm run infra:plan` / `infra:apply`), which unsets the
+app's service-account credentials and asserts a human `@alwaysmap.com` identity before
+touching the backend — see `scripts/infra/terraform.sh`.
 
 Keep infra changes rare; keep app deploys frequent (§8).
 

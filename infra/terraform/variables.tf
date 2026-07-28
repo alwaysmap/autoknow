@@ -1,4 +1,5 @@
-# Variable schemas (values live in terraform.tfvars — see terraform.tfvars.example).
+# Variable schemas. Values live per-instance in instances/<name>.tfvars (the deployed one is
+# instances/alwaysmap.tfvars); terraform.tfvars.example is the annotated template.
 # Secrets are NOT variables here: secret *containers* are created by Terraform and
 # their *values* are populated out-of-band (gcloud, from the local .env) so no secret
 # ever lands in a .tf/.tfvars file or state as plaintext input.
@@ -74,7 +75,7 @@ variable "workspace_customer_id" {
 
 variable "chat_group_owner" {
   type        = string
-  description = "Initial member + manager of the AutoKnow contributors group."
+  description = "The human who owns this deployment: initial member + manager of the AutoKnow contributors group, and the business/developer/operator owner recorded on the App Hub application (apphub.tf)."
   default     = "dylan@alwaysmap.com"
 }
 

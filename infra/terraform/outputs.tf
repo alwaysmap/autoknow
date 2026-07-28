@@ -36,6 +36,11 @@ output "artifact_registry" {
   value = "${var.region}-docker.pkg.dev/${google_project.autoknow.project_id}/${google_artifact_registry_repository.images.repository_id}"
 }
 
+output "artifact_registry_dockerhub" {
+  description = "Base-image mirror: prefix a Docker Hub path with this (e.g. …/library/node@sha256:…) so builds never call docker.io."
+  value       = "${var.region}-docker.pkg.dev/${google_project.autoknow.project_id}/${google_artifact_registry_repository.dockerhub.repository_id}"
+}
+
 output "runtime_service_account" {
   value = google_service_account.run.email
 }

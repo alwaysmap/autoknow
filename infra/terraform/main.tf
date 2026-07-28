@@ -27,6 +27,12 @@ locals {
     "drive.googleapis.com",         # background Drive doc ingestion (lib/driveSync, keyless SA token)
     "cloudidentity.googleapis.com", # the Workspace contributors group (Chat visibility)
     "storage.googleapis.com",       # remote Terraform state bucket
+    # App Hub — the one home for the app's runtime surface (apphub.tf). It is already
+    # ENABLED in prod because someone enabled it by hand; declaring it makes the enabled set
+    # a consequence of this config rather than of who clicked what. Adopting an already-on
+    # API only writes a state entry — and disable_on_destroy = false below means removing
+    # the line later cannot turn it off underneath a live registration.
+    "apphub.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "orgpolicy.googleapis.com",
     "serviceusage.googleapis.com", # quota/billing project for the orgpolicy provider alias
@@ -79,6 +85,45 @@ resource "google_artifact_registry_repository" "images" {
   repository_id = "autoknow"
   format        = "DOCKER"
   depends_on    = [google_project_service.apis]
+}
+
+# ---- Docker Hub mirror (base images) ----
+# Every deploy builds FROM a Node base image, and pulling it straight from Docker Hub puts
+# an unauthenticated third party on the critical path of shipping. On 2026-07-27 that bill
+# came due: the deploy of 26bf955 failed with `DeadlineExceeded: node:22-alpine: … dial tcp
+# 34.236.73.184:443: i/o timeout` (GitHub Actions run 30227143377) AFTER the migrate job had
+# already succeeded — prod sat on the old revision with new migrations applied, a split state
+# the health endpoint cannot show you (AGENTS lesson 1: ask prod what sha it runs).
+#
+# A REMOTE repository is Artifact Registry proxying and caching upstream: the first pull of a
+# digest fetches it from Docker Hub, every later pull is served from inside the project. So a
+# Docker Hub outage stops being a deploy outage, and pulls stop counting against Docker Hub's
+# anonymous rate limit.
+#
+# The Dockerfile is repointed at this mirror BY DIGEST — a moved tag cannot then change the
+# runtime — in a separate app PR, because a combined one would deploy that Dockerfile before
+# anyone had applied this (AGENTS infra ordering; bead autoknow-7dj).
+#
+# No IAM here on purpose: the CI service account already holds project-level
+# roles/artifactregistry.writer (see google_project_iam_member.ci_roles), which includes the
+# read this repository needs, and `gcloud auth configure-docker <region>-docker.pkg.dev` in
+# scripts/ci/build-and-deploy.sh already authenticates the host that will pull it.
+resource "google_artifact_registry_repository" "dockerhub" {
+  project       = google_project.autoknow.project_id
+  location      = var.region
+  repository_id = "dockerhub"
+  format        = "DOCKER"
+  mode          = "REMOTE_REPOSITORY"
+  description   = "Remote (proxy + cache) of Docker Hub, so a deploy does not depend on docker.io being reachable."
+
+  remote_repository_config {
+    description = "docker.io"
+    docker_repository {
+      public_repository = "DOCKER_HUB"
+    }
+  }
+
+  depends_on = [google_project_service.apis]
 }
 
 # ---- Cloud SQL (Postgres + pgvector) ----
