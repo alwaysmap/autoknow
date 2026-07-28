@@ -66,10 +66,12 @@ export interface PhaseSpan {
 }
 
 /**
- * A row's state sub-spans — the same decomposition the Option A bar draws, so the
- * strip and the bar can never name a day differently. Note what is NOT here: the
- * days a phase handed back are not part of the phase (it is over), they are a
- * credit window, and they come back from `summaryAt` as one.
+ * A row's state sub-spans — the decomposition the Option A bar draws. Note what is
+ * NOT here: the days a phase handed back are not part of the phase (it is over),
+ * they are a credit window, and they come back from `summaryAt` as one.
+ *
+ * This function does NOT yet go through the five chain predicates, and today it can
+ * name a day differently from every other surface — see the `over` push below.
  */
 export function phaseDaySpans(r: ScheduleRow, now: number): PhaseSpan[] {
   const out: PhaseSpan[] = [];
@@ -78,6 +80,11 @@ export function phaseDaySpans(r: ScheduleRow, now: number): PhaseSpan[] {
   };
   if (r.kind === 'done') {
     push('done', r.startMs, Math.min(r.endMs, r.plannedEndMs));
+    // BUG, autoknow-4dr.3: `push` emits on any positive MILLISECOND, so this paints
+    // `over` for a phase `isRealizedOverrun` (a whole-day test) calls on plan — and
+    // the row card beside it says so. Left as-is only because autoknow-4dr.1 was
+    // behaviour-preserving by contract; the fix is to gate this on the predicate.
+    // docs/knowledge/a-shared-predicate-does-not-reach-the-surface-that-decides-by-geometry.md
     push('over', r.plannedEndMs, r.endMs);
     return out;
   }

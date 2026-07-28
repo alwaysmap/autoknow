@@ -148,20 +148,20 @@ const noOwnerNameReads = [
 //
 // `lib/chainLedger` answers that with exactly five tests over a ScheduleRow's
 // `varianceDays`/`gapBeforeDays`, and every chart surface asks the same five questions.
-// Five files had hand-rolled their own copies (the ledger itself twice, lib/bufferSeries,
-// lib/chainDay, ChainSchedule.tsx, ChainLedger.tsx) — AGENTS lesson 7 in its literal form,
-// and only ONE pair of them had a test that would notice a disagreement (the flow-vs-
-// waterfall balance gate). autoknow-4dr.1 converged them onto the five exported
+// Seven sites across five files had hand-rolled their own copies (the ledger itself twice,
+// lib/bufferSeries, lib/chainDay, ChainSchedule.tsx, ChainLedger.tsx) — AGENTS lesson 7 in
+// its literal form, and only ONE pair of them had a test that would notice a disagreement
+// (the flow-vs-waterfall balance gate). autoknow-4dr.1 converged them onto the five exported
 // predicates; this family is what stops a sixth copy being written, because the next
 // chart author reaches for a comparison, not for a name (AGENTS lesson 2).
 //
-// Fifth family, and the FIRST anchored on a threshold rather than on a name. Both fields
+// Fifth family, and the FIRST anchored on the COMPARISON rather than on a name. Both fields
 // are numbers a chart legitimately DISPLAYS (`{ d: r.gapBeforeDays }`) and legitimately
 // picks grammar from (`r.varianceDays === 1 ? 'clRowSpentOne' : …`), so a name-shaped
 // selector like the four above would be wrong here. What the five predicates uniquely are
 // is ORDERING comparisons against these two fields — so that is the anchor, and `===`/`!==`
 // stay legal by node shape rather than by an exemption anyone has to maintain.
-const PREDICATE_MESSAGE =
+const CHAIN_PREDICATE_MESSAGE =
   "Choose from the five exported chain predicates — hasIdleGapBefore / isRealizedOverrun / " +
   "isRealizedUnderrun / isForecastOver / isForecastUnder (src/lib/chainLedger.ts) — never a " +
   "fresh comparison against varianceDays or gapBeforeDays. They are one taxonomy with a " +
@@ -175,15 +175,15 @@ const noHandRolledChainPredicates = [
     // `r.varianceDays >= 1`, `row.gapBeforeDays >= 1`, and the mirrored operand order.
     selector:
       "BinaryExpression[operator=/^(<|>|<=|>=)$/] > MemberExpression[property.name=/^(varianceDays|gapBeforeDays)$/]",
-    message: PREDICATE_MESSAGE,
+    message: CHAIN_PREDICATE_MESSAGE,
   },
   {
     // The destructured spelling — `const { varianceDays } = r; if (varianceDays >= 1)` —
-    // which the selector above misses because the operand is a bare Identifier. The same
-    // hole the cache family's TemplateElement rule exists to close, in a different disguise.
+    // which the selector above misses because the operand is a bare Identifier, not a
+    // MemberExpression.
     selector:
       "BinaryExpression[operator=/^(<|>|<=|>=)$/] > Identifier[name=/^(varianceDays|gapBeforeDays)$/]",
-    message: PREDICATE_MESSAGE,
+    message: CHAIN_PREDICATE_MESSAGE,
   },
 ];
 
@@ -331,10 +331,6 @@ const eslintConfig = defineConfig([
   },
   {
     // Tests are FIXTURE authors, and all three data families are unavoidable there:
-    // (The chain-predicate family stays ON here: a test asserting on a fixture's
-    // varianceDays does it through `expect(...)`, never through a comparison, and a test
-    // that DID re-implement a predicate would be asserting its own copy is consistent
-    // with itself — the one place a hand-rolled copy is worst, not most excusable.)
     // `currentPartnerId` is a REQUIRED FK so no test can build a Person without naming
     // it, `endDate: null` is how you write down an open period you are about to assert on
     // (tests/coversDay.test.ts does exactly that), and a fixture must write `ownerName`
@@ -342,6 +338,10 @@ const eslintConfig = defineConfig([
     // anything. What a test reads is also usually the POINT —
     // tests/scheduledMove.test.ts asserts the cache does NOT advance early, and
     // tests/ownerBackfill + tests/ownerRemediation exist to assert on the legacy column.
+    // The chain-predicate family stays ON here: a test asserting on a fixture's
+    // varianceDays does it through `expect(...)`, never through a comparison, and a test
+    // that DID re-implement a predicate would be asserting its own copy is consistent
+    // with itself — the one place a hand-rolled copy is worst, not most excusable.
     files: ["tests/**"],
     rules: { "no-restricted-syntax": allFamiliesExcept("cache", "openPeriod", "ownerText") },
   },

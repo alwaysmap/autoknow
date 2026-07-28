@@ -12,7 +12,7 @@ symptoms:
   - a bar draws red beside a row card that says the phase is on plan
   - the day strip names a phase over its estimate but the waterfall has no row for it
   - a grep for the field the predicate tests finds every copy and the bug is still there
-verified_by: 'tests/chainLedger.test.ts "exposes the four other predicates"; eslint chainPredicates family; autoknow-4dr.1 (935-case equivalence run), bug autoknow-4dr.3'
+verified_by: 'tests/chainLedger.test.ts "keeps the realized/forecast threshold asymmetry"; eslint chainPredicates family; autoknow-4dr.1 (935-case equivalence run), bug autoknow-4dr.3'
 ---
 
 # Converging call sites onto a shared predicate misses the surface that asks the same question with a ruler

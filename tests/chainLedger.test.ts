@@ -168,12 +168,27 @@ describe('forecast-noise threshold', () => {
     expect(isForecastOver({ kind: 'done', varianceDays: 9 })).toBe(false);
   });
 
-  // The other four predicates, pinned the same way and for the same reason. They were
-  // hand-copied across five files until autoknow-4dr.1 converged them; eslint's
-  // `chainPredicates` family stops a sixth copy being WRITTEN, and this stops the
-  // shared one being quietly redefined — a lint rule cannot tell you the single
-  // remaining definition changed its mind about which rows count.
-  it('exposes the four other predicates, with the realized/forecast asymmetry intact', () => {
+  it('reports a two-day forecast overrun through both surfaces', () => {
+    // elapsed 22 + remaining 20 = 42 vs 40 planned
+    const r = computeChainLedger({
+      phases: [phase(1, 40, 50, [], iso(0))],
+      sopDate: iso(200),
+      now: day(22),
+    });
+    expect(r.schedule[0].varianceDays).toBe(2);
+    expect(r.waterfall.find((w) => w.kind === 'forecast')?.days).toBe(2);
+    expect(r.situations.find((s) => s.type === 'forecastOverrun')).toMatchObject({ days: 2 });
+  });
+});
+
+// The whole taxonomy pinned in one table, because the names ARE the interface: the
+// next chart author reaches for one of these rather than writing a comparison. They
+// were hand-copied across seven sites until autoknow-4dr.1 converged them; eslint's
+// `chainPredicates` family stops a sixth copy being WRITTEN, and this stops the
+// shared one being quietly redefined — a lint rule cannot tell you the single
+// remaining definition changed its mind about which rows count.
+describe('the five waterfall predicates', () => {
+  it('keeps the realized/forecast threshold asymmetry', () => {
     // REALIZED variances are measured between two real dates: they count from 1 day.
     expect(isRealizedOverrun({ kind: 'done', varianceDays: 1 })).toBe(true);
     expect(isRealizedOverrun({ kind: 'done', varianceDays: 0 })).toBe(false);
@@ -195,18 +210,6 @@ describe('forecast-noise threshold', () => {
     // was lost BETWEEN phases rather than inside one.
     expect(hasIdleGapBefore({ gapBeforeDays: 1 })).toBe(true);
     expect(hasIdleGapBefore({ gapBeforeDays: 0 })).toBe(false);
-  });
-
-  it('reports a two-day forecast overrun through both surfaces', () => {
-    // elapsed 22 + remaining 20 = 42 vs 40 planned
-    const r = computeChainLedger({
-      phases: [phase(1, 40, 50, [], iso(0))],
-      sopDate: iso(200),
-      now: day(22),
-    });
-    expect(r.schedule[0].varianceDays).toBe(2);
-    expect(r.waterfall.find((w) => w.kind === 'forecast')?.days).toBe(2);
-    expect(r.situations.find((s) => s.type === 'forecastOverrun')).toMatchObject({ days: 2 });
   });
 });
 

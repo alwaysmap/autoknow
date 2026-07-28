@@ -530,7 +530,8 @@ directly; no chart needed.)*
   flow, the day summary, the schedule chart and the row card all choose from
   them. Comparing `varianceDays`/`gapBeforeDays` anywhere else fails `npm run
   lint` (`no-restricted-syntax`, the `chainPredicates` family), so the
-  "+1-day phase" class of disagreement can no longer be re-introduced by hand. A single-point projection dressed as certainty is worse than
+  "+1-day phase" class of disagreement can no longer be re-introduced by hand.
+  A single-point projection dressed as certainty is worse than
   useless; v1's forecasts state their simple basis (the hover shows the
   arithmetic), direct "days left" answers override the formula when present
   (open question 10), and the upgrade path to a *grounded* forecast with a

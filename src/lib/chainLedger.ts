@@ -142,29 +142,35 @@ const days = (ms: number) => ms / DAY_MS;
  */
 export const FORECAST_NOISE_DAYS = 2;
 
-/**
- * THE FIVE WATERFALL PREDICATES — the whole taxonomy of "this schedule row moved
- * the buffer", and the one place each of those five questions is asked.
- *
- * The waterfall and the situation packets below are built from exactly these five
- * tests, and so is every other surface that reads a `ScheduleRow`: the buffer flow
- * (lib/bufferSeries), the day summary (lib/chainDay), the schedule chart and the
- * row card. They were hand-copied into five files, which is AGENTS lesson 7 in its
- * literal form — the same control in five variants, agreeing only by vigilance, and
- * only ONE pair of them (the flow and the waterfall) had a test that would notice.
- * Exported for the reason `isForecastOver` already carried alone: every caller
- * chooses from ONE predicate, so they can never disagree about which rows count.
- *
- * They take the FIELDS, not a whole row, so a caller cannot accidentally widen the
- * question, and eslint's `chainPredicates` family blocks comparing `varianceDays`
- * or `gapBeforeDays` anywhere but here — a sixth copy fails `npm run lint` rather
- * than review (AGENTS lesson 2).
- *
- * REALIZED variances count from 1 day and FORECAST variances from
- * FORECAST_NOISE_DAYS, and that asymmetry is the whole reason there are five
- * predicates rather than a sign test: a done phase is measured between two real
- * dates, while a live phase's remaining half is a hill-position guess.
- */
+// ---- the five waterfall predicates: did this row move the buffer, and how? ----
+//
+// The whole taxonomy, and the one place each of those five questions is asked. The
+// waterfall and the situation packets below are built from exactly these five tests,
+// and so is every other surface that reads a `ScheduleRow`: the buffer flow
+// (lib/bufferSeries), the day summary (lib/chainDay), the schedule chart and the row
+// card. They had been hand-copied outward as seven sites across five files — the
+// ledger's own waterfall and situations loops among them — which is AGENTS lesson 7
+// in its literal form, and only ONE pair of those sites (the flow and the waterfall)
+// had a test that would notice a disagreement. Exported for the reason
+// `isForecastOver` already carried alone: every caller chooses from ONE predicate, so
+// they can never disagree about which rows count.
+//
+// Each takes a `Pick` of only the fields it tests, so a body cannot quietly start
+// depending on another one, and a test can pin a predicate with a bare two-field
+// literal rather than a whole fixture (tests/chainLedger.test.ts does exactly that).
+// eslint's `chainPredicates` family blocks ORDERING comparisons against
+// `varianceDays`/`gapBeforeDays` anywhere but here, so a sixth copy fails
+// `npm run lint` rather than review (AGENTS lesson 2). Reading either value to
+// DISPLAY it, or to pick singular/plural copy, stays legal.
+//
+// REALIZED variances count from 1 day and FORECAST variances from
+// FORECAST_NOISE_DAYS, and that asymmetry is the whole reason there are five
+// predicates rather than a sign test: a done phase is measured between two real
+// dates, while a live phase's remaining half is a hill-position guess. The naming
+// carries no second distinction — `…Over`/`…Under` and `…Overrun`/`…Underrun` mean
+// the same thing, and `isForecastOver` keeps its older spelling because it is
+// already exported, already called from four files and already named in
+// docs/CRITICAL_CHAIN_VIEW_PLAN.md.
 
 /**
  * Idle days between the previous chain phase finishing and this one starting —
@@ -186,13 +192,15 @@ export const isRealizedOverrun = (r: Pick<ScheduleRow, 'kind' | 'varianceDays'>)
 export const isRealizedUnderrun = (r: Pick<ScheduleRow, 'kind' | 'varianceDays'>): boolean =>
   r.kind === 'done' && r.varianceDays <= -1;
 
-/** Is this row's forecast meaningfully past its plan? */
+/** A RUNNING phase forecast to finish meaningfully past its plan — a CLAIM about
+ *  days not yet spent, which is why it clears FORECAST_NOISE_DAYS rather than the
+ *  realized 1-day floor. */
 export const isForecastOver = (r: Pick<ScheduleRow, 'kind' | 'varianceDays'>): boolean =>
   r.kind === 'active' && r.varianceDays >= FORECAST_NOISE_DAYS;
 
-/** A RUNNING phase forecast to finish meaningfully early — a CLAIM about buffer it
- *  will hand back, not days it has handed back, which is why it clears the same
- *  noise floor as `isForecastOver` rather than the realized 1-day one. */
+/** A RUNNING phase forecast to finish meaningfully early — the mirror of
+ *  `isForecastOver`: a CLAIM about buffer it will hand back, not days it has handed
+ *  back, so it clears the same noise floor rather than the realized 1-day one. */
 export const isForecastUnder = (r: Pick<ScheduleRow, 'kind' | 'varianceDays'>): boolean =>
   r.kind === 'active' && r.varianceDays <= -FORECAST_NOISE_DAYS;
 
