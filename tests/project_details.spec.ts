@@ -117,59 +117,30 @@ test.describe('Project Details and Action Item Operations', () => {
     expect(box.x + box.width).toBeLessThanOrEqual(360);
   });
 
-  // The row BODY carries the status card and the LABEL carries the jump (two targets
-  // since #22), but the card must still be reachable without a pointer — a hover-only
-  // card is a card half the users never see. Focus shows it; it must land clear of the
-  // label column, because the names are what the reader uses to keep their place, so a
-  // card that hides them costs more than it gives. (The touch split — body reveals,
-  // label jumps — is proved in chain_touch.spec.ts, which needs a touch context.)
-  test('a critical-chain row offers a keyboard-reachable card, clear of the labels', async ({ page }) => {
+  // The row BODY drives the docked day strip and the LABEL carries the jump (two
+  // targets since #22), but the strip must still be reachable without a pointer — a
+  // hover-only strip is one half the users never see. Focus points it at this row's own
+  // start day (there is no pointer x to read a day from), which is enough to prove
+  // keyboard reachability without needing the day-under-the-pointer machinery a mouse
+  // gets. (The touch split — body reveals, label jumps — is proved in
+  // chain_touch.spec.ts, which needs a touch context.) Issue #161 step 4/4 retired the
+  // floating card this test used to check (and with it #82's right-edge flip: a DOCKED
+  // panel does not follow the pointer, so there is nothing left to flip).
+  test('a critical-chain row is keyboard-reachable, and focusing it points the docked day strip at its own start day', async ({ page }) => {
     await page.goto(`/programs/${projectId}`);
     const rows = page.locator('[class*="rowHit"]');
-    const card = page.getByTestId('chain-row-card');
+    const strip = page.getByTestId('chain-day-strip'); // ALWAYS mounted — docked, not floating
 
     await expect(async () => {
       await rows.first().focus();
-      await expect(card).toBeVisible({ timeout: 1500 });
+      await expect(strip).toContainText('Compliance Testing', { timeout: 1500 });
     }).toPass({ timeout: 20000 });
 
-    // It names the phase whose row it belongs to, and says something about the buffer.
-    await expect(card).toContainText('Compliance Testing');
-
-    const labels = page.locator('[class*="rowLabel"]').first();
-    const labelBox = (await labels.boundingBox())!;
-    const cardBox = (await card.boundingBox())!;
-    expect(cardBox.x).toBeGreaterThanOrEqual(labelBox.x + labelBox.width);
-
-    // Blur clears it — it must not strand itself on screen.
+    // Blur moves focus off the row; unlike the retired floating card, the docked strip
+    // never disappears — it keeps describing a day (today, once nothing is hovered or
+    // focused) instead of stranding itself, so it stays mounted rather than vanishing.
     await rows.first().blur();
-    await expect(card).toHaveCount(0);
-  });
-
-  // #82: pinned only to the pointer's right and clamped, the card parked against the
-  // right edge and sat on top of the cells the reader was pointing at. It now FLIPS to
-  // the pointer's left once past the section midpoint.
-  test('the summary card flips to the pointer\'s left on the right half, clear of the cell (#82)', async ({ page }) => {
-    await page.goto(`/programs/${projectId}`);
-    const rows = page.locator('[class*="rowHit"]');
-    const card = page.getByTestId('chain-row-card');
-
-    await expect(rows.first()).toBeVisible({ timeout: 20000 });
-    await rows.first().scrollIntoViewIfNeeded();
-    const b = (await rows.first().boundingBox())!;
-    const px = b.x + b.width * 0.82; // a point well into the RIGHT half of the chart
-    const py = b.y + b.height / 2;
-
-    // Hydration-guarded first interaction (the repo's #1 e2e flake source otherwise).
-    await expect(async () => {
-      await page.mouse.move(px, py);
-      await expect(card).toBeVisible({ timeout: 1500 });
-    }).toPass({ timeout: 20000 });
-
-    // Flipped left: the card's right edge sits left of the pointer, so it can never
-    // cover the cell the pointer is on.
-    const c = (await card.boundingBox())!;
-    expect(c.x + c.width).toBeLessThanOrEqual(px);
+    await expect(strip).toBeVisible();
   });
 
   // #75: the schedule can be zoomed to a focus window and slid. Zoom-in (from Fit it seeds a

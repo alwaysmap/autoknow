@@ -71,6 +71,28 @@ the NEW encoding in `tests/phase_screenshots.spec.ts` (both themes, four widths)
 Signing off the grid #75 was scoped to would have signed off a chart this step
 deletes, so #75 is superseded rather than abandoned.
 
+UPDATE (2026-07-28, issue #161 step 4/4 — bead autoknow-4cd): the **row hover card is
+GONE**, replaced by a **docked day strip** under the chart (`ChainLedger.tsx`, driven
+by `lib/chainDay.ts`'s `summaryAt`). It is FIXED, not floating — no pointer-follow, no
+right-edge flip (the #82 flip test retired with it) — and it answers "what was
+EVERYTHING doing on this day" rather than "what is the row under the pointer": every
+phase the tracked day crosses, plus a credit window a phase opened by finishing early
+and an idle gap between a baton landing and being picked up. It tracks the SAME
+position as the chart's own crosshair (`ChainSchedule`'s `onDay` callback) and falls
+back to TODAY the moment nothing is hovered or focused, so — unlike the card — it
+never goes blank. Keyboard focus on a row points the strip at that row's own start day
+(there is no pointer x to read a day from); touch keeps the #22 split (body drives the
+strip, label jumps), proved in `tests/chain_touch.spec.ts`. Fixed alongside it
+(bead autoknow-4dr.3): the day strip's `over` state is now gated on `isRealizedOverrun`
+rather than a raw millisecond comparison, so it can never name a day differently from
+the waterfall, the situations list, or the bars above it.
+
+Decided (user call, autoknow-4dr.2): the buffer flow's 50%-reserve marker no longer
+drops when it exceeds B₀ (the common case, not the rare one) — it draws an explicit
+OFF-SCALE marker pinned to the frame's own top edge instead, with copy that says so
+(`clBufferGuidelineOff`) rather than a bare number a reader could mistake for the
+frame's own ceiling.
+
 UPDATE (2026-07-24, user call): **an overrun against a phase's own estimate is now a
 LEVER, and past a threshold it is the program's headline.** The taxonomy always
 detected `sunkOverrun` / `forecastOverrun`, but only §4b spent them — the response

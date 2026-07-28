@@ -121,3 +121,21 @@ describe('summaryAt — a day that straddles two of a phase’s own spans', () =
     expect(summaryAt(straddle, day(32), NOW).phases[0].state).toBe('over');
   });
 });
+
+describe('summaryAt — a done phase past its plan tick by less than a day (autoknow-4dr.3)', () => {
+  // 9.6h past plannedEndMs, which rounds to varianceDays 0 — every other surface
+  // (isRealizedOverrun, the waterfall, the row card) calls this phase on plan, so
+  // the strip must never paint an 'over' day for it either.
+  const subDayOverrun: ScheduleRow[] = [{
+    id: 9, name: 'P9', kind: 'done',
+    startMs: day(0) + 2 * HOUR, endMs: day(30) + 11.6 * HOUR,
+    plannedEndMs: day(30) + 2 * HOUR, projected: false,
+    varianceDays: 0, remainingDays: 0, gapBeforeDays: 0,
+  }];
+
+  it('never emits an over span, on the tick day or after', () => {
+    expect(summaryAt(subDayOverrun, day(29), NOW).phases[0].state).toBe('done');
+    expect(summaryAt(subDayOverrun, day(30), NOW).phases[0].state).toBe('done');
+    expect(summaryAt(subDayOverrun, day(30), NOW).phases).toHaveLength(1);
+  });
+});

@@ -3,10 +3,6 @@
 
 .wrapper {
   margin: 0 0 1rem;
-  /* the row hover card is positioned against this, NOT against .chartwrap —
-     that one scrolls (overflow-x), which would clip the card or drag it out of
-     place when the chart is scrolled sideways */
-  position: relative;
 }
 
 .titleRow {
@@ -250,35 +246,38 @@
   stroke-width: 1.5;
 }
 
-/* The card states facts about one phase; it never takes the pointer, so moving
-   toward it can't make it flicker or block the row underneath. */
-.hoverCard {
-  position: absolute;
-  z-index: 30;
-  pointer-events: none;
-  max-width: 17rem;
+/* The docked day strip (issue #161 step 4/4): a FIXED panel under the chart, never
+   floating — it needs none of the retired hover card's pointer-follow/flip math,
+   since it sits in normal flow and states something at rest (today) rather than
+   disappearing when nothing is hovered. */
+.dayStrip {
+  margin-top: 0.625rem;
   padding: 0.5rem 0.625rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0.5rem;
-  box-shadow: 0 0.25rem 0.75rem rgb(0 0 0 / 0.12);
   font-size: 0.75rem;
   /* 20px, not the 21.6px that 1.35rem computes to — every line box lands on a
      whole pixel (design.md §8d), and tests/vertical-rhythm enforces it. */
   line-height: 1.25rem;
   color: var(--fg);
 }
-.hoverCardName {
+.dayStripItem + .dayStripItem {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+.dayName {
   font-weight: 700;
   line-height: 1.25rem;
 }
-.hoverCardLine {
+.dayLine {
   color: var(--muted);
 }
-.hoverCardBad {
+.dayBad {
   color: var(--bad);
 }
-.hoverCardChain {
+.dayChain {
   color: var(--chain-ink);
 }
 

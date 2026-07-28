@@ -1,22 +1,22 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { t, Locale } from '../lib/i18n';
 import { tNodes, joinNodes } from './tNodes';
 import { localDate } from '../lib/dates';
-import { DAY_MS } from '../lib/sop';
+import { DAY_MS, dayFloor } from '../lib/sop';
 import AnchorHeading from './AnchorHeading';
 import OverlayDialog from './OverlayDialog';
 import ConstraintRing from './ConstraintRing';
 import PersonCell, { type PersonRef } from './PersonCell';
-import { ChainSchedule, CARD_W } from './ChainSchedule';
+import { ChainSchedule } from './ChainSchedule';
 import { useSteadyPageScroll } from '../lib/useSteadyPageScroll';
-import type { RowCard } from './ChainSchedule';
-import { hasIdleGapBefore, isForecastOver, isRealizedOverrun, isRealizedUnderrun, isSevereOverrun } from '../lib/chainLedger';
+import { summaryAt } from '../lib/chainDay';
+import { isForecastOver, isRealizedOverrun, isRealizedUnderrun, isSevereOverrun } from '../lib/chainLedger';
 import { phasesEditHref } from '../lib/phase';
 import { partnerHref, programHref } from '../lib/entityHref';
-import type { ChainLedgerResult, ResourceRef, ScheduleRow, Situation, WaterfallRow } from '../lib/chainLedger';
+import type { ChainLedgerResult, ResourceRef, Situation, WaterfallRow } from '../lib/chainLedger';
 import styles from './ChainLedger.module.css';
 
 // The Critical Chain section (docs/CRITICAL_CHAIN_VIEW_PLAN.md §4): headline fact +
@@ -53,50 +53,19 @@ const jumpToPhase = (id: number) => window.dispatchEvent(new CustomEvent('autokn
 const monthLong = (iso: string, locale: Locale) => localDate(iso, locale, { month: 'long', year: 'numeric' });
 const dayShort = (ms: number, locale: Locale) => localDate(new Date(ms), locale, { month: 'short', day: 'numeric' });
 
-const CARD_GAP = 16; // px between the pointer and the summary card's near edge
-
-
 export default function ChainLedger({
   projectId, locale, now, ledger, sopDate, volumeFirstYear, ownerPerson, ownerOtherActive,
 }: ChainLedgerProps) {
   const scrollPageTo = useSteadyPageScroll();
   const [legendOpen, setLegendOpen] = useState(false);
-  const wrapRef = useRef<HTMLElement>(null);
   const sopMs = sopDate ? +new Date(sopDate) : null;
 
-  // Row status card. Position is measured in the EVENT, not in an effect — the
-  // element's box is what anchors it, and setState-in-effect is a lint error here.
-  const [rowCard, setRowCard] = useState<RowCard | null>(null);
-  const onRowCard = (row: ScheduleRow | null, el: SVGRectElement | null, clientX?: number) => {
-    if (!row || !el || !wrapRef.current) return setRowCard(null);
-    const box = el.getBoundingClientRect();
-    const wrap = wrapRef.current.getBoundingClientRect();
-    // LOCKED vertically to its row — the card belongs to that phase and drifting it
-    // up and down would break the tie — but FREE horizontally, following the pointer
-    // so the reader can slide it off whatever it happens to be covering. Clamped to
-    // the section so it can never hang outside; CARD_W is the max-width the
-    // stylesheet gives it, which is all the clamp needs to know.
-    // Without a pointer (keyboard focus) it parks just inside the plot. The body hit
-    // rect now STARTS at the label column's right edge — the label is its own jump
-    // target now (issue #22) — so the rect's own left edge already clears the names.
-    const parked = box.left - wrap.left + 8;
-    // Follow the pointer, but FLIP to its LEFT once it crosses the section's midpoint
-    // (#82). Pinned only to the right and clamped, the card parks against the right
-    // edge and sits on top of the very cells the reader is pointing at; opening it to
-    // the left there covers the already-read span behind the pointer instead. CARD_W
-    // is the max width (the card may be narrower — a slightly larger gap, never an
-    // overlap), which is all the pre-render estimate needs.
-    let followed = parked;
-    if (clientX != null) {
-      const px = clientX - wrap.left;
-      followed = px > wrap.width / 2 ? px - CARD_GAP - CARD_W : px + CARD_GAP;
-    }
-    setRowCard({
-      row,
-      left: Math.round(Math.max(0, Math.min(followed, wrap.width - CARD_W))),
-      top: box.top - wrap.top + box.height / 2,
-    });
-  };
+  // The day the docked day strip describes (issue #161 step 4/4) — the position
+  // ChainSchedule's crosshair/focus is tracking, defaulting to today. Unlike the row
+  // card it replaced, this is never null: a docked panel states something at rest,
+  // rather than disappearing the moment nothing is hovered.
+  const [dayMs, setDayMs] = useState(() => dayFloor(now));
+  const daySummary = summaryAt(ledger.schedule, dayMs, now);
   const nameOf = (id: number) => ledger.schedule.find((r) => r.id === id)?.name ?? `#${id}`;
   const remTotal = ledger.schedule.reduce((s, r) => s + r.remainingDays, 0);
 
@@ -344,7 +313,7 @@ export default function ChainLedger({
   };
 
   return (
-    <section className={styles.wrapper} data-testid="chain-ledger" ref={wrapRef}>
+    <section className={styles.wrapper} data-testid="chain-ledger">
       <AnchorHeading
         id="critical-chain"
         linkLabel={t(locale, 'anchorLink')}
@@ -373,49 +342,82 @@ export default function ChainLedger({
         </p>
       )}
 
-      <ChainSchedule ledger={ledger} sopMs={sopMs} now={now} locale={locale} onRowCard={onRowCard} onJump={jumpToPhase} />
+      <ChainSchedule ledger={ledger} sopMs={sopMs} now={now} locale={locale} onDay={setDayMs} onJump={jumpToPhase} />
 
-      {/* One phase's whole story against the buffer: when it ran, what it cost or
-          handed back, and whether the chain is currently waiting on it. Rendered
-          here rather than inside the chart because .chartwrap scrolls. */}
-      {rowCard && (() => {
-        const r = rowCard.row;
-        const when =
-          r.kind === 'done' ? t(locale, 'clRowRan', { a: dayShort(r.startMs, locale), b: dayShort(r.endMs, locale) })
-          : r.kind === 'active' ? t(locale, 'clRowRunning', { a: dayShort(r.startMs, locale), b: dayShort(r.endMs, locale) })
-          : t(locale, 'clRowPlannedWindow', { a: dayShort(r.startMs, locale), b: dayShort(r.endMs, locale) });
-        const status = r.kind === 'done' ? 'statusDone' : r.kind === 'active' ? 'statusInProgress' : 'statusNotStarted';
-        // The buffer claim. An ACTIVE row defers to isForecastOver and to the very
-        // keys the bar's own label uses: a forecast variance under FORECAST_NOISE_DAYS
-        // is rounding noise, and saying "spends 1 more day" beside a bar labelled "on
-        // pace" is the exact disagreement lib/chainLedger warns about. A DONE row is
-        // measured from real dates, so there it counts from one day.
-        const claim: { text: string; bad: boolean } =
-          r.kind === 'notStarted' ? { text: t(locale, 'clRowNoClaim'), bad: false }
-          : r.kind === 'active'
-            ? (isForecastOver(r)
-                ? { text: t(locale, r.remainingDays === 1 ? 'clWorkLeftOverOne' : 'clWorkLeftOver', { d: r.remainingDays, o: r.varianceDays }), bad: true }
-                : { text: t(locale, r.remainingDays === 1 ? 'clWorkLeftOnPaceOne' : 'clWorkLeftOnPace', { d: r.remainingDays }), bad: false })
-          : isRealizedOverrun(r)
-            ? { text: t(locale, r.varianceDays === 1 ? 'clRowSpentOne' : 'clRowSpent', { d: r.varianceDays }), bad: true }
-          : isRealizedUnderrun(r)
-            ? { text: t(locale, r.varianceDays === -1 ? 'clRowGaveOne' : 'clRowGave', { d: -r.varianceDays }), bad: false }
-            : { text: t(locale, 'clRowOnPlan'), bad: false };
-        return (
-          <div className={styles.hoverCard} role="status" data-testid="chain-row-card"
-            style={{ left: rowCard.left, top: rowCard.top, transform: 'translateY(-50%)' }}>
-            <div className={styles.hoverCardName}>{r.name}</div>
-            <div className={styles.hoverCardLine}>{t(locale, status)} · {when}</div>
-            <div className={claim.bad ? styles.hoverCardBad : styles.hoverCardLine}>{claim.text}</div>
-            {hasIdleGapBefore(r) && (
-              <div className={styles.hoverCardBad}>{t(locale, 'clSatIdle', { d: r.gapBeforeDays })}</div>
-            )}
-            {ledger.liveConstraintId === r.id && (
-              <div className={styles.hoverCardChain}>{t(locale, 'clKeyRing')}</div>
-            )}
-          </div>
-        );
-      })()}
+      {/* The docked day strip (issue #161 step 4/4, replacing the per-row hover card):
+          a FIXED panel under the chart, never floating, so it needs none of the
+          retired card's pointer-follow/flip math. It answers "what was EVERYTHING
+          doing on this day" (lib/chainDay's header) rather than "what is the row
+          under the pointer" — every phase the tracked day crosses, plus the two
+          things that are not phases and still cost buffer: a credit window a phase
+          opened by finishing early, and an idle gap between a baton landing and
+          being picked up. */}
+      <div className={styles.dayStrip} data-testid="chain-day-strip">
+        <div className={styles.dayName}>
+          {t(locale, 'cdTitle')} · {dayShort(dayMs, locale)}
+          {dayMs === dayFloor(now) ? ` ${t(locale, 'cdToday')}` : ''}
+        </div>
+        {daySummary.phases.length === 0 && daySummary.gaps.length === 0 && daySummary.credits.length === 0 ? (
+          <p className={styles.dayLine}>{t(locale, 'cdNothing')}</p>
+        ) : (
+          <>
+            {daySummary.phases.map((p) => {
+              const r = p.row;
+              const when =
+                r.kind === 'done' ? t(locale, 'clRowRan', { a: dayShort(r.startMs, locale), b: dayShort(r.endMs, locale) })
+                : r.kind === 'active' ? t(locale, 'clRowRunning', { a: dayShort(r.startMs, locale), b: dayShort(r.endMs, locale) })
+                : t(locale, 'clRowPlannedWindow', { a: dayShort(r.startMs, locale), b: dayShort(r.endMs, locale) });
+              const status = r.kind === 'done' ? 'statusDone' : r.kind === 'active' ? 'statusInProgress' : 'statusNotStarted';
+              // The buffer claim. An ACTIVE row defers to isForecastOver and to the very
+              // keys the bar's own label uses: a forecast variance under FORECAST_NOISE_DAYS
+              // is rounding noise, and saying "spends 1 more day" beside a bar labelled "on
+              // pace" is the exact disagreement lib/chainLedger warns about. A DONE row is
+              // measured from real dates, so there it counts from one day.
+              const claim: { text: string; bad: boolean } =
+                r.kind === 'notStarted' ? { text: t(locale, 'clRowNoClaim'), bad: false }
+                : r.kind === 'active'
+                  ? (isForecastOver(r)
+                      ? { text: t(locale, r.remainingDays === 1 ? 'clWorkLeftOverOne' : 'clWorkLeftOver', { d: r.remainingDays, o: r.varianceDays }), bad: true }
+                      : { text: t(locale, r.remainingDays === 1 ? 'clWorkLeftOnPaceOne' : 'clWorkLeftOnPace', { d: r.remainingDays }), bad: false })
+                : isRealizedOverrun(r)
+                  ? { text: t(locale, r.varianceDays === 1 ? 'clRowSpentOne' : 'clRowSpent', { d: r.varianceDays }), bad: true }
+                : isRealizedUnderrun(r)
+                  ? { text: t(locale, r.varianceDays === -1 ? 'clRowGaveOne' : 'clRowGave', { d: -r.varianceDays }), bad: false }
+                  : { text: t(locale, 'clRowOnPlan'), bad: false };
+              return (
+                <div key={r.id} className={styles.dayStripItem}>
+                  <div className={styles.dayName}>
+                    {phaseBtn(r.id)} · {t(locale, 'cdDayOf', { i: p.dayIndex, n: p.spanDays })}
+                  </div>
+                  <div className={styles.dayLine}>{t(locale, status)} · {when}</div>
+                  <div className={claim.bad ? styles.dayBad : styles.dayLine}>{claim.text}</div>
+                  {ledger.liveConstraintId === r.id && (
+                    <div className={styles.dayChain}>{t(locale, 'clKeyRing')}</div>
+                  )}
+                </div>
+              );
+            })}
+            {daySummary.credits.map((c) => (
+              <div key={`credit-${c.phaseId}`} className={styles.dayStripItem}>
+                <div className={styles.dayName}>{phaseBtn(c.phaseId)}</div>
+                <div className={styles.dayLine}>
+                  {t(locale, c.days === 1 ? 'clRowGaveOne' : 'clRowGave', { d: c.days })}
+                </div>
+              </div>
+            ))}
+            {daySummary.gaps.map((g) => (
+              <div key={`gap-${g.fromId}-${g.toId}`} className={styles.dayStripItem}>
+                <div className={styles.dayBad}>
+                  {tNodes(locale, ledger.schedule.find((x) => x.id === g.toId)?.kind === 'notStarted' ? 'clEvidenceGapOngoing' : 'clEvidenceGap', {
+                    from: phaseBtn(g.fromId), to: phaseBtn(g.toId),
+                    d1: dayShort(g.fromMs, locale), d2: dayShort(g.toMs, locale),
+                  })}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
 
       {/* Below the chart, the two readings of it sit SIDE BY SIDE on a wide
           screen — what to do next (left) and where the buffer went (right) —

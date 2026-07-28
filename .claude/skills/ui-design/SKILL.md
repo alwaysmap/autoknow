@@ -183,4 +183,6 @@ slugs; open only the few that match what you are about to touch.
 4. e2e for behavior: `npm run test:e2e` — first interaction after a page load
    must be a hydration-guarded retry (`expect(async () => {...}).toPass()`
    pattern in `tests/project_details.spec.ts`); an unguarded first click is this
-   suite's #1 flake source.
+   suite's #1 flake source. Tapping/clicking a date-driven SVG chart (e.g.
+   `ChainSchedule.tsx`) at a fixed pixel offset can land on empty axis lead-in
+   rather than real data — [note](../../../docs/knowledge/a-week-floored-chart-axis-can-start-before-its-first-real-data.md).
