@@ -119,6 +119,29 @@ it('labels live, retracted, never-updated and TEL connections with the CURRENT j
   }
 });
 
+// #144: a role held two years ago used to render identically to one held now.
+describe('live vs ended, and why the row is there', () => {
+  it('marks a finished-only connection ENDED, with the day the last route finished', async () => {
+    const row = (await rows()).get('Finished in the Bosch era');
+    expect(row?.status).toBe('ended');
+    expect(row?.endedOn?.slice(0, 10)).toBe('2021-06-01');
+  });
+
+  it('marks live, retracted, never-updated and TEL connections CURRENT, with no end date', async () => {
+    const byName = await rows();
+    for (const name of ['Live now', 'Owned as TEL', 'Retracted finish', 'Never updated']) {
+      expect(byName.get(name)?.status).toBe('live');
+      expect(byName.get(name)?.endedOn).toBeNull();
+    }
+  });
+
+  it('says WHY the row is there — the routes that put it there, not just that it exists', async () => {
+    const byName = await rows();
+    expect(byName.get('Owned as TEL')?.via).toEqual(['tel']);
+    expect(byName.get('Live now')?.via).toEqual(['phase']);
+  });
+});
+
 it('an anchor in a career gap yields null — a dash, never the nearest company', async () => {
   const row = (await rows()).get('Finished in the gap');
   expect(row).toBeDefined();

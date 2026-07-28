@@ -232,3 +232,31 @@
   background-image: var(--graticule);
   background-repeat: repeat-x;
 }
+
+/* The Status cell's ClassBox is a BUTTON: a class filters its own column and never
+   navigates (design.md §6), and an inert ClassBox is a bug. Chromeless, so what the
+   reader sees is the box, not a control around it.
+
+   The FIFTH copy of this block and the FOURTH of `.classInk` — `autoknow-dul` names the
+   call sites so the sweep stays mechanical (AGENTS lesson 7), and this one joins that
+   list. §6's own answer is the DataTable column-kind version tracked with #29, which
+   subsumes all of them; until then the rule is enforced by review. */
+.statusFilterBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.2s ease;
+}
+.statusFilterBtn:hover {
+  opacity: 0.8;
+}
+
+/* One ink for both states. A connection's status is a CLASS, not a verdict, and the
+   palette's colours already mean health (§6/§8b) — painting "ended" red would say that
+   a finished piece of work was a problem. */
+.classInk {
+  color: var(--muted);
+}

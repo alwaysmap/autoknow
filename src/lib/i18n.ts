@@ -1287,15 +1287,23 @@ const STRINGS = {
   // "Company": the program's partner is also a company, and this column answers a
   // different question — the job the connection was made through.
   affiliationHeader: { en: 'Affiliation', de: 'Zugehörigkeit', ja: '所属', ko: '소속' },
+  // The Programs table's live/ended class (#144). "Current"/"Ended" and not
+  // "Active"/"Inactive": a program has its OWN lifecycle with those words, and this is a
+  // statement about the PERSON's connection to it, not about the program.
+  connectionLive: { en: 'Current', de: 'Aktuell', ja: '現在', ko: '현재' },
+  connectionEnded: { en: 'Ended', de: 'Beendet', ja: '終了', ko: '종료' },
+  // WHY a row is on the Programs table when neither the TEL badge nor a phase role says
+  // so: the person holds an action item on one of its phases and nothing else (#144).
+  viaActionItem: { en: 'action item', de: 'Aufgabe', ja: 'アクションアイテム', ko: '액션 아이템' },
   // What the Phases column actually contains — two provenances, neither filtered by
   // status — and what the Affiliation column MEANS: the job held at the time of the
   // involvement, not the job held now (#127 E11, the same per-row rule the Activity
   // intro below states for its own rows).
   personProgramsIntro: {
-    en: 'Programs this person is named on — as Technical Engagement Lead, on a phase, or holding an action item there. Not filtered to active work; each row shows the company and role held at the time of that involvement.',
-    de: 'Programme, in denen diese Person genannt ist — als Technical Engagement Lead, in einer Phase oder mit einer Aufgabe darin. Nicht auf aktive Arbeit gefiltert; jede Zeile zeigt Unternehmen und Rolle zum Zeitpunkt der Beteiligung.',
-    ja: 'この担当者が名前を連ねているプログラム — TEL として、フェーズ上、またはアクションアイテムの担当として。進行中の作業に限定されません。各行には、その関与当時に所属していた会社と役割が表示されます。',
-    ko: '이 사람이 이름을 올린 프로그램 — TEL로서, 단계에서, 또는 액션 아이템 보유. 진행 중인 작업으로 제한되지 않으며, 각 행에는 해당 참여 당시 재직한 회사와 역할이 표시됩니다.',
+    en: 'Programs this person is named on — as Technical Engagement Lead, on a phase, or holding an action item there. Each row shows the company and role held at the time, and whether the connection is current or has ended. A connection reads current until every phase behind it is finished, so a phase nobody has updated counts as current.',
+    de: 'Programme, in denen diese Person genannt ist — als Technical Engagement Lead, in einer Phase oder mit einer Aufgabe darin. Jede Zeile zeigt Unternehmen und Rolle zum Zeitpunkt der Beteiligung sowie ob die Verbindung aktuell oder beendet ist. Eine Verbindung gilt als aktuell, solange nicht jede zugehörige Phase abgeschlossen ist — eine nie aktualisierte Phase zählt also als aktuell.',
+    ja: 'この担当者が名前を連ねているプログラム — TEL として、フェーズ上、またはアクションアイテムの担当として。各行には関与当時の会社と役割、および接続が現在有効か終了済みかが表示されます。関連するすべてのフェーズが完了するまで「現在」と表示されるため、未更新のフェーズは「現在」として扱われます。',
+    ko: '이 사람이 이름을 올린 프로그램 — TEL로서, 단계에서, 또는 액션 아이템 보유. 각 행에는 참여 당시의 회사와 역할, 그리고 연결이 현재인지 종료되었는지가 표시됩니다. 관련된 모든 단계가 끝나야 종료로 바뀌므로, 갱신되지 않은 단계는 현재로 간주됩니다.',
   },
   // Two sentences, both load-bearing. The first says what the company beside each entry
   // MEANS — the job held then, not the job held now (#127 E10). The second states the
