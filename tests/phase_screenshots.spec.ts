@@ -3,8 +3,9 @@ import { prisma } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
 // Not an assertion suite — this captures screenshots of the phase UI surfaces
-// (PhaseTrack rail + details, and the /templates authoring page) into ./screenshots
-// so the current state can be eyeballed. Reuses the deterministic seedProgram fixture.
+// (PhaseTrack rail + details, the /templates authoring page, and the Critical Chain
+// instrument) into ./screenshots so the current state can be eyeballed. Reuses the
+// deterministic seedProgram fixture.
 
 test.describe('Phase UI screenshots', () => {
   test.describe.configure({ mode: 'serial' });
@@ -158,6 +159,95 @@ test.describe('Phase card anatomy screenshots', () => {
           .toBeVisible({ timeout: 1500 });
       }).toPass({ timeout: 20000 });
       await page.screenshot({ path: `screenshots/${c.file}`, fullPage: true });
+    });
+  }
+});
+
+// The Critical Chain instrument after #161 step 3/4: the phase × week state grid is gone
+// and each phase's variance rides ITS OWN bar as a length. These images are the acceptance
+// evidence for that swap and for #75's close-out (bead autoknow-c3z) — AGENTS lesson 18:
+// counting elements proves a mark exists, only a screenshot proves it is visible, and the
+// ink here is deliberately faint (a .42-opacity done bar, a dashed --ok ghost) in two
+// themes. The KEY is captured too, because this step rewrote both its copy and its glyphs.
+test.describe('Critical Chain screenshots', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let seeded: SeededProgram;
+
+  const DAY = 86_400_000;
+  const ago = (d: number) => new Date(Date.now() - d * DAY);
+
+  test.beforeAll(async () => {
+    seeded = await seedProgram();
+
+    // A chain that draws EVERY Option A mark at once, which the base fixture does not:
+    // it carries no real start/completion dates, so every variance is zero and no row
+    // grows a tail. Dates are relative to now, because `now` is the server's clock.
+    //
+    //   Kickoff     15d est, ran 10  → −5d handed back  (dashed --ok ghost)
+    //   Bring-up    20d est, ran 27  → +7d already lost (solid --bad tail)
+    //   Integration 40d est, 45 elapsed at 70% → forecast over (dashed --bad outline)
+    //   Certification                → not started      (dashed --muted outline)
+    // plus two idle handoffs (5d and 8d) in the channels above Bring-up and Integration.
+    const kickoff = await prisma.phase.create({
+      data: { name: 'Kickoff', projectId: seeded.projectId, forecastedDuration: 15, startedAt: ago(95) },
+    });
+    await prisma.phaseState.create({
+      data: {
+        phaseId: kickoff.id, status: 'Done', theNeedle: 'On Track',
+        hillChartProgress: 100, source: 'testbot', timestamp: ago(85),
+      },
+    });
+    await prisma.phaseDependency.create({
+      data: { phaseId: seeded.phases.bringUp, dependsOnPhaseId: kickoff.id },
+    });
+
+    await prisma.phase.update({ where: { id: seeded.phases.bringUp }, data: { startedAt: ago(80) } });
+    await prisma.phaseState.updateMany({ where: { phaseId: seeded.phases.bringUp }, data: { timestamp: ago(53) } });
+
+    await prisma.phase.update({ where: { id: seeded.phases.integration }, data: { startedAt: ago(45) } });
+    await prisma.phaseState.updateMany({
+      where: { phaseId: seeded.phases.integration },
+      data: { hillChartProgress: 70, timestamp: ago(45) },
+    });
+  });
+
+  test.afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  /** The widths design.md §9 asks a layout to comply at: both themes at the widest — the
+   *  pair the faint marks have to survive — and light-only below that, where what is being
+   *  looked at is the SVG scaling to a narrower column rather than the palette. */
+  const CASES: { file: string; width: number; dark?: boolean; key?: boolean }[] = [
+    { file: '14-critical-chain-bars-light.png', width: 1440 },
+    { file: '15-critical-chain-bars-dark.png', width: 1440, dark: true },
+    { file: '16-critical-chain-bars-1024.png', width: 1024 },
+    { file: '17-critical-chain-bars-768.png', width: 768 },
+    { file: '18-critical-chain-bars-360.png', width: 360 },
+    { file: '19-critical-chain-key-light.png', width: 1440, key: true },
+    { file: '20-critical-chain-key-dark.png', width: 1440, dark: true, key: true },
+  ];
+
+  for (const c of CASES) {
+    test(c.file.replace(/^\d+-|\.png$/g, ''), async ({ page }) => {
+      if (c.dark) await page.addInitScript(() => localStorage.setItem('autoknow-theme', 'dark'));
+      await page.setViewportSize({ width: c.width, height: 1200 });
+      await page.goto(`/programs/${seeded.projectId}#critical-chain`);
+      const section = page.getByTestId('chain-ledger');
+      await expect(section.locator('[class*="scheduleSvg"]')).toBeVisible();
+      if (c.key) {
+        // The hydration-guarded first interaction (AGENTS lesson 8) — an unguarded first
+        // click after a page load is this suite's top flake source. Opening an already-open
+        // dialog is a no-op, so a retry cannot toggle it shut.
+        await expect(async () => {
+          await section.getByRole('button', { name: 'How to read the schedule' }).click({ timeout: 2000 });
+          await expect(page.getByRole('dialog')).toBeVisible({ timeout: 1500 });
+        }).toPass({ timeout: 20000 });
+        await page.screenshot({ path: `screenshots/${c.file}` });
+        return;
+      }
+      await section.screenshot({ path: `screenshots/${c.file}` });
     });
   }
 });

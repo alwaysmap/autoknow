@@ -254,11 +254,12 @@ test.describe('Appearance: style and theme are independent', () => {
     expect(spread).toBeLessThan(2);
   });
 
-  // The schedule is a phase × week STATE GRID (issue #75): state separates by colour
-  // + position (on-plan ink, over red, early green, idle amber), with NO hatch/stipple
-  // textures and NO full-height buffer bands — the old encoding that was unreadable on
-  // a complex chain. Verify the re-encoding landed, from the rendered DOM.
-  test('schedule is a textureless state grid, no full-height bands', async ({ page }) => {
+  // The schedule is Option A BARS (issue #161): every mark is drawn from one row's own
+  // dates, so it can be traced back to the phase it describes. Two earlier encodings are
+  // asserted GONE rather than merely absent from the source — hatch/stipple textures and
+  // the full-height `--band-*` washes (#75), whose tokens this step deleted. The washes
+  // are the load-bearing half: a band describing ONE phase was painted across EVERY row.
+  test('schedule is per-row bars, no textures and no full-height bands', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
 
     const chart = page.locator('[class*="scheduleSvg"]').first();
@@ -267,16 +268,24 @@ test.describe('Appearance: style and theme are independent', () => {
     const info = await chart.evaluate((svg) => {
       const paint = [...svg.querySelectorAll('rect, line, path')]
         .flatMap((el) => [el.getAttribute('fill') ?? '', el.getAttribute('stroke') ?? '']);
+      // A bar is at most BAR_H (19) tall in viewBox units; a "band" was the whole grid.
+      const tallest = Math.max(0, ...[...svg.querySelectorAll('rect')]
+        .map((el) => Number(el.getAttribute('height')))
+        .filter((h) => Number.isFinite(h)));
       return {
-        hasInkCell: paint.some((p) => p.includes('var(--fg)')),        // on-plan state cells
+        hasInkBar: paint.some((p) => p.includes('var(--fg)')),          // work that happened
         hasPatternFill: paint.some((p) => p.startsWith('url(#sched')),  // the removed textures
         hasBandToken: paint.some((p) => p.includes('var(--band-')),     // the removed washes
+        tallest,
       };
     });
 
-    expect(info.hasInkCell).toBe(true);       // the grid drew state cells
+    expect(info.hasInkBar).toBe(true);        // the rows drew their solid work bars
     expect(info.hasPatternFill).toBe(false);  // hatch/stipple textures are gone
     expect(info.hasBandToken).toBe(false);    // full-height buffer washes are gone
+    // The buffer flow's own frame is the tallest rect in the instrument (FLOW_H 112);
+    // nothing may be taller, which is what a full-height band across the rows would be.
+    expect(info.tallest).toBeLessThanOrEqual(112);
   });
 
   test('the style picker persists the choice', async ({ page }) => {
