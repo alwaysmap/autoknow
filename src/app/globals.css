@@ -145,15 +145,9 @@
   --ok-ring: rgba(19, 115, 51, 0.25);
   --bad-ring: rgba(197, 34, 31, 0.25);
 
-  /* The Critical Chain schedule's --band-* washes and --forecast-fill USED to live
-     here: four full-height buffer bands behind the bars, plus the fill that made an
-     outlined forecast bar opaque over Instrument's hatching. Both are gone with the
-     encoding that needed them — #75 replaced the bands (a band that describes ONE
-     phase, drawn across EVERY row, cannot be traced back to the phase it belongs to),
-     and #161's Option A gives each phase its variance as a length on its OWN bar,
-     drawn from the health tokens (--fg / --bad / --ok / --warn / --muted) like every
-     other chart. Nothing has read either token since; deleted rather than kept warm,
-     because a token with no consumer is a colour decision nobody can review. */
+  /* The Critical Chain schedule's --band-* washes and --forecast-fill were deleted here
+     with the encoding that needed them (#161 step 3/4). It now draws from the health
+     tokens like every other chart; docs/CRITICAL_CHAIN_VIEW_PLAN.md §4a carries why. */
 
   /* Capacity product bands (CapacityChart's CFD stack). A CATEGORICAL palette,
      deliberately outside the health palette — amber/red/green JUDGE, these only

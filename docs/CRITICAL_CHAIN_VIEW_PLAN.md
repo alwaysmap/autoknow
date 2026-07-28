@@ -474,7 +474,7 @@ Marks, all day-accurate:
 
 | Mark | Meaning |
 | --- | --- |
-| Solid bar, `--fg` @ .42 | finished work, up to the plan tick |
+| Solid bar, `--fg` @ .42 | finished work — to the plan tick when the phase over-ran, to its actual end otherwise |
 | Solid bar, `--fg` @ .86 | the live phase's elapsed work |
 | Solid `--bad` tail past the plan tick | days past its own estimate, already spent |
 | Dashed `--ok` ghost, actual end → plan tick | days handed back to the buffer |

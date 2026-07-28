@@ -47,9 +47,13 @@ const WEEK_MS = 7 * DAY_MS;
 const W = 900, PAD_R = 14, ROW_H = 34, TOP = 36;
 const BAR_H = 19; // the bar inside each row band
 // Where the idle-handoff rule sits inside a row band, measured DOWN from the band's top.
-// One constant because the rule and the count that names it share the line — split into
-// two numbers they drift, and the drift shows up as a struck-through word.
+// The rule and the count that names it are BOTH rendered from the single `y` placeIdle
+// returns, so they cannot drift apart; this only says where that line falls.
 const IDLE_DY = 2;
+// Air between a row label and the mark it is anchored beside, and the extra a rule needs
+// beyond a label's own width before that label may sit CENTRED on it — below which the
+// halo's knockout would leave too little rule showing either side to read as a rule.
+const LABEL_GAP = 4, IDLE_CENTRE_AIR = 16;
 const FLOW_H = 112, FLOW_GAP = 28; // the two-tone buffer flow below the grid
 // EXTENTS of the flow's two short markers: the reserve stub in from the right edge, and
 // the blown-day tick either side of 0%.
@@ -111,14 +115,21 @@ type BarKind = 'done' | 'elapsed' | 'over' | 'under' | 'forecast' | 'fover' | 's
 // LIVE phase's elapsed work carries the weight, and the red/green exceptions pop against
 // that calm baseline. All theme tokens (design.md §8b).
 //
-// A mark is FILLED when it happened and OUTLINED when it has not: the two ghosts (days
-// handed back, which are days nobody worked) and the two forecasts. Outlined and dashed
-// are the same set on purpose — `BAR_STROKE[k] != null` IS "this mark is a claim, not a
-// record", so a new kind cannot be added as a solid claim by forgetting a second table.
+// A mark is FILLED when work happened in it — `done`, `elapsed`, `over` — and OUTLINED
+// when nothing did: `under` (days handed back, which are days nobody worked), `forecast`,
+// `fover` and `sched`. Outlined and dashed are the same set on purpose:
+// `BAR_STROKE[k] != null` IS "this mark is a claim, not a record", and the render site
+// derives the dash from it, so a new kind cannot be added as a solid claim by forgetting
+// a second table (the old code hard-coded `k === 'forecast' || k === 'sched'` — that
+// second table, in its drift-prone form).
 const BAR_FILL: Record<BarKind, string> = {
   done: 'var(--fg)', elapsed: 'var(--fg)', over: 'var(--bad)',
   under: 'none', forecast: 'none', fover: 'none', sched: 'none',
 };
+// Only the three FILLED kinds have a meaningful entry here; the outlined four are 1
+// because their fill is `none` and an opacity on nothing is nothing. Exhaustive over
+// BarKind anyway, so adding a kind is a type error rather than a silently missing look —
+// but do not read the four 1s as tuned values, or spend time adjusting them.
 const BAR_OPACITY: Record<BarKind, number> = {
   done: 0.42, elapsed: 0.86, over: 0.94, under: 1, forecast: 1, fover: 1, sched: 1,
 };
@@ -126,6 +137,9 @@ const BAR_STROKE: Record<BarKind, string | null> = {
   done: null, elapsed: null, over: null,
   under: 'var(--ok)', forecast: 'var(--muted)', fover: 'var(--bad)', sched: 'var(--muted)',
 };
+
+/** One drawn span of a phase's own timeline. */
+interface BarMark { kind: BarKind; a: number; b: number }
 
 /** The marks a phase draws, in ms, each one a span of ITS OWN dates — the encoding, in
  *  one pure function. Option A's rule is that a mark has an owner, so nothing here reads
@@ -136,7 +150,7 @@ const BAR_STROKE: Record<BarKind, string | null> = {
  *  "Where the buffer went" then cannot disagree about which phases moved the buffer
  *  (chainLedger.ts's predicate header; the +1-day phase that drew a red mark with no
  *  waterfall row behind it is the bug that rule exists for). */
-function barMarks(r: ScheduleRow, now: number): { kind: BarKind; a: number; b: number }[] {
+function barMarks(r: ScheduleRow, now: number): BarMark[] {
   if (r.kind === 'done') {
     // The solid bar runs to whichever end came FIRST, and the tail past it says which
     // way the phase missed. A phase that landed inside the predicates' 1-day noise floor
@@ -153,7 +167,7 @@ function barMarks(r: ScheduleRow, now: number): { kind: BarKind; a: number; b: n
   }
   if (r.kind === 'active') {
     const elapsedEnd = Math.min(now, r.endMs);
-    const marks: { kind: BarKind; a: number; b: number }[] = [{ kind: 'elapsed', a: r.startMs, b: elapsedEnd }];
+    const marks: BarMark[] = [{ kind: 'elapsed', a: r.startMs, b: elapsedEnd }];
     if (isForecastOver(r)) {
       marks.push({ kind: 'forecast', a: now, b: r.plannedEndMs });
       marks.push({ kind: 'fover', a: r.plannedEndMs, b: r.endMs });
@@ -163,6 +177,22 @@ function barMarks(r: ScheduleRow, now: number): { kind: BarKind; a: number; b: n
     return marks;
   }
   return [{ kind: 'sched', a: r.startMs, b: r.endMs }]; // notStarted
+}
+
+/** The variance a row's tail already says as a LENGTH, as the number that says it in
+ *  days, the date to anchor that number to, and the ink to write it in — or null where
+ *  the phase moved no buffer and draws no tail.
+ *
+ *  Beside `barMarks` and pure for the same reason: the three predicates tested here are
+ *  three of the ones tested there, so the tail and the number cannot disagree about which
+ *  rows moved the buffer. `varianceDays` is read only to PRINT, which is the exemption
+ *  chainLedger.ts's predicate header grants explicitly — the eslint family blocks
+ *  ORDERING comparisons on it, not display. */
+function varianceLabel(r: ScheduleRow, locale: Locale): { text: string; fill: string; at: number } | null {
+  if (isRealizedOverrun(r)) return { text: t(locale, 'clBarOver', { d: r.varianceDays }), fill: 'var(--bad)', at: r.endMs };
+  if (isRealizedUnderrun(r)) return { text: t(locale, 'clBarUnder', { d: -r.varianceDays }), fill: 'var(--ok)', at: r.plannedEndMs };
+  if (isForecastOver(r)) return { text: t(locale, 'clBarOver', { d: r.varianceDays }), fill: 'var(--bad)', at: r.endMs };
+  return null;
 }
 
 export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }: {
@@ -386,10 +416,12 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   const todayLabelY = topClash ? TOP - 4 : TOP - 18;
 
   // Option A's bars: each mark drawn straight from the row's own dates, at the day, and
-  // clipped to the FOCUS WINDOW rather than to a week. A mark entirely outside the window
-  // is dropped, not clamped — x() pins an out-of-range date to the frame edge, so a
-  // clamped mark would draw a sliver at the edge that claims work happened on a day the
-  // reader can see is empty.
+  // clipped to the FOCUS WINDOW rather than to a week. The filter drops two kinds of mark.
+  // A ZERO-LENGTH one (`b > a`) is a span the row's dates collapsed — a phase whose
+  // forecast remainder is nothing, say. One entirely OUTSIDE the window is dropped rather
+  // than clamped, because x() pins an out-of-range date to the frame edge, so a clamped
+  // mark would draw a sliver there claiming work happened on a day the reader can see is
+  // empty.
   const barsFor = (r: ScheduleRow) => barMarks(r, now)
     .filter((m) => m.b > m.a && m.b > tMin && m.a < tMax)
     .map((m) => ({ k: m.kind, x1: x(Math.max(m.a, tMin)), x2: x(Math.min(m.b, tMax)) }));
@@ -415,25 +447,24 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   // tests/labelCollisionSweep.test.tsx §5 asserts all of it from the rendered geometry
   // rather than from this paragraph.
   const halfWOf = (text: string) => textWidth(text) / 2 + 3;
-  /** Where a row's variance number goes, and what colour it is — chosen from the same
-   *  three predicates that draw the tail it names, so the ink and the number can never
-   *  disagree about which rows moved the buffer. `endMs` reads the value only to PRINT
-   *  it, which is what the predicate rule leaves legal. */
-  const varianceLabel = (r: ScheduleRow): { text: string; fill: string; at: number } | null => {
-    if (isRealizedOverrun(r)) return { text: t(locale, 'clBarOver', { d: r.varianceDays }), fill: 'var(--bad)', at: r.endMs };
-    if (isRealizedUnderrun(r)) return { text: t(locale, 'clBarUnder', { d: -r.varianceDays }), fill: 'var(--ok)', at: r.plannedEndMs };
-    if (isForecastOver(r)) return { text: t(locale, 'clBarOver', { d: r.varianceDays }), fill: 'var(--bad)', at: r.endMs };
-    return null;
-  };
+  /** The furthest left and right a label of this width may be CENTRED and still sit whole
+   *  inside the plot — the clamp both placers end on. */
+  const clampIntoFrame = (cx: number, halfW: number) =>
+    Math.max(labelW + halfW, Math.min(W - PAD_R - halfW, cx));
+  /** A label placed just past `at`, or just before it when past would leave the frame.
+   *  Both row labels want this: a variance number sits beyond the end of its tail, and a
+   *  short gap's count sits beyond the end of its rule. */
+  const besideOrFlipped = (at: number, halfW: number) =>
+    clampIntoFrame(at + LABEL_GAP + halfW <= W - PAD_R - halfW
+      ? at + LABEL_GAP + halfW
+      : at - LABEL_GAP - halfW, halfW);
   /** The variance number placed beside the END of the tail it names — flipped to the
    *  tail's other side when it would run past the frame, which is not an edge case: the
    *  axis reaches the SOP, so the live phase's forecast tail often ends near it. */
   const placeVariance = (r: ScheduleRow, y: number) => {
-    const v = varianceLabel(r);
+    const v = varianceLabel(r, locale);
     if (v == null || !inView(v.at)) return null;
-    const end = x(v.at), halfW = halfWOf(v.text);
-    const cx = end + 4 + halfW <= W - PAD_R - halfW ? end + 4 + halfW : end - 4 - halfW;
-    return { text: v.text, fill: v.fill, x: Math.max(labelW + halfW, Math.min(W - PAD_R - halfW, cx)), y };
+    return { text: v.text, fill: v.fill, x: besideOrFlipped(x(v.at), halfWOf(v.text)), y };
   };
   /** The idle handoff before a row: the dashed rule in the channel ABOVE it, and the day
    *  count ON that rule's own line — not stacked above it.
@@ -460,11 +491,10 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
     if (!hasIdleGapBefore(r) || i === 0 || rows[i - 1].endMs >= tMax || r.startMs <= tMin) return null;
     const x1 = x(rows[i - 1].endMs), x2 = x(r.startMs);
     const text = t(locale, 'clIdleDays', { d: r.gapBeforeDays }), halfW = halfWOf(text);
-    const beside = x2 + 4 + halfW <= W - PAD_R - halfW ? x2 + 4 + halfW : x1 - 4 - halfW;
-    const cx = x2 - x1 >= 2 * halfW + 16 ? (x1 + x2) / 2 : beside;
+    const fitsOnTheRule = x2 - x1 >= 2 * halfW + IDLE_CENTRE_AIR;
     return {
-      text, x1, x2, halfW,
-      x: Math.max(labelW + halfW, Math.min(W - PAD_R - halfW, cx)),
+      text, x1, x2,
+      x: fitsOnTheRule ? clampIntoFrame((x1 + x2) / 2, halfW) : besideOrFlipped(x2, halfW),
       y: y - ROW_H / 2 + IDLE_DY,
     };
   };

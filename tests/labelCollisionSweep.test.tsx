@@ -653,6 +653,9 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
         .map(lineBox)
         .find((l) => Math.abs(l.y - idle!.y) < 2);
       expect(rule).toBeDefined();
+      // 16 restates ChainSchedule's IDLE_CENTRE_AIR. Deliberately a literal: this asserts
+      // the FIXTURE is on the short side of the threshold, and reading the threshold from
+      // the component would make the assertion move with it and stop reproducing.
       expect(rule!.halfW * 2).toBeLessThan(idle!.halfW * 2 + 16);
     });
 

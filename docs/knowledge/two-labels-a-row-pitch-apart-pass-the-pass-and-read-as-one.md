@@ -9,28 +9,30 @@ applies_to:
   - a row chart whose row height is a small multiple of its type size
 symptoms:
   - two numbers about two different rows read as one stacked pair, but no overlap test fails
-  - a label pair that looks wrong on screen and measures 0.0px of clearance
+  - a label pair that looks wrong on screen and measures under a pixel of clearance
   - moving a label "a few px" has nowhere to go — the channel is narrower than the label
-verified_by: 'tests/labelCollisionSweep.test.tsx §5 "Option A bars — the numbers beside the tails"; screenshots/14-critical-chain-bars-light.png and 15-…-dark.png, both regenerated across the fix; issue #161 step 3/4'
+verified_by: 'tests/labelCollisionSweep.test.tsx §5 "separates an idle count from the variance number above it in X, not by a hair in Y" — restoring the pre-fix y makes it report `"6d idle" crowds "−7d" (Δy 12.8)`; images from `npm run test:e2e:screens`, "Critical Chain screenshots" in tests/phase_screenshots.spec.ts (screenshots/ is gitignored, so re-run the spec rather than looking for the files); issue #161 step 3/4'
 ---
 
 # A de-collider says "clear" at a zero-pixel gap
 
 `overlaps()` in `labelPlacement` is a strict intersection test, and `halfHFor` reserves
-`fontSize / 2 + 1`. Two labels exactly `2 × halfH` apart therefore report clear with
-**zero** pixels between their boxes — legible only in the sense that no glyph touches
-another. In a chart with one label per row, that distance is not a coincidence you can
-wave away: it is the row pitch minus the channel offset, so it recurs on every row of
-every dataset, and no placement pass, no `collidingPairs` assertion and no amount of
-fixture crowding will ever flag it.
+`fontSize / 2 + 1`. Two labels `2 × halfH` apart therefore report clear with **zero**
+pixels between their boxes, and anything a hair beyond that is equally a pass — legible
+only in the sense that no glyph touches another. In a chart with one label per row, a
+separation in that neighbourhood is not a coincidence you can wave away: it is the row
+pitch minus the channel offset, so it recurs on every row of every dataset, and no
+placement pass, no `collidingPairs` assertion and no amount of fixture crowding will ever
+flag it.
 
 **Why it bites.** The passes are the only mechanical check anyone runs, so "the sweep is
 green" gets read as "the labels are fine". `ChainSchedule`'s Option A rows put a phase's
 variance number on the row centre and the next row's idle count in the channel above that
-row — `ROW_H / 2 + 1 + CAP_HALF_EM × FS_SMALL` apart, which for `ROW_H` 34 and `FS_SMALL`
-10 works out to exactly the 12.0px the two boxes reserve. And the crowding is not rare: a
-gap usually opens *because* the previous phase over-ran, so the two labels that clump are
-the two the data pairs up.
+row: the count sat `ROW_H / 2 + 1 + CAP_HALF_EM × FS_SMALL` below its OWN row's centre,
+so the separation from the row above was `ROW_H` minus that — 12.8px for `ROW_H` 34 and
+`FS_SMALL` 10, against the 12.0px the two boxes reserve. **0.8px of clearance**, which is
+a pass. And the crowding is not rare: a gap usually opens *because* the previous phase
+over-ran, so the two labels that clump are the two the data pairs up.
 
 **What to do.**
 
@@ -45,7 +47,7 @@ the two the data pairs up.
 3. **Keep the mark visible when the label lands on it.** A label centred on a short rule
    knocks the whole rule out and deletes the mark (AGENTS lesson 18). Centre only when the
    rule is comfortably longer than the label; otherwise step outside it.
-4. **Sign off from a SCREENSHOT, cropped and upscaled.** At 1× a 0px gap and a 6px gap
+4. **Sign off from a SCREENSHOT, cropped and upscaled.** At 1× a 0.8px gap and a 7px gap
    look the same. `sips --cropToHeightWidth … --cropOffset …` then `--resampleWidth` is
    enough; the defect was invisible in the full-page image and obvious at 3×.
 
