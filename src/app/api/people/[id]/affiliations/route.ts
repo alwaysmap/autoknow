@@ -3,6 +3,10 @@ import { prisma } from '../../../../../lib/db';
 import { jsonError, serverError } from '../../../../../lib/api';
 import { requireRouteAuth } from '../../../../../lib/routeAuth';
 import { parseBody, affiliationApiSchema } from '../../../../../lib/schemas';
+import { overlappingPeriods } from '../../../../../lib/profiles';
+
+/** A date the way the API speaks them — the day, not the instant. */
+const day = (d: Date) => d.toISOString().slice(0, 10);
 
 export async function POST(
   req: Request,
@@ -29,6 +33,23 @@ export async function POST(
     ]);
     if (!person) return jsonError('Person not found', 404);
     if (!partner) return jsonError('Partner not found', 404);
+
+    // One person holds one job at an instant. Overlaps used to be accepted here and every
+    // resolver could only make them deterministic, never correct (autoknow-2of) — this is
+    // the fail-closed guard the write should have shipped with, and it names the periods
+    // in the way plus the remedy, because /api/people auto-opens a period the caller never
+    // asked for and this refusal is where they find out it exists.
+    const clashes = await overlappingPeriods(personId, startDate, endDate ?? null);
+    if (clashes.length > 0) {
+      const named = clashes
+        .map((c) => `${c.partner.name} as ${c.role}, ${day(c.startDate)} → ${c.endDate ? day(c.endDate) : 'open'} (affiliation ${c.id})`)
+        .join('; ');
+      return jsonError(
+        `Overlaps an existing period: ${named}. A person holds one job at an instant — ` +
+          `end or delete the covering period first (DELETE /api/people/${personId}/affiliations/{affiliationId}).`,
+        409
+      );
+    }
 
     const affiliation = await prisma.personAffiliation.create({
       data: {

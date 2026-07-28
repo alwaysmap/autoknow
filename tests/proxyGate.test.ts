@@ -150,6 +150,7 @@ const SESSION_ONLY = [
   '/api/partners',
   '/api/people',
   '/api/people/[id]/affiliations',
+  '/api/people/[id]/affiliations/[affiliationId]',
   '/api/projects',
   '/api/projects/[id]/needle',
   '/api/projects/[id]/phases',

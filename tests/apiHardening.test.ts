@@ -19,6 +19,8 @@ type Routes = {
   state: typeof import('../src/app/api/projects/[id]/phases/[phaseId]/state/route');
   actionItems: typeof import('../src/app/api/projects/[id]/phases/[phaseId]/action-items/route');
   affiliations: typeof import('../src/app/api/people/[id]/affiliations/route');
+  affiliationDelete: typeof import('../src/app/api/people/[id]/affiliations/[affiliationId]/route');
+  people: typeof import('../src/app/api/people/route');
   needle: typeof import('../src/app/api/projects/[id]/needle/route');
 };
 let routes: Routes;
@@ -40,6 +42,8 @@ beforeAll(async () => {
     state: await import('../src/app/api/projects/[id]/phases/[phaseId]/state/route'),
     actionItems: await import('../src/app/api/projects/[id]/phases/[phaseId]/action-items/route'),
     affiliations: await import('../src/app/api/people/[id]/affiliations/route'),
+    affiliationDelete: await import('../src/app/api/people/[id]/affiliations/[affiliationId]/route'),
+    people: await import('../src/app/api/people/route'),
     needle: await import('../src/app/api/projects/[id]/needle/route'),
   };
   deps = await import('../src/app/actions/dependencies');
@@ -152,6 +156,84 @@ describe('POST /api/people/[id]/affiliations', () => {
 
   it('creates a valid affiliation', async () => {
     const res = await post(personId, { partnerId: seeded.supplierId, role: 'FAE', startDate: '2026-01-01' });
+    expect(res.status).toBe(201);
+  });
+});
+
+// autoknow-2of: the previously-correct API sequence — create the person, then POST each
+// real period — used to author an overlap, because /api/people auto-opens "Member from
+// today" and the affiliations route accepted anything. These walk that exact sequence
+// against the guard: the 201 hands back the auto-opened period, an overlapping POST is a
+// 409 naming it, DELETE removes it, and the refused write then lands.
+describe('affiliations: one job at an instant (autoknow-2of)', () => {
+  let personId: number;
+  let autoOpened: { id: number };
+  let strangerId: number;
+
+  const post = (id: number, body: unknown) =>
+    routes.affiliations.POST(jsonReq(`http://localhost/api/people/${id}/affiliations`, body), {
+      params: Promise.resolve({ id: String(id) }),
+    });
+  const del = (id: number | string, affiliationId: number | string) =>
+    routes.affiliationDelete.DELETE(
+      new Request(`http://localhost/api/people/${id}/affiliations/${affiliationId}`, { method: 'DELETE' }),
+      { params: Promise.resolve({ id: String(id), affiliationId: String(affiliationId) }) },
+    );
+  const errorOf = async (res: Response) => ((await res.json()) as { error: string }).error;
+
+  beforeAll(async () => {
+    const res = await routes.people.POST(
+      jsonReq('http://localhost/api/people', {
+        name: 'Iris Chang', email: 'iris@example.com', currentPartnerId: seeded.supplierId,
+      }),
+    );
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { person: { id: number }; affiliation: { id: number } };
+    personId = body.person.id;
+    autoOpened = body.affiliation;
+
+    const stranger = await prisma.person.create({
+      data: { name: 'Noor', email: 'noor@example.com', currentPartnerId: seeded.oemId },
+    });
+    strangerId = stranger.id;
+  });
+
+  it('POST /api/people returns the period it auto-opens, so it is correctable at all', () => {
+    expect(autoOpened).toEqual(expect.objectContaining({ id: expect.any(Number) }));
+  });
+
+  it('accepts a closed PRIOR period — history lands untouched by the guard', async () => {
+    const res = await post(personId, { partnerId: seeded.oemId, role: 'FAE', startDate: '2024-01-01', endDate: '2025-01-01' });
+    expect(res.status).toBe(201);
+  });
+
+  it('409s a period overlapping the auto-opened one, naming the period and the remedy', async () => {
+    const res = await post(personId, { partnerId: seeded.oemId, role: 'PM', startDate: '2025-06-01' });
+    expect(res.status).toBe(409);
+    const error = await errorOf(res);
+    expect(error).toContain(`affiliation ${autoOpened.id}`);
+    expect(error).toContain('DELETE');
+  });
+
+  it('accepts a handover boundary — an end exactly ON the next start is contiguous, not an overlap', async () => {
+    const res = await post(personId, { partnerId: seeded.supplierId, role: 'Intern', startDate: '2023-01-01', endDate: '2024-01-01' });
+    expect(res.status).toBe(201);
+  });
+
+  it('400s an empty or inverted period — half-open, an end on or before the start covers no day', async () => {
+    expect((await post(personId, { partnerId: seeded.oemId, role: 'PM', startDate: '2030-01-01', endDate: '2030-01-01' })).status).toBe(400);
+    expect((await post(personId, { partnerId: seeded.oemId, role: 'PM', startDate: '2030-01-02', endDate: '2030-01-01' })).status).toBe(400);
+  });
+
+  it('DELETE verifies parentage and ids — cross-person and unknown are 404, garbage is 400', async () => {
+    expect((await del(strangerId, autoOpened.id)).status).toBe(404);
+    expect((await del(personId, 999999)).status).toBe(404);
+    expect((await del(personId, 'abc')).status).toBe(400);
+  });
+
+  it('deleting the auto-opened period unblocks the refused write — the bead\'s remedy sequence', async () => {
+    expect((await del(personId, autoOpened.id)).status).toBe(200);
+    const res = await post(personId, { partnerId: seeded.oemId, role: 'PM', startDate: '2025-06-01' });
     expect(res.status).toBe(201);
   });
 });
