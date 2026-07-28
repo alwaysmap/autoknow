@@ -145,9 +145,10 @@
   --ok-ring: rgba(19, 115, 51, 0.25);
   --bad-ring: rgba(197, 34, 31, 0.25);
 
-  /* The Critical Chain schedule's --band-* washes and --forecast-fill were deleted here
-     with the encoding that needed them (#161 step 3/4). It now draws from the health
-     tokens like every other chart; docs/CRITICAL_CHAIN_VIEW_PLAN.md §4a carries why. */
+  /* The Critical Chain schedule's --band-* washes and --forecast-fill stood here, orphaned
+     since #75 removed the full-height bands that read them; deleted with #75's close-out
+     (#161 step 3/4). The chart draws from the health tokens like every other one now, and
+     docs/CRITICAL_CHAIN_VIEW_PLAN.md §4a carries why the bands went. */
 
   /* Capacity product bands (CapacityChart's CFD stack). A CATEGORICAL palette,
      deliberately outside the health palette — amber/red/green JUDGE, these only

@@ -41,9 +41,9 @@ over-ran, so the two labels that clump are the two the data pairs up.
    `2 × halfHFor(size)` — and a nudge big enough to clear moves the label onto a
    neighbouring row, which is worse than tight: it re-attributes the number.
 2. **Move the label to a line the geometry gives room on.** Here the idle count moved from
-   *above* its dashed rule to *on* it, haloed so it knocks the dashes out. 6.2px on a 34px
-   row — separation 12.8 → 19 against 12 reserved, so clearance 0.8 → 7 — and it cost
-   nothing, because a knocked-out annotated rule is a conventional reading.
+   *above* its dashed rule to *on* it, haloed so it knocks the dashes out. That bought
+   6.2px on a 34px row — separation 12.8 → 19 against 12 reserved, so clearance 0.8 → 7 —
+   and cost nothing, because a knocked-out annotated rule is a conventional reading.
 3. **Keep the mark visible when the label lands on it.** A label centred on a short rule
    knocks the whole rule out and deletes the mark (AGENTS lesson 18). Centre only when the
    rule is comfortably longer than the label; otherwise step outside it.

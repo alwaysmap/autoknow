@@ -468,7 +468,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   const placeVariance = (r: ScheduleRow, y: number) => {
     const v = varianceLabel(r, locale);
     if (v == null || !inView(v.at)) return null;
-    const end = x(v.at); // the tail leaves and re-enters at the same point
+    const end = x(v.at); // one anchor twice: the label flips around the tail's own end
     return { text: v.text, fill: v.fill, x: besideOrFlipped(end, end, halfWOf(v.text)), y };
   };
   /** The idle handoff before a row: the dashed rule in the channel ABOVE it, and the day

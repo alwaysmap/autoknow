@@ -617,11 +617,12 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
     };
 
     /** Vertical air demanded BEYOND the two boxes. Deliberately close to what the layout
-     *  actually achieves (19px against the 18 this threshold asks for): the whole point is
-     *  that the pre-fix 12.8px passed every intersection test, so a slack chosen to sit
-     *  comfortably above the achieved value would not have caught it either. The 1px margin
-     *  means a change to ROW_H or IDLE_DY fails here — which is the intent, not brittleness:
-     *  this pair has one row of pitch to live in and nothing else guards it. */
+     *  achieves: separation is `ROW_H / 2 + IDLE_DY` = 19 against the 18 this asks for. The
+     *  slack is tight on purpose — the pre-fix 12.8px passed every intersection test, so a
+     *  threshold chosen to sit comfortably under the achieved value would not have caught
+     *  that either. It is 1px of headroom, not 1px of sensitivity: the guard is strict, so
+     *  it takes IDLE_DY 2 → 0, or ROW_H 34 → 31, to fire. Shrinking either by ONE pixel
+     *  still passes here, and this test is not what would catch it. */
     const REQUIRED_AIR = 6;
 
     it('separates an idle count from the variance number above it in X, not by a hair in Y', () => {
