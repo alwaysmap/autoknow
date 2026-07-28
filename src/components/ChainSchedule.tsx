@@ -50,10 +50,12 @@ const BAR_H = 19; // the bar inside each row band
 // The rule and the count that names it are BOTH rendered from the single `y` placeIdle
 // returns, so they cannot drift apart; this only says where that line falls.
 const IDLE_DY = 2;
-// Air between a row label and the mark it is anchored beside, and the extra a rule needs
-// beyond a label's own width before that label may sit CENTRED on it — below which the
-// halo's knockout would leave too little rule showing either side to read as a rule.
-const LABEL_GAP = 4, IDLE_CENTRE_AIR = 16;
+// Air between a row label and the mark it is anchored beside.
+const LABEL_GAP = 4;
+// How much LONGER than a label a rule must be before that label may sit CENTRED on it.
+// Below this the halo's knockout leaves too little rule showing either side to read as a
+// rule at all, so the label steps outside instead (AGENTS lesson 18).
+const IDLE_CENTRE_AIR = 16;
 const FLOW_H = 112, FLOW_GAP = 28; // the two-tone buffer flow below the grid
 // EXTENTS of the flow's two short markers: the reserve stub in from the right edge, and
 // the blown-day tick either side of 0%.
@@ -127,9 +129,9 @@ const BAR_FILL: Record<BarKind, string> = {
   under: 'none', forecast: 'none', fover: 'none', sched: 'none',
 };
 // Only the three FILLED kinds have a meaningful entry here; the outlined four are 1
-// because their fill is `none` and an opacity on nothing is nothing. Exhaustive over
-// BarKind anyway, so adding a kind is a type error rather than a silently missing look —
-// but do not read the four 1s as tuned values, or spend time adjusting them.
+// because their fill is `none`, and an opacity on nothing is nothing — not tuned values.
+// Exhaustive over BarKind anyway, so adding a kind is a type error rather than a look
+// that silently goes missing.
 const BAR_OPACITY: Record<BarKind, number> = {
   done: 0.42, elapsed: 0.86, over: 0.94, under: 1, forecast: 1, fover: 1, sched: 1,
 };
@@ -447,24 +449,27 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
   // tests/labelCollisionSweep.test.tsx §5 asserts all of it from the rendered geometry
   // rather than from this paragraph.
   const halfWOf = (text: string) => textWidth(text) / 2 + 3;
-  /** The furthest left and right a label of this width may be CENTRED and still sit whole
-   *  inside the plot — the clamp both placers end on. */
+  /** A label centre pulled back inside the plot, so the whole box sits within it. */
   const clampIntoFrame = (cx: number, halfW: number) =>
     Math.max(labelW + halfW, Math.min(W - PAD_R - halfW, cx));
-  /** A label placed just past `at`, or just before it when past would leave the frame.
-   *  Both row labels want this: a variance number sits beyond the end of its tail, and a
-   *  short gap's count sits beyond the end of its rule. */
-  const besideOrFlipped = (at: number, halfW: number) =>
-    clampIntoFrame(at + LABEL_GAP + halfW <= W - PAD_R - halfW
-      ? at + LABEL_GAP + halfW
-      : at - LABEL_GAP - halfW, halfW);
+  /** A label placed just past `after`, or just before `before` when past would leave the
+   *  frame. TWO anchors, not one, because the two callers flip around different points: a
+   *  variance number leaves and re-enters at the same place (the end of its tail), while a
+   *  gap's count steps past the rule's right end and flips to the LEFT of its left end —
+   *  flipping around the right end would put it back over the rule it names, and the count
+   *  stepping outside is what keeps that rule visible in the first place. */
+  const besideOrFlipped = (after: number, before: number, halfW: number) => {
+    const right = after + LABEL_GAP + halfW;
+    return clampIntoFrame(right <= W - PAD_R - halfW ? right : before - LABEL_GAP - halfW, halfW);
+  };
   /** The variance number placed beside the END of the tail it names — flipped to the
    *  tail's other side when it would run past the frame, which is not an edge case: the
    *  axis reaches the SOP, so the live phase's forecast tail often ends near it. */
   const placeVariance = (r: ScheduleRow, y: number) => {
     const v = varianceLabel(r, locale);
     if (v == null || !inView(v.at)) return null;
-    return { text: v.text, fill: v.fill, x: besideOrFlipped(x(v.at), halfWOf(v.text)), y };
+    const end = x(v.at); // the tail leaves and re-enters at the same point
+    return { text: v.text, fill: v.fill, x: besideOrFlipped(end, end, halfWOf(v.text)), y };
   };
   /** The idle handoff before a row: the dashed rule in the channel ABOVE it, and the day
    *  count ON that rule's own line — not stacked above it.
@@ -479,14 +484,14 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
    *  as the conventional annotated rule.
    *
    *  7px is still not much, so the rest of the separation is taken in X, where there
-   *  is room. The count centres on the rule only when the rule is long enough to still
-   *  read either side of the knockout; on a SHORT gap it steps past the rule's right end
-   *  instead. Both halves of that rule earn their place: centring on a short rule would
-   *  delete the mark into its own label (AGENTS lesson 18), and it is also what put the
-   *  count under the previous row's number, because a short gap's midpoint is barely a
-   *  label's width from the tail that gap follows. It steps LEFT only when stepping right
-   *  would leave the frame — the number is the point of the mark, and half a number
-   *  outside the plot is not a number. */
+   *  is room. The count centres on the rule only when the rule is longer than the label by
+   *  IDLE_CENTRE_AIR; on a SHORT gap it steps past the rule's right end instead. Both
+   *  halves of that rule earn their place: centring on a short rule would delete the mark
+   *  into its own label (AGENTS lesson 18), and it is also what put the count under the
+   *  previous row's number, because a short gap's midpoint is barely a label's width from
+   *  the tail that gap follows. Stepping past the right end can leave the frame, and then
+   *  it flips to the left of the gap's LEFT end — clear of the rule on that side too,
+   *  rather than back across the rule it just stepped off. */
   const placeIdle = (r: ScheduleRow, i: number, y: number) => {
     if (!hasIdleGapBefore(r) || i === 0 || rows[i - 1].endMs >= tMax || r.startMs <= tMin) return null;
     const x1 = x(rows[i - 1].endMs), x2 = x(r.startMs);
@@ -494,7 +499,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onRowCard, onJump }:
     const fitsOnTheRule = x2 - x1 >= 2 * halfW + IDLE_CENTRE_AIR;
     return {
       text, x1, x2,
-      x: fitsOnTheRule ? clampIntoFrame((x1 + x2) / 2, halfW) : besideOrFlipped(x2, halfW),
+      x: fitsOnTheRule ? clampIntoFrame((x1 + x2) / 2, halfW) : besideOrFlipped(x2, x1, halfW),
       y: y - ROW_H / 2 + IDLE_DY,
     };
   };

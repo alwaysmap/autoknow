@@ -601,11 +601,11 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
     });
 
     /** The shape that produced the defect: a phase over-runs, and the SHORT gap that opens
-     *  because of it starts at the end of the tail the number sits beside. The two labels
-     *  then land half a row apart — which is a couple of px of clearance against boxes
-     *  2 * halfHFor(FS_SMALL) tall — in the same column. That is why this is its own
-     *  fixture: on a chain whose gaps follow UNDER-runs the pair never meets, and the sweep
-     *  is green for a reason that has nothing to do with the placement. */
+     *  because of it starts at the end of the tail the number sits beside. Before the fix
+     *  the two labels landed 12.8px apart — 0.8px of clearance against the 12px their
+     *  boxes reserve — in the same column. That is why this is its own fixture: on a chain
+     *  whose gaps follow UNDER-runs the pair never meets, and the sweep is green for a
+     *  reason that has nothing to do with the placement. */
     const overrunThenGap: ChainLedgerInput = {
       phases: [
         phase(1, 'Design', 30, 100, [], iso(0), iso(39)),
@@ -615,6 +615,14 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
       sopDate: iso(200),
       now: day(60),
     };
+
+    /** Vertical air demanded BEYOND the two boxes. Deliberately close to what the layout
+     *  actually achieves (19px against the 18 this threshold asks for): the whole point is
+     *  that the pre-fix 12.8px passed every intersection test, so a slack chosen to sit
+     *  comfortably above the achieved value would not have caught it either. The 1px margin
+     *  means a change to ROW_H or IDLE_DY fails here — which is the intent, not brittleness:
+     *  this pair has one row of pitch to live in and nothing else guards it. */
+    const REQUIRED_AIR = 6;
 
     it('separates an idle count from the variance number above it in X, not by a hair in Y', () => {
       // Not intersecting is deliberately NOT the bar here. Two boxes that merely fail to
@@ -629,7 +637,8 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
         expect(idle.length).toBeGreaterThan(0);
         expect(numbers.length).toBeGreaterThan(0);
         expect(idle.flatMap((i) => numbers
-          .filter((n) => Math.abs(i.x - n.x) < i.halfW + n.halfW && Math.abs(i.y - n.y) < i.halfH + n.halfH + 6)
+          .filter((n) => Math.abs(i.x - n.x) < i.halfW + n.halfW
+            && Math.abs(i.y - n.y) < i.halfH + n.halfH + REQUIRED_AIR)
           .map((n) => `"${i.text}" crowds "${n.text}" (Δy ${Math.abs(i.y - n.y).toFixed(1)})`)))
           .toEqual([]);
       }
