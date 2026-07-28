@@ -89,9 +89,18 @@ warnings is the bar — the suite was once left red on main and it hid real bugs
   A guarded click can also be swallowed outright when the page scrolls between
   its press and its release
   ([note](../../../docs/knowledge/a-page-scroll-between-press-and-release-loses-the-click.md)).
+  And a spec that STAGES that race itself must wait for the guard to arm before
+  pressing, on a signal the server cannot render — otherwise it tests an unguarded
+  page and fails wearing the bug's own signature
+  ([note](../../../docs/knowledge/a-test-that-starts-page-motion-before-the-press-races-its-own-press-point.md)).
 
 ## Discipline
 
+- **A green e2e check is not evidence a flake is fixed.** `retries: 1` reports a
+  spec that failed then passed as flaky, and the check goes green. State the
+  criterion before you look and take it from the LOG — no `Retry #1`, plus the
+  invariant the fix establishes
+  ([note](../../../docs/knowledge/a-test-that-passes-on-retry-reports-the-check-green.md)).
 - TDD: new behavior gets a failing test first; bug fixes start with a test
   reproducing the bug. Test expectations (black-box), not implementation.
 - Coverage bar: **80%+ statements/lines**, proven by `npm run test:coverage`

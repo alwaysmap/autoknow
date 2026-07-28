@@ -34,9 +34,16 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   // Retries are a thin net for genuine transients (a dropped DB connection), NOT a
   // flake-masker. e2e now runs against a prod build (see webServer), so the dev-server
-  // first-hit compilation lag that once justified 2 CI retries is gone — keep it at 1 so
-  // a real flake fails VISIBLY on the second attempt instead of being retried into a
-  // false green. Was `CI ? 2 : 1`; lowered when the suite moved to the prod build.
+  // first-hit compilation lag that once justified 2 CI retries is gone. Was `CI ? 2 : 1`;
+  // lowered when the suite moved to the prod build.
+  //
+  // This once claimed the remaining retry keeps a real flake VISIBLE, failing on the
+  // second attempt rather than being retried into a false green. It does not: a flake
+  // that fails attempt 1 and passes the retry is reported FLAKY, the process exits 0,
+  // and the check is green — which is how autoknow-dxa survived three PRs. Judge a flake
+  // fix from the log (no `Retry #1`), never from the tick, until `failOnFlakyTests` is
+  // switched on (bead autoknow-zbt).
+  // docs/knowledge/a-test-that-passes-on-retry-reports-the-check-green.md
   retries: process.env.CI ? 1 : 0,
   // One worker per (server, database) pair provisioned below — never more, or the extra
   // workers would land on a port nothing is listening on.
