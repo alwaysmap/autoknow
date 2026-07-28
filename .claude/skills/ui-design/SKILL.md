@@ -14,8 +14,8 @@ and the ✦ AI-provenance mark (§8).
 
 **Before styling, check the findings.** [docs/knowledge/](../../../docs/knowledge/README.md)
 carries notes triggered by `src/**/*.module.css`, `src/components/**`, and
-symptoms like "right classes, wrong position". Scan the index's trigger column;
-open only the rows that match what you are about to touch.
+symptoms like "right classes, wrong position". List the directory and read the
+slugs; open only the few that match what you are about to touch.
 
 ## Rules that repeatedly caught agents here
 

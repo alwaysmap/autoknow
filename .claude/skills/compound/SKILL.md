@@ -151,18 +151,18 @@ Keep it under 60 lines. Past a screen it is a document, and documents rot.
 
 ## 5. Finish the loop
 
-- **ADR**: update `docs/adr/README.md`'s index table (date · title · status ·
-  tags), in date order.
-- **Knowledge note**: add its row to `docs/knowledge/README.md`'s index —
-  `| [title](<slug>.md) | load it when… |`. The trigger column is what agents scan
-  instead of the directory; a note missing from the index is a note nobody finds.
+- **There is no index to update.** The SLUG is the whole retrieval surface, so
+  spend the effort there: write it as a claim someone could act on, specific
+  enough to triage from a directory listing alone. A slug that needs the file
+  opened to know whether it applies is the thing that used to make an index look
+  necessary.
 - **First note for a task surface**: add a one-line pointer to that surface's
   skill (`ui-design`, `db-change`, …) naming the `applies_to` values that select
   its notes. Add it only when notes exist — a pointer to nothing is noise.
 - Run `npm run test -- tests/adrNaming.test.ts tests/knowledgeNotes.test.ts tests/agentsLessons.test.ts`
-  — they check filename shape, required front matter, the length cap, index
-  honesty, contiguous lesson numbering, and that every ADR path, knowledge path,
-  and `AGENTS lesson N` cited anywhere in the repo resolves.
+  — they check filename shape, required front matter, the length cap, contiguous
+  lesson numbering, and that every ADR path, knowledge path, and `AGENTS lesson N`
+  cited anywhere in the repo resolves.
 - Validate every other relative link you wrote resolves.
 - **Commit onto the PR branch, before the merge — never onto `main` afterwards.**
   A record that lands later is an orphan docs-only commit divorced from the change

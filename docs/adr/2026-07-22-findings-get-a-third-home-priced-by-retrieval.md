@@ -4,7 +4,7 @@ date: 2026-07-22
 supersedes: ""
 superseded-by: ""
 extends: "decision-records-over-detail-documents"
-extended-by: ""
+extended-by: "knowledge-is-reviewed-not-indexed"
 tags: [docs, knowledge, agents, context]
 ---
 

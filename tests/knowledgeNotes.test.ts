@@ -73,16 +73,6 @@ describe('knowledge notes', () => {
     expect(long).toEqual([]);
   });
 
-  it('lists every note in the index exactly once, and links nothing missing', () => {
-    // The index is the cheap surface agents scan instead of the directory. A note
-    // missing from it is a note nobody will ever find.
-    const index = readFileSync(join(DIR, 'README.md'), 'utf8');
-    const linked = [...index.matchAll(/\]\(([a-z0-9-]+\.md)\)/g)].map((m) => m[1]);
-
-    expect([...new Set(linked)].sort()).toEqual(notes().sort());
-    expect(linked.length).toBe(new Set(linked).size);
-  });
-
   it('resolves every knowledge path cited anywhere in the repo', () => {
     // Same rule as ADR citations: a pointer is only worth writing if it opens.
     const known = new Set([...notes(), 'README.md']);

@@ -40,11 +40,16 @@ The other two are not, and are meant to be looked up:
 * [docs/adr/](docs/adr/README.md) — **decisions.** Check before relitigating a
   settled question.
 * [docs/knowledge/](docs/knowledge/README.md) — **findings**: how this system
-  actually behaves, learned the hard way. Scan the index's trigger column when
-  PLANNING a change (does a row cover what you're about to touch?) and when
-  STUCK on a surprise (`grep -A4 '^symptoms:' docs/knowledge/*.md`). Never
-  bulk-read it — a note that has to be found by reading all of them is a note
-  whose index row is too vague.
+  actually behaves, learned the hard way.
+
+**Reviewing both is a STEP in the work, not something you do if you remember.**
+Open any feature, change or debugging session by listing those two directories and
+reading the slugs — they are written as claims, so the slug usually settles it.
+Open the few that bear on what you are touching; confirm against `applies_to`.
+When stuck, match the SYMPTOM instead: `grep -A4 '^symptoms:' docs/knowledge/*.md`.
+Run a broad sweep in a subagent that returns only what applies, so forty notes
+never enter this context to yield two. Never bulk-read either directory — if the
+slugs will not triage, the slugs are too vague, so rewrite them.
 
 # Close the loop in a real browser — freely
 
