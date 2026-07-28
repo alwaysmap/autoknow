@@ -25,11 +25,17 @@ need, not the whole doc).
 
 ## Mechanics
 
-- Layout: `infra/terraform/` — per-instance `instances/<name>.tfvars` +
-  `instances/<name>.backend.hcl` (GCS remote state).
-- Secrets: Secret Manager resources in `secrets.tf` + the Cloud Run env
-  mapping; never in tfvars or the repo. A new secret also needs a `.env.sample`
-  entry and a row in OPERATIONS §7's table.
+- Layout: `infra/terraform/` — `main.tf` (project, APIs, registries, SQL,
+  secrets, IAM, Cloud Run, Scheduler, WIF), `monitoring.tf` (alarms),
+  `apphub.tf` (App Hub grouping), `providers.tf`, `variables.tf`, `outputs.tf`,
+  plus per-instance `instances/<name>.tfvars` + `instances/<name>.backend.hcl`
+  (GCS remote state). Run it via `npm run infra:plan` / `infra:apply` —
+  `scripts/infra/terraform.sh` unsets the app's SA credentials and asserts a
+  human `@alwaysmap.com` identity before touching the backend.
+- Secrets: Secret Manager resources in `main.tf` (`local.generated_secrets` /
+  `local.external_secrets` → `google_secret_manager_secret.s`) + the Cloud Run
+  env mapping; never in tfvars or the repo. A new secret also needs a
+  `.env.sample` entry and a row in OPERATIONS §7's table.
 - App code must gate on env presence (`fooConfigured = !!process.env.FOO`) and
   degrade with an honest message — features stay dark until infra exists.
 - Known escape hatches: consumer OAuth clients are console-only (no API);

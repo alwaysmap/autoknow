@@ -18,6 +18,13 @@ page. Example:
 Prefer looking at the live console/logs in the browser over speculating — the
 loop is free.
 
+**Where the parts live in one page:** App Hub —
+`https://console.cloud.google.com/apphub?project=autoknow-prod-1895f1&authuser=dylan@alwaysmap.com`
+— groups the RUNTIME surface (Cloud Run, Cloud SQL, the secrets). It cannot show
+the Scheduler job, the registries, the domain mapping or the alert policies: App
+Hub models services and workloads only. For those, `infra/terraform/` is the
+inventory.
+
 ## First question: what is prod actually running?
 
 ```bash

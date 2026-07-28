@@ -27,6 +27,12 @@ locals {
     "drive.googleapis.com",         # background Drive doc ingestion (lib/driveSync, keyless SA token)
     "cloudidentity.googleapis.com", # the Workspace contributors group (Chat visibility)
     "storage.googleapis.com",       # remote Terraform state bucket
+    # App Hub — the one home for the app's runtime surface (apphub.tf). It is already
+    # ENABLED in prod because someone enabled it by hand; declaring it makes the enabled set
+    # a consequence of this config rather than of who clicked what. Adopting an already-on
+    # API only writes a state entry — and disable_on_destroy = false below means removing
+    # the line later cannot turn it off underneath a live registration.
+    "apphub.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "orgpolicy.googleapis.com",
     "serviceusage.googleapis.com", # quota/billing project for the orgpolicy provider alias
