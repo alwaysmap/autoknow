@@ -40,9 +40,9 @@ print_accepted_forms() {
   cat >&2 <<'EOF'
 Put ONE of these lines in any commit message on this branch:
 
-  compound: docs/adr/YYYY-MM-DD-slug.md     a record that SHIPS IN THIS DIFF —
-                                            an ADR, a knowledge note, or AGENTS.md
-  compound: docs/knowledge/a.md, AGENTS.md  several, comma- or space-separated
+  compound: docs/adr/YYYY-MM-DD-slug.md          a record that SHIPS IN THIS DIFF —
+                                                 an ADR, a knowledge note, or AGENTS.md
+  compound: docs/knowledge/<slug>.md, AGENTS.md  several, comma- or space-separated
   compound: none — <why there is nothing worth recording>
 
 The path form carries paths and nothing else: no trailing prose, no backticks,
