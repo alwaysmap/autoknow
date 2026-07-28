@@ -11,7 +11,8 @@ import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
 import AnchorHeading from '../../../components/AnchorHeading';
 import PersonHistoryTable from './PersonHistoryTable';
-import PersonProgramsTable, { type PersonProgramRow } from './PersonProgramsTable';
+import PersonProgramsTable from './PersonProgramsTable';
+import { personProgramRows } from '../../../lib/personPrograms';
 
 // THE person page BODY, rendered by TWO routes: `/people/:id` (any person, by id) and
 // `/me` (the signed-in person, by session). Both render this — /me does NOT redirect,
@@ -90,38 +91,18 @@ export default async function PersonProfile({ personId }: { personId: number }) 
   });
 
   // Programs worked on: TEL ownership + phase-level involvement; phases reached via
-  // assigned action items fill in history the involvement table doesn't cover.
-  const programs = new Map<number, PersonProgramRow>();
-  const rowFor = (project: { id: number; name: string }) => {
-    const row = programs.get(project.id)
-      ?? { id: project.id, name: project.name, tel: false, roles: [], roleSummary: '', phases: [] };
-    programs.set(project.id, row);
-    return row;
-  };
-  for (const p of owned) rowFor(p).tel = true;
-  for (const inv of person.phaseInvolvements) {
-    const row = rowFor(inv.phase.project);
-    if (!row.phases.some((ph) => ph.id === inv.phase.id)) {
-      row.phases.push({ id: inv.phase.id, name: inv.phase.name, role: inv.role });
-    }
-    // `PhasePerson.role` is nullable and repeats across a program's phases; the Role
-    // column wants the distinct set, not one per phase.
-    if (inv.role && !row.roles.includes(inv.role)) row.roles.push(inv.role);
-  }
-  for (const a of person.actionItems) {
-    const row = rowFor(a.phase.project);
-    if (!row.phases.some((ph) => ph.id === a.phase.id)) {
-      row.phases.push({ id: a.phase.id, name: a.phase.name, role: null });
-    }
-  }
+  // assigned action items fill in history the involvement table doesn't cover. Since
+  // #127 E11 each row also carries the affiliation held at the time of the involvement,
+  // resolved in lib/personPrograms against the career fetched above — which is why the
+  // assembly moved there: the dating is a rule with tests, not a rendering choice.
   // Unsorted: PersonProgramsTable owns the order (defaultSortKey="name"), and it sorts
   // during render, so the server HTML is already in that order.
-  const programRows = [...programs.values()].map((r) => ({
-    ...r,
-    // The Role column's sort key. 'TEL' unlocalized on purpose: this is a sort value,
-    // never rendered — the cell renders the badge and `telRole` carries the expansion.
-    roleSummary: [r.tel ? 'TEL' : '', ...r.roles].filter(Boolean).join(', '),
-  }));
+  const programRows = await personProgramRows({
+    owned,
+    phaseInvolvements: person.phaseInvolvements,
+    actionItems: person.actionItems,
+    career: person.affiliations,
+  });
 
   return (
     <div className={styles.container}>
