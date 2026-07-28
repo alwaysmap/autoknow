@@ -80,12 +80,25 @@ model Project {
   // email as TEXT and is now legacy: still written (the dual-write continues — E7 was
   // the read-side contract step, not the column drop), still what the backfill and the
   // unmatched-owner remediation arm reason about, but no longer read for display.
-  // Dropping it is a separate expand→backfill→contract merge. No path that ASSIGNS an
+  // IF it is ever dropped that is a separate expand→backfill→contract merge — but the
+  // question was asked and answered, below. No path that ASSIGNS an
   // owner can write one without the other — `requireOwner` in lib/owner hands back
   // exactly this pair and nothing hands back the email alone. Deleting the person
   // clears the id and KEEPS the text, so the row still records who used to own it —
   // an audit trail, not a display fallback: the program now reads as unowned and asks
   // for a new TEL, which is the honest state once the human is gone.
+  //
+  // KEPT, decided 2026-07-28 (bead autoknow-p78, which existed to ASK rather than to
+  // assume). The case for dropping was that a mutable address stored as free text is
+  // the shape #124 Class 4 is about, and that keeping it invites a future reader. That
+  // second worry is already answered in software rather than in prose: the `ownerText`
+  // eslint family blocks a read through four selectors (member, Prisma key, quoted key,
+  // raw-SQL template) and is proved firing. What dropping would cost is not
+  // hypothetical — the audit trail above is written by `deletePerson` on purpose, and
+  // the two arms named above still reason about this column. A
+  // write-only column with an enforced no-read guard is a smaller liability than
+  // deleting the only record of who used to own a program. Re-open the question if the
+  // lint family is ever weakened, which is the condition that reverses the argument.
   ownerName         String?
   ownerPersonId     Int?
   // Back-relation: Person.ownedProjects. Named here because a grep for the forward
@@ -502,12 +515,15 @@ model PersonAffiliation {
   // it in here would make one constraint answer two questions and report the wrong one.
   email     String?
 
-  // Superseded for READS by the composites below, which have these as strict
-  // prefixes — kept only because dropping an index is not additive. Owned by bead
-  // autoknow-4y3, to land after E5 is healthy in prod so a plan regression stays
-  // attributable to one change. Not an oversight; do not "tidy" them separately.
-  @@index([personId])
-  @@index([partnerId])
+  // There is deliberately no single-column ("personId") or ("partnerId") index here.
+  // Both existed until bead autoknow-4y3 (migration
+  // 20260728202122_drop_redundant_affiliation_indexes)
+  // and were dropped once E5 was healthy in prod: each is a strict PREFIX of the
+  // corresponding composite below, so Postgres serves from the composite every lookup
+  // the single served, and keeping them bought nothing but write amplification on every
+  // insert and move. Re-adding one is a regression, not a safety net — if a plan ever
+  // seems to want one, the answer is an EXPLAIN of the composite first.
+  //
   // As-of lookups (#127 E4, spec #124 §5). `endDate` is nullable, so the predicate
   // is `startDate < d AND (endDate IS NULL OR endDate >= d)` — NOT a clean half-open
   // range, and the two trailing columns earn their place for different reasons:
