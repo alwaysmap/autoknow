@@ -21,7 +21,7 @@ jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 // Dynamic import AFTER the env assignment above — a static import is hoisted and
 // would evaluate src/lib/db (binding its prisma client) before DATABASE_URL is set.
 type PeopleActions = typeof import('../src/app/actions/people');
-let movePersonCompany: PeopleActions['movePersonCompany'];
+let revisePerson: PeopleActions['revisePerson'];
 
 describe('hasTakenEffect', () => {
   // `at` is passed explicitly throughout: a test that reads the wall clock proves
@@ -56,7 +56,7 @@ describe('hasTakenEffect', () => {
   });
 });
 
-describe('movePersonCompany applies a move only once its date arrives', () => {
+describe('revisePerson applies a dated change only once its date arrives', () => {
   let boschId: number;
   let hondaId: number;
   let personId: number;
@@ -83,7 +83,7 @@ describe('movePersonCompany applies a move only once its date arrives', () => {
   };
 
   beforeAll(async () => {
-    ({ movePersonCompany } = await import('../src/app/actions/people'));
+    ({ revisePerson } = await import('../src/app/actions/people'));
   });
 
   // Fresh every test: each one moves the same person, so a shared fixture would
@@ -114,8 +114,9 @@ describe('movePersonCompany applies a move only once its date arrives', () => {
 
   it('applies a backdated move: the window is retroactively re-attributed', async () => {
     const effective = dayOffset(-30);
-    const result = await movePersonCompany(form({
-      personId, newPartnerId: hondaId, newRole: 'Cockpit Platform Lead', startDate: effective,
+    const result = await revisePerson(form({
+      personId, name: 'Alice Waters', email: 'alice.waters@bosch.example',
+      partnerId: hondaId, role: 'Cockpit Platform Lead', effectiveDate: effective,
     }));
     expect(result.error).toBeUndefined();
 
@@ -130,8 +131,9 @@ describe('movePersonCompany applies a move only once its date arrives', () => {
 
   it('records a future-dated move WITHOUT applying it — the whole of Class 1', async () => {
     const effective = dayOffset(120);
-    const result = await movePersonCompany(form({
-      personId, newPartnerId: hondaId, newRole: 'Cockpit Platform Lead', startDate: effective,
+    const result = await revisePerson(form({
+      personId, name: 'Alice Waters', email: 'alice.waters@bosch.example',
+      partnerId: hondaId, role: 'Cockpit Platform Lead', effectiveDate: effective,
     }));
     expect(result.error).toBeUndefined();
 
@@ -155,8 +157,9 @@ describe('movePersonCompany applies a move only once its date arrives', () => {
   // flip at UTC midnight mid-run. The exact off-by-one is pinned above instead,
   // where `at` is injected and the answer cannot depend on when the suite ran.
   it('applies a move dated TODAY — the start day belongs to the new period', async () => {
-    const result = await movePersonCompany(form({
-      personId, newPartnerId: hondaId, newRole: 'Cockpit Platform Lead', startDate: dayOffset(0),
+    const result = await revisePerson(form({
+      personId, name: 'Alice Waters', email: 'alice.waters@bosch.example',
+      partnerId: hondaId, role: 'Cockpit Platform Lead', effectiveDate: dayOffset(0),
     }));
     expect(result.error).toBeUndefined();
     expect(await currentPartnerName()).toBe('Honda');

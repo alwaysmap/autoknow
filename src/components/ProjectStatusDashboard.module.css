@@ -46,6 +46,16 @@
   text-transform: uppercase;
 }
 
+/* A field's live consequence, under the field it answers — the person editor's
+   correct-vs-change readout (#127 E14). Sentence case and not uppercase: it is a
+   sentence about what will happen, not a label. */
+.formHint {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--muted);
+  margin: 0;
+}
+
 .textInput, .textArea {
   padding: 0.625rem;
   border: 1px solid var(--border);

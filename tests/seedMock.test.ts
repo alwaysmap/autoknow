@@ -308,7 +308,7 @@ describe('seedMockData through the API', () => {
     // Honda affiliation above exists — the move is on the books — yet the cache the
     // identity line reads still points at the company she is actually at today.
     // This assertion is the whole point of routing the fixture through the real
-    // `movePersonCompany`: it is what would go red if the action ever went back to
+    // `revisePerson`: it is what would go red if the action ever went back to
     // advancing `currentPartnerId` unconditionally.
     const current = await prisma.partner.findUniqueOrThrow({ where: { id: alice.currentPartnerId } });
     expect(current.name).toBe('Google LLC');

@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { createPerson, movePersonCompany, updatePerson, deletePerson } from '../app/actions/people';
+import React, { useId, useState } from 'react';
+import { cancelScheduledChange, createPerson, deletePerson, revisePerson } from '../app/actions/people';
 import { addPhasePerson } from '../app/actions/phasePeople';
-import { t } from '../lib/i18n';
+import { t, type Locale } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import dash from './ProjectStatusDashboard.module.css';
 import meta from './ProjectMetaHeader.module.css';
@@ -14,6 +14,12 @@ import OverlayDialog from './OverlayDialog';
 // Person maintenance behind the title kebab (the app-wide grammar: quiet ⋯ beside
 // the name, dialogs for the work) — replaces the old full-width "Profile
 // Maintenance & Administration" form farm.
+//
+// Since #127 E14 there is ONE editor: the Edit dialog carries name, email, company,
+// role, notes AND an effective date, and the date's presence decides what the submit
+// means (spec #124 §3). The separate "Move to Different Company" dialog is gone —
+// its split from Edit forced a typo'd title and a real transfer through different
+// doors, and the wrong door wrote fake history.
 
 interface Option {
   id: number;
@@ -26,39 +32,45 @@ export interface ProgramOption {
   phases: Option[];
 }
 
+/** What the Edit dialog opens WITH — the record as the page rendered it, plus the
+ *  scheduled-change case, which seeds the change's own values and date. */
+interface ReviseSeed {
+  name: string;
+  email: string;
+  notes: string | null;
+  /** Today's employer/title (null in a career gap) — or the scheduled change's. */
+  partnerId: number | null;
+  role: string | null;
+  /** ISO day. Non-null only when editing a SCHEDULED change: re-recording at the same
+   *  effective date is how one is corrected (ADR a-move-is-an-insert-into-a-timeline). */
+  effectiveDate: string | null;
+}
 
-// name/email/notes are threaded in rather than re-fetched: the Edit dialog seeds from
-// the record the page already rendered, so what you see is what the form opens with.
-export default function PersonAdminControls({
-  personId, personName, personEmail, personNotes, partners, programs,
-}: {
-  personId: number;
-  personName: string;
-  personEmail: string;
-  personNotes: string | null;
-  partners: Option[];
-  programs: ProgramOption[];
-}) {
-  const locale = useLocale();
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [moveOpen, setMoveOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
+/** Readable day for the readout — prose side of the date boundary (design.md §6). */
+const readoutDay = (locale: Locale, iso: string) =>
+  new Date(`${iso}T00:00:00Z`).toLocaleDateString(locale, {
+    year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC',
+  });
+
+/**
+ * The submit wrapper every dialog in this file shares: run a server action, keep its
+ * refusal INSIDE the dialog, and report whether it succeeded.
+ *
+ * A thrown error would hit the route error boundary and destroy the user's modal input,
+ * so the actions return `{ error }` instead (lib/actionResult) — a `redirect()` on
+ * success still propagates as a throw and navigates, which is why `createPerson` does
+ * not come through here. `ran` is returned rather than closing the dialog itself so the
+ * caller's inline (deferred) form action owns its own open state, which keeps every ref
+ * read out of render.
+ */
+function useAction() {
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pickedProgram, setPickedProgram] = useState<number | ''>('');
-  const programPhases = programs.find((pr) => pr.id === pickedProgram)?.phases ?? [];
-
-  // A failed action must surface INSIDE the dialog — a throw would hit the route
-  // error boundary and destroy the user's modal input. Actions return { error };
-  // redirect()-on-success still propagates as a throw and navigates. Returns true on
-  // success so the caller's inline (deferred) form action closes its own dialog —
-  // keeping every ref read out of render.
-  const runAction = async (
+  const run = async (
     formData: FormData,
     action: (fd: FormData) => Promise<{ error?: string }>,
   ): Promise<boolean> => {
-    setSaving(true);
+    setBusy(true);
     setError(null);
     try {
       const result = await action(formData);
@@ -68,9 +80,173 @@ export default function PersonAdminControls({
       }
       return true;
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   };
+  return { busy, error, run };
+}
+
+/**
+ * The ONE person editor (#127 E14). The live readout under the date states in plain
+ * language what submitting will DO — correct in place, record a change, or schedule
+ * one — which is the safeguard that keeps a typo fix from backfilling a fake job
+ * change (#124 §3: it adds no control, it states a consequence).
+ *
+ * Company is optional (a person in a gap has no employer to seed), but a picked
+ * company requires a role — the period's column is non-null, and the schema's refine
+ * says the same thing server-side.
+ */
+function EditPersonDialog({ open, onClose, personId, partners, seed }: {
+  open: boolean;
+  onClose: () => void;
+  personId: number;
+  partners: Option[];
+  seed: ReviseSeed;
+}) {
+  const locale = useLocale();
+  const { busy: saving, error, run } = useAction();
+  const [date, setDate] = useState(seed.effectiveDate ?? '');
+  // This dialog renders TWICE on a page with a scheduled change — once behind the
+  // kebab, once inside ScheduledChange — and OverlayDialog keeps its children mounted
+  // whether open or closed. Module-global ids would duplicate, and every label in the
+  // second instance would point at the first one's input. Same fix OverlayDialog uses
+  // for its own title id.
+  const uid = useId();
+  const [partnerId, setPartnerId] = useState<string>(seed.partnerId != null ? String(seed.partnerId) : '');
+
+  // ISO compare — string order IS date order for YYYY-MM-DD. UTC like every date
+  // surface here (lib/dates); the readout is a courtesy, the server re-derives.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const readout =
+    date === ''
+      ? t(locale, 'reviseCorrects', { n: seed.name })
+      : date > todayIso
+        ? t(locale, 'reviseSchedules', { d: readoutDay(locale, date) })
+        : t(locale, 'reviseRecordsChange', { d: readoutDay(locale, date) });
+
+  return (
+    <OverlayDialog open={open} onClose={onClose} width="30rem"
+      title={t(locale, 'editDetails')} closeLabel={t(locale, 'close')}>
+      <form
+        action={async (fd) => { if (await run(fd, revisePerson)) onClose(); }}
+        className={dash.dialogForm}
+      >
+        <input type="hidden" name="personId" value={personId} />
+        {error && <p role="alert" className={admin.warningText}>{error}</p>}
+        <div className={dash.textInputGroup}>
+          <label htmlFor={`${uid}-personName`} className={dash.formLabel}>{t(locale, 'nameLabel')}</label>
+          <input id={`${uid}-personName`} type="text" name="name" required defaultValue={seed.name}
+            className={dash.textInput} />
+        </div>
+        <div className={dash.textInputGroup}>
+          <label htmlFor={`${uid}-personEmail`} className={dash.formLabel}>{t(locale, 'emailHeader')}</label>
+          <input id={`${uid}-personEmail`} type="email" name="email" required defaultValue={seed.email}
+            className={dash.textInput} />
+        </div>
+        <div className={dash.textInputGroup}>
+          <label htmlFor={`${uid}-personPartner`} className={dash.formLabel}>{t(locale, 'organizationLabel')}</label>
+          <select id={`${uid}-personPartner`} name="partnerId" className={dash.textInput} value={partnerId}
+            onChange={(e) => setPartnerId(e.target.value)}>
+            <option value="">{t(locale, 'selectPartner')}</option>
+            {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+        <div className={dash.textInputGroup}>
+          <label htmlFor={`${uid}-personRole`} className={dash.formLabel}>{t(locale, 'roleTitle')}</label>
+          <input id={`${uid}-personRole`} type="text" name="role" required={partnerId !== ''}
+            defaultValue={seed.role ?? ''} placeholder={t(locale, 'roleTitlePlaceholder')}
+            className={dash.textInput} />
+        </div>
+        <div className={dash.textInputGroup}>
+          <label htmlFor={`${uid}-effectiveDate`} className={dash.formLabel}>{t(locale, 'effectiveDate')}</label>
+          <input id={`${uid}-effectiveDate`} type="date" name="effectiveDate" value={date}
+            onChange={(e) => setDate(e.target.value)} className={dash.textInput} />
+          {/* aria-live: the readout ANSWERS the date field as it changes. */}
+          <p className={dash.formHint} aria-live="polite">{readout}</p>
+        </div>
+        <div className={dash.textInputGroup}>
+          <label htmlFor={`${uid}-personNotes`} className={dash.formLabel}>{t(locale, 'personNotesLabel')}</label>
+          <textarea id={`${uid}-personNotes`} name="notes" rows={3} defaultValue={seed.notes ?? ''}
+            placeholder={t(locale, 'personNotesPlaceholder')} className={dash.textArea} />
+        </div>
+        <div className={dash.actionRow}>
+          <button type="button" onClick={onClose} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
+          <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'saveChanges')}</button>
+        </div>
+      </form>
+    </OverlayDialog>
+  );
+}
+
+/**
+ * One scheduled change — "moves to Honda on 1 Nov 2026" — with Edit and Cancel
+ * (#124 §3: a pending change nobody can see, or cannot un-record, is Class 1 in a
+ * new costume). Edit opens the SAME EditPersonDialog seeded with the change's own
+ * values and date: re-recording at the same effective date is the correction path,
+ * so there is no second editor to drift.
+ */
+export function ScheduledChange({ personId, affiliationId, partnerName, dateIso, partners, seed }: {
+  personId: number;
+  affiliationId: number;
+  partnerName: string;
+  dateIso: string;
+  partners: Option[];
+  seed: ReviseSeed;
+}) {
+  const locale = useLocale();
+  const [editOpen, setEditOpen] = useState(false);
+  const { busy: cancelling, error, run } = useAction();
+
+  return (
+    <>
+      <span>
+        {t(locale, 'scheduledMovesTo', { c: partnerName, d: readoutDay(locale, dateIso) })}
+      </span>
+      <button type="button" className={admin.inlineAction} onClick={() => setEditOpen(true)}>
+        {t(locale, 'editDetails')}
+      </button>
+      <form
+        action={async (fd) => { await run(fd, cancelScheduledChange); }}
+      >
+        <input type="hidden" name="personId" value={personId} />
+        <input type="hidden" name="affiliationId" value={affiliationId} />
+        {/* Testid because this Cancel has a namesake: the Edit dialog below is a CHILD
+            of this line, so a text selector reaches both. */}
+        <button type="submit" data-testid="cancel-scheduled" disabled={cancelling}
+          className={admin.inlineAction}>
+          {cancelling ? t(locale, 'saving') : t(locale, 'cancelScheduledChange')}
+        </button>
+      </form>
+      {error && <p role="alert" className={admin.warningText}>{error}</p>}
+      <EditPersonDialog open={editOpen} onClose={() => setEditOpen(false)}
+        personId={personId} partners={partners} seed={seed} />
+    </>
+  );
+}
+
+// name/email/notes are threaded in rather than re-fetched: the Edit dialog seeds from
+// the record the page already rendered, so what you see is what the form opens with —
+// including today's employer and title, which the unified dialog now carries.
+export default function PersonAdminControls({
+  personId, personName, personEmail, personNotes, personPartnerId, personRole, partners, programs,
+}: {
+  personId: number;
+  personName: string;
+  personEmail: string;
+  personNotes: string | null;
+  personPartnerId: number | null;
+  personRole: string | null;
+  partners: Option[];
+  programs: ProgramOption[];
+}) {
+  const locale = useLocale();
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const { busy: saving, error, run: runAction } = useAction();
+  const [pickedProgram, setPickedProgram] = useState<number | ''>('');
+  const programPhases = programs.find((pr) => pr.id === pickedProgram)?.phases ?? [];
+
   const errorLine = error && <p role="alert" className={admin.warningText}>{error}</p>;
 
   return (
@@ -81,9 +257,6 @@ export default function PersonAdminControls({
         </button>
         <button type="button" data-testid="edit-person" onClick={() => setEditOpen(true)}>
           {t(locale, 'editDetails')}
-        </button>
-        <button type="button" onClick={() => setMoveOpen(true)}>
-          {t(locale, 'moveToDifferentCompany')}
         </button>
         <button type="button" data-testid="delete-person" onClick={() => setDeleteOpen(true)}>
           {t(locale, 'deleteLabel')}
@@ -127,68 +300,10 @@ export default function PersonAdminControls({
         </form>
       </OverlayDialog>
 
-      {/* Edit dialog: the CURRENT record only. Employer and role are absent because they
-          live on an affiliation period, not on the person — see `updatePerson`. */}
-      <OverlayDialog open={editOpen} onClose={() => setEditOpen(false)} width="30rem"
-        title={t(locale, 'editDetails')} closeLabel={t(locale, 'close')}>
-        <form
-          action={async (fd) => { if (await runAction(fd, updatePerson)) setEditOpen(false); }}
-          className={dash.dialogForm}
-        >
-          <input type="hidden" name="personId" value={personId} />
-          {errorLine}
-          <div className={dash.textInputGroup}>
-            <label htmlFor="personName" className={dash.formLabel}>{t(locale, 'nameLabel')}</label>
-            <input id="personName" type="text" name="name" required defaultValue={personName}
-              className={dash.textInput} />
-          </div>
-          <div className={dash.textInputGroup}>
-            <label htmlFor="personEmail" className={dash.formLabel}>{t(locale, 'emailHeader')}</label>
-            <input id="personEmail" type="email" name="email" required defaultValue={personEmail}
-              className={dash.textInput} />
-          </div>
-          <div className={dash.textInputGroup}>
-            <label htmlFor="personNotes" className={dash.formLabel}>{t(locale, 'personNotesLabel')}</label>
-            <textarea id="personNotes" name="notes" rows={3} defaultValue={personNotes ?? ''}
-              placeholder={t(locale, 'personNotesPlaceholder')} className={dash.textArea} />
-          </div>
-          <div className={dash.actionRow}>
-            <button type="button" onClick={() => setEditOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
-            <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'saveChanges')}</button>
-          </div>
-        </form>
-      </OverlayDialog>
-
-      {/* move dialog */}
-      <OverlayDialog open={moveOpen} onClose={() => setMoveOpen(false)} width="30rem"
-        title={t(locale, 'moveToDifferentCompany')} closeLabel={t(locale, 'close')}>
-        <form
-          action={async (fd) => { if (await runAction(fd, movePersonCompany)) setMoveOpen(false); }}
-          className={dash.dialogForm}
-        >
-          <input type="hidden" name="personId" value={personId} />
-          {errorLine}
-          <div className={dash.textInputGroup}>
-            <label htmlFor="newPartnerId" className={dash.formLabel}>{t(locale, 'newOrganization')}</label>
-            <select id="newPartnerId" name="newPartnerId" required className={dash.textInput} defaultValue="">
-              <option value="">{t(locale, 'selectPartner')}</option>
-              {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-          <div className={dash.textInputGroup}>
-            <label htmlFor="newRole" className={dash.formLabel}>{t(locale, 'roleTitle')}</label>
-            <input id="newRole" type="text" name="newRole" required placeholder={t(locale, 'roleTitlePlaceholder')} className={dash.textInput} />
-          </div>
-          <div className={dash.textInputGroup}>
-            <label htmlFor="startDate" className={dash.formLabel}>{t(locale, 'effectiveDate')}</label>
-            <input id="startDate" type="date" name="startDate" required className={dash.textInput} />
-          </div>
-          <div className={dash.actionRow}>
-            <button type="button" onClick={() => setMoveOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
-            <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'movePartner')}</button>
-          </div>
-        </form>
-      </OverlayDialog>
+      <EditPersonDialog open={editOpen} onClose={() => setEditOpen(false)} personId={personId}
+        partners={partners}
+        seed={{ name: personName, email: personEmail, notes: personNotes,
+          partnerId: personPartnerId, role: personRole, effectiveDate: null }} />
 
       {/* delete dialog */}
       <OverlayDialog open={deleteOpen} onClose={() => setDeleteOpen(false)} width="30rem"

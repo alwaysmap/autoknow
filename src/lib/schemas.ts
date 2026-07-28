@@ -200,25 +200,47 @@ export const projectMetricsSchema = z.object({
 
 // ---- person maintenance (server actions) ----------------------------------------
 
-export const personMoveSchema = z.object({
-  personId: zId,
-  newPartnerId: zId,
-  newRole: zText.max(100),
-  startDate: z.coerce.date(),
-});
-
 export const personDeleteSchema = z.object({
   personId: zId,
 });
 
-/** Edit the CURRENT record: corrections, never history — see `updatePerson` for why
- *  employer and role are not here. Notes are free prose about the human, not a timeline. */
-export const personUpdateSchema = z.object({
+/** Cancel a scheduled change: the not-yet-started period, addressed with its person so
+ *  parentage is part of the question (#127 E14). */
+export const personCancelScheduleSchema = z.object({
   personId: zId,
-  name: zText.max(200),
-  email: zEmail,
-  notes: zTextOrNull,
+  affiliationId: zId,
 });
+
+/**
+ * The ONE person editor (#127 E14, spec #124 §3): name, email, notes, company, role,
+ * and an effective date whose presence decides what the submit MEANS —
+ * empty → correct the current record in place; set → record a change effective that
+ * day (past = backdate, future = schedule). This replaced `personUpdateSchema` (no
+ * date, no employer) and `personMoveSchema` (date, employer only) — two dialogs whose
+ * split forced "fix a typo'd title" and "record a transfer" through different doors.
+ *
+ * Company and role are OPTIONAL as a pair: a person in a career GAP has no current
+ * period, and a name-only correction must not force inventing an employer. `role`
+ * requires `partnerId` (a role is held AT a company); the reverse holds too, because
+ * an employment period's `role` column is non-null.
+ */
+export const personReviseSchema = z
+  .object({
+    personId: zId,
+    name: zText.max(200),
+    email: zEmail,
+    notes: zTextOrNull,
+    partnerId: z.preprocess((v) => (v === '' || v == null ? null : v), zId.nullable()),
+    role: z.preprocess((v) => (v === '' || v == null ? null : v), zText.max(100).nullable()),
+    effectiveDate: z.preprocess(
+      (v) => (v === '' || v == null ? null : v),
+      z.coerce.date().nullable(),
+    ),
+  })
+  .refine((p) => (p.partnerId == null) === (p.role == null), {
+    path: ['role'],
+    message: 'company and role come together — a role is held at a company',
+  });
 
 // ---- person creation & assignment ------------------------------------------------
 

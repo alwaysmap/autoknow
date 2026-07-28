@@ -2,6 +2,7 @@ import 'server-only';
 import { Prisma } from '@prisma/client';
 import { normalizeAddress } from './auth';
 import { prisma } from './db';
+import { coversDay, hasTakenEffect } from './people';
 
 // EMPLOYMENT PERIODS: the as-of resolvers, and the two writes that open one (#127 E5,
 // autoknow-pvn, spec #124 §4). "Which company is this person at, and as what" is a
@@ -19,10 +20,11 @@ import { prisma } from './db';
 // in the database: the predicate goes into SQL so the wrong row never comes back to be
 // filtered, which is what E4's composite indexes were added for. #127 E5 left `coversDay`
 // with no production caller — /people/:id was the last and now asks in SQL — and
-// autoknow-pvn plus #127 E10 gave it two: `movePersonCompany` holds the period it just
-// wrote, and `labelWithJobHeldThen` (lib/activity) holds a whole CAREER and resolves a
-// page of feed rows against it, where asking here would be a round trip per row. That is
-// the division. Writing a third date comparison instead of either is the bug.
+// autoknow-pvn plus #127 E10 gave it callers again: this module holds the period it
+// just wrote (`recordPersonChange`, and `movePersonTo`'s own stamp rule), and
+// `labelWithJobHeldThen` (lib/activity) holds a whole CAREER and resolves a page of feed
+// rows against it, where asking here would be a round trip per row. That is the
+// division. Writing a third date comparison instead of either is the bug.
 //
 // "Profile" is #124 §4's word for a person's affiliation as of a date — not the
 // account-shaped sense in `createMyProfile`.
@@ -351,17 +353,32 @@ export async function overlappingPeriods(personId: number, startDate: Date, endD
  * No covering period is not an error: that is a hire being backdated in, or a return
  * from a gap, and only clause 3 applies. One transaction, because a career that is
  * contiguous only if all three writes land is not contiguous.
+ *
+ * ADDRESSES ride the writes since #127 E14 (autoknow-wu0 — both its arms close here),
+ * and both stamps share one rule: record only what is known for certain (#127 E8).
+ *
+ *  - The period this CLOSES keeps the address it was held under: if it covers TODAY
+ *    and its `email` is unrecorded, then "they work here now, under this address" is a
+ *    fact right now, so it is stamped — whether the close takes effect today or in
+ *    four months. A BACKDATED move closes a historical period the current address never
+ *    belonged to — no stamp, NULL stays the honest value.
+ *  - The period this OPENS takes `email` only when it covers today: the submitted
+ *    address is the one in use NOW. A scheduled period's future address is a guess
+ *    (the dialog's field shows the current one), so it stays unrecorded until the
+ *    change arrives and the record is corrected.
  */
-export async function movePersonTo({ personId, partnerId, role, at }: {
+export async function movePersonTo({ personId, partnerId, role, at, email }: {
   personId: number;
   partnerId: number;
   role: string;
   at: Date;
+  /** The address for the opened period, when known — see the stamp rule above. */
+  email?: string;
 }) {
   return prisma.$transaction(async (tx) => {
     const covering = await tx.personAffiliation.findMany({
       where: { personId, ...asOfWhere(at) },
-      select: { id: true, startDate: true },
+      select: { id: true, startDate: true, endDate: true, email: true },
     });
     // Strictly after: a period starting ON `at` is a COVERING period, handled below.
     const next = await tx.personAffiliation.findFirst({
@@ -369,6 +386,21 @@ export async function movePersonTo({ personId, partnerId, role, at }: {
       orderBy: { startDate: 'asc' },
       select: { startDate: true },
     });
+
+    // The closing stamp (docstring above): a covering period that also covers TODAY is
+    // the job currently held, so the person's current address is its address — recorded
+    // now, before the close, and only where nothing was recorded already.
+    const unstampedCurrent = covering.filter((p) => p.email == null && coversDay(p));
+    if (unstampedCurrent.length > 0) {
+      const person = await tx.person.findUniqueOrThrow({
+        where: { id: personId },
+        select: { email: true },
+      });
+      await tx.personAffiliation.updateMany({
+        where: { id: { in: unstampedCurrent.map((p) => p.id) } },
+        data: { email: person.email },
+      });
+    }
 
     // An exhaustive two-way split, because `asOfWhere` already bounds every row here to
     // `startDate <= at`. Spelled `>=` and not `===` because these are Date OBJECTS, on
@@ -388,8 +420,88 @@ export async function movePersonTo({ personId, partnerId, role, at }: {
     if (startsOnMoveDate.length > 0) {
       await tx.personAffiliation.deleteMany({ where: { id: { in: startsOnMoveDate } } });
     }
+    const opened = { personId, partnerId, role, startDate: at, endDate: next?.startDate ?? null };
     return tx.personAffiliation.create({
-      data: { personId, partnerId, role, startDate: at, endDate: next?.startDate ?? null },
+      // The opening stamp (docstring above): the submitted address is the one in use
+      // NOW, so it belongs to the new period only if that period covers today.
+      data: { ...opened, email: email && coversDay(opened) ? normalizeAddress(email) : null },
+    });
+  });
+}
+
+/**
+ * Record a DATED change to a person: the covering period ends at `at`, the next opens
+ * (`movePersonTo`), and the person-level fields follow. The sibling of
+ * `correctPersonRecord` — same inputs, and the effective date is the whole difference —
+ * so the two live together and an action can delegate to one or the other rather than
+ * assembling half of this itself.
+ *
+ * #124 Class 1: `Person.email` and the `currentPartnerId` cache both mean TODAY, so
+ * both advance only once the new period covers today — `coversDay(the period just
+ * written)`, never `hasTakenEffect(at)`, which differ for a backdate landing before
+ * periods already on the books. Name and notes are person-level and latest-wins
+ * (#124 §2), so they are written unconditionally.
+ *
+ * The clash check is asked AS OF `at`, the first instant the new period would claim the
+ * address — the same question `createPersonAt` asks of the day its period opens.
+ */
+export async function recordPersonChange({ personId, name, email, notes, partnerId, role, at }: {
+  personId: number;
+  name: string;
+  email: string;
+  notes: string | null;
+  partnerId: number;
+  role: string;
+  at: Date;
+}) {
+  await assertAddressFree(email, { exceptPersonId: personId, at });
+  const newPeriod = await movePersonTo({ personId, partnerId, role, at, email });
+  const arrived = coversDay(newPeriod);
+  await prisma.person.update({
+    where: { id: personId },
+    data: {
+      name,
+      notes,
+      ...(arrived
+        // eslint-disable-next-line no-restricted-syntax -- writes the cache; this IS its maintainer
+        ? { email: normalizeAddress(email), currentPartnerId: partnerId }
+        : {}),
+    },
+  });
+  return newPeriod;
+}
+
+/**
+ * Cancel a SCHEDULED change: delete the not-yet-started period and reopen what it had
+ * closed — the period ending exactly at its start extends to the deleted period's own
+ * end (usually open; on a chain of scheduled moves, the next one's start). The splice
+ * is `movePersonTo`'s clause 3 run backwards, which is why it lives beside it.
+ *
+ * Refuses a period whose start has ARRIVED: that is history, and unrecording history
+ * is what `deletePerson`'s audit-trail rule exists to prevent — correct it by
+ * re-recording a change at the same effective date instead (ADR
+ * a-move-is-an-insert-into-a-timeline, clause 2). Judged by `hasTakenEffect`, the same
+ * spelling every scheduled-change surface reads with. Thrown with an em-dash so
+ * `guarded` shows the sentence to the user (lib/actionResult).
+ */
+export async function cancelScheduledPeriod({ personId, affiliationId }: {
+  personId: number;
+  affiliationId: number;
+}) {
+  return prisma.$transaction(async (tx) => {
+    // Parentage in the where, like the nested API routes: another person's period is
+    // "not found", never a cross-person cancel.
+    const scheduled = await tx.personAffiliation.findFirst({
+      where: { id: affiliationId, personId },
+    });
+    if (!scheduled) throw new Error('That scheduled change no longer exists — reload the page');
+    if (hasTakenEffect(scheduled.startDate)) {
+      throw new Error('This change has already taken effect — record a new change instead of cancelling history');
+    }
+    await tx.personAffiliation.delete({ where: { id: scheduled.id } });
+    await tx.personAffiliation.updateMany({
+      where: { personId, endDate: scheduled.startDate },
+      data: { endDate: scheduled.endDate },
     });
   });
 }
@@ -476,28 +588,50 @@ export async function assertAddressFree(
  * own the refusal, and a second caller of either cannot arrive unguarded.
  *
  * `updateMany`, and it may legitimately touch more than one row: a career with an
- * overlap (autoknow-2of, still authorable through the affiliations API) has two periods
- * covering today, and both of them are jobs this person holds today, so both carry the
- * corrected address. Zero rows is also normal and not an error — a person in a GAP
- * (#124 §2) works nowhere today, and there is no period for the address to sit on.
+ * overlap (autoknow-2of names the API-era hole; the POST now refuses one) has two
+ * periods covering today, and both of them are jobs this person holds today, so both
+ * carry the corrected address. Zero rows is normal for the ADDRESS stamp — a person in
+ * a GAP (#124 §2) works nowhere today, so there is no period for it to sit on — but a
+ * refusal for an EMPLOYER correction, which needs a period to land on (below).
  *
  * One transaction, because a person whose row says one address while the period they are
  * in says another is precisely the state #127 E8 and E9 exist to remove.
  */
-export async function correctPersonRecord({ personId, name, email, notes, at = new Date() }: {
+export async function correctPersonRecord({ personId, name, email, notes, partnerId, role, at = new Date() }: {
   personId: number;
   name: string;
   email: string;
   notes: string | null;
+  /** Correct today's EMPLOYER/TITLE in place (#127 E14, #124 §3's "I typo'd the
+   *  title") — the covering period's own columns change, no period opens or closes.
+   *  Passed together or not at all (the schema's refine); omitted, this is exactly
+   *  the pre-E14 correction. Refuses when no period covers `at`: a gap has nothing
+   *  to correct, and inventing a period is what an EFFECTIVE DATE is for. */
+  partnerId?: number | null;
+  role?: string | null;
   at?: Date;
 }) {
   await assertAddressFree(email, { exceptPersonId: personId, at });
   const address = normalizeAddress(email);
+  // One spelling, used twice below. The schema pairs the two fields, but this function is
+  // callable on its own, so the pairing is asserted here rather than assumed.
+  const correctingEmployer = partnerId != null && role != null;
   return prisma.$transaction(async (tx) => {
     await tx.person.update({ where: { id: personId }, data: { name, email: address, notes } });
-    await tx.personAffiliation.updateMany({
+    const touched = await tx.personAffiliation.updateMany({
       where: { personId, ...asOfWhere(at) },
-      data: { email: address },
+      data: { email: address, ...(correctingEmployer ? { partnerId, role } : {}) },
     });
+    if (correctingEmployer) {
+      if (touched.count === 0) {
+        throw new Error(
+          'There is no current employment period to correct — set an effective date to record a change instead',
+        );
+      }
+      // The cache says "where do they work TODAY", and today's employer was just
+      // corrected — so this is a correction of the cache too, not an advance of it.
+      // eslint-disable-next-line no-restricted-syntax -- writes the cache; this IS its maintainer
+      await tx.person.update({ where: { id: personId }, data: { currentPartnerId: partnerId } });
+    }
   });
 }

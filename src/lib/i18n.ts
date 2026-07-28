@@ -1356,10 +1356,8 @@ const STRINGS = {
   },
   noActionsRecorded: { en: 'No actions recorded during this tenure.', de: 'Keine Aktionen in diesem Zeitraum erfasst.', ja: 'この在籍期間中のアクションは記録されていません。', ko: '이 재직 기간에 기록된 액션이 없습니다.' },
   otherUnassociated: { en: 'Other / Unassociated', de: 'Sonstige / Nicht zugeordnet', ja: 'その他 / 未対応付け', ko: '기타 / 미연결' },
-  profileMaintenance: { en: 'Profile Maintenance', de: 'Profilpflege', ja: 'プロフィール管理', ko: '프로필 관리' },
-  moveToDifferentCompany: { en: 'Move to Different Company', de: 'Zu anderem Unternehmen wechseln', ja: '別の会社へ異動', ko: '다른 회사로 이동' },
   // #127 E3. "Edit details", not "Edit person": what it edits is the record, and the
-  // name has to survive E14 folding the Move dialog into it. Name and Email reuse
+  // name survived E14 folding the Move dialog into it. Name and Email reuse
   // nameLabel/emailHeader — the same two fields on the same entity as the Create dialog.
   editDetails: { en: 'Edit details', de: 'Details bearbeiten', ja: '詳細を編集', ko: '세부정보 편집' },
   personNotesLabel: { en: 'Notes', de: 'Notizen', ja: 'メモ', ko: '메모' },
@@ -1371,11 +1369,49 @@ const STRINGS = {
   },
   saveChanges: { en: 'Save changes', de: 'Änderungen speichern', ja: '変更を保存', ko: '변경사항 저장' },
   newOrganization: { en: 'New Organization', de: 'Neue Organisation', ja: '新しい組織', ko: '새 조직' },
+  // The unified editor's company field (#127 E14). NOT `newOrganization`, which the
+  // retired Move dialog used: with no effective date this field is TODAY's employer
+  // being corrected in place, and "new" would be the opposite of what is happening.
+  organizationLabel: { en: 'Organization', de: 'Organisation', ja: '組織', ko: '조직' },
   selectPartner: { en: 'Select Partner...', de: 'Partner wählen…', ja: 'パートナーを選択...', ko: '파트너 선택...' },
   roleTitle: { en: 'Role / Title', de: 'Rolle / Titel', ja: '役割 / 役職', ko: '역할 / 직함' },
   roleTitlePlaceholder: { en: 'e.g. Lead Systems Architect', de: 'z. B. Leitender Systemarchitekt', ja: '例: リードシステムアーキテクト', ko: '예: 수석 시스템 아키텍트' },
   effectiveDate: { en: 'Effective Date', de: 'Gültig ab', ja: '発効日', ko: '적용일' },
-  movePartner: { en: 'Move Partner', de: 'Wechsel durchführen', ja: '異動を実行', ko: '이동 실행' },
+  // The person editor's live readout (#127 E14, spec #124 §3): the dialog states what
+  // submitting will DO before it does it, which is what keeps a typo fix from writing a
+  // fake job change. Three keys because there are three outcomes, and the reader has to
+  // be able to tell "corrects" from "records" WITHOUT parsing a date field — the date is
+  // shown too, but the verb carries the meaning.
+  reviseCorrects: {
+    en: "This corrects {n}'s current details — no change is recorded in their history.",
+    de: 'Dies korrigiert die aktuellen Daten von {n} — es wird keine Änderung in der Historie erfasst.',
+    ja: 'これは {n} の現在の情報を訂正します（経歴には変更を記録しません）。',
+    ko: '{n}의 현재 정보를 정정합니다 — 이력에는 변경이 기록되지 않습니다.',
+  },
+  reviseRecordsChange: {
+    en: 'This records a change effective {d} — the current period ends there and a new one begins.',
+    de: 'Dies erfasst eine Änderung gültig ab {d} — der aktuelle Zeitraum endet dort und ein neuer beginnt.',
+    ja: 'これは {d} 付けの変更を記録します（現在の期間はそこで終了し、新しい期間が始まります）。',
+    ko: '{d}자로 변경을 기록합니다 — 현재 기간이 그날 종료되고 새 기간이 시작됩니다.',
+  },
+  reviseSchedules: {
+    en: 'This schedules a change for {d} — nothing changes until then.',
+    de: 'Dies plant eine Änderung für {d} — bis dahin ändert sich nichts.',
+    ja: 'これは {d} の変更を予約します（それまでは何も変わりません）。',
+    ko: '{d}에 적용될 변경을 예약합니다 — 그때까지는 아무것도 바뀌지 않습니다.',
+  },
+  // The scheduled-change line on the person page. A pending change nobody can see is
+  // #124 Class 1 in a new costume, so it says the company and the day outright.
+  scheduledMovesTo: {
+    en: 'Scheduled: moves to {c} on {d}',
+    de: 'Geplant: Wechsel zu {c} am {d}',
+    ja: '予定: {d} に {c} へ異動',
+    ko: '예정: {d}에 {c}(으)로 이동',
+  },
+  // Its own key rather than `cancel`: this UN-RECORDS a scheduled change, where `cancel`
+  // dismisses a dialog. Identical in en/de/ko and deliberately different in ja
+  // (取り消す = revoke, vs キャンセル = dismiss) — do not "deduplicate" these.
+  cancelScheduledChange: { en: 'Cancel', de: 'Abbrechen', ja: '取り消す', ko: '취소' },
   deletePersonProfile: { en: 'Delete Person Profile', de: 'Personenprofil löschen', ja: 'プロフィールを削除', ko: '프로필 삭제' },
   deleteProfileHelp: { en: 'Permanently removes this profile and career affiliations.', de: 'Entfernt dieses Profil und alle Zugehörigkeiten dauerhaft.', ja: 'このプロフィールと職歴を完全に削除します。', ko: '이 프로필과 경력 소속을 영구적으로 제거합니다.' },
   deleteProfileBtn: { en: 'Delete Profile', de: 'Profil löschen', ja: '削除する', ko: '프로필 삭제' },

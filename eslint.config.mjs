@@ -194,7 +194,7 @@ const noHandRolledChainPredicates = [
 // Listed individually so each exemption stays a decision, and each keeps the OTHER
 // families (they are re-listed below, not switched off).
 const MAY_NAME_THE_CACHE = [
-  "src/app/actions/people.ts", // movePersonCompany advances it on the effective day
+  "src/app/actions/people.ts", // reads the cache field name off the revise form contract
   "src/app/api/people/route.ts", // destructures the request field of that name
 ];
 
@@ -287,9 +287,9 @@ const eslintConfig = defineConfig([
   {
     // See MAY_NAME_THE_CACHE. Drops the CACHE family only. `noOpenPeriodAsCurrent`
     // deliberately stays: being allowed to name `currentPartnerId` says nothing about
-    // being allowed to ask an affiliation question the wrong way, and `movePersonCompany`
-    // does exactly that — it trips this selector and carries a justified disable naming
-    // the bead that fixes it.
+    // being allowed to ask an affiliation question the wrong way. Since #127 E14 the
+    // cache is advanced in lib/profiles (`recordPersonChange`, `correctPersonRecord`),
+    // where the justified disables live beside the writes.
     files: MAY_NAME_THE_CACHE,
     rules: { "no-restricted-syntax": allFamiliesExcept("cache") },
   },
