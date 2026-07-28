@@ -37,7 +37,6 @@ model Partner {
   website            String?
   internalDetailsUrl String?
   summary            String?
-  googleTeam         Json?
   phone              String?
   // Region is part of a partner's identity — required (the header renders it as a
   // classification link; a region-less partner is a data bug).
