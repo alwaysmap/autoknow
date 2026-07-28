@@ -2,7 +2,17 @@
 # Prisma's pg driver adapter is engine-less (pure JS) and pg is pure JS, so musl is safe.
 # Building deps ON alpine pulls the musl SWC + sharp binaries.
 
-FROM node:22-alpine AS deps
+# The base image comes from our Artifact Registry remote repo (a proxy + cache of
+# Docker Hub), not docker.io: on 2026-07-27 a docker.io timeout failed a prod deploy
+# AFTER migrations had applied (autoknow-d1h). Pinned by DIGEST, not the 22-alpine
+# tag, so a moved tag cannot silently change the runtime. This digest is the
+# multi-arch index for node 22.23.1 on alpine 3.24 — bumping it is a deliberate act;
+# resolve a new one with `docker buildx imagetools inspect node:22-alpine`.
+# Pulling needs AR auth (gcloud auth configure-docker us-central1-docker.pkg.dev);
+# CI's image job and the deploy script both do this.
+ARG NODE_BASE=us-central1-docker.pkg.dev/autoknow-prod-1895f1/dockerhub/library/node@sha256:16e22a550f3863206a3f701448c45f7912c6896a62de43add43bb9c86130c3e2
+
+FROM ${NODE_BASE} AS deps
 WORKDIR /app
 # `npm ci` runs postinstall HERE, and the contract is that it degrades to NOTHING:
 # only package*.json is in scope, and `scripts/` is excluded from the build context
@@ -16,7 +26,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM node:22-alpine AS builder
+FROM ${NODE_BASE} AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -25,7 +35,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run db:generate
 RUN npm run build
 
-FROM node:22-alpine AS runner
+FROM ${NODE_BASE} AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
