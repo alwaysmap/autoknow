@@ -11,6 +11,31 @@ import { HILL_PATH, hillCoordinates } from '../lib/geometry';
 import { hillStatus, hillStatusColor, phaseColor } from '../lib/phase';
 import { updatePhaseHill } from '../app/actions/hill';
 import { localDate } from '../lib/dates';
+import { hillTextWidth, truncateToWidth } from '../lib/hillLayout';
+
+// The top-left caption (#165): the curve starts at (10,80) and does not rise above
+// y≈21 before x≈79 at ANY progress, so a caption anchored at (10,14) is clear of the
+// curve itself out to this static budget regardless of which history entry it names —
+// "top-left" is a well-defined position on the figure, not a guess (design.md's
+// semantic-overlay ADR: a label on the FIGURE is fine here precisely because no ink
+// meaning something can ever occupy this corner by construction).
+//
+// The curve is not the only thing that can be near there, though — the DOT is drawn
+// wherever `progress` puts it, and a mid-progress dot (climbing toward the crest) sits
+// well inside this same corner. `captionWidth` below clips the budget to clear the
+// nearer of the current/previous dot (plus its own radius) whenever either is up in
+// the caption's band, so the caption never overlaps a MARK the way #161 forbids two
+// labels overlapping each other. A dot always renders; a caption that has nowhere left
+// to go is dropped instead — the same trade layoutHill already makes for phase labels.
+const CAPTION_X = 10;
+const CAPTION_Y = 14;
+// Exported so tests/hillHistoryCaption.test.tsx can pin the truncation contract to
+// the same number this component actually draws against, rather than a copy.
+export const CAPTION_MAX_WIDTH = 60;
+// A dot below this y (further down the hill, away from the crest) can never reach the
+// caption's band no matter its x — see the derivation above.
+const CAPTION_THREAT_Y = 45;
+const CAPTION_DOT_GAP = 3;
 
 // The hill-chart analogue of the needle: task progress for a SINGLE phase. A display-only
 // SVG (the bell curve + a dot at progress, plus a ghost dot for the previous update) and
@@ -45,6 +70,8 @@ export function PhaseHillSvg({
   label,
   className,
   axisLabels,
+  inkScale = 1,
+  caption,
 }: {
   progress: number; // 0..100
   previousProgress?: number | null;
@@ -52,12 +79,39 @@ export function PhaseHillSvg({
   label?: string; // tooltip on hover (e.g. the phase name + status)
   className?: string;
   axisLabels?: { left: string; right: string } | null; // null hides the axis text
+  /** Who/when this reading is, set in the structurally-empty top-left corner
+   *  (#165) — a history entry's identity. Truncated here (not by the caller) to
+   *  `CAPTION_MAX_WIDTH` at the current `inkScale`, so the one component that
+   *  owns the safe box also owns keeping text inside it. Absent on the
+   *  live/editable gauge, which states its date in the status row instead. */
+  caption?: string | null;
+  /** Same fix as PhaseHillChart's INK_SCALE (#164, design.md §8c): this gauge is
+   *  reused at wildly different container widths (a full status card, a history
+   *  thumbnail, a feed teaser), and `--status-viz-w` (≈260px) is the width the
+   *  authored `1` numbers below were tuned against. A caller in a narrower box
+   *  passes a larger factor so type and coins land at the same rendered size
+   *  instead of shrinking with the container. Hairlines skip it (non-scaling-stroke
+   *  already holds those at 1px); text and coin-shaped ink do not, so they take
+   *  this multiplier the same way PhaseHillChart's do. */
+  inkScale?: number;
 }) {
   const locale = useLocale();
   const labels = axisLabels === null ? null
     : axisLabels ?? { left: t(locale, 'figuringItOut'), right: t(locale, 'makingItHappen') };
   const cur = hillCoordinates(progress);
   const prev = previousProgress != null ? hillCoordinates(previousProgress) : null;
+
+  // See the constants above for the derivation: only a dot up in the caption's band
+  // (CAPTION_THREAT_Y) can ever reach it, and only the nearer of the two matters.
+  const threatX = [cur, ...(prev ? [prev] : [])]
+    .filter((p) => p.y < CAPTION_THREAT_Y)
+    .reduce((min, p) => Math.min(min, p.x), Infinity);
+  const captionWidth = Math.min(CAPTION_MAX_WIDTH, threatX - (6 * inkScale + CAPTION_DOT_GAP) - CAPTION_X);
+  const captionText = caption ? truncateToWidth(caption, 8 * inkScale, captionWidth) : null;
+  // A caption with nowhere left to go is dropped, not squeezed to an ellipsis alone —
+  // the same call layoutHill makes for a phase label that cannot find a slot.
+  const showCaption = captionText && captionWidth >= hillTextWidth('…', 8 * inkScale);
+
   return (
     <svg viewBox={VIEWBOX} className={className} style={{ display: 'block', width: '100%', height: 'auto', overflow: 'visible' }} role="img" aria-label="Phase progress on the hill">
       {/* Instrument style only (revealed by CSS in globals.css — rendered by both
@@ -73,7 +127,7 @@ export function PhaseHillSvg({
         fill="none"
         stroke="var(--fg)"
         strokeOpacity={0.07}
-        strokeWidth={9}
+        strokeWidth={9 * inkScale}
         strokeLinecap="round"
       />
       {/* Hairlines carry `non-scaling-stroke` here for the same reason as the wide
@@ -87,17 +141,22 @@ export function PhaseHillSvg({
           <line key={x} x1={x} y1={84} x2={x} y2={x === 100 ? 78 : 80.5} vectorEffect="non-scaling-stroke" />
         ))}
       </g>
-      <path d={HILL_PATH} fill="none" stroke="var(--border, #d9d5c8)" strokeWidth={2.5} strokeLinecap="round" />
+      <path d={HILL_PATH} fill="none" stroke="var(--border, #d9d5c8)" strokeWidth={2.5 * inkScale} strokeLinecap="round" />
       <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border, #e3e0d6)" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-      {prev && <circle cx={prev.x} cy={prev.y} r={4.5} fill="var(--paper)" stroke={color} strokeWidth={2} />}
-      <circle cx={cur.x} cy={cur.y} r={6} fill={color} stroke="var(--paper)" strokeWidth={1.6} vectorEffect="non-scaling-stroke">
+      {prev && <circle cx={prev.x} cy={prev.y} r={4.5 * inkScale} fill="var(--paper)" stroke={color} strokeWidth={2 * inkScale} />}
+      <circle cx={cur.x} cy={cur.y} r={6 * inkScale} fill={color} stroke="var(--paper)" strokeWidth={1.6} vectorEffect="non-scaling-stroke">
         {label && <title>{label}</title>}
       </circle>
       {labels && (
         <>
-          <ChartLabel x={50} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{labels.left}</ChartLabel>
-          <ChartLabel x={150} y={99} textAnchor="middle" fontSize={8} fill="var(--muted, #888)">{labels.right}</ChartLabel>
+          <ChartLabel x={50} y={99} textAnchor="middle" fontSize={8 * inkScale} fill="var(--muted, #888)">{labels.left}</ChartLabel>
+          <ChartLabel x={150} y={99} textAnchor="middle" fontSize={8 * inkScale} fill="var(--muted, #888)">{labels.right}</ChartLabel>
         </>
+      )}
+      {showCaption && (
+        <ChartLabel x={CAPTION_X} y={CAPTION_Y} textAnchor="start" fontSize={8 * inkScale} fill="var(--muted, #888)">
+          {captionText}
+        </ChartLabel>
       )}
     </svg>
   );

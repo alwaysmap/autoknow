@@ -1048,7 +1048,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                   <HillHistoryList
                     compact
                     locale={locale}
-                    color={phaseColor(p.id)}
                     changes={log.slice(1).map((h, i): HillChange => ({
                       timestamp: h.at,
                       progress: h.progress,

@@ -96,7 +96,11 @@ export default function FeedList({
             </div>
           ) : it.hill ? (
             <div className={styles.gauge}>
-              <PhaseHillSvg progress={it.hill.progress} previousProgress={it.hill.previousProgress} color={it.hill.color} label={it.title} />
+              {/* Axis captions off, inkScale up: this teaser's .gauge is 7.25rem, well
+                  under the ~16.25rem (--status-viz-w) PhaseHillSvg's `1` is tuned
+                  against, so the unscaled default rendered the caption text at a
+                  couple of px (#164) — a feed card already carries the title beside it. */}
+              <PhaseHillSvg progress={it.hill.progress} previousProgress={it.hill.previousProgress} color={it.hill.color} label={it.title} axisLabels={null} inkScale={2.25} />
             </div>
           ) : (
             <div className={styles.kind}><KindBox kind={it.kind} locale={locale} /></div>

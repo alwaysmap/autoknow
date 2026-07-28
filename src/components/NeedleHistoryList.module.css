@@ -125,9 +125,16 @@
   gap: 0.625rem;
 }
 
+/* 7rem, not 4rem (#165): only HillHistoryList currently renders `compact` — Needle's
+   own history (NeedleGaugeSvg) carries no text either way — and its hill gauge now
+   draws a top-left date+person caption through PhaseHillSvg's own ChartLabel. That
+   caption needs enough room to clear the ~9px type floor (design.md §8d rule 3)
+   without shrinking to an unreadable "Ap…"; 4rem was too narrow for any caption to
+   survive truncation as more than an ellipsis. The card lost its meta row in the
+   same change, so this is space the row used to spend, not new width from nowhere. */
 .compact .gauge {
-  width: 4rem;
-  flex: 0 0 4rem;
+  width: 7rem;
+  flex: 0 0 7rem;
 }
 
 .compact .head {
