@@ -26,11 +26,27 @@ import { prisma } from './db';
 // pins them against each other by asserting this finds exactly what that constraint
 // rejects.
 
+/**
+ * One side of a conflicting pair: the period, and the person recording the address on it.
+ *
+ * NAMED rather than inlined into `EmailConflict` because it is what the remediation arm
+ * that clears these decides ABOUT — `lib/addressConflictRemediation` aliases it as
+ * `ConflictPeriod` and builds its whole report out of it. Two structurally-identical
+ * declarations would compile happily and drift the first time a column is added here.
+ */
+export interface ConflictSide {
+  personId: number;
+  personName: string;
+  periodId: number;
+  startDate: Date;
+  endDate: Date | null;
+}
+
 /** Two periods that cannot both exist once the constraint does. */
 export interface EmailConflict {
   address: string;
-  a: { personId: number; personName: string; periodId: number; startDate: Date; endDate: Date | null };
-  b: { personId: number; personName: string; periodId: number; startDate: Date; endDate: Date | null };
+  a: ConflictSide;
+  b: ConflictSide;
 }
 
 interface ConflictRow {
@@ -97,6 +113,18 @@ export async function findEmailConflicts(): Promise<EmailConflict[]> {
 const day = (d: Date | null): string => (d === null ? 'open' : d.toISOString().slice(0, 10));
 
 /**
+ * One conflicting period as a line: who, which period, and when it ran.
+ *
+ * The ONE rendering of it. `lib/addressConflictRemediation` prints the same periods in
+ * its own report, and an operator reads the two in a single sitting — check first, then
+ * the arm that clears what it found — so two spellings of this line would read as two
+ * different facts about one row.
+ */
+export function describePeriod(side: ConflictSide): string {
+  return `#${side.personId} ${side.personName} — period ${side.periodId}, ${day(side.startDate)} → ${day(side.endDate)}`;
+}
+
+/**
  * The report a human reads. Zero conflicts is a one-line answer on purpose — that is the
  * case it will be run in almost every time, and a wall of reassurance is how a real
  * finding gets scrolled past.
@@ -114,8 +142,8 @@ export function formatEmailConflictReport(conflicts: EmailConflict[]): string {
   ];
   for (const c of conflicts) {
     lines.push(`  ${c.address}`);
-    lines.push(`    #${c.a.personId} ${c.a.personName} — period ${c.a.periodId}, ${day(c.a.startDate)} → ${day(c.a.endDate)}`);
-    lines.push(`    #${c.b.personId} ${c.b.personName} — period ${c.b.periodId}, ${day(c.b.startDate)} → ${day(c.b.endDate)}`);
+    lines.push(`    ${describePeriod(c.a)}`);
+    lines.push(`    ${describePeriod(c.b)}`);
   }
   lines.push(
     '',
@@ -123,6 +151,11 @@ export function formatEmailConflictReport(conflicts: EmailConflict[]): string {
     'most one of them can be right. Decide which person held it then and correct the',
     'other period (its address becomes NULL — "not recorded" — or the address they',
     'actually used), then run this again. Nothing here changes anything.',
+    '',
+    'A period covering TODAY is corrected on /people/<id>. A CLOSED one has no editor at',
+    'all, and is what the `conflicting-addresses` remediation arm exists for: it clears',
+    'the losing period to NULL, keeping the address for whoever holds it now. See',
+    'docs/OPERATIONS.md, "The arms, and what their reports mean".',
   );
   return lines.join('\n');
 }

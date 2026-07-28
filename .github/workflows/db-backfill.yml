@@ -14,9 +14,9 @@ name: Run DB backfill
 # ONE RUNNER FOR EVERY ARM, not one workflow each: #127 E6 and E8 are the same migration
 # in different columns, and E9's is not a backfill at all but a READ-ONLY check that has
 # the identical problem — a question only production can answer, asked from a place where
-# nobody holds a connection string. A one-shot REMEDIATION (`unmatched-owners`) is the
-# third shape and lands here for the third time for the same reason. What keeps that from
-# being a "run anything against prod" hatch is that WHICH arms exist is an allowlist in
+# nobody holds a connection string. A one-shot REMEDIATION (`db:remediate:*`) is the third
+# shape and lands here for the same reason again. What keeps that from being a "run
+# anything against prod" hatch is that WHICH arms exist is an allowlist in
 # scripts/db/backfill.sh — the dropdown below only mirrors it, the script enforces it.
 #
 # Manual only, and confirmed: `workflow_dispatch` with no push/schedule trigger, plus a
@@ -34,6 +34,7 @@ on:
           - affiliation-email # #127 E8 — Person.email -> the PersonAffiliation period covering now
           - email-conflicts # #127 E9 — READ-ONLY: can the unique-at-an-instant constraint be applied to prod?
           - unmatched-owners # #127 E7 gate — repoint the <=2 programs whose ownerName names nobody
+          - conflicting-addresses # autoknow-164 — clear the LOSING period's address on a conflict email-conflicts found
       confirm:
         description: 'Type the Cloud SQL instance name (autoknow-pg) — a backfill or remediation arm WRITES to production'
         required: true

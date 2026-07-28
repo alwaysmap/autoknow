@@ -4,7 +4,7 @@ date: 2026-07-27
 supersedes: ""
 superseded-by: ""
 extends: "a-backfill-reaches-prod-through-an-allowlisted-dispatch-runner"
-extended-by: ""
+extended-by: "a-remediation-arm-erases-only-what-nothing-else-can-correct"
 tags: [ci, database, security, backfill, data-integrity]
 ---
 

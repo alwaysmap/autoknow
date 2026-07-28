@@ -91,6 +91,7 @@ local use):
 | `db:backfill:affiliation-email` | Fill `PersonAffiliation.email` from `Person.email`, for the period covering the run instant only (#127 E8). Idempotent; leaves every other period NULL and reports it |
 | `db:check:email-conflicts` | READ-ONLY: does this database hold an address recorded against two people over overlapping periods? The gate for #127 E9's unique-at-an-instant constraint — exits non-zero when it finds one |
 | `db:remediate:unmatched-owners` | Repoint the programs whose `ownerName` names nobody onto a real Person, by a documented rule (#127 E7's gate). Refuses above two rows and writes nothing; idempotent |
+| `db:remediate:conflicting-addresses` | Clear the LOSING period's address to NULL on a conflict `db:check:email-conflicts` found — the only writer of a CLOSED period's address. Keeps it for whoever holds it today; refuses above five rows; idempotent |
 | `infra:plan` / `infra:apply` | Terraform against the `alwaysmap` instance, with the backend, tfvars and **identity** handled for you — `.env`'s service-account key would otherwise hijack the provider ([note](docs/knowledge/env-service-account-key-hijacks-terraform.md)). Apply is human-run and prompts |
 | `infra:output` | Terraform outputs (service URL, share address, WIF provider…) |
 | `ci:lint-migrations` | PR gate: block destructive migrations (used by `ci.yml`) |

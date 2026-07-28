@@ -125,6 +125,24 @@ describe('the allowlist and the workflow dropdown agree', () => {
     // discovering it from a rejected production dispatch.
     expect(readAllowed().filter(({ script }) => !(script in scripts))).toEqual([]);
   });
+
+  // The runner prints a DIFFERENT reading of the exit code per namespace — a backfill's
+  // leftovers are a report, a check exits non-zero because it FOUND something, a
+  // remediation exits non-zero because it REFUSED and wrote nothing (ADR
+  // a-remediation-arm-is-bounded-and-picks-by-rule, clause 3). Both `case` statements
+  // switch on the npm script's prefix and fall through to the BACKFILL wording, so an arm
+  // in a fourth namespace would be told its refusal was a partial write it can safely
+  // resume. Silent, and wrong in the direction that matters.
+  it('runs every arm in a namespace the runner has an epilogue for', () => {
+    const sh = readFileSync(SCRIPT, 'utf8');
+    // `db:backfill:*` is the documented DEFAULT (`*)`), so it needs no label; every other
+    // namespace needs one in BOTH `case` statements — the failure epilogue and the
+    // success one, which say different things.
+    const missing = [...new Set(readAllowed().map(({ script }) => script.replace(/:[^:]*$/, ':*')))]
+      .filter((ns) => ns !== 'db:backfill:*')
+      .filter((ns) => sh.split(`${ns})`).length - 1 < 2);
+    expect(missing).toEqual([]);
+  });
 });
 
 describe('the workflow cannot be fired by pushing', () => {

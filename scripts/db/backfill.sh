@@ -62,10 +62,11 @@ ROLE_SECRET=runtime-database-url
 # documented exception that a `db:check:*` arm gating a PR only exists on that PR's
 # branch, which docs/OPERATIONS.md argues is safe for a SELECT and never for a write.
 ALLOWED=(
-  "owner-person=db:backfill:owner-person"           # #127 E6 — Project.ownerName -> ownerPersonId
-  "affiliation-email=db:backfill:affiliation-email" # #127 E8 — Person.email -> the PersonAffiliation period covering now
-  "email-conflicts=db:check:email-conflicts"        # #127 E9 — READ-ONLY: can the unique-at-an-instant constraint be applied here?
-  "unmatched-owners=db:remediate:unmatched-owners"  # #127 E7 gate — repoint the ≤2 programs whose ownerName names nobody
+  "owner-person=db:backfill:owner-person"                    # #127 E6 — Project.ownerName -> ownerPersonId
+  "affiliation-email=db:backfill:affiliation-email"          # #127 E8 — Person.email -> the PersonAffiliation period covering now
+  "email-conflicts=db:check:email-conflicts"                 # #127 E9 — READ-ONLY: can the unique-at-an-instant constraint be applied here?
+  "unmatched-owners=db:remediate:unmatched-owners"           # #127 E7 gate — repoint the ≤2 programs whose ownerName names nobody
+  "conflicting-addresses=db:remediate:conflicting-addresses" # autoknow-164 — clear the LOSING period's address on a conflict email-conflicts found
 )
 NPM_SCRIPT=""
 names=()
@@ -243,12 +244,18 @@ case "$NPM_SCRIPT" in
     echo "    change it gates does not merge promptly."
     ;;
   db:remediate:*)
-    echo "  * exit 0 means it wrote exactly the rows listed above as REPOINTED, with the"
-    echo "    before and after of BOTH owner columns on each, and touched nothing else."
-    echo "  * 'repointed: 0' with no REFUSED line is also success: there was nothing left"
-    echo "    to fix, which is what every run after the first one should say."
-    echo "  * re-running is safe: a repointed row no longer matches the scan, and every"
-    echo "    UPDATE requires the owner id to still be NULL."
+    # Worded for the NAMESPACE, not for one arm: there are two now, and an epilogue that
+    # names 'REPOINTED' and 'both owner columns' is one an operator running the other arm
+    # learns to skip — which is the whole failure this per-namespace case exists to avoid.
+    echo "  * exit 0 means it wrote exactly the rows the report lists as written, with the"
+    echo "    before and after of every column it touched, and nothing else."
+    echo "  * a zero written count with no REFUSED line is also success: there was nothing"
+    echo "    left to fix, which is what every run after the first one should say."
+    echo "  * rows the arm DECLINED to touch are named in the report rather than dropped"
+    echo "    silently. Read them before concluding the job is finished — they are why a"
+    echo "    re-run of the db:check:* arm that gates this may still find something."
+    echo "  * re-running is safe: a row this arm has fixed no longer matches its own scan,"
+    echo "    and every UPDATE is pinned to the values the scan read."
     ;;
   *)
     echo "  * unmatched / ambiguous > 0 — rows this backfill REFUSED to guess at. They are"
