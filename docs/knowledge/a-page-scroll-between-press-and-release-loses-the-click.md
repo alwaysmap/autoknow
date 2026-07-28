@@ -1,7 +1,7 @@
 ---
 title: A page scroll that steps between press and release hands the click to an ancestor, and nobody reports it
 status: current
-updated: 2026-07-26
+updated: 2026-07-28
 applies_to:
   - src/components/**  # anything that scrolls the document (scrollIntoView, scrollTo, an in-page `#hash` link)
   - src/app/globals.css  # `html { scroll-behavior: smooth }` is what makes every such scroll an animation
@@ -42,7 +42,9 @@ click's response includes moving the page. An INNER scrollport does not need it 
 cannot straddle a gesture; `block: 'nearest'` inside a scroll region is the tell.
 Diagnose a suspected case by logging `mousedown`/`mouseup`/`click` targets and
 `window.scrollY` from an init script — a `mousedown` on your element and a `click`
-on something else is the whole proof, and takes one run.
+on something else is the whole proof, and takes one run. If the `mousedown` itself
+landed off your element, suspect the test first:
+[a-test-that-starts-page-motion-before-the-press-races-its-own-press-point](a-test-that-starts-page-motion-before-the-press-races-its-own-press-point.md).
 
 **How we found out.** A phase-rail card click read `data-rel="far"` — the
 PREVIOUS card's selection — only under full-suite load on webkit. The event log
