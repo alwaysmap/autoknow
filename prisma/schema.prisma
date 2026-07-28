@@ -588,3 +588,26 @@ model PartnerState {
   @@index([partnerId, timestamp])
 }
 
+
+/**
+ * An address a human has said is NOT A PERSON — a distribution list, a bot,
+ * `noreply@` (#126 decision 2, #127 E15). The "track person" affordance offers to
+ * create a Person from an untracked mention; these are the mentions it must stop
+ * offering, everywhere and permanently, on one click.
+ *
+ * A TABLE rather than a column on something, because the thing it records does not
+ * belong to any row we have: the whole point is that no Person exists for this
+ * address, and inventing one to hold "this is not a person" would be the exact
+ * duplicate-human write the affordance is guarded against.
+ *
+ * `address` is the canonical stored form (`normalizeAddress`), so a mention typed with
+ * a capital is the same suppression. Unique because a second row would say nothing the
+ * first does not, and `dismissedBy`/`dismissedAt` are here because a permanent
+ * app-wide suppression that nobody can attribute is a decision nobody can revisit.
+ */
+model IgnoredAddress {
+  id          Int      @id @default(autoincrement())
+  address     String   @unique
+  dismissedBy String
+  dismissedAt DateTime @default(now())
+}

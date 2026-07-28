@@ -12,6 +12,7 @@ import QuickIngest from '../../../components/QuickIngest';
 import PartnerProgramRows from '../../../components/PartnerProgramRows';
 import { getPartnerPrograms } from '../../../lib/partnerPrograms';
 import { getActivity } from '../../../lib/activity';
+import { untrackedContext } from '../../../lib/untrackedContext';
 import { getSummary } from '../../../lib/summaries';
 import { geminiConfigured } from '../../../lib/gemini';
 import { deriveScore } from '../../../lib/relationship';
@@ -154,6 +155,10 @@ export default async function PartnerDetailPage(props: PageProps) {
 
   const rosterRows = toRosterRows(roster);
 
+  // Who is already tracked (under every address held) and who has been dismissed —
+  // what the untracked-mention detector cannot know for itself (#127 E15).
+  const untracked = await untrackedContext();
+
   // No phone here: phone numbers belong to PEOPLE, not companies (the People
   // block is where you find someone to call).
   const contactFacts: { key: string; node: React.ReactNode }[] = [];
@@ -226,6 +231,7 @@ export default async function PartnerDetailPage(props: PageProps) {
         <div className={styles.colMain}>
           <section className={styles.projectsSection}>
             <SummaryPanel scope="partner" targetId={partner.id} path={`/partners/${partner.id}`}
+              untracked={{ ctx: untracked, partners: allPartners }}
               summary={summary} configured={geminiConfigured} />
           </section>
 
@@ -275,7 +281,7 @@ export default async function PartnerDetailPage(props: PageProps) {
             <div style={{ margin: '0 0 0.75rem' }}>
               <QuickIngest anchorKind="partner" anchorId={partner.id} path={`/partners/${partner.id}`} />
             </div>
-            <ActivityFeed items={activity} deletable revalidate={`/partners/${partner.id}`} />
+            <ActivityFeed items={activity} deletable revalidate={`/partners/${partner.id}`} untracked={{ ctx: untracked, partners: allPartners }} />
           </section>
         </div>
 

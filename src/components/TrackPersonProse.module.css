@@ -1,0 +1,35 @@
+/* A claimed mention (#126 / #127 E15) — the words themselves ARE the control.
+ *
+ * Quiet ink, no icon: design.md §8c keeps icons scarce, and at ingestion volume a glyph
+ * beside every address would carpet the page. A dotted underline says "there is something
+ * here" the way a link's solid one does, and the whole mention is clickable, so nothing is
+ * added to the line at all.
+ *
+ * This replaced an inline "Track person" button revealed on hover, and only a SCREENSHOT
+ * showed why that could not work (AGENTS lesson 18): `visibility: hidden` keeps the box,
+ * so a button-width gap sat in the middle of every sentence at rest — and the obvious
+ * alternative, `display: none`, reflows the paragraph under the reader's cursor. A control
+ * that occupies no space at all has neither problem.
+ */
+.mention {
+  /* A button that must read as prose: the UA's font, padding and background all go. */
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px dotted var(--muted);
+}
+
+.mention:hover {
+  color: var(--link);
+  border-bottom-color: var(--link);
+}
+
+/* No `:focus-visible` rule here on purpose. globals.css draws the app's ring for every
+   focusable thing — inward (`outline-offset: -2px`), because an outward one is clipped
+   by any ancestor with `overflow` and a mention sits inside feed cards and popovers that
+   have one (#123 lost three sides of a ring that way; tests/focusRing.test.ts enforces
+   it repo-wide). A local copy here rendered identically and was simply dead. */

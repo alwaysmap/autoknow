@@ -13,6 +13,7 @@ import AnchorHeading from '../../../components/AnchorHeading';
 import PersonHistoryTable from './PersonHistoryTable';
 import PersonProgramsTable from './PersonProgramsTable';
 import { personProgramRows } from '../../../lib/personPrograms';
+import { untrackedContext } from '../../../lib/untrackedContext';
 
 // THE person page BODY, rendered by TWO routes: `/people/:id` (any person, by id) and
 // `/me` (the signed-in person, by session). Both render this — /me does NOT redirect,
@@ -85,6 +86,10 @@ export default async function PersonProfile({ personId }: { personId: number }) 
   // render, scoped by actor instead of subject, each row labelled with the job held on
   // ITS OWN day (ADR a-dated-row-is-labelled-as-of-its-own-date).
   const activity = await getActivity({ kind: 'person', id: person.id });
+
+  // Who is already tracked (under EVERY address they have held) and who has been
+  // dismissed — the two things the pure detector cannot know (#127 E15).
+  const untracked = await untrackedContext();
 
   const partners = await prisma.partner.findMany({
     orderBy: { name: 'asc' },
@@ -238,7 +243,9 @@ export default async function PersonProfile({ personId }: { personId: number }) 
             {/* The intro states the feed's limit rather than absorbing it — see
                 `personActivityIntro` in lib/i18n for why it has to. */}
             <p className={styles.sectionIntro}>{t(locale, 'personActivityIntro')}</p>
-            <ActivityFeed items={activity} />
+            {/* #127 E15: the person feed is the densest prose surface in the app, so it
+                is where an untracked colleague is most likely to be named. */}
+            <ActivityFeed items={activity} untracked={{ ctx: untracked, partners }} />
           </section>
         </div>
       </main>

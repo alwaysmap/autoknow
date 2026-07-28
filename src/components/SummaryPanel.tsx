@@ -3,7 +3,9 @@
 import React, { useEffect, useRef, useTransition } from 'react';
 import { regenerateSummary } from '../app/actions/summaries';
 import type { SummaryView, SectionKey } from '../lib/summaries';
-import type { Segment } from '../lib/summaryLinkify';
+import type { Segment } from '../lib/untrackedPeople';
+import { annotateUntracked, type UntrackedContext } from '../lib/untrackedPeople';
+import { TrackPersonProvider, UntrackedMention, type TrackPersonSurface } from './TrackPersonProse';
 import type { SummaryScope } from '../lib/summaryPrompts';
 import { t, type StringKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
@@ -35,10 +37,21 @@ function GeminiSpark({ size = 14 }: { size?: number }) {
 // server resolved (segments carry an href from our own routes, never a model-authored
 // URL), so this only reads them — no dangerouslySetInnerHTML over model text. Absent
 // segments (old briefs, or a link-free line) ⇒ the plain string.
-function renderProse(text: string, segments: Segment[] | undefined): React.ReactNode {
-  if (!segments || segments.length === 0) return text;
-  return segments.map((s, i) =>
-    s.href ? (
+function renderProse(
+  text: string,
+  segments: Segment[] | undefined,
+  untracked?: UntrackedContext,
+): React.ReactNode {
+  // The SECOND pass, composed onto the first (#127 E15): `linkify` already claimed the
+  // entities we know, and this claims the humans we do not from what is left. Passing
+  // the segments rather than the text is what keeps a linked entity from also being
+  // offered as an untracked person — the contradiction the composition exists to avoid.
+  const runs = untracked ? annotateUntracked(text, untracked, segments) : segments;
+  if (!runs || runs.length === 0) return text;
+  return runs.map((s, i) =>
+    s.untracked ? (
+      <UntrackedMention key={i} address={s.untracked}>{s.text}</UntrackedMention>
+    ) : s.href ? (
       <a
         key={i}
         href={s.href}
@@ -69,11 +82,15 @@ export default function SummaryPanel({
   path,
   summary,
   configured,
+  untracked,
 }: {
   scope: SummaryScope;
   targetId: number;
   path: string; // revalidated after regeneration
   summary: SummaryView | null;
+  /** Turns the untracked-mention affordance on for the briefing (#127 E15). Omitted,
+   *  the prose renders exactly as before. */
+  untracked?: TrackPersonSurface;
   configured: boolean;
 }) {
   const locale = useLocale();
@@ -170,6 +187,10 @@ export default function SummaryPanel({
   );
 
   return (
+    // The provider is what a claimed mention reads its picker and date from. A briefing
+    // carries no per-bullet timestamp, so `mentionDate` is null and the dialog SAYS today
+    // is a guess rather than passing it off as the mention's own date.
+    <TrackPersonProvider config={{ partners: untracked?.partners ?? [], mentionDate: null }}>
     <div data-testid={`summary-${scope}`}>
       {/* `updating`: a refresh already refused is not "updating" — leaving the toolbar
           in that state is the perpetual spinner AGENTS lesson 5 forbids. */}
@@ -185,7 +206,7 @@ export default function SummaryPanel({
           could not replace — the cached one below is still true, just older. */}
       {showRefreshError && errorLine}
 
-      <p className={styles.tldr}>{renderProse(summary.tldr, summary.body.tldrSegments)}</p>
+      <p className={styles.tldr}>{renderProse(summary.tldr, summary.body.tldrSegments, untracked?.ctx)}</p>
 
       <div className={styles.grid}>
         {ordered.map((section) => (
@@ -194,7 +215,7 @@ export default function SummaryPanel({
             <ul className={styles.bullets}>
               {section.bullets.map((b, i) => (
                 <li key={i} className={styles.bullet}>
-                  {renderProse(b.text, b.segments)}
+                  {renderProse(b.text, b.segments, untracked?.ctx)}
                   {b.citations.length > 0 && (
                     <span className={styles.citations}>
                       {b.citations.map((c, j) => (
@@ -217,5 +238,6 @@ export default function SummaryPanel({
         ))}
       </div>
     </div>
+    </TrackPersonProvider>
   );
 }

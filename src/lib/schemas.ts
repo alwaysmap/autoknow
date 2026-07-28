@@ -254,6 +254,30 @@ export const personCreateSchema = z.object({
 });
 
 /**
+ * "Not a person" — silence an address the track-person affordance keeps offering
+ * (#126 decision 2, #127 E15). Only the address, because that IS the decision: it is not
+ * about any row we hold, which is the whole reason the suppression needs a table of its
+ * own rather than a column on something.
+ */
+export const dismissAddressSchema = z.object({
+  address: zEmail,
+});
+
+/**
+ * Create a Person FROM A MENTION (#127 E15). The same fields as `personCreateSchema`
+ * plus the affiliation's start date, which the dialog prefills from the mention's own
+ * date rather than today: a person first seen in a 2023 document becomes a correctly
+ * dated 2023 fact instead of a "joined today" lie (#126 decision 3).
+ *
+ * It is its own schema rather than an `.extend` with an optional date, because the two
+ * differ in what the CALLER knows: the directory's New Person dialog has no date to
+ * offer and defaults honestly to today, while this one always has one.
+ */
+export const trackPersonSchema = personCreateSchema.extend({
+  startDate: z.coerce.date(),
+});
+
+/**
  * Self-provisioning from /me. The caller picks only the ORGANIZATION.
  *
  * THE CANONICAL ACCOUNT of why this is not simply `personCreateSchema` above, since the

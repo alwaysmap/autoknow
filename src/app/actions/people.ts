@@ -7,7 +7,7 @@ import { indexEntity } from '../../lib/search';
 import { getCurrentUser } from '../../lib/session';
 import { authConfigured } from '../../auth';
 import { userFromHandle } from '../../lib/auth';
-import { myProfileSchema, parseForm, personCancelScheduleSchema, personCreateSchema, personDeleteSchema, personReviseSchema } from '../../lib/schemas';
+import { dismissAddressSchema, myProfileSchema, parseForm, personCancelScheduleSchema, personCreateSchema, personDeleteSchema, personReviseSchema, trackPersonSchema } from '../../lib/schemas';
 import { cancelScheduledPeriod, correctPersonRecord, createPersonAt, recordPersonChange } from '../../lib/profiles';
 import { guarded, type ActionResult } from '../../lib/actionResult';
 
@@ -116,6 +116,55 @@ export async function cancelScheduledChange(formData: FormData): Promise<ActionR
     const { personId, affiliationId } = parseForm(personCancelScheduleSchema, formData);
     await cancelScheduledPeriod({ personId, affiliationId });
     revalidatePath(`/people/${personId}`);
+    revalidatePath('/people');
+  });
+}
+
+/**
+ * Track a person named in prose (#126 / #127 E15). The affordance is a shortcut to the
+ * EXISTING creation path, never a second way to write a Person: it goes through
+ * `createPersonAt` like every other creator, so the address clash check, the opened
+ * employment period and the search index all happen exactly once, here.
+ *
+ * `startDate` comes from the MENTION's own date, so a person first seen in a 2023
+ * document becomes a correctly dated 2023 fact rather than a "joined today" lie. The
+ * dialog prefills it and the human can change it — nothing is created without a click,
+ * which is the rule ingested third-party text makes non-negotiable: a crafted document
+ * must not be able to talk this app into persisting a Person on its own.
+ *
+ * No redirect, unlike `createPerson`: the reader is mid-sentence on a briefing and the
+ * point of tracking in place is not leaving.
+ */
+export async function trackPerson(formData: FormData): Promise<ActionResult> {
+  return guarded(async () => {
+    const { name, email, partnerId, role, startDate } = parseForm(trackPersonSchema, formData);
+    const person = await createPersonAt({
+      name, email, partnerId, role: role ?? undefined, startDate,
+    });
+    await indexEntity('person', person.id);
+    revalidatePath('/people');
+  });
+}
+
+/**
+ * "Not a person" — silence an address everywhere, permanently (#126 decision 2).
+ * Distribution lists and bots (`android-team@`, `noreply@`) recur constantly, and an
+ * affordance that keeps offering to make them human is one people learn to ignore.
+ *
+ * Idempotent by the table's unique index: dismissing twice is the same decision, and a
+ * second click while the first is in flight must not be an error the reader has to read.
+ * Attributed, because a permanent app-wide suppression nobody can trace is a decision
+ * nobody can revisit.
+ */
+export async function dismissAddress(formData: FormData): Promise<ActionResult> {
+  return guarded(async () => {
+    const { address } = parseForm(dismissAddressSchema, formData);
+    const me = await getCurrentUser();
+    await prisma.ignoredAddress.upsert({
+      where: { address },
+      create: { address, dismissedBy: me.handle },
+      update: {},
+    });
     revalidatePath('/people');
   });
 }

@@ -13,6 +13,7 @@ import SummaryPanel from '../../../components/SummaryPanel';
 import ActivityFeed from '../../../components/ActivityFeed';
 import QuickIngest from '../../../components/QuickIngest';
 import { getActivity } from '../../../lib/activity';
+import { untrackedContext } from '../../../lib/untrackedContext';
 import { getNeedleHistory } from '../../../lib/history';
 import { getSummary } from '../../../lib/summaries';
 import { geminiConfigured } from '../../../lib/gemini';
@@ -123,6 +124,8 @@ export default async function ProjectDetailsPage(props: {
 
   // All partners + people (for the involvement pickers) + the graph's row shape.
   const allPartners = await prisma.partner.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } });
+  // See the partner page: the two sets the pure detector cannot know (#127 E15).
+  const untracked = await untrackedContext();
   const allPeople = await prisma.person.findMany({ select: personDirectorySelect, orderBy: { name: 'asc' } });
 
   // Resource contention (CCPM's resource dimension, approximated with the signals we
@@ -421,6 +424,7 @@ export default async function ProjectDetailsPage(props: {
               {t(locale, 'briefingHeading')}
             </AnchorHeading>
             <SummaryPanel scope="program" targetId={projectId} path={`/programs/${projectId}`}
+              untracked={{ ctx: untracked, partners: allPartners }}
               summary={summary} configured={geminiConfigured} />
           </section>
         </div>
@@ -489,7 +493,7 @@ export default async function ProjectDetailsPage(props: {
               <div style={{ margin: '0 0 0.75rem' }}>
                 <QuickIngest anchorKind="program" anchorId={projectId} path={`/programs/${projectId}`} />
               </div>
-              <ActivityFeed items={activity} deletable revalidate={`/programs/${projectId}`} />
+              <ActivityFeed items={activity} deletable revalidate={`/programs/${projectId}`} untracked={{ ctx: untracked, partners: allPartners }} />
             </section>
         </div>
       </main>

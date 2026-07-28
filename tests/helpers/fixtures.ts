@@ -41,6 +41,9 @@ export async function wipeAll() {
   await prisma.summaryPrompt.deleteMany();
   await prisma.summary.deleteMany();
   await prisma.syncCursor.deleteMany();
+  // #127 E15's not-a-person suppressions. Standalone by design — it records a decision
+  // about an address NO row holds, which is the whole reason it is its own table.
+  await prisma.ignoredAddress.deleteMany();
   // Program graph, child → parent.
   await prisma.actionItem.deleteMany();
   await prisma.contextRevision.deleteMany();
