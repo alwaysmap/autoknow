@@ -2,7 +2,7 @@
 # Terraform for the AutoKnow stack, with the identity trap closed.
 #
 #   npm run infra:plan            # read-only
-#   npm run infra:apply           # human-run, prompts before changing anything
+#   npm run infra:apply           # human-run, applies immediately (no prompt)
 #   npm run infra:plan -- -target=…   # extra args pass through
 #
 # THE TRAP. `.env` sets GOOGLE_APPLICATION_CREDENTIALS to the app's Drive service-account
@@ -72,7 +72,14 @@ terraform init -backend-config="instances/${INSTANCE}.backend.hcl" -input=false 
 cmd="${1:?usage: terraform.sh <plan|apply|output|…> [args]}"
 shift || true
 case "$cmd" in
-  plan | apply | destroy)
+  apply)
+    # No confirmation prompt: the human act is running this command at all — the identity
+    # gate above already proved a person is behind it, and a prompt nobody watches just
+    # holds the state lock open (an apply once sat unanswered for 30+ minutes). destroy
+    # keeps its prompt: it is rare enough that a pause is signal, not friction.
+    exec terraform apply -auto-approve -var-file="instances/${INSTANCE}.tfvars" "$@"
+    ;;
+  plan | destroy)
     exec terraform "$cmd" -var-file="instances/${INSTANCE}.tfvars" "$@"
     ;;
   *)
