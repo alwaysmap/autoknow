@@ -968,9 +968,6 @@ const STRINGS = {
   rosterStatusCurrent: { en: 'Current', de: 'Aktuell', ja: '在籍中', ko: '재직 중' },
   rosterStatusPast: { en: 'Past', de: 'Ehemalig', ja: '在籍終了', ko: '퇴사' },
   rosterStatusIncoming: { en: 'Incoming', de: 'Kommend', ja: '着任予定', ko: '입사 예정' },
-  // The `Partner.googleTeam` JSON blob, named for what it is now that the dated roster
-  // is a table of its own (#127 E12). Retired by E13.
-  googleTeamLabel: { en: 'Google team', de: 'Google-Team', ja: 'Google チーム', ko: 'Google 팀' },
   progressLabel: { en: 'Progress', de: 'Fortschritt', ja: '進捗', ko: '진행률' },
   needleLabel: { en: 'Needle', de: 'Nadel', ja: 'ニードル', ko: '니들' },
   searchHeading: { en: 'Search', de: 'Suche', ja: '検索', ko: '검색' },
@@ -1335,8 +1332,6 @@ const STRINGS = {
   visitWebsite: { en: 'Visit Website →', de: 'Website besuchen →', ja: 'ウェブサイトを開く →', ko: '웹사이트 방문 →' },
   internalDocumentation: { en: 'Internal Documentation', de: 'Interne Dokumentation', ja: '社内ドキュメント', ko: '내부 문서' },
   readMoreSharedDrive: { en: 'Read more (Shared Drive) →', de: 'Mehr lesen (Shared Drive) →', ja: '詳細を見る（共有ドライブ）→', ko: '자세히 보기 (공유 드라이브) →' },
-  currentTeam: { en: 'Current Team', de: 'Aktuelles Team', ja: '現在のチーム', ko: '현재 팀' },
-  noGoogleTeam: { en: 'No Google team assigned.', de: 'Kein Google-Team zugewiesen.', ja: 'Googleチームが割り当てられていません。', ko: '지정된 Google 팀이 없습니다.' },
   associatedPeople: { en: 'Associated People', de: 'Zugehörige Personen', ja: '関係者', ko: '관련 인물' },
   noAssociatedPeople: { en: 'No associated people found.', de: 'Keine zugehörigen Personen gefunden.', ja: '関係者が見つかりません。', ko: '관련 인물이 없습니다.' },
   noPartnerPrograms: {

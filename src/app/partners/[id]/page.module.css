@@ -123,7 +123,7 @@
   color: var(--muted);
 }
 
-/* The rail: sticky so relationship, facts, and people stay in view — but it sticks
+/* The rail: sticky so relationship and facts stay in view — but it sticks
    BELOW the pinned nav bar (~56px), never at the very top of the viewport where it
    would sit under the nav. --nav-h keeps the offset in sync if the nav height moves. */
 .sidebar {
@@ -137,17 +137,10 @@
   overflow-y: auto;
 }
 
-/* Sibling blocks get a single hairline BETWEEN them (never above the first — the
-   page header's rule already bounds the column). A heading IS a separator, so
-   headed blocks get heading-only, no extra rules attached to it. */
+/* The rail holds ONE card since #127 E13 took the Google-team card; the sibling
+   spacing rule went with it. */
 .sidebarCard {
   padding: 0 0 0.25rem;
-}
-/* The Google-team card is headed (its <h3>), so it too gets no rule above it — the
-   heading separates it from the relationship/facts card (design.md §7 rule 3).
-   The card gap (the sidebar's flex `gap`) plus this padding carry the boundary. */
-.sidebarCard + .sidebarCard {
-  padding-top: 0.875rem;
 }
 
 /* The app's subsection heading, not a variant of it: uppercase, 700, 0.05em, muted —
@@ -208,38 +201,6 @@
 }
 .externalLink:hover {
   text-decoration: underline;
-}
-
-.peopleList {
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
-}
-
-/* One row treatment for everyone in this card. `.teamItem`/`.teamRole` were a
-   byte-identical twin of these two (bar an italic on the role), which is how the
-   Google-team half drifted into printing an email in bold while the affiliation half
-   right below it printed a name — #153's defect, in one card. */
-.personItem {
-  font-size: 0.8125rem;
-  display: flex;
-  align-items: baseline;
-  gap: 0.4375rem;
-  line-height: 1.25rem;
-}
-.personLink {
-  color: var(--fg);
-  text-decoration: none;
-  font-weight: 400;
-}
-.personLink:hover {
-  color: var(--link);
-  text-decoration: underline;
-}
-.personRole {
-  font-size: 0.6875rem;
-  line-height: 1rem;
-  color: var(--muted);
 }
 
 /* Narrow screens — LAST so these overrides win the source-order tie against the
