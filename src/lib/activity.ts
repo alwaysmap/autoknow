@@ -84,11 +84,11 @@ type Career = NonNullable<Awaited<ReturnType<typeof personActor>>>['career'];
  *
  * Compared in JS by `coversDay` against a career already in hand, not asked per item
  * through `profileAsOf` — `lib/profiles`' header draws exactly that line, and 25 items
- * would otherwise be 25 round trips. That inherits autoknow-yid: `coversDay` compares
- * UTC DAYS while `profileAsOf` compares raw INSTANTS, so on a boundary date a row here
- * can disagree with the identity line above it, which asks `profileAsOf`. /people/:id is
- * the first page to render both; fixing it is that bead's job, in one place, not a third
- * date comparison here.
+ * would otherwise be 25 round trips. The two spellings answer identically since
+ * autoknow-yid made `asOfWhere` day-granular too, so a row here and the identity line
+ * above it agree on a boundary date; they used to disagree, and /people/:id rendering
+ * both is how that showed. Writing a third date comparison here rather than using one of
+ * them is still the bug.
  *
  * A row in a GAP between jobs — or older than the first period — keeps its subtitle
  * unchanged rather than borrowing the nearest company. Null is a real answer here too.

@@ -77,6 +77,18 @@ describe('resolvePersonCandidates', () => {
     expect(resolvePersonCandidates(people, 'KENJI SATO').map((p) => p.id)).toEqual([3]);
   });
 
+  // autoknow-hlx: this tier and `personAliases` are the two directions of one round
+  // trip, so they must spell the local-part rule identically. `normalizeHandle` also
+  // strips a leading '@', which `split('@')[0]` did NOT — on an address that spelling
+  // returned the same answer, so the fix is invisible until something upstream hands a
+  // stored value through, and then it is silent.
+  it('matches a local part through normalizeHandle, the same spelling personAliases builds with', () => {
+    const people = [person(1, 'Ada Lovelace', 'ada@bosch.example')];
+    expect(resolvePersonCandidates(people, '@ada').map((p) => p.id)).toEqual([1]);
+    expect(resolvePersonCandidates(people, 'ada').map((p) => p.id)).toEqual([1]);
+    expect(resolvePersonCandidates(people, 'ada@other.example').map((p) => p.id)).toEqual([1]);
+  });
+
   it('returns BOTH when a local part is shared across domains', () => {
     // Both at PARTNER domains on purpose: a bare handle derives to the org domain
     // (`deriveEmail`), so 'alice' would match an alice@google.com exactly and never

@@ -509,17 +509,21 @@ model PersonAffiliation {
   @@index([personId])
   @@index([partnerId])
   // As-of lookups (#127 E4, spec #124 §5). `endDate` is nullable, so the predicate
-  // is `startDate <= t AND (endDate IS NULL OR endDate > t)` — NOT a clean half-open
+  // is `startDate < d AND (endDate IS NULL OR endDate >= d)` — NOT a clean half-open
   // range, and the two trailing columns earn their place for different reasons:
   //   startDate is an index BOUND (it lands in Index Cond).
-  //   endDate is NOT, and cannot be: `IS NULL OR >` is not an indexable boundary.
+  //   endDate is NOT, and cannot be: `IS NULL OR >=` is not an indexable boundary.
   //     It rides along so a resolver selecting only these columns gets an Index
   //     Only Scan and evaluates that filter without touching the heap.
   // Verified by EXPLAIN, not assumed — forcing the plan gives
-  // `Index Cond: personId = .. AND startDate <= ..` with `Filter: endDate IS NULL
-  // OR endDate > ..`, and `Index Only Scan` once the select list stays inside the
+  // `Index Cond: personId = .. AND startDate < ..` with `Filter: endDate IS NULL
+  // OR endDate >= ..`, and `Index Only Scan` once the select list stays inside the
   // index. Widen or reorder these and re-run that EXPLAIN before believing a
   // claim about which half is a bound.
+  // `d` is the first instant of the day AFTER the as-of date (autoknow-yid made the
+  // predicate day-granular). The plan shape is UNCHANGED by that: the bound is still a
+  // bare `startDate` compared against a parameter, which is exactly why the fix moved
+  // the boundary into the parameter instead of wrapping the column in `date_trunc`.
   @@index([personId, startDate, endDate])
   @@index([partnerId, startDate, endDate])
   // Resolution now asks this table "who has EVER held this address" (#127 E8,

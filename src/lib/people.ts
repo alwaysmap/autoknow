@@ -48,6 +48,10 @@ export const personDirectorySelect = {
   affiliations: { select: { email: true } },
 } as const;
 
+/** The UTC calendar day `d` falls in, as an instant at its own midnight. The one
+ *  definition of "which day is this", shared by the two functions that need it. */
+const utcDay = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+
 /**
  * Has an effective date ARRIVED as of `at`? The single answer IN JAVASCRIPT, so a
  * scheduled change cannot be judged "already applied" by one caller and "still pending"
@@ -73,8 +77,23 @@ export const personDirectorySelect = {
  * server in another zone must not shift the boundary by a day.
  */
 export function hasTakenEffect(effective: Date | string, at: Date = new Date()): boolean {
-  const utcDay = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   return utcDay(new Date(effective)) <= utcDay(at);
+}
+
+/**
+ * The first instant of the day AFTER `at`, in UTC — the exclusive upper bound of `at`'s
+ * own calendar day.
+ *
+ * It exists so a SQL predicate can be day-granular WITHOUT truncating the column, which
+ * is what `lib/profiles`' `asOfWhere` needs: `utcDay(x) <= utcDay(at)` is exactly
+ * `x < startOfNextUtcDay(at)`, and the second spelling leaves the column bare on the left of the
+ * comparison so the index still applies. Exported from HERE, beside `hasTakenEffect`,
+ * because both are the same claim about where a calendar day ends and a second
+ * definition next to the query would be the third spelling this module exists to
+ * prevent (autoknow-yid).
+ */
+export function startOfNextUtcDay(at: Date): Date {
+  return new Date(utcDay(at) + 24 * 60 * 60 * 1000);
 }
 
 /**
@@ -139,13 +158,36 @@ export function initialsOf(name: string): string {
   return (chars(words[0])[0] + chars(words[words.length - 1])[0]).toUpperCase();
 }
 
+/** The shape every "which addresses does this human answer to" question needs: the
+ *  current address plus the periods'. Looser than `PersonLike` on purpose — `lib/search`
+ *  composes index text from a row selected for that and nothing else. */
+export interface AddressesOnFile {
+  email: string;
+  affiliations: { email: string | null }[];
+}
+
 /** Every address recorded against a person's employment periods, canonicalized, with
  *  unrecorded periods dropped. Order is not meaningful; only membership is. Periods
  *  repeating the current address are left in — both callers are indifferent: `matchTier`
  *  has already answered for that address before it looks here, and `personAliases`
  *  de-dupes. */
-function recordedAddresses(person: PersonLike): string[] {
+function recordedAddresses(person: AddressesOnFile): string[] {
   return person.affiliations.map((a) => normalizeAddress(a.email)).filter((a) => a !== '');
+}
+
+/**
+ * EVERY address this human answers to — the current one first, then every address
+ * recorded against a period they have held (#127 E8), canonical and de-duplicated.
+ *
+ * The one composer of that set. `personAliases` builds the feed's actor strings from it,
+ * `lib/search` embeds and lexes it, and a third derivation would be a person who resolves
+ * on one surface and not another — invisible, which is what AGENTS lesson 7 is about.
+ * Order is meaningful only in that the current address leads: `matchTier` ranks by the
+ * same "whoever holds it now" rule one level up.
+ */
+export function addressesOnFile(person: AddressesOnFile): string[] {
+  return [...new Set([normalizeAddress(person.email), ...recordedAddresses(person)])]
+    .filter((a) => a !== '');
 }
 
 /**
@@ -227,7 +269,11 @@ export function resolvePersonCandidates<T extends PersonLike>(
   const byEmail = matchTier(people, (address) => address === email);
   if (byEmail.length > 0) return byEmail;
 
-  const byLocalPart = matchTier(people, (address) => address.split('@')[0] === handle);
+  // `normalizeHandle`, not `split('@')[0]` (autoknow-hlx). This tier and `personAliases`
+  // below are the two DIRECTIONS of one round trip — that function builds the local-part
+  // alias, this one matches it — so a second spelling here would be a rule that can drift
+  // on one side only, and the drift is silent: a person simply stops resolving.
+  const byLocalPart = matchTier(people, (address) => normalizeHandle(address) === handle);
   if (byLocalPart.length > 0) return byLocalPart;
 
   return people.filter((p) => p.name?.toLowerCase() === handle);
@@ -288,7 +334,7 @@ export function resolvePerson<T extends PersonLike>(
  * not a proof.
  */
 export function personAliases(person: PersonLike): string[] {
-  const addresses = [normalizeAddress(person.email), ...recordedAddresses(person)];
+  const addresses = addressesOnFile(person);
   // Not `normalizeAddress`: a name is not an address, and that helper exists for the
   // one-column-in-two-places problem. Same two operations, different reason.
   const name = (person.name || '').trim().toLowerCase();

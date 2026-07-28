@@ -311,7 +311,7 @@ const eslintConfig = defineConfig([
   },
   {
     // The module that DEFINES the as-of predicate has to write it down once, and
-    // `asOfWhere`'s `OR: [{ endDate: null }, { endDate: { gt: at } }]` is that once —
+    // `asOfWhere`'s `OR: [{ endDate: null }, { endDate: { gte: next } }]` is that once —
     // the correct use of the literal, which is why the rule points every other file
     // here. Drops the open-period family only; the cache write inside `createPersonAt`
     // still trips the cache family and carries its own inline disable, because one
