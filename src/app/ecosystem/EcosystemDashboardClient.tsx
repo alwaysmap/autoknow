@@ -14,6 +14,7 @@ import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 import BusiestResources from '../../components/BusiestResources';
 import type { BusiestRow } from '../../lib/chainLedger';
+import type { PersonRef } from '../../components/PersonCell';
 import AnchorHeading from '../../components/AnchorHeading';
 
 interface Project {
@@ -23,7 +24,10 @@ interface Project {
   theNeedle: string;
   hillChartProgress: number;
   sopDate: string | null;
-  ownerName: string | null;
+  /** Mirrors `DashboardProject.owner` — the FK-resolved owner (#127 E7), not the
+   *  legacy `ownerName` text. This dashboard does not render it; the field stays so
+   *  the local mirror of the payload does not quietly disagree with the loader. */
+  owner: PersonRef | null;
   volumeFirstYear: number;
   latestNote: string | null;
   chainRemainingDays: number;

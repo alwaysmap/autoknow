@@ -6,6 +6,7 @@ test.describe('Ecosystem Summary Page (Deterministic + AI)', () => {
   test.describe.configure({ mode: 'serial' });
 
   let projectId: number;
+  let ownerId: number;
 
   test.beforeAll(async () => {
     // Clear and seed a simple project to test status updates
@@ -15,11 +16,21 @@ test.describe('Ecosystem Summary Page (Deterministic + AI)', () => {
       data: { name: 'Waymo', type: { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } }, region: { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } } }
     });
 
+    // The owner as a real Person: since #127 E7 the owner column and its funnel read
+    // `Project.ownerPersonId`, so a program carrying only the legacy text has no owner
+    // to show or filter by.
+    const owner = await prisma.person.create({
+      data: { name: 'Dylan', email: 'dylan@google.com', currentPartnerId: partner.id },
+    });
+    ownerId = owner.id;
+
     const project = await prisma.project.create({
       data: {
         name: 'Waymo Generation 6 AAOS',
         partnerId: partner.id,
-        ownerName: 'Dylan',
+        // Both columns, as every write path produces them (lib/owner.requireOwner).
+        ownerName: 'dylan@google.com',
+        ownerPersonId: owner.id,
         sopDate: new Date('2027-01-01'),
         volumeFirstYear: 150000,
         theNeedle: 'High',
@@ -84,11 +95,15 @@ test.describe('Ecosystem Summary Page (Deterministic + AI)', () => {
     // read back on a cold load, which is the half most likely to rot (design.md §2).
     await page.getByRole('button', { name: /^filter owner$/i }).click();
     await page.getByRole('checkbox', { name: 'Dylan' }).check();
-    await expect(page).toHaveURL(/ownerName=Dylan/);
+    // The funnel's VALUE is the owner's person id, not their address (#127 E7,
+    // design.md §6): the id is the canonical key, and an address is a property of a job
+    // that one human can hold several of. The LABEL stays their name, which is what the
+    // checkbox above is found by.
+    await expect(page).toHaveURL(new RegExp(`owner=${ownerId}(&|$)`));
     await expect(page.locator('body')).toContainText('Waymo Generation 6 AAOS');
 
     await page.getByRole('button', { name: /clear filters/i }).click();
-    await expect(page).not.toHaveURL(/ownerName=/);
+    await expect(page).not.toHaveURL(/owner=/);
 
     // A NON-matching deep link, so the assertion means something: this fixture has one
     // program, so "still visible" is true either way and only a disappearance proves the
@@ -98,7 +113,8 @@ test.describe('Ecosystem Summary Page (Deterministic + AI)', () => {
     // names this program, so a page-wide "not visible" would fail while the filter is
     // working perfectly — which is exactly what it did on first run.
     const launches = page.locator('section', { hasText: 'Program Lifecycle & Launches' }).last();
-    await page.goto('/ecosystem-summary?ownerName=NoSuchOwner');
+    // A person id nothing owns — the cold-load equivalent of the old 'NoSuchOwner'.
+    await page.goto(`/ecosystem-summary?owner=${ownerId + 9999}`);
     await expect(launches).toContainText('No programs match current filters.');
     await expect(launches).not.toContainText('Waymo Generation 6 AAOS');
 

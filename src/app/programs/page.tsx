@@ -1,5 +1,4 @@
 import { prisma } from '../../lib/db';
-import { personDirectorySelect } from '../../lib/people';
 import { computeCriticalChain } from '../../lib/criticalChain';
 import { sopBufferCategory } from '../../lib/sop';
 import { getLocale } from '../../lib/locale';
@@ -23,11 +22,15 @@ export default async function ProgramsPage(props: {
   // Shareable table state (design.md §6): canonical per-column params + sort/dir + q.
   // The legacy ?minRisk / ?filter=active deep links above still preselect; any change
   // in the UI rewrites the URL to the canonical form.
-  const initialFilters = parseFilterParams(sp, ['partner.name', 'partner.region', 'ownerName', 'theNeedle', 'status', 'sopOutlook']);
+  // `owner` (the person id) replaced the old `ownerName` email token in #127 E7 — the
+  // owner funnel keys on the FK, so one human is one option however many addresses they
+  // have held (design.md §6).
+  const initialFilters = parseFilterParams(sp, ['partner.name', 'partner.region', 'owner', 'theNeedle', 'status', 'sopOutlook']);
   const initialTableSort = sp.sort === 'risk' ? null : parseSortParams(sp);
   const initialQ = typeof sp.q === 'string' ? sp.q : '';
   const projects = await prisma.project.findMany({
     include: {
+      ownerPerson: { select: { id: true, name: true } }, // the owner by REFERENCE (#127 E7)
       partner: {
         include: {
           type: true,
@@ -83,7 +86,7 @@ export default async function ProgramsPage(props: {
       hillChartProgress: proj.hillChartProgress,
       sopDate: proj.sopDate ? proj.sopDate.toISOString() : null,
       sopOutlook,
-      ownerName: proj.ownerName,
+      owner: proj.ownerPerson,
       volumeFirstYear: proj.volumeFirstYear,
       partner: {
         id: proj.partner.id,
@@ -102,8 +105,6 @@ export default async function ProgramsPage(props: {
       })),
     };
   });
-
-  const people = await prisma.person.findMany({ select: personDirectorySelect });
 
   const regions = await prisma.region.findMany({ select: { name: true } });
   const partnerTypes = await prisma.partnerType.findMany({ select: { name: true } });
@@ -129,7 +130,6 @@ export default async function ProgramsPage(props: {
         initialTableSort={initialTableSort}
         initialQ={initialQ}
         initialProjects={serializedProjects}
-        people={people}
         regions={regions.map(r => r.name)}
         partnerTypes={partnerTypes.map(t => t.name)}
         initialMinRisk={initialMinRisk}

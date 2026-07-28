@@ -15,7 +15,7 @@ import styles from './page.module.css';
 //
 // The Role column carries HOW this person is attached to the program, which is the
 // thing the chips could not say: TEL ownership, and any per-phase role. Both come
-// from the DB (`Project.ownerName` and `PhasePerson.role`); neither is inferred.
+// from the DB (`Project.ownerPersonId` and `PhasePerson.role`); neither is inferred.
 
 export interface PersonProgramRow {
   id: number;

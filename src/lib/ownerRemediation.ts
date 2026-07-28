@@ -17,7 +17,9 @@ import { personDirectorySelect, resolvePersonCandidates, type PersonLike } from 
 // in the initial commit (`4ded811:src/lib/seed.ts` — 'Alice PM', 'Clara Operations') that
 // named no Person in that database. Re-running the backfill cannot clear them: the
 // strings still match nobody, and they never will. The matcher is fine; the DATA is
-// stale. Those rows are the gate for #127 E7 (retiring the `ownerName` readers).
+// stale. Those rows were the gate for #127 E7 (retiring the `ownerName` readers): with
+// the readers on the FK, a program left unlinked here shows no owner at all. This arm
+// cleared them, and E7 shipped behind a prod run reporting `scanned: 0`.
 //
 // THE OWNER-SELECTION RULE, which is the only judgement in this file:
 //

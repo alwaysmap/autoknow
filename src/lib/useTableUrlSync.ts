@@ -25,7 +25,7 @@ export function useTableUrlSync(
       first.current = false;
       // Register deep-linked keys up front: if the user's FIRST interaction is
       // "clear filters", the cleared state has no keys, so without this the
-      // initial params (?ownerName=…) would survive in the URL.
+      // initial params (?owner=…) would survive in the URL.
       for (const key of Object.keys(filters)) managed.current.add(key);
       return;
     }

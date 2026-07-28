@@ -10,7 +10,7 @@ import { NewPartnerButton } from '../../components/PartnerEditor';
 import PageShell from '../../components/PageShell';
 import { RelationshipCell } from '../../components/RelationshipScale';
 import { parseScore, clampScore, REL_KEY } from '../../lib/relationship';
-import { PersonList } from '../../components/PersonCell';
+import { PersonList, type PersonRef } from '../../components/PersonCell';
 import { deriveEmail, normalizeHandle } from '../../lib/auth';
 import type { PersonLike } from '../../lib/people';
 import { t } from '../../lib/i18n';
@@ -21,7 +21,10 @@ interface Project {
   id: number;
   name: string;
   isArchived: boolean;
-  ownerName: string | null;
+  /** The Googler owner as an ENTITY, resolved server-side from `Project.ownerPersonId`
+   *  (#127 E7) — was the stored `ownerName` email, which this component matched against
+   *  the signed-in user's derived address and deduped as a raw string. */
+  owner: PersonRef | null;
 }
 
 /** Structurally `RosterMember` from lib/profiles, redeclared because this is a client
@@ -51,6 +54,12 @@ interface Option {
 interface PartnersClientProps {
   partners: Partner[];
   currentUser: string;
+  /** Who "me" is as a PERSON row, resolved once on the server (see partners/page.tsx).
+   *  The "My partners" scope tests program ownership by REFERENCE against this (#127
+   *  E7); it used to compare derived email strings, so a program owned under an address
+   *  its owner had left dropped out of the scope entirely (#124 Class 4). Null when the
+   *  signed-in user (or the `?user=` view-as override) matches no Person. */
+  currentUserPersonId: number | null;
   people: PersonLike[];
   /** partnerId → latest score + oldest→newest history (see lib/relationship). */
   relationship: Record<number, { score: number | null; history: number[] }>;
@@ -64,7 +73,7 @@ interface PartnersClientProps {
   initialQ?: string;
 }
 
-export default function PartnersClient({ partners, currentUser, people, relationship, types, regions, initialFilters, initialSort, initialMine = false, initialQ = '' }: PartnersClientProps) {
+export default function PartnersClient({ partners, currentUser, currentUserPersonId, people, relationship, types, regions, initialFilters, initialSort, initialMine = false, initialQ = '' }: PartnersClientProps) {
   const locale = useLocale();
   // Column filters are controlled here so type/region cell clicks can set them.
   const [filters, setFilters] = useState<Record<string, string[]>>(initialFilters ?? {});
@@ -79,20 +88,22 @@ export default function PartnersClient({ partners, currentUser, people, relation
   const userEmail = useMemo(() => deriveEmail(currentUser), [currentUser]);
   const userHandle = useMemo(() => normalizeHandle(currentUser), [currentUser]);
 
-  // Whether a project owner / employee / affiliate string refers to the current user.
-  // Base predicate only; type/region live in the per-column funnel filters. The
-  // ownership test lives inside the memo so it closes over only the stable primitives
-  // (userEmail/userHandle) — matches on canonical email or bare handle, never a name
-  // substring (which previously made "My partners" include people whose name merely
-  // contained the handle).
+  // Whether a ROSTER MEMBER's address refers to the current user. Base predicate only;
+  // type/region live in the per-column funnel filters. It lives inside the memo so it
+  // closes over only the stable primitives (userEmail/userHandle) — matches on canonical
+  // email or bare handle, never a name substring (which previously made "My partners"
+  // include people whose name merely contained the handle). Program OWNERSHIP no longer
+  // comes through here at all: it is an id comparison against the FK (#127 E7).
   const filteredPartners = useMemo(() => {
     const isCurrentUser = (value: string | null | undefined) =>
       !!value && (deriveEmail(value) === userEmail || normalizeHandle(value) === userHandle);
     const isMyPartner = (partner: Partner) =>
-      partner.projects.some((p) => isCurrentUser(p.ownerName)) ||
+      // Ownership by REFERENCE (#127 E7); membership still by address, because a roster
+      // member IS an address on this surface and has no such reference to key on.
+      partner.projects.some((p) => p.owner != null && p.owner.id === currentUserPersonId) ||
       partner.team.some((member) => isCurrentUser(member.email));
     return partners.filter((partner) => !myPartnersOnly || isMyPartner(partner));
-  }, [partners, myPartnersOnly, userEmail, userHandle]);
+  }, [partners, myPartnersOnly, userEmail, userHandle, currentUserPersonId]);
 
   // Map partners to displayable data structure
   const displayData = useMemo(() => {
@@ -100,10 +111,14 @@ export default function PartnersClient({ partners, currentUser, people, relation
       const activePrograms = partner.projects.filter((p) => !p.isArchived).length;
       const lifetimePrograms = partner.projects.length;
 
-      // Extract unique TELs
-      const tels = Array.from(
-        new Set(partner.projects.map((p) => p.ownerName).filter(Boolean))
-      ) as string[];
+      // The distinct owners across this partner's programs, deduped by PERSON ID (#127
+      // E7) — deduping the stored strings listed one human twice once they had held two
+      // addresses, and could not tell two people apart who shared a local part.
+      const tels = [
+        ...new Map(
+          partner.projects.flatMap((p) => (p.owner ? [[p.owner.id, p.owner] as const] : [])),
+        ).values(),
+      ];
 
       // Team member emails. The Set is belt-and-braces: the as-of predicate SELECTS one
       // period per person, but nothing constrains the data to have only one, so an
@@ -158,7 +173,14 @@ export default function PartnersClient({ partners, currentUser, people, relation
               },
               { key: 'activePrograms', label: t(locale, 'activePrograms') },
               { key: 'lifetimePrograms', label: t(locale, 'lifetimePrograms') },
-              { key: 'tels', label: t(locale, 'telsHeader') },
+              {
+                // The cell holds PEOPLE now, so the column says how to sort them —
+                // by name, which is what it shows. Without this, sorting stringifies a
+                // `PersonRef[]` and every row compares equal (see DataTable.sortValue).
+                key: 'tels', label: t(locale, 'telsHeader'),
+                sortValue: (row) =>
+                  (row as (typeof displayData)[number]).tels.map((tel) => tel.name).join(', '),
+              },
               { key: 'team', label: t(locale, 'teamLabel') },
             ]}
             data={displayData}
@@ -227,7 +249,7 @@ export default function PartnersClient({ partners, currentUser, people, relation
                     raw email, Team printed the name. */}
                 <td>
                   <div className={styles.telList}>
-                    <PersonList values={p.tels} people={people} emptyLabel={t(locale, 'none')} />
+                    <PersonList persons={p.tels} emptyLabel={t(locale, 'none')} />
                   </div>
                 </td>
                 <td>

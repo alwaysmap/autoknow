@@ -170,9 +170,9 @@ function matchTier<T extends PersonLike>(people: T[], matches: (address: string)
  *
  * THE FIRST TWO TIERS SEARCH HISTORICAL ADDRESSES (#127 E8, spec #124 §2). An address
  * belongs to a JOB, so the moment someone changes company every artifact that quotes
- * the old one — an action item's `assignedTo`, a program's `ownerName`, a Drive file's
- * `addedBy` — stops naming a human at all. That is #124 Class 4, and it is not a
- * display bug: the row simply strands. Matching `PersonAffiliation.email` as well as
+ * the old one — an action item's `assignedTo`, a Drive file's `addedBy`; a program's
+ * `ownerName` until #127 E7 put that one behind an FK — stops naming a human at all.
+ * That is #124 Class 4, and it is not a display bug: the row simply strands. Matching `PersonAffiliation.email` as well as
  * `Person.email` is the fix, and it is why the directory must be fetched with
  * `personDirectorySelect` and not a hand-written `{ id, name, email }`.
  *

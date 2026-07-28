@@ -257,9 +257,17 @@ tables) so nothing has to be relearned page to page.
   filters, the squared key-column filter box) + `DateCell` + `PersonCell`. New tables
   must use them rather than re-implementing — `tests/dataTableConvention.test.ts` fails a
   `DataTable` host that renders its own date or builds its own person route. A funnel
-  over a person column keeps the STORED string as its value (a locale-stable shareable
-  token) and reads the name only in `filterLabel`, so the header and the cells agree
-  without the URL changing meaning. The identity column is a **`<th scope="row">` frozen
+  over a person column carries a **canonical key** as its value and reads the name only
+  in `filterLabel`, so the header and the cells agree without the URL changing meaning.
+  **Which key depends on whether a relation exists** (2026-07-27, #127 E7): a column
+  backed by an FK uses the **person id** (`personRefFunnel` in `PersonCell.tsx` — today
+  the program owner on `/programs` and `/ecosystem-summary`, so `?owner=16`); a column
+  still stored as bare text uses the stored string (`personFilterLabel`, for
+  `createdBy` / `addedBy`). An address is not a canonical key — it belongs to a job, so
+  one human who has moved splits into two funnel options
+  ([ADR](adr/2026-07-27-a-person-funnels-url-token-is-the-fk-id-where-one-exists.md)).
+  A column whose key holds a `PersonRef` also needs `sortValue`, or sorting stringifies
+  the object and silently does nothing. The identity column is a **`<th scope="row">` frozen
   first column** (#29): `position: sticky; left: 0` with an opaque `--bg` so, on a
   narrow viewport, the name you are reading the row FOR stays put while the rest
   scrolls sideways in the wrapper (§9) — and the row-header associates each row's

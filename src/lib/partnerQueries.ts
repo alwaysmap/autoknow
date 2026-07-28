@@ -1,5 +1,6 @@
 import { prisma } from './db';
 import { rostersByPartnerAsOf, type RosterMember } from './profiles';
+import type { PersonRef } from '../components/PersonCell';
 
 // Partner list data for /partners. Plain module functions on the shared prisma
 // singleton (the rest of the codebase's convention) — not a constructor-injected
@@ -9,7 +10,11 @@ export interface ProjectSummary {
   id: number;
   name: string;
   isArchived: boolean;
-  ownerName: string | null;
+  /** The Googler who owns this program, through `Project.ownerPersonId` (#127 E7).
+   *  This was the stored `ownerName` string, which the client then re-matched against
+   *  the people directory — so an owner who had changed address stopped counting as the
+   *  owner of their own program (#124 Class 4). The FK is resolved once, here. */
+  owner: PersonRef | null;
 }
 
 export interface PartnerListRow {
@@ -42,20 +47,30 @@ export async function getAllPartners(): Promise<PartnerListRow[]> {
       include: {
         type: { select: { name: true } },
         region: { select: { name: true } },
-        projects: { select: { id: true, name: true, isArchived: true, ownerName: true } },
+        projects: {
+          select: {
+            id: true, name: true, isArchived: true,
+            ownerPerson: { select: { id: true, name: true } }, // by REFERENCE (#127 E7)
+          },
+        },
       },
       orderBy: { name: 'asc' },
     }),
     // One query for every partner's roster, not one per row.
     rostersByPartnerAsOf(),
   ]);
-  // Map to the string-typed UI contract — an explicit projection, not an `as unknown`.
+  // Map to the UI contract — an explicit projection, not an `as unknown`.
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
     type: r.type?.name ?? '',
     region: r.region?.name ?? '',
-    projects: r.projects,
+    projects: r.projects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      isArchived: p.isArchived,
+      owner: p.ownerPerson,
+    })),
     team: rosters.get(r.id) ?? [],
   }));
 }

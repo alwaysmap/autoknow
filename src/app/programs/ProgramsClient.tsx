@@ -7,12 +7,11 @@ import Link from 'next/link';
 import DateCell from '../../components/DateCell';
 import DataTable from '../../components/DataTable';
 import ClassBox from '../../components/ClassBox';
-import PersonCell, { personFilterLabel } from '../../components/PersonCell';
+import PersonCell, { personRefFunnel, type PersonRef } from '../../components/PersonCell';
 import styles from '../ecosystem-summary/EcosystemSummaryClient.module.css';
 import local from './page.module.css';
 import { formatNeedleValue } from '../../lib/needle';
 import { healthKey, healthColor, healthOrder } from '../../lib/health';
-import { resolvePerson, type PersonLike } from '../../lib/people';
 import { deriveProgramStatus } from '../../lib/lifecycle';
 import type { SopBufferCategory } from '../../lib/sop';
 import { t, type StringKey } from '../../lib/i18n';
@@ -43,7 +42,10 @@ interface Project {
   hillChartProgress: number;
   sopDate: string | null;
   sopOutlook: SopBufferCategory;
-  ownerName: string | null;
+  /** The owner as an ENTITY, resolved server-side through `Project.ownerPersonId`
+   *  (#127 E7). Was the stored `ownerName` email, re-matched against a directory
+   *  shipped alongside — which lost any owner who had changed address (#124 Class 4). */
+  owner: PersonRef | null;
   volumeFirstYear: number;
   partner: {
     id: number;
@@ -64,10 +66,6 @@ interface Project {
 
 interface ProgramsClientProps {
   initialProjects: Project[];
-  /** The directory the owner column resolves against — `PersonLike`, so the addresses a
-   *  person has LEFT come with it (#127 E8) and an owner who moved still renders as a
-   *  name. A local `{ id, name, email }` would type-check and silently not. */
-  people: PersonLike[];
   regions?: string[];
   partnerTypes?: string[];
   /** Deep-link support (legacy ?minRisk / ?filter=active). */
@@ -82,7 +80,7 @@ interface ProgramsClientProps {
 
 const SHOW_SCORECARDS = false;
 
-export default function ProgramsClient({ initialProjects, people, initialMinRisk = 0, initialSort = null, initialActiveOnly = false, initialFilters, initialTableSort = null, initialQ = '' }: ProgramsClientProps) {
+export default function ProgramsClient({ initialProjects, initialMinRisk = 0, initialSort = null, initialActiveOnly = false, initialFilters, initialTableSort = null, initialQ = '' }: ProgramsClientProps) {
   const locale = useLocale();
   // Column filters live in the table headers (design.md: table filtering pattern).
   // The ?minRisk deep-link becomes a Health-column preselection.
@@ -183,8 +181,9 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
               filterValue: (row) => (row as Project).partner.region || t(locale, 'otherLabel'),
             },
             {
-              key: 'ownerName', label: t(locale, 'programOwner'), filterable: true,
-              filterLabel: personFilterLabel(people),
+              // Keyed on the owner's id via the FK, not on the stored email (#127 E7).
+              key: 'owner', label: t(locale, 'programOwner'), filterable: true,
+              ...personRefFunnel(initialProjects, (p) => p.owner),
             },
             { key: 'sopDate', label: t(locale, 'targetSopHeader') },
             {
@@ -212,8 +211,6 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
           onTextFilterChange={setText}
           textFilterPlaceholder={t(locale, 'filterProgramsPlaceholder')}
           renderRow={(p: Project) => {
-            const matched = p.ownerName ? resolvePerson(people, p.ownerName) : null;
-
             return (
               <tr key={p.id}>
                 <th scope="row">
@@ -243,8 +240,8 @@ export default function ProgramsClient({ initialProjects, people, initialMinRisk
                 </td>
                 <td>
                   {/* An owner reads by NAME (#153) — the stored LDAP email is a storage
-                      format. `matched` is resolved above so the row can compute it once. */}
-                  <PersonCell person={matched} value={p.ownerName} />
+                      format. Resolved on the server through the FK (#127 E7). */}
+                  <PersonCell person={p.owner} />
                 </td>
                 <td><DateCell value={p.sopDate} fallback={t(locale, 'tbd')} /></td>
                 <td>

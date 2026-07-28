@@ -27,6 +27,14 @@ interface Header {
   filterable?: boolean;
   /** Filter on this derived value instead of row[key] (e.g. canonical health). */
   filterValue?: (row: unknown) => string;
+  /** Sort on this derived value instead of row[key] — `filterValue`'s twin, and needed
+   *  for the same reason: a column whose key holds a non-scalar. Sorting stringifies
+   *  what it finds, so an object under the key compares as '[object Object]' and the
+   *  column silently stops sorting while its header stays clickable. A person column
+   *  keyed on a `PersonRef` (#127 E7) is the case that forced this; before it existed,
+   *  the workaround was to park a scalar under the key and render from a sibling field,
+   *  which cost the column two names for one thing. */
+  sortValue?: (row: unknown) => string | number;
   /** Display label for an option value (e.g. localized health). */
   filterLabel?: (value: string) => string;
 }
@@ -171,13 +179,15 @@ export default function DataTable<T>({
   }, [data, headers, filters, textFilter]);
 
   // 1. Sort the data client-side
-  const sortType = headers.find((h) => h.key === sortKey)?.sortType;
+  const sortHeader = headers.find((h) => h.key === sortKey);
+  const sortType = sortHeader?.sortType;
+  const sortValue = sortHeader?.sortValue;
   const sortedData = useMemo(() => {
     if (!sortKey) return filteredData;
 
     return [...filteredData].sort((a, b) => {
-      let valA = valueAt(a, sortKey);
-      let valB = valueAt(b, sortKey);
+      let valA = sortValue ? sortValue(a) : valueAt(a, sortKey);
+      let valB = sortValue ? sortValue(b) : valueAt(b, sortKey);
 
       // Treat null / undefined values
       if (valA === undefined || valA === null) valA = '';
@@ -211,7 +221,7 @@ export default function DataTable<T>({
       if (strA > strB) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [filteredData, sortKey, sortOrder, sortType]);
+  }, [filteredData, sortKey, sortOrder, sortType, sortValue]);
 
   // 2. Paginate the sorted data
   const totalPages = Math.max(1, Math.ceil(sortedData.length / effectivePageSize));

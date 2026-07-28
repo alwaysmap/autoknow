@@ -32,13 +32,16 @@ export function personLabel(value: string | null | undefined): string {
 }
 
 /**
- * A column funnel's label for a person column. The funnel's VALUE stays the stored
- * string — a canonical, locale-stable token in the shared URL (AGENTS lesson 3) — while
- * its LABEL reads as a person, like the cell beneath it. Four columns need this; it
- * lives here so the funnel and the cell cannot disagree about a name.
+ * A column funnel's label for a person column stored as TEXT. The funnel's VALUE stays
+ * the stored string — a canonical, locale-stable token in the shared URL (AGENTS lesson
+ * 3) — while its LABEL reads as a person, like the cell beneath it. It lives here so the
+ * funnel and the cell cannot disagree about a name.
  *
  * `directory` is either the client-side people list or a server-resolved Map, because
- * two of the four columns store a bare string with no Person relation.
+ * the columns this serves are the person columns still stored as bare text —
+ * `Template.createdBy` and `ContextUrl.addedBy` funnel through it today, and
+ * `ActionItem.assignedTo` is next in line. A column that HAS an FK uses
+ * `personRefFunnel` below instead — see its note.
  */
 export function personFilterLabel(
   directory: PersonLike[] | Map<string, string>,
@@ -50,6 +53,51 @@ export function personFilterLabel(
     // No `?? value` tail: personLabel never returns null, and pretending otherwise
     // reads as a handled empty case that cannot fire.
     return name ?? personLabel(value);
+  };
+}
+
+/**
+ * The funnel for a person column backed by a FOREIGN KEY (#127 E7) — today the program
+ * owner, on /programs and /ecosystem-summary.
+ *
+ * VALUE is the person's **id**, not the stored text. design.md §6 asks a person funnel
+ * for a canonical, locale-stable shareable token, and where a relation exists the id is
+ * that token in a stronger sense than the string ever was: an email is MUTABLE, so one
+ * human who has changed address produced TWO options in the same funnel, neither of
+ * which selected all their programs (#124 Class 4). LABEL is their name, read off the
+ * INITIAL row set rather than the filtered one, so a label survives the table being
+ * filtered — and no separate people directory has to be fetched and shipped to the
+ * client just to name the owner.
+ *
+ * Returns all three `DataTable` header props together because they are one decision.
+ * Spelling only `filterValue` would put raw ids in the funnel's checklist; spelling only
+ * those two would leave SORT reading `row[key]`, which is a `PersonRef` here — it
+ * stringifies to '[object Object]', so every row compares equal and the header goes on
+ * looking clickable while sorting nothing.
+ */
+export function personRefFunnel<T>(
+  rows: T[],
+  personOf: (row: T) => PersonRef | null,
+): {
+  filterValue: (row: unknown) => string;
+  filterLabel: (value: string) => string;
+  sortValue: (row: unknown) => string;
+} {
+  const names = new Map<string, string>();
+  for (const row of rows) {
+    const person = personOf(row);
+    if (person) names.set(String(person.id), person.name);
+  }
+  return {
+    filterValue: (row) => {
+      const person = personOf(row as T);
+      return person ? String(person.id) : '';
+    },
+    // Through `personFilterLabel`'s Map branch, so both funnel kinds resolve a label the
+    // same way and an unknown value falls back identically.
+    filterLabel: personFilterLabel(names),
+    // By NAME — the column sorts by what the cell shows, not by the id it filters on.
+    sortValue: (row) => personOf(row as T)?.name ?? '',
   };
 }
 
@@ -103,25 +151,35 @@ export default function PersonCell({
  * objects competing with the partner name that the row is actually about. design.md §6
  * already says names in table cells stay quiet links.
  */
-export function PersonList({
-  values,
-  people,
-  emptyLabel,
-}: {
-  values: string[];
-  people: PersonLike[];
-  /** What an empty cell says ("None") — localized by the caller. Named `emptyLabel`,
-   *  not `fallback`, to match the app's other list components (FeedList, ActivityFeed);
-   *  `fallback` is the single-cell name, shared with DateCell. */
-  emptyLabel: React.ReactNode;
-}) {
-  if (values.length === 0) return <span className={styles.empty}>{emptyLabel}</span>;
+export function PersonList(
+  props: {
+    /** What an empty cell says ("None") — localized by the caller. Named `emptyLabel`,
+     *  not `fallback`, to match the app's other list components (FeedList, ActivityFeed);
+     *  `fallback` is the single-cell name, shared with DateCell. */
+    emptyLabel: React.ReactNode;
+  } & (
+    /** Already-resolved people (a relation, or a server-side lookup) — the mode a column
+     *  with an FK uses (#127 E7). */
+    | { persons: PersonRef[]; values?: never; people?: never }
+    /** The stored strings, for the columns that still have no Person relation. A UNION
+     *  rather than two optional props: both-optional type-checks with NEITHER given, and
+     *  renders an empty cell for a row that has people. */
+    | { persons?: never; values: string[]; people: PersonLike[] }
+  ),
+) {
+  // ONE body over a mixed list, because the separator, the wrapper and the empty branch
+  // are the same in both modes — two bodies meant every future edit to them had to land
+  // twice, and nothing would have said so.
+  const items: (PersonRef | string)[] = props.persons ?? props.values;
+  if (items.length === 0) return <span className={styles.empty}>{props.emptyLabel}</span>;
   return (
     <span className={styles.list}>
-      {values.map((v, idx) => (
-        <React.Fragment key={v}>
+      {items.map((item, idx) => (
+        <React.Fragment key={typeof item === 'string' ? item : item.id}>
           {idx > 0 && ', '}
-          <PersonCell value={v} people={people} />
+          {typeof item === 'string'
+            ? <PersonCell value={item} people={props.people} />
+            : <PersonCell person={item} />}
         </React.Fragment>
       ))}
     </span>

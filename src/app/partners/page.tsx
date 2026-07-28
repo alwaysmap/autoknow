@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/db';
-import { personDirectorySelect } from '../../lib/people';
+import { personDirectorySelect, resolvePerson } from '../../lib/people';
 import { getAllPartners } from '../../lib/partnerQueries';
 import { getCurrentUser } from '../../lib/session';
 import { deriveScore } from '../../lib/relationship';
@@ -18,12 +18,21 @@ export default async function PartnersPage(props: { searchParams: Promise<Search
   const searchParams = await props.searchParams;
   // Default to the signed-in user; `?user=` is an explicit "view as" override
   // (this internal tool has no auth layer yet — see lib/auth.ts).
-  const user = searchParams.user || (await getCurrentUser()).display;
+  const currentUser = await getCurrentUser();
+  const user = searchParams.user || currentUser.display;
 
   const partners = await getAllPartners();
 
-  // Fetch all people to resolve TEL links
+  // Fetch all people to resolve the Team column's addresses.
   const people = await prisma.person.findMany({ select: personDirectorySelect });
+
+  // Who "me" is as a Person row — resolved ONCE, on the server, so the "My partners"
+  // scope can test program ownership against `Project.ownerPersonId` instead of against
+  // a derived address (#127 E7). From the session's EMAIL, never `.display`, which drops
+  // the domain and lands on a different person (AGENTS lesson 13); the `?user=` view-as
+  // override is a deliberate lookup by whatever the viewer typed.
+  const currentUserPersonId =
+    resolvePerson(people, searchParams.user ?? currentUser.email)?.id ?? null;
 
   // Relationship health per partner: latest state → score, previous → ghost ring.
   // One query, newest-first, reduced to the first two rows per partner.
@@ -62,6 +71,7 @@ export default async function PartnersPage(props: { searchParams: Promise<Search
       initialMine={initialMine}
       initialQ={initialQ}
       currentUser={user}
+      currentUserPersonId={currentUserPersonId}
       people={people}
       relationship={relationship}
       types={types}

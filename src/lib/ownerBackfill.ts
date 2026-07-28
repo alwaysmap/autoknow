@@ -19,8 +19,12 @@ import { personDirectorySelect, resolvePersonCandidates } from './people';
 //   Neither case guesses. `resolvePerson` guesses (first match wins) and is right to:
 //   a form can be corrected by the person looking at it. A backfill has no one looking,
 //   and an owner silently attached to the wrong human is worse than an owner not
-//   attached at all — `ownerName` still says who it is, and stays the read path until
-//   E7. So NULL is a safe, re-runnable answer here and a wrong id is not.
+//   attached at all. So NULL is a safe, re-runnable answer here and a wrong id is not.
+//   (When this was written `ownerName` was still the read path, so an unlinked row at
+//   least still displayed its owner. Since #127 E7 it does not: an unlinked program
+//   reads as UNOWNED. That raises the stakes of a NULL, and lowers them for a wrong id —
+//   but not enough to start guessing, because a wrong owner is a silent lie and a
+//   missing one is a visible prompt.)
 //
 // THE AS-OF INSTANT: the RUN instant, and it stays that way — but what the run instant
 // SEES widened at #127 E8. `name` is still a person-level column (#124 §2, latest-wins),
@@ -34,7 +38,9 @@ import { personDirectorySelect, resolvePersonCandidates } from './people';
 // Before E8, a program whose `ownerName` held an address its owner had since left
 // resolved to nobody — #124 Class 4 itself, and it showed up as UNMATCHED lines in the
 // report. Re-running it after `db:backfill:affiliation-email` has recorded those
-// addresses is what clears them, and clearing them is E7's gate.
+// addresses is what clears them, and clearing them WAS E7's gate: E7 shipped once a prod
+// run reported `scanned: 0`, because a program with no `ownerPersonId` now has no
+// displayed owner at all.
 
 export interface OwnerBackfillRow {
   id: number;
