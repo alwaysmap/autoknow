@@ -7,7 +7,8 @@ import { coversDay, jobLabel } from './people';
 // role, action item), and — #127 E11, spec #124 §7 — through WHICH AFFILIATION. A role
 // held two years ago used to render identically to one held now (#144); each row now
 // carries the company and role held at the time of the involvement, resolved from the
-// person's own career.
+// person's own career, plus (#144) whether that connection is still live, when it
+// ended, and which of the three routes put the row there.
 //
 // A lib module rather than page code because the involvement DATING below is a rule, not
 // a rendering choice, and rules get tests (tests/personPrograms.test.ts). It reaches for
@@ -22,6 +23,10 @@ export interface HeldThen {
   partnerName: string;
   role: string;
 }
+
+/** How a person is connected to a program — the three routes #144 asks each row to
+ *  name. */
+export type ProgramRoute = 'tel' | 'phase' | 'action';
 
 export interface PersonProgramRow {
   id: number;
@@ -38,6 +43,23 @@ export interface PersonProgramRow {
   heldThen: HeldThen | null;
   /** What the Affiliation column SORTS on — same reason as `roleSummary`. */
   heldThenSummary: string;
+  /**
+   * Is this connection still live (#144)? Before this, a program someone led in 2023 and
+   * one they lead now rendered identically, which is the defect the bead opens with.
+   *
+   * ENDED means every route into this program is finished; LIVE means at least one is
+   * not. A phase with no state history at all reads LIVE and that is deliberate rather
+   * than a gap papered over: nothing recorded means nothing FINISHED, and "named on it"
+   * is what the row claims. The intro copy says so, because a reader cannot tell that
+   * from the badge.
+   */
+  status: 'live' | 'ended';
+  /** ISO timestamp of when the LAST route finished — the reading "until"; `DateCell`
+   *  renders the day. Null while live. */
+  endedOn: string | null;
+  /** WHY this row is here (#144 goal 3): the routes that put it there. Previously the
+   *  intro said the list mixes three provenances and no row said which it was. */
+  via: ProgramRoute[];
 }
 
 interface InvolvedPhase {
@@ -102,15 +124,21 @@ export async function personProgramRows(input: {
 }): Promise<PersonProgramRow[]> {
   const { owned, phaseInvolvements, actionItems, career } = input;
 
-  type Draft = Omit<PersonProgramRow, 'heldThen' | 'heldThenSummary'>;
+  type Draft = Omit<PersonProgramRow, 'heldThen' | 'heldThenSummary' | 'status' | 'endedOn' | 'via'>
+    & { via: Set<ProgramRoute> };
   const programs = new Map<number, Draft>();
   const rowFor = (project: { id: number; name: string }): Draft => {
     const row = programs.get(project.id)
-      ?? { id: project.id, name: project.name, tel: false, roles: [], roleSummary: '', phases: [] };
+      ?? { id: project.id, name: project.name, tel: false, roles: [], roleSummary: '',
+           phases: [], via: new Set<ProgramRoute>() };
     programs.set(project.id, row);
     return row;
   };
-  for (const p of owned) rowFor(p).tel = true;
+  for (const p of owned) {
+    const row = rowFor(p);
+    row.tel = true;
+    row.via.add('tel');
+  }
   for (const inv of phaseInvolvements) {
     const row = rowFor(inv.phase.project);
     if (!row.phases.some((ph) => ph.id === inv.phase.id)) {
@@ -119,12 +147,14 @@ export async function personProgramRows(input: {
     // `PhasePerson.role` is nullable and repeats across a program's phases; the Role
     // column wants the distinct set, not one per phase.
     if (inv.role && !row.roles.includes(inv.role)) row.roles.push(inv.role);
+    row.via.add('phase');
   }
   for (const a of actionItems) {
     const row = rowFor(a.phase.project);
     if (!row.phases.some((ph) => ph.id === a.phase.id)) {
       row.phases.push({ id: a.phase.id, name: a.phase.name, role: null });
     }
+    row.via.add('action');
   }
 
   const finished = await phaseFinishTimes(
@@ -145,26 +175,31 @@ export async function personProgramRows(input: {
    *    `chainDay` argues for: the fact worth surfacing is the recent one. Any live
    *    route therefore makes the whole connection current.
    *
-   * What this deliberately does NOT do (#144, autoknow-fxk): mark rows live vs ended,
-   * or say "cannot be dated" for a phase with no record — an involvement the model
-   * cannot date is treated as current, which is what "is named on it" claims today.
+   * It returns the STATUS with the day, in one walk: "when" and "is it over" are the
+   * same question asked twice, and answering them separately is how they come to
+   * disagree (#144). An involvement the model cannot date — a phase with no state
+   * history at all — reads live, because nothing recorded means nothing finished; the
+   * intro copy discloses that, since the badge cannot.
    */
-  const anchorOf = (row: Draft): Date => {
-    if (row.tel) return today;
+  const anchorOf = (row: Draft): { at: Date; endedOn: Date | null } => {
+    if (row.tel) return { at: today, endedOn: null };
     let latest: Date | null = null;
     for (const ph of row.phases) {
       const fin = finished.get(ph.id);
-      if (!fin) return today;
+      if (!fin) return { at: today, endedOn: null }; // one live route makes the row live
       if (!latest || fin > latest) latest = fin;
     }
-    return latest ?? today;
+    return latest ? { at: latest, endedOn: latest } : { at: today, endedOn: null };
   };
 
   return [...programs.values()].map((row) => {
-    const anchor = anchorOf(row);
+    const { at: anchor, endedOn } = anchorOf(row);
     const heldPeriod = career.find((period) => coversDay(period, anchor));
     return {
       ...row,
+      via: [...row.via],
+      status: endedOn ? ('ended' as const) : ('live' as const),
+      endedOn: endedOn ? endedOn.toISOString() : null,
       // The Role column's sort key. 'TEL' unlocalized on purpose: this is a sort value,
       // never rendered — the cell renders the badge and `telRole` carries the expansion.
       roleSummary: [row.tel ? 'TEL' : '', ...row.roles].filter(Boolean).join(', '),
