@@ -95,6 +95,18 @@ test.describe('People and Biographical History', () => {
       data: { name: 'Compute integration', projectId: waymoProject.id }
     });
 
+    // Date the two phases (#127 E11): the Ford phase FINISHED inside the Ford period,
+    // the Waymo phase is live. The Programs table anchors each involvement on its
+    // phase's window, so the Ford row must label the job held THEN and the Waymo row
+    // the job held now — same per-row rule the activity feed already proves below.
+    await prisma.phaseState.createMany({
+      data: [
+        { phaseId: fordPhase.id, status: 'In Progress', hillChartProgress: 30, timestamp: new Date('2025-06-01T00:00:00Z') },
+        { phaseId: fordPhase.id, status: 'Done', hillChartProgress: 100, timestamp: new Date('2025-07-01T00:00:00Z') },
+        { phaseId: waymoPhase.id, status: 'In Progress', hillChartProgress: 40, timestamp: new Date('2026-02-01T00:00:00Z') },
+      ],
+    });
+
     // Create historical ActionItem (created in June 2025 when Alice was at Ford)
     await prisma.actionItem.create({
       data: {
@@ -147,6 +159,22 @@ test.describe('People and Biographical History', () => {
     await expect(page.getByRole('link', { name: 'Waymo Gen 6 Integration' })).toBeVisible();
     // The action-item prose itself is no longer a person-page concern.
     await expect(page.locator('body')).not.toContainText('Resolve CAN bus packet drops');
+  });
+
+  test('each Programs row is labelled with the affiliation held at the time of the involvement', async ({ page }) => {
+    await page.goto(`/people/${personId}`);
+
+    // One human, two programs, two employers — the Affiliation column decides per ROW
+    // by the phase's window (#127 E11). Both rows reading the current job is #124
+    // Class 2 wearing a table. The role strings disambiguate where partner names
+    // cannot: each program's name already contains its partner's.
+    const programs = page.locator('section', { has: page.locator('#programs') });
+    const fordRow = programs.locator('tr', { hasText: 'Ford F-150 AAOS Sync' });
+    const waymoRow = programs.locator('tr', { hasText: 'Waymo Gen 6 Integration' });
+    await expect(fordRow).toContainText('Embedded Software Engineer');
+    await expect(fordRow).not.toContainText('Systems Engineer');
+    await expect(waymoRow).toContainText('Systems Engineer');
+    await expect(waymoRow).not.toContainText('Embedded Software Engineer');
   });
 
   test('the activity feed labels each entry with the company held THEN, not today', async ({ page }) => {

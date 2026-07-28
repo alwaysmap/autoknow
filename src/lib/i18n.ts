@@ -1286,12 +1286,19 @@ const STRINGS = {
   // Singular of telsHeader — the badge shows the acronym, this is its expansion on hover.
   telRole: { en: 'Technical Engagement Lead', de: 'Technischer Engagement-Lead', ja: 'テクニカルエンゲージメントリード', ko: '기술 참여 리드' },
   roleHeader: { en: 'Role', de: 'Rolle', ja: '役割', ko: '역할' },
-  // What the Phases column actually contains — two provenances, neither filtered by status.
+  // The Programs table's affiliation-held-then column (#127 E11). Deliberately not
+  // "Company": the program's partner is also a company, and this column answers a
+  // different question — the job the connection was made through.
+  affiliationHeader: { en: 'Affiliation', de: 'Zugehörigkeit', ja: '所属', ko: '소속' },
+  // What the Phases column actually contains — two provenances, neither filtered by
+  // status — and what the Affiliation column MEANS: the job held at the time of the
+  // involvement, not the job held now (#127 E11, the same per-row rule the Activity
+  // intro below states for its own rows).
   personProgramsIntro: {
-    en: 'Programs this person is named on — as Technical Engagement Lead, on a phase, or holding an action item there. Not filtered to active work.',
-    de: 'Programme, in denen diese Person genannt ist — als Technical Engagement Lead, in einer Phase oder mit einer Aufgabe darin. Nicht auf aktive Arbeit gefiltert.',
-    ja: 'この担当者が名前を連ねているプログラム — TEL として、フェーズ上、またはアクションアイテムの担当として。進行中の作業に限定されません。',
-    ko: '이 사람이 이름을 올린 프로그램 — TEL로서, 단계에서, 또는 액션 아이템 보유. 진행 중인 작업으로 제한되지 않습니다.',
+    en: 'Programs this person is named on — as Technical Engagement Lead, on a phase, or holding an action item there. Not filtered to active work; each row shows the company and role held at the time of that involvement.',
+    de: 'Programme, in denen diese Person genannt ist — als Technical Engagement Lead, in einer Phase oder mit einer Aufgabe darin. Nicht auf aktive Arbeit gefiltert; jede Zeile zeigt Unternehmen und Rolle zum Zeitpunkt der Beteiligung.',
+    ja: 'この担当者が名前を連ねているプログラム — TEL として、フェーズ上、またはアクションアイテムの担当として。進行中の作業に限定されません。各行には、その関与当時に所属していた会社と役割が表示されます。',
+    ko: '이 사람이 이름을 올린 프로그램 — TEL로서, 단계에서, 또는 액션 아이템 보유. 진행 중인 작업으로 제한되지 않으며, 각 행에는 해당 참여 당시 재직한 회사와 역할이 표시됩니다.',
   },
   // Two sentences, both load-bearing. The first says what the company beside each entry
   // MEANS — the job held then, not the job held now (#127 E10). The second states the

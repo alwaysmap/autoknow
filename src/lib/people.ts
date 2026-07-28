@@ -108,6 +108,17 @@ export function coversDay(
 }
 
 /**
+ * An employment period as one readable label — "Bosch · Platform Engineer". The
+ * spelling every held-then surface shares (the activity feed's row subtitles, the
+ * Programs table's Affiliation sort key), kept beside `coversDay` because the surfaces
+ * that resolve a period with one label it with the other — and a separator or
+ * empty-role rule spelled per surface is one that drifts (AGENTS lesson 7).
+ */
+export function jobLabel(period: { role: string | null; partner: { name: string } }): string {
+  return [period.partner.name, period.role].filter(Boolean).join(' · ');
+}
+
+/**
  * Avatar initials: FIRST name initial + LAST name initial — 'Dylan Thomas' -> 'DT',
  * 'Junichi Monma' -> 'JM', 'Anne-Marie Dubois' -> 'AD'. Taking the LAST word (not the
  * second) keeps the family name when a middle name is present, and splitting on

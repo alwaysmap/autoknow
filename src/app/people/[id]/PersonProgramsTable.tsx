@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import DataTable from '../../../components/DataTable';
 import { phaseColor, phaseDetailHref } from '../../../lib/phase';
+import type { PersonProgramRow } from '../../../lib/personPrograms';
 import { t, Locale } from '../../../lib/i18n';
 import styles from './page.module.css';
 
@@ -16,20 +17,10 @@ import styles from './page.module.css';
 // The Role column carries HOW this person is attached to the program, which is the
 // thing the chips could not say: TEL ownership, and any per-phase role. Both come
 // from the DB (`Project.ownerPersonId` and `PhasePerson.role`); neither is inferred.
-
-export interface PersonProgramRow {
-  id: number;
-  name: string;
-  /** True when this person is the program's TEL. */
-  tel: boolean;
-  /** Distinct `PhasePerson.role` values held in this program. Often empty — the field
-   *  is nullable and most rows do not set it. */
-  roles: string[];
-  /** TEL + roles as one string: what the Role column SORTS on, since a column cannot
-   *  sort on a badge plus an array. Built server-side so SSR and client agree. */
-  roleSummary: string;
-  phases: { id: number; name: string; role: string | null }[];
-}
+// The Affiliation column carries WHO THEY WERE at the time — the job held during the
+// involvement (#127 E11), resolved and dated in lib/personPrograms, which also owns
+// the row type. A dash is a career gap on the anchor day: null is a real answer, and
+// borrowing the nearest company would be the lie #124 exists to kill.
 
 export default function PersonProgramsTable({ rows, locale }: { rows: PersonProgramRow[]; locale: Locale }) {
   return (
@@ -37,6 +28,7 @@ export default function PersonProgramsTable({ rows, locale }: { rows: PersonProg
       headers={[
         { key: 'name', label: t(locale, 'programLabel') },
         { key: 'roleSummary', label: t(locale, 'roleHeader') },
+        { key: 'heldThenSummary', label: t(locale, 'affiliationHeader') },
         // A LIST of chips: sorting would order rows by an arbitrary member of it.
         { key: 'phases', label: t(locale, 'phasesCard'), sortable: false },
       ]}
@@ -55,6 +47,18 @@ export default function PersonProgramsTable({ rows, locale }: { rows: PersonProg
               {r.tel && <span className={styles.telMark} title={t(locale, 'telRole')}>TEL</span>}
               {r.roles.length > 0 && <span className={styles.phaseRole}>{r.roles.join(', ')}</span>}
             </span>
+          </td>
+          <td>
+            {r.heldThen ? (
+              <span className={styles.roleCell}>
+                <Link href={`/partners/${r.heldThen.partnerId}`}>{r.heldThen.partnerName}</Link>
+                {r.heldThen.role && <span className={styles.phaseRole}>{r.heldThen.role}</span>}
+              </span>
+            ) : (
+              /* A career gap on the involvement's day — an empty cell would read as
+                 "not rendered"; the dash says "no employer then", on purpose. */
+              <span className={styles.phaseRole}>—</span>
+            )}
           </td>
           <td>
             <span className={styles.phaseChips}>

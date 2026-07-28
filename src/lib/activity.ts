@@ -5,7 +5,7 @@ import { deriveScore } from './relationship';
 import { hillStatus, phaseColor } from './phase';
 import { phaseDetailHref, programHref, relationshipUpdateHref } from './entityHref';
 import { isoDateTime } from './dates';
-import { coversDay, personAliases } from './people';
+import { coversDay, jobLabel, personAliases } from './people';
 import type { FeedItem, FeedScope, FeedKind } from './feed';
 
 // The unified activity stream as FeedItem[]: ingested context AND core system-of-record
@@ -104,8 +104,7 @@ function labelWithJobHeldThen(items: FeedItem[], career: Career): FeedItem[] {
     if (!at) return item;
     const heldPeriod = career.find((period) => coversDay(period, new Date(at)));
     if (!heldPeriod) return item;
-    const heldLabel = [heldPeriod.partner.name, heldPeriod.role].filter(Boolean).join(' · ');
-    return { ...item, subtitle: [item.subtitle, heldLabel].filter(Boolean).join(' · ') };
+    return { ...item, subtitle: [item.subtitle, jobLabel(heldPeriod)].filter(Boolean).join(' · ') };
   });
 }
 
