@@ -648,9 +648,9 @@ report is on the run's **summary page**, not just in the log. Stop conditions: a
 never retry as `app`), a missing column (the migration has not landed), or a large
 `skipped:` count (something was writing concurrently — re-run and compare). Unmatched or
 ambiguous rows are not failures: they are rows the script refused to guess at, left
-untouched for you to fix at source. Re-running is always safe. (`unmatched-owners` is a
-`db:remediate:*` arm and reads differently — a red run there means it REFUSED and wrote
-nothing; its own subsection below is the contract.)
+untouched for you to fix at source. Re-running is always safe. (`unmatched-owners` and
+`conflicting-addresses` are `db:remediate:*` arms and read differently — a red run there
+means it REFUSED and wrote nothing; their own subsections below are the contract.)
 
 ```bash
 gh workflow run db-backfill.yml --ref main -f backfill=owner-person -f confirm=autoknow-pg
@@ -665,6 +665,7 @@ gh run watch   # or read the summary page for the report
 | `affiliation-email` | Fills `PersonAffiliation.email` from `Person.email` | #127 E8, migration `20260727020837_affiliation_email` | zero uncovered + zero ambiguous before E9 adds the unique-at-an-instant constraint |
 | `email-conflicts` | **nothing — READ-ONLY.** Reports addresses recorded against two people over overlapping periods | #127 E9, migration `20260727040058_unique_at_an_instant` | zero conflicts, or that migration fails and blocks the deploy |
 | `unmatched-owners` | **repoints, not fills.** Gives the ≤2 programs whose `ownerName` names nobody a real owner, by a documented rule | #127 E7's gate, bead `autoknow-pro.2` — no migration | `owner-person` then reporting zero unmatched |
+| `conflicting-addresses` | **erases, not fills.** Clears the LOSING period's address to NULL on a conflict `email-conflicts` found, keeping it for whoever holds it today | bead `autoknow-164` — no migration; the write half of `email-conflicts` | `email-conflicts` then reporting zero conflicts |
 
 **`email-conflicts` — the one arm that writes nothing.** It runs
 `npm run db:check:email-conflicts`, which only SELECTs. It exists because an exclusion
@@ -686,17 +687,17 @@ breakage**: this arm exits non-zero when it finds something, and the report on t
 page names each address with both people and both periods. Nothing about the check changes
 any data, so it can be run as often as you like.
 
-Fixing what it finds depends on which periods clash, and only one case has an in-app path
-today:
+Fixing what it finds depends on which period is WRONG, and there are two paths — one in
+the app, one on this runner:
 
-- **Both periods are CURRENT** (both `→ open`, or both covering today): edit the losing
-  person on `/people/<id>` and give them the address they actually use. That corrects the
-  period covering today along with the record (`revisePerson` with NO effective date —
-  a correction, since #127 E14).
-- **Either period is CLOSED**: there is no editor for a historical period's address.
-  Bead `autoknow-164` covers giving the dispatch runner a remediation arm; until it lands
-  this needs a hand-written statement run by someone with database access, so **check
-  before you merge** rather than discovering it from a failed deploy.
+- **The wrong period covers TODAY**: edit that person on `/people/<id>` and give them the
+  address they actually use. That corrects the period covering today along with the record
+  (`revisePerson` with NO effective date — a correction, since #127 E14). **Prefer this
+  whenever it applies**: a human can record what is TRUE, where the arm below can only
+  erase what is false.
+- **The wrong period is CLOSED**: there is no editor for a historical period's address —
+  `correctPersonRecord` writes the period covering today and no other. Run the
+  `conflicting-addresses` remediation arm (below), which clears the losing period to NULL.
 
 **If the migration already failed on it**, the failure is atomic — no data changed, the
 constraint was not created — but `prisma migrate deploy` has recorded the attempt, so
@@ -753,7 +754,7 @@ Read it in this order:
   gets their new period stamped. The script only ever writes where the column is still
   NULL, so re-running is always safe.
 
-**`unmatched-owners` — the remediation arm, and how to read a run that WROTE.** This is
+**`unmatched-owners` — a remediation arm, and how to read a run that WROTE.** This is
 the only arm that repoints data a human already put there, so read this section before
 firing it rather than after
 ([ADR](adr/2026-07-27-a-remediation-arm-is-bounded-and-picks-by-rule.md)).
@@ -830,6 +831,91 @@ gh workflow run db-backfill.yml --ref main -f backfill=owner-person -f confirm=a
 **Re-running is safe.** A repointed row no longer matches the scan (its `ownerPersonId`
 is set), and every UPDATE requires that column to still be NULL — so a second run finds
 nothing and changes nothing, and a non-NULL owner can never be overwritten by it.
+
+**`conflicting-addresses` — the write half of `email-conflicts`.** The second
+`db:remediate:*` arm, under the same
+[ADR](adr/2026-07-27-a-remediation-arm-is-bounded-and-picks-by-rule.md) — so read that
+section's contract too: a red run means it REFUSED and wrote nothing. It is also the arm
+that [extended](adr/2026-07-28-a-remediation-arm-erases-only-what-nothing-else-can-correct.md)
+that ADR, because it is the first whose write ERASES something.
+
+```bash
+gh workflow run db-backfill.yml --ref main -f backfill=conflicting-addresses -f confirm=autoknow-pg
+gh run watch   # then read the summary page
+```
+
+`--ref main`, no exceptions — this one WRITES. Run `email-conflicts` first; that report is
+what tells you whether this has anything to do.
+
+**What it is for.** `email-conflicts` finds one address recorded against two different
+people over overlapping time. Where the wrong period covers today, the app fixes it and
+you should let it. Where the wrong period is **closed**, nothing in the app can reach it:
+`createPersonAt` stamps a period it is opening, `affiliation-email` fills the period
+covering now, and `correctPersonRecord` writes `asOfWhere(today)`. This arm is the only
+writer of a historical period's address.
+
+A database holding a conflict is, by construction, one the E9 migration has not reached —
+`PersonAffiliation_email_unique_at_an_instant` refuses to let another be written — so
+expect to run this on a restored or lagging database, in the window before the constraint
+is applied to it.
+
+**What it picks, and what it will not do.** Whoever holds the address NOW keeps it: the
+person whose `Person.email` IS the conflicting address. Every OTHER person's period
+recording it becomes **NULL** — "not recorded", the honest value for a period nobody can
+vouch for. It is the same tie-break `lib/people`'s `matchTier` ranks a match by. It never
+writes an *address*: which address a wrongly-recorded 2022 period should have carried is
+not recoverable by any query.
+
+**What SUCCESS looks like** — exit 0, and a `CLEARED` block per period naming the winner:
+
+```
+Conflicting period pairs: 2, across 1 address(es)
+  clearable:   1 (the losing period is closed — this arm's targets)
+  deferred:    0 (the losing period covers today — correct it in the app instead)
+  undecidable: 0 (the rule names no winner — left untouched)
+
+RULE: whoever holds the address NOW keeps it; every other person's period recording
+it becomes NULL — "not recorded", the honest value for a period nobody can vouch for.
+
+  CLEARED      tel@google.com
+                 #4 Bob Stone — period 12, 2022-01-01 → 2024-01-01
+                 address set to NULL; kept by #3 Alice Waters, who holds it today
+
+  cleared: 1
+```
+
+`Nothing to do — no address in this database is recorded against two people at once.` is
+*also* success, and is what every run after the first one says.
+
+**Two lines mean "not finished", and neither is a failure.**
+
+- **`DEFERRED`** — the losing period covers today, so the app can do better than NULL.
+  Edit that person on `/people/<id>`, as above.
+- **`UNDECIDABLE`** — nobody (or more than one person) records that address as their
+  current one, so the rule names no winner and the arm wrote nothing for it. Deciding who
+  held an address in 2022 is a human judgement, and this arm will not invent one. It does
+  not refuse over it, because that would block the addresses it CAN fix.
+
+Both leave a real conflict on file, so `email-conflicts` will still report them and the
+constraint would still fail — the report says so on its last lines.
+
+**What means STOP.**
+
+- **A `REFUSED:` line, and a red run.** More than **5** periods would be cleared. The
+  refusal happens before the first UPDATE, so nothing was written and there is no partial
+  state. Five is what was REVIEWED, not what was measured — no run has ever reported a
+  conflict against prod, and a database producing dozens has something systematically
+  wrong that erasing addresses one at a time would bury. The fix is never to widen the
+  bound and re-run.
+- **`skipped:` above zero.** Something changed those periods' addresses between the scan
+  and the UPDATE. Nothing was corrupted — each UPDATE is pinned to the exact address the
+  scan read, so a concurrent correction wins — but re-run and compare.
+
+**Afterwards**, re-run `email-conflicts` and confirm `No conflicts`. That is the gate;
+this arm is only useful insofar as it moves that number.
+
+**Re-running is safe.** A cleared period has a NULL address, so it leaves the check's scan
+entirely and cannot be found — or written — again.
 
 ---
 
