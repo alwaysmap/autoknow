@@ -16,6 +16,10 @@ import { wipeAll } from './helpers/fixtures';
 
 jest.mock('server-only', () => ({}));
 
+// The JS twin, imported statically: it is pure and touches no database, so it needs
+// none of the dynamic-import dance below.
+import { coversDay } from '../src/lib/people';
+
 // Dynamic import AFTER the env assignment above — a static one is hoisted and would
 // evaluate src/lib/db before DATABASE_URL is set (docs/knowledge).
 type Profiles = typeof import('../src/lib/profiles');
@@ -104,6 +108,89 @@ describe('profileAsOf', () => {
 
   it('answers null before the career starts — a gap is a real answer, not a fallback', async () => {
     expect(await profileAsOf(alice, d('2020-01-01'))).toBeNull();
+  });
+});
+
+// autoknow-yid. The two sanctioned as-of spellings used to compare at DIFFERENT
+// granularities — `asOfWhere` on raw instants, `coversDay` on UTC days — so a period
+// whose boundary carried a clock time answered differently depending on which one asked.
+// /people/:id renders BOTH, so the disagreement was visible on one screen: the identity
+// line blank while the feed and the Programs table named the new employer.
+//
+// The fixture is deliberately the awkward shape: a period starting at 09:30 rather than
+// at midnight. Every date surface writes midnight today, which is exactly why this has
+// to be authored by hand — the bug is invisible on the data the app produces and waits
+// for the first row that comes from anywhere else (an import, a backfill, a fixture).
+describe('the two as-of spellings agree on a boundary day (autoknow-yid)', () => {
+  let mika: number;
+  // The handover instant, and an hour before it — both INSIDE the same UTC day. Named
+  // once so the relationship is stated rather than re-derived at each assertion.
+  const HANDOVER = new Date('2026-07-26T09:30:00.000Z');
+  const BEFORE_HANDOVER = new Date('2026-07-26T09:00:00.000Z');
+  const AFTER_HANDOVER = new Date('2026-07-26T18:00:00.000Z');
+  // Its OWN partners, not the shared three. The roster assertions in the describes below
+  // count who is at the shared partners on a given day, so a person added to those would
+  // change their answers — a fixture that edits another test's premise fails it for a
+  // reason that has nothing to do with what either test is about.
+  let fromCo: number;
+  let toCo: number;
+
+  beforeAll(async () => {
+    const region = { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } };
+    fromCo = (await prisma.partner.create({ data: { name: 'Boundary From', region } })).id;
+    toCo = (await prisma.partner.create({ data: { name: 'Boundary To', region } })).id;
+    mika = (await prisma.person.create({
+      data: { name: 'Mika Boundary', email: 'mika@example.com', currentPartnerId: fromCo },
+    })).id;
+    await prisma.personAffiliation.createMany({
+      data: [
+        { personId: mika, partnerId: fromCo, role: 'Engineer',
+          startDate: d('2024-01-01'), endDate: HANDOVER },
+        { personId: mika, partnerId: toCo, role: 'Lead',
+          startDate: HANDOVER },
+      ],
+    });
+  });
+
+  // BEFORE_HANDOVER is an hour ahead of the stored instant and inside the same UTC day.
+  // The old predicate said Boundary From here and Boundary To an hour later; `coversDay`
+  // said Boundary To all day.
+  it('SQL and JS name the same employer before the clock time on the boundary day', async () => {
+    const at = BEFORE_HANDOVER;
+    const sql = await profileAsOf(mika, at);
+    const career = await prisma.personAffiliation.findMany({
+      where: { personId: mika }, orderBy: { startDate: 'desc' },
+    });
+    const js = career.find((period) => coversDay(period, at));
+    expect(sql?.id).toBe(js?.id);
+    expect(sql?.partnerId).toBe(toCo);
+  });
+
+  it('…and after it, which is the case that already agreed', async () => {
+    const at = AFTER_HANDOVER;
+    expect((await profileAsOf(mika, at))?.partnerId).toBe(toCo);
+  });
+
+  it('the day BEFORE is still the old employer — the boundary moved to the day, not away', async () => {
+    expect((await profileAsOf(mika, d('2026-07-25')))?.partnerId).toBe(fromCo);
+  });
+
+  // The roster buckets are the same rule one level up, and they used to carry the
+  // instant spelling on purpose to match `asOfWhere`. They must move together.
+  it('the roster buckets this person on the same day the resolvers do', async () => {
+    const at = BEFORE_HANDOVER;
+    const roster = await partnerRosterAsOf(toCo, at);
+    expect(roster.current.map((r) => r.personId)).toContain(mika);
+    expect(roster.incoming.map((r) => r.personId)).not.toContain(mika);
+    expect((await partnerRosterAsOf(fromCo, at)).past.map((r) => r.personId)).toContain(mika);
+  });
+
+  it('the raw-SQL spelling agrees with the Prisma one, which is why both exist', async () => {
+    const at = BEFORE_HANDOVER;
+    const rows = await prisma.$queryRaw<{ id: number }[]>(Prisma.sql`
+      SELECT p.id FROM "Person" p
+      WHERE ${personIsAtPartnerAsOfSql(Prisma.sql`p.id`, toCo, at)} AND p.id = ${mika}`);
+    expect(rows.map((r) => r.id)).toEqual([mika]);
   });
 });
 

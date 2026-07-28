@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { embedForStorage, embedForQuery, geminiConfigured } from './gemini';
 import { personIsAtPartnerAsOfSql } from './profiles';
+import { addressesOnFile, type AddressesOnFile } from './people';
 import { FEED_TYPES, type FeedType, type FeedScope, type FeedItem } from './feed';
 
 // Unified search over everything in AutoKnow. Every searchable thing is tagged with
@@ -30,6 +31,27 @@ async function setEmbedding(
   await prisma.$executeRawUnsafe(`UPDATE "${table}" SET embedding = $1::vector WHERE id = $2`, vec, id);
 }
 
+/**
+ * What a Person is EMBEDDED as, and the columns that compose it. Shared by the
+ * single-record path and the batch reindex because the two writing different text is a
+ * person whose semantic hit depends on which path last touched them — invisible (AGENTS
+ * lesson 7). The `select` rides along for the same reason `personDirectorySelect` does in
+ * lib/people: the columns fetched and the columns composed cannot drift apart if they are
+ * declared together.
+ *
+ * The address set comes from `addressesOnFile`, the ONE composer of "every address this
+ * human answers to" — so search and the feed's actor aliases cannot disagree about who a
+ * 2023 address names (autoknow-drb).
+ */
+const personIndexSelect = {
+  id: true, name: true, email: true, notes: true,
+  affiliations: { select: { email: true } },
+} as const;
+
+function personIndexText(p: AddressesOnFile & { name: string; notes: string | null }): string {
+  return [p.name, ...addressesOnFile(p), p.notes].filter(Boolean).join('. ');
+}
+
 async function entityIndexText(kind: FeedType, id: number): Promise<{ table: 'Partner' | 'Project' | 'Person' | 'ContextUrl'; text: string } | null> {
   switch (kind) {
     case 'partner': {
@@ -53,8 +75,10 @@ async function entityIndexText(kind: FeedType, id: number): Promise<{ table: 'Pa
       };
     }
     case 'person': {
-      const p = await prisma.person.findUnique({ where: { id }, select: { name: true, email: true, notes: true } });
-      return p && { table: 'Person', text: [p.name, p.email, p.notes].filter(Boolean).join('. ') };
+      // Selected and composed by `personIndexText` above, which is where the argument
+      // for including every address a person has held lives.
+      const p = await prisma.person.findUnique({ where: { id }, select: personIndexSelect });
+      return p && { table: 'Person', text: personIndexText(p) };
     }
     case 'context': {
       const c = await prisma.contextUrl.findUnique({ where: { id }, select: { title: true, ingestedText: true } });
@@ -89,7 +113,7 @@ export async function reindexAll(): Promise<{ partners: number; programs: number
     prisma.project.findMany({
       select: { id: true, name: true, ownerPerson: { select: { name: true, email: true } } },
     }),
-    prisma.person.findMany({ select: { id: true, name: true, email: true, notes: true } }),
+    prisma.person.findMany({ select: personIndexSelect }),
     prisma.contextUrl.findMany({ select: { id: true, title: true, ingestedText: true } }),
   ]);
 
@@ -101,7 +125,7 @@ export async function reindexAll(): Promise<{ partners: number; programs: number
       id: p.id,
       text: joined([p.name, p.ownerPerson?.name, p.ownerPerson?.email]),
     })),
-    ...people.map((p) => ({ table: 'Person' as const, id: p.id, text: joined([p.name, p.email, p.notes]) })),
+    ...people.map((p) => ({ table: 'Person' as const, id: p.id, text: personIndexText(p) })),
     ...context.map((c) => ({ table: 'ContextUrl' as const, id: c.id, text: joined([c.title, c.ingestedText]) })),
   ];
 
@@ -275,7 +299,15 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope, sem
               // The one type a person scope CAN answer: themself.
               ? Prisma.sql`pe.id = ${personId}`
               : Prisma.sql`TRUE`;
-      const lex = lexSql(q, Prisma.sql`pe.name`, [Prisma.sql`pe.email`, Prisma.sql`pe.notes`]);
+      // Secondary text spans every address on file — the current one plus every address
+      // recorded against an employment period (autoknow-drb). A correlated aggregate
+      // rather than a join, so a person with three periods stays ONE row and the score
+      // is not multiplied by their career length; NULL periods fold away in the
+      // COALESCE, which is the honest reading of "not recorded" (#127 E8).
+      const heldAddresses = Prisma.sql`COALESCE(
+        (SELECT string_agg(a.email, ' ') FROM "PersonAffiliation" a
+          WHERE a."personId" = pe.id AND a.email IS NOT NULL), '')`;
+      const lex = lexSql(q, Prisma.sql`pe.name`, [Prisma.sql`pe.email`, heldAddresses, Prisma.sql`pe.notes`]);
       const { score, eligible } = blend(lex, Prisma.sql`pe.embedding`, v, semantic);
       return Prisma.sql`
         SELECT 'person' AS type, pe.id, pe.name AS title, pe.email AS subtitle,

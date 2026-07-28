@@ -34,12 +34,43 @@ test.describe('Search Results Page (Text + pgvector)', () => {
         theNeedle: 'High'
       }
     });
+
+    // A person who has MOVED: her Bosch address is recorded on the period she held it
+    // (#127 E8), and her current address shares nothing with it. Searching the old one
+    // is what autoknow-drb was about — before the fix the lexical channel read only
+    // `Person.email` and she was unfindable by the address on every 2023 document.
+    const mover = await prisma.person.create({
+      data: { name: 'Ingrid Moved', email: 'ingrid@waymo.example', currentPartnerId: bosch.id },
+    });
+    await prisma.personAffiliation.createMany({
+      data: [
+        { personId: mover.id, partnerId: bosch.id, role: 'Platform Engineer',
+          startDate: new Date('2021-01-01T00:00:00Z'), endDate: new Date('2024-01-01T00:00:00Z'),
+          email: 'ingrid.olsen@bosch.example' },
+        { personId: mover.id, partnerId: ford.id, role: 'Systems Engineer',
+          startDate: new Date('2024-01-01T00:00:00Z'), email: 'ingrid@waymo.example' },
+      ],
+    });
   });
 
   test.afterAll(async () => {
     await prisma.$disconnect();
   });
 
+
+  // autoknow-drb (#124 Class 4, search side). A colleague searching the address on a
+  // 2023 document is searching for the HUMAN, and a person who moves must not vanish
+  // from search the moment their address changes — the same defect resolvePerson fixed
+  // on the matching side and ownerPersonId fixed on the reference side.
+  test('API: a person is findable by an address they have LEFT', async ({ request }) => {
+    const res = await request.get('/api/search?q=ingrid.olsen@bosch.example');
+    expect(res.ok()).toBeTruthy();
+    const { items } = await res.json();
+    // A feed item is identified by `kind` and `href`, not a `type` field — the search
+    // branch's SQL column of that name is projected into the FeedItem shape upstream.
+    const person = items.find((r: { href: string }) => r.href.startsWith('/people/'));
+    expect(person?.title).toBe('Ingrid Moved');
+  });
 
   test('API: a lowercase partial query finds an unembedded partner first', async ({ request }) => {
     const res = await request.get('/api/search?q=bosch');

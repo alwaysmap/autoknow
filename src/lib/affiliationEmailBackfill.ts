@@ -34,10 +34,8 @@ import { coversDay } from './people';
 // Employment boundaries are calendar facts, which is the argument written down at
 // `coversDay` itself, and this function holds the periods already — the two sanctioned
 // spellings of the predicate are `coversDay` for rows in hand and `lib/profiles` for
-// rows still to fetch, and a third comparison here would be the bug. (Bead autoknow-yid
-// tracks that those two spellings differ for a boundary carrying a time-of-day; they
-// agree here, because affiliation boundaries are dates and the run instant is not
-// midnight.) Re-running later moves the target: whoever has changed jobs since gets
+// rows still to fetch, and a third comparison here would be the bug. Re-running later
+// moves the target: whoever has changed jobs since gets
 // their NEW period stamped, which is the same reason the E6 script re-runs.
 //
 // A note on what this is NOT: it never touches `Person.email`, and it never overwrites a

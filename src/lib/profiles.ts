@@ -2,7 +2,7 @@ import 'server-only';
 import { Prisma } from '@prisma/client';
 import { normalizeAddress } from './auth';
 import { prisma } from './db';
-import { coversDay, hasTakenEffect } from './people';
+import { coversDay, startOfNextUtcDay, hasTakenEffect } from './people';
 
 // EMPLOYMENT PERIODS: the as-of resolvers, and the two writes that open one (#127 E5,
 // autoknow-pvn, spec #124 §4). "Which company is this person at, and as what" is a
@@ -33,8 +33,10 @@ import { coversDay, hasTakenEffect } from './people';
 // (ProgramsClient, UserMenu, ProjectMetaHeader) and these reach for prisma.
 
 /**
- * The as-of predicate as a Prisma `where` fragment: `startDate <= at AND (endDate IS
- * NULL OR endDate > at)`. Half-open — a period ENDING on `at` does not cover it, its
+ * The as-of predicate as a Prisma `where` fragment: does this period cover the CALENDAR
+ * DAY of `at` — `startDate < startOfNextUtcDay(at) AND (endDate IS NULL OR endDate >=
+ * startOfNextUtcDay(at))`, which is `utcDay(startDate) <= utcDay(at) < utcDay(endDate)` written
+ * so the index still applies (see below). Half-open — a period ENDING on `at` does not cover it, its
  * successor starting that day does. A contiguous career therefore matches exactly ONE
  * period per person — but that is the shape the data is MEANT to have, not something
  * this predicate enforces: the affiliations API can still author an overlap
@@ -46,16 +48,36 @@ import { coversDay, hasTakenEffect } from './people';
  * `movePersonTo` used to be the other author of one; since autoknow-pvn it HEALS an
  * overlap it finds, because it closes every period covering the move date.
  *
+ * COMPARED AT UTC-DAY GRANULARITY, the same ruler `coversDay` uses (autoknow-yid).
+ * The two used to disagree: this one compared raw INSTANTS while `coversDay` truncated
+ * to UTC days, so a period starting `2026-11-01T09:30Z` was "not yet current" here at
+ * 09:00 and "current" there — and /people/:id renders BOTH, so the identity line went
+ * blank while the feed and the Programs table named the new employer, and the row filed
+ * itself under History. One calendar day, two answers, on the page the epic exists to
+ * make correct.
+ *
+ * The fix is a comparison against the day AFTER `at` rather than a truncation of the
+ * COLUMN, and that is the whole subtlety: `date_trunc('day', "startDate") <= …` says the
+ * same thing and is NOT sargable, so it would silently cost the index this predicate was
+ * shaped for. These two are equivalent for any stored instant —
+ *   `utcDay(start) <= utcDay(at)`  ⟺  `start < startOfNextUtcDay(at)`
+ *   `utcDay(end)   >  utcDay(at)`  ⟺  `end  >= startOfNextUtcDay(at)`
+ * — because `startOfNextUtcDay(at)` is exactly the first instant of the next day, and the column
+ * stays a bare column on the left of every comparison.
+ *
  * Shaped for `@@index([personId, startDate, endDate])`: `startDate` is the index BOUND
- * and lands in Index Cond. `endDate` is NOT and cannot be — `IS NULL OR >` is not an
+ * and lands in Index Cond. `endDate` is NOT and cannot be — `IS NULL OR >=` is not an
  * indexable boundary — so it rides along as a Filter, evaluated without a heap fetch
  * while the select list stays inside the index. The schema records that EXPLAIN; keep
  * this spelling aligned with it rather than inventing a variant it does not cover.
  */
-const asOfWhere = (at: Date) => ({
-  startDate: { lte: at },
-  OR: [{ endDate: null }, { endDate: { gt: at } }],
-});
+const asOfWhere = (at: Date) => {
+  const next = startOfNextUtcDay(at);
+  return {
+    startDate: { lt: next },
+    OR: [{ endDate: null }, { endDate: { gte: next } }],
+  };
+};
 
 /** An affiliation with the partner it is at, and the partner's classification —
  *  /programs/:id colours a phase participant by whether their company is an OEM or a
@@ -126,9 +148,11 @@ export type PartnerRoster = Record<RosterBucket, RosterAffiliation[]>;
  * left to the reader — the same treatment `personIsAtPartnerAsOfSql` gets, and for the
  * same reason: nothing static can compare two renderings of one sentence.
  *
- * It compares raw INSTANTS, matching `asOfWhere` and deliberately NOT `coversDay`, which
- * compares UTC days. The two agree on every row stored at UTC midnight, which is all of
- * them today; `autoknow-yid` is where that difference gets resolved once, for both.
+ * It compares UTC DAYS, through `hasTakenEffect`, which is what `asOfWhere` and
+ * `coversDay` now both do (autoknow-yid). It used to compare raw instants to match
+ * `asOfWhere`'s old spelling — so on a boundary day a person could sit in `incoming`
+ * while the feed beside them already credited the new partner, and the headline count
+ * this bucket feeds disagreed with the identity line on that person's own page.
  *
  * Module-private, exactly like `asOfWhere`: `partnerRosterAsOf` below is the only way to
  * ask, so a caller cannot bucket half a roster with it and the other half some other way.
@@ -137,8 +161,8 @@ const rosterBucketOf = (
   period: { startDate: Date; endDate: Date | null },
   at: Date,
 ): RosterBucket => {
-  if (period.startDate > at) return 'incoming';
-  if (period.endDate !== null && period.endDate <= at) return 'past';
+  if (!hasTakenEffect(period.startDate, at)) return 'incoming';
+  if (period.endDate !== null && hasTakenEffect(period.endDate, at)) return 'past';
   return 'current';
 };
 
@@ -291,22 +315,31 @@ export function personIsAtPartnerAsOfSql(
   partnerId: number,
   at: Date = new Date(),
 ) {
+  // Hoisted like its Prisma twin's `next`, so the two comparisons visibly share ONE
+  // boundary — these are two renderings of one sentence and should read like it.
+  const next = startOfNextUtcDay(at);
   return Prisma.sql`${personIdColumn} IN (
     SELECT a."personId" FROM "PersonAffiliation" a
     WHERE a."partnerId" = ${partnerId}
-      AND a."startDate" <= ${at}
-      AND (a."endDate" IS NULL OR a."endDate" > ${at}))`;
+      AND a."startDate" < ${next}
+      AND (a."endDate" IS NULL OR a."endDate" >= ${next}))`;
 }
 
 /**
  * Every period of `personId`'s career that OVERLAPS `[startDate, endDate)`, with a null
  * end meaning open. Two half-open intervals overlap iff each starts strictly before the
  * other ends — so a period ending exactly where the new one starts does NOT collide,
- * which is what makes a contiguous career (each end IS the next start) legal, and is the
- * same boundary rule `asOfWhere` above draws for a single instant. This is that predicate
- * generalized from an instant to an interval; the affiliations API asks it before
- * authoring a period (autoknow-2of), and asks HERE because a second spelling in the route
- * is a spelling that drifts.
+ * which is what makes a contiguous career (each end IS the next start) legal: the same
+ * half-open convention `asOfWhere` draws, one dimension up. The affiliations API asks it
+ * before authoring a period (autoknow-2of), and asks HERE because a second spelling in
+ * the route is a spelling that drifts.
+ *
+ * It compares raw INSTANTS while `asOfWhere` compares UTC DAYS (autoknow-yid), and that
+ * is not the divergence that bead closed: this predicate takes two dates the CALLER
+ * supplied in one request and asks whether they overlap each other, so there is no
+ * "today" for a day boundary to be ambiguous about. `asOfWhere` needed the day because
+ * it compares stored rows against a WALL CLOCK, and a run at 09:00 must answer what a
+ * run at 18:00 answers.
  *
  * A read-then-write courtesy like `addressHolderAsOf`, not enforcement: #127 E9's
  * exclusion constraint deliberately excludes one person's own periods (`personId <>`),
