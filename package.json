@@ -13,7 +13,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:e2e:build": "NEXT_DIST_DIR=.next-test next build",
+    "test:e2e:build": "SKIP_BUILD_TYPECHECK=1 NEXT_DIST_DIR=.next-test next build",
     "test:e2e": "npm run test:e2e:build && playwright test --project=chromium --project=webkit",
     "test:e2e:chromium": "npm run test:e2e:build && playwright test --project=chromium",
     "test:e2e:webkit": "npm run test:e2e:build && playwright test --project=webkit",

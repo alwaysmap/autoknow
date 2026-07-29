@@ -136,6 +136,11 @@ jobs:
       - name: Production build compiles
         env:
           DATABASE_URL: postgresql://build:build@localhost:5432/build
+          # `npm run typecheck` is a REQUIRED step of this same job, four steps up, and it
+          # has already passed by the time this runs — so letting `next build` run tsc over
+          # the project a second time buys nothing but ~14s. See next.config.ts; the flag is
+          # opt-in, so a plain `npm run build` anywhere else still checks.
+          SKIP_BUILD_TYPECHECK: '1'
         run: npm run build
 
   e2e:
