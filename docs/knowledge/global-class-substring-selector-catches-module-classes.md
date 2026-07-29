@@ -1,7 +1,7 @@
 ---
 title: A global `[class*="foo"]` selector styles ANY CSS-module class whose hashed name contains "foo"
 status: current
-updated: 2026-07-27
+updated: 2026-07-28
 applies_to:
   - src/**/*.module.css
   - src/app/globals.css
@@ -9,7 +9,7 @@ symptoms:
   - an element has an unexpected background / border / padding / margin nobody wrote for it
   - a compact control (a single input, a small row) renders as a full-width bordered card
   - the surprise style has !important and no matching rule in that component's module
-verified_by: 'globals.css `[class*="filterSection"], [class*="filterBar"]` vs the .filterBar→.filterRow rename (#86); `[class*="card"]` erasing the addressed-update highlight in NeedleHistoryList (#111); the phase card''s foot named `.rowFoot` rather than `.cardFoot` to stay out of `[class*="card"]` (autoknow-crw.2)'
+verified_by: 'globals.css `[class*="filterSection"], [class*="filterBar"]` vs the .filterBar→.filterRow rename (#86); `[class*="card"]` erasing the addressed-update highlight in NeedleHistoryList (#111); the phase card''s foot named `.rowFoot` rather than `.cardFoot` to stay out of `[class*="card"]` (autoknow-crw.2), and the same note caught `.cardActions` before it shipped one bead later (autoknow-crw.3)'
 ---
 
 # A global `[class*="foo"]` selector styles ANY CSS-module class whose name contains "foo"

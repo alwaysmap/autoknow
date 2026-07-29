@@ -329,7 +329,7 @@ A new **Critical Chain** section on the program page (see §6 for placement), bu
 from two instruments plus a headline. All follow the house grammar: monochrome
 ink + theme tokens, the amber `--chain` accent only for the constraint, words for
 judgments instead of color fills, every mark clickable through to the phase
-(jump-and-flash or the details popover PhaseTrack already owns).
+(jump-and-flash or the phase card PhaseTrack already owns).
 
 ### Language rules: sentences, judgments, and reactions
 

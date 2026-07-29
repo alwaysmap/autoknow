@@ -3,6 +3,7 @@ status: accepted
 date: 2026-07-23
 supersedes: ""
 superseded-by: ""
+extended-by: "a-phase-is-read-on-its-card-the-only-overlay-is-the-write"
 tags: [ui, charts, hill, components, urls]
 ---
 

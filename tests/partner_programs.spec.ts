@@ -13,9 +13,10 @@ test.describe('Partner programs summary', () => {
   test.describe.configure({ mode: 'serial' });
 
   let seeded: SeededProgram;
-  // A phase chip's destination: the DETAILS popover on the program page, deep-linked
-  // (lib/phase). Phases have no page of their own.
-  const detail = (phaseId: number) => `/programs/${seeded.projectId}#phase-${phaseId}-detail`;
+  // A phase chip's destination: the phase's CARD on the program page, deep-linked
+  // (lib/phase). Phases have no page of their own, and no popover either since
+  // autoknow-crw.4 — arriving at this fragment opens the card.
+  const phaseCard = (phaseId: number) => `/programs/${seeded.projectId}#phase-${phaseId}`;
 
   test.beforeAll(async () => {
     seeded = await seedProgram();
@@ -35,10 +36,10 @@ test.describe('Partner programs summary', () => {
     await expect(row.locator(`a[href="/partners/${seeded.oemId}"]`)).toHaveCount(0);
 
     // Cards are expanded by default — all four phases show as chips deep-linked to
-    // their DETAILS popover on the program page, without any interaction.
+    // their card on the program page, without any interaction.
     const { bringUp, integration, certification, audio } = seeded.phases;
     for (const phaseId of [bringUp, integration, certification, audio]) {
-      await expect(row.locator(`a[href="${detail(phaseId)}"]`)).toBeVisible();
+      await expect(row.locator(`a[href="${phaseCard(phaseId)}"]`)).toBeVisible();
     }
   });
 
@@ -55,10 +56,10 @@ test.describe('Partner programs summary', () => {
     // All the program's IN-FLIGHT phases show (integration = Denso's, plus audio),
     // not just the one Denso sits on. Denso's phase carries its role; the done
     // (bringUp) and not-started (certification) phases are omitted.
-    await expect(row.locator(`a[href="${detail(seeded.phases.integration)}"]`)).toBeVisible();
-    await expect(row.locator(`a[href="${detail(seeded.phases.audio)}"]`)).toBeVisible();
+    await expect(row.locator(`a[href="${phaseCard(seeded.phases.integration)}"]`)).toBeVisible();
+    await expect(row.locator(`a[href="${phaseCard(seeded.phases.audio)}"]`)).toBeVisible();
     await expect(row).toContainText('Supplier'); // role on the integration phase
-    await expect(row.locator(`a[href="${detail(seeded.phases.bringUp)}"]`)).toHaveCount(0);
-    await expect(row.locator(`a[href="${detail(seeded.phases.certification)}"]`)).toHaveCount(0);
+    await expect(row.locator(`a[href="${phaseCard(seeded.phases.bringUp)}"]`)).toHaveCount(0);
+    await expect(row.locator(`a[href="${phaseCard(seeded.phases.certification)}"]`)).toHaveCount(0);
   });
 });

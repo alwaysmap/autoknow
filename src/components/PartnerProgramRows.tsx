@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { NeedleGaugeSvg } from './NeedleGaugeSvg';
-import { phaseColor, phaseDetailHref } from '../lib/phase';
+import { phaseColor, phaseHref } from '../lib/phase';
 import { t, statusKey, type Locale } from '../lib/i18n';
 import type { PartnerProgram } from '../lib/partnerPrograms';
 import styles from './PartnerProgramRows.module.css';
@@ -62,7 +62,7 @@ export default function PartnerProgramRows({ programs, locale = 'en' }: { progra
               {prog.phases.map((ph) => (
                 <Link
                   key={ph.id}
-                  href={phaseDetailHref(prog.id, ph.id)}
+                  href={phaseHref(prog.id, ph.id)}
                   className={styles.phaseChip}
                   title={`${ph.name} — ${t(locale, statusKey(ph.progress))}${ph.role ? ` · ${ph.role}` : ''}`}
                 >

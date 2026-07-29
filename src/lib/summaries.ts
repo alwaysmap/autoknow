@@ -6,7 +6,7 @@ import { computeCriticalChain } from './criticalChain';
 import { parseHealth } from './health';
 import { deriveScore, relScoreLabel, EVIDENCE_LOCALE } from './relationship';
 import { hillStatus } from './phase';
-import { personHref, partnerHref, programHref, phaseDetailHref, relationshipUpdateHref } from './entityHref';
+import { personHref, partnerHref, programHref, phaseHref, phaseProgressHref, relationshipUpdateHref } from './entityHref';
 import { linkify, type EntityLink, type Segment } from './summaryLinkify';
 import { sopOutlook } from './sop';
 import { localDate } from './dates';
@@ -267,7 +267,7 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
     });
 
   for (const phase of project.phases) {
-    reg.add(phase.name, phaseDetailHref(projectId, phase.id));
+    reg.add(phase.name, phaseHref(projectId, phase.id));
     phase.partners.forEach((pp) => reg.add(pp.partner.name, partnerHref(pp.partnerId)));
     phase.people.forEach((pp) => reg.add(pp.person.name, personHref(pp.personId)));
 
@@ -286,7 +286,7 @@ async function gatherProgramEvidence(projectId: number, windowStart: Date, ev: E
         ev.push(
           'hill',
           `${i === 0 ? 'CURRENT ' : ''}phase "${phase.name}" (${project.name}) ${proseDay(s.timestamp)}: ${hillStatus(s.hillChartProgress ?? 0)}${s.notes ? ` — ${s.notes}` : ''}${partners && i === 0 ? ` [partners involved: ${partners}]` : ''}${people && i === 0 ? ` [people involved: ${people}]` : ''}`,
-          { label: `${phase.name} · ${fmtDate(s.timestamp)}`, href: phaseDetailHref(projectId, phase.id), external: false },
+          { label: `${phase.name} · ${fmtDate(s.timestamp)}`, href: phaseProgressHref(projectId, phase.id), external: false },
         );
       });
 
@@ -586,13 +586,33 @@ ${ev.records.map((e) => `[${e.id}] (${e.kind}) ${e.text}`).join('\n')}`;
 }
 
 // Briefs are stored append-only with their citation hrefs baked in, and a brief is
-// only regenerated once its scope goes stale — so every brief written before
-// 2026-07-21 still cites `/history/phase/:id`, a page that no longer exists. Rewrite
-// those on READ rather than leave a 404 under a bullet: the same record now lives in
-// the DETAILS popover on the phase's program page. Split into a pure rewrite plus an
-// id-collector so the mapping can be unit-tested without a database, and delete both
-// once no stored brief carries the old shape.
-const LEGACY_PHASE_HREF = /^\/history\/phase\/(\d+)$/;
+// only regenerated once its scope goes stale — which can be never. So a phase
+// citation on file may carry EITHER of two retired shapes, and both get rewritten on
+// READ rather than left dead under a bullet (AGENTS lesson 15; ADR
+// "Retiring a URL deletes the route and migrates the data that cites it"):
+//
+//   /history/phase/:id      the standalone phase page, retired 2026-07-21
+//   #phase-:id-detail       the focused popover, retired by autoknow-crw.4
+//
+// TWO PATTERNS, ONE HOP. The popover's URL was itself where the first migration sent
+// those citations, so rewriting `-detail` to the popover's own successor would leave
+// a chain that grows a link every time this surface moves. Both legacy shapes resolve
+// straight to the phase's CURRENT home — its card — instead.
+//
+// The card is the right target for both, and deliberately not the progress view: a
+// citation says "this claim came from this phase", and the card is what states the
+// phase. Split into a pure rewrite plus an id-collector so the mapping is unit-tested
+// without a database.
+//
+// This is HALF of the `-detail` retirement: the other half is `parseLegacyPhaseDetailHash`
+// (lib/phase), which canonicalises the same fragment when a reader ARRIVES on one. The
+// two are deliberately separate — a stored href and a live URL fail differently — and
+// they die together, once no stored brief carries either shape.
+const LEGACY_PHASE_HREF = /^(?:\/history\/phase\/(\d+)|\/programs\/\d+#phase-(\d+)-detail)$/;
+
+/** The phase id out of whichever legacy shape matched — the two patterns above put it
+ *  in different groups, and every call site wants only the number. */
+const legacyPhaseId = (m: RegExpExecArray): number => parseInt(m[1] ?? m[2], 10);
 
 export function legacyPhaseCitationIds(body: SummaryBody): number[] {
   const ids = new Set<number>();
@@ -600,7 +620,7 @@ export function legacyPhaseCitationIds(body: SummaryBody): number[] {
     for (const b of s.bullets ?? []) {
       for (const c of b.citations ?? []) {
         const m = LEGACY_PHASE_HREF.exec(c.href);
-        if (m) ids.add(parseInt(m[1], 10));
+        if (m) ids.add(legacyPhaseId(m));
       }
     }
   }
@@ -620,9 +640,9 @@ export function rewriteLegacyPhaseCitations(body: SummaryBody, projectOf: Map<nu
         citations: (b.citations ?? []).flatMap((c) => {
           const m = LEGACY_PHASE_HREF.exec(c.href);
           if (!m) return [c];
-          const phaseId = parseInt(m[1], 10);
+          const phaseId = legacyPhaseId(m);
           const projectId = projectOf.get(phaseId);
-          return projectId == null ? [] : [{ ...c, href: phaseDetailHref(projectId, phaseId) }];
+          return projectId == null ? [] : [{ ...c, href: phaseHref(projectId, phaseId) }];
         }),
       })),
     })),

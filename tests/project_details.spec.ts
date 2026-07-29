@@ -1,4 +1,4 @@
-import { test, expect } from './helpers/e2e';
+import { test, expect, openProgressView } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -234,39 +234,33 @@ test.describe('Project Details and Action Item Operations', () => {
     await expect(page.locator('body')).toContainText('Critical timeline blockers piling up');
   });
 
-  test('should allow updating a phase from its details popover', async ({ page }) => {
+  test('should allow updating a phase from its progress view', async ({ page }) => {
     await page.goto(`/programs/${projectId}`);
 
     // The phase's row on the PhaseTrack — status reads from glyphs, not words.
     const row = page.getByTestId('phase-row').filter({ hasText: 'Compliance Testing' });
 
-    // Details lifts the phase into the focused popover over a scrim. Hydration-
-    // resilient open: click only while closed (see phase_graph.spec.ts helper).
-    // MIN is one line (name + plan), so open the card before reaching for the zoom.
-    const details = page.getByTestId('phase-details');
-    await expect(async () => {
-      if (!(await details.isVisible())) {
-        const zoom = row.getByRole('link', { name: 'Details' });
-        if (!(await zoom.isVisible())) await row.locator('a[data-card-title]').click();
-        await zoom.click({ timeout: 2000 });
-      }
-      await expect(details).toBeVisible({ timeout: 1500 });
-    }).toPass({ timeout: 20000 });
-    await expect(details.getByRole('heading', { name: 'Compliance Testing' })).toBeVisible();
+    // "Update & history" lifts the phase's LOG into an overlay over a scrim — the one
+    // thing the card still opens over itself (autoknow-crw.3). The guarded opener is
+    // shared, and opens the card on the way: MIN is one line, so the affordance row is
+    // not there yet.
+    const progressView = page.getByTestId('phase-progress');
+    await openProgressView(page, row);
+    await expect(progressView.getByRole('heading', { name: 'Compliance Testing' })).toBeVisible();
     // View mode at rest — the Update affordance reveals the ball + note editor.
-    await details.getByRole('button', { name: 'Update', exact: true }).click();
-    await details.locator('input[id^="phaseHillProgress-"]').fill('100');
-    await details.locator('[data-testid="note-editor"] [contenteditable="true"]').click();
+    await progressView.getByRole('button', { name: 'Update', exact: true }).click();
+    await progressView.locator('input[id^="phaseHillProgress-"]').fill('100');
+    await progressView.locator('[data-testid="note-editor"] [contenteditable="true"]').click();
     await page.keyboard.type('All CTS modules passing; phase complete.');
-    await details.getByRole('button', { name: 'Save Update' }).click();
+    await progressView.getByRole('button', { name: 'Save Update' }).click();
 
-    // Save flips back to the story view (popover stays open); close it to read the rail.
-    await expect(details).toContainText('All CTS modules passing; phase complete.');
+    // Save flips back to the story view (the overlay stays open); close it to read the rail.
+    await expect(progressView).toContainText('All CTS modules passing; phase complete.');
     await page.keyboard.press('Escape');
 
     // Progress 100 derives Done — the row keeps the quiet completed state, and the
-    // card is still at standard size from the open above, so its zoom stays there.
-    await expect(row.getByRole('link', { name: 'Details' })).toBeVisible({ timeout: 10000 });
+    // card is still at standard size from the open above, so its affordances stay there.
+    await expect(row.getByTestId('phase-progress-link')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('body')).toContainText('All CTS modules passing; phase complete.');
   });
 });

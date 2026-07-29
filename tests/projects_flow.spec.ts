@@ -1,4 +1,4 @@
-import { test, expect, clickUntilNavigated, openMenuItemDialog } from './helpers/e2e';
+import { test, expect, clickUntilNavigated, openCard, openMenuItemDialog } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -122,18 +122,16 @@ test.describe('Projects and Partners Flow', () => {
     const bsp = page.getByTestId('phase-row').filter({ has: page.locator('a:text-is("BSP & power-on")') });
     await expect(bsp).toContainText('18w planned');
 
-    // Template content is copied onto the live phase and shown in its details. The
-    // card opens first: MIN is one line (name + plan), so the zoom button that
-    // reaches the popover only exists once the card is at standard size.
+    // Template content is copied onto the live phase and READ ON THE CARD — the Goal &
+    // definition of done is the card's left column now (autoknow-crw.2), so this no
+    // longer opens anything. MIN is one line, so the card is expanded first.
     const archLock = page.locator('[data-testid="phase-row"]')
       .filter({ has: page.locator('a:text-is("Architecture lock")') });
-    await archLock.locator('a[data-card-title]').click();
-    await archLock.getByRole('link', { name: 'Details' }).click();
-    const details = page.getByTestId('phase-details');
+    await openCard(archLock);
     // Template content copied onto the live phase (Goal/Done-when format since the
     // phase-dossier overhaul, PR #15).
-    await expect(details).toContainText('Freeze the platform architecture');
-    await expect(details).toContainText('VINTF-compliant posture');
+    await expect(archLock).toContainText('Freeze the platform architecture');
+    await expect(archLock).toContainText('VINTF-compliant posture');
 
     // leadRole "OEM" resolved unambiguously to the program's OEM partner.
     const project = await prisma.project.findFirst({ where: { name: 'Ford F-150 AAOS Bring-up' } });

@@ -62,8 +62,9 @@ export async function updatePhaseHill(formData: FormData) {
 
 // One phase's COMPLETE update log, newest first. The program page fetches only the
 // 6 newest states per phase (it renders a dozen phases at once and the log is
-// append-only and unbounded), so the DETAILS popover — now the only place a phase's
-// full history is readable — pulls the rest on demand, for the one phase you opened.
+// append-only and unbounded), so the phase's PROGRESS view — the update-and-history
+// affordance on its card, and the only place the full log is readable — pulls the
+// rest on demand, for the one phase you opened.
 export interface PhaseLogEntry {
   at: string;
   progress: number;

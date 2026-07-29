@@ -88,6 +88,32 @@ export const closeCard = async (rowLocator: Locator) => {
 };
 
 /**
+ * Open a phase's PROGRESS view — recording an update and the full hill log, which is
+ * one affordance because an update IS an entry in that log (autoknow-crw.3). It is the
+ * only thing the card still opens over itself; everything the retired DETAILS popover
+ * carried besides this is on the card or in the phase editor.
+ *
+ * The card's three affordances only exist at STANDARD size — min is one line — so the
+ * card is opened on the way, and `openCard` is used rather than a bare toggle so a
+ * caller that already opened it does not get it shut again.
+ *
+ * Hydration-resilient, in the shape a first interaction after a page load requires
+ * (AGENTS lesson 8): only act while the view is closed, because a late-opening overlay
+ * scrims the link and a blind retry-click would hang on it.
+ */
+export const openProgressView = async (page: Page, rowLocator: Locator): Promise<void> => {
+  const view = page.getByTestId('phase-progress');
+  await expect(async () => {
+    if (!(await view.isVisible())) {
+      const link = rowLocator.getByTestId('phase-progress-link');
+      if (!(await link.isVisible())) await openCard(rowLocator);
+      await link.click({ timeout: 2000 });
+    }
+    await expect(view).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 20000 });
+};
+
+/**
  * Open `trigger`'s menu and wait for `item` inside it, in the hydration-guarded shape a
  * first interaction after a page load requires (AGENTS lesson 8): re-open only when the
  * item is not already showing, never a bare click. Lives here rather than hand-rolled per

@@ -3,7 +3,7 @@ import { prisma } from './db';
 import { formatNeedleValue } from './needle';
 import { deriveScore } from './relationship';
 import { hillStatus, phaseColor } from './phase';
-import { phaseDetailHref, programHref, relationshipUpdateHref } from './entityHref';
+import { phaseProgressHref, programHref, relationshipUpdateHref } from './entityHref';
 import { coversDay, jobLabel, personAliases } from './people';
 import type { FeedItem, FeedScope, FeedKind } from './feed';
 
@@ -297,7 +297,7 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
       title: `${s.phase.name}: ${hillStatus(progress)}`,
       subtitle: meta(s.phase.project.name, s.source, true),
       detail: clampDetail(s.notes),
-      href: phaseDetailHref(s.phase.project.id, s.phaseId),
+      href: phaseProgressHref(s.phase.project.id, s.phaseId),
       external: false,
       timestamp: s.timestamp.toISOString(),
       hill: {

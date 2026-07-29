@@ -1,6 +1,17 @@
 # Hill Charts Convergence — Design & Build Plan
 
-Status: **Specified, not built** — this is the buildable spec for issue #37. The
+Status: **Specified, not built — and one of its premises has since moved.** This is
+the buildable spec for issue #37.
+
+READ IT THROUGH ONE TRANSLATION. It was written against the per-phase DETAILS popover
+as a phase's home, and that popover RETIRED with autoknow-crw.4: a phase is now read on
+its CARD at `#phase-:phaseId`, and the only thing left over the card is the update &
+history view at `#phase-:phaseId-progress` (design.md §5). So **everywhere below,
+"the popover" and `#phase-:phaseId-detail` mean that progress view** — the body is left
+in its original words on purpose, because a half-applied rename would make a deliberate
+leave-alone indistinguishable from a miss. What this doc specifies is unaffected in
+substance: the drawing, the snapshot card and the affordance taxonomy all still apply
+to the surface that survived. The
 architectural decisions and hard rules are the immutable record in
 [ADR: Converge the hill charts on one drawing](adr/2026-07-23-converge-the-hill-charts-on-one-drawing.md);
 this doc carries the component API surface, the card layout, the usage audit, and

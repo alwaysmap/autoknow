@@ -6,7 +6,7 @@ import Link from 'next/link';
 import DataTable from '../../../components/DataTable';
 import ClassBox from '../../../components/ClassBox';
 import DateCell from '../../../components/DateCell';
-import { phaseColor, phaseDetailHref } from '../../../lib/phase';
+import { phaseColor, phaseHref } from '../../../lib/phase';
 import type { PersonProgramRow } from '../../../lib/personPrograms';
 import { t, Locale } from '../../../lib/i18n';
 import styles from './page.module.css';
@@ -132,7 +132,7 @@ export default function PersonProgramsTable({ rows, locale }: { rows: PersonProg
               {r.phases.map((ph) => (
                 <Link
                   key={ph.id}
-                  href={phaseDetailHref(r.id, ph.id)}
+                  href={phaseHref(r.id, ph.id)}
                   className={styles.phaseChip}
                   title={ph.role ? `${ph.name} · ${ph.role}` : ph.name}
                 >

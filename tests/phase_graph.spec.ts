@@ -1,15 +1,15 @@
-import { test, expect, expandCard, openCard, closeCard, type Page } from './helpers/e2e';
+import { test, expect, expandCard, openCard, closeCard, openProgressView, type Page } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
 // Behavioral coverage for the PhaseTrack train-line surface (spec §2.13) and the
 // program phase editor: critical chain + explained constraint, compact read-only
-// cards (typed involvement pills, no role labels, no status words), the focused
-// popover (required-note status update, involvement editing, read-only dependencies),
-// and structural editing gated behind whole-graph DAG validation.
+// cards (typed involvement pills, no role labels, no status words), the card's three
+// affordances, the progress view's required-note status update, and structural editing
+// — including involvement — gated behind whole-graph DAG validation in the ONE editor.
 
 // `expandCard` (toggle), `openCard` (ensure open) and `closeCard` (ensure closed,
-// guarded on aria-expanded) come from tests/helpers/e2e — three specs wanted them,
+// guarded on aria-expanded) come from tests/helpers/e2e — several specs wanted them,
 // so they are not hand-rolled per file.
 
 test.describe('PhaseTrack rail', () => {
@@ -29,23 +29,11 @@ test.describe('PhaseTrack rail', () => {
   // whose notes mention another phase's name.
   const row = (page: Page, name: string) =>
     page.getByTestId('phase-row').filter({ has: page.locator(`a:text-is("${name}")`) });
-  const details = (page: Page) => page.getByTestId('phase-details');
-  const openDetails = async (page: Page, name: string) => {
-    // Hydration-resilient open: a click can land before React attaches the handler
-    // on a cold dev-server load, and a swallowed click is never retried by expect().
-    // Only click while the popover is closed (a late-opening popover scrims the
-    // button, so a blind retry-click would hang on it).
-    // The zoom button only exists at STANDARD size — min is one line, name and plan
-    // — so the card is opened first when it is not already.
-    await expect(async () => {
-      if (!(await details(page).isVisible())) {
-        const zoom = row(page, name).getByRole('link', { name: 'Details' });
-        if (!(await zoom.isVisible())) await openCard(row(page, name));
-        await zoom.click({ timeout: 2000 });
-      }
-      await expect(details(page)).toBeVisible({ timeout: 1500 });
-    }).toPass({ timeout: 20000 });
-  };
+  // The PROGRESS view (update + full log) is the only thing the card still opens over
+  // itself; the focused DETAILS popover retired with autoknow-crw.4. The guarded opener
+  // lives in tests/helpers/e2e because several specs want it.
+  const progressView = (page: Page) => page.getByTestId('phase-progress');
+  const openProgress = (page: Page, name: string) => openProgressView(page, row(page, name));
 
 
   // The phase name link carries a `title` ("Done · click to trace its dependencies").
@@ -192,11 +180,11 @@ test.describe('PhaseTrack rail', () => {
   test('cards are compact: typed pills without role labels, no status words', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
 
-    // MIN is a single line: the name and the plan, and nothing else. No zoom button
+    // MIN is a single line: the name and the plan, and nothing else. No affordances
     // and no Goal — the min size is untouched by the standard card's dossier
     // (autoknow-crw.2), which is what keeps a 15-phase program scannable.
     const bringUp = row(page, 'Bring-up');
-    await expect(bringUp.getByRole('link', { name: 'Details' })).toHaveCount(0);
+    await expect(bringUp.getByTestId('phase-progress-link')).toHaveCount(0);
     await expect(bringUp).not.toContainText('Goal:');
 
     // Status is carried by glyphs, not words, on the card header.
@@ -210,10 +198,14 @@ test.describe('PhaseTrack rail', () => {
     await expect(integration).toContainText('Denso');
     await expect(integration).toContainText('Kenji Sato');
     await expect(integration).not.toContainText('FAE');
-    // The zoom button appears at standard size, and so does the Goal & definition of
-    // done — the standard card is the phase's dossier, so what it is FOR is readable
-    // without opening anything (autoknow-crw.2).
-    await expect(integration.getByRole('link', { name: 'Details' })).toBeVisible();
+    // The three affordances appear at standard size, and so does the Goal & definition
+    // of done — the standard card is the phase's dossier, so what it is FOR is readable
+    // without opening anything (autoknow-crw.2). They replaced the single expand button
+    // that used to lift the phase into a popover (autoknow-crw.3): the steps the card
+    // cannot take itself, and nothing else.
+    await expect(integration.getByRole('link', { name: 'Edit phase' })).toBeVisible();
+    await expect(integration.getByTestId('phase-progress-link')).toBeVisible();
+    await expect(integration.getByTestId('quick-ingest-open')).toBeVisible();
     await expect(integration).toContainText('Goal:');
     // …the latest update whole, beside it: the words, the date and the author.
     await expect(integration).toContainText('Codec drops blocking the DSP path.');
@@ -230,123 +222,88 @@ test.describe('PhaseTrack rail', () => {
     }
 
     // Clicking the card again folds it back to one line, taking the goal, the pills
-    // and the zoom button with it. closeCard guards on the resulting STATE, not the
+    // and the affordance row with it. closeCard guards on the resulting STATE, not the
     // click (autoknow-9at): a bare expandCard() here missed on webkit under
     // full-suite load and the vanished-text assertion had nothing to retry against
     // but a card that was never actually collapsed.
     await closeCard(integration);
     await expect(integration).not.toContainText('Denso');
-    await expect(integration.getByRole('link', { name: 'Details' })).toHaveCount(0);
+    await expect(integration.getByTestId('phase-progress-link')).toHaveCount(0);
   });
 
 
 
-  test('the popover is a modal over the rail; Esc closes it', async ({ page }) => {
+  test('the progress view is a modal over the rail; Esc closes it back to the card', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
     const before = new URL(page.url());
 
-    await openDetails(page, 'Audio');
-    // Same page — a modal over the rail, no navigation and no <dialog>. Opening a
-    // card can set an intermediate `#phase-N` (the title is a real deep link, main's
-    // rail work), but the LAST thing this flow does is click Details, and the popover
-    // that replaced the retired /history/phase/:id page is itself a URL (design.md
-    // §5) — so it lands on `#phase-N-detail`. Path and query must not move; only the
-    // fragment does, and to the detail anchor.
+    await openProgress(page, 'Audio');
+    // Same page — a modal over the rail, no navigation. Opening the card on the way
+    // sets `#phase-N` (the title is a real deep link), and the LAST thing this flow
+    // does is open the log, which is itself a URL (design.md §5) — so it lands on
+    // `#phase-N-progress`. Path and query must not move; only the fragment does.
     const opened = new URL(page.url());
     expect(opened.pathname + opened.search).toBe(before.pathname + before.search);
-    expect(opened.hash).toBe(`#phase-${seeded.phases.audio}-detail`);
+    expect(opened.hash).toBe(`#phase-${seeded.phases.audio}-progress`);
     await expect(page.getByRole('dialog', { name: 'Audio' })).toBeVisible();
 
     await page.keyboard.press('Escape');
-    await expect(details(page)).toHaveCount(0);
-    // Closing takes the fragment back off — the URL never claims an open popover.
-    await expect.poll(() => new URL(page.url()).hash).toBe('');
+    await expect(progressView(page)).toHaveCount(0);
+    // Closing falls back to the CARD's own anchor rather than to nothing: the phase is
+    // still what you are looking at, and it is still addressable. The URL never claims
+    // an open overlay.
+    await expect.poll(() => new URL(page.url()).hash).toBe(`#phase-${seeded.phases.audio}`);
   });
 
   test('a hill update REQUIRES a note; saving records history', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
-    await openDetails(page, 'Audio');
+    await openProgress(page, 'Audio');
 
     // The pane rests in view mode — the Update affordance reveals ball + editor.
-    await details(page).getByRole('button', { name: 'Update', exact: true }).click();
+    await progressView(page).getByRole('button', { name: 'Update', exact: true }).click();
 
     // Move the dot but say nothing → blocked with the inline error, still open.
-    await details(page).locator('input[id^="phaseHillProgress-"]').fill('55');
-    await details(page).getByRole('button', { name: 'Save Update' }).click();
-    await expect(details(page)).toContainText('A progress change needs a note');
-    await expect(details(page)).toBeVisible();
+    await progressView(page).locator('input[id^="phaseHillProgress-"]').fill('55');
+    await progressView(page).getByRole('button', { name: 'Save Update' }).click();
+    await expect(progressView(page)).toContainText('A progress change needs a note');
+    await expect(progressView(page)).toBeVisible();
 
     // Write the note in the WYSIWYG editor (markdown under the hood) and save.
-    await details(page).locator('[data-testid="note-editor"] [contenteditable="true"]').click();
+    await progressView(page).locator('[data-testid="note-editor"] [contenteditable="true"]').click();
     await page.keyboard.type('Codec samples landed; over the hill.');
-    await details(page).getByRole('button', { name: 'Save Update' }).click();
+    await progressView(page).getByRole('button', { name: 'Save Update' }).click();
 
     // Save drops back to the view-mode story: the fresh update leads, big.
-    await expect(details(page)).toContainText('Codec samples landed; over the hill.');
+    await expect(progressView(page)).toContainText('Codec samples landed; over the hill.');
     await page.keyboard.press('Escape');
-    await expect(details(page)).toHaveCount(0);
+    await expect(progressView(page)).toHaveCount(0);
 
-    // Back on the track: the card (expanded — rows default collapsed) shows the
-    // new note but NOT the history list.
+    // Back on the track: the card (expanded — rows default collapsed) shows the LATEST
+    // update and only that. The card is a reading surface for where the phase IS; the
+    // log behind it is a secondary reading (autoknow-crw.3).
     const audio = row(page, 'Audio');
-    await openCard(audio); // openDetails already opened it — a toggle would shut it
+    await openCard(audio); // the progress view already opened it — a toggle would shut it
     await expect(audio).toContainText('Codec samples landed; over the hill.', { timeout: 10000 });
-    await expect(audio.getByText('History')).toHaveCount(0);
+    // Asserted as the absent LIST, not the absent word: the card's third affordance is
+    // labelled "Update & history", and `getByText` matches case-insensitive substrings,
+    // so a check for "History" now passes on the link that is SUPPOSED to be there.
+    await expect(audio.locator('[class*="historyList"]')).toHaveCount(0);
 
-    // The history (with the prior update) lives on the popover.
-    await openDetails(page, 'Audio');
-    await expect(details(page).getByText('History', { exact: true })).toBeVisible();
+    // The history (with the prior update) lives in the progress view.
+    await openProgress(page, 'Audio');
+    await expect(progressView(page).getByText('History', { exact: true })).toBeVisible();
     // The LATEST update is the big headline; only the older one renders as a
     // compact history card.
-    await expect(details(page).locator('[class*="latestUpdate"]')).toContainText('Codec samples landed');
-    await expect(details(page).locator('[class*="historyList"] article')).toHaveCount(1);
+    await expect(progressView(page).locator('[class*="latestUpdate"]')).toContainText('Codec samples landed');
+    await expect(progressView(page).locator('[class*="historyList"] article')).toHaveCount(1);
   });
 
-  test('partner involvement is editable on the popover', async ({ page }) => {
-    await page.goto(`/programs/${seeded.projectId}`);
-    await openDetails(page, 'Integration');
-
-    // Seeded involvement is visible with its role (roles live HERE, not on the rail).
-    const densoChip = details(page).locator('[data-testid="involvement-chip"]').filter({ hasText: 'Denso' });
-    await expect(densoChip).toContainText('Supplier');
-
-    // Add another partner with a role — the ghost "+" reveals the small form.
-    await details(page).getByRole('button', { name: 'Partner to involve' }).click();
-    await details(page).locator('select[aria-label="Partner to involve"]').selectOption({ label: 'Rivian' });
-    await details(page).locator('input[aria-label="Role (optional)"]').first().fill('OEM');
-    await details(page).getByRole('button', { name: 'Add', exact: true }).first().click();
-    await expect(details(page).locator('[data-testid="involvement-chip"]').filter({ hasText: 'Rivian' })).toBeVisible();
-
-    // Remove it again.
-    await details(page)
-      .locator('[data-testid="involvement-chip"]')
-      .filter({ hasText: 'Rivian' })
-      .locator('button[aria-label^="Remove"]')
-      .click();
-    await expect(details(page).locator('[data-testid="involvement-chip"]').filter({ hasText: 'Rivian' })).toHaveCount(0);
-  });
-
-  test('people involvement is editable on the popover', async ({ page }) => {
-    await page.goto(`/programs/${seeded.projectId}`);
-    await openDetails(page, 'Integration');
-
-    // Seeded person is visible with role; remove them.
-    const kenji = details(page).locator('[data-testid="involvement-chip"]').filter({ hasText: 'Kenji Sato' });
-    await expect(kenji).toContainText('FAE');
-    await kenji.locator('button[aria-label^="Remove"]').click();
-    await expect(details(page).locator('[data-testid="involvement-chip"]').filter({ hasText: 'Kenji Sato' })).toHaveCount(0);
-
-    // Add them back with a new role via the People picker (behind the ghost "+").
-    await details(page).getByRole('button', { name: 'Person to involve' }).click();
-    await details(page).locator('select[aria-label="Person to involve"]').selectOption({ label: 'Kenji Sato' });
-    await details(page).locator('select[aria-label="Person to involve"]')
-      .locator('xpath=following-sibling::input[1]').fill('Audio lead');
-    await details(page).locator('select[aria-label="Person to involve"]')
-      .locator('xpath=following-sibling::button[1]').click();
-    const restored = details(page).locator('[data-testid="involvement-chip"]').filter({ hasText: 'Kenji Sato' });
-    await expect(restored).toBeVisible();
-    await expect(restored).toContainText('Audio lead');
-  });
+  // WHERE INVOLVEMENT IS EDITED moved, so its coverage moved with it. Two tests used to
+  // change partners and people inside the DETAILS popover; that surface retired with
+  // autoknow-crw.4, and the phase editor is the ONE place a phase is edited since
+  // autoknow-crw.1. The equivalents now live in "a phase fragment opens that phase, and
+  // involvement is editable in the panel", below — deleted here rather than duplicated,
+  // because two editors for one phase is the duplication this epic removed.
 });
 
 test.describe('Program phase editor', () => {
@@ -546,5 +503,26 @@ test.describe('Program phase editor', () => {
     expect(await prisma.phasePartner.count({
       where: { phaseId: seeded.phases.integration, partnerId: seeded.oemId },
     })).toBe(0);
+
+    // PEOPLE take the same round trip, and this half is here because the popover that
+    // used to own it retired (autoknow-crw.4). Remove the seeded person, then add them
+    // back with a different role through the picker — an entity input is a pick from
+    // existing rows, never free text (AGENTS lesson 3).
+    await chip('Kenji Sato').locator('button[aria-label^="Remove"]').click();
+    await expect(chip('Kenji Sato')).toHaveCount(0);
+    expect(await prisma.phasePerson.count({
+      where: { phaseId: seeded.phases.integration, personId: seeded.personId },
+    })).toBe(0);
+
+    await panel(page).getByTestId('add-person').click();
+    await panel(page).locator('select[aria-label="Person to involve"]').selectOption({ label: 'Kenji Sato' });
+    await panel(page).locator('select[aria-label="Person to involve"]')
+      .locator('xpath=following-sibling::input[1]').fill('Audio lead');
+    await panel(page).locator('select[aria-label="Person to involve"]')
+      .locator('xpath=following-sibling::button[1]').click();
+    await expect(chip('Kenji Sato')).toContainText('Audio lead');
+    expect(await prisma.phasePerson.count({
+      where: { phaseId: seeded.phases.integration, personId: seeded.personId },
+    })).toBe(1);
   });
 });

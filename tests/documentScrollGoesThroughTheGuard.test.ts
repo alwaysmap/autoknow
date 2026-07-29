@@ -30,6 +30,14 @@ const SCROLLS = /\.scrollIntoView\(|window\.scrollTo\(|window\.scrollBy\(/g;
  * An INNER scrollport is exempt: `scroll-behavior: smooth` is set on the scroll root
  * only, so those scrolls are instant and cannot straddle a gesture. `block: 'nearest'`
  * is the tell, and it is the hook's own documented carve-out.
+ *
+ * The tell reads a RAW `scrollIntoView` only, which is the whole scan — a guarded
+ * `scrollPageTo(…)` never matches `SCROLLS` and so never reaches this exemption. That
+ * matters because 'nearest' is no longer exclusively an inner-scrollport word: the
+ * phase rail asks for it on a DOCUMENT scroll too, to move the page by the minimum
+ * that brings an expanded card back on screen (autoknow-ff7). It goes through the
+ * guard like every other page scroll, so the two uses stay distinguishable by the call
+ * they make rather than by the options they pass.
  */
 const INNER = /block:\s*'nearest'/;
 

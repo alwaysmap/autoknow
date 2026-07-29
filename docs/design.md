@@ -37,7 +37,7 @@ Every entity displayed in a dashboard view or detail card must serve as an activ
   One implementation: **`PersonCell`** (`src/components/PersonCell.tsx`) owns the name,
   the route (via `personHref`) and the plain-text fallback, so a call site cannot get
   half of it right. Enforced by `tests/dataTableConvention.test.ts`.
-* **Interactive Cells**: Count fields (e.g. "Active Programs") must link to pre-filtered lists (e.g., `/partners/[id]?filter=active`). Phase names must link to that phase's record — `/programs/[id]#phase-[phaseId]-detail`, the DETAILS popover (§5).
+* **Interactive Cells**: Count fields (e.g. "Active Programs") must link to pre-filtered lists (e.g., `/partners/[id]?filter=active`). Phase names must link to that phase's record — `/programs/[id]#phase-[phaseId]`, its card on the rail (§5).
 * **No Plain-Text Dead Ends**: Sighted users must never be presented with static, non-clickable entity names when a corresponding detail route is available in the application.
 * **A stable name RENDERS; it never redirects to a volatile id** (2026-07-27,
   autoknow-6q3). If a link is the unit of sharing, the address has to survive being
@@ -150,24 +150,42 @@ Every project detail page must include a direct way to see, edit, add, or delete
 * **Edit Phase**: Prefilled edit controls inside a dialog.
 * **Delete Phase**: Forms calling server actions to clean up associated log histories, dependencies, and tasks with confirmation.
 
-**A phase has no page of its own** (2026-07-21, user call — `/history/phase/:id`
-retired, the last of the `/history/**` pages to go). Its home is the DETAILS
-popover on its program page, and that popover follows §4b's rule exactly:
-`/programs/:id#phase-:phaseId-detail` opens it, opening it writes that fragment,
-closing takes the fragment back off. Every link to a phase anywhere in the app —
-feeds, AI briefing citations, partner and person pages — goes there
-(`phaseDetailHref`, `src/lib/phase.ts`; never hand-built).
+**A phase has no page of its own, and no longer has a popover either.** The
+standalone `/history/phase/:id` page retired 2026-07-21 (the last of the
+`/history/**` pages to go), and the focused DETAILS popover that replaced it
+retired with autoknow-crw.4. A phase's home is its **CARD on the program rail**:
+the goal and definition of done on the left, the latest update whole on the
+right, involvement pinned to the foot. Reading a phase requires opening nothing.
 
-Two consequences that are easy to get wrong:
-* **The popover must hold the COMPLETE log, or the retirement lost data.** The
+`/programs/:id#phase-:phaseId` is the address. Arriving there OPENS that card —
+every card rests collapsed, so a fragment that only scrolled would land the
+reader on a one-line header. Every link to a phase anywhere in the app — feeds,
+AI briefing citations, partner and person pages — goes there (`phaseHref`,
+`src/lib/phase.ts`; never hand-built).
+
+The card opens exactly one thing over itself, and it follows §4b's rule exactly:
+* **UPDATE & HISTORY** — `/programs/:id#phase-:phaseId-progress` opens it,
+  opening it writes that fragment, and closing falls back to `#phase-:phaseId`
+  rather than to nothing, because the card underneath is still what you are
+  reading. It is ONE affordance, not two, because an update IS an entry in the
+  log it joins; naming it only "History" would hide this app's most frequent
+  write behind a word that means looking backwards.
+
+Three consequences that are easy to get wrong:
+* **That view must hold the COMPLETE log, or the retirements lost data.** The
   program page renders a dozen phases and preloads only the 6 newest states per
-  phase, so the popover fetches the rest on demand for the one phase you opened
+  phase, so the view fetches the rest on demand for the one phase you opened
   (`getPhaseLog`). Whatever it renders is the whole record — there is nothing
   further to click through to, and no "full history →" link to offer.
-* **`#phase-:id` and `#phase-:id-detail` are one family, not a collision**: the
-  bare id is the rail row's scroll anchor, the `-detail` suffix is the popover
-  over it. Fragments that are not ours are left untouched when the popover
-  writes or clears its own.
+* **`#phase-:id` and `#phase-:id-progress` are one family, not a collision**: the
+  bare id is the card, the suffix is the log over it. The parsers match exactly,
+  never by prefix, or the row anchor would swallow the extension. Fragments that
+  are not ours are left untouched when either writes or clears its own.
+* **`#phase-:id-detail` is RETIRED but not inert.** A fragment cannot 404 the way
+  a route can, so it is canonicalised onto the card on arrival, and stored brief
+  citations carrying it are rewritten at the read boundary (`lib/summaries`).
+  Both shims name the condition under which they go away — no `Summary.body` on
+  file still citing the old shape (AGENTS lesson 15).
 
 ---
 
