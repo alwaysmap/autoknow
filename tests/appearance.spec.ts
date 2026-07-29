@@ -290,9 +290,17 @@ test.describe('Appearance: style and theme are independent', () => {
 
   test('the style picker persists the choice', async ({ page }) => {
     await page.goto('/');
-    await page.getByTestId('user-menu').click();
-
-    await page.getByRole('radio', { name: 'Instrument' }).click();
+    // The menu click is the first interaction after a page load, and a page reload
+    // below repeats that — both are hydration-guarded (AGENTS lesson 8): re-open only
+    // when the radio is not already showing, never a bare click. autoknow-dbw: an
+    // unguarded click here landed before hydration on chromium and the radio never
+    // existed, so a "passed on retry" run still reported green.
+    const instrument = page.getByRole('radio', { name: 'Instrument' });
+    await expect(async () => {
+      if (!(await instrument.isVisible())) await page.getByTestId('user-menu').click({ timeout: 2000 });
+      await expect(instrument).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20000 });
+    await instrument.click();
     await expect(root(page)).toHaveAttribute('data-style', 'instrument');
     expect(await page.evaluate((k) => localStorage.getItem(k), STYLE_KEY)).toBe('instrument');
 
@@ -300,8 +308,12 @@ test.describe('Appearance: style and theme are independent', () => {
     await expect(root(page)).toHaveAttribute('data-style', 'instrument');
 
     // And back, so the A/B is genuinely reversible.
-    await page.getByTestId('user-menu').click();
-    await page.getByRole('radio', { name: 'Standard' }).click();
+    const standard = page.getByRole('radio', { name: 'Standard' });
+    await expect(async () => {
+      if (!(await standard.isVisible())) await page.getByTestId('user-menu').click({ timeout: 2000 });
+      await expect(standard).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20000 });
+    await standard.click();
     await expect(root(page)).toHaveAttribute('data-style', 'standard');
   });
 });
