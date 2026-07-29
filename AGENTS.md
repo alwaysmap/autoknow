@@ -124,11 +124,12 @@ one and routes most findings to [docs/knowledge/](docs/knowledge/README.md).
    nobody has to remember it later (`.github/ISSUE_TEMPLATE`).
 8. Browser-only state reads and first e2e interactions each have ONE required
    pattern; using anything else is the top flake source (`ui-design`, `qa`).
-9. The `*_test` database and the e2e port are per-worktree AND, for e2e, per
-   Playwright worker — a worker owns a database and the server bound to it, which
-   is the only reason `workers` may exceed 1. jest still has exactly one of each:
-   run one suite at a time, and never point a server or demo at them
-   (`db-change`, `qa`).
+9. The `*_test` database is per-worktree AND per worker — a worker owns its
+   database (e2e also owns the server bound to it, and the port), which is the
+   only reason either runner may exceed one worker. The lanes are named apart,
+   `_w<n>` for Playwright and `_j<n>` for jest, because both suites wipe what
+   they are given and can run at once; never point a server or demo at any of
+   them (`db-change`, `qa`).
 10. Docs state their status or they lie — the PR that implements or retires
     what a doc describes updates that doc's STATUS line.
 11. Commit messages carry diagnosis + evidence ("heap-profiled, ~10MB/s"), not
