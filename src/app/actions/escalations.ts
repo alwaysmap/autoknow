@@ -13,9 +13,8 @@ import { guarded, type ActionResult } from '../../lib/actionResult';
 import { canTransition, isClosed, type EscalationStatus } from '../../lib/escalation';
 import { escalationHref } from '../../lib/entityHref';
 import {
-  describeAssignmentChange,
-  describeStatusChange,
-  postEscalationChange,
+  announceAssignmentChange,
+  announceStatusChange,
 } from '../../lib/escalationPostBack';
 
 // Escalation mutations (#245 part a). Mirrors `app/actions/partners.ts`: `guarded` +
@@ -77,10 +76,9 @@ export async function updateEscalation(formData: FormData): Promise<ActionResult
     });
     revalidateEscalation(escalation);
 
-    if (before) {
-      const message = await describeAssignmentChange(escalationId, escalation.title, before, escalation);
-      if (message) await postEscalationChange(escalationId, message);
-    }
+    // Scheduled, not awaited: the write is committed and the surfaces are revalidated, so
+    // the user's action is DONE. Telling Chat happens after the response (lib/escalationPostBack).
+    if (before) announceAssignmentChange(escalationId, escalation.title, before, escalation);
   });
 }
 
@@ -131,13 +129,10 @@ export async function setEscalationStatus(formData: FormData): Promise<ActionRes
 
     revalidateEscalation(escalation);
 
-    // The post-back, AFTER the write has committed and never before: the in-app mutation
-    // must not be undone by a Chat API call. A failure lands on the row and is rendered as
-    // a badge; it is never raised from here, so closing an escalation cannot fail because
-    // Chat is down.
-    await postEscalationChange(
-      escalationId,
-      describeStatusChange(escalationId, escalation.title, status),
-    );
+    // The post-back is scheduled to run AFTER the response, never inside this action's
+    // critical path: the user's intent was to close the escalation, and that is now done.
+    // A Chat failure lands on the row as a badge and can neither undo the close nor delay
+    // the answer (lib/escalationPostBack).
+    announceStatusChange(escalationId, escalation.title, status);
   });
 }

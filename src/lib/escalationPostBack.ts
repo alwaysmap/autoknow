@@ -1,4 +1,5 @@
 import 'server-only';
+import { after } from 'next/server';
 import { headers } from 'next/headers';
 import { prisma } from './db';
 import { postToThread } from './chatPost';
@@ -13,11 +14,21 @@ import { LOCALE } from './preferences';
 // the altitude of its neighbour `app/actions/partners`.
 //
 // THE INVARIANT, and the reason this is a module rather than a few lines inline: none of
-// it may make a mutation fail. The escalation is already written by the time any of this
-// runs, so a Chat outage must not undo a close somebody just made. `postToThread` never
-// throws by construction; everything else here is wrapped, and the worst case is a row
-// whose delivery columns are stale — which the detail page shows honestly rather than
-// hiding (AGENTS lesson 5).
+// it may make a mutation fail, and none of it may make a user wait. The user's intent when
+// they close an escalation is to close the escalation — the transaction boundary is the
+// APP's write, and telling Chat about it is a consequence of that write, not part of it.
+//
+// So the announcement is scheduled with `after()` (next/server), which runs it once the
+// response has already been sent. Awaiting it inline was correct but not sufficient: it
+// could not FAIL the close, yet it still put a Chat API round-trip between the user's
+// click and their answer, which is the same "holding up the action" in a slower costume.
+// `after` is the right primitive rather than a bare un-awaited promise because the platform
+// keeps the instance alive for it — a floating promise on Cloud Run can be frozen the
+// moment the response flushes, losing both the post AND the row update that records it.
+//
+// `postToThread` never throws by construction; everything below is wrapped besides. The
+// worst case is a row whose delivery columns are stale — which the detail page shows
+// honestly rather than hiding (AGENTS lesson 5).
 
 /** A post has no session and no cookie to read a locale from, exactly like a webhook
  *  reply — so it goes out in the app default. Copy still lives in the catalog so a
@@ -94,7 +105,7 @@ export async function describeAssignmentChange(
  *                         is the badge condition, which is why it is "the latest attempt"
  *                         rather than "the last error ever seen".
  */
-export async function postEscalationChange(escalationId: number, message: string): Promise<void> {
+async function postEscalationChange(escalationId: number, message: string): Promise<void> {
   try {
     const escalation = await prisma.escalation.findUnique({
       where: { id: escalationId },
@@ -127,6 +138,40 @@ export async function postEscalationChange(escalationId: number, message: string
     // rides behind has already committed and is not this function's to undo.
     console.error('[escalations] post-back bookkeeping failed:', e);
   }
+}
+
+/**
+ * Schedule the announcement of a status change — AFTER the response is sent.
+ *
+ * Returns void and is deliberately NOT awaited by its callers: the close is already
+ * committed and already revalidated by the time this is reached, so there is nothing left
+ * for the user to wait for.
+ */
+export function announceStatusChange(
+  escalationId: number,
+  title: string,
+  status: EscalationStatus,
+): void {
+  after(async () => {
+    await postEscalationChange(escalationId, describeStatusChange(escalationId, title, status));
+  });
+}
+
+/**
+ * The same, for assignments. The MESSAGE-BUILDING moves inside the callback too, not just
+ * the post: composing it costs a query to name the people, and that query is no more the
+ * user's business to wait for than the HTTP call it feeds.
+ */
+export function announceAssignmentChange(
+  escalationId: number,
+  title: string,
+  before: EscalationRoles,
+  now: EscalationRoles,
+): void {
+  after(async () => {
+    const message = await describeAssignmentChange(escalationId, title, before, now);
+    if (message) await postEscalationChange(escalationId, message);
+  });
 }
 
 /** The serving request's origin, or null outside a request (and in tests). */

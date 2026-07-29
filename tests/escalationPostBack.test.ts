@@ -18,6 +18,21 @@ jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 // here, so the action's own degrade path (no link) is what runs.
 jest.mock('next/headers', () => ({ headers: jest.fn(async () => new Headers()) }));
 
+// `after()` schedules work to run once the RESPONSE has been sent, which is the whole
+// point: the user's close must not wait on a Chat round-trip. There is no response here, so
+// the callbacks are captured and flushed explicitly — which is stronger than running them
+// inline, because it lets each test assert that the action returned BEFORE the post ran.
+const mockScheduled: Array<() => Promise<void>> = [];
+jest.mock('next/server', () => ({
+  after: (fn: () => Promise<void>) => {
+    mockScheduled.push(fn);
+  },
+}));
+const flushAfter = async () => {
+  const pending = mockScheduled.splice(0);
+  for (const fn of pending) await fn();
+};
+
 const postToThread = jest.fn(
   async () => ({ ok: true }) as { ok: boolean; error?: string; skipped?: boolean },
 );
@@ -79,6 +94,7 @@ beforeAll(async () => {
 });
 
 afterEach(() => {
+  mockScheduled.length = 0;
   postToThread.mockClear();
   postToThread.mockImplementation(async () => ({ ok: true }));
 });
@@ -93,6 +109,13 @@ describe('a status change is posted back to the source thread', () => {
     const result = await setEscalationStatus(form({ escalationId: e.id, status: 'resolved' }));
     expect(result).toEqual({});
 
+    // The action is DONE and the post has not happened yet — the transaction boundary is
+    // the app's write, and telling Chat is a consequence of it, not part of it.
+    expect(postToThread).not.toHaveBeenCalled();
+    const closedBeforeAnyPost = await prisma.escalation.findUniqueOrThrow({ where: { id: e.id } });
+    expect(closedBeforeAnyPost.status).toBe('resolved');
+
+    await flushAfter();
     expect(postToThread).toHaveBeenCalledTimes(1);
     const [sourceRef, text] = postToThread.mock.calls[0] as unknown as [string, string];
     expect(sourceRef).toBe('chat:spaces/AAA/threads/cert');
@@ -111,6 +134,7 @@ describe('a status change is posted back to the source thread', () => {
     // disclosure from "this is closed", and only the second one was agreed to.
     const e = await chatEscalation();
     await setEscalationStatus(form({ escalationId: e.id, status: 'obsolete' }));
+    await flushAfter();
     const [, text] = postToThread.mock.calls[0] as unknown as [string, string];
     for (const actor of ['dylan', 'Dylan', 'dev', 'by ']) expect(text).not.toContain(actor);
   });
@@ -118,8 +142,10 @@ describe('a status change is posted back to the source thread', () => {
   it('posts a re-open too — the thread has to hear that it came back', async () => {
     const e = await chatEscalation();
     await setEscalationStatus(form({ escalationId: e.id, status: 'resolved' }));
+    await flushAfter();
     postToThread.mockClear();
     await setEscalationStatus(form({ escalationId: e.id, status: 'open' }));
+    await flushAfter();
     const [, text] = postToThread.mock.calls[0] as unknown as [string, string];
     expect(text).toContain('Open');
   });
@@ -132,6 +158,7 @@ describe('a status change is posted back to the source thread', () => {
     const result = await setEscalationStatus(form({ escalationId: e.id, status: 'resolved' }));
     // The user sees no error: their change worked.
     expect(result).toEqual({});
+    await flushAfter();
 
     const row = await prisma.escalation.findUniqueOrThrow({ where: { id: e.id } });
     expect(row.status).toBe('resolved');
@@ -148,9 +175,11 @@ describe('a status change is posted back to the source thread', () => {
     postToThread.mockImplementation(async () => ({ ok: false, error: 'Chat API 503' }));
     const e = await chatEscalation();
     await setEscalationStatus(form({ escalationId: e.id, status: 'resolved' }));
+    await flushAfter();
 
     postToThread.mockImplementation(async () => ({ ok: true }));
     await setEscalationStatus(form({ escalationId: e.id, status: 'open' }));
+    await flushAfter();
 
     const row = await prisma.escalation.findUniqueOrThrow({ where: { id: e.id } });
     expect(row.lastChatPostError).toBeNull();
@@ -175,6 +204,7 @@ describe('assignments are posted back', () => {
   it('names every role that actually changed, and the person now in it', async () => {
     const e = await chatEscalation();
     await updateEscalation(form({ ...fields({ ownerPersonId: ownerId, decisionMakerPersonId: deciderId }), escalationId: e.id }));
+    await flushAfter();
 
     expect(postToThread).toHaveBeenCalledTimes(1);
     const [, text] = postToThread.mock.calls[0] as unknown as [string, string];
@@ -187,8 +217,10 @@ describe('assignments are posted back', () => {
   it('says so when a role is cleared', async () => {
     const e = await chatEscalation();
     await updateEscalation(form({ ...fields({ ownerPersonId: ownerId }), escalationId: e.id }));
+    await flushAfter();
     postToThread.mockClear();
     await updateEscalation(form({ ...fields(), escalationId: e.id }));
+    await flushAfter();
 
     const [, text] = postToThread.mock.calls[0] as unknown as [string, string];
     expect(text).toContain('Owner is now unassigned');
@@ -199,12 +231,14 @@ describe('assignments are posted back', () => {
     // read as a reassignment, and the thread would learn to ignore these posts.
     const e = await chatEscalation();
     await updateEscalation(form({ ...fields({ ownerPersonId: ownerId }), escalationId: e.id }));
+    await flushAfter();
     postToThread.mockClear();
 
     await updateEscalation(form({
       ...fields({ ownerPersonId: ownerId, title: 'Certification slip — reworded' }),
       escalationId: e.id,
     }));
+    await flushAfter();
     expect(postToThread).not.toHaveBeenCalled();
   });
 
@@ -213,6 +247,7 @@ describe('assignments are posted back', () => {
     const e = await chatEscalation();
 
     expect(await updateEscalation(form({ ...fields({ ownerPersonId: ownerId }), escalationId: e.id }))).toEqual({});
+    await flushAfter();
     const row = await prisma.escalation.findUniqueOrThrow({ where: { id: e.id } });
     expect(row.ownerPersonId).toBe(ownerId);
     expect(row.lastChatPostError).toBe('Chat API 500');
@@ -228,6 +263,7 @@ describe('when chat is not configured at all', () => {
     const e = await chatEscalation();
 
     await setEscalationStatus(form({ escalationId: e.id, status: 'resolved' }));
+    await flushAfter();
 
     const row = await prisma.escalation.findUniqueOrThrow({ where: { id: e.id } });
     expect(row.status).toBe('resolved');
@@ -238,11 +274,13 @@ describe('when chat is not configured at all', () => {
   it('does not erase a real earlier delivery when a later change is skipped', async () => {
     const e = await chatEscalation();
     await setEscalationStatus(form({ escalationId: e.id, status: 'resolved' }));
+    await flushAfter();
     const delivered = await prisma.escalation.findUniqueOrThrow({ where: { id: e.id } });
     expect(delivered.lastChatPostAt).not.toBeNull();
 
     postToThread.mockImplementation(async () => ({ ok: true, skipped: true }));
     await setEscalationStatus(form({ escalationId: e.id, status: 'open' }));
+    await flushAfter();
 
     const after = await prisma.escalation.findUniqueOrThrow({ where: { id: e.id } });
     expect(after.lastChatPostAt).toEqual(delivered.lastChatPostAt);
@@ -258,6 +296,7 @@ describe('an escalation with nowhere to post', () => {
       select: { id: true },
     });
     await setEscalationStatus(form({ escalationId: e.id, status: 'resolved' }));
+    await flushAfter();
 
     expect(postToThread).not.toHaveBeenCalled();
     const row = await prisma.escalation.findUniqueOrThrow({ where: { id: e.id } });
@@ -272,6 +311,7 @@ describe('an escalation with nowhere to post', () => {
       select: { id: true },
     });
     await setEscalationStatus(form({ escalationId: e.id, status: 'addressed' }));
+    await flushAfter();
 
     expect(postToThread).not.toHaveBeenCalled();
     const row = await prisma.escalation.findUniqueOrThrow({ where: { id: e.id } });

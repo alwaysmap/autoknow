@@ -110,13 +110,19 @@ export default function EscalationsClient({
   return (
     <PageShell
       title={t(locale, 'escalationsLabel')}
-      maxWidth="75rem"
+      // No maxWidth, like /programs: nine columns, one of them a SENTENCE. Capping the
+      // content column made auto table layout squeeze the statement to three lines while
+      // its token neighbours sat half empty — the cap was buying nothing and costing the
+      // one column anybody reads the row for.
       actions={<NewEscalationButton partners={partners} projects={projects} people={people} />}
     >
       <section className={styles.tableSection}>
         <DataTable
           headers={[
-            { key: 'title', label: t(locale, 'escStatement') },
+            // The widest column by a distance, because it is the only one holding a
+            // SENTENCE — the rest are tokens, names and a date. Left narrow it wrapped to
+            // three lines while its neighbours sat half empty.
+            { key: 'title', label: t(locale, 'escStatement'), width: '26rem' },
             {
               key: 'status', label: t(locale, 'statusLabel'), filterable: true,
               // The stored enum value is the shareable token; the label is display-only,
