@@ -51,6 +51,9 @@ export interface EscalationRecord {
   status: EscalationStatus;
   severity: EscalationSeverity | null;
   orgLevel: EscalationOrgLevel | null;
+  /** ISO string, or null — serialized by the server page, since a Date cannot cross
+   *  the server/client boundary as a prop. */
+  targetDate: string | null;
   partnerId: number | null;
   projectId: number | null;
   ownerPersonId: number | null;
@@ -130,6 +133,17 @@ function EscalationFormFields({
           <option value="">{t(locale, 'escUntriaged')}</option>
           {ORG_LEVELS.map((o) => <option key={o} value={o}>{t(locale, ORG_LEVEL_KEY[o])}</option>)}
         </select>
+      </div>
+
+      <div className={dash.textInputGroup}>
+        <label htmlFor="efTarget" className={dash.formLabel}>{t(locale, 'escTargetDate')}</label>
+        {/* Blank is a real answer and stays blank — no default. `toISOString().slice(0,10)`
+            is the value shape `type="date"` requires. */}
+        <input
+          id="efTarget" type="date" name="targetDate"
+          defaultValue={defaults?.targetDate ? defaults.targetDate.slice(0, 10) : ''}
+          className={dash.textInput}
+        />
       </div>
 
       {personSelect('efOwner', 'ownerPersonId', t(locale, 'escOwner'), defaults?.ownerPersonId ?? null)}

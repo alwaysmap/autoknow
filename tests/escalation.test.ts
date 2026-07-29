@@ -21,6 +21,8 @@ import {
   canTransition,
   isClosed,
   isOpen,
+  isOverdue,
+  targetRank,
   orgLevelRank,
   severityRank,
   severityToken,
@@ -100,6 +102,45 @@ describe('triage ordering', () => {
     expect(UNTRIAGED).not.toBe('');
     expect(severityToken('s1')).toBe('s1');
     expect(orgLevelToken('exec')).toBe('exec');
+  });
+});
+
+describe('target date', () => {
+  const day = (iso: string) => new Date(iso);
+
+  it('is not overdue before, or ON, its target day', () => {
+    // Day-granular deliberately: a target is a DATE somebody typed, not an instant, so an
+    // escalation due today must not flip to overdue at 17:00.
+    expect(isOverdue('2026-07-29', 'open', day('2026-07-28T09:00:00'))).toBe(false);
+    expect(isOverdue('2026-07-29', 'open', day('2026-07-29T00:00:00'))).toBe(false);
+    expect(isOverdue('2026-07-29', 'open', day('2026-07-29T23:59:59'))).toBe(false);
+  });
+
+  it('is overdue the day AFTER', () => {
+    expect(isOverdue('2026-07-29', 'open', day('2026-07-30T00:00:01'))).toBe(true);
+  });
+
+  it('is never overdue once CLOSED, however late it ran', () => {
+    // "Is anybody still waiting" has already been answered.
+    for (const s of TERMINAL_STATUSES) {
+      expect(isOverdue('2020-01-01', s, day('2026-07-30T00:00:00'))).toBe(false);
+    }
+  });
+
+  it('is never overdue with no target — nobody committed to anything', () => {
+    expect(isOverdue(null, 'open', day('2026-07-30T00:00:00'))).toBe(false);
+    expect(isOverdue(undefined, 'open', day('2026-07-30T00:00:00'))).toBe(false);
+  });
+
+  it('treats an unparseable target as no target rather than as overdue', () => {
+    expect(isOverdue('not a date', 'open', day('2026-07-30T00:00:00'))).toBe(false);
+  });
+
+  it('sorts a MISSING target last, not first', () => {
+    // Same argument as severityRank: "nobody said" is not "infinitely soon".
+    expect(targetRank(null)).toBeGreaterThan(targetRank('2099-01-01'));
+    expect(targetRank(undefined)).toBeGreaterThan(targetRank('2099-01-01'));
+    expect(targetRank('2026-01-01')).toBeLessThan(targetRank('2026-06-01'));
   });
 });
 

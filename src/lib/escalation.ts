@@ -78,6 +78,58 @@ export const ORG_LEVEL_ORDER: Record<EscalationOrgLevel, number> = {
   team: 3,
 };
 
+/**
+ * Is this escalation past the date somebody committed to?
+ *
+ * DERIVED, never stored: overdue is a function of the target, the clock and the status,
+ * so a column holding it would need a cron to keep it true — the O(time) shape the
+ * ingestion-health ADR rejects. A CLOSED escalation is never overdue however late it
+ * ran: the question "is anybody still waiting" has already been answered.
+ *
+ * Day-granular deliberately. A target is a DATE somebody typed, not an instant, so an
+ * escalation due today is not overdue at 09:00 and overdue at 17:00 — it is overdue
+ * tomorrow.
+ */
+export function isOverdue(
+  target: Date | string | null | undefined,
+  status: EscalationStatus,
+  now: Date = new Date(),
+): boolean {
+  if (target == null || isClosed(status)) return false;
+  const due = localDay(target);
+  if (!due) return false;
+  // Overdue starts at the first instant of the day AFTER the target.
+  const endOfDue = new Date(due.getFullYear(), due.getMonth(), due.getDate() + 1);
+  return now >= endOfDue;
+}
+
+/**
+ * A target as a LOCAL calendar day.
+ *
+ * `new Date('2026-07-29')` is parsed by the spec as UTC midnight, while
+ * `new Date('2026-07-29T00:00:00')` is LOCAL — so west of Greenwich a bare `YYYY-MM-DD`
+ * lands on the previous local day and an escalation reads as overdue a day early. A
+ * target is a date somebody typed into a `<input type="date">`, so the local calendar
+ * day is what they meant; the date-only form is therefore split and rebuilt locally
+ * rather than handed to the Date parser.
+ */
+function localDay(target: Date | string): Date | null {
+  if (typeof target === 'string') {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(target.trim());
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+  const d = new Date(target);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Sort key for the target column: NULLs LAST, same argument as `severityRank` — a
+ *  missing target is "nobody said", not "infinitely soon". */
+export function targetRank(target: Date | string | null | undefined): number {
+  if (target == null) return Number.MAX_SAFE_INTEGER;
+  const t = new Date(target).getTime();
+  return Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t;
+}
+
 export const SEVERITIES: EscalationSeverity[] = ['s1', 's2', 's3'];
 export const ORG_LEVELS: EscalationOrgLevel[] = ['exec', 'director', 'region', 'team'];
 

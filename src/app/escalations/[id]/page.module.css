@@ -180,6 +180,14 @@
   color: var(--muted);
 }
 
+/* Past its target and still open. Coloured INK, not a filled badge (§6 keeps semantic
+   colour to text), and the app's existing "something needs attention" hue rather than a
+   new one — the same treatment the delivery-failure line uses. */
+.overdue {
+  color: var(--warn);
+  cursor: help;
+}
+
 /* Delivery failure. Coloured TEXT, not a filled badge — §6 keeps semantic colour to ink,
    and this is the app's own "something is wrong" ink rather than a new hue. It reads as a
    sentence because it is one: the change is saved, the thread just was not told. */

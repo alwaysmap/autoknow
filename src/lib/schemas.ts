@@ -483,6 +483,9 @@ export const escalationFieldsSchema = z
     projectId: zIdOrNull,
     severity: zSeverityOrNull,
     orgLevel: zOrgLevelOrNull,
+    /** A date from a `<input type="date">`; blank clears it. Optional by design — see
+     *  the column comment in prisma/schema.prisma. */
+    targetDate: blankToNull(z.coerce.date()),
     ownerPersonId: zIdOrNull,
     decisionMakerPersonId: zIdOrNull,
     requestedOfPersonId: zIdOrNull,
@@ -537,6 +540,7 @@ export const escalationApiSchema = z
     status: escalationStatusSchema.optional(),
     severity: zSeverityOrNull.optional(),
     orgLevel: zOrgLevelOrNull.optional(),
+    targetDate: blankToNull(z.coerce.date()).optional(),
     partnerId: zIdOrNull.optional(),
     projectId: zIdOrNull.optional(),
     ownerPersonId: zIdOrNull.optional(),
