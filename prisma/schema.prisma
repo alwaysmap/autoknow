@@ -255,9 +255,10 @@ model PhaseState {
   @@index([phaseId, timestamp])
   // The UNSCOPED reads, which the composite above cannot serve: with no phaseId
   // predicate its leading column is unconstrained, so Postgres sorts the whole table.
-  // lib/summaries' ecosystem staleness probe and lib/activity's ecosystem feed; the
-  // migration header has the measurement and why the probe's HEALTHY case is its
-  // expensive one.
+  // Two callers — lib/summaries' ecosystem staleness probe and lib/activity's ecosystem
+  // feed. This is the table where it matters most, because it is append-only and the
+  // fastest-growing in the schema. Migration 20260729015546 has the measurement, and why
+  // the probe's HEALTHY case is its expensive one.
   //
   // NOT the redundancy `drop_redundant_affiliation_indexes` removed: that dropped
   // single-column indexes that were strict PREFIXES of a composite. `timestamp` is this
@@ -596,8 +597,9 @@ model ProjectState {
   sourceUrl         String?
 
   @@index([projectId, timestamp])
-  // The unscoped reads the composite cannot serve — same shape and same reason as
-  // PhaseState.@@index([timestamp]), which carries the full account.
+  // The unscoped reads the composite cannot serve: lib/summaries' ecosystem staleness
+  // probe and lib/activity's ecosystem feed, the same two that motivate the identical
+  // index on PhaseState. Migration 20260729015546 carries the full account.
   @@index([timestamp])
 }
 
@@ -620,12 +622,12 @@ model PartnerState {
   sourceUrl         String?
 
   @@index([partnerId, timestamp])
-  // Same SHAPE as PhaseState.@@index([timestamp]) — an unscoped read that a
-  // leading-scope composite cannot serve — but a different caller, and this one is it:
-  // app/partners loads EVERY relationship state, `orderBy timestamp desc` with no where,
-  // and reduces to the latest score plus a 10-point history per partner in JS. (The
-  // ecosystem staleness probe that motivates the other two never reads this table
-  // unscoped.)
+  // The unscoped reads the composite cannot serve — same shape as the identical index on
+  // PhaseState, but only ONE of its two callers: lib/activity's ecosystem feed reads this
+  // table too, while lib/summaries' staleness probe never does (its partner branch is
+  // scoped). The caller unique to here is app/partners, which loads EVERY relationship
+  // state, `orderBy timestamp desc` with no where, and reduces to the latest score plus a
+  // 10-point history per partner in JS. Migration 20260729015546 has the account.
   @@index([timestamp])
 }
 

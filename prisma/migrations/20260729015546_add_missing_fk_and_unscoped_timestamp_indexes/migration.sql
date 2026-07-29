@@ -13,9 +13,10 @@
 --    this treatment with the reasoning written next to it; these two were missed.
 --    Project's is the composite (partnerId, name) because lib/partnerPrograms wants the
 --    filter and the sort together; partnerId alone is its prefix, so the blocker count is
---    served too, as are lib/search's partner-scoped program query (search.ts:268) and its
---    one partnerId-keyed subselect (search.ts:321). Note search.ts:251 looks similar and
---    is NOT served: it selects partnerId keyed on Project.id, which the PK already covers.
+--    served too, as are lib/search's partner-scoped program branch and the `Project`
+--    subselect inside its context-URL partner scope. Note lib/search's program-scope
+--    lookup reads the other way — it selects partnerId keyed on Project.id — so it is
+--    already covered by the PK and this index does nothing for it, however alike it looks.
 --
 -- 2. Person.email, whose index the E9 `unique_at_an_instant` migration dropped along with
 --    the false `@unique` claim — correctly — without noticing that the plain `=` reader
@@ -27,10 +28,17 @@
 --    caller that matters is lib/summaries' ecosystem staleness probe, where the HEALTHY
 --    case is the expensive one — `findFirst({ where: { timestamp: { gt: after } } })`
 --    matches nothing when the brief is fresh, so it scans everything to return null.
---    PartnerState is the same shape with a different caller: that probe never reads it
---    unscoped; app/partners does, loading every relationship state to reduce in JS.
+--    PartnerState is the same shape with different callers: that probe never reads it
+--    unscoped; app/partners does, loading every relationship state to reduce in JS, as
+--    does lib/activity's ecosystem feed — which reads all three tables this way.
 --    ContextUrl already had a bare `createdAt` index for exactly this; the State tables
 --    are the asymmetry.
+--
+--    PhaseState is the one that degrades first: it is append-only and the fastest-growing
+--    table in the schema. Measured on a scratch database at 200k rows, running the
+--    staleness probe in its healthy (nothing-newer) case:
+--        with this index     Index Scan   0.046 ms
+--        without it          Seq Scan    36.5   ms   -- all 200k rows, to return zero
 --
 -- These are the SUFFIX of their composites, not the prefix, so they are NOT the redundancy
 -- that `20260727..._drop_redundant_affiliation_indexes` cleaned up. Do not "align" them.

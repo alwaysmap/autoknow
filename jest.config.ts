@@ -47,9 +47,8 @@ const config: Config = {
   // the app-side Prisma pool that src/lib/db caches on `global`. Without it that pool
   // leaks per file and connections accumulate across the run toward Postgres's
   // max_connections. That ceiling got NEARER when this config stopped running serially:
-  // the leak is per worker now, so the worst case is maxWorkers times what it was. It
-  // still measured a peak of 10 against a limit of 100 at four workers, which is the
-  // headroom this teardown is buying — see tests/close-app-pool.ts for the full story.
+  // the leak is per worker now, so the worst case is maxWorkers times what it was — see
+  // tests/close-app-pool.ts for the full story and the measured headroom.
   setupFilesAfterEnv: ['<rootDir>/tests/close-app-pool.ts'],
   // The main checkout hosts Claude Code worktrees under .claude/ — without this, jest
   // discovers each worktree's copy of the tests and the duplicates race on the test DB.
