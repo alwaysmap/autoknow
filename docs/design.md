@@ -211,6 +211,23 @@ tables) so nothing has to be relearned page to page.
   status notes, any running prose) read the way a person says them — "August 2027", "end
   of March" — at the coarsest truthful altitude. The boundary is still the cell edge, and
   `tests/summaryProseDates.test.ts` still guards the prose side (issue #20).
+* **A STAMP answers "is this current", against now; a CELL answers "when did this
+  happen", read down a column** (2026-07-28, issue #171) — a third grammar, drawn
+  deliberately against the cell rule directly above rather than left for the next
+  person to infer. A stamp — a briefing's "Generated…", a gauge's "Updated…", an
+  ingestion cycle's "Last cycle…" — is read ALONE, one instant compared to the moment
+  of reading, which is exactly what a DURATION answers and an absolute date does not:
+  "20 minutes ago" needs no arithmetic, "2026-07-26 00:15 UTC" does. `RelativeTime`
+  (`src/components/RelativeTime.tsx`, sibling to `DateCell` for the same reason —
+  format/threshold/markup in ONE place) renders that duration, falling back to an
+  absolute locale-short date past a 30-day crossover (a duration that old is vaguer
+  than a calendar date). A CELL is read DOWN, several instances compared against each
+  other, not against now — "3 days ago / 4 days ago / last month" is a ragged,
+  non-comparable, non-sortable column where `DateCell`'s ISO/locale-short pair is a
+  ruler; a record-date column (a feed's date, a history log's date, every `DateCell`)
+  stays absolute regardless of how recent the record is. Same machine/reading-form
+  split either way: `<time dateTime>` keeps the exact instant, `title` carries the
+  full UTC stamp on hover.
 * **Header click sorts. Filtering is a secondary, per-column action**: a small
   three-line funnel icon beside the label opens a checklist of that column's
   distinct values. Selections within a column are OR-ed ("Concerned" *and* "On

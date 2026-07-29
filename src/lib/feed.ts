@@ -60,6 +60,12 @@ export interface FeedItem {
   needle?: NeedlePayload | null; // present on needle-change events -> renders a mini gauge
   hill?: HillPayload | null; // present on phase hill updates -> renders a mini hill chart
   relationship?: RelationshipPayload | null; // partner relationship updates -> 1..5 scale track
+  /** #171: a watched source's "last checked" instant, kept as raw ISO rather than
+   *  baked into `subtitle` — `getActivity` has no locale in scope (server-side, shared
+   *  across viewers), and a freshness stamp has to render relative-to-now on the
+   *  CLIENT (RelativeTime) to be hydration-safe and to stay current on a page left
+   *  open. Absent unless the item's source is actively watched (see lib/activity.ts). */
+  checkedAt?: string | null;
 }
 
 export interface FeedQuery {

@@ -358,6 +358,9 @@ const STRINGS = {
   // position already say it) — this is now the only place a screen reader (or a
   // sighted user hovering the `title`) recovers health, so it has to survive here.
   programHealthAria: { en: 'Program health: {health}', de: 'Programmstatus: {health}', ja: 'プログラムの健全性: {health}', ko: '프로그램 상태: {health}' },
+  // #171: RelativeTime's one surviving string — `Intl.RelativeTimeFormat` phrases a
+  // sub-minute delta as "0 minutes ago", which reads as a bug, not a value.
+  justNow: { en: 'just now', de: 'gerade eben', ja: 'たった今', ko: '방금' },
   updatedOn: { en: 'Updated {d}', de: 'Aktualisiert {d}', ja: '{d} 更新', ko: '{d} 업데이트' },
   noPhasesYet: { en: 'No phases yet.', de: 'Noch keine Phasen.', ja: 'フェーズはまだありません。', ko: '아직 단계가 없습니다.' },
   hillAria: { en: 'Phase progress on the hill', de: 'Phasenfortschritt auf dem Hügel', ja: 'ヒル上のフェーズ進捗', ko: '힐 차트의 단계 진행률' },
@@ -507,11 +510,14 @@ const STRINGS = {
     ja: 'サマリーはまだありません。保存済みのエビデンスから生成してください。',
     ko: '아직 요약이 없습니다. 저장된 근거로 생성하세요.',
   },
+  // #171: {d} is now a RelativeTime duration ("20 minutes ago"), not a raw UTC stamp —
+  // the literal "UTC" suffix dropped with it. The exact instant survives in {d}'s own
+  // `dateTime`/`title` (design decision #6: a duration needs no zone).
   summaryProvenance: {
-    en: 'Generated {d} UTC from {n} sources',
-    de: 'Erzeugt {d} UTC aus {n} Quellen',
-    ja: '{d} UTCに{n}件のソースから生成',
-    ko: '{d} UTC에 {n}개 소스로 생성',
+    en: 'Generated {d} from {n} sources',
+    de: 'Erzeugt {d} aus {n} Quellen',
+    ja: '{d}に{n}件のソースから生成',
+    ko: '{d}에 {n}개 소스로 생성',
   },
   summaryUpdating: { en: 'Updating…', de: 'Aktualisiert…', ja: '更新中…', ko: '업데이트 중…' },
   summaryRefresh: { en: 'Refresh', de: 'Aktualisieren', ja: '更新', ko: '새로 고침' },
@@ -693,7 +699,13 @@ const STRINGS = {
   ingestStatRefreshed: { en: 'Refreshed', de: 'Aktualisiert', ja: '更新', ko: '갱신' },
   ingestStatSkipped: { en: 'Skipped', de: 'Übersprungen', ja: 'スキップ', ko: '건너뜀' },
   ingestStatErrors: { en: 'Errors', de: 'Fehler', ja: 'エラー', ko: '오류' },
-  ingestRanAt: { en: 'Last cycle: {when} UTC', de: 'Letzter Lauf: {when} UTC', ja: '前回: {when} UTC', ko: '마지막 실행: {when} UTC' },
+  // #171: {when} is now a RelativeTime duration, not a raw UTC stamp — see
+  // summaryProvenance just above for why the literal "UTC" suffix dropped with it.
+  ingestRanAt: { en: 'Last cycle: {when}', de: 'Letzter Lauf: {when}', ja: '前回: {when}', ko: '마지막 실행: {when}' },
+  // #171: a watched source's freshness stamp (lib/activity.ts's `checkedAt`) — was an
+  // unlocalized `checked ${isoDateTime} UTC` template literal, a live i18n bug this
+  // issue fixes on its way past.
+  checkedAt: { en: 'checked {when}', de: 'geprüft {when}', ja: '{when}に確認', ko: '{when} 확인' },
   ingestQuotaStopped: {
     en: 'stopped early — free-tier quota reached',
     de: 'vorzeitig gestoppt — Kontingent des kostenlosen Tarifs erreicht',

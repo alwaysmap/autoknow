@@ -1,16 +1,17 @@
 'use client';
 
 import ChartLabel from './ChartLabel';
+import RelativeTime from './RelativeTime';
 import { useRef, useState } from 'react';
 import styles from './NeedleGauge.module.css';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
 import OverlayDialog from './OverlayDialog';
 import { t, statusKey } from '../lib/i18n';
+import { tNodes } from './tNodes';
 import { useLocale } from './LocaleProvider';
 import { HILL_PATH, hillCoordinates } from '../lib/geometry';
 import { hillStatus, hillStatusColor, phaseColor } from '../lib/phase';
 import { updatePhaseHill } from '../app/actions/hill';
-import { localDate } from '../lib/dates';
 import { hillTextWidth, truncateToWidth } from '../lib/hillLayout';
 
 // The top-left caption (#165): the curve starts at (10,80) and does not rise above
@@ -233,7 +234,9 @@ export default function PhaseHillGauge({
       {(showStatus || updatedAt || editable) && (
         <div className={styles.statusRow}>
           {showStatus && <span className={styles.statusValue} style={{ color: hillStatusColor(progress) }}>{statusText(progress)}</span>}
-          {updatedAt && <span className={styles.updatedAt}>{t(locale, 'updatedOn', { d: localDate(updatedAt, locale, { month: 'short', day: 'numeric' }) })}</span>}
+          {/* #171: a duration, not a date the reader subtracts by hand — see NeedleGauge's
+              identical conversion for why tNodes (not t()) carries the value here. */}
+          {updatedAt && <span className={styles.updatedAt}>{tNodes(locale, 'updatedOn', { d: <RelativeTime value={updatedAt} /> })}</span>}
           {editable && <button type="button" onClick={open} className={styles.updateBtn}>{strings.update}</button>}
         </div>
       )}

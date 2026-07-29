@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
 import NeedleHistoryList from './NeedleHistoryList';
 import OverlayDialog from './OverlayDialog';
+import RelativeTime from './RelativeTime';
 import { RelationshipFace, RelationshipNoValue } from './RelationshipFace';
 import { t } from '../lib/i18n';
+import { tNodes } from './tNodes';
 import { useLocale } from './LocaleProvider';
 import { useHashAddressablePopover } from '../lib/useHashAddressablePopover';
 import { updatePartnerRelationship } from '../app/actions/relationship';
@@ -15,7 +17,6 @@ import {
 } from '../lib/relationship';
 import type { NeedleChange } from '../lib/history';
 import styles from './RelationshipScale.module.css';
-import { localDate } from '../lib/dates';
 
 // Partner relationship health on a 5-point scale — deliberately NOT a needle and
 // deliberately colorless. Health is read as POSITION on a common 1..5 axis. Because
@@ -158,9 +159,11 @@ export default function RelationshipScale({
           <span className={styles.descriptor}>{t(locale, 'relNotRated')}</span>
         )}
       </div>
+      {/* #171: a duration, not a date the reader subtracts by hand — see NeedleGauge's
+          identical conversion for why tNodes (not t()) carries the value here. */}
       {updatedAt && (
         <div className={styles.updatedAt}>
-          {t(locale, 'updatedOn', { d: localDate(updatedAt, locale, { month: 'short', day: 'numeric' }) })}
+          {tNodes(locale, 'updatedOn', { d: <RelativeTime value={updatedAt} /> })}
         </div>
       )}
       {/* faces · date · DETAIL — one horizontal cluster (§7). Updating happens inside

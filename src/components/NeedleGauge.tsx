@@ -8,11 +8,12 @@ import Markdown from './Markdown';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
 import NeedleHistoryList from './NeedleHistoryList';
 import OverlayDialog from './OverlayDialog';
+import RelativeTime from './RelativeTime';
 import { t } from '../lib/i18n';
+import { tNodes } from './tNodes';
 import { useLocale } from './LocaleProvider';
 import { updateNeedleStatus } from '../app/actions/needle';
 import { HEALTHS, healthColor, healthKey, parseHealth, type Health } from '../lib/health';
-import { localDate } from '../lib/dates';
 import type { NeedleChange } from '../lib/history';
 import { CX, CY, A0, A1, SWEEP, VB_X, VB_Y, VB_W, VB_H, clamp01, Gauge, NeedleGaugeSvg } from './NeedleGaugeSvg';
 
@@ -189,7 +190,11 @@ export default function NeedleGauge({
             Health is now colour-only here (its word lives in the gauge's accessible
             name above, not as a second visible encoding of the same fact). */}
         <div className={styles.statusRow}>
-          {updatedAt && <span className={styles.updatedAt}>{t(locale, 'updatedOn', { d: localDate(updatedAt, locale, { month: 'short', day: 'numeric' }) })}</span>}
+          {/* #171: "is this current" answered as a duration, not a date the reader has
+              to subtract by hand — RelativeTime owns the crossover/hydration-safe swap;
+              tNodes keeps `{d}`'s slot in the LOCALE's own word order (JA/KO put it
+              first) instead of always concatenating "Updated" + the value. */}
+          {updatedAt && <span className={styles.updatedAt}>{tNodes(locale, 'updatedOn', { d: <RelativeTime value={updatedAt} /> })}</span>}
           {/* DETAIL only ever changes WHERE you are — it writes `#status-history` and
               nothing else — so it is a link, not a button (design.md §6, #168): a
               plain <Link>, relying on lib/locationHash's pushState patch to notify

@@ -1,10 +1,11 @@
 import type { Locale } from '../lib/i18n';
 import { t } from '../lib/i18n';
+import { tNodes } from './tNodes';
 import type { IngestionHealth } from '../lib/ingestionHealth';
-import { isoDateTime } from '../lib/dates';
 import { MAX_DOC_CHARS } from '../lib/gemini';
 import { knownCyclesPerDay, resolveCyclesPerDay } from '../lib/cronCadence';
 import BudgetSlider from './BudgetSlider';
+import RelativeTime from './RelativeTime';
 import styles from './IngestionHealthCard.module.css';
 
 // #38: the operator's ingestion-health panel on Manage → Sources. It surfaces the bounded
@@ -54,7 +55,7 @@ export default function IngestionHealthCard({
             <Stat label={t(locale, 'ingestStatErrors')} value={summary.errors + summary.driveErrors} warn />
           </div>
           <p className={styles.ranAt}>
-            {t(locale, 'ingestRanAt', { when: isoDateTime(summary.ranAt) })}
+            {tNodes(locale, 'ingestRanAt', { when: <RelativeTime value={summary.ranAt} /> })}
             {summary.quotaStopped && ` · ${t(locale, 'ingestQuotaStopped')}`}
           </p>
         </>
