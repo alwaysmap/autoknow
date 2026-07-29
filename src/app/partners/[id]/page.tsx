@@ -11,6 +11,8 @@ import ActivityFeed from '../../../components/ActivityFeed';
 import QuickIngest from '../../../components/QuickIngest';
 import PartnerProgramRows from '../../../components/PartnerProgramRows';
 import { getPartnerPrograms } from '../../../lib/partnerPrograms';
+import { getPartnerEscalations } from '../../../lib/escalationQueries';
+import EscalationRows from '../../../components/EscalationRows';
 import { getActivity } from '../../../lib/activity';
 import { untrackedContext } from '../../../lib/untrackedContext';
 import { getSummary } from '../../../lib/summaries';
@@ -149,6 +151,9 @@ export default async function PartnerDetailPage(props: PageProps) {
   const allPrograms = await getPartnerPrograms(partner.id);
   const programs = activeOnly ? allPrograms.filter((p) => !p.isArchived) : allPrograms;
 
+  // What has been escalated about this partner (#245) — open first, newest first.
+  const escalations = await getPartnerEscalations(partner.id);
+
   // Unified activity for this partner and its programs.
   const activity = await getActivity({ kind: 'partner', id: partner.id });
   const summary = await getSummary('partner', partner.id);
@@ -268,6 +273,26 @@ export default async function PartnerDetailPage(props: PageProps) {
               {t(locale, 'peopleLabel')}
             </AnchorHeading>
             <PartnerPeopleTable rows={rosterRows} locale={locale} />
+          </section>
+
+          <section className={styles.projectsSection}>
+            {/* Escalations about this partner (#245). The heading's ⋯ links to the full
+                listing pre-filtered to this partner — filtering belongs to the browsable
+                list, not to a fixed panel about one entity (EscalationRows says why). */}
+            <AnchorHeading
+              id="escalations"
+              linkLabel={t(locale, 'anchorLink')}
+              actions={
+                <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+                  <Link href={`/escalations?partner=${encodeURIComponent(partner.name)}`}>
+                    {t(locale, 'escalationsLabel')}
+                  </Link>
+                </KebabMenu>
+              }
+            >
+              {t(locale, 'escalationsLabel')}
+            </AnchorHeading>
+            <EscalationRows escalations={escalations} locale={locale} />
           </section>
 
           <section className={styles.projectsSection}>

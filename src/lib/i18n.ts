@@ -907,6 +907,48 @@ const STRINGS = {
     ja: '更新しました — このスレッドの新しい内容を保存しました。',
     ko: '업데이트했습니다 — 이 스레드의 새로운 내용을 저장했습니다.',
   },
+  // #245 part b — the escalate trigger's replies. Same honesty contract as the acks above
+  // (tests/chatAckHonesty.test.ts covers these too): never "room", never "watched", and
+  // the snapshot semantics stated outright. `chatEscalationNotWatching` is the escalate
+  // path's opening caveat in place of `chatSnapshotNote`, because the stronger claim is
+  // the one a reader needs here — the ESCALATION does not follow the thread, so nothing
+  // said after this moment reaches it on its own.
+  chatEscalationNotWatching: {
+    en: 'The escalation does not follow this thread — it holds a snapshot of the thread as of now, so @mention me again to capture anything said since.',
+    de: 'Die Eskalation verfolgt diesen Thread nicht — sie hält eine Momentaufnahme des Threads zum jetzigen Stand; erwähne mich erneut (@), um seither Gesagtes zu erfassen.',
+    ja: 'このエスカレーションはスレッドを追跡しません。現時点のスレッドのスナップショットを保持するだけなので、以降の発言を取り込むには再度 @ メンションしてください。',
+    ko: '이 에스컬레이션은 스레드를 따라가지 않습니다. 현재 시점의 스레드 스냅샷만 보관하므로, 이후에 오간 내용을 담으려면 다시 @멘션하세요.',
+  },
+  chatEscalationCreated: {
+    en: 'Raised as Escalation #{n} — {url}. Nobody is assigned and it is not triaged yet: set the owner, decision maker, severity and org level there.',
+    de: 'Als Eskalation #{n} angelegt — {url}. Es ist noch niemand zugewiesen und nichts eingestuft: Verantwortliche, Entscheider, Schweregrad und Organisationsebene dort setzen.',
+    ja: 'エスカレーション #{n} として起票しました — {url}。担当者は未割り当てで未分類です。オーナー・意思決定者・重大度・組織レベルはそちらで設定してください。',
+    ko: '에스컬레이션 #{n}으로 제기했습니다 — {url}. 아직 담당자가 없고 분류도 되지 않았습니다. 담당자·의사결정자·심각도·조직 레벨을 그곳에서 설정하세요.',
+  },
+  chatEscalationCreatedNoLink: {
+    en: 'Raised as Escalation #{n} in AutoKnow. Nobody is assigned and it is not triaged yet: set the owner, decision maker, severity and org level there.',
+    de: 'Als Eskalation #{n} in AutoKnow angelegt. Es ist noch niemand zugewiesen und nichts eingestuft: Verantwortliche, Entscheider, Schweregrad und Organisationsebene dort setzen.',
+    ja: 'AutoKnow にエスカレーション #{n} として起票しました。担当者は未割り当てで未分類です。オーナー・意思決定者・重大度・組織レベルはそちらで設定してください。',
+    ko: 'AutoKnow에 에스컬레이션 #{n}으로 제기했습니다. 아직 담당자가 없고 분류도 되지 않았습니다. 담당자·의사결정자·심각도·조직 레벨을 그곳에서 설정하세요.',
+  },
+  chatEscalationExists: {
+    en: 'Already tracked as Escalation #{n} — {url}. I saved what this thread says now; no second escalation was created.',
+    de: 'Wird bereits als Eskalation #{n} geführt — {url}. Ich habe den aktuellen Stand dieses Threads gesichert; eine zweite Eskalation wurde nicht angelegt.',
+    ja: 'すでにエスカレーション #{n} として管理されています — {url}。このスレッドの現在の内容は保存しましたが、2 件目のエスカレーションは作成していません。',
+    ko: '이미 에스컬레이션 #{n}으로 관리되고 있습니다 — {url}. 이 스레드의 현재 내용은 저장했지만, 두 번째 에스컬레이션은 만들지 않았습니다.',
+  },
+  chatEscalationExistsNoLink: {
+    en: 'Already tracked as Escalation #{n} in AutoKnow. I saved what this thread says now; no second escalation was created.',
+    de: 'Wird bereits als Eskalation #{n} in AutoKnow geführt. Ich habe den aktuellen Stand dieses Threads gesichert; eine zweite Eskalation wurde nicht angelegt.',
+    ja: 'AutoKnow ではすでにエスカレーション #{n} として管理されています。このスレッドの現在の内容は保存しましたが、2 件目のエスカレーションは作成していません。',
+    ko: 'AutoKnow에서 이미 에스컬레이션 #{n}으로 관리되고 있습니다. 이 스레드의 현재 내용은 저장했지만, 두 번째 에스컬레이션은 만들지 않았습니다.',
+  },
+  chatEscalationSaveFailed: {
+    en: 'I saved this thread, but could not raise the escalation: {reason}',
+    de: 'Ich habe diesen Thread gesichert, konnte die Eskalation aber nicht anlegen: {reason}',
+    ja: 'このスレッドは保存しましたが、エスカレーションを起票できませんでした: {reason}',
+    ko: '이 스레드는 저장했지만 에스컬레이션을 제기하지 못했습니다: {reason}',
+  },
   chatSaveFailed: {
     en: 'Could not save this thread: {reason}',
     de: 'Dieser Thread konnte nicht gespeichert werden: {reason}',
@@ -2141,6 +2183,186 @@ const STRINGS = {
     de: 'Die oberste Zeile ist die Person oder Firma, deren Kalender derzeit portfolioweit die meisten Einheiten verzögert. Jeder Name verlinkt auf seine Detailseite.',
     ja: '最上段は、ポートフォリオ全体で最も多くの台数を遅らせているカレンダーの持ち主です。各名前は詳細ページへリンクします。',
     ko: '맨 윗줄은 포트폴리오 전체에서 가장 많은 물량을 지연시키고 있는 일정의 주인입니다. 모든 이름은 상세 페이지로 연결됩니다.',
+  },
+
+  // ---- escalations (#245) ---------------------------------------------------------
+  // Status reads two ways on purpose (lib/escalation): the BARE name is what a picker
+  // offers ("Resolved"), and the CLOSED- form is what a page reads ("Closed — Resolved"),
+  // because "Addressed" alone does not say the escalation is over. Both halves live in
+  // each entry rather than being concatenated in code, so a translator controls the order
+  // and the punctuation — ja/ko put the qualifier first and use no dash at all.
+  navEscalations: { en: 'Escalations', de: 'Eskalationen', ja: 'エスカレーション', ko: '에스컬레이션' },
+  escalationsLabel: { en: 'Escalations', de: 'Eskalationen', ja: 'エスカレーション', ko: '에스컬레이션' },
+
+  escStatusOpen: { en: 'Open', de: 'Offen', ja: '未解決', ko: '진행 중' },
+  escStatusResolved: { en: 'Resolved', de: 'Gelöst', ja: '解決', ko: '해결' },
+  escStatusDuplicate: { en: 'Duplicate', de: 'Duplikat', ja: '重複', ko: '중복' },
+  escStatusAddressed: { en: 'Addressed', de: 'Bearbeitet', ja: '対応済み', ko: '조치 완료' },
+  escStatusObsolete: { en: 'Obsolete', de: 'Hinfällig', ja: '不要', ko: '무효' },
+  escStatusClosedResolved: {
+    en: 'Closed — Resolved',
+    de: 'Geschlossen — gelöst',
+    ja: 'クローズ（解決）',
+    ko: '종료 (해결)',
+  },
+  escStatusClosedDuplicate: {
+    en: 'Closed — Duplicate',
+    de: 'Geschlossen — Duplikat',
+    ja: 'クローズ（重複）',
+    ko: '종료 (중복)',
+  },
+  escStatusClosedAddressed: {
+    en: 'Closed — Addressed',
+    de: 'Geschlossen — bearbeitet',
+    ja: 'クローズ（対応済み）',
+    ko: '종료 (조치 완료)',
+  },
+  escStatusClosedObsolete: {
+    en: 'Closed — Obsolete',
+    de: 'Geschlossen — hinfällig',
+    ja: 'クローズ（不要）',
+    ko: '종료 (무효)',
+  },
+
+  // Severity is three values and never a score — "S1" is a name, not a number, so it is
+  // identical in every locale.
+  escSeverityS1: { en: 'S1', de: 'S1', ja: 'S1', ko: 'S1' },
+  escSeverityS2: { en: 'S2', de: 'S2', ja: 'S2', ko: 'S2' },
+  escSeverityS3: { en: 'S3', de: 'S3', ja: 'S3', ko: 'S3' },
+  escSeverityLabel: { en: 'Severity', de: 'Schweregrad', ja: '重大度', ko: '심각도' },
+
+  escOrgTeam: { en: 'Team', de: 'Team', ja: 'チーム', ko: '팀' },
+  escOrgRegion: { en: 'Region', de: 'Region', ja: 'リージョン', ko: '리전' },
+  escOrgDirector: { en: 'Director', de: 'Direktor', ja: 'ディレクター', ko: '디렉터' },
+  escOrgExec: { en: 'Exec', de: 'Geschäftsleitung', ja: '経営層', ko: '경영진' },
+  escOrgLevelLabel: { en: 'Org level', de: 'Organisationsebene', ja: '組織レベル', ko: '조직 레벨' },
+  escUntriaged: { en: 'Not triaged', de: 'Nicht eingestuft', ja: '未分類', ko: '미분류' },
+
+  escOwner: { en: 'Owner', de: 'Verantwortlich', ja: 'オーナー', ko: '담당자' },
+  escDecisionMaker: { en: 'Decision maker', de: 'Entscheider', ja: '意思決定者', ko: '의사결정자' },
+  escRequestedOf: { en: 'Requested of', de: 'Angefragt bei', ja: '依頼先', ko: '요청 대상' },
+  escRaisedBy: { en: 'Raised by', de: 'Gemeldet von', ja: '起票者', ko: '제기자' },
+  escRaisedOn: { en: 'Raised', de: 'Gemeldet', ja: '起票日', ko: '제기일' },
+  escClosedOn: { en: 'Closed', de: 'Geschlossen', ja: 'クローズ日', ko: '종료일' },
+  escUnassigned: { en: 'Unassigned', de: 'Nicht zugewiesen', ja: '未割り当て', ko: '미지정' },
+  escDuplicateOf: { en: 'Duplicate of', de: 'Duplikat von', ja: '重複元', ko: '중복 원본' },
+
+  // Provenance: the trigger text exactly as it was typed, which is never editable. The
+  // hint says WHY it cannot be edited, so the read-only block does not read as a bug.
+  escOriginalRequest: { en: 'Original request', de: 'Ursprüngliche Anfrage', ja: '元の依頼', ko: '원본 요청' },
+  escOriginalRequestHint: {
+    en: 'Exactly as it was raised in chat. This is the record of what was asked, so it is never edited — the statement above is the version you can tidy up.',
+    de: 'Genau so, wie es im Chat gemeldet wurde. Das ist der Nachweis des Anliegens und wird daher nie bearbeitet — die Aussage oben ist die Fassung, die du überarbeiten kannst.',
+    ja: 'チャットで起票されたそのままの文面です。何が依頼されたかの記録なので編集はできません。整えられるのは上のステートメントです。',
+    ko: '채팅에서 제기된 그대로의 문구입니다. 무엇이 요청되었는지에 대한 기록이므로 편집할 수 없으며, 다듬을 수 있는 것은 위의 서술입니다.',
+  },
+  escSourceThread: { en: 'Source thread', de: 'Quell-Thread', ja: '元スレッド', ko: '원본 스레드' },
+  // The snapshot caveat, in the same voice as the Chat acks (docs/SCALING_LIMITS.md §3):
+  // never "room", never "watched".
+  escThreadSnapshotNote: {
+    en: 'This escalation does not follow its thread — the thread was captured as a snapshot when it was raised, and later messages arrive only when someone @mentions AutoKnow there again.',
+    de: 'Diese Eskalation verfolgt ihren Thread nicht — der Thread wurde bei der Meldung als Momentaufnahme erfasst; spätere Nachrichten kommen nur an, wenn dort erneut jemand AutoKnow (@) erwähnt.',
+    ja: 'このエスカレーションはスレッドを追跡しません。スレッドは起票時点のスナップショットとして取得されており、以降のメッセージは誰かが再度 AutoKnow を @ メンションしたときにのみ取り込まれます。',
+    ko: '이 에스컬레이션은 스레드를 따라가지 않습니다. 스레드는 제기 시점의 스냅샷으로 저장되었으며, 이후 메시지는 누군가 그곳에서 AutoKnow를 다시 @멘션할 때만 들어옵니다.',
+  },
+  escSourceChat: { en: 'Raised from chat', de: 'Aus Chat gemeldet', ja: 'チャットから起票', ko: '채팅에서 제기' },
+  escSourceManual: { en: 'Raised in the app', de: 'In der App gemeldet', ja: 'アプリで起票', ko: '앱에서 제기' },
+
+  escStatement: { en: 'Statement', de: 'Aussage', ja: 'ステートメント', ko: '서술' },
+  escSummaryLabel: { en: 'Summary', de: 'Zusammenfassung', ja: '概要', ko: '요약' },
+  newEscalation: { en: 'New escalation', de: 'Neue Eskalation', ja: 'エスカレーションを作成', ko: '새 에스컬레이션' },
+  escEdit: { en: 'Edit escalation', de: 'Eskalation bearbeiten', ja: 'エスカレーションを編集', ko: '에스컬레이션 편집' },
+  escChangeStatus: { en: 'Change status', de: 'Status ändern', ja: 'ステータスを変更', ko: '상태 변경' },
+  escReopen: { en: 'Re-open', de: 'Wieder öffnen', ja: '再オープン', ko: '다시 열기' },
+  escClose: { en: 'Close escalation', de: 'Eskalation schließen', ja: 'エスカレーションをクローズ', ko: '에스컬레이션 종료' },
+  escCloseAs: { en: 'Close as', de: 'Schließen als', ja: 'クローズ理由', ko: '종료 사유' },
+  escDuplicateOfPlaceholder: {
+    en: 'Which escalation does this duplicate?',
+    de: 'Welche Eskalation wird hier dupliziert?',
+    ja: 'どのエスカレーションの重複ですか？',
+    ko: '어떤 에스컬레이션의 중복인가요?',
+  },
+  escTitlePlaceholder: {
+    en: 'What decision is needed, in one line…',
+    de: 'Welche Entscheidung wird gebraucht — in einer Zeile…',
+    ja: '必要な判断を1行で…',
+    ko: '필요한 결정을 한 줄로…',
+  },
+  noEscalations: {
+    en: 'No escalations yet. Raise one here, or @mention AutoKnow in a chat thread with “escalate …”.',
+    de: 'Noch keine Eskalationen. Melde hier eine, oder erwähne AutoKnow (@) in einem Chat-Thread mit „escalate …“.',
+    ja: 'エスカレーションはまだありません。ここで作成するか、チャットスレッドで「escalate …」と添えて AutoKnow を @ メンションしてください。',
+    ko: '아직 에스컬레이션이 없습니다. 여기서 만들거나, 채팅 스레드에서 “escalate …”와 함께 AutoKnow를 @멘션하세요.',
+  },
+  noEscalationsMatchFilters: {
+    en: 'No escalations match these filters.',
+    de: 'Keine Eskalationen entsprechen diesen Filtern.',
+    ja: 'これらのフィルターに一致するエスカレーションはありません。',
+    ko: '이 필터와 일치하는 에스컬레이션이 없습니다.',
+  },
+  filterEscalationsPlaceholder: {
+    en: 'Filter escalations…',
+    de: 'Eskalationen filtern…',
+    ja: 'エスカレーションを絞り込み…',
+    ko: '에스컬레이션 필터…',
+  },
+  // ---- outbound post-back (#245 part c) --------------------------------------------
+  // What the app says INTO the source chat thread when an escalation changes. Two rules
+  // from #245 decision 2, both visible in the copy: the post names the CHANGE (which
+  // inherently names an assignee) and never the ACTOR who clicked — these are read by
+  // everyone in the space, and "Dylan closed this" is a different disclosure from "this is
+  // closed". And it never claims to be watching anything.
+  escPostStatus: {
+    en: 'Escalation #{n} — {title} — is now {status}.',
+    de: 'Eskalation #{n} — {title} — ist jetzt {status}.',
+    ja: 'エスカレーション #{n}「{title}」は現在 {status} です。',
+    ko: '에스컬레이션 #{n} “{title}” 상태가 {status}(으)로 바뀌었습니다.',
+  },
+  escPostAssignment: {
+    en: 'Escalation #{n} — {title}: {changes}.',
+    de: 'Eskalation #{n} — {title}: {changes}.',
+    ja: 'エスカレーション #{n}「{title}」: {changes}。',
+    ko: '에스컬레이션 #{n} “{title}”: {changes}.',
+  },
+  escPostRoleNow: {
+    en: '{role} is now {name}',
+    de: '{role}: jetzt {name}',
+    ja: '{role}は{name}になりました',
+    ko: '{role}이(가) 이제 {name}입니다',
+  },
+  escPostRoleCleared: {
+    en: '{role} is now unassigned',
+    de: '{role}: jetzt nicht zugewiesen',
+    ja: '{role}は未割り当てになりました',
+    ko: '{role}이(가) 미지정으로 바뀌었습니다',
+  },
+  escPostLink: { en: '{url}', de: '{url}', ja: '{url}', ko: '{url}' },
+  // The honest delivery-failure badge (AGENTS lesson 5). It says the CHANGE IS SAVED
+  // first, because that is the fact a reader is most likely to doubt when they see a
+  // failure notice on the page.
+  escChatPostFailed: {
+    en: 'Saved here, but not posted to the chat thread',
+    de: 'Hier gespeichert, aber nicht im Chat-Thread gepostet',
+    ja: 'こちらには保存済みですが、チャットスレッドには投稿できませんでした',
+    ko: '여기에는 저장되었지만 채팅 스레드에는 게시하지 못했습니다',
+  },
+  escChatPostFailedTitle: {
+    en: 'The last update to this escalation was saved, but posting it back to the source chat thread failed: {reason}. Nothing was lost — the next change tries again.',
+    de: 'Die letzte Änderung an dieser Eskalation wurde gespeichert, konnte aber nicht in den Quell-Chat-Thread gepostet werden: {reason}. Es ging nichts verloren — die nächste Änderung versucht es erneut.',
+    ja: 'このエスカレーションの直近の変更は保存されましたが、元のチャットスレッドへの投稿に失敗しました: {reason}。データは失われていません。次の変更時に再試行します。',
+    ko: '이 에스컬레이션의 최근 변경 사항은 저장되었지만 원본 채팅 스레드에 게시하지 못했습니다: {reason}. 손실된 내용은 없으며 다음 변경 때 다시 시도합니다.',
+  },
+  escChatPostedAt: {
+    en: 'Posted to the chat thread',
+    de: 'Im Chat-Thread gepostet',
+    ja: 'チャットスレッドに投稿済み',
+    ko: '채팅 스레드에 게시됨',
+  },
+  escNoneForEntity: {
+    en: 'No escalations.',
+    de: 'Keine Eskalationen.',
+    ja: 'エスカレーションはありません。',
+    ko: '에스컬레이션이 없습니다.',
   },
 } satisfies Record<string, Entry>;
 

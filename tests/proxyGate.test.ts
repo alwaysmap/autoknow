@@ -147,6 +147,12 @@ const API_ROOT = 'src/app/api';
  *  session gate in front of them is the intended perimeter. Adding a route here is a
  *  claim the test verifies (it must actually be redirected). */
 const SESSION_ONLY = [
+  // #245. The seeds reach it IN-PROCESS (the handler is imported and called directly, as
+  // every other seeded entity's route is), never over HTTP — so nothing outside the
+  // browser needs the gate to let a token through. The chat trigger in part (b) does not
+  // change this: it arrives at `/api/chat/events`, which is separately exempted and
+  // carries Google's JWT, and creates escalations through lib, not through this URL.
+  '/api/escalations',
   '/api/partners',
   '/api/people',
   '/api/people/[id]/affiliations',

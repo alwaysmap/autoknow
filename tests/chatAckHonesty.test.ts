@@ -11,6 +11,7 @@
 import { testDatabaseUrl } from './helpers/testDatabaseUrl';
 import { disconnectTestDb } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
+import { t } from '../src/lib/i18n';
 
 process.env.DATABASE_URL = testDatabaseUrl();
 process.env.AUTH_ALLOWED_DOMAIN = '';
@@ -122,5 +123,77 @@ describe('the Chat ack tells the truth about what it captured', () => {
     await handleChatEvent(mention('spaces/AAA/threads/same'));
     threadOf(2);
     expect(textOf(await handleChatEvent(mention('spaces/AAA/threads/same')))).toMatch(/already saved/i);
+  });
+});
+
+// #245 part b. The escalate replies join the same contract rather than getting their own,
+// weaker one: they are the same app speaking into the same thread, and the claim they could
+// most easily imply falsely is the STRONGER version of the one above — not just "this
+// snapshot is a snapshot", but "the escalation you now have does not follow this thread".
+// A reader who believes otherwise stops @mentioning and the escalation silently goes stale.
+describe('the escalate replies tell the same truth', () => {
+  /** The trigger form of `mention` — same message, an escalate topic in `argumentText`. */
+  const escalate = (thread: string) => ({
+    ...mention(thread),
+    message: { ...mention(thread).message, argumentText: 'escalate the certification slip' },
+  });
+
+  it('says the escalation does not follow the thread, and never says room or watched', async () => {
+    threadOf(3);
+    const text = textOf(await handleChatEvent(escalate('spaces/AAA/threads/esc-new')));
+    expect(text).toMatch(/does not follow this thread/i);
+    expect(text).toMatch(/snapshot/i);
+    expect(text).toMatch(/@mention me again/i);
+    expect(text).not.toMatch(/\broom\b/i);
+    expect(text).not.toMatch(/\bwatch(ed|ing)?\b(?!\s+this space)/i);
+  });
+
+  it('states that nothing is assigned or triaged, rather than implying it is handled', async () => {
+    // The reply is the only thing most raisers will read. "Raised as Escalation #7" alone
+    // reads as "somebody has it now", which is exactly what has NOT happened.
+    threadOf(3);
+    const text = textOf(await handleChatEvent(escalate('spaces/AAA/threads/esc-untriaged')));
+    expect(text).toMatch(/nobody is assigned/i);
+    expect(text).toMatch(/not triaged/i);
+  });
+
+  it('carries the same cap and unreadable caveats the plain ack does', async () => {
+    threadOf(THREAD_MESSAGE_LIMIT, { more: true });
+    const capped = textOf(await handleChatEvent(escalate('spaces/AAA/threads/esc-long')));
+    expect(capped).toMatch(new RegExp(`longer than ${THREAD_MESSAGE_LIMIT} messages`, 'i'));
+
+    threadOf(0, { failing: true });
+    const unreadable = textOf(await handleChatEvent(escalate('spaces/AAA/threads/esc-nohistory')));
+    expect(unreadable).toMatch(/only your message was saved/i);
+  });
+
+  it('admits the escalation was not raised even though the thread was saved', async () => {
+    // The two facts come apart — the snapshot commits before the escalation is created —
+    // so the failure copy must not be reachable only as a generic "could not save".
+    for (const locale of ['en', 'de', 'ja', 'ko'] as const) {
+      const failed = t(locale, 'chatEscalationSaveFailed', { reason: 'db down' });
+      expect(failed).toContain('db down');
+      expect(failed.length).toBeGreaterThan('db down'.length);
+    }
+  });
+
+  it('has every escalate reply translated, in the honest vocabulary, in all four locales', async () => {
+    const keys = [
+      'chatEscalationNotWatching',
+      'chatEscalationCreated',
+      'chatEscalationCreatedNoLink',
+      'chatEscalationExists',
+      'chatEscalationExistsNoLink',
+      'chatEscalationSaveFailed',
+    ] as const;
+    for (const locale of ['en', 'de', 'ja', 'ko'] as const) {
+      for (const key of keys) {
+        const s = t(locale, key, { n: 7, url: 'https://x.example/escalations/7', reason: 'x' });
+        expect(s.length).toBeGreaterThan(0);
+        // No unfilled slots — a reply reading "Escalation #{n}" is worse than no reply.
+        expect(s).not.toMatch(/\{[a-z]+\}/i);
+        expect(s).not.toMatch(/\broom\b/i);
+      }
+    }
   });
 });

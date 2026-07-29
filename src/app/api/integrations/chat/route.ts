@@ -37,6 +37,22 @@ export async function POST(request: Request) {
     // 1. Detect if it is a Status Briefing/Update share command
     const isShareUpdate = /share\s+update|status\s+update/i.test(message);
 
+    // THE ESCALATE TRIGGER IS DELIBERATELY NOT WIRED HERE (#245 part b, AGENTS lesson 7's
+    // sweep — this is the second place a chat command convention lives, and the sweep was
+    // named in the issue so nobody had to remember it).
+    //
+    // The reason is structural, not oversight: an escalation raised from chat is defined by
+    // its SOURCE THREAD — that is what `contextUrlId` points at, what the duplicate check
+    // keys on, and what part (c) posts status changes back to. This route takes PASTED
+    // TEXT. It has no thread name, so nothing to dedupe against and nothing to reply into;
+    // an escalation raised here would be one nobody could ever be told about, on a thread
+    // that does not exist. Raising one in the app (`/escalations`) is the supported path for
+    // anything that did not come from a live Chat event.
+    //
+    // If this route ever gains a real thread identity, the trigger belongs here too and
+    // `parseEscalateTrigger` (lib/chatEvents) is the shared parser to use — not a second
+    // regex.
+
     if (isShareUpdate) {
       // Extract briefing text
       let briefingText = message

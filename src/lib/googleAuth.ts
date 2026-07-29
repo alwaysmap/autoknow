@@ -54,6 +54,20 @@ const workloadIdentity = !key && !!process.env.K_SERVICE && !!process.env.GOOGLE
 
 export const driveConfigured = !!key || workloadIdentity;
 
+/**
+ * Whether the Google Chat app can be talked to at all — the project binding the inbound
+ * JWT is verified against, plus a credential to call the Chat API with.
+ *
+ * It lives HERE, beside the credential it gates and the scope it is used with, rather than
+ * in `lib/chatEvents` where it started (#245 part c). Two readers need it now and they sit
+ * at opposite ends of the connector: the inbound route, and the OUTBOUND poster
+ * (`lib/chatPost`) that a server action calls. Re-deriving it in the second one would be
+ * two copies of an env predicate free to disagree — and the failure that produces is
+ * silent, since one half would simply decline to act. `lib/chatEvents` re-exports this so
+ * its existing importers are unchanged.
+ */
+export const chatConfigured = !!process.env.GOOGLE_PROJECT_NUMBER && driveConfigured;
+
 // TWO DIFFERENT THINGS, deliberately not one function: the address people SHARE with and
 // the identity the app AUTHENTICATES as merely coincide in a keyfile-only setup. Merging
 // them back is the tempting mistake — see

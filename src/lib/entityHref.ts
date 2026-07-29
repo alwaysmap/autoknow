@@ -13,6 +13,12 @@ export const personHref = (id: number): string => `/people/${id}`;
 export const partnerHref = (id: number): string => `/partners/${id}`;
 export const programHref = (id: number): string => `/programs/${id}`;
 
+/** `/escalations/42` (#245). Here from the first commit rather than hand-rolled at the
+ *  call sites, because this URL is DATA the moment it exists: the Chat reply posts it into
+ *  a thread that keeps it forever, and AI-brief citations persist hrefs — so retiring or
+ *  moving it later means migrating rows, not grepping `src/**` (AGENTS lesson 15). */
+export const escalationHref = (id: number): string => `/escalations/${id}`;
+
 export { phaseHref, phaseProgressHref, phaseUpdateHref } from './phase';
 
 /** `/programs/7#status-update-42` — opens the program's status log at ONE update.

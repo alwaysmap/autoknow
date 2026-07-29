@@ -37,6 +37,18 @@ interface Header {
   sortValue?: (row: unknown) => string | number;
   /** Display label for an option value (e.g. localized health). */
   filterLabel?: (value: string) => string;
+  /**
+   * A width hint for this column, in `rem` (design.md §9). Applied to the header cell,
+   * which is what the browser's auto table layout sizes the column from.
+   *
+   * This is the answer to "can a cell span two columns" — it cannot, and should not: a
+   * `colSpan` body cell would leave the row with fewer cells than the header has, and
+   * every per-column funnel, the sort key, and the `<th scope="row">` association are all
+   * positional. One column that is simply WIDER gets the same reading space without
+   * desynchronising the grammar. Prefer it on the KEY column, whose content is a sentence
+   * while its neighbours are tokens.
+   */
+  width?: string;
 }
 
 interface DataTableProps<T> {
@@ -307,6 +319,7 @@ export default function DataTable<T>({
                   <th
                     key={h.key}
                     className={`${styles.th} ${isSortable ? styles.sortable : ''} ${isSorted ? styles.sorted : ''}`}
+                    style={h.width ? { width: h.width } : undefined}
                     aria-sort={isSorted ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}
                   >
                     <div className={styles.headerCell}>

@@ -1,0 +1,101 @@
+/* The escalation detail page's action panel, and the two-column form both dialogs use.
+
+   The panel is the first block in the page's rail: the two things a reader opened this
+   page to DO, in the open, rather than behind a ⋯ menu (see the component's own note). */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: 0.875rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.statusForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4375rem;
+}
+
+.statusRow {
+  display: flex;
+  gap: 0.4375rem;
+  align-items: center;
+}
+
+/* §7: a small-caps label over the control it names. */
+.label {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.select {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  padding: 0.25rem 0.375rem;
+  color: var(--fg);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+}
+
+/* Green is this app's "good / saved" signal and is sanctioned for solid button fills
+   (design.md §6); closing an escalation is the affirmative action here. */
+.primaryBtn {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--p-600);
+  border-radius: 0.375rem;
+  background: var(--p-600);
+  color: var(--gauge-face);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.primaryBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Edit is secondary: a quiet outline, so the close control is the one that reads first. */
+.secondaryBtn {
+  align-self: flex-start;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.secondaryBtn:hover {
+  border-color: var(--muted);
+}
+
+/* Two columns in the dialog: eleven fields stacked in a 30rem sheet scrolled while the
+   page around it sat empty. Collapses at the §9 breakpoint, where one column is right. */
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1.25rem;
+}
+
+/* The two prose fields are the row's subject — they take the full width. */
+.formGrid > :nth-child(1),
+.formGrid > :nth-child(2) {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 560px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+}

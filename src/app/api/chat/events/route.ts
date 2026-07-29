@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { chatConfigured, verifyChatToken, handleChatEvent, normalizeChatEvent } from '../../../../lib/chatEvents';
 import { formatChatReply } from '../../../../lib/chatEvents';
+import { originFromHeaders } from '../../../../lib/appOrigin';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +34,10 @@ export async function POST(req: NextRequest) {
   // has retention implications, and the thread id is enough to correlate.
   console.log(`[chat] type=${event.type} addon=${addon} thread=${event.message?.thread?.name ?? '-'}`);
 
-  const reply = await handleChatEvent(event);
+  // So an escalate reply can carry an ABSOLUTE link (#245 part b) — through the ONE origin
+  // derivation (lib/appOrigin), which the outbound post-back shares. The handler omits the
+  // link entirely rather than emit a broken one when the host cannot be read.
+  const reply = await handleChatEvent(event, { appOrigin: originFromHeaders(req.headers) });
   console.log(`[chat] replied (${reply && 'text' in reply ? 'text' : 'empty'})`);
   return NextResponse.json(formatChatReply(reply, addon));
 }

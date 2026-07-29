@@ -103,8 +103,13 @@ test.describe('Admin and Maintenance Operations', () => {
     const project = await prisma.project.findFirst({ where: { name: 'Waymo Autonomous Trucking' } });
     await page.goto(`/programs/${project?.id}`);
 
+    // Scoped to the meta header: the program page carries a second ⋯ on the Escalations
+    // heading (#245), so an unscoped kebab-menu resolves to two elements.
     const viaKebab = (label: string) =>
-      clickMenuItem(page.getByTestId('kebab-menu'), page.getByRole('menuitem', { name: label, exact: true }));
+      clickMenuItem(
+        page.getByTestId('project-meta').getByTestId('kebab-menu'),
+        page.getByRole('menuitem', { name: label, exact: true }),
+      );
 
     // Cancel — an explicit lifecycle fact, set in the UI.
     await viaKebab('Mark cancelled');
@@ -130,8 +135,13 @@ test.describe('Admin and Maintenance Operations', () => {
     await page.goto(`/programs/${project?.id}`);
 
     // Header actions live in the ⋯ menu now; open it (hydration-guarded), then act.
+    // Scoped to the meta header: the program page carries a second ⋯ on the Escalations
+    // heading (#245), so an unscoped kebab-menu resolves to two elements.
     const viaKebab = (label: string) =>
-      clickMenuItem(page.getByTestId('kebab-menu'), page.getByRole('menuitem', { name: label, exact: true }));
+      clickMenuItem(
+        page.getByTestId('project-meta').getByTestId('kebab-menu'),
+        page.getByRole('menuitem', { name: label, exact: true }),
+      );
 
     // Archive project
     await viaKebab('Archive');

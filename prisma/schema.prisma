@@ -29,6 +29,7 @@ model Partner {
   projects           Project[]
   currentEmployees   Person[]            @relation("CurrentPartner")
   personAffiliations PersonAffiliation[]
+  escalations        Escalation[]
   states             PartnerState[]
   contextUrls        ContextUrl[]
   phaseInvolvements  PhasePartner[]
@@ -115,6 +116,7 @@ model Project {
   // archived program keeps its lifecycle.
   lifecycle         ProjectLifecycle @default(active)
   states            ProjectState[]
+  escalations       Escalation[]
   embedding         Unsupported("vector(768)")?
 
   // The dominant read behind the FK is "programs owned by this person" (the person
@@ -332,6 +334,7 @@ model ContextUrl {
   frozenAt      DateTime?
   frozenReason  String?   // resolved | access-revoked | deleted | auth-required | user-paused
   revisions     ContextRevision[]
+  escalations   Escalation[]
 
   // The cron's due-source query: filter on (mode, frozenAt), order by lastCheckedAt,
   // LIMIT the budget (#58). Extending the pair with lastCheckedAt lets Postgres serve the
@@ -454,6 +457,13 @@ model Person {
   actionItems      ActionItem[]
   ownedProjects    Project[] // back-relation of Project.ownerPersonId (#127 E6)
   phaseInvolvements PhasePerson[]
+  // The three escalation roles, each named, because Prisma cannot tell three FKs to the
+  // same model apart on its own. Named here rather than left implicit for the reason
+  // docs/knowledge/a-prisma-back-relation-hides-the-field-you-are-grepping-for.md gives:
+  // a grep for `ownerPersonId` does not find the readers that come through here.
+  ownedEscalations     Escalation[] @relation("EscalationOwner")
+  decidedEscalations   Escalation[] @relation("EscalationDecisionMaker")
+  requestedEscalations Escalation[] @relation("EscalationRequestedOf")
   embedding        Unsupported("vector(768)")?
 
   // E9 dropped `Person_email_key` when it dropped `@unique` — correctly, since the
@@ -661,4 +671,125 @@ model IgnoredAddress {
   address     String   @unique
   dismissedBy String
   dismissedAt DateTime @default(now())
+}
+
+// #245 — an ESCALATION: something a Googler raised because it needs a decision from
+// someone above the program. Raised from a Google Chat thread (`@AutoKnow escalate <topic>`),
+// triaged and assigned in the app, closed with a terminal state, and its meaningful
+// changes posted back to the thread it came from.
+//
+// Status stores the PLAIN terminal name (open | resolved | duplicate | addressed |
+// obsolete), mirroring `ProjectLifecycle` — the modern pattern in this schema. "Closed —
+// Resolved" is a DISPLAY string derived in src/lib/escalation.ts, the way
+// src/lib/lifecycle.ts derives a program's; storing the sentence would put display copy
+// in a column and make a fifth terminal state a migration.
+//
+// The three person roles are pure FKs with no legacy text twin, unlike
+// `Project.ownerName`/`ownerPersonId`: that pair exists because it predates the entity
+// reference, and #124 Class 4 is the argument against authoring a new one. `raisedBy` IS
+// text, and that is not the same shape — a webhook has no session and no Person to point
+// at, so it holds the sender address exactly as `ContextUrl.addedBy` does.
+enum EscalationStatus {
+  open
+  resolved
+  duplicate
+  addressed
+  obsolete
+}
+
+/// Three values, never a score: S1 is the worst. Display is "S1"… (lib/escalation).
+enum EscalationSeverity {
+  s1
+  s2
+  s3
+}
+
+/// WHO NEEDS TO ACT — not how bad it is (that is severity). Exec is the highest.
+enum EscalationOrgLevel {
+  team
+  region
+  director
+  exec
+}
+
+model Escalation {
+  id Int @id @default(autoincrement())
+
+  // PROVENANCE, which is never edited: the trigger's topic text exactly as it was typed
+  // in chat. `title`/`summary` seed from it and are the cleaned-up, editable version, so
+  // the detail page can show the original beside the statement without either one being
+  // able to overwrite the other (#245 decision 4). Null for a manually created escalation,
+  // which has no original request to preserve.
+  originalRequest String?
+  title           String
+  summary         String?
+
+  status   EscalationStatus @default(open)
+  /// Null = NOT YET TRIAGED, which is a real state the webhook writes: name→severity
+  /// guessing at the webhook boundary would be a fabricated triage. Sorts last.
+  severity EscalationSeverity?
+  /// Null = not yet triaged, as above.
+  orgLevel EscalationOrgLevel?
+  closedAt DateTime?
+
+  // An escalation is about a partner and/or a program — at least one, a policy that lives
+  // at the zod boundary because "one of these two columns is non-null" is not something a
+  // Prisma schema can say.
+  partnerId Int?
+  partner   Partner? @relation(fields: [partnerId], references: [id])
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  // All three start UNASSIGNED, including on the chat path: the digest holds display
+  // NAMES, not addresses, and guessing a Person from a name at the webhook boundary is a
+  // wrong-assignment risk with a real human's name on it. The UI pickers are the
+  // assignment surface.
+  ownerPersonId         Int?
+  ownerPerson           Person? @relation("EscalationOwner", fields: [ownerPersonId], references: [id])
+  decisionMakerPersonId Int?
+  decisionMakerPerson   Person? @relation("EscalationDecisionMaker", fields: [decisionMakerPersonId], references: [id])
+  requestedOfPersonId   Int?
+  requestedOfPerson     Person? @relation("EscalationRequestedOf", fields: [requestedOfPersonId], references: [id])
+
+  /// The sender's email from the webhook. TEXT, not an FK — see the model comment.
+  raisedBy   String?
+  /// "chat" | "manual"; "bug" is reserved for the follow-up that adds bug-sourced
+  /// escalations. A string rather than an enum precisely because it is meant to extend.
+  sourceKind String  @default("chat")
+
+  // The ingested chat thread this was raised from. NOT unique, deliberately: once every
+  // escalation on a thread is closed, re-raising on that same thread is legitimate and
+  // creates a second row. The "only one OPEN escalation per thread" rule is a boundary
+  // check in lib/chatEvents, because Prisma cannot express a partial unique index and the
+  // race window is human-retype-sized.
+  contextUrlId Int?
+  contextUrl   ContextUrl? @relation(fields: [contextUrlId], references: [id])
+
+  /// Required when status = duplicate (enforced at the zod boundary). Self-FK.
+  duplicateOfId Int?
+  duplicateOf   Escalation?  @relation("EscalationDuplicates", fields: [duplicateOfId], references: [id])
+  duplicates    Escalation[] @relation("EscalationDuplicates")
+
+  // Outbound delivery status as TWO COLUMNS ON THE ROW, never a log table — the same
+  // O(1)-not-O(time) rule the ingestion-health ADR sets. The detail page renders an honest
+  // failure badge from these; the mutation itself never waits on the post.
+  lastChatPostAt    DateTime?
+  lastChatPostError String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Postgres does not auto-index FK columns, and every one of these is read: the list page
+  // filters on status and severity, the partner and program pages read their own
+  // escalations, a person's page reads the three roles, and the chat trigger's
+  // duplicate check is `where contextUrlId and status = open`.
+  @@index([partnerId])
+  @@index([projectId])
+  @@index([ownerPersonId])
+  @@index([decisionMakerPersonId])
+  @@index([requestedOfPersonId])
+  @@index([contextUrlId])
+  @@index([duplicateOfId])
+  @@index([status])
+  @@index([severity])
 }
