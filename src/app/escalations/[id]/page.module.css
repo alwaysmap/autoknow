@@ -180,6 +180,17 @@
   color: var(--muted);
 }
 
+/* Delivery failure. Coloured TEXT, not a filled badge — §6 keeps semantic colour to ink,
+   and this is the app's own "something is wrong" ink rather than a new hue. It reads as a
+   sentence because it is one: the change is saved, the thread just was not told. */
+.deliveryFailed {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--warn);
+  margin: 0.4375rem 0 0;
+  cursor: help;
+}
+
 .classInk {
   color: var(--muted);
 }

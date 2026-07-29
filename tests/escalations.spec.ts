@@ -128,9 +128,14 @@ test.describe('Escalations', () => {
   test('assigns and triages through the edit dialog', async ({ page }) => {
     await page.goto(`/escalations/${chatEscalationId}`);
 
+    // `menuitem`, NOT `button`: AnchoredPopover applies the menuitem role to its focusable
+    // children in an EFFECT (AnchoredPopover.tsx), so a `button` locator matches only in
+    // the window before that effect runs — it wins the race on an idle machine and never
+    // matches again under load, burning the whole retry budget on a control that is right
+    // there. The sibling specs (partners.spec) already address kebab items this way.
     await openMenuItemDialog(
       page.getByTestId('kebab-menu'),
-      page.getByRole('button', { name: 'Edit', exact: true }),
+      page.getByRole('menuitem', { name: 'Edit', exact: true }),
       page.locator('dialog[open]'),
     );
 

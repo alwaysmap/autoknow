@@ -2314,6 +2314,58 @@ const STRINGS = {
     ja: 'エスカレーションを絞り込み…',
     ko: '에스컬레이션 필터…',
   },
+  // ---- outbound post-back (#245 part c) --------------------------------------------
+  // What the app says INTO the source chat thread when an escalation changes. Two rules
+  // from #245 decision 2, both visible in the copy: the post names the CHANGE (which
+  // inherently names an assignee) and never the ACTOR who clicked — these are read by
+  // everyone in the space, and "Dylan closed this" is a different disclosure from "this is
+  // closed". And it never claims to be watching anything.
+  escPostStatus: {
+    en: 'Escalation #{n} — {title} — is now {status}.',
+    de: 'Eskalation #{n} — {title} — ist jetzt {status}.',
+    ja: 'エスカレーション #{n}「{title}」は現在 {status} です。',
+    ko: '에스컬레이션 #{n} “{title}” 상태가 {status}(으)로 바뀌었습니다.',
+  },
+  escPostAssignment: {
+    en: 'Escalation #{n} — {title}: {changes}.',
+    de: 'Eskalation #{n} — {title}: {changes}.',
+    ja: 'エスカレーション #{n}「{title}」: {changes}。',
+    ko: '에스컬레이션 #{n} “{title}”: {changes}.',
+  },
+  escPostRoleNow: {
+    en: '{role} is now {name}',
+    de: '{role}: jetzt {name}',
+    ja: '{role}は{name}になりました',
+    ko: '{role}이(가) 이제 {name}입니다',
+  },
+  escPostRoleCleared: {
+    en: '{role} is now unassigned',
+    de: '{role}: jetzt nicht zugewiesen',
+    ja: '{role}は未割り当てになりました',
+    ko: '{role}이(가) 미지정으로 바뀌었습니다',
+  },
+  escPostLink: { en: '{url}', de: '{url}', ja: '{url}', ko: '{url}' },
+  // The honest delivery-failure badge (AGENTS lesson 5). It says the CHANGE IS SAVED
+  // first, because that is the fact a reader is most likely to doubt when they see a
+  // failure notice on the page.
+  escChatPostFailed: {
+    en: 'Saved here, but not posted to the chat thread',
+    de: 'Hier gespeichert, aber nicht im Chat-Thread gepostet',
+    ja: 'こちらには保存済みですが、チャットスレッドには投稿できませんでした',
+    ko: '여기에는 저장되었지만 채팅 스레드에는 게시하지 못했습니다',
+  },
+  escChatPostFailedTitle: {
+    en: 'The last update to this escalation was saved, but posting it back to the source chat thread failed: {reason}. Nothing was lost — the next change tries again.',
+    de: 'Die letzte Änderung an dieser Eskalation wurde gespeichert, konnte aber nicht in den Quell-Chat-Thread gepostet werden: {reason}. Es ging nichts verloren — die nächste Änderung versucht es erneut.',
+    ja: 'このエスカレーションの直近の変更は保存されましたが、元のチャットスレッドへの投稿に失敗しました: {reason}。データは失われていません。次の変更時に再試行します。',
+    ko: '이 에스컬레이션의 최근 변경 사항은 저장되었지만 원본 채팅 스레드에 게시하지 못했습니다: {reason}. 손실된 내용은 없으며 다음 변경 때 다시 시도합니다.',
+  },
+  escChatPostedAt: {
+    en: 'Posted to the chat thread',
+    de: 'Im Chat-Thread gepostet',
+    ja: 'チャットスレッドに投稿済み',
+    ko: '채팅 스레드에 게시됨',
+  },
   escOpenCount: { en: '{n} open', de: '{n} offen', ja: '未解決 {n} 件', ko: '진행 중 {n}건' },
   escNoneForEntity: {
     en: 'No escalations.',

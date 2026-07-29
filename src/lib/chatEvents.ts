@@ -3,7 +3,7 @@ import { createPublicKey, verify as cryptoVerify } from 'crypto';
 import { prisma } from './db';
 import { ingestContent, hashContent } from './ingest';
 import { summarizeDocument, digestToText, geminiConfigured } from './gemini';
-import { getServiceAccountToken, driveConfigured, CHAT_BOT_SCOPE } from './googleAuth';
+import { getServiceAccountToken, CHAT_BOT_SCOPE } from './googleAuth';
 import { t, type Locale } from './i18n';
 import { LOCALE } from './preferences';
 import { isTruncated } from './ingestLimits';
@@ -41,7 +41,9 @@ const OIDC_JWK_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 const addonServiceAccount = () =>
   `service-${process.env.GOOGLE_PROJECT_NUMBER}@gcp-sa-gsuiteaddons.iam.gserviceaccount.com`;
 
-export const chatConfigured = !!process.env.GOOGLE_PROJECT_NUMBER && driveConfigured;
+// Re-exported, not re-derived: the definition moved to lib/googleAuth beside the
+// credential it gates, once the outbound poster became a second reader (#245 part c).
+export { chatConfigured } from './googleAuth';
 
 interface Jwk { kid: string; n: string; e: string; kty: string }
 const jwkCaches = new Map<string, { keys: Jwk[]; fetchedAt: number }>();

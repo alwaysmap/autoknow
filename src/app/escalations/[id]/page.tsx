@@ -238,6 +238,25 @@ export default async function EscalationDetailPage({ params }: PageProps) {
                 </Link>
               </Fact>
             )}
+            {/* Delivery state (#245 part c), and it is deliberately ASYMMETRIC. A failure
+                is loud because the reader's mental model — "everyone on that thread has
+                been told" — is now wrong, and nothing else on the page would say so
+                (AGENTS lesson 5). A success is a quiet timestamp, because "the post went
+                out" is the expected case and a green tick on every escalation is noise.
+                Neither appears at all when there is nothing to deliver to. */}
+            {escalation.lastChatPostError ? (
+              <p
+                className={styles.deliveryFailed}
+                role="status"
+                title={t(locale, 'escChatPostFailedTitle', { reason: escalation.lastChatPostError })}
+              >
+                {t(locale, 'escChatPostFailed')}
+              </p>
+            ) : escalation.lastChatPostAt ? (
+              <Fact label={t(locale, 'escChatPostedAt')}>
+                <DateCell value={escalation.lastChatPostAt.toISOString()} />
+              </Fact>
+            ) : null}
           </div>
         </aside>
       </main>
