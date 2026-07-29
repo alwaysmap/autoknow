@@ -1,4 +1,4 @@
-import { test, expect, expandCard, openCard, type Page } from './helpers/e2e';
+import { test, expect, expandCard, openCard, closeCard, type Page } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
@@ -229,16 +229,11 @@ test.describe('PhaseTrack rail', () => {
     }
 
     // Clicking the card again folds it back to one line, taking the goal, the pills
-    // and the zoom button with it. Guarded on the resulting STATE, not the click
-    // (autoknow-9at): a bare expandCard() here missed on webkit under full-suite
-    // load and the vanished-text assertion had nothing to retry against but a card
-    // that was never actually collapsed. aria-expanded is what the title carries
-    // for exactly this, so wait on it and retry the click until it flips.
-    const title = integration.locator('a[data-card-title]');
-    await expect(async () => {
-      if ((await title.getAttribute('aria-expanded')) !== 'false') await title.click();
-      await expect(title).toHaveAttribute('aria-expanded', 'false');
-    }).toPass({ timeout: 20000 });
+    // and the zoom button with it. closeCard guards on the resulting STATE, not the
+    // click (autoknow-9at): a bare expandCard() here missed on webkit under
+    // full-suite load and the vanished-text assertion had nothing to retry against
+    // but a card that was never actually collapsed.
+    await closeCard(integration);
     await expect(integration).not.toContainText('Denso');
     await expect(integration.getByRole('button', { name: 'Details' })).toHaveCount(0);
   });

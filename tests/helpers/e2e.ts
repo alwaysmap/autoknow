@@ -73,3 +73,32 @@ export const openCard = async (rowLocator: Locator) => {
   const title = rowLocator.locator('a[data-card-title]');
   if ((await title.getAttribute('aria-expanded')) !== 'true') await title.click();
 };
+
+/**
+ * Folds an open card back to one line, retried against its own state
+ * (`aria-expanded`) rather than a bare click (autoknow-9at): a webkit run
+ * under full-suite load missed the click outright, and an assertion on
+ * vanished text downstream had nothing to retry against but a card that was
+ * never actually collapsed.
+ */
+export const closeCard = async (rowLocator: Locator) => {
+  const title = rowLocator.locator('a[data-card-title]');
+  await expect(async () => {
+    if ((await title.getAttribute('aria-expanded')) !== 'false') await title.click();
+    await expect(title).toHaveAttribute('aria-expanded', 'false');
+  }).toPass({ timeout: 20000 });
+};
+
+/**
+ * Open `trigger`'s menu and wait for `item` inside it, in the hydration-guarded shape a
+ * first interaction after a page load requires (AGENTS lesson 8): re-open only when the
+ * item is not already showing, never a bare click. Lives here rather than hand-rolled per
+ * file (autoknow-8g1) — every spec that opens an anchored menu and asserts on an item
+ * inside it needs the same shape.
+ */
+export async function openMenu(trigger: Locator, item: Locator): Promise<void> {
+  await expect(async () => {
+    if (!(await item.isVisible())) await trigger.click({ timeout: 2000 });
+    await expect(item).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 20000 });
+}
