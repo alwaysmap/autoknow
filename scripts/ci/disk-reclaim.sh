@@ -48,13 +48,25 @@ echo "DISK before reclaim: $(disk_gib "$before_kb") GiB free on / ($(disk_used_p
 # Removed in PARALLEL: this runs on the critical-path leg (docs/knowledge/ci-wall-clock-is-one-job-find-it-before-optimizing.md),
 # and serially these cost more than the headroom is worth.
 #
-# Each one reports what it freed and what it cost, because the SET is a live question and
-# guessing at it is what this whole exercise has been punishing. The job needs ~7 GiB of
-# headroom (webkit's transient peak, the worse leg); this list frees 24 GiB in 51-71s. If
-# one or two paths account for most of that, the rest are pure latency on the pole leg and
-# can go. A `du` first would cost more than the delete, so size is inferred from the
-# filesystem either side of it — which also means these numbers are the REAL effect,
-# including anything else running at the time.
+# WHY /usr/local/lib/android IS NOT IN THIS LIST. Measured per path, run 30419570545:
+#
+#   /usr/local/lib/android   10.3 GiB   44s (chromium) / 20s (webkit)   <- was the whole cost
+#   /usr/share/dotnet         5.1 GiB    7s / 4s
+#   /usr/local/.ghcup         3.7 GiB    2s / 1s
+#   /usr/share/swift          3.3 GiB    1s / 0s
+#   /opt/az                   0.6 GiB    3s / 5s
+#   /opt/microsoft            0.8 GiB    0s / 0s
+#   /home/linuxbrew           0.2 GiB    2s / 1s
+#
+# The deletes run in PARALLEL, so the step costs max(path), not the sum — and that max WAS
+# the Android SDK. Dropping it takes the step from 51-71s to ~7-10s while still freeing
+# 13.7 GiB, against the ~7 GiB the worse leg (webkit) actually consumes. Low-water lands
+# near 18 GiB, ~9x the 2 GiB floor.
+#
+# Re-measure before adding anything back: CI_DISK_RECLAIM_MEASURE=1 serialises the deletes
+# and prints this table again. Serialised, because in parallel each reading is the sum of
+# whatever else was mid-flight. Size comes from the filesystem either side of each delete
+# rather than a `du`, which would cost more than the delete it was sizing.
 reclaim_one() {
   local path="$1" t0 freed
   t0="$(date +%s)"
@@ -69,7 +81,6 @@ reclaim_one() {
 # the measurement build; the list gets trimmed from it and the `&` comes back.
 if [ "${CI_DISK_RECLAIM_MEASURE:-}" = "1" ]; then
   for path in \
-    /usr/local/lib/android \
     /usr/share/dotnet \
     /usr/share/swift \
     /opt/ghc \
@@ -82,7 +93,6 @@ if [ "${CI_DISK_RECLAIM_MEASURE:-}" = "1" ]; then
   done
 else
   for path in \
-    /usr/local/lib/android \
     /usr/share/dotnet \
     /usr/share/swift \
     /opt/ghc \

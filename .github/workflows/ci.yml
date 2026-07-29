@@ -229,14 +229,9 @@ jobs:
         run: npm run --silent ci:disk-report -- "after checkout"
       # Buy headroom back from toolchains this job cannot use — the suite runs SLOWER
       # without it, not merely closer to the floor (PR #261 measured skipping it at ~120s
-      # worse). scripts/ci/disk-reclaim.sh carries those numbers and says what it will not
-      # touch. It costs 51-71s on what IS the critical-path leg, which is why the set of
-      # paths is currently being measured rather than assumed: MEASURE=1 serialises the
-      # deletes and reports GiB-freed and seconds per path, so the list can be cut to the
-      # ~7 GiB the worse leg actually needs. Drop the flag once the list is trimmed.
+      # worse). scripts/ci/disk-reclaim.sh carries those numbers, the per-path table behind
+      # which paths it keeps, and what it will not touch.
       - name: Reclaim disk from preinstalled toolchains
-        env:
-          CI_DISK_RECLAIM_MEASURE: '1'
         run: npm run --silent ci:disk-reclaim
       - uses: actions/setup-node@v4
         with:
