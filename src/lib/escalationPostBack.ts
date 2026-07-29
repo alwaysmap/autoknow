@@ -111,6 +111,11 @@ export async function postEscalationChange(escalationId: number, message: string
     const text = url ? `${message} ${tr('escPostLink', { url })}` : message;
 
     const result = await postToThread(sourceRef, text);
+    // A SKIP leaves both columns exactly as they were. Nothing was sent, so there is no
+    // delivery to stamp and no failure to report — and stamping one anyway is how a
+    // developer machine, where Chat is never configured, would tell every reader that the
+    // thread had been told.
+    if (result.ok && result.skipped) return;
     await prisma.escalation.update({
       where: { id: escalationId },
       data: result.ok

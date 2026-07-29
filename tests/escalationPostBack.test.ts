@@ -18,7 +18,9 @@ jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 // here, so the action's own degrade path (no link) is what runs.
 jest.mock('next/headers', () => ({ headers: jest.fn(async () => new Headers()) }));
 
-const postToThread = jest.fn(async () => ({ ok: true }) as { ok: boolean; error?: string });
+const postToThread = jest.fn(
+  async () => ({ ok: true }) as { ok: boolean; error?: string; skipped?: boolean },
+);
 jest.mock('../src/lib/chatPost', () => ({ postToThread }));
 
 type Actions = typeof import('../src/app/actions/escalations');
@@ -214,6 +216,36 @@ describe('assignments are posted back', () => {
     const row = await prisma.escalation.findUniqueOrThrow({ where: { id: e.id } });
     expect(row.ownerPersonId).toBe(ownerId);
     expect(row.lastChatPostError).toBe('Chat API 500');
+  });
+});
+
+describe('when chat is not configured at all', () => {
+  it('leaves BOTH delivery columns untouched rather than stamping a delivery', async () => {
+    // The local-dev and CI posture. A skip is not a send: writing `lastChatPostAt` here
+    // would make every escalation on every developer machine claim the thread had been
+    // told, which is the faked result AGENTS lesson 5 forbids.
+    postToThread.mockImplementation(async () => ({ ok: true, skipped: true }));
+    const e = await chatEscalation();
+
+    await setEscalationStatus(form({ escalationId: e.id, status: 'resolved' }));
+
+    const row = await prisma.escalation.findUniqueOrThrow({ where: { id: e.id } });
+    expect(row.status).toBe('resolved');
+    expect(row.lastChatPostAt).toBeNull();
+    expect(row.lastChatPostError).toBeNull();
+  });
+
+  it('does not erase a real earlier delivery when a later change is skipped', async () => {
+    const e = await chatEscalation();
+    await setEscalationStatus(form({ escalationId: e.id, status: 'resolved' }));
+    const delivered = await prisma.escalation.findUniqueOrThrow({ where: { id: e.id } });
+    expect(delivered.lastChatPostAt).not.toBeNull();
+
+    postToThread.mockImplementation(async () => ({ ok: true, skipped: true }));
+    await setEscalationStatus(form({ escalationId: e.id, status: 'open' }));
+
+    const after = await prisma.escalation.findUniqueOrThrow({ where: { id: e.id } });
+    expect(after.lastChatPostAt).toEqual(delivered.lastChatPostAt);
   });
 });
 

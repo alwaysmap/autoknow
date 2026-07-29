@@ -140,15 +140,27 @@ describe('postToThread', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('skips SILENTLY and reports success when chat is not configured', async () => {
-    // Local dev and CI have no Chat app. A skip is `ok: true` on purpose: nothing went
-    // wrong, there was simply nowhere to send it — recording an error would put a delivery
-    // failure badge on every escalation on every developer machine.
+  it('reports a skip as a SKIP when chat is not configured — not as a delivery', async () => {
+    // Local dev and CI have no Chat app. The skip is neither an error nor a success:
+    // flagged `ok` so nothing treats it as a failure (that would put a red badge on every
+    // escalation on every developer machine), and `skipped` so nothing treats it as a
+    // delivery (that would stamp "Posted to the chat thread" onto a message nobody sent).
     const { postToThread } = await loadChatPost(false);
     const fetchMock = jest.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    await expect(postToThread('chat:spaces/AAA/threads/BBB', 'x')).resolves.toEqual({ ok: true });
+    await expect(postToThread('chat:spaces/AAA/threads/BBB', 'x')).resolves.toEqual({
+      ok: true,
+      skipped: true,
+    });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('does NOT mark a real delivery as skipped', async () => {
+    const { postToThread } = await loadChatPost(true);
+    global.fetch = jest.fn(async () => Response.json({})) as unknown as typeof fetch;
+    const result = await postToThread('chat:spaces/AAA/threads/BBB', 'x');
+    expect(result).toEqual({ ok: true });
+    expect((result as { skipped?: boolean }).skipped).toBeUndefined();
   });
 });

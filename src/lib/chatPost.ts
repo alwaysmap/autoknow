@@ -15,7 +15,14 @@ import { getServiceAccountToken, chatConfigured, CHAT_BOT_SCOPE } from './google
 // Any future outbound Chat message goes through this function, not a second hand-rolled
 // fetch — the sweep AGENTS lesson 7 asks for, named here so it is not left to memory.
 
-export type ChatPostResult = { ok: true } | { ok: false; error: string };
+/** Three outcomes, not two. SKIPPED is its own answer because "we did not post" and "we
+ *  posted" must not be recorded the same way: a caller that treats a skip as a success
+ *  stamps a delivery time for a message nobody sent, and the page then claims the thread
+ *  was told (AGENTS lesson 5 — degrade honestly, never fake a result). */
+export type ChatPostResult =
+  | { ok: true; skipped?: false }
+  | { ok: true; skipped: true }
+  | { ok: false; error: string };
 
 /**
  * The space and thread a `ContextUrl.sourceRef` names.
@@ -51,8 +58,9 @@ export function parseChatSourceRef(
  * Config-gated on the same `chatConfigured` the inbound route uses, so local development
  * and CI — where there is no Chat app and no credential — skip with a log line instead of
  * failing (AGENTS lesson 5: degrade honestly, never crash and never fake a result). A skip
- * reports `ok: true`: nothing went wrong, there was simply nowhere to send it, and
- * recording an error would put a red badge on every escalation on every developer machine.
+ * is neither an error nor a delivery: `{ ok: true, skipped: true }`. Reporting it as a
+ * failure would put a red badge on every escalation on every developer machine; reporting
+ * it as a success would stamp "Posted to the chat thread" onto a message nobody sent.
  */
 export async function postToThread(
   sourceRef: string | null | undefined,
@@ -60,7 +68,7 @@ export async function postToThread(
 ): Promise<ChatPostResult> {
   if (!chatConfigured) {
     console.log('[chatPost] chat is not configured — skipping outbound post');
-    return { ok: true };
+    return { ok: true, skipped: true };
   }
 
   const target = parseChatSourceRef(sourceRef);
