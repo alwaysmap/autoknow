@@ -19,6 +19,17 @@ const nextConfig: NextConfig = {
   // server may be running on :3000 — a separate build dir keeps them from corrupting
   // each other's .next output.
   distDir: process.env.NEXT_DIST_DIR || undefined,
+  // `next build` runs tsc over the whole project, and this repo builds it THREE times per
+  // PR — once in `quality` and once on each e2e leg — on top of the dedicated
+  // `npm run typecheck`. Measured 14s of the 39s e2e build (run 30416379550), on the
+  // workflow's critical path, to re-derive an answer another job already has.
+  //
+  // So the build can be told to skip it where a real typecheck has already run or is
+  // running in parallel. NOT a relaxation of the gate: `npm run typecheck` is a required
+  // step of the `quality` job on every PR, so a type error still fails the PR — it just
+  // fails once, in the job named for it, instead of three times in jobs named for other
+  // things. The flag is opt-IN so that a plain `next build` anywhere else keeps checking.
+  typescript: { ignoreBuildErrors: process.env.SKIP_BUILD_TYPECHECK === '1' },
   // Programs are the entity; detail pages moved from /projects/[id] to /programs/[id].
   // Old bookmarks and externally shared links keep working.
   async redirects() {
