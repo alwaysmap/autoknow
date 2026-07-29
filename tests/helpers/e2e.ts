@@ -54,12 +54,17 @@ export async function clickUntilNavigated(page: Page, url: RegExp, open: () => P
 
 /**
  * A phase card on the PhaseTrack rail: `expandCard` TOGGLES its size, `openCard`
- * ensures it is open. THE CARD IS THE CONTROL — rows default collapsed and there is
- * no chevron, so a click anywhere on the card sizes it (and selects and traces it);
- * the title is the stable, keyboard-reachable part, so tests drive it there. Two
- * helpers because the click is a toggle and half the call sites want a STATE: opening
- * the popover opens the card on the way (min is one line, so the zoom button is not
- * there yet), and a later blind toggle would close it again.
+ * and `closeCard` each ensure a STATE (open, closed). THE CARD IS THE CONTROL —
+ * rows default collapsed and there is no chevron, so a click anywhere on the card
+ * sizes it (and selects and traces it); the title is the stable, keyboard-reachable
+ * part, so tests drive it there. Three helpers because the click is a toggle and
+ * most call sites want a STATE, not a toggle: opening the popover opens the card on
+ * the way (min is one line, so the zoom button is not there yet) and a later blind
+ * toggle would close it again; asserting a card folds back closed needs the inverse,
+ * retried against its own state rather than a bare click (autoknow-9at: a webkit run
+ * under full-suite load missed the click outright, and an assertion on vanished text
+ * downstream had nothing to retry against but a card that was never actually
+ * collapsed).
  *
  * They live here rather than in one spec because a third spec wanted them and reached
  * for `[class*="body"]` to read the open state — a hashed-class substring, which
@@ -74,13 +79,6 @@ export const openCard = async (rowLocator: Locator) => {
   if ((await title.getAttribute('aria-expanded')) !== 'true') await title.click();
 };
 
-/**
- * Folds an open card back to one line, retried against its own state
- * (`aria-expanded`) rather than a bare click (autoknow-9at): a webkit run
- * under full-suite load missed the click outright, and an assertion on
- * vanished text downstream had nothing to retry against but a card that was
- * never actually collapsed.
- */
 export const closeCard = async (rowLocator: Locator) => {
   const title = rowLocator.locator('a[data-card-title]');
   await expect(async () => {

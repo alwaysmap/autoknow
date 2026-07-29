@@ -8,8 +8,9 @@ import { seedProgram, type SeededProgram } from './helpers/fixtures';
 // popover (required-note status update, involvement editing, read-only dependencies),
 // and structural editing gated behind whole-graph DAG validation.
 
-// `expandCard` (toggle) and `openCard` (ensure open) come from tests/helpers/e2e —
-// three specs wanted them, so they are not hand-rolled per file.
+// `expandCard` (toggle), `openCard` (ensure open) and `closeCard` (ensure closed,
+// guarded on aria-expanded) come from tests/helpers/e2e — three specs wanted them,
+// so they are not hand-rolled per file.
 
 test.describe('PhaseTrack rail', () => {
   test.describe.configure({ mode: 'serial' });
