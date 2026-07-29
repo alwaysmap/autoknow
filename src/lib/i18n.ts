@@ -907,6 +907,48 @@ const STRINGS = {
     ja: '更新しました — このスレッドの新しい内容を保存しました。',
     ko: '업데이트했습니다 — 이 스레드의 새로운 내용을 저장했습니다.',
   },
+  // #245 part b — the escalate trigger's replies. Same honesty contract as the acks above
+  // (tests/chatAckHonesty.test.ts covers these too): never "room", never "watched", and
+  // the snapshot semantics stated outright. `chatEscalationNotWatching` is the escalate
+  // path's opening caveat in place of `chatSnapshotNote`, because the stronger claim is
+  // the one a reader needs here — the ESCALATION does not follow the thread, so nothing
+  // said after this moment reaches it on its own.
+  chatEscalationNotWatching: {
+    en: 'The escalation does not follow this thread — it holds a snapshot of the thread as of now, so @mention me again to capture anything said since.',
+    de: 'Die Eskalation verfolgt diesen Thread nicht — sie hält eine Momentaufnahme des Threads zum jetzigen Stand; erwähne mich erneut (@), um seither Gesagtes zu erfassen.',
+    ja: 'このエスカレーションはスレッドを追跡しません。現時点のスレッドのスナップショットを保持するだけなので、以降の発言を取り込むには再度 @ メンションしてください。',
+    ko: '이 에스컬레이션은 스레드를 따라가지 않습니다. 현재 시점의 스레드 스냅샷만 보관하므로, 이후에 오간 내용을 담으려면 다시 @멘션하세요.',
+  },
+  chatEscalationCreated: {
+    en: 'Raised as Escalation #{n} — {url}. Nobody is assigned and it is not triaged yet: set the owner, decision maker, severity and org level there.',
+    de: 'Als Eskalation #{n} angelegt — {url}. Es ist noch niemand zugewiesen und nichts eingestuft: Verantwortliche, Entscheider, Schweregrad und Organisationsebene dort setzen.',
+    ja: 'エスカレーション #{n} として起票しました — {url}。担当者は未割り当てで未分類です。オーナー・意思決定者・重大度・組織レベルはそちらで設定してください。',
+    ko: '에스컬레이션 #{n}으로 제기했습니다 — {url}. 아직 담당자가 없고 분류도 되지 않았습니다. 담당자·의사결정자·심각도·조직 레벨을 그곳에서 설정하세요.',
+  },
+  chatEscalationCreatedNoLink: {
+    en: 'Raised as Escalation #{n} in AutoKnow. Nobody is assigned and it is not triaged yet: set the owner, decision maker, severity and org level there.',
+    de: 'Als Eskalation #{n} in AutoKnow angelegt. Es ist noch niemand zugewiesen und nichts eingestuft: Verantwortliche, Entscheider, Schweregrad und Organisationsebene dort setzen.',
+    ja: 'AutoKnow にエスカレーション #{n} として起票しました。担当者は未割り当てで未分類です。オーナー・意思決定者・重大度・組織レベルはそちらで設定してください。',
+    ko: 'AutoKnow에 에스컬레이션 #{n}으로 제기했습니다. 아직 담당자가 없고 분류도 되지 않았습니다. 담당자·의사결정자·심각도·조직 레벨을 그곳에서 설정하세요.',
+  },
+  chatEscalationExists: {
+    en: 'Already tracked as Escalation #{n} — {url}. I saved what this thread says now; no second escalation was created.',
+    de: 'Wird bereits als Eskalation #{n} geführt — {url}. Ich habe den aktuellen Stand dieses Threads gesichert; eine zweite Eskalation wurde nicht angelegt.',
+    ja: 'すでにエスカレーション #{n} として管理されています — {url}。このスレッドの現在の内容は保存しましたが、2 件目のエスカレーションは作成していません。',
+    ko: '이미 에스컬레이션 #{n}으로 관리되고 있습니다 — {url}. 이 스레드의 현재 내용은 저장했지만, 두 번째 에스컬레이션은 만들지 않았습니다.',
+  },
+  chatEscalationExistsNoLink: {
+    en: 'Already tracked as Escalation #{n} in AutoKnow. I saved what this thread says now; no second escalation was created.',
+    de: 'Wird bereits als Eskalation #{n} in AutoKnow geführt. Ich habe den aktuellen Stand dieses Threads gesichert; eine zweite Eskalation wurde nicht angelegt.',
+    ja: 'AutoKnow ではすでにエスカレーション #{n} として管理されています。このスレッドの現在の内容は保存しましたが、2 件目のエスカレーションは作成していません。',
+    ko: 'AutoKnow에서 이미 에스컬레이션 #{n}으로 관리되고 있습니다. 이 스레드의 현재 내용은 저장했지만, 두 번째 에스컬레이션은 만들지 않았습니다.',
+  },
+  chatEscalationSaveFailed: {
+    en: 'I saved this thread, but could not raise the escalation: {reason}',
+    de: 'Ich habe diesen Thread gesichert, konnte die Eskalation aber nicht anlegen: {reason}',
+    ja: 'このスレッドは保存しましたが、エスカレーションを起票できませんでした: {reason}',
+    ko: '이 스레드는 저장했지만 에스컬레이션을 제기하지 못했습니다: {reason}',
+  },
   chatSaveFailed: {
     en: 'Could not save this thread: {reason}',
     de: 'Dieser Thread konnte nicht gespeichert werden: {reason}',

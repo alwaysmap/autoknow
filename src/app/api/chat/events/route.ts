@@ -33,7 +33,13 @@ export async function POST(req: NextRequest) {
   // has retention implications, and the thread id is enough to correlate.
   console.log(`[chat] type=${event.type} addon=${addon} thread=${event.message?.thread?.name ?? '-'}`);
 
-  const reply = await handleChatEvent(event);
+  // The origin, derived from the request host exactly as `expectedUrl` above already is —
+  // so an escalate reply can carry an ABSOLUTE link (#245 part b). A Chat message is read
+  // outside the app, where a relative path resolves against chat.google.com and goes
+  // nowhere; the handler omits the link entirely rather than emit a broken one when this
+  // is absent.
+  const appOrigin = req.headers.get('host') ? `https://${req.headers.get('host')}` : null;
+  const reply = await handleChatEvent(event, { appOrigin });
   console.log(`[chat] replied (${reply && 'text' in reply ? 'text' : 'empty'})`);
   return NextResponse.json(formatChatReply(reply, addon));
 }

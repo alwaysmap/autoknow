@@ -7,6 +7,7 @@ import { getServiceAccountToken, driveConfigured, CHAT_BOT_SCOPE } from './googl
 import { t, type Locale } from './i18n';
 import { LOCALE } from './preferences';
 import { isTruncated } from './ingestLimits';
+import { escalationHref } from './entityHref';
 
 // Google Chat @mention ingestion (plan §5.1 / slice 4). Chat POSTs interaction
 // events to our endpoint with a JWT minted by chat@system.gserviceaccount.com whose
@@ -228,8 +229,251 @@ async function fetchThreadText(spaceName: string, threadName: string): Promise<T
  *  the ack grows exactly as much as the truth requires. */
 const say = (...parts: Array<string | false | null>) => parts.filter(Boolean).join(' ');
 
+/**
+ * The ESCALATE trigger (#245 decision 1), as a pure function so it can be tested without a
+ * webhook and reused verbatim by the real `/escalate` slash command in part (d) — the
+ * slash command maps onto the same internal object rather than parsing again.
+ *
+ * Matched against `argumentText ?? text`. `argumentText` is Chat's own "the message minus
+ * the @mention", which is the field this is written for; the fallback strips ONE leading
+ * `@handle` token itself, so a payload that carries only `text` (and every test that hands
+ * one over) behaves identically instead of silently never triggering.
+ *
+ * The leading `/` is optional so that `/escalate …` — what the real slash command sends as
+ * plain text on clients that do not resolve it — is the same trigger, not a near miss.
+ * `\b` after the verb is what keeps "escalated the issue yesterday" from raising anything:
+ * this fires only when the message BEGINS by asking for it.
+ *
+ * Returns both halves because both are stored and they are not the same thing: `raw` is
+ * the provenance written to `originalRequest` verbatim, `topic` is what the title seeds
+ * from. A trigger with no topic at all is still a trigger (`topic` is then empty) — the
+ * caller falls back to the digest, because refusing would mean answering "escalate this"
+ * with a syntax complaint.
+ */
+export function parseEscalateTrigger(text: string | null | undefined): { raw: string; topic: string } | null {
+  const raw = (text ?? '').trim().replace(/^@\S+\s*/, '').trim();
+  const m = /^\/?escalate\b[:\s]*/i.exec(raw);
+  if (!m) return null;
+  return { raw, topic: raw.slice(m[0].length).trim() };
+}
+
+/** What ONE thread snapshot did, for the caller that has to say so. Deliberately reports
+ *  the OUTCOME rather than a reply string: the plain-mention path and the escalate path
+ *  word the same five outcomes differently, and the ingest half must not know which. */
+interface ThreadIngest {
+  outcome: 'created' | 'revised' | 'unchanged' | 'no-text' | 'failed';
+  /** The row, on every outcome that has one — including `unchanged`, because a duplicate
+   *  escalate on an unchanged thread still has to find the escalation already on it. */
+  contextUrlId?: number;
+  /** The caveat sentences that actually applied, minus the leading snapshot note — the
+   *  two paths open with a different first sentence but share these. */
+  capped: boolean;
+  unreadable: boolean;
+  /** The entity the classifier attached a NEW row to, for the ack that names it. */
+  attachedName?: string | null;
+  error?: string;
+}
+
+/**
+ * Save the thread as of now — dedupe by thread name, re-mention becomes a revision — and
+ * report what happened.
+ *
+ * Extracted from `handleChatEvent` unchanged (#245 part b) because the escalate branch
+ * needs exactly this and must not fork it: a second copy is a second place for the
+ * `truncated` flag, the revision write or the dedupe to be forgotten, and the first of
+ * those was already missed once here (#56 review).
+ */
+async function snapshotThread(
+  event: ChatEvent,
+  msg: NonNullable<ChatEvent['message']>,
+): Promise<ThreadIngest> {
+  const spaceName = event.space?.name ?? msg.thread?.name?.split('/threads/')[0] ?? '';
+  const threadName = msg.thread?.name ?? msg.name;
+  const sender = msg.sender?.email ?? msg.sender?.displayName ?? 'chat';
+
+  // Thread-as-of-now; degrade to the mentioning message when history is off. That degrade
+  // used to be SILENT — the ack said "saved" whether it had the thread or one message — so
+  // it is now reported as its own sentence (#56: the pattern is a boundary that fails safe
+  // but says nothing).
+  const snapshot: ThreadSnapshot = spaceName
+    ? await fetchThreadText(spaceName, threadName)
+    : { text: null, capped: false };
+  const threadText = snapshot.text ?? (msg.argumentText || msg.text || '').trim();
+  const limits = { capped: snapshot.capped, unreadable: !snapshot.text };
+  if (!threadText) return { outcome: 'no-text', ...limits };
+
+  const sourceRef = `chat:${threadName}`;
+  const url = `https://chat.google.com/${threadName.replace('spaces/', 'room/')}`;
+  const title = `Chat: ${(event.space?.displayName || threadText.split('\n')[0]).slice(0, 90)}`;
+
+  const existing = await prisma.contextUrl.findUnique({ where: { sourceRef }, select: { id: true, ingestedText: true, contentHash: true } });
+  if (existing) {
+    // Re-mention → a revision with what's new (plan §5.1), not a duplicate.
+    const hash = hashContent(threadText);
+    if (hash === existing.contentHash) return { outcome: 'unchanged', contextUrlId: existing.id, ...limits };
+    const digest = await summarizeDocument(threadText, existing.ingestedText ?? undefined);
+    const digestText = digestToText(digest);
+    await prisma.$transaction([
+      prisma.contextUrl.update({
+        where: { id: existing.id },
+        // truncated too: a thread that grows past the cap is lossy like any other source.
+        // This writer used to omit it, so a growing thread was never flagged (#56 review).
+        data: { ingestedText: digestText, contentHash: hash, truncated: isTruncated(threadText),
+          lastCheckedAt: new Date(), lastChangedAt: new Date() },
+      }),
+      prisma.contextRevision.create({
+        data: { contextUrlId: existing.id, contentHash: hash, sourceStatus: digest.sourceStatus, digest: digestText, delta: (digest.delta ?? '').trim() || null },
+      }),
+    ]);
+    return { outcome: 'revised', contextUrlId: existing.id, ...limits };
+  }
+
+  const result = await ingestContent({
+    url,
+    title,
+    text: threadText,
+    source: { kind: 'chat', mode: 'snapshot', sourceRef },
+    mode: 'snapshot',
+    modeSource: 'inferred',
+    anchor: null, // global classifier places it
+    addedBy: sender,
+  });
+
+  if (!result.ok) return { outcome: 'failed', error: result.error ?? 'unknown error', ...limits };
+  return {
+    outcome: 'created',
+    contextUrlId: result.contextUrlId ?? undefined,
+    attachedName: result.attachedTo?.name ?? null,
+    ...limits,
+  };
+}
+
+/** Everything the handler knows about WHERE it is running that it cannot read off the
+ *  event. Today just the origin, so a reply can carry an absolute in-app link (a Chat
+ *  message is read outside the app, so a relative path is useless there). */
+export interface ChatContext {
+  /** e.g. `https://autoknow.alwaysmap.com`, derived by the route from the request host.
+   *  Absent in tests and in any caller that has no request — the reply then names the
+   *  escalation by number and omits the link, rather than emitting a broken one. */
+  appOrigin?: string | null;
+}
+
+/**
+ * Raise an escalation from a triggered message (#245 part b).
+ *
+ * THE ONE RULE THAT SHAPES THIS: every person role starts UNASSIGNED. The digest holds
+ * display NAMES, not addresses, so resolving "Sven" to a Person at a webhook boundary is a
+ * guess with a real human's name attached to somebody else's escalation. The UI pickers
+ * are the assignment surface. Severity and org level are null for the same reason — the
+ * webhook has not triaged anything, and a default would read as a judgement nobody made.
+ *
+ * Partner and program are NOT a guess: they are copied from what `classifyContext` already
+ * wrote on the ContextUrl during ingest, which is the classification this thread has
+ * already been given.
+ */
+async function raiseEscalation(
+  trigger: { raw: string; topic: string },
+  ingest: ThreadIngest,
+  event: ChatEvent,
+  msg: NonNullable<ChatEvent['message']>,
+  ctx: ChatContext,
+): Promise<{ text: string }> {
+  const tr = (key: Parameters<typeof t>[1], vars?: Record<string, string | number>) =>
+    t(REPLY_LOCALE, key, vars);
+
+  // The escalate reply's own caveat sentences. The first one differs from the plain
+  // path's: what a reader needs to know here is that the ESCALATION does not follow the
+  // thread, which is a stronger claim than "this snapshot is a snapshot".
+  const limits = say(
+    tr('chatEscalationNotWatching'),
+    ingest.capped && tr('chatThreadCapped', { n: THREAD_MESSAGE_LIMIT }),
+    ingest.unreadable && tr('chatThreadUnreadable'),
+  );
+
+  const link = (id: number): string | null =>
+    ctx.appOrigin ? `${ctx.appOrigin.replace(/\/+$/, '')}${escalationHref(id)}` : null;
+
+  const context = ingest.contextUrlId
+    ? await prisma.contextUrl.findUnique({
+        where: { id: ingest.contextUrlId },
+        select: { id: true, partnerId: true, projectId: true, ingestedText: true, title: true },
+      })
+    : null;
+
+  // DUPLICATE CHECK, not a DB constraint: Prisma cannot express "at most one OPEN
+  // escalation per contextUrlId", and the race window here is human-retype-sized. The
+  // snapshot above already ran, deliberately — the thread grew, and that revision is worth
+  // capturing whether or not a new escalation comes of it.
+  if (context) {
+    const open = await prisma.escalation.findFirst({
+      where: { contextUrlId: context.id, status: 'open' },
+      select: { id: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (open) {
+      const url = link(open.id);
+      return {
+        text: say(
+          url
+            ? tr('chatEscalationExists', { n: open.id, url })
+            : tr('chatEscalationExistsNoLink', { n: open.id }),
+          limits,
+        ),
+      };
+    }
+  }
+
+  // Title: the trigger's topic, then the digest's first line, then the space name. Each
+  // fallback is something a human wrote or the model distilled — never a generated
+  // placeholder, which would make the list unreadable at a glance.
+  const digestFirstLine = (context?.ingestedText ?? '').split('\n').map((l) => l.trim()).find(Boolean);
+  const title = (
+    trigger.topic ||
+    digestFirstLine ||
+    context?.title ||
+    event.space?.displayName ||
+    'Escalation raised from chat'
+  ).slice(0, 300);
+
+  try {
+    const escalation = await prisma.escalation.create({
+      data: {
+        originalRequest: trigger.raw,
+        title,
+        summary: context?.ingestedText ?? null,
+        // Copied from the classifier's own answer, never re-derived here.
+        partnerId: context?.partnerId ?? null,
+        projectId: context?.projectId ?? null,
+        contextUrlId: context?.id ?? null,
+        raisedBy: msg.sender?.email ?? msg.sender?.displayName ?? null,
+        sourceKind: 'chat',
+      },
+      select: { id: true },
+    });
+    const url = link(escalation.id);
+    return {
+      text: say(
+        url
+          ? tr('chatEscalationCreated', { n: escalation.id, url })
+          : tr('chatEscalationCreatedNoLink', { n: escalation.id }),
+        limits,
+      ),
+    };
+  } catch (e) {
+    // Creation fails ONLY if the database write fails, and it is reported honestly rather
+    // than swallowed into the thread's "Saved" (AGENTS lesson 5). The snapshot above did
+    // commit, so the ack has to distinguish "the thread is saved" from "the escalation is
+    // not raised".
+    console.error('[chat] escalation create failed:', e);
+    return { text: tr('chatEscalationSaveFailed', { reason: e instanceof Error ? e.message : 'unknown error' }) };
+  }
+}
+
 /** Handle one event; the returned object is posted as the app's reply. */
-export async function handleChatEvent(event: ChatEvent): Promise<{ text: string } | Record<string, never>> {
+export async function handleChatEvent(
+  event: ChatEvent,
+  ctx: ChatContext = {},
+): Promise<{ text: string } | Record<string, never>> {
   const tr = (key: Parameters<typeof t>[1], vars?: Record<string, string | number>) =>
     t(REPLY_LOCALE, key, vars);
 
@@ -248,67 +492,35 @@ export async function handleChatEvent(event: ChatEvent): Promise<{ text: string 
   }
 
   const msg = event.message;
-  const spaceName = event.space?.name ?? msg.thread?.name?.split('/threads/')[0] ?? '';
-  const threadName = msg.thread?.name ?? msg.name;
-  const sender = msg.sender?.email ?? msg.sender?.displayName ?? 'chat';
+  // The branch sits HERE — after the domain gate, before the snapshot — because an
+  // escalation is content too: a sender we refuse to ingest from is a sender we refuse to
+  // raise an escalation for, and putting the trigger check first would have quietly made
+  // this the one path around that gate.
+  const trigger = parseEscalateTrigger(msg.argumentText ?? msg.text);
 
-  // Thread-as-of-now; degrade to the mentioning message when history is off. That degrade
-  // used to be SILENT — the ack said "saved" whether it had the thread or one message — so
-  // it is now reported as its own sentence (#56: the pattern is a boundary that fails safe
-  // but says nothing).
-  const snapshot: ThreadSnapshot = spaceName
-    ? await fetchThreadText(spaceName, threadName)
-    : { text: null, capped: false };
-  const threadText = snapshot.text ?? (msg.argumentText || msg.text || '').trim();
-  if (!threadText) return { text: tr('chatNoText') };
+  const ingest = await snapshotThread(event, msg);
+  if (ingest.outcome === 'no-text') return { text: tr('chatNoText') };
 
-  // The sentences that state which limits actually applied to THIS save.
+  // Both paths report the same two limits; only the opening sentence differs.
   const limits = say(
     tr('chatSnapshotNote'),
-    snapshot.capped && tr('chatThreadCapped', { n: THREAD_MESSAGE_LIMIT }),
-    !snapshot.text && tr('chatThreadUnreadable'),
+    ingest.capped && tr('chatThreadCapped', { n: THREAD_MESSAGE_LIMIT }),
+    ingest.unreadable && tr('chatThreadUnreadable'),
   );
 
-  const sourceRef = `chat:${threadName}`;
-  const url = `https://chat.google.com/${threadName.replace('spaces/', 'room/')}`;
-  const title = `Chat: ${(event.space?.displayName || threadText.split('\n')[0]).slice(0, 90)}`;
-
-  const existing = await prisma.contextUrl.findUnique({ where: { sourceRef }, select: { id: true, ingestedText: true, contentHash: true } });
-  if (existing) {
-    // Re-mention → a revision with what's new (plan §5.1), not a duplicate.
-    const hash = hashContent(threadText);
-    if (hash === existing.contentHash) return { text: tr('chatUnchanged') };
-    const digest = await summarizeDocument(threadText, existing.ingestedText ?? undefined);
-    const digestText = digestToText(digest);
-    await prisma.$transaction([
-      prisma.contextUrl.update({
-        where: { id: existing.id },
-        // truncated too: a thread that grows past the cap is lossy like any other source.
-        // This writer used to omit it, so a growing thread was never flagged (#56 review).
-        data: { ingestedText: digestText, contentHash: hash, truncated: isTruncated(threadText),
-          lastCheckedAt: new Date(), lastChangedAt: new Date() },
-      }),
-      prisma.contextRevision.create({
-        data: { contextUrlId: existing.id, contentHash: hash, sourceStatus: digest.sourceStatus, digest: digestText, delta: (digest.delta ?? '').trim() || null },
-      }),
-    ]);
-    return { text: say(tr('chatUpdated'), limits) };
+  if (ingest.outcome === 'failed') {
+    return { text: tr('chatSaveFailed', { reason: ingest.error ?? 'unknown error' }) };
   }
 
-  const result = await ingestContent({
-    url,
-    title,
-    text: threadText,
-    source: { kind: 'chat', mode: 'snapshot', sourceRef },
-    mode: 'snapshot',
-    modeSource: 'inferred',
-    anchor: null, // global classifier places it
-    addedBy: sender,
-  });
+  // An escalate trigger takes over the reply once the thread is safely stored — the
+  // snapshot has already happened either way, which is what makes a duplicate trigger on a
+  // grown thread still capture the revision.
+  if (trigger) return await raiseEscalation(trigger, ingest, event, msg, ctx);
 
-  if (!result.ok) return { text: tr('chatSaveFailed', { reason: result.error ?? 'unknown error' }) };
-  const saved = result.attachedTo?.name
-    ? tr('chatSavedLinked', { name: result.attachedTo.name })
+  if (ingest.outcome === 'unchanged') return { text: tr('chatUnchanged') };
+  if (ingest.outcome === 'revised') return { text: say(tr('chatUpdated'), limits) };
+  const saved = ingest.attachedName
+    ? tr('chatSavedLinked', { name: ingest.attachedName })
     : tr('chatSaved');
   return { text: say(saved, limits) };
 }
