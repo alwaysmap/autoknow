@@ -7,7 +7,7 @@ import OverlayDialog from './OverlayDialog';
 import { RelationshipFace, RelationshipNoValue } from './RelationshipFace';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
-import { subscribeLocationChange } from '../lib/locationHash';
+import { useHashAddressablePopover } from '../lib/useHashAddressablePopover';
 import { updatePartnerRelationship } from '../app/actions/relationship';
 import {
   REL_SCORES, REL_KEY, RELATIONSHIP_HISTORY_HASH, clampScore, isRelationshipHash,
@@ -79,79 +79,33 @@ export default function RelationshipScale({
   // whether there is unsaved work to protect (#35).
   const [noteText, setNoteText] = useState('');
 
-  const [detailOpen, setDetailOpen] = useState(false);
   const [adding, setAdding] = useState(false);
-  /** The single update a deep link asked for, or null for "just open the log". */
-  const [addressed, setAddressed] = useState<number | null>(null);
-
-  // Mirror detailOpen into a ref so the deep-link handler reads the live value without
-  // re-subscribing on every open/close. The open/close helpers below ALSO write it
-  // eagerly: `replaceState` is patched to notify listeners synchronously (#40), so
-  // openDetail's own hash write re-enters the handler in the same tick — before React
-  // has committed the render that would update this ref from state. Without the eager
-  // write the handler sees "not open yet" and redundantly re-runs the whole opening.
-  const detailOpenRef = useRef(false);
-  useEffect(() => { detailOpenRef.current = detailOpen; }, [detailOpen]);
   const listRef = useRef<HTMLDivElement>(null);
 
   const resetForm = () => { setPick(score ?? 3); setNoteError(false); setNoteText(''); };
 
   // Has the open form changed anything worth protecting? The pick, or a typed note.
   const fieldsDirty = pick !== (score ?? 3) || noteText.trim() !== '';
-  // The guard every dismissal path (× / Escape / backdrop) runs through: a close
-  // proceeds freely unless the open form has unsaved work, in which case it must be
-  // confirmed — so a stray close can't silently drop an in-progress edit, while a
-  // pristine form still closes without a nag (#35).
-  const mayDismiss = (active: boolean) => !(active && fieldsDirty) || window.confirm(t(locale, 'discardUpdateConfirm'));
 
-  // Opening writes the hash, so the open popover IS a shareable URL.
-  const openDetail = () => {
-    resetForm();
-    setAdding(false);
-    setAddressed(null);
-    setDetailOpen(true);
-    detailOpenRef.current = true;
-    if (window.location.hash !== `#${RELATIONSHIP_HISTORY_HASH}`) {
-      window.history.replaceState(null, '', `#${RELATIONSHIP_HISTORY_HASH}`);
-    }
-  };
-  const closeDetail = () => {
-    setAdding(false);
-    setDetailOpen(false);
-    setAddressed(null);
-    detailOpenRef.current = false;
-    // Clear whichever member of the family opened it — the log or one update — so a
-    // reload after closing doesn't re-open what the reader just dismissed.
-    if (isRelationshipHash(window.location.hash)) {
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
-    }
-  };
+  // Deep link: `#relationship-history` opens the log, `#relationship-update-:id` opens
+  // it at that update (nnu — shared with NeedleGauge; the eager-ref fix here is what
+  // NeedleGauge's own copy was missing before the two were unified). Opening writes
+  // the hash, so the open popover IS a shareable URL.
+  const { open: detailOpen, addressed, openDetail, closeDetail: closePopover, mayDismiss } = useHashAddressablePopover({
+    matchesHash: isRelationshipHash,
+    parseAddressed: parseRelUpdateHash,
+    hashToWrite: RELATIONSHIP_HISTORY_HASH,
+    onOpen: resetForm,
+    fieldsDirty,
+    confirmMessage: t(locale, 'discardUpdateConfirm'),
+    // The server hands down a fresh array on every revalidate, so the subscription
+    // rebinds and `resetForm` can never close over a `score` older than the log
+    // beside it — with `[]` the handler would keep the first render's props forever,
+    // and re-prefill the picker with a superseded score after the user files one.
+    deps: [history],
+  });
+  const closeDetail = () => { setAdding(false); closePopover(); };
   const startAdding = () => { resetForm(); setAdding(true); };
-
-  // Deep link: `#relationship-history` opens the log, `#relationship-update-:id`
-  // opens it at that update. Runs once per mount and on in-page hash changes — Next's
-  // <Link> navigates via pushState, which does not fire `hashchange` (#40), so a
-  // same-page feed link would otherwise change the URL and open nothing.
-  useEffect(() => {
-    const openIfHashed = () => {
-      const hash = window.location.hash;
-      if (!isRelationshipHash(hash)) return;
-      setAddressed(parseRelUpdateHash(hash));
-      if (!detailOpenRef.current) {
-        resetForm();
-        setAdding(false);
-        setDetailOpen(true);
-      }
-    };
-    openIfHashed();
-    return subscribeLocationChange(openIfHashed);
-    // Keyed on `history` like NeedleGauge: the server hands down a fresh array on
-    // every revalidate, so the subscription rebinds and `resetForm` can never close
-    // over a `score` older than the log beside it. With `[]` the handler would keep
-    // the first render's props forever, and re-prefill the picker with a superseded
-    // score after the user files an update.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history]);
 
   // Bring the addressed update into view. A log of near-identical cards otherwise
   // answers "here is the history" when the reader asked "show me THIS update".

@@ -1,8 +1,8 @@
 'use client';
 
-import { subscribeLocationChange } from '../lib/locationHash';
+import { useHashAddressablePopover } from '../lib/useHashAddressablePopover';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import styles from './NeedleGauge.module.css';
 import Markdown from './Markdown';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
@@ -51,15 +51,10 @@ export default function NeedleGauge({
   const [noteError, setNoteError] = useState(false);
 
   const [adding, setAdding] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
   // The note lives inside MarkdownNoteEditor; mirror it out so a dismissal can tell
   // whether there is unsaved work to protect (#35).
   const [noteText, setNoteText] = useState('');
-  // Mirror detailOpen into a ref so the once-subscribed deep-link handler reads the live
-  // value without re-subscribing on every open/close.
-  const detailOpenRef = useRef(false);
-  useEffect(() => { detailOpenRef.current = detailOpen; }, [detailOpen]);
 
   const resetForm = () => { setDragProgress(progress); setPickHealth(currentHealth); setNoteError(false); setNoteText(''); };
   const openUpdate = () => { resetForm(); setUpdateOpen(true); };
@@ -68,28 +63,26 @@ export default function NeedleGauge({
   // Has the open form actually changed anything worth protecting? The needle, the health
   // pick, or a typed note.
   const fieldsDirty = pickHealth !== currentHealth || dragProgress !== progress || noteText.trim() !== '';
-  // The guard every dismissal path (× / Escape / backdrop) runs through: a close proceeds
-  // freely unless the open form (`active`) has unsaved work, in which case it must be
-  // confirmed first — so a stray close can't silently drop an in-progress edit, while a
-  // pristine form still closes without a nag (#35).
-  const mayDismiss = (active: boolean) => !(active && fieldsDirty) || window.confirm(t(locale, 'discardUpdateConfirm'));
 
-  // Detail popup: the log, with UPDATE revealing the form IN PLACE. Opening a
-  // second <dialog> over this one would stack scrims and trap focus in the
-  // wrong layer, so the form is a mode of this popup, not another modal (§4b).
-  // Opening is now just navigating DETAIL (a <Link> to `#status-history`, #168) —
-  // the hash-change effect below is what actually reacts and opens the popup, the
-  // same path a shared/bookmarked URL or browser back/forward already took. The
-  // OverlayDialog owns the body-scroll lock and the box-based light-dismiss now;
-  // `canClose` (via fieldsDirty) makes every dismissal — × / Escape / backdrop —
-  // confirm before dropping an in-progress edit (#35).
-  const closeDetail = () => {
-    setAdding(false);
-    setDetailOpen(false);
-    if (window.location.hash === `#${STATUS_HISTORY_HASH}`) {
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
-    }
-  };
+  // Detail popup: the log, with UPDATE revealing the form IN PLACE. Opening a second
+  // <dialog> over this one would stack scrims and trap focus in the wrong layer, so
+  // the form is a mode of this popup, not another modal (§4b). Opening is just
+  // navigating DETAIL (a <Link> to `#status-history`, #168) — the hook's hash-listen
+  // effect is what actually reacts and opens the popup, the same path a shared/
+  // bookmarked URL or browser back/forward already took (nnu — shared with
+  // RelationshipScale, which is why `openDetail` below goes unused here but the hook
+  // still returns it uniformly). The OverlayDialog owns the body-scroll lock and the
+  // box-based light-dismiss now; `canClose` (via `mayDismiss`) makes every dismissal
+  // — × / Escape / backdrop — confirm before dropping an in-progress edit (#35).
+  const { open: detailOpen, closeDetail: closePopover, mayDismiss } = useHashAddressablePopover({
+    matchesHash: (hash) => !!history && hash === `#${STATUS_HISTORY_HASH}`,
+    hashToWrite: STATUS_HISTORY_HASH,
+    onOpen: resetForm,
+    fieldsDirty,
+    confirmMessage: t(locale, 'discardUpdateConfirm'),
+    deps: [history],
+  });
+  const closeDetail = () => { setAdding(false); closePopover(); };
   const startAdding = () => { resetForm(); setAdding(true); };
 
   // One submit path for both the standalone dialog and the inline form.
@@ -105,24 +98,6 @@ export default function NeedleGauge({
     } catch (err) { console.error(err); }
     finally { setIsSubmitting(false); }
   };
-
-  // Deep link: /programs/:id#status-history opens the log directly, so the URL
-  // can be shared. Runs once per mount and on in-page hash changes.
-  useEffect(() => {
-    if (!history) return;
-    const openIfHashed = () => {
-      if (window.location.hash === `#${STATUS_HISTORY_HASH}` && !detailOpenRef.current) {
-        resetForm();
-        setAdding(false);
-        setDetailOpen(true);
-      }
-    };
-    openIfHashed();
-    // Next <Link> navigates via pushState, which does not fire `hashchange`
-    // (#40) — subscribe to both so a same-page feed link opens the log.
-    return subscribeLocationChange(openIfHashed);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history]);
 
   const setFromPointer = (clientX: number, clientY: number) => {
     if (!svgRef.current) return;
