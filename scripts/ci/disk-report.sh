@@ -43,6 +43,22 @@ fi
 echo "DISK ${label}: $(disk_gib "$avail_kb") GiB free on / ($(disk_used_pct) used)"
 df -Ph / | sed 's/^/  /'
 
+# THE `df` LINE ABOVE IS THE CHEAP HALF, AND ON A HEALTHY RUN IT IS THE WHOLE REPORT.
+# Everything below walks directories — `du -shx` over /var/lib/docker, node_modules and the
+# browser cache — which measured 13-14s per probe, three probes per leg, on the job that is
+# the workflow's critical path. That is a real minute of every PR spent attributing a fill
+# that is not happening: the same run measured 32.1 GiB free at webkit's low-water against
+# a 2.0 GiB floor.
+#
+# So the attribution is gated on the SAME warn line that escalates to `--deep`. Below it,
+# you get everything you used to. Above it, you get the free-space number and no bill. The
+# guard prints the low-water on every run either way, so nothing that decides whether the
+# headroom is safe has moved.
+if [ "$deep" -eq 0 ]; then
+  echo "  consumers: not walked — above the warn line, so nothing to attribute."
+  exit 0
+fi
+
 # The paths this job is known to grow, plus the ones that would explain a fill nobody
 # budgeted for: docker (the postgres service image), the apt archive that
 # `playwright install --with-deps` fills, /tmp, and the crash dumps. A browser dumping core
