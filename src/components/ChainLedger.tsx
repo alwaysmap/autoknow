@@ -251,10 +251,16 @@ export default function ChainLedger({
   if (overshoot) {
     nextSteps.push(
       <>
-        <button type="button" className={styles.declareBtn}
-          onClick={() => scrollPageTo(document.getElementById('program-status'), { behavior: 'smooth', block: 'center' })}>
+        {/* Only ever changes WHERE you are — a link, not a button (design.md §6,
+            #168). A real `href` so it works with no JS, keyboard, and middle-click;
+            the `onClick` only upgrades the jump to the centered, steady-scroll one
+            `useSteadyPageScroll` gives every other in-page scroll on this page — a
+            plain default-scrolled anchor would land the target at the viewport's
+            top edge instead of centered, and skip the press-halts-motion guard. */}
+        <a href="#program-status" className={styles.declareBtn}
+          onClick={(e) => { e.preventDefault(); scrollPageTo(document.getElementById('program-status'), { behavior: 'smooth', block: 'center' }); }}>
           {t(locale, 'clLeverDeclare', { month: monthLong(`${overshoot.proposedSopMonth}-01`, locale) })}
-        </button>
+        </a>
         {overshoot.unitsDelayed != null && (
           <>
             {' — '}

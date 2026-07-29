@@ -211,12 +211,12 @@ test.describe('Project Details and Action Item Operations', () => {
     // The Progress & Health card: the row offers DETAIL, and the update form
     // opens inside that popup (see NeedleGauge / needle.spec.ts).
     const card = page.locator('[class*="summaryCard"]')
-      .filter({ has: page.getByRole('button', { name: 'Detail', exact: true }) });
+      .filter({ has: page.getByRole('link', { name: 'Detail', exact: true }) });
     const dialog = page.getByTestId('needle-detail');
     await expect(async () => {
       if (!(await dialog.isVisible())) {
         await page.evaluate(() => window.scrollTo(0, 0));
-        await card.getByRole('button', { name: 'Detail', exact: true }).click({ timeout: 2000 });
+        await card.getByRole('link', { name: 'Detail', exact: true }).click({ timeout: 2000 });
       }
       await expect(dialog).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });

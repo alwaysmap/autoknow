@@ -354,6 +354,10 @@ const STRINGS = {
   updateNeedsNote: { en: 'An update needs a note — say what changed.', de: 'Ein Update braucht eine Notiz — was hat sich geändert?', ja: '更新にはメモが必要です。何が変わったか記入してください。', ko: '업데이트에는 메모가 필요합니다. 무엇이 바뀌었는지 적어주세요.' },
   needleNotePlaceholder: { en: 'e.g. Deploying first week of cooldown; one blocker on export.', de: 'z. B. Deployment in der ersten Cooldown-Woche; ein Blocker beim Export.', ja: '例: クールダウン第1週にデプロイ。エクスポートに1件のブロッカー。', ko: '예: 쿨다운 첫 주에 배포, 내보내기에 블로커 1건.' },
   programProgressAria: { en: 'Program progress', de: 'Programmfortschritt', ja: 'プログラム進捗', ko: '프로그램 진행률' },
+  // #168: the needle's visible health WORD was dropped (the coin/needle colour and
+  // position already say it) — this is now the only place a screen reader (or a
+  // sighted user hovering the `title`) recovers health, so it has to survive here.
+  programHealthAria: { en: 'Program health: {health}', de: 'Programmstatus: {health}', ja: 'プログラムの健全性: {health}', ko: '프로그램 상태: {health}' },
   updatedOn: { en: 'Updated {d}', de: 'Aktualisiert {d}', ja: '{d} 更新', ko: '{d} 업데이트' },
   noPhasesYet: { en: 'No phases yet.', de: 'Noch keine Phasen.', ja: 'フェーズはまだありません。', ko: '아직 단계가 없습니다.' },
   hillAria: { en: 'Phase progress on the hill', de: 'Phasenfortschritt auf dem Hügel', ja: 'ヒル上のフェーズ進捗', ko: '힐 차트의 단계 진행률' },

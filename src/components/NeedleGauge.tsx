@@ -1,8 +1,10 @@
 'use client';
 
 import { subscribeLocationChange } from '../lib/locationHash';
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import styles from './NeedleGauge.module.css';
+import Markdown from './Markdown';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
 import NeedleHistoryList from './NeedleHistoryList';
 import OverlayDialog from './OverlayDialog';
@@ -75,18 +77,12 @@ export default function NeedleGauge({
   // Detail popup: the log, with UPDATE revealing the form IN PLACE. Opening a
   // second <dialog> over this one would stack scrims and trap focus in the
   // wrong layer, so the form is a mode of this popup, not another modal (§4b).
-  // Opening also writes the hash, so the open popup IS a shareable URL. The
+  // Opening is now just navigating DETAIL (a <Link> to `#status-history`, #168) —
+  // the hash-change effect below is what actually reacts and opens the popup, the
+  // same path a shared/bookmarked URL or browser back/forward already took. The
   // OverlayDialog owns the body-scroll lock and the box-based light-dismiss now;
   // `canClose` (via fieldsDirty) makes every dismissal — × / Escape / backdrop —
   // confirm before dropping an in-progress edit (#35).
-  const openDetail = () => {
-    resetForm();
-    setAdding(false);
-    setDetailOpen(true);
-    if (window.location.hash !== `#${STATUS_HISTORY_HASH}`) {
-      window.history.replaceState(null, '', `#${STATUS_HISTORY_HASH}`);
-    }
-  };
   const closeDetail = () => {
     setAdding(false);
     setDetailOpen(false);
@@ -194,28 +190,51 @@ export default function NeedleGauge({
     </>
   );
 
+  // The newest entry is what `updatedAt` already refers to — the note beside the
+  // gauge (§4b, #168) has to be the SAME update the gauge itself is showing.
+  const newestNote = history?.[0]?.notes;
+
   return (
     <div className={styles.gaugeWrapper}>
-      <div className={styles.gaugeContainer} style={{ pointerEvents: 'none' }}>
-        <svg className={styles.gaugeSvg} viewBox={viewBox}>
-          <Gauge progress={progress / 100} color={healthColor(currentHealth)} prevProgress={previousProgress != null ? previousProgress / 100 : null} prevColor={healthColor(previousHealth ?? health)} />
-        </svg>
+      <div className={styles.gaugeColumn}>
+        <div className={styles.gaugeContainer}>
+          <svg className={styles.gaugeSvg} viewBox={viewBox} role="img"
+            aria-label={t(locale, 'programHealthAria', { health: t(locale, healthKey(currentHealth)) })}>
+            {/* The needle's angle states progress and its colour states health — the
+                visible "Some Risk" word next to it was the only non-colour carrier of
+                health (#168), so removing it moves that fact here instead of dropping
+                it: a screen reader gets it from the accessible name, a sighted user
+                from hovering (this SVG no longer sits in a pointer-events:none box). */}
+            <title>{t(locale, 'programHealthAria', { health: t(locale, healthKey(currentHealth)) })}</title>
+            <Gauge progress={progress / 100} color={healthColor(currentHealth)} prevProgress={previousProgress != null ? previousProgress / 100 : null} prevColor={healthColor(previousHealth ?? health)} />
+          </svg>
+        </div>
+
+        {/* fact · date · action on one line (design.md §7), never a three-line stack.
+            Health is now colour-only here (its word lives in the gauge's accessible
+            name above, not as a second visible encoding of the same fact). */}
+        <div className={styles.statusRow}>
+          {updatedAt && <span className={styles.updatedAt}>{t(locale, 'updatedOn', { d: localDate(updatedAt, locale, { month: 'short', day: 'numeric' }) })}</span>}
+          {/* DETAIL only ever changes WHERE you are — it writes `#status-history` and
+              nothing else — so it is a link, not a button (design.md §6, #168): a
+              plain <Link>, relying on lib/locationHash's pushState patch to notify
+              the hash listener below the same way a native <a> or back/forward would. */}
+          {history
+            ? <Link href={`#${STATUS_HISTORY_HASH}`} replace scroll={false} className={styles.updateBtn}>{t(locale, 'detail')}</Link>
+            : editable && <button type="button" onClick={openUpdate} className={styles.updateBtn}>{t(locale, 'update')}</button>}
+        </div>
       </div>
 
-      {/* fact · date · action on one line (design.md §7), never a three-line stack */}
-      <div className={styles.statusRow}>
-        <span className={styles.statusValue} style={{ color: healthColor(currentHealth) }}>{t(locale, healthKey(currentHealth))}</span>
-        {updatedAt && <span className={styles.updatedAt}>{t(locale, 'updatedOn', { d: localDate(updatedAt, locale, { month: 'short', day: 'numeric' }) })}</span>}
-        {/* graphic · date · DETAIL. Updating happens inside the detail popup, so
-            the resting row states the fact and offers one way in. */}
-        {history
-          ? <button type="button" onClick={openDetail} className={styles.updateBtn}>{t(locale, 'detail')}</button>
-          : editable && <button type="button" onClick={openUpdate} className={styles.updateBtn}>{t(locale, 'update')}</button>}
-      </div>
+      {/* The newest update's note, beside the gauge once the CARD (not the
+          viewport) is wide enough — NeedleGauge.module.css hides this entirely
+          below that container threshold, where DETAIL remains the only way to
+          read it. */}
+      {newestNote && (
+        <div className={styles.restingNote}><Markdown>{newestNote}</Markdown></div>
+      )}
 
       {/* Detail: the complete log — graphic, health label, author, timestamp, and
-          the written note in full (it feeds the AI briefing and is deliberately
-          absent beside the gauge). UPDATE reveals the form in place rather than
+          every written note in full. UPDATE reveals the form in place rather than
           opening a second modal over this one. */}
       {history && (
         <OverlayDialog

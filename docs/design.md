@@ -113,10 +113,17 @@ For other detail pages (like Partner details):
 ## 4b. Status updates: the gauge states a fact, the popup holds the record
 Program health (the Needle) follows one pattern, and new status surfaces should
 copy it (2026-07-20, user call):
-* The resting row is **graphic · date · DETAIL** — no note text beside the
-  gauge. Every update REQUIRES a written note (dialog gate + `zText` at the
-  mutation boundary), but that prose feeds the AI briefing and the log, not the
-  card.
+* The resting row is **graphic · date · DETAIL**. Every update REQUIRES a
+  written note (dialog gate + `zText` at the mutation boundary); that prose
+  feeds the AI briefing and the log, and — 2026-07-28, #168 — the card too,
+  **once the card is wide enough to hold it**: at ~34rem+ of the card's own
+  inline width the newest note (`history[0]`, the same entry `updatedAt`
+  already refers to) reads beside the gauge. Narrower than that — which
+  includes a full-width card on a phone, where "full width" is 360px and the
+  gauge alone wants 260px — the note stays out, reachable only through DETAIL,
+  same as before. The trigger is the card's own size (a container query),
+  never the viewport: a viewport media query would show the note at 959px and
+  hide it at 961px regardless of how wide the card sitting there actually is.
 * **DETAIL** opens a popup covering most of the viewport listing every update
   with its graphic, health label, author, timestamp, and full note. Body scroll
   locks while it is open; the log scrolls inside it.
@@ -253,6 +260,14 @@ tables) so nothing has to be relearned page to page.
 * **One measure per cell**: a value gets exactly one visual rendering (a face, a
   number, a bar — never a face *plus* the number *plus* a word). The redundant
   forms live in the tooltip/accessible name.
+* **Links vs. buttons is the same noun/class distinction, off the table grammar**
+  (2026-07-28, #168): a control that only changes *where you are* — a route, a
+  hash, a scroll position — is a link. A control that changes *something* — data,
+  view state, an open dialog — is a button. Paint follows the element, not the
+  other way round: a `<Link>` styled to look like a button (a CTA) still IS one,
+  and a `<button>` whose entire handler writes a URL fragment is a link wearing
+  the wrong element, which loses keyboard semantics, middle-click, and "open in
+  new tab" along with the role a screen reader announces.
 * Implementation home: `src/components/DataTable.tsx` (sort, pagination, column
   filters, the squared key-column filter box) + `DateCell` + `PersonCell`. New tables
   must use them rather than re-implementing — `tests/dataTableConvention.test.ts` fails a
