@@ -89,15 +89,15 @@ describe('runSummaryCycle honours the cycle allowance it is given', () => {
     });
   });
 
-  it('generates no more than maxSummaries, and says a cap stopped it', async () => {
-    const report = await summaries.runSummaryCycle({ maxSummaries: 1 });
+  it('generates no more than its request allowance, and says a cap stopped it', async () => {
+    const report = await summaries.runSummaryCycle({ maxRequests: 1 });
     expect(report.generated).toBe(1);
     expect(report.skipped).toBeGreaterThan(0);
     expect(report.hitCap).toBe(true);
   });
 
   it('an exhausted allowance spends nothing at all', async () => {
-    const report = await summaries.runSummaryCycle({ maxSummaries: 0 });
+    const report = await summaries.runSummaryCycle({ maxRequests: 0 });
     expect(report.generated).toBe(0);
     expect(report.hitCap).toBe(true);
     // Short-circuited before the staleness aggregates — no scopes were even considered.
@@ -105,8 +105,8 @@ describe('runSummaryCycle honours the cycle allowance it is given', () => {
   });
 
   it('a covered cycle does not claim a cap stopped it', async () => {
-    await summaries.runSummaryCycle({ maxSummaries: 10 }); // clear the backlog
-    const report = await summaries.runSummaryCycle({ maxSummaries: 10 });
+    await summaries.runSummaryCycle({ maxRequests: 10 }); // clear the backlog
+    const report = await summaries.runSummaryCycle({ maxRequests: 10 });
     expect(report.generated).toBe(0);
     expect(report.hitCap).toBe(false);
   });

@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
       // change exists to remove, in a cycle where every changed doc happens to resolve.
       const spentRequests = requestsForDocs(drive.spent + report.spent);
       const summaries = await runSummaryCycle({
-        maxSummaries: summariesAffordable(requestBudget - spentRequests),
+        maxRequests: summariesAffordable(requestBudget - spentRequests),
       });
       return { ...report, drive, summaries };
     });

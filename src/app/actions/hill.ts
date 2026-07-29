@@ -66,6 +66,10 @@ export async function updatePhaseHill(formData: FormData) {
 // affordance on its card, and the only place the full log is readable — pulls the
 // rest on demand, for the one phase you opened.
 export interface PhaseLogEntry {
+  /** The `PhaseState`'s own id — what `#phase-:id-progress-:stateId` ADDRESSES. Carried
+   *  for the same reason `NeedleChange.id` is: without it a link to one hill update can
+   *  only open the whole log (autoknow-51j). */
+  id: number;
   at: string;
   progress: number;
   note: string | null;
@@ -77,9 +81,10 @@ export async function getPhaseLog(phaseId: number): Promise<PhaseLogEntry[]> {
   const states = await prisma.phaseState.findMany({
     where: { phaseId },
     orderBy: { timestamp: 'desc' },
-    select: { timestamp: true, hillChartProgress: true, notes: true, source: true },
+    select: { id: true, timestamp: true, hillChartProgress: true, notes: true, source: true },
   });
   return states.map((s) => ({
+    id: s.id,
     at: s.timestamp.toISOString(),
     progress: s.hillChartProgress ?? 0,
     note: s.notes,

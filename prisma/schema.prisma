@@ -148,6 +148,14 @@ model Summary {
   body         Json // { sections: [{ key, bullets: [{ text, citations: [{ label, href, external }] }] }] }
   sourceCounts Json
 
+  /// The schedule this brief was written against (lib/chainFingerprint): constraint
+  /// phase, focus phase, buffer days, projected finish. Compared against the freshly
+  /// computed chain to mark the brief stale when the two would disagree on screen —
+  /// staleness used to count only NEW ROWS, so a brief could sit beside a ledger
+  /// computing different numbers and nothing fired (#236). Program scope only; null on
+  /// partner/ecosystem briefs and on every brief written before this shipped.
+  chainFingerprint Json?
+
   @@index([scope, targetId, generatedAt])
 }
 

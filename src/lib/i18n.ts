@@ -665,6 +665,11 @@ const STRINGS = {
   frzAuth: { en: 'sign-in required', de: 'Anmeldung erforderlich', ja: 'ログインが必要', ko: '로그인 필요' },
   frzPaused: { en: 'paused', de: 'pausiert', ja: '一時停止', ko: '일시중지' },
   refreshNow: { en: 'Refresh now', de: 'Jetzt aktualisieren', ja: '今すぐ更新', ko: '지금 새로고침' },
+  // What one Refresh now concluded, said beside the row it acted on (autoknow-dv3).
+  // A refusal is not one of these: it renders the server's own sentence, which names
+  // the cap and where to check it.
+  refreshNoChange: { en: 'No change since the last check', de: 'Keine Änderung seit der letzten Prüfung', ja: '前回の確認から変更なし', ko: '마지막 확인 이후 변경 없음' },
+  refreshUpdated: { en: 'Updated from the source', de: 'Aus der Quelle aktualisiert', ja: 'ソースから更新しました', ko: '소스에서 업데이트됨' },
   pauseLabel: { en: 'Pause', de: 'Pausieren', ja: '一時停止', ko: '일시중지' },
   resumeLabel: { en: 'Resume', de: 'Fortsetzen', ja: '再開', ko: '재개' },
   sourcesTitle: { en: 'Sources', de: 'Quellen', ja: 'ソース', ko: '소스' },

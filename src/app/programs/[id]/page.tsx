@@ -179,6 +179,7 @@ export default async function ProjectDetailsPage(props: {
       startedExplicit: phase.startedAt != null,
       completedAt: spanByPhase.get(phase.id)?.finishedAt?.toISOString() ?? null,
       history: phase.states.slice(0, 6).map((s) => ({
+        id: s.id,
         at: s.timestamp.toISOString(),
         progress: s.hillChartProgress ?? 0,
         note: s.notes ?? null,

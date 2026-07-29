@@ -75,6 +75,9 @@ export async function getNeedleHistory(
 // One recorded phase hill-chart update: 0..100 progress (status is inferred from it),
 // the previous update (for the ghost dot), the markdown note, and the person who made it.
 export interface HillChange {
+  /** The `PhaseState`'s own id — what `#phase-:id-progress-:stateId` addresses, the same
+   *  job `NeedleChange.id` does for the other two scopes (autoknow-51j). */
+  id: number;
   timestamp: string;
   progress: number; // 0..100
   previousProgress: number | null;

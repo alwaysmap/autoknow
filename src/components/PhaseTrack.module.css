@@ -978,6 +978,17 @@
   flex-direction: column;
   gap: 0.375rem;
 }
+/* The headline entry when a `#phase-:id-progress-:stateId` link addressed IT rather than
+   an older card (autoknow-51j). Same ink and same reason as
+   NeedleHistoryList's `.card[data-addressed]`: "you were sent here" is a navigation
+   fact, so it takes the UI accent, not a status colour. `outline` rather than a border
+   for the same reason too — it cannot be erased by a blanket rule that never names this
+   file, and it costs no layout. */
+.latestUpdate[data-addressed] {
+  outline: 0.125rem solid var(--focus-ring);
+  outline-offset: 0.375rem;
+  border-radius: 0.25rem;
+}
 .latestMeta {
   display: flex;
   align-items: baseline;

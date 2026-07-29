@@ -48,8 +48,10 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ scope: st
     // still served by GET.
     const declined = declineIfQuotaBlocked('summary regenerate (api)', BRIEFING_SURVIVED);
     if (declined) return jsonError(declined, 503);
+    // A human asked for this, so it is deliberately outside the cron's request pool
+    // (the one-budget ADR) and may spend the retry a mechanical violation buys.
     const created = await createSummary(parsed.scope, parsed.targetId, 'manual');
-    if (created == null) return jsonError('Nothing to summarize for this scope', 404);
+    if (created.id == null) return jsonError('Nothing to summarize for this scope', 404);
     const summary = await getSummary(parsed.scope, parsed.targetId);
     return NextResponse.json({ configured: true, summary });
   } catch (error) {

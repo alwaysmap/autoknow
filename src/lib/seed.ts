@@ -320,6 +320,13 @@ async function recordRelationship(
   });
 }
 
+/** What `seedMockCorpus` managed to do. */
+export interface CorpusSeedReport {
+  ingested: number;
+  /** One entry per document the provider would not take, in corpus order. */
+  skipped: { key: string; reason: string }[];
+}
+
 /**
  * Ingest the authored corpus (lib/mockCorpus) through the app's REAL ingest boundary.
  *
@@ -329,11 +336,19 @@ async function recordRelationship(
  * is a rule rather than a preference: [ADR: Seeded content moves through the real
  * connectors](../../docs/adr/2026-07-25-seeded-content-runs-the-real-pipeline-and-fakes-only-the-schedule.md).
  *
- * Anchors are authored as NAMES and resolved here, and an unresolvable name THROWS
- * rather than attaching to nothing: a corpus entry silently anchored to null would read
- * as "ingested fine" while being invisible on every page it was written for.
+ * Two failure classes, told apart deliberately (autoknow-j81):
+ *
+ *  - **Our corpus is wrong** — an anchor name that resolves to nothing. THROWS: a corpus
+ *    entry silently anchored to null would read as "ingested fine" while being invisible
+ *    on every page it was written for, and no amount of retrying fixes the fixture.
+ *  - **The world refused** — Gemini over its spend cap, a transport fault. SKIPS that
+ *    document and carries on. Ingestion is the LAST step of a long seed, so throwing
+ *    here abandoned a database that already held every partner, program and state row,
+ *    and answered the operator with `{"error":"Internal Server Error"}` (AGENTS lesson
+ *    5). A demo seeded while Gemini is refusing is complete and usable; it just has no
+ *    ingested sources, and the report says so by name.
  */
-async function seedMockCorpus(): Promise<number> {
+async function seedMockCorpus(): Promise<CorpusSeedReport> {
   const [projects, partners] = await Promise.all([
     prisma.project.findMany({ select: { id: true, name: true } }),
     prisma.partner.findMany({ select: { id: true, name: true } }),
@@ -367,6 +382,7 @@ async function seedMockCorpus(): Promise<number> {
   };
 
   let ingested = 0;
+  const skipped: CorpusSeedReport['skipped'] = [];
   for (const s of MOCK_CORPUS) {
     const anchor = await resolveAnchor(s);
     const v0 = s.revisions[0];
@@ -382,7 +398,10 @@ async function seedMockCorpus(): Promise<number> {
       addedBy: s.addedBy,
     });
     if (!result.ok || !result.contextUrlId) {
-      throw new Error(`Corpus "${s.key}" failed to ingest: ${result.error ?? 'no row returned'}`);
+      const reason = result.error ?? 'no row returned';
+      console.warn(`[seed] corpus "${s.key}" skipped: ${reason}`);
+      skipped.push({ key: s.key, reason });
+      continue;
     }
 
     // Documented direct-write residue, like recordRelationship above: ingestion stamps
@@ -406,7 +425,7 @@ async function seedMockCorpus(): Promise<number> {
     });
     ingested++;
   }
-  return ingested;
+  return { ingested, skipped };
 }
 
 const WEEK_MS = 7 * 86_400_000;
@@ -539,7 +558,14 @@ async function seedPhasesFromBuiltin(
   return idsByName;
 }
 
-export async function seedMockData() {
+/** The seed's own account of what it managed to do. Only the corpus can partially fail —
+ *  everything above it is our own data written directly — so that is what the report
+ *  carries, and `POST /api/admin/seed` hands it straight back to the operator. */
+export interface MockSeedReport {
+  corpus: CorpusSeedReport;
+}
+
+export async function seedMockData(): Promise<MockSeedReport> {
   console.log('Seeding full mock data...');
   await wipeAllData();
 
@@ -1469,8 +1495,8 @@ export async function seedMockData() {
   // The ingested corpus goes in last: its entries anchor to programs created in all
   // three blocks above, and to their phases by name.
   console.log('Ingesting the mock source corpus through the ingest boundary...');
-  const ingested = await seedMockCorpus();
-  console.log(`Ingested ${ingested} sources.`);
+  const corpus = await seedMockCorpus();
+  console.log(`Ingested ${corpus.ingested} sources; skipped ${corpus.skipped.length}.`);
 
   // Seeded records must be searchable immediately — build the vector index now
   // rather than waiting for a manual /api/admin/reindex.
@@ -1478,4 +1504,5 @@ export async function seedMockData() {
   console.log('Search index built:', indexed);
 
   console.log('Seeding completed successfully!');
+  return { corpus };
 }

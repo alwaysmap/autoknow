@@ -1,7 +1,7 @@
 import 'server-only';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { summarizeDocument, digestToText, embedForStorage, isQuotaError } from './gemini';
+import { summarizeDocument, digestToText, embedForStorage, isQuotaError, providerDeclineMessage, type DocDigest } from './gemini';
 import { fetchWebUrl, hashContent } from './ingest';
 import { isSourceRejected, isTruncated } from './ingestLimits';
 import { parseGoogleDocId, fetchGoogleDocText } from './google-docs';
@@ -129,7 +129,17 @@ export async function refreshSource(
   }
 
   // ---- real change: re-distill with the previous digest, append a revision ----
-  const digest = await summarizeDocument(text!, row.ingestedText ?? undefined);
+  // A provider refusal leaves as `{ ok: false, error }`, never as a throw: the row is
+  // untouched (lastCheckedAt included — we did not complete a check), and both callers
+  // — the cron cycle and Manage → Sources' Refresh now — already render an outcome.
+  // Throwing here is what left the operator with an unchanged row and the reason only in
+  // the server log (autoknow-dv3), and it is the same shape as the ingest boundary.
+  let digest: DocDigest & { delta?: string };
+  try {
+    digest = await summarizeDocument(text!, row.ingestedText ?? undefined);
+  } catch (e) {
+    return { ok: false, error: providerDeclineMessage(e, 'distill this source', 'the source was not re-checked') };
+  }
   const digestText = digestToText(digest);
   const delta = (digest.delta ?? '').trim() || null;
   const now = new Date();
@@ -142,7 +152,15 @@ export async function refreshSource(
   // vector with no recovery path. Re-embed only on real digest change (plan §7).
   const writes: Prisma.PrismaPromise<unknown>[] = [];
   if (digestText !== row.ingestedText) {
-    const vectorStr = `[${(await embedForStorage(digestText)).join(',')}]`;
+    let vectorStr: string;
+    try {
+      vectorStr = `[${(await embedForStorage(digestText)).join(',')}]`;
+    } catch (e) {
+      // Same door as the distillation above. embedForStorage throws BY DESIGN so a
+      // failed embed can never overwrite a real vector with the uniform-pedestal
+      // fallback; what must not escape is the throw itself.
+      return { ok: false, error: providerDeclineMessage(e, 'index this source', 'the source was not re-checked') };
+    }
     writes.push(
       prisma.$executeRaw(
         Prisma.sql`UPDATE "ContextUrl" SET "embedding" = ${vectorStr}::vector WHERE id = ${row.id}`,

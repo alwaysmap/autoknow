@@ -101,9 +101,33 @@ export const phaseHref = (projectId: number, phaseId: number): string =>
  */
 export const phaseProgressHash = (phaseId: number): string => `phase-${phaseId}-progress`;
 
-/** The full deep link to a phase's update log: `/programs/12#phase-218-progress`. */
+/** The full deep link to a phase's update log: `/programs/12#phase-218-progress`.
+ *  Kept as the family's canonical spelling with no caller in `src/` right now: every
+ *  reference to a hill update names the ONE update it is about (`phaseUpdateHref`), and
+ *  the card's own control writes the fragment directly. */
 export const phaseProgressHref = (projectId: number, phaseId: number): string =>
   `/programs/${projectId}#${phaseProgressHash(phaseId)}`;
+
+/**
+ * The progress view open AT one recorded update: `#phase-:id-progress-:stateId`.
+ *
+ * It extends `phaseProgressHash` for the reason that one extends `phaseHash` — the log
+ * is where an update lives, so addressing one update is addressing a position IN the
+ * log, not a fourth place. A citation under a brief's bullet about the May 1 hill
+ * update, and the feed row for that update, both used to land on the log's top and make
+ * the reader find May 1 again in a column of near-identical cards (autoknow-51j).
+ *
+ * The phase id rides along even though the state id alone identifies the row: the view
+ * is opened BY phase, resolution is client-side (the hash never reaches the server), and
+ * looking a `PhaseState` up to learn which phase to open would be a round-trip to answer
+ * what the link already knows.
+ */
+export const phaseUpdateHash = (phaseId: number, stateId: number): string =>
+  `${phaseProgressHash(phaseId)}-${stateId}`;
+
+/** The full deep link: `/programs/12#phase-218-progress-9041`. */
+export const phaseUpdateHref = (projectId: number, phaseId: number, stateId: number): string =>
+  `/programs/${projectId}#${phaseUpdateHash(phaseId, stateId)}`;
 
 /** Where a phase's plan is EDITED — name, forecast, dependencies, Goal & DoD, and who
  *  is involved: since #crw.1 this is the ONE editor of a phase, so an Edit affordance
@@ -119,6 +143,30 @@ export const phasesEditHref = (projectId: number, phaseId?: number): string =>
 export const parsePhaseProgressHash = (hash: string): number | null => {
   const m = /^#?phase-(\d+)-progress$/.exec(hash);
   return m ? parseInt(m[1], 10) : null;
+};
+
+/** `{ phaseId, stateId }` out of a `#phase-:id-progress-:stateId` fragment, or null. */
+export const parsePhaseUpdateHash = (hash: string): { phaseId: number; stateId: number } | null => {
+  const m = /^#?phase-(\d+)-progress-(\d+)$/.exec(hash);
+  return m ? { phaseId: parseInt(m[1], 10), stateId: parseInt(m[2], 10) } : null;
+};
+
+/**
+ * WHICH phase's progress view a fragment opens, and WHICH update inside it the link
+ * named — `stateId: null` for "just the log". Null when the fragment is not ours.
+ *
+ * One call answers both, deliberately: `openFromHash` needs both halves, and asking the
+ * two parsers in turn means two regexes over one string and a caller free to ask only
+ * the second — which is the "handled `-progress`, forgot the addressed form" mistake
+ * this exists to make impossible. The two parsers above stay as the tested primitives.
+ */
+export const parsePhaseProgressTarget = (
+  hash: string,
+): { phaseId: number; stateId: number | null } | null => {
+  const addressed = parsePhaseUpdateHash(hash);
+  if (addressed) return addressed;
+  const log = parsePhaseProgressHash(hash);
+  return log == null ? null : { phaseId: log, stateId: null };
 };
 
 /** Phase id out of a bare `#phase-:id` fragment, or null. Deliberately does NOT match
@@ -144,3 +192,4 @@ export const parseLegacyPhaseDetailHash = (hash: string): number | null => {
   const m = /^#?phase-(\d+)-detail$/.exec(hash);
   return m ? parseInt(m[1], 10) : null;
 };
+

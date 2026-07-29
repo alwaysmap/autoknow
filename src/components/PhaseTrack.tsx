@@ -1,6 +1,7 @@
 'use client';
 
 import { subscribeLocationChange } from '../lib/locationHash';
+import { addressedAttrs } from '../lib/useScrollToAddressed';
 import ChartLabel from './ChartLabel';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -17,7 +18,8 @@ import { HILL_PATH, hillCoordinates } from '../lib/geometry';
 import { t, statusKey, Locale } from '../lib/i18n';
 import {
   isPhaseActive, statusProgress, phaseColor, phaseHash, parsePhaseHash,
-  phaseProgressHash, parsePhaseProgressHash, parseLegacyPhaseDetailHash, phasesEditHref,
+  phaseProgressHash, parsePhaseProgressTarget,
+  parseLegacyPhaseDetailHash, phasesEditHref,
 } from '../lib/phase';
 import AnchorHeading from './AnchorHeading';
 import AnchoredPopover from './AnchoredPopover';
@@ -150,15 +152,21 @@ interface PhaseTrackProps {
 // replaceState, never push: which view is open is a MODE of this page, and a trail of
 // entries would make Back mean "close the thing I already closed". Fragments that
 // aren't ours are left exactly as they are.
+//
+// A phase's own control always opens the LOG, never one addressed update — only an
+// incoming hash can do that, which is why this never writes the `-:stateId` form.
 const writeProgressHash = (id: number | null) => {
   const current = window.location.hash;
   if (id == null) {
     // Which phase's log is closing is already IN the fragment being cleared, so the
     // fallback needs no state passed in — and a caller that had to supply it would be
-    // a second place that could get it wrong.
-    const closing = parsePhaseProgressHash(current);
+    // a second place that could get it wrong. It asks `parsePhaseProgressTarget`, not
+    // `parsePhaseProgressHash`, because closing must clear the ADDRESSED form too: a
+    // reader who arrived at `#phase-7-progress-42` closes the log and the URL still asks
+    // for it, so the next revalidate reopens it (autoknow-51j).
+    const closing = parsePhaseProgressTarget(current);
     if (closing == null) return;
-    window.history.replaceState(null, '', `#${phaseHash(closing)}`);
+    window.history.replaceState(null, '', `#${phaseHash(closing.phaseId)}`);
     return;
   }
   const want = `#${phaseProgressHash(id)}`;
@@ -486,6 +494,10 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
   const isCollapsed = (p: PhaseTrackRow) => collapsed[p.id] ?? true;
   const rowRefs = useRef(new Map<number, HTMLDivElement>());
   const [progressId, setProgressId] = useState<number | null>(null);
+  // The ONE update a `#phase-:id-progress-:stateId` link addressed, or null for "just the
+  // log" — set only by an incoming hash, exactly as the partner log's is. It sits beside
+  // `progressId` because it is the same view's state and closes with it.
+  const [addressedUpdate, setAddressedUpdate] = useState<number | null>(null);
 
   // FOUR levels while tracing, all on the one recession channel (PhaseTrack.module.css):
   // the phase itself, what WAITS on it at full strength, what it waits FOR at half,
@@ -545,7 +557,13 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
 
   // Closing the log falls back to the phase's own row anchor: the card is still there
   // behind it, and it is the phase's address now that the popover has retired.
-  const closeProgress = useCallback(() => { setProgressId(null); writeProgressHash(null); }, []);
+  // The addressed entry is part of THIS view's state, so it closes with it — leaving it
+  // set is harmless today only because every open path re-sets it, and that is a proof a
+  // reader should not have to redo.
+  const closeProgress = useCallback(
+    () => { setProgressId(null); setAddressedUpdate(null); writeProgressHash(null); },
+    [],
+  );
 
   // Title ⋯ menu: bulk expand/hide plus the one door to structural editing. Placement,
   // light-dismiss and focus come from AnchoredPopover (#24); each bulk item closes the
@@ -829,23 +847,28 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
     try { setFullLog({ phaseId, entries: await getPhaseLog(phaseId) }); }
     catch (err) { console.error(err); }
   };
-  const openProgress = (p: PhaseTrackRow) => {
+  const openProgress = (p: PhaseTrackRow, addressed: number | null = null) => {
     setDrag(p.progress); setNoteError(false); setEditing(false);
     if (startedTimer.current) clearTimeout(startedTimer.current);
     setStartedSave(null);
     setFullLog(null);
     setProgressId(p.id);
-    writeProgressHash(p.id);
+    setAddressedUpdate(addressed);
+    // An addressed open came FROM the hash, and the bare `#phase-7-progress` is a
+    // strictly poorer URL than the `#phase-7-progress-42` already in the bar —
+    // rewriting it would drop the very fact the link carried.
+    if (addressed == null) writeProgressHash(p.id);
     void loadLog(p.id);
   };
 
-  // ARRIVING BY URL. Three fragments land here, and each opens the thing it names, so a
+  // ARRIVING BY URL. Four fragments land here, and each opens the thing it names, so a
   // link from anywhere in the app (feeds, briefings, partner and person pages, a shared
   // bookmark) lands on the record rather than at the top of a long page.
   //
-  //   #phase-:id            the phase itself — opens its CARD, which is the phase's home
-  //   #phase-:id-progress   its update log
-  //   #phase-:id-detail     RETIRED with the popover (autoknow-crw.4)
+  //   #phase-:id                     the phase itself — its CARD, the phase's home
+  //   #phase-:id-progress            its update log
+  //   #phase-:id-progress-:stateId   that log, AT one recorded update (autoknow-51j)
+  //   #phase-:id-detail              RETIRED with the popover (autoknow-crw.4)
   //
   // The retired one is canonicalised rather than ignored. Old briefs and shared links
   // still carry it; it named the phase's whole record, and the card is what holds that
@@ -881,10 +904,19 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
         return;
       }
 
-      const progressing = parsePhaseProgressHash(hash);
-      if (progressing != null && progressing !== progressIdRef.current) {
-        const target = byId.get(progressing);
-        if (target) openProgress(target);
+      // The log, and the ONE update within it the link was about — both from one call,
+      // so the addressed form can never fall through to the row-anchor branch below and
+      // open the card instead.
+      const progressing = parsePhaseProgressTarget(hash);
+      if (progressing != null) {
+        // Already showing this phase's log: a SECOND addressed link (a different update)
+        // must still move the highlight, so only the reset-the-whole-pane path is guarded.
+        if (progressing.phaseId === progressIdRef.current) {
+          setAddressedUpdate(progressing.stateId);
+          return;
+        }
+        const target = byId.get(progressing.phaseId);
+        if (target) openProgress(target, progressing.stateId);
         return;
       }
 
@@ -1116,7 +1148,10 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
           {!editing && (
             <div className={styles.storyView}>
               {log.length > 0 ? (
-                <div className={styles.latestUpdate}>
+                // The newest entry is the headline, NOT a card in the list below — so
+                // it carries the addressed marker itself, or a link to the most recent
+                // update would open the log and mark nothing (autoknow-51j).
+                <div className={styles.latestUpdate} {...addressedAttrs(log[0].id, addressedUpdate)}>
                   <div className={styles.latestMeta}>
                     <span className={styles.latestStatus} style={{ color: phaseColor(p.id) }}>
                       {status(log[0].progress)}
@@ -1139,7 +1174,10 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
                   <HillHistoryList
                     compact
                     locale={locale}
+                    highlightId={addressedUpdate}
+                    scrollToHighlight
                     changes={log.slice(1).map((h, i): HillChange => ({
+                      id: h.id,
                       timestamp: h.at,
                       progress: h.progress,
                       previousProgress: log[i + 2]?.progress ?? null,
