@@ -259,14 +259,22 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles('package-lock.json') }}
-      # Only this leg's browser. `--with-deps` stays because the apt libs are NOT part of
-      # the cached browser payload and webkit genuinely needs them, but chromium's set is
-      # much smaller than the combined install this replaced.
-      - run: npx playwright install --with-deps ${{ matrix.project }}
-      # Everything this job installs is now on disk: node_modules, the Prisma client, the
-      # browser payload and webkit's apt dependency set. What the guard below watches is
-      # what the RUN itself adds on top of this — the `next build`, the test databases and
-      # any per-test output.
+      # Only this leg's browser, and WITHOUT `--with-deps` — the apt half, which is not in
+      # the cached browser payload and so is paid in full every run (measured 28-52s on
+      # webkit, the critical-path leg; 16-30s on chromium).
+      #
+      # The claim being tested is that the ubuntu-latest image already carries the shared
+      # libraries these browsers link against. `install-deps --dry-run` below states what
+      # apt WOULD have done, so a run says whether the claim holds rather than leaving it
+      # to be assumed either way. If it does not hold the failure is loud and specific — a
+      # browser that cannot launch names its missing .so — never a flaky-looking test.
+      - run: npx playwright install ${{ matrix.project }}
+      - name: What --with-deps would have installed (evidence, never fails the job)
+        run: npx playwright install-deps --dry-run ${{ matrix.project }} || true
+      # Everything this job installs is now on disk: node_modules, the Prisma client and
+      # the browser payload (no apt set any more — see the install step above). What the
+      # guard below watches is what the RUN itself adds on top of this — the `next build`,
+      # the test databases and any per-test output.
       - name: Disk after installs
         run: npm run --silent ci:disk-report -- "after installs"
       # global-setup connects to the DB the instant the run starts, so prove the mapped
