@@ -74,15 +74,6 @@
   margin-right: 0.4375rem;
 }
 
-.factLink {
-  color: var(--fg);
-  font-weight: 400;
-  text-decoration: none;
-}
-.factLink:hover {
-  text-decoration: underline;
-}
-
 .factMuted {
   color: var(--muted);
   font-style: italic;
@@ -93,21 +84,6 @@
   display: inline-flex;
   align-items: baseline;
   gap: 0.875rem;
-}
-
-.primaryAction {
-  background: none;
-  border: none;
-  padding: 0;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--fg);
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 0.125rem;
-}
-.primaryAction:hover {
-  opacity: 0.75;
 }
 
 /* Key numbers: large figures, small-caps labels. The columns TOP-align, not flex-end:

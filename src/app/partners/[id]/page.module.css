@@ -184,16 +184,6 @@
   margin: 0 0.5rem;
 }
 
-.factLink {
-  color: var(--fg);
-  font-weight: 400;
-  text-decoration: none;
-}
-.factLink:hover {
-  color: var(--link);
-  text-decoration: underline;
-}
-
 .externalLink {
   color: var(--link);
   text-decoration: none;
