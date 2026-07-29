@@ -186,14 +186,12 @@ describe('layoutHill — label priority', () => {
     for (const p of FORD.filter((x) => hillStatusOf(x.progress) === 'inProgress')) {
       const l = labelFor(labels, p.id);
       expect(l).toBeDefined();
-      expect(l!.kind).toBe('phase');
       expect(l!.text.replace('…', '')).toBe(p.name.slice(0, l!.text.replace('…', '').length));
     }
   });
 
   it('names every phase on the 15-phase program individually — no stack collapses to a status word (#1xs)', () => {
     const { labels } = layoutHill(FORD, WIDE);
-    expect(labels.every((l) => l.kind === 'phase')).toBe(true);
     // Every phase gets a distinct label now, including the done/not-started piles
     // that used to collapse to one shared "Done"/"Not Started" word.
     expect(labels).toHaveLength(FORD.length);
@@ -238,7 +236,6 @@ describe('layoutHill — label priority', () => {
     ];
     const { labels } = layoutHill(small, WIDE);
     expect(labels).toHaveLength(4);
-    expect(labels.every((l) => l.kind === 'phase')).toBe(true);
     expect(labels.map((l) => l.text).sort()).toEqual(['Build', 'Discovery', 'Launch', 'Verify']);
   });
 

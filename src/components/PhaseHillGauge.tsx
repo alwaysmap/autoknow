@@ -37,6 +37,10 @@ export const CAPTION_MAX_WIDTH = 60;
 // caption's band no matter its x — see the derivation above.
 const CAPTION_THREAT_Y = 45;
 const CAPTION_DOT_GAP = 3;
+// The current-progress dot's own radius (unscaled) — shared by the clearance math
+// below and the `<circle r={CUR_DOT_R * inkScale}>` it clears, so the two can't
+// silently desync if the dot's size is ever retuned.
+const CUR_DOT_R = 6;
 
 // The hill-chart analogue of the needle: task progress for a SINGLE phase. A display-only
 // SVG (the bell curve + a dot at progress, plus a ghost dot for the previous update) and
@@ -107,7 +111,7 @@ export function PhaseHillSvg({
   const threatX = [cur, ...(prev ? [prev] : [])]
     .filter((p) => p.y < CAPTION_THREAT_Y)
     .reduce((min, p) => Math.min(min, p.x), Infinity);
-  const captionWidth = Math.min(CAPTION_MAX_WIDTH, threatX - (6 * inkScale + CAPTION_DOT_GAP) - CAPTION_X);
+  const captionWidth = Math.min(CAPTION_MAX_WIDTH, threatX - (CUR_DOT_R * inkScale + CAPTION_DOT_GAP) - CAPTION_X);
   const captionText = caption ? truncateToWidth(caption, 8 * inkScale, captionWidth) : null;
   // A caption with nowhere left to go is dropped, not squeezed to an ellipsis alone —
   // the same call layoutHill makes for a phase label that cannot find a slot.
@@ -145,7 +149,7 @@ export function PhaseHillSvg({
       <path d={HILL_PATH} fill="none" stroke="var(--border, #d9d5c8)" strokeWidth={2.5 * inkScale} strokeLinecap="round" />
       <line x1={100} y1={10} x2={100} y2={80} stroke="var(--border, #e3e0d6)" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
       {prev && <circle cx={prev.x} cy={prev.y} r={4.5 * inkScale} fill="var(--paper)" stroke={color} strokeWidth={2 * inkScale} />}
-      <circle cx={cur.x} cy={cur.y} r={6 * inkScale} fill={color} stroke="var(--paper)" strokeWidth={1.6} vectorEffect="non-scaling-stroke">
+      <circle cx={cur.x} cy={cur.y} r={CUR_DOT_R * inkScale} fill={color} stroke="var(--paper)" strokeWidth={1.6} vectorEffect="non-scaling-stroke">
         {label && <title>{label}</title>}
       </circle>
       {labels && (

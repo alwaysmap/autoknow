@@ -13,12 +13,13 @@
 //    so a tie renders as a shingled stack of coins. x — the axis that carries the
 //    meaning — is never moved; the separation happens along y, which carries none.
 //
-// 2. LABEL COLLISION. Fifteen names do not fit. Labels are placed in priority order
-//    (IN-PROGRESS FIRST — the phases someone is actually working on are the ones worth
-//    naming), each taking the first slot that clears everything already placed; a stack
-//    of two or more same-status dots collapses to ONE label naming the status, and
-//    anything left with nowhere to go is dropped. A dropped LABEL is fine; a dropped
-//    DOT is not, so the dot always renders and always keeps its own hit area.
+// 2. LABEL COLLISION. Fifteen names do not fit. Every phase gets its own label (#1xs —
+//    a stack no longer collapses to one shared status word); they are placed in
+//    priority order (IN-PROGRESS FIRST — the phases someone is actually working on are
+//    the ones worth naming), each taking the first slot that clears everything already
+//    placed, retreating through further rows before giving up. Anything left with
+//    nowhere to go is dropped. A dropped LABEL is fine; a dropped DOT is not, so the dot
+//    always renders and always keeps its own hit area.
 //
 // The viewBox is derived from the finished layout rather than fixed, so nothing can be
 // clipped at an edge no matter how tall a stack or how long a name gets.
@@ -48,7 +49,6 @@ export interface HillDot {
 export interface HillLabel {
   key: string;
   anchorId: number; // the dot this label names
-  kind: 'phase' | 'group';
   text: string;
   x: number; // SVG text-anchor coordinate — its meaning depends on `textAnchor`
   y: number; // baseline
@@ -434,7 +434,6 @@ export function layoutHill(phases: HillPhase[], opts: HillLayoutOptions): HillLa
       labels.push({
         key: cand.key,
         anchorId: a.id,
-        kind: 'phase',
         text: cand.text,
         x: round2(renderX),
         y: round2(y),
