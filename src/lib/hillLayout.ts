@@ -47,11 +47,17 @@ export interface HillDot {
 
 export interface HillLabel {
   key: string;
-  anchorId: number; // the dot this label names (for a group: its outermost member)
+  anchorId: number; // the dot this label names
   kind: 'phase' | 'group';
   text: string;
-  x: number; // text anchor, middle
+  x: number; // SVG text-anchor coordinate — its meaning depends on `textAnchor`
   y: number; // baseline
+  /** How `x` relates to the rendered glyphs (#1xs — every phase gets its own label
+   *  now, so the two end piles anchor INWARD instead of centering on the dot: a
+   *  centered box at x≈10 would overhang the left viewBox edge, so the not-started
+   *  pile starts at its dot and grows right, the done pile ends at its dot and
+   *  grows left. Anything else (in-progress, singles) stays centered. */
+  textAnchor: 'start' | 'middle' | 'end';
 }
 
 export interface HillLayout {
@@ -74,8 +80,6 @@ export interface HillLayoutOptions {
   /** radius of the invisible touch target on an uncrowded dot. This is a FINGER
    *  measurement, not ink, so it does NOT scale with `dotRadius`. */
   hitRadius: number;
-  /** localized status word for a collapsed stack ("Done", "Not Started", …). */
-  statusLabel: (status: HillStatus) => string;
   /** the two axis captions, needed only so labels never land on top of them. */
   axisLabels: { left: string; right: string };
 }
@@ -91,10 +95,19 @@ const AXIS_BASELINE = 99; // y of the axis captions in the base space
 const BASE_DOT_R = 5.5;
 /** Centre distance below which two dots read as one blob (2r + the paper ring). */
 const MIN_DX_R = 13 / BASE_DOT_R;
-/** Preferred height of the tallest stack; the pitch shrinks to stay inside it. */
-const STACK_BUDGET_R = 34 / BASE_DOT_R;
+/** Preferred height of the tallest stack; the pitch shrinks to stay inside it.
+ *  #1xs: raised from 34 alongside PITCH_MAX_R below. Every phase now gets its own
+ *  label (no more collapsing a stack to one status word), so the end piles need
+ *  real vertical room between MEMBERS, not just between the stack and its
+ *  neighbours — this stays generous enough that PITCH_MAX_R, not this budget, is
+ *  what actually governs pitch for any realistic phase count. */
+const STACK_BUDGET_R = 90 / BASE_DOT_R;
 const PITCH_MIN_R = 3.6 / BASE_DOT_R; // below this the coins stop being countable
-const PITCH_MAX_R = 7 / BASE_DOT_R;
+/** #1xs: raised from 7 so a stack's pitch (≈16 units at base ink) clears one label
+ *  ROW_EM (≈13.75 units) — most per-dot labels then land in their first attempted
+ *  row without needing a retreat, instead of relying entirely on EXTRA_ROWS to
+ *  shove same-status neighbours apart. */
+const PITCH_MAX_R = 16 / BASE_DOT_R;
 /** Dots above this line fan DOWNWARD (there is no room above the crest). */
 const FAN_DOWN_ABOVE_Y = 40;
 /** A lone dot this close to the top labels below itself instead of above. */
@@ -106,7 +119,9 @@ const LABEL_BELOW_ABOVE_Y = 22;
 const BASE_FS = 8;
 const ROW_EM = 11 / BASE_FS; // vertical step between stacked label rows
 const LABEL_GAP_EM = 3.5 / BASE_FS; // clear space between a dot's rim and its label
-const EXTRA_ROWS = 3; // how far a label may retreat before it is dropped
+// #1xs: raised from 3 — every phase now competes for a label (not just one per
+// stack), so the search needs more rows to try before a label is dropped.
+const EXTRA_ROWS = 8;
 const PAD_X = 2; // keep-in margin at the left/right viewBox edges
 /** Horizontal clearance. ~3 space-widths at the label size: at 0.5em two labels on
  *  one row rendered as a single run of text with a hairline between them. */
@@ -246,16 +261,16 @@ function assignLevels(sorted: Anchored[], minDx: number): Map<number, number> {
 
 interface Candidate {
   priority: number; // 0 = in progress, 1 = everything else
-  kind: 'phase' | 'group';
   key: string;
   text: string;
   anchor: HillDot;
   baseY: number;
-  stacked: boolean; // anchor is the outer end of a stack — only label outward from it
+  stacked: boolean; // anchor is a member of a same-status run — only label outward from it
+  textAnchor: 'start' | 'middle' | 'end';
 }
 
 export function layoutHill(phases: HillPhase[], opts: HillLayoutOptions): HillLayout {
-  const { width, fontSize: fs, axisFontSize, dotRadius: r, hitRadius, statusLabel, axisLabels } = opts;
+  const { width, fontSize: fs, axisFontSize, dotRadius: r, hitRadius, axisLabels } = opts;
   const sx = width / BASE_WIDTH;
   const maxLabelWidth = width * LABEL_WIDTH_RATIO;
   // Derived once: everything dot-shaped scales with the coin, everything label-shaped
@@ -318,8 +333,11 @@ export function layoutHill(phases: HillPhase[], opts: HillLayoutOptions): HillLa
   }));
   const baseYById = new Map(byX.map((a) => [a.phase.id, a.baseY]));
 
-  // Same-status neighbours collapse into one label. Grouping is bounded by the first
-  // member's x (not chained), so an evenly-spread run can never swallow the whole chart.
+  // Same-status neighbours used to collapse into one shared label; #1xs: every phase
+  // gets its own now. `groups` still marks which dots are part of a tight run (bounded
+  // by the first member's x, not chained, so an evenly-spread run can never swallow
+  // the whole chart) — that's what `stacked` below still needs, to keep a label
+  // outward of its dot rather than offering the inward slot into a pile of neighbours.
   const groups: HillDot[][] = [];
   for (const d of dotsByX) {
     const g = groups[groups.length - 1];
@@ -327,34 +345,29 @@ export function layoutHill(phases: HillPhase[], opts: HillLayoutOptions): HillLa
     else groups.push([d]);
   }
 
+  // #1xs: labels for the two END piles anchor INWARD instead of centering on the dot —
+  // a centered box on a dot at x≈10 (or ≈190) would overhang the viewBox edge the
+  // moment the name is longer than a couple of characters. Not-started sits at the
+  // hill's LEFT end, so its labels start at the dot and grow right, into the empty
+  // middle; done sits at the RIGHT end and grows left. In-progress dots are scattered
+  // across the middle of the curve, where a centered label was never at risk of
+  // running off either edge, so they keep it.
+  const textAnchorFor = (status: HillStatus): 'start' | 'middle' | 'end' =>
+    status === 'notStarted' ? 'start' : status === 'done' ? 'end' : 'middle';
+
   const candidates: Candidate[] = [];
   for (const g of groups) {
-    // In-progress phases never collapse: the name of the thing being worked on IS the
-    // information, so they each get their own label and first pick of the space.
-    if (g[0].status === 'inProgress' || g.length === 1) {
-      for (const d of g) {
-        candidates.push({
-          priority: d.status === 'inProgress' ? 0 : 1,
-          kind: 'phase',
-          key: `p${d.id}`,
-          text: truncateToWidth(d.name, fs, maxLabelWidth),
-          anchor: d,
-          baseY: baseYById.get(d.id) ?? d.y,
-          stacked: g.length > 1,
-        });
-      }
-      continue;
+    for (const d of g) {
+      candidates.push({
+        priority: d.status === 'inProgress' ? 0 : 1,
+        key: `p${d.id}`,
+        text: truncateToWidth(d.name, fs, maxLabelWidth),
+        anchor: d,
+        baseY: baseYById.get(d.id) ?? d.y,
+        stacked: g.length > 1,
+        textAnchor: textAnchorFor(d.status),
+      });
     }
-    const outer = g.reduce((a, b) => (b.level > a.level ? b : a));
-    candidates.push({
-      priority: 1,
-      kind: 'group',
-      key: `g${outer.id}`,
-      text: truncateToWidth(statusLabel(g[0].status), fs, maxLabelWidth),
-      anchor: outer,
-      baseY: baseYById.get(outer.id) ?? outer.y,
-      stacked: true,
-    });
   }
   candidates.sort(
     (a, b) => a.priority - b.priority || a.anchor.x - b.anchor.x || a.anchor.id - b.anchor.id,
@@ -399,21 +412,35 @@ export function layoutHill(phases: HillPhase[], opts: HillLayoutOptions): HillLa
     if (!cand.stacked) slots.push(inward);
     for (let n = 1; n <= EXTRA_ROWS; n += 1) slots.push(row(n));
 
+    // freeLabelCenter always solves for a box's CENTRE. For a start/end-anchored
+    // label the anchor is the dot's own x — the box's edge, not its centre — so the
+    // ideal centre is offset by halfW before solving, and the render `x` (an SVG
+    // text-anchor coordinate, not a centre) is offset back afterward. The bookkeeping
+    // box pushed onto `labelBoxes` stays the true symmetric [solvedCentre±halfW]
+    // regardless of anchor style, since that IS the glyphs' real extent.
+    const idealCentre = cand.textAnchor === 'start' ? a.x + halfW
+      : cand.textAnchor === 'end' ? a.x - halfW
+      : a.x;
+
     for (const y of slots) {
       const band: Box = { x0: 0, x1: width, y0: y - fs * CAP, y1: y + fs * DESC };
       if (band.y1 > BASE_HEIGHT) continue; // below the drawing is off the chart, not just off-grid
       const blocked = [...obstacles, ...labelBoxes].filter((b) => overlapsY(band, b, gapY));
-      const x = freeLabelCenter(a.x, halfW, blocked, width, gapX);
-      if (x === null) continue;
+      const centre = freeLabelCenter(idealCentre, halfW, blocked, width, gapX);
+      if (centre === null) continue;
+      const renderX = cand.textAnchor === 'start' ? centre - halfW
+        : cand.textAnchor === 'end' ? centre + halfW
+        : centre;
       labels.push({
         key: cand.key,
         anchorId: a.id,
-        kind: cand.kind,
+        kind: 'phase',
         text: cand.text,
-        x: round2(x),
+        x: round2(renderX),
         y: round2(y),
+        textAnchor: cand.textAnchor,
       });
-      labelBoxes.push({ x0: x - halfW, x1: x + halfW, y0: band.y0, y1: band.y1 });
+      labelBoxes.push({ x0: centre - halfW, x1: centre + halfW, y0: band.y0, y1: band.y1 });
       break;
     }
   }

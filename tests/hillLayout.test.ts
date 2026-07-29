@@ -7,7 +7,6 @@ import {
   type HillLabel,
   type HillLayoutOptions,
   type HillPhase,
-  type HillStatus,
 } from '../src/lib/hillLayout';
 
 // The two invariants the product owner set, expressed as tests:
@@ -17,12 +16,6 @@ import {
 // The rest guard the things that broke the 15-phase Ford Evos program: labels leaving
 // the viewBox, ja/ko labels truncating to half a box, and non-determinism (this chart
 // renders on the server and hydrates on the client).
-
-const STATUS_WORD: Record<HillStatus, string> = {
-  notStarted: 'Not Started',
-  inProgress: 'In Progress',
-  done: 'Done',
-};
 
 // WIDE and NARROW differ only by an ink factor, which is what proves the layout is
 // scale-free: any second factor would do, so this one is not coupled to the 0.7 the
@@ -34,7 +27,6 @@ const WIDE: HillLayoutOptions = {
   axisFontSize: 7 * SHRUNK,
   dotRadius: 5.5 * SHRUNK,
   hitRadius: 8,
-  statusLabel: (s) => STATUS_WORD[s],
   axisLabels: { left: 'Figuring it out', right: 'Making it happen' },
 };
 /** The small variant — the base ink size, un-shrunk, in a 200-unit space. */
@@ -71,6 +63,17 @@ const FORD: HillPhase[] = [
 const parseViewBox = (vb: string) => {
   const [x, y, w, h] = vb.split(' ').map(Number);
   return { x, y, w, h, top: y, bottom: y + h, right: x + w };
+};
+
+/** #1xs: `l.x` is an SVG text-anchor coordinate, not a box centre — its meaning
+ *  depends on `l.textAnchor` (start = box starts at x and grows right, end = box
+ *  ends at x and grows left, middle = centred on x, same as every label used to
+ *  be). Reconstructing the box has to match that or every geometry assertion below
+ *  is checking the wrong rectangle for two-thirds of a real FORD layout. */
+const labelBox = (l: HillLabel, fontSize: number) => {
+  const w = hillTextWidth(l.text, fontSize);
+  const x0 = l.textAnchor === 'start' ? l.x : l.textAnchor === 'end' ? l.x - w : l.x - w / 2;
+  return { x0, x1: x0 + w };
 };
 
 describe('layoutHill — every dot stays visible', () => {
@@ -188,26 +191,39 @@ describe('layoutHill — label priority', () => {
     }
   });
 
-  it('collapses the done and not-started stacks to one status word each', () => {
+  it('names every phase on the 15-phase program individually — no stack collapses to a status word (#1xs)', () => {
     const { labels } = layoutHill(FORD, WIDE);
-    const groups = labels.filter((l) => l.kind === 'group');
-    expect(groups.map((g) => g.text).sort()).toEqual(['Done', 'Not Started']);
-    // …and no individual done/not-started phase keeps a name of its own.
-    const named = labels.filter((l) => l.kind === 'phase').map((l) => l.anchorId);
-    expect(named.sort()).toEqual([415, 417, 418]);
+    expect(labels.every((l) => l.kind === 'phase')).toBe(true);
+    // Every phase gets a distinct label now, including the done/not-started piles
+    // that used to collapse to one shared "Done"/"Not Started" word.
+    expect(labels).toHaveLength(FORD.length);
+    expect(new Set(labels.map((l) => l.anchorId)).size).toBe(FORD.length);
+  });
+
+  it('anchors the end piles inward — not-started grows right, done grows left', () => {
+    const { labels } = layoutHill(FORD, WIDE);
+    const notStarted = FORD.filter((p) => p.progress === 0).map((p) => p.id);
+    const done = FORD.filter((p) => p.progress === 100).map((p) => p.id);
+    for (const id of notStarted) expect(labelFor(labels, id)?.textAnchor).toBe('start');
+    for (const id of done) expect(labelFor(labels, id)?.textAnchor).toBe('end');
   });
 
   it('keeps in-progress labels when there is only room for some', () => {
-    // Long names everywhere: two in-progress phases plus a crowd of done ones.
+    // A far bigger crowd than FORD ever has, tied at nearly the same handful of x
+    // positions, so the retry budget genuinely runs out for the lowest-priority
+    // names — #1xs raised EXTRA_ROWS/pitch enough that FORD-sized crowds (the old
+    // fixture here) no longer drop anything, which is the improvement, not a reason
+    // to weaken this invariant: priority still has to matter once space really is
+    // scarce.
     const crowded: HillPhase[] = [
-      ...Array.from({ length: 6 }, (_, i) => phase(i + 1, `A very long finished phase name ${i}`, 100)),
-      phase(20, 'A very long in-flight phase name one', 30),
-      phase(21, 'A very long in-flight phase name two', 55),
-      ...Array.from({ length: 6 }, (_, i) => phase(i + 30, `A very long unstarted phase name ${i}`, 0)),
+      ...Array.from({ length: 40 }, (_, i) => phase(i + 1, `A very long finished phase name ${i}`, 100)),
+      phase(900, 'A very long in-flight phase name one', 30),
+      phase(901, 'A very long in-flight phase name two', 55),
+      ...Array.from({ length: 40 }, (_, i) => phase(i + 1000, `A very long unstarted phase name ${i}`, 0)),
     ];
     const { labels } = layoutHill(crowded, WIDE);
-    expect(labelFor(labels, 20)).toBeDefined();
-    expect(labelFor(labels, 21)).toBeDefined();
+    expect(labelFor(labels, 900)).toBeDefined();
+    expect(labelFor(labels, 901)).toBeDefined();
     // the lower-priority ones are allowed to lose their labels — but never their dots
     expect(layoutHill(crowded, WIDE).dots).toHaveLength(crowded.length);
     expect(labels.length).toBeLessThan(crowded.length);
@@ -230,10 +246,10 @@ describe('layoutHill — label priority', () => {
     for (const set of [FORD, Array.from({ length: 12 }, (_, i) => phase(i + 1, `Phase number ${i}`, i * 9))]) {
       const { labels } = layoutHill(set, WIDE);
       const boxes = labels.map((l) => {
-        const hw = hillTextWidth(l.text, WIDE.fontSize) / 2;
         // a REALISTIC ink extent (ascenders above cap height, descenders below the
         // baseline), deliberately taller than the box the layout reasons about
-        return { x0: l.x - hw, x1: l.x + hw, y0: l.y - WIDE.fontSize * 0.85, y1: l.y + WIDE.fontSize * 0.28 };
+        const { x0, x1 } = labelBox(l, WIDE.fontSize);
+        return { x0, x1, y0: l.y - WIDE.fontSize * 0.85, y1: l.y + WIDE.fontSize * 0.28 };
       });
       for (let i = 0; i < boxes.length; i += 1) {
         for (let j = i + 1; j < boxes.length; j += 1) {
@@ -252,9 +268,9 @@ describe('layoutHill — label priority', () => {
       const { labels, viewBox } = layoutHill(FORD, opts);
       const vb = parseViewBox(viewBox);
       for (const l of labels) {
-        const hw = hillTextWidth(l.text, opts.fontSize) / 2;
-        expect(l.x - hw).toBeGreaterThanOrEqual(vb.x);
-        expect(l.x + hw).toBeLessThanOrEqual(vb.right);
+        const { x0, x1 } = labelBox(l, opts.fontSize);
+        expect(x0).toBeGreaterThanOrEqual(vb.x);
+        expect(x1).toBeLessThanOrEqual(vb.right);
         expect(l.y - opts.fontSize).toBeGreaterThanOrEqual(vb.top);
         expect(l.y).toBeLessThanOrEqual(vb.bottom);
         expect(l.y - opts.fontSize).toBeLessThan(99 - opts.axisFontSize); // above the captions
@@ -279,9 +295,9 @@ describe('layoutHill — determinism and locale', () => {
     const { labels, viewBox } = layoutHill(ja, WIDE);
     const vb = parseViewBox(viewBox);
     for (const l of labels) {
-      const hw = hillTextWidth(l.text, WIDE.fontSize) / 2;
-      expect(l.x + hw).toBeLessThanOrEqual(vb.right);
-      expect(l.x - hw).toBeGreaterThanOrEqual(vb.x);
+      const { x0, x1 } = labelBox(l, WIDE.fontSize);
+      expect(x1).toBeLessThanOrEqual(vb.right);
+      expect(x0).toBeGreaterThanOrEqual(vb.x);
     }
   });
 });
