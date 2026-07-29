@@ -421,6 +421,126 @@ export const affiliationApiSchema = z.object({
   message: 'must be after startDate — a period ending on or before its start covers no day',
 });
 
+// ---- escalation (#245) ------------------------------------------------------------
+//
+// Three invariants live here because no column can state them, and each one is a way an
+// escalation could otherwise be saved meaning nothing:
+//   1. An escalation is ABOUT something — a partner and/or a program, at least one.
+//      Prisma cannot say "one of these two is non-null".
+//   2. `duplicate` requires `duplicateOfId`. A duplicate of nothing is not a duplicate,
+//      it is a closed escalation whose reason has been lost.
+//   3. The three enums are CLOSED at the boundary, so a typo'd severity is a 400 rather
+//      than a row the UI renders as untriaged.
+// The status enum is spelled out rather than imported from lib/escalation: zod needs a
+// literal tuple, and `escalationStatusSchema` below is checked against that module's
+// exported list by tests/escalationSchema.test.ts, so the two cannot drift silently.
+
+export const escalationStatusSchema = z.enum([
+  'open',
+  'resolved',
+  'duplicate',
+  'addressed',
+  'obsolete',
+]);
+export const escalationSeveritySchema = z.enum(['s1', 's2', 's3']);
+export const escalationOrgLevelSchema = z.enum(['team', 'region', 'director', 'exec']);
+
+/** Severity/org level where blank is a real answer — "not yet triaged" — rather than a
+ *  rejected value. The triage dialog posts an empty option to CLEAR a triage decision. */
+const zSeverityOrNull = blankToNull(escalationSeveritySchema);
+const zOrgLevelOrNull = blankToNull(escalationOrgLevelSchema);
+
+/** The editable statement. `originalRequest` is deliberately absent from every update
+ *  schema in this section: it is provenance, written once at creation and never editable
+ *  (#245 decision 4), and a field that cannot be edited must not be accepted by an edit
+ *  boundary that would happily write it. */
+export const escalationFieldsSchema = z
+  .object({
+    title: zText.max(300),
+    summary: zTextOrNull,
+    partnerId: zIdOrNull,
+    projectId: zIdOrNull,
+    severity: zSeverityOrNull,
+    orgLevel: zOrgLevelOrNull,
+    ownerPersonId: zIdOrNull,
+    decisionMakerPersonId: zIdOrNull,
+    requestedOfPersonId: zIdOrNull,
+  })
+  .refine((e) => e.partnerId != null || e.projectId != null, {
+    path: ['partnerId'],
+    message: 'an escalation is about a partner and/or a program — pick at least one',
+  });
+
+/** Update targets ONE escalation and carries the same editable fields as create, so it is
+ *  literally those fields plus the id (the `partnerUpdateSchema` shape). `.safeExtend`
+ *  rather than `.extend` because the object above carries a `.refine` and safeExtend is
+ *  the spelling zod documents as check-preserving — an edit must not be able to clear both
+ *  associations that creation required. */
+export const escalationUpdateSchema = escalationFieldsSchema.safeExtend({
+  escalationId: zId,
+});
+
+/**
+ * A status change, alone. Its own schema rather than a field on the editor because the
+ * two are different decisions with different rules: editing the statement never touches
+ * `closedAt`, and closing never touches the words. The action derives `closedAt` from the
+ * status (lib/escalation's `isClosed`) rather than trusting a submitted timestamp.
+ */
+export const escalationStatusUpdateSchema = z
+  .object({
+    escalationId: zId,
+    status: escalationStatusSchema,
+    duplicateOfId: zIdOrNull,
+  })
+  .refine((e) => e.status !== 'duplicate' || e.duplicateOfId != null, {
+    path: ['duplicateOfId'],
+    message: 'closing as duplicate needs the escalation it duplicates',
+  })
+  .refine((e) => e.duplicateOfId !== e.escalationId, {
+    path: ['duplicateOfId'],
+    // Not pedantry: the self-FK makes this expressible, and a row that is its own
+    // duplicate renders as an infinite "duplicate of → " chain on the detail page.
+    message: 'an escalation cannot be a duplicate of itself',
+  });
+
+/**
+ * Escalation create via the JSON API — the boundary the seeds go through, so seeded
+ * escalations inherit the same validation a real one gets.
+ *
+ * Partner/program arrive as IDS here, not names as `partnerApiSchema` takes them: an
+ * escalation names an entity the caller already had to look up to be talking about it,
+ * and a name lookup would make "Volvo Cars" ambiguous the moment two partners share a
+ * name (`Partner.name` is not unique). `raisedBy`/`sourceKind`/`originalRequest` are
+ * accepted here and nowhere else, because this is the boundary the CHAT path writes
+ * through and they are all provenance it alone knows.
+ */
+export const escalationApiSchema = z
+  .object({
+    title: zText.max(300),
+    summary: zTextOrNull.optional(),
+    originalRequest: zTextOrNull.optional(),
+    status: escalationStatusSchema.optional(),
+    severity: zSeverityOrNull.optional(),
+    orgLevel: zOrgLevelOrNull.optional(),
+    partnerId: zIdOrNull.optional(),
+    projectId: zIdOrNull.optional(),
+    ownerPersonId: zIdOrNull.optional(),
+    decisionMakerPersonId: zIdOrNull.optional(),
+    requestedOfPersonId: zIdOrNull.optional(),
+    raisedBy: zTextOrNull.optional(),
+    sourceKind: z.enum(['chat', 'manual']).optional(),
+    contextUrlId: zIdOrNull.optional(),
+    duplicateOfId: zIdOrNull.optional(),
+  })
+  .refine((e) => e.partnerId != null || e.projectId != null, {
+    path: ['partnerId'],
+    message: 'an escalation is about a partner and/or a program — pick at least one',
+  })
+  .refine((e) => e.status !== 'duplicate' || e.duplicateOfId != null, {
+    path: ['duplicateOfId'],
+    message: 'closing as duplicate needs the escalation it duplicates',
+  });
+
 // ---- helpers --------------------------------------------------------------------
 
 function formatIssues(error: z.ZodError): string {

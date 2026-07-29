@@ -25,6 +25,8 @@ import PhaseHillChart from '../../../components/PhaseHillChart';
 import { tNodes } from '../../../components/tNodes';
 import ChainLedger from '../../../components/ChainLedger';
 import AnchorHeading from '../../../components/AnchorHeading';
+import EscalationRows from '../../../components/EscalationRows';
+import { getProgramEscalations } from '../../../lib/escalationQueries';
 import { computeChainLedger, type LedgerResourceInput, type StateTuple } from '../../../lib/chainLedger';
 import { getProgramLedgers } from '../../../lib/chainLedgerData';
 
@@ -104,6 +106,7 @@ export default async function ProjectDetailsPage(props: {
 
   // Unified activity for this program: status/needle/hill/phase changes + context.
   const activity = await getActivity({ kind: 'project', id: projectId });
+  const escalations = await getProgramEscalations(projectId);
 
   // Every needle update with its written note — the History popup beside the
   // gauge. The note never renders next to the needle itself (it feeds the AI
@@ -481,6 +484,16 @@ export default async function ProjectDetailsPage(props: {
                   <PhaseGraph projectId={projectId} phases={graphRows} allPartners={allPartners} />
                 </>
               )}
+            </section>
+
+            {/* Escalations raised about this program (#245) — the same condensed panel
+                the partner page carries; the full listing at /escalations is where
+                filtering lives. */}
+            <section className={styles.historySection}>
+              <AnchorHeading id="escalations" linkLabel={t(locale, 'anchorLink')}>
+                {t(locale, 'escalationsLabel')}
+              </AnchorHeading>
+              <EscalationRows escalations={escalations} locale={locale} />
             </section>
 
             {/* Activity: scoped search riding on top of the feed — one section, one

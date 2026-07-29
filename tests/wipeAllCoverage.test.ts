@@ -113,6 +113,25 @@ describe('fixtures.wipeAll leaves an empty database', () => {
     await prisma.ignoredAddress.create({
       data: { address: 'android-team@google.com', dismissedBy: 'testbot' },
     });
+    // #245. Given every reference this model has — the ContextUrl, the partner, the
+    // program, a person, and its own self-FK — so the wipe below is proved to order
+    // Escalation before all five, not merely to delete an unattached row.
+    const escalation = await prisma.escalation.create({
+      data: {
+        title: 'Certification slip was communicated late',
+        originalRequest: 'escalate the cert slip',
+        partnerId: seeded.oemId,
+        projectId: seeded.projectId,
+        ownerPersonId: seeded.personId,
+        decisionMakerPersonId: seeded.personId,
+        requestedOfPersonId: seeded.personId,
+        contextUrlId: url.id,
+        raisedBy: 'testbot',
+      },
+    });
+    await prisma.escalation.create({
+      data: { title: 'The same slip, raised twice', status: 'duplicate', duplicateOfId: escalation.id },
+    });
 
     // Vacuous-pass guard: assert the setup above really did fill EVERY table, so
     // "all zero afterwards" is evidence about the wipe and not about an empty database.

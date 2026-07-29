@@ -84,6 +84,7 @@ export default async function RootLayout({
               { href: '/ecosystem', label: t(locale, 'navEcosystem') },
               { href: '/programs', label: t(locale, 'navPrograms') },
               { href: '/partners', label: t(locale, 'navPartners') },
+              { href: '/escalations', label: t(locale, 'navEscalations') },
               { href: '/people', label: t(locale, 'peopleLabel') },
               { href: '/me', label: t(locale, 'navMe') },
             ]}

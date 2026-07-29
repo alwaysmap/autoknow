@@ -29,6 +29,7 @@ import { POST as postNeedleRoute } from '../app/api/projects/[id]/needle/route';
 import { POST as postPhaseRoute } from '../app/api/projects/[id]/phases/route';
 import { POST as postPhaseStateRoute } from '../app/api/projects/[id]/phases/[phaseId]/state/route';
 import { POST as postActionItemRoute } from '../app/api/projects/[id]/phases/[phaseId]/action-items/route';
+import { POST as postEscalationRoute } from '../app/api/escalations/route';
 import { addPhaseDependency } from '../app/actions/dependencies';
 import { revisePerson } from '../app/actions/people';
 import { addPhasePartner } from '../app/actions/phasePartners';
@@ -46,6 +47,11 @@ export async function wipeAllData() {
   assertDestructiveDbAllowed('wipe all data');
   console.log('Wiping all database records...');
   await prisma.actionItem.deleteMany();
+  // Escalations go FIRST among the context tables: a row points at a ContextUrl, a
+  // Partner, a Project and up to three People, so every one of those deletes below is
+  // blocked while one survives. Its self-FK (`duplicateOfId`) needs no ordering of its
+  // own — one `DELETE FROM` clears the whole table in a single statement.
+  await prisma.escalation.deleteMany();
   await prisma.contextRevision.deleteMany();
   await prisma.syncCursor.deleteMany();
   await prisma.contextUrl.deleteMany();
@@ -426,6 +432,95 @@ async function seedMockCorpus(): Promise<CorpusSeedReport> {
     ingested++;
   }
   return { ingested, skipped };
+}
+
+/**
+ * Seed a few escalations (#245) THROUGH `/api/escalations`, for the same reason the corpus
+ * goes through `ingestContent`: a seeded row that skipped the mutation boundary would be
+ * the one row in the database that never met the zod policy — partner-and/or-program,
+ * closed states carrying a `closedAt`, ids proved to name real rows.
+ *
+ * Runs AFTER `seedMockCorpus`, and that order is load-bearing rather than incidental: the
+ * chat-sourced escalation links to the ContextUrl the Volvo escalation THREAD produced when
+ * it went through the real ingest pipeline, so the row can only be built once that pipeline
+ * has run (the seeded-content ADR). Looked up by `sourceRef`, which is the identity ingest
+ * assigns, rather than by title — a title is display text and is edited.
+ *
+ * Three rows, each covering a state the UI has to render and the others do not: one open,
+ * chat-sourced and triaged (the normal case, with provenance and a source thread); one
+ * closed-resolved (the terminal display, `closedAt`, the receded row treatment); and one
+ * open but UNTRIAGED, which is what the webhook actually creates and what sorts last.
+ */
+async function seedEscalations(): Promise<number> {
+  const [volvoProgram, volvoPartner, stellantis] = await Promise.all([
+    prisma.project.findFirst({ where: { name: 'Volvo EX90 AAOS Refresh' }, select: { id: true } }),
+    prisma.partner.findFirst({ where: { name: 'Volvo Cars' }, select: { id: true } }),
+    prisma.partner.findFirst({ where: { name: 'Stellantis' }, select: { id: true } }),
+  ]);
+  // The corpus resolver already THROWS on an unresolvable anchor, so these exist by the
+  // time this runs; the guard is here so a future corpus edit that renames a program fails
+  // with a sentence rather than a null-id 400 from the route.
+  if (!volvoProgram || !volvoPartner || !stellantis) {
+    throw new Error('Escalation seed: expected the Volvo and Stellantis fixtures to exist.');
+  }
+
+  const volvoThread = await prisma.contextUrl.findUnique({
+    where: { sourceRef: mockSourceRef('chat-volvo-cert-escalation') },
+    select: { id: true },
+  });
+  if (!volvoThread) {
+    throw new Error('Escalation seed: the Volvo cert-escalation thread has not been ingested yet.');
+  }
+
+  const rows: Array<Parameters<typeof apiPost>[2]> = [
+    {
+      // The chat-raised case. `originalRequest` is the trigger text VERBATIM — deliberately
+      // scrappier than the title beside it, because that contrast IS what the detail page's
+      // two blocks exist to show.
+      originalRequest:
+        'escalate the cert slip on EX90 — Sven found out from his own status meeting and marketing had already committed to the date externally',
+      title: 'Volvo EX90 certification slip was communicated late',
+      summary:
+        'The regression and certification pass started later than forecast, and Volvo learned of it from their own status meeting rather than from us — after their marketing had committed to a date externally. Volvo leadership is asking why they are hearing about Google-side schedule changes from their own people.',
+      status: 'open',
+      severity: 's1',
+      orgLevel: 'director',
+      partnerId: volvoPartner.id,
+      projectId: volvoProgram.id,
+      raisedBy: 'lena@continental.example',
+      sourceKind: 'chat',
+      contextUrlId: volvoThread.id,
+    },
+    {
+      title: 'Stellantis brand-matrix decision has no named decision maker',
+      summary:
+        'Brand-matrix scope decisions have stalled across two review cycles because no one on the Stellantis side owns the call. Resolved once their PMO named a sponsor.',
+      status: 'resolved',
+      severity: 's2',
+      orgLevel: 'region',
+      partnerId: stellantis.id,
+      raisedBy: 'dylan@alwaysmap.com',
+      sourceKind: 'manual',
+    },
+    {
+      // UNTRIAGED — no severity, no org level, nobody assigned. This is exactly the shape
+      // the chat trigger creates in part (b), so the list page's "sorts last" behaviour and
+      // the detail page's "Not triaged" rendering both have something real to show.
+      originalRequest: 'escalate the second-source audio codec question before the EX90 gate',
+      title: 'Second-source audio codec decision needed before the EX90 gate',
+      status: 'open',
+      partnerId: volvoPartner.id,
+      projectId: volvoProgram.id,
+      raisedBy: 'dylan@alwaysmap.com',
+      sourceKind: 'chat',
+      contextUrlId: volvoThread.id,
+    },
+  ];
+
+  for (const body of rows) {
+    await apiPost(postEscalationRoute, '/api/escalations', body);
+  }
+  return rows.length;
 }
 
 const WEEK_MS = 7 * 86_400_000;
@@ -1497,6 +1592,11 @@ export async function seedMockData(): Promise<MockSeedReport> {
   console.log('Ingesting the mock source corpus through the ingest boundary...');
   const corpus = await seedMockCorpus();
   console.log(`Ingested ${corpus.ingested} sources; skipped ${corpus.skipped.length}.`);
+
+  // Escalations come after the corpus: one of them links to the ContextUrl the Volvo
+  // escalation thread produced above.
+  const escalations = await seedEscalations();
+  console.log(`Seeded ${escalations} escalations.`);
 
   // Seeded records must be searchable immediately — build the vector index now
   // rather than waiting for a manual /api/admin/reindex.

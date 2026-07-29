@@ -46,6 +46,10 @@ export async function wipeAll() {
   await prisma.ignoredAddress.deleteMany();
   // Program graph, child → parent.
   await prisma.actionItem.deleteMany();
+  // Escalations (#245) precede every table they reference — ContextUrl, Project, Partner
+  // and Person, all of which are deleted below. The self-FK needs no ordering: one
+  // `DELETE FROM` clears the table in a single statement.
+  await prisma.escalation.deleteMany();
   await prisma.contextRevision.deleteMany();
   await prisma.contextUrl.deleteMany();
   await prisma.phasePartner.deleteMany();
