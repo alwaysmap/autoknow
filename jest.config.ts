@@ -1,5 +1,10 @@
 import type { Config } from 'jest'
 import nextJest from 'next/jest.js'
+// NOTE this file cannot import from tests/ — jest transpiles the config on its own, so a
+// relative TypeScript import fails to resolve at runtime. Hence the knob is parsed here
+// and tests/global-setup reads the RESOLVED count back off jest's globalConfig, which
+// makes the two agree by construction rather than by a shared constant.
+const JEST_WORKERS = Number(process.env.JEST_WORKERS) || 4
  
 const createJestConfig = nextJest({
   // Provide the path to your Next.js app to load next.config.js and .env files in your test environment
@@ -29,12 +34,14 @@ const config: Config = {
   // The main checkout hosts Claude Code worktrees under .claude/ — without this, jest
   // discovers each worktree's copy of the tests and the duplicates race on the test DB.
   testPathIgnorePatterns: ['/node_modules/', '<rootDir>/.claude/', '<rootDir>/.next'],
-  // Several suites wipe/seed the ONE *_test database this config provisions, so they must
-  // never run concurrently. The suite is small; serial is cheap and deterministic. (e2e
-  // escaped the same constraint by giving each Playwright worker its own database — see
-  // tests/helpers/worktree.ts — which is worth doing there because e2e is the CI critical
-  // path, and not here, where the whole run is ~30s.)
-  maxWorkers: 1,
+  // One database per worker, provisioned by tests/global-setup off this very number.
+  //
+  // This was maxWorkers:1 for as long as the suites shared ONE *_test database: several
+  // wipe it, so running them at once clobbered fixtures. Giving each worker its own
+  // database — the fix e2e already had — removes the constraint rather than living with
+  // it. The run is dominated by waiting on Postgres, not by CPU (a serial run measured
+  // ~45-60s at ~45% of a single core), which is exactly the shape that parallelises.
+  maxWorkers: JEST_WORKERS,
   // 28 suites call wipeAll() (25 sequential deleteMany round-trips) from `beforeAll`, so
   // the default 5000ms hook timeout governs it too. Under full-suite load that budget is
   // tight enough to fail on an UNRELATED PR — measured (autoknow-gj0): the suite alone

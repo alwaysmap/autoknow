@@ -82,7 +82,7 @@ export default defineConfig({
     reuseExistingServer: false,
     timeout: 120_000, // starting a prebuilt server is seconds; headroom for a loaded runner
     env: {
-      DATABASE_URL: testDatabaseUrl(worker),
+      DATABASE_URL: testDatabaseUrl({ runner: 'e2e', index: worker }),
       NEXT_DIST_DIR: '.next-test', // serve the e2e build, keeping the :3000 dev server's .next uncorrupted
       AUTH_GOOGLE_ID: '', // empty → no providers → stub identity (src/auth.ts)
       AUTH_GOOGLE_SECRET: '',
