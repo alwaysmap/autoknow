@@ -445,6 +445,27 @@ export const escalationStatusSchema = z.enum([
 export const escalationSeveritySchema = z.enum(['s1', 's2', 's3']);
 export const escalationOrgLevelSchema = z.enum(['team', 'region', 'director', 'exec']);
 
+/** The two cross-field policies, written ONCE and applied to every escalation boundary.
+ *  Hand-copying a `.refine` predicate AND its user-facing message into each schema is how
+ *  the form boundary and the API boundary come to disagree about what a valid escalation
+ *  is — the exact drift the status-enum note above guards against, one field over. */
+const ABOUT_SOMETHING = {
+  check: (e: { partnerId?: number | null; projectId?: number | null }) =>
+    e.partnerId != null || e.projectId != null,
+  opts: {
+    path: ['partnerId'],
+    message: 'an escalation is about a partner and/or a program — pick at least one',
+  },
+};
+const DUPLICATE_NEEDS_TARGET = {
+  check: (e: { status?: string; duplicateOfId?: number | null }) =>
+    e.status !== 'duplicate' || e.duplicateOfId != null,
+  opts: {
+    path: ['duplicateOfId'],
+    message: 'closing as duplicate needs the escalation it duplicates',
+  },
+};
+
 /** Severity/org level where blank is a real answer — "not yet triaged" — rather than a
  *  rejected value. The triage dialog posts an empty option to CLEAR a triage decision. */
 const zSeverityOrNull = blankToNull(escalationSeveritySchema);
@@ -466,10 +487,7 @@ export const escalationFieldsSchema = z
     decisionMakerPersonId: zIdOrNull,
     requestedOfPersonId: zIdOrNull,
   })
-  .refine((e) => e.partnerId != null || e.projectId != null, {
-    path: ['partnerId'],
-    message: 'an escalation is about a partner and/or a program — pick at least one',
-  });
+  .refine(ABOUT_SOMETHING.check, ABOUT_SOMETHING.opts);
 
 /** Update targets ONE escalation and carries the same editable fields as create, so it is
  *  literally those fields plus the id (the `partnerUpdateSchema` shape). `.safeExtend`
@@ -492,10 +510,7 @@ export const escalationStatusUpdateSchema = z
     status: escalationStatusSchema,
     duplicateOfId: zIdOrNull,
   })
-  .refine((e) => e.status !== 'duplicate' || e.duplicateOfId != null, {
-    path: ['duplicateOfId'],
-    message: 'closing as duplicate needs the escalation it duplicates',
-  })
+  .refine(DUPLICATE_NEEDS_TARGET.check, DUPLICATE_NEEDS_TARGET.opts)
   .refine((e) => e.duplicateOfId !== e.escalationId, {
     path: ['duplicateOfId'],
     // Not pedantry: the self-FK makes this expressible, and a row that is its own
@@ -532,14 +547,8 @@ export const escalationApiSchema = z
     contextUrlId: zIdOrNull.optional(),
     duplicateOfId: zIdOrNull.optional(),
   })
-  .refine((e) => e.partnerId != null || e.projectId != null, {
-    path: ['partnerId'],
-    message: 'an escalation is about a partner and/or a program — pick at least one',
-  })
-  .refine((e) => e.status !== 'duplicate' || e.duplicateOfId != null, {
-    path: ['duplicateOfId'],
-    message: 'closing as duplicate needs the escalation it duplicates',
-  });
+  .refine(ABOUT_SOMETHING.check, ABOUT_SOMETHING.opts)
+  .refine(DUPLICATE_NEEDS_TARGET.check, DUPLICATE_NEEDS_TARGET.opts);
 
 // ---- helpers --------------------------------------------------------------------
 

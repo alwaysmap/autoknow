@@ -98,6 +98,9 @@ export function orgLevelRank(v: EscalationOrgLevel | null | undefined): number {
 // Localization keys, never stored values (the `lib/health` split). Nothing submitted or
 // written to a column goes through these maps.
 
+/** The BARE name, which is what a picker already scoped to closing offers: under a
+ *  "Close as" label, "Closed — Resolved" says "closed" twice. `STATUS_DISPLAY_KEY` below
+ *  is for reading a status cold, where the qualifier is the whole point. */
 export const STATUS_KEY: Record<EscalationStatus, StringKey> = {
   open: 'escStatusOpen',
   resolved: 'escStatusResolved',
@@ -136,13 +139,6 @@ export const STATUS_DISPLAY_KEY: Record<EscalationStatus, StringKey> = {
   addressed: 'escStatusClosedAddressed',
   obsolete: 'escStatusClosedObsolete',
 };
-
-/** The canonical, locale-stable token a status column's funnel filters on — the stored
- *  enum value (design.md §6 / AGENTS lesson 3: a shared `?status=resolved` URL names the
- *  same class in every locale). The label is `STATUS_DISPLAY_KEY`'s job. */
-export function statusToken(status: EscalationStatus): string {
-  return status;
-}
 
 /**
  * The filter token for the TRIAGE columns, where the absence of a value is itself an

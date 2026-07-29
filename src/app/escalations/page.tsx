@@ -8,7 +8,9 @@ interface SearchParams {
   [key: string]: string | string[] | undefined; // per-column filters + sort/dir + q
 }
 
-/** The three person roles and the two associations, selected once. Each person comes back
+/** Exactly what the table RENDERS — no more. "Requested of" and the close date are real
+ *  columns on the model and are read on the detail page; selecting them here as well, for
+ *  a table that shows neither, is a join and a payload nobody looks at. Each person comes back
  *  as `{ id, name }` — the `PersonRef` shape — so the client filters and sorts by the FK
  *  id and renders the NAME, without a people directory being shipped alongside just to
  *  resolve a string (#127 E7). */
@@ -19,12 +21,10 @@ const listSelect = {
   severity: true,
   orgLevel: true,
   createdAt: true,
-  closedAt: true,
   partner: { select: { id: true, name: true } },
   project: { select: { id: true, name: true } },
   ownerPerson: { select: { id: true, name: true } },
   decisionMakerPerson: { select: { id: true, name: true } },
-  requestedOfPerson: { select: { id: true, name: true } },
 } as const;
 
 export default async function EscalationsPage(props: { searchParams: Promise<SearchParams> }) {
@@ -58,12 +58,10 @@ export default async function EscalationsPage(props: { searchParams: Promise<Sea
     severity: e.severity,
     orgLevel: e.orgLevel,
     createdAt: e.createdAt.toISOString(),
-    closedAt: e.closedAt?.toISOString() ?? null,
     partner: e.partner,
     project: e.project,
     owner: e.ownerPerson,
     decisionMaker: e.decisionMakerPerson,
-    requestedOf: e.requestedOfPerson,
   }));
 
   return (

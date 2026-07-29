@@ -185,7 +185,12 @@ test.describe('Project Details and Action Item Operations', () => {
       if (!(await dialog.isVisible())) {
         // Kebab items are role=menuitem now that the ⋯ menu is AnchoredPopover (#24).
         const item = page.getByTestId('project-meta').getByRole('menuitem', { name: 'Edit', exact: true });
-        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
+        // Scoped to the meta header: the program page carries a second ⋯ on the
+        // Escalations heading (#245), so an unscoped kebab-menu is ambiguous — the same
+        // scoping partners.spec already does for the same reason.
+        if (!(await item.isVisible())) {
+          await page.getByTestId('project-meta').getByTestId('kebab-menu').click({ timeout: 2000 });
+        }
         await item.click({ timeout: 2000 });
       }
       await expect(dialog).toBeVisible({ timeout: 1500 });

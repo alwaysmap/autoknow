@@ -9,18 +9,14 @@ import {
   escalationStatusUpdateSchema,
   escalationUpdateSchema,
 } from '../../lib/schemas';
-import { headers } from 'next/headers';
 import { guarded, type ActionResult } from '../../lib/actionResult';
-import {
-  STATUS_DISPLAY_KEY,
-  canTransition,
-  isClosed,
-  type EscalationStatus,
-} from '../../lib/escalation';
+import { canTransition, isClosed, type EscalationStatus } from '../../lib/escalation';
 import { escalationHref } from '../../lib/entityHref';
-import { postToThread } from '../../lib/chatPost';
-import { t, type Locale, type StringKey } from '../../lib/i18n';
-import { LOCALE } from '../../lib/preferences';
+import {
+  describeAssignmentChange,
+  describeStatusChange,
+  postEscalationChange,
+} from '../../lib/escalationPostBack';
 
 // Escalation mutations (#245 part a). Mirrors `app/actions/partners.ts`: `guarded` +
 // `parseForm` + `revalidatePath`, with zod (lib/schemas) as the single gate for shape.
@@ -31,8 +27,9 @@ import { LOCALE } from '../../lib/preferences';
 // and building a second authorization model for one entity would be the kind of mechanism
 // a red-team pass exists to delete (AGENTS lesson 12).
 //
-// What is NOT here: the post-back to the source chat thread. That is part (c), and it
-// hangs off the two mutations below — see the note on `setEscalationStatus`.
+// The post-back to the source chat thread (part c) hangs off the two mutations below, but
+// its plumbing does NOT live here — `lib/escalationPostBack` owns it, so each action stays
+// at the altitude its neighbours sit at: parse · write · revalidate · announce.
 
 /** The surfaces an escalation appears on. One helper because three call sites each
  *  revalidating "the list, this row, and whatever it is about" drifted apart the moment
@@ -46,80 +43,6 @@ function revalidateEscalation(e: {
   revalidatePath(escalationHref(e.id));
   if (e.partnerId) revalidatePath(`/partners/${e.partnerId}`);
   if (e.projectId) revalidatePath(`/programs/${e.projectId}`);
-}
-
-// ---- post-back to the source chat thread (#245 part c) ----------------------------
-//
-// THE INVARIANT: none of this can make a mutation fail. The escalation is already written
-// by the time any of it runs, so a Chat outage must not undo a close somebody just made.
-// `postToThread` never throws by construction; everything else here is wrapped, and the
-// worst case is a row whose delivery columns are stale — which the detail page shows
-// honestly rather than hiding (AGENTS lesson 5).
-
-/** A post has no session and no cookie to read a locale from, exactly like a webhook
- *  reply — so it goes out in the app default. Copy still lives in the catalog so a
- *  per-space locale can be plumbed later without moving prose into this file. */
-const POST_LOCALE: Locale = LOCALE.default;
-const tr = (key: StringKey, vars?: Record<string, string | number>) => t(POST_LOCALE, key, vars);
-
-/** The app's public origin, derived from the request the action is serving — the same
- *  derivation `api/chat/events` uses for the inbound reply. A Chat message is read outside
- *  the app, so a relative path is useless there; when the host cannot be read the post
- *  simply carries no link rather than a broken one. */
-async function appOrigin(): Promise<string | null> {
-  try {
-    const h = await headers();
-    const host = h.get('x-forwarded-host') ?? h.get('host');
-    if (!host) return null;
-    const proto = h.get('x-forwarded-proto') ?? (/^(localhost|127\.0\.0\.1)/.test(host) ? 'http' : 'https');
-    return `${proto}://${host}`;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Post one change back to the thread the escalation was raised in, and record the outcome
- * on the row.
- *
- * Silent no-op for anything not raised from chat, or with no source thread: a manually
- * created escalation has nowhere to post and that is not a failure, so it must not leave
- * an error on the row.
- *
- * The two delivery columns mean exactly this, and nothing else:
- *   `lastChatPostAt`     — when a post last SUCCEEDED. Untouched by a failure, so the row
- *                          still records the last time the thread genuinely heard from us.
- *   `lastChatPostError`  — the most recent attempt's error, cleared on success. Its
- *                          presence is the badge condition, which is why it is "the latest
- *                          attempt" rather than "the last error ever seen".
- */
-async function postEscalationChange(escalationId: number, message: string): Promise<void> {
-  try {
-    const escalation = await prisma.escalation.findUnique({
-      where: { id: escalationId },
-      select: { sourceKind: true, contextUrl: { select: { sourceRef: true } } },
-    });
-    if (!escalation || escalation.sourceKind !== 'chat') return;
-    const sourceRef = escalation.contextUrl?.sourceRef;
-    if (!sourceRef) return;
-
-    const origin = await appOrigin();
-    const text = origin
-      ? `${message} ${tr('escPostLink', { url: `${origin}${escalationHref(escalationId)}` })}`
-      : message;
-
-    const result = await postToThread(sourceRef, text);
-    await prisma.escalation.update({
-      where: { id: escalationId },
-      data: result.ok
-        ? { lastChatPostAt: new Date(), lastChatPostError: null }
-        : { lastChatPostError: result.error },
-    });
-  } catch (e) {
-    // Reached only if the DB write above fails. Logged, never rethrown — the mutation this
-    // rides behind has already committed and is not this function's to undo.
-    console.error('[escalations] post-back bookkeeping failed:', e);
-  }
 }
 
 export async function createEscalation(formData: FormData): Promise<ActionResult> {
@@ -141,9 +64,8 @@ export async function updateEscalation(formData: FormData): Promise<ActionResult
   return guarded(async () => {
     const { escalationId, ...fields } = parseForm(escalationUpdateSchema, formData);
 
-    // Read the three roles BEFORE the write, because an assignment is a CHANGE and the
-    // thread is told about changes — re-announcing an owner who was already that owner
-    // would make every unrelated title edit look like a reassignment.
+    // Read the three roles BEFORE the write: an assignment post describes a CHANGE, and
+    // only the previous values can say whether there was one.
     const before = await prisma.escalation.findUnique({
       where: { id: escalationId },
       select: { ownerPersonId: true, decisionMakerPersonId: true, requestedOfPersonId: true },
@@ -155,37 +77,9 @@ export async function updateEscalation(formData: FormData): Promise<ActionResult
     });
     revalidateEscalation(escalation);
 
-    // POST-BACK SCOPE (#245 decision 2): all three person roles, not only owner and
-    // decision maker. "Requested of" is who the ask is actually pointed at, so a thread
-    // that is not told about it is missing the one name it most needs; the decision's
-    // headline is "ALL meaningful updates" and this is one.
-    const roles: Array<{ key: StringKey; was?: number | null; now: number | null }> = [
-      { key: 'escOwner', was: before?.ownerPersonId, now: escalation.ownerPersonId },
-      { key: 'escDecisionMaker', was: before?.decisionMakerPersonId, now: escalation.decisionMakerPersonId },
-      { key: 'escRequestedOf', was: before?.requestedOfPersonId, now: escalation.requestedOfPersonId },
-    ];
-    const changed = roles.filter((r) => (r.was ?? null) !== r.now);
-    if (before && changed.length > 0) {
-      // Names are resolved in ONE query rather than per role — three assignments in one
-      // submit is an ordinary edit, not an exceptional one.
-      const ids = changed.map((r) => r.now).filter((id): id is number => id != null);
-      const people = ids.length
-        ? await prisma.person.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } })
-        : [];
-      const nameOf = new Map(people.map((p) => [p.id, p.name]));
-      const sentences = changed.map((r) =>
-        r.now != null
-          ? tr('escPostRoleNow', { role: tr(r.key), name: nameOf.get(r.now) ?? '' })
-          : tr('escPostRoleCleared', { role: tr(r.key) }),
-      );
-      await postEscalationChange(
-        escalationId,
-        tr('escPostAssignment', {
-          n: escalationId,
-          title: escalation.title,
-          changes: sentences.join('; '),
-        }),
-      );
+    if (before) {
+      const message = await describeAssignmentChange(escalationId, escalation.title, before, escalation);
+      if (message) await postEscalationChange(escalationId, message);
     }
   });
 }
@@ -243,11 +137,7 @@ export async function setEscalationStatus(formData: FormData): Promise<ActionRes
     // Chat is down.
     await postEscalationChange(
       escalationId,
-      tr('escPostStatus', {
-        n: escalationId,
-        title: escalation.title,
-        status: tr(STATUS_DISPLAY_KEY[status]),
-      }),
+      describeStatusChange(escalationId, escalation.title, status),
     );
   });
 }

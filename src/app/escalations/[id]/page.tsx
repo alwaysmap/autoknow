@@ -123,7 +123,7 @@ export default async function EscalationDetailPage({ params }: PageProps) {
             partners={partners}
             projects={projects}
             people={people}
-            openEscalations={otherEscalations.map((e) => ({ id: e.id, name: e.title }))}
+            duplicateCandidates={otherEscalations.map((e) => ({ id: e.id, name: e.title }))}
           />
         </div>
         {/* What this is ABOUT, as navigation (§2: no plain-text dead ends). */}

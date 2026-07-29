@@ -11,7 +11,7 @@ import {
   ORG_LEVEL_KEY,
   SEVERITIES,
   SEVERITY_KEY,
-  STATUS_DISPLAY_KEY,
+  STATUS_KEY,
   TERMINAL_STATUSES,
   isClosed,
   type EscalationOrgLevel,
@@ -22,9 +22,9 @@ import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import dash from './ProjectStatusDashboard.module.css';
 import meta from './ProjectMetaHeader.module.css';
-import admin from './ProjectAdminControls.module.css';
 import KebabMenu from './KebabMenu';
 import OverlayDialog from './OverlayDialog';
+import useDialogAction from './useDialogAction';
 
 // Escalation write surfaces (#245 part a): one shared form for create and edit, plus the
 // status control. Mirrors `PartnerEditor` — the list header gets a New button, the detail
@@ -56,37 +56,6 @@ export interface EscalationRecord {
   ownerPersonId: number | null;
   decisionMakerPersonId: number | null;
   requestedOfPersonId: number | null;
-}
-
-/** The one action-runner every dialog here shares: a failed server action must surface
- *  INSIDE the dialog, because a throw hits the route error boundary and destroys the
- *  user's modal input. Actions return `{ error }`; `redirect()` on success still
- *  propagates as a throw and navigates. Lifted verbatim from `PartnerEditor`, where the
- *  same three lines guard the same failure. */
-function useDialogAction() {
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const runAction = async (
-    formData: FormData,
-    action: (fd: FormData) => Promise<{ error?: string }>,
-  ): Promise<boolean> => {
-    setSaving(true);
-    setError(null);
-    try {
-      const result = await action(formData);
-      if (result?.error) {
-        setError(result.error);
-        return false;
-      }
-      return true;
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const errorLine = error && <p role="alert" className={admin.warningText}>{error}</p>;
-  return { saving, errorLine, runAction, clearError: () => setError(null) };
 }
 
 function EscalationFormFields({
@@ -214,14 +183,17 @@ export function NewEscalationButton({
  * dialog that formed its own opinion about what the server would allow).
  */
 export default function EscalationAdminControls({
-  escalation, partners, projects, people, openEscalations,
+  escalation, partners, projects, people, duplicateCandidates,
 }: {
   escalation: EscalationRecord;
   partners: Option[];
   projects: Option[];
   people: Option[];
-  /** Candidates for "duplicate of" — other escalations, so a row cannot pick itself. */
-  openEscalations: Option[];
+  /** Candidates for "duplicate of": every OTHER escalation, whatever its status — a
+   *  duplicate of a closed one is an ordinary thing to record. Excluding THIS row is the
+   *  caller's job (see the detail page), so the option a row could use to become its own
+   *  duplicate never reaches the client. */
+  duplicateCandidates: Option[];
 }) {
   const locale = useLocale();
   const [editOpen, setEditOpen] = useState(false);
@@ -274,8 +246,10 @@ export default function EscalationAdminControls({
               value={nextStatus}
               onChange={(e) => setNextStatus(e.target.value as EscalationStatus)}
             >
+              {/* Bare names, not the "Closed — " forms: the label above already says
+                  "Close as", so the qualifier would be said twice (lib/escalation). */}
               {choices.map((s) => (
-                <option key={s} value={s}>{t(locale, STATUS_DISPLAY_KEY[s])}</option>
+                <option key={s} value={s}>{t(locale, STATUS_KEY[s])}</option>
               ))}
             </select>
           </div>
@@ -287,7 +261,7 @@ export default function EscalationAdminControls({
               <label htmlFor="esDuplicateOf" className={dash.formLabel}>{t(locale, 'escDuplicateOf')}</label>
               <select id="esDuplicateOf" name="duplicateOfId" required className={dash.textInput} defaultValue="">
                 <option value="">{t(locale, 'escDuplicateOfPlaceholder')}</option>
-                {openEscalations.map((e) => <option key={e.id} value={e.id}>#{e.id} — {e.name}</option>)}
+                {duplicateCandidates.map((e) => <option key={e.id} value={e.id}>#{e.id} — {e.name}</option>)}
               </select>
             </div>
           )}

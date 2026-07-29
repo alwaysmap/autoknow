@@ -10,6 +10,7 @@ import meta from './ProjectMetaHeader.module.css';
 import admin from './ProjectAdminControls.module.css';
 import KebabMenu from './KebabMenu';
 import OverlayDialog from './OverlayDialog';
+import useDialogAction from './useDialogAction';
 
 // Partner CRUD surfaces. One shared form (create + edit); the partner page gets the
 // small Edit · Delete links beside the name (same quiet grammar as programs), the
@@ -77,30 +78,7 @@ function PartnerFormFields({ defaults, types, regions }: { defaults?: PartnerRec
 export function NewPartnerButton({ types, regions }: { types: Option[]; regions: Option[] }) {
   const locale = useLocale();
   const [newOpen, setNewOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // A failed action must surface INSIDE the dialog — a throw would hit the route
-  // error boundary and destroy the user's modal input. Actions return { error };
-  // redirect()-on-success still propagates as a throw and navigates.
-  const runAction = async (
-    formData: FormData,
-    action: (fd: FormData) => Promise<{ error?: string }>,
-  ): Promise<boolean> => {
-    setSaving(true);
-    setError(null);
-    try {
-      const result = await action(formData);
-      if (result?.error) {
-        setError(result.error);
-        return false;
-      }
-      return true;
-    } finally {
-      setSaving(false);
-    }
-  };
-  const errorLine = error && <p role="alert" className={admin.warningText}>{error}</p>;
+  const { saving, errorLine, runAction } = useDialogAction();
 
   // Self-contained ⋯ menu with the dialog as a SIBLING of the KebabMenu, never a child
   // (KebabMenu.module.css explains why a nested dialog gets corrupted by the row rules).
@@ -141,31 +119,8 @@ export default function PartnerAdminControls({
   const locale = useLocale();
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [confirmName, setConfirmName] = useState('');
-
-  // A failed action must surface INSIDE the dialog — a throw would hit the route
-  // error boundary and destroy the user's modal input. Actions return { error };
-  // redirect()-on-success still propagates as a throw and navigates.
-  const runAction = async (
-    formData: FormData,
-    action: (fd: FormData) => Promise<{ error?: string }>,
-  ): Promise<boolean> => {
-    setSaving(true);
-    setError(null);
-    try {
-      const result = await action(formData);
-      if (result?.error) {
-        setError(result.error);
-        return false;
-      }
-      return true;
-    } finally {
-      setSaving(false);
-    }
-  };
-  const errorLine = error && <p role="alert" className={admin.warningText}>{error}</p>;
+  const { saving, errorLine, runAction } = useDialogAction();
 
 
   // `blocked` is the SERVER's answer to "may this be deleted", not this component's —

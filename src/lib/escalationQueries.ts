@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import type { EscalationRow } from '../components/EscalationRows';
 import type {
@@ -24,17 +25,12 @@ const SELECT = {
   orgLevel: true,
   createdAt: true,
   ownerPerson: { select: { id: true, name: true } },
-} as const;
+} satisfies Prisma.EscalationSelect;
 
-type Row = {
-  id: number;
-  title: string;
-  status: string;
-  severity: string | null;
-  orgLevel: string | null;
-  createdAt: Date;
-  ownerPerson: { id: number; name: string } | null;
-};
+/** Derived from `SELECT` rather than restated beside it: a hand-written mirror of a select
+ *  is two adjacent literals that must be edited in step, and nothing says so when they are
+ *  not. */
+type Row = Prisma.EscalationGetPayload<{ select: typeof SELECT }>;
 
 const toRow = (e: Row): EscalationRow => ({
   id: e.id,
@@ -46,20 +42,15 @@ const toRow = (e: Row): EscalationRow => ({
   owner: e.ownerPerson,
 });
 
-export async function getPartnerEscalations(partnerId: number): Promise<EscalationRow[]> {
-  const rows = await prisma.escalation.findMany({
-    where: { partnerId },
-    select: SELECT,
-    orderBy: ORDER,
-  });
+/** ONE body; the two exported readers differ only in which column they scope by, which is
+ *  the whole of the difference between "this partner's escalations" and "this program's". */
+async function escalationsWhere(where: Prisma.EscalationWhereInput): Promise<EscalationRow[]> {
+  const rows = await prisma.escalation.findMany({ where, select: SELECT, orderBy: ORDER });
   return rows.map(toRow);
 }
 
-export async function getProgramEscalations(projectId: number): Promise<EscalationRow[]> {
-  const rows = await prisma.escalation.findMany({
-    where: { projectId },
-    select: SELECT,
-    orderBy: ORDER,
-  });
-  return rows.map(toRow);
-}
+export const getPartnerEscalations = (partnerId: number): Promise<EscalationRow[]> =>
+  escalationsWhere({ partnerId });
+
+export const getProgramEscalations = (projectId: number): Promise<EscalationRow[]> =>
+  escalationsWhere({ projectId });

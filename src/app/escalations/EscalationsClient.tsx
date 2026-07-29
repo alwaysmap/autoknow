@@ -17,7 +17,9 @@ import {
   UNTRIAGED,
   isOpen,
   orgLevelRank,
+  orgLevelToken,
   severityRank,
+  severityToken,
   type EscalationOrgLevel,
   type EscalationSeverity,
   type EscalationStatus,
@@ -43,12 +45,10 @@ interface Escalation {
   severity: EscalationSeverity | null;
   orgLevel: EscalationOrgLevel | null;
   createdAt: string;
-  closedAt: string | null;
   partner: { id: number; name: string } | null;
   project: { id: number; name: string } | null;
   owner: PersonRef | null;
   decisionMaker: PersonRef | null;
-  requestedOf: PersonRef | null;
 }
 
 interface Option {
@@ -127,14 +127,14 @@ export default function EscalationsClient({
             },
             {
               key: 'severity', label: t(locale, 'escSeverityLabel'), filterable: true,
-              filterValue: (row) => (row as Escalation).severity ?? UNTRIAGED,
+              filterValue: (row) => severityToken((row as Escalation).severity),
               filterLabel: (v) =>
                 v === UNTRIAGED ? t(locale, 'escUntriaged') : t(locale, SEVERITY_KEY[v as EscalationSeverity]),
               sortValue: (row) => (row as { severityRank: number }).severityRank,
             },
             {
               key: 'orgLevel', label: t(locale, 'escOrgLevelLabel'), filterable: true,
-              filterValue: (row) => (row as Escalation).orgLevel ?? UNTRIAGED,
+              filterValue: (row) => orgLevelToken((row as Escalation).orgLevel),
               filterLabel: (v) =>
                 v === UNTRIAGED ? t(locale, 'escUntriaged') : t(locale, ORG_LEVEL_KEY[v as EscalationOrgLevel]),
               sortValue: (row) => (row as { orgLevelRank: number }).orgLevelRank,
@@ -171,10 +171,10 @@ export default function EscalationsClient({
                 {classCell('status', t(locale, 'statusLabel'), e.status, t(locale, STATUS_DISPLAY_KEY[e.status]))}
               </td>
               <td>
-                {classCell('severity', t(locale, 'escSeverityLabel'), e.severity ?? UNTRIAGED, severityLabel(e.severity))}
+                {classCell('severity', t(locale, 'escSeverityLabel'), severityToken(e.severity), severityLabel(e.severity))}
               </td>
               <td>
-                {classCell('orgLevel', t(locale, 'escOrgLevelLabel'), e.orgLevel ?? UNTRIAGED, orgLevelLabel(e.orgLevel))}
+                {classCell('orgLevel', t(locale, 'escOrgLevelLabel'), orgLevelToken(e.orgLevel), orgLevelLabel(e.orgLevel))}
               </td>
               {/* A partner and a program are NOUNS: they navigate to their own route and
                   never filter (§6, issue #30). */}

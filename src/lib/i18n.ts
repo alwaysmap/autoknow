@@ -2193,7 +2193,6 @@ const STRINGS = {
   // and the punctuation — ja/ko put the qualifier first and use no dash at all.
   navEscalations: { en: 'Escalations', de: 'Eskalationen', ja: 'エスカレーション', ko: '에스컬레이션' },
   escalationsLabel: { en: 'Escalations', de: 'Eskalationen', ja: 'エスカレーション', ko: '에스컬레이션' },
-  escalationLabel: { en: 'Escalation', de: 'Eskalation', ja: 'エスカレーション', ko: '에스컬레이션' },
 
   escStatusOpen: { en: 'Open', de: 'Offen', ja: '未解決', ko: '진행 중' },
   escStatusResolved: { en: 'Resolved', de: 'Gelöst', ja: '解決', ko: '해결' },
@@ -2237,12 +2236,6 @@ const STRINGS = {
   escOrgDirector: { en: 'Director', de: 'Direktor', ja: 'ディレクター', ko: '디렉터' },
   escOrgExec: { en: 'Exec', de: 'Geschäftsleitung', ja: '経営層', ko: '경영진' },
   escOrgLevelLabel: { en: 'Org level', de: 'Organisationsebene', ja: '組織レベル', ko: '조직 레벨' },
-  escOrgLevelHint: {
-    en: 'Who needs to act — not how bad it is.',
-    de: 'Wer handeln muss — nicht, wie schlimm es ist.',
-    ja: '深刻さではなく、誰が動く必要があるかを表します。',
-    ko: '심각도가 아니라 누가 움직여야 하는지를 나타냅니다.',
-  },
   escUntriaged: { en: 'Not triaged', de: 'Nicht eingestuft', ja: '未分類', ko: '미분류' },
 
   escOwner: { en: 'Owner', de: 'Verantwortlich', ja: 'オーナー', ko: '담당자' },
@@ -2252,7 +2245,6 @@ const STRINGS = {
   escRaisedOn: { en: 'Raised', de: 'Gemeldet', ja: '起票日', ko: '제기일' },
   escClosedOn: { en: 'Closed', de: 'Geschlossen', ja: 'クローズ日', ko: '종료일' },
   escUnassigned: { en: 'Unassigned', de: 'Nicht zugewiesen', ja: '未割り当て', ko: '미지정' },
-  escAbout: { en: 'About', de: 'Betrifft', ja: '対象', ko: '대상' },
   escDuplicateOf: { en: 'Duplicate of', de: 'Duplikat von', ja: '重複元', ko: '중복 원본' },
 
   // Provenance: the trigger text exactly as it was typed, which is never editable. The
@@ -2366,7 +2358,6 @@ const STRINGS = {
     ja: 'チャットスレッドに投稿済み',
     ko: '채팅 스레드에 게시됨',
   },
-  escOpenCount: { en: '{n} open', de: '{n} offen', ja: '未解決 {n} 件', ko: '진행 중 {n}건' },
   escNoneForEntity: {
     en: 'No escalations.',
     de: 'Keine Eskalationen.',

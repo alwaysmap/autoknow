@@ -25,6 +25,7 @@ import PhaseHillChart from '../../../components/PhaseHillChart';
 import { tNodes } from '../../../components/tNodes';
 import ChainLedger from '../../../components/ChainLedger';
 import AnchorHeading from '../../../components/AnchorHeading';
+import KebabMenu from '../../../components/KebabMenu';
 import EscalationRows from '../../../components/EscalationRows';
 import { getProgramEscalations } from '../../../lib/escalationQueries';
 import { computeChainLedger, type LedgerResourceInput, type StateTuple } from '../../../lib/chainLedger';
@@ -490,7 +491,17 @@ export default async function ProjectDetailsPage(props: {
                 the partner page carries; the full listing at /escalations is where
                 filtering lives. */}
             <section className={styles.historySection}>
-              <AnchorHeading id="escalations" linkLabel={t(locale, 'anchorLink')}>
+              <AnchorHeading
+                id="escalations"
+                linkLabel={t(locale, 'anchorLink')}
+                actions={
+                  <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+                    <Link href={`/escalations?project=${encodeURIComponent(project.name)}`}>
+                      {t(locale, 'escalationsLabel')}
+                    </Link>
+                  </KebabMenu>
+                }
+              >
                 {t(locale, 'escalationsLabel')}
               </AnchorHeading>
               <EscalationRows escalations={escalations} locale={locale} />

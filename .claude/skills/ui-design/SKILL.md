@@ -164,8 +164,8 @@ slugs; open only the few that match what you are about to touch.
    `tests/helpers/worktree`). Ports: :3000 dev default, :3100 long-lived demo.
    **e2e reserves a per-worktree BLOCK OF EIGHT — one per worker — somewhere in
    3130–3529**, derived from a hash of the checkout path (`testServerPort`), so
-   "~3130" is NOT where yours is; this worktree's block starts at 3186. Print it
-   before choosing —
+   "~3130" is NOT where yours is, and a literal here would be wrong for your
+   checkout too — print your own block before choosing:
    `npx tsx -e "import {testServerPort} from './tests/helpers/worktree'; console.log([0,1,2,3,4,5,6,7].map(testServerPort))"`
    — and put the preview OUTSIDE 3130–3529 entirely (3600+ is safe). A preview
    parked on one of those eight does not fail loudly: Playwright dies with "port is

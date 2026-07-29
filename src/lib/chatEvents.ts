@@ -4,10 +4,11 @@ import { prisma } from './db';
 import { ingestContent, hashContent } from './ingest';
 import { summarizeDocument, digestToText, geminiConfigured } from './gemini';
 import { getServiceAccountToken, CHAT_BOT_SCOPE } from './googleAuth';
-import { t, type Locale } from './i18n';
+import { t, type Locale, type StringKey } from './i18n';
 import { LOCALE } from './preferences';
 import { isTruncated } from './ingestLimits';
 import { escalationHref } from './entityHref';
+import { absoluteUrl } from './appOrigin';
 
 // Google Chat @mention ingestion (plan §5.1 / slice 4). Chat POSTs interaction
 // events to our endpoint with a JWT minted by chat@system.gserviceaccount.com whose
@@ -377,7 +378,6 @@ async function raiseEscalation(
   trigger: { raw: string; topic: string },
   ingest: ThreadIngest,
   event: ChatEvent,
-  msg: NonNullable<ChatEvent['message']>,
   ctx: ChatContext,
 ): Promise<{ text: string }> {
   const tr = (key: Parameters<typeof t>[1], vars?: Record<string, string | number>) =>
@@ -392,8 +392,13 @@ async function raiseEscalation(
     ingest.unreadable && tr('chatThreadUnreadable'),
   );
 
-  const link = (id: number): string | null =>
-    ctx.appOrigin ? `${ctx.appOrigin.replace(/\/+$/, '')}${escalationHref(id)}` : null;
+  /** One sentence, two spellings: with the absolute link when an origin is known, without
+   *  it when not. Written once because it was needed three times and each copy is a chance
+   *  to pair the wrong key with the wrong variable. */
+  const name = (withLink: StringKey, withoutLink: StringKey, id: number): string => {
+    const url = absoluteUrl(ctx.appOrigin, escalationHref(id));
+    return url ? tr(withLink, { n: id, url }) : tr(withoutLink, { n: id });
+  };
 
   const context = ingest.contextUrlId
     ? await prisma.contextUrl.findUnique({
@@ -413,14 +418,8 @@ async function raiseEscalation(
       orderBy: { createdAt: 'desc' },
     });
     if (open) {
-      const url = link(open.id);
       return {
-        text: say(
-          url
-            ? tr('chatEscalationExists', { n: open.id, url })
-            : tr('chatEscalationExistsNoLink', { n: open.id }),
-          limits,
-        ),
+        text: say(name('chatEscalationExists', 'chatEscalationExistsNoLink', open.id), limits),
       };
     }
   }
@@ -447,19 +446,13 @@ async function raiseEscalation(
         partnerId: context?.partnerId ?? null,
         projectId: context?.projectId ?? null,
         contextUrlId: context?.id ?? null,
-        raisedBy: msg.sender?.email ?? msg.sender?.displayName ?? null,
+        raisedBy: event.message?.sender?.email ?? event.message?.sender?.displayName ?? null,
         sourceKind: 'chat',
       },
       select: { id: true },
     });
-    const url = link(escalation.id);
     return {
-      text: say(
-        url
-          ? tr('chatEscalationCreated', { n: escalation.id, url })
-          : tr('chatEscalationCreatedNoLink', { n: escalation.id }),
-        limits,
-      ),
+      text: say(name('chatEscalationCreated', 'chatEscalationCreatedNoLink', escalation.id), limits),
     };
   } catch (e) {
     // Creation fails ONLY if the database write fails, and it is reported honestly rather
@@ -503,21 +496,21 @@ export async function handleChatEvent(
   const ingest = await snapshotThread(event, msg);
   if (ingest.outcome === 'no-text') return { text: tr('chatNoText') };
 
-  // Both paths report the same two limits; only the opening sentence differs.
-  const limits = say(
-    tr('chatSnapshotNote'),
-    ingest.capped && tr('chatThreadCapped', { n: THREAD_MESSAGE_LIMIT }),
-    ingest.unreadable && tr('chatThreadUnreadable'),
-  );
-
   if (ingest.outcome === 'failed') {
     return { text: tr('chatSaveFailed', { reason: ingest.error ?? 'unknown error' }) };
   }
 
   // An escalate trigger takes over the reply once the thread is safely stored — the
   // snapshot has already happened either way, which is what makes a duplicate trigger on a
-  // grown thread still capture the revision.
-  if (trigger) return await raiseEscalation(trigger, ingest, event, msg, ctx);
+  // grown thread still capture the revision. It words its own caveats (a stronger opening
+  // sentence), so the plain path's `limits` is built below rather than above this.
+  if (trigger) return await raiseEscalation(trigger, ingest, event, ctx);
+
+  const limits = say(
+    tr('chatSnapshotNote'),
+    ingest.capped && tr('chatThreadCapped', { n: THREAD_MESSAGE_LIMIT }),
+    ingest.unreadable && tr('chatThreadUnreadable'),
+  );
 
   if (ingest.outcome === 'unchanged') return { text: tr('chatUnchanged') };
   if (ingest.outcome === 'revised') return { text: say(tr('chatUpdated'), limits) };
