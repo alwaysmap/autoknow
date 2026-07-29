@@ -41,7 +41,7 @@
 --        without it          Seq Scan    36.5   ms   -- all 200k rows, to return zero
 --
 -- These are the SUFFIX of their composites, not the prefix, so they are NOT the redundancy
--- that `20260727..._drop_redundant_affiliation_indexes` cleaned up. Do not "align" them.
+-- that 20260728202122_drop_redundant_affiliation_indexes cleaned up. Do not "align" them.
 --
 -- Plain CREATE INDEX rather than CONCURRENTLY: these tables hold hundreds of rows, the
 -- build is milliseconds, and migrate deploy runs before the new revision serves. The
