@@ -1,3 +1,5 @@
+'use client';
+
 import { PhaseHillSvg } from './PhaseHillGauge';
 import Markdown from './Markdown';
 import { hillStatusColor } from '../lib/phase';
@@ -5,6 +7,7 @@ import { t, type Locale } from '../lib/i18n';
 import type { HillChange } from '../lib/history';
 import styles from './NeedleHistoryList.module.css';
 import { localDate } from '../lib/dates';
+import { useScrollToAddressed, addressedAttrs } from '../lib/useScrollToAddressed';
 
 // A scrollable list of "list cards" for a phase's hill-chart updates: a compact hill
 // (no UPDATE button) on the left, with the date + who inside the chart's top-left and
@@ -40,23 +43,37 @@ export default function HillHistoryList({
   emptyLabel,
   locale = 'en',
   compact,
+  highlightId = null,
+  scrollToHighlight = false,
 }: {
   changes: HillChange[];
   emptyLabel?: string;
   locale?: Locale;
   compact?: boolean;
+  /** The one update a `#phase-:id-progress-:stateId` link addressed — marked so the
+   *  reader can see WHICH card they were sent to (autoknow-51j). */
+  highlightId?: number | null;
+  /** Is the surface holding this list actually visible? See lib/useScrollToAddressed,
+   *  which owns both halves for every hash-addressable log. */
+  scrollToHighlight?: boolean;
 }) {
+  const listRef = useScrollToAddressed(highlightId, scrollToHighlight, changes);
+
   if (changes.length === 0) {
     return <p className={styles.empty}>{emptyLabel ?? t(locale, 'noUpdatesRecorded')}</p>;
   }
 
   return (
-    <div className={compact ? `${styles.list} ${styles.compact}` : styles.list}>
-      {changes.map((c, i) => {
+    <div className={compact ? `${styles.list} ${styles.compact}` : styles.list} ref={listRef}>
+      {changes.map((c) => {
         const date = localDate(c.timestamp, locale, { month: 'short', day: 'numeric', year: 'numeric' });
         const caption = c.source ? `${date} · ${t(locale, 'bySource', { name: c.source })}` : date;
         return (
-          <article key={`${c.timestamp}-${i}`} className={styles.card}>
+          <article
+            key={c.id}
+            className={styles.card}
+            {...addressedAttrs(c.id, highlightId)}
+          >
             <div className={styles.gauge}>
               <PhaseHillSvg
                 progress={c.progress}

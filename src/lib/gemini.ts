@@ -1,7 +1,7 @@
 import 'server-only';
 import { GoogleGenAI, Type } from '@google/genai';
 import { generateDeterministicEmbedding } from './embedding-fallback';
-import { noteQuotaExhausted, noteQuotaRecovered } from './geminiQuota';
+import { noteQuotaExhausted, noteQuotaRecovered, quotaDeclineMessage } from './geminiQuota';
 import { parseDocDigest, parseClassification, parseRawSummary } from './geminiSchemas';
 
 // Gemini: distill a document into decision-useful intelligence, classify which entity
@@ -31,6 +31,24 @@ export function isQuotaError(e: unknown): boolean {
   if (status === 429) return true;
   const msg = e instanceof Error ? e.message : String(e ?? '');
   return /\b429\b|RESOURCE_EXHAUSTED|\bquota\b|rate.?limit|spend(ing)?.?cap/i.test(msg);
+}
+
+/**
+ * The sentence a write-side boundary returns when a Gemini call would not complete: the
+ * shared decline when the project is over its cap, the provider's own words otherwise.
+ *
+ * One function because the alternative is what was here — the same ternary hand-written
+ * at four boundaries, three of them casting a thrown value to `Error` and rendering
+ * `undefined` into operator-facing copy the moment something throws a non-Error. It
+ * lives in this module rather than `geminiQuota` because it needs `isQuotaError`, and
+ * `geminiQuota` must not import from here (this module imports the latch).
+ *
+ * @param doing        what could not be done, as a verb phrase: 'distill this source'
+ * @param whatSurvived what is still intact, for `quotaDeclineMessage`
+ */
+export function providerDeclineMessage(e: unknown, doing: string, whatSurvived: string): string {
+  if (isQuotaError(e)) return quotaDeclineMessage(whatSurvived);
+  return `Could not ${doing}: ${e instanceof Error ? e.message : String(e)}`;
 }
 
 /**
@@ -219,7 +237,11 @@ CANDIDATES: ${JSON.stringify(candidates)}`;
 
 export interface SummaryEvidence {
   id: number; // index into the evidence list, for citations
-  kind: 'needle' | 'hill' | 'context' | 'action' | 'chain' | 'relationship' | 'portfolio' | 'owner';
+  // `ledger` is the buffer story the program page shows — per-phase overruns, idle
+  // handoffs, where the buffer went, and the one phase to act on today. Distinct from
+  // `chain`, which is the path and the SOP outlook: the brief used to carry only the
+  // latter and so never mentioned the page's biggest fact (#236 fix 2).
+  kind: 'needle' | 'hill' | 'context' | 'action' | 'chain' | 'ledger' | 'relationship' | 'portfolio' | 'owner';
   text: string; // one-line rendering of the record
 }
 

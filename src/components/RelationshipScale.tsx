@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
 import NeedleHistoryList from './NeedleHistoryList';
@@ -82,7 +82,6 @@ export default function RelationshipScale({
   const [noteText, setNoteText] = useState('');
 
   const [adding, setAdding] = useState(false);
-  const listRef = useRef<HTMLDivElement>(null);
 
   const resetForm = () => { setPick(score ?? 3); setNoteError(false); setNoteText(''); };
 
@@ -108,15 +107,6 @@ export default function RelationshipScale({
   });
   const closeDetail = () => { setAdding(false); closePopover(); };
   const startAdding = () => { resetForm(); setAdding(true); };
-
-  // Bring the addressed update into view. A log of near-identical cards otherwise
-  // answers "here is the history" when the reader asked "show me THIS update".
-  // `nearest` keeps the scroll inside the popover's single scroll region.
-  useEffect(() => {
-    if (!detailOpen || addressed == null) return;
-    listRef.current?.querySelector(`[data-update-id="${addressed}"]`)
-      ?.scrollIntoView({ block: 'nearest' });
-  }, [detailOpen, addressed]);
 
   const submitUpdate = async (formData: FormData) => {
     // The rich editor's hidden input can't carry native `required` — gate here.
@@ -249,10 +239,11 @@ export default function RelationshipScale({
             </div>
           </form>
         )}
-        <div ref={listRef}>
-          <NeedleHistoryList changes={history} relationship locale={locale}
-            highlightId={addressed} emptyLabel={t(locale, 'noUpdatesRecorded')} />
-        </div>
+        {/* The scroll-to-addressed effect that used to sit here now lives in the list
+            itself — it owns `data-update-id`, and the program side needed the same one. */}
+        <NeedleHistoryList changes={history} relationship locale={locale}
+          highlightId={addressed} scrollToHighlight={detailOpen}
+          emptyLabel={t(locale, 'noUpdatesRecorded')} />
       </OverlayDialog>
     </div>
   );

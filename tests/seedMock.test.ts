@@ -23,9 +23,11 @@ jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 // The full seed touches every route many times; give it room.
 jest.setTimeout(180_000);
 
+let report: import('../src/lib/seed').MockSeedReport;
+
 beforeAll(async () => {
   const { seedMockData } = await import('../src/lib/seed');
-  await seedMockData();
+  report = await seedMockData();
 });
 
 afterAll(async () => {
@@ -50,6 +52,17 @@ describe('seedMockData through the API', () => {
     // therefore be edited to whatever the code produced (the a-test-sharing-the-codes-
     // hard-coded-answer trap). What is worth asserting is that every entry landed.
     expect(await prisma.contextUrl.count()).toBe(MOCK_CORPUS.length);
+  });
+
+  it('reports what it ingested, so a partial corpus can never read as a clean seed', async () => {
+    // The seed used to THROW on the first document Gemini refused, abandoning a database
+    // that already held every partner, program and state row, and answering the operator
+    // with `{"error":"Internal Server Error"}` (autoknow-j81). It skips and reports now —
+    // and `POST /api/admin/seed` hands this straight back — so a demo seeded while the
+    // provider is refusing is complete, usable, and honest about what is missing. The
+    // refusal path itself is pinned at the boundary, in
+    // tests/providerRefusalDegrades.test.ts; this is the happy path telling the truth.
+    expect(report.corpus).toEqual({ ingested: MOCK_CORPUS.length, skipped: [] });
   });
 
   it('every ingested source carries the freshness identity the refresh cycle needs', async () => {

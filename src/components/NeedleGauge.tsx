@@ -14,11 +14,12 @@ import { tNodes } from './tNodes';
 import { useLocale } from './LocaleProvider';
 import { updateNeedleStatus } from '../app/actions/needle';
 import { HEALTHS, healthColor, healthKey, parseHealth, type Health } from '../lib/health';
+// The fragment vocabulary is owned by `lib/needle` (the domain module), the way
+// `#phase-:id` is owned by `lib/phase`: a server module building a citation href
+// cannot import a client component for it.
+import { STATUS_HISTORY_HASH, isStatusHash, parseStatusUpdateHash } from '../lib/needle';
 import type { NeedleChange } from '../lib/history';
 import { CX, CY, A0, A1, SWEEP, VB_X, VB_Y, VB_W, VB_H, clamp01, Gauge, NeedleGaugeSvg } from './NeedleGaugeSvg';
-
-/** Deep-link fragment: /programs/:id#status-history opens the log. */
-export const STATUS_HISTORY_HASH = 'status-history';
 
 // Re-exported so existing imports of the read-only gauge keep working; new
 // call sites should import it from './NeedleGaugeSvg' directly.
@@ -75,8 +76,13 @@ export default function NeedleGauge({
   // still returns it uniformly). The OverlayDialog owns the body-scroll lock and the
   // box-based light-dismiss now; `canClose` (via `mayDismiss`) makes every dismissal
   // — × / Escape / backdrop — confirm before dropping an in-progress edit (#35).
-  const { open: detailOpen, closeDetail: closePopover, mayDismiss } = useHashAddressablePopover({
-    matchesHash: (hash) => !!history && hash === `#${STATUS_HISTORY_HASH}`,
+  //
+  // `parseAddressed` is what makes `#status-update-:id` land on ONE entry rather than on
+  // the log's top (autoknow-51j) — the same two-member family the partner side already
+  // had, now filled in on this side of it.
+  const { open: detailOpen, addressed, closeDetail: closePopover, mayDismiss } = useHashAddressablePopover({
+    matchesHash: (hash) => !!history && isStatusHash(hash),
+    parseAddressed: parseStatusUpdateHash,
     hashToWrite: STATUS_HISTORY_HASH,
     onOpen: resetForm,
     fieldsDirty,
@@ -258,6 +264,7 @@ export default function NeedleGauge({
             </form>
           )}
           <NeedleHistoryList changes={history} relationship={scope === 'partner'} locale={locale}
+            highlightId={addressed} scrollToHighlight={detailOpen}
             emptyLabel={t(locale, 'noUpdatesRecorded')} />
         </OverlayDialog>
       )}

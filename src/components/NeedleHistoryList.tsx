@@ -1,3 +1,5 @@
+'use client';
+
 import { NeedleGaugeSvg } from './NeedleGaugeSvg';
 import { RelationshipFace, RelationshipNoValue } from './RelationshipFace';
 import Markdown from './Markdown';
@@ -7,11 +9,15 @@ import { t, type Locale } from '../lib/i18n';
 import type { NeedleChange } from '../lib/history';
 import styles from './NeedleHistoryList.module.css';
 import { localDate } from '../lib/dates';
+import { useScrollToAddressed, addressedAttrs } from '../lib/useScrollToAddressed';
 
 // A scrollable list of "list cards": a compact status graphic (no UPDATE button) on
 // the left, with the state, date, and markdown update note to the right. One card per
 // recorded change. Programs keep the needle gauge; partners (relationship=true) get
 // the colorless 1..7 scale — relationship health is a position, not a dial.
+//
+// Addressing — the marker and the scroll — comes from `lib/useScrollToAddressed`, which
+// every hash-addressable log in the app shares (autoknow-51j).
 
 export default function NeedleHistoryList({
   changes,
@@ -19,6 +25,7 @@ export default function NeedleHistoryList({
   relationship = false,
   locale = 'en',
   highlightId = null,
+  scrollToHighlight = false,
 }: {
   changes: NeedleChange[];
   emptyLabel?: string;
@@ -28,13 +35,19 @@ export default function NeedleHistoryList({
    *  `#relationship-update-42` can see WHICH entry they were sent to. The card
    *  carries `data-update-id` regardless, so the opener can scroll it into view. */
   highlightId?: number | null;
+  /** Is the surface holding this list actually visible? A scroll into a `display:none`
+   *  popover does nothing, so the caller passes its own open state and the scroll
+   *  re-fires the moment it opens. */
+  scrollToHighlight?: boolean;
 }) {
+  const listRef = useScrollToAddressed(highlightId, scrollToHighlight, changes);
+
   if (changes.length === 0) {
     return <p className={styles.empty}>{emptyLabel ?? t(locale, 'noUpdatesRecorded')}</p>;
   }
 
   return (
-    <div className={styles.list}>
+    <div className={styles.list} ref={listRef}>
       {changes.map((c) => {
         const health = parseHealth(c.health);
         const score = relationship ? deriveScore({ relationshipScore: c.score, theNeedle: c.health }) : null;
@@ -48,8 +61,7 @@ export default function NeedleHistoryList({
           <article
             key={c.id}
             className={styles.card}
-            data-update-id={c.id}
-            data-addressed={highlightId != null && c.id === highlightId ? '' : undefined}
+            {...addressedAttrs(c.id, highlightId)}
           >
             <div className={styles.gauge}>
               {relationship && score !== null ? (

@@ -3,7 +3,7 @@ import { prisma } from './db';
 import { formatNeedleValue } from './needle';
 import { deriveScore } from './relationship';
 import { hillStatus, phaseColor } from './phase';
-import { phaseProgressHref, programHref, relationshipUpdateHref } from './entityHref';
+import { phaseUpdateHref, programHref, programStatusUpdateHref, relationshipUpdateHref } from './entityHref';
 import { coversDay, jobLabel, personAliases } from './people';
 import type { FeedItem, FeedScope, FeedKind } from './feed';
 
@@ -256,7 +256,10 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
       subtitle: meta(s.project.name, s.source, true),
       detail: created ? null : clampDetail(s.notes),
       // Metric changes link to the value-over-time chart; creation links to the program.
-      href: created ? programHref(s.project.id) : `${programHref(s.project.id)}#status-history`,
+      // Deep-link to THIS update inside the status popover, the way the relationship
+      // row below already does (autoknow-51j). "Program created" has no update to
+      // address — the fact IS the program — so it links to the program.
+      href: created ? programHref(s.project.id) : programStatusUpdateHref(s.project.id, s.id),
       external: false,
       timestamp: s.timestamp.toISOString(),
       needle: created ? null : {
@@ -297,7 +300,9 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
       title: `${s.phase.name}: ${hillStatus(progress)}`,
       subtitle: meta(s.phase.project.name, s.source, true),
       detail: clampDetail(s.notes),
-      href: phaseProgressHref(s.phase.project.id, s.phaseId),
+      // Likewise for a hill update: the row is ONE update, so the progress view opens
+      // AT it rather than at the top of the log.
+      href: phaseUpdateHref(s.phase.project.id, s.phaseId, s.id),
       external: false,
       timestamp: s.timestamp.toISOString(),
       hill: {

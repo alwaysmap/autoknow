@@ -45,8 +45,12 @@ import { resolveCyclesPerDay } from './cronCadence';
 export const GEMINI_CALLS_PER_DOC = 2;
 
 /**
- * Gemini requests one generated summary costs: `generateStructuredSummary` is a single
+ * Gemini requests one summary ATTEMPT costs: `generateStructuredSummary` is a single
  * generateContent call, whatever the scope. Evidence assembly is all database work.
+ *
+ * An attempt, not a finished brief: one that breaks a mechanical rule is re-asked once
+ * (the reject-and-retry ADR), so a brief can cost two. That is why `runSummaryCycle`
+ * spends REQUESTS rather than counting summaries — the ceiling stays the plotted one.
  */
 export const GEMINI_CALLS_PER_SUMMARY = 1;
 
@@ -89,8 +93,9 @@ export function requestsForDocs(docs: number): number {
   return Math.max(0, Math.floor(docs)) * GEMINI_CALLS_PER_DOC;
 }
 
-/** How many summaries a leftover request allowance buys — the budget half of the summary
- *  cap (the other half is a latency bound; see MAX_SUMMARIES_PER_CYCLE in lib/summaries). */
+/** How many summary ATTEMPTS a leftover request allowance buys — the budget half of the
+ *  cycle's cap (the other half is a latency bound; see MAX_REQUESTS_PER_CYCLE in
+ *  lib/summaries). A brief re-asked over a mechanical violation spends two of them. */
 export function summariesAffordable(requestsRemaining: number): number {
   return Math.max(0, Math.floor(requestsRemaining / GEMINI_CALLS_PER_SUMMARY));
 }

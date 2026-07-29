@@ -7,12 +7,20 @@
 // hand-roll these literals — folding them in is a future sweep (AGENTS lesson 7).
 
 import { relUpdateHash } from './relationship';
+import { statusUpdateHash } from './needle';
 
 export const personHref = (id: number): string => `/people/${id}`;
 export const partnerHref = (id: number): string => `/partners/${id}`;
 export const programHref = (id: number): string => `/programs/${id}`;
 
-export { phaseHref, phaseProgressHref } from './phase';
+export { phaseHref, phaseProgressHref, phaseUpdateHref } from './phase';
+
+/** `/programs/7#status-update-42` — opens the program's status log at ONE update.
+ *  Every reference to a program-status update (feed row, briefing citation) uses this,
+ *  for the same reason `relationshipUpdateHref` exists: a link to one update that lands
+ *  on the whole log makes the reader find it again (autoknow-51j). */
+export const programStatusUpdateHref = (projectId: number, stateId: number): string =>
+  `${programHref(projectId)}#${statusUpdateHash(stateId)}`;
 
 // Partner health (#111). The fragment vocabulary is owned by `lib/relationship` (the
 // domain module, as `#phase-:id` is owned by `lib/phase`); the ROUTE it hangs

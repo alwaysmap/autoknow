@@ -158,7 +158,17 @@ async function seedWhenReady(spawnedAt: number): Promise<{ bootMs: number; seedM
       body: JSON.stringify({ mode: 'mock' }),
     });
     seedMs = Date.now() - startedSeed;
+    // The route answers 200 with a per-document count even when Gemini refused some of
+    // the corpus (autoknow-j81), so "seeded" is not the whole story — say how many
+    // sources are actually there, or the demo silently reads as source-less.
+    const body = (await res.json().catch(() => null)) as
+      | { corpus?: { ingested: number; skipped: { key: string; reason: string }[] } }
+      | null;
+    const skipped = body?.corpus?.skipped ?? [];
     console.log(res.ok ? `• ✓ mock data seeded (${secs(seedMs)})` : `• ✗ seed failed (${res.status})`);
+    if (skipped.length > 0) {
+      console.log(`•   ${skipped.length} source(s) not ingested — ${skipped[0].reason}`);
+    }
   } else {
     console.log('• demo DB already has data — skipping seed (pass --reseed to refresh)');
   }

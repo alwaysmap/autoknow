@@ -307,4 +307,71 @@ test.describe('Progress & Health gauge updates', () => {
     // And the writing surface is left-aligned, never centred by an ancestor.
     await expect(canvas).toHaveCSS('text-align', 'left');
   });
+
+  // The three fragment families are one shape (lib/relationship, lib/needle, lib/phase),
+  // so their deep links get one shape of test. These run LAST in this serial file
+  // because they read the log the update tests above have filled — a log with one entry
+  // in it cannot tell "opened AT this update" from "opened at the top".
+  test('a deep link to ONE program-status update opens the popover at that update', async ({ page }) => {
+    // The partner twin above shipped in #111; program status kept writing
+    // `#status-history`, so a reader who clicked the citation under a bullet about the
+    // May 1 update got the whole log and had to find it again (autoknow-51j). Same
+    // family, same shape, same test — that is the point.
+    const updates = await prisma.projectState.findMany({
+      where: { projectId }, orderBy: { timestamp: 'desc' },
+    });
+    expect(updates.length).toBeGreaterThan(0);
+    // The OLDEST, deliberately: addressing the newest would pass even if the popover
+    // only ever opened at the top of the log.
+    const target = updates[updates.length - 1];
+
+    await page.goto(`/programs/${projectId}#status-update-${target.id}`);
+
+    const detail = page.getByTestId('needle-detail');
+    await expect(detail).toBeVisible({ timeout: 20000 });
+    await expect(detail.locator(`[data-update-id="${target.id}"][data-addressed]`)).toBeVisible();
+
+    // The feed's own row writes the SAME fragment — one vocabulary for the feed and the
+    // briefing, not two spellings of one destination.
+    await detail.locator('button:has-text("Close")').click();
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+    await expect(
+      page.locator(`a[href="/programs/${projectId}#status-update-${target.id}"]`).first(),
+    ).toBeAttached();
+  });
+
+  test('a deep link to ONE phase update opens that phase’s log at that update', async ({ page }) => {
+    // The third member. A phase's log is the one place the addressed entry may be the
+    // HEADLINE rather than a card in the list below it, so this walks an older update
+    // (a list card) and the newest one (the headline) in turn.
+    const phaseRow = await prisma.phase.findFirstOrThrow({ where: { projectId } });
+    // A second, older entry so the list below the headline is non-empty — the fixture
+    // files one hill update and nothing above touches phase progress in this file.
+    await prisma.phaseState.create({
+      data: {
+        phaseId: phaseRow.id, status: 'In Progress', theNeedle: 'On Track',
+        hillChartProgress: 5, notes: 'First look at the board bring-up.', source: 'dylan',
+        timestamp: new Date(Date.now() - 30 * 86_400_000),
+      },
+    });
+    const phase = await prisma.phase.findFirstOrThrow({
+      where: { id: phaseRow.id },
+      include: { states: { orderBy: { timestamp: 'desc' } } },
+    });
+    expect(phase.states.length).toBeGreaterThan(1);
+    const newest = phase.states[0];
+    const older = phase.states[phase.states.length - 1];
+
+    await page.goto(`/programs/${projectId}#phase-${phase.id}-progress-${older.id}`);
+    const progressView = page.getByTestId('phase-progress');
+    await expect(progressView).toBeVisible({ timeout: 20000 });
+    await expect(progressView.locator(`[data-update-id="${older.id}"][data-addressed]`)).toBeVisible();
+
+    // The newest update is the view's headline block, not a card in the history list —
+    // it carries the marker itself, or a link to the most recent update would open the
+    // log and mark nothing.
+    await page.goto(`/programs/${projectId}#phase-${phase.id}-progress-${newest.id}`);
+    await expect(progressView).toBeVisible({ timeout: 20000 });
+    await expect(progressView.locator(`[data-update-id="${newest.id}"][data-addressed]`)).toBeVisible();
+  });
 });

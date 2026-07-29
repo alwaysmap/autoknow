@@ -37,7 +37,7 @@ import type { HillChange } from '../src/lib/history';
 const LONG_SOURCE = 'Alexandria Q. Winterbourne-Fitzgerald III';
 
 const renderList = (progress: number, source: string) => {
-  const change: HillChange = { timestamp: '2026-06-01T00:00:00.000Z', progress, previousProgress: null, notes: 'note', source };
+  const change: HillChange = { id: 1, timestamp: '2026-06-01T00:00:00.000Z', progress, previousProgress: null, notes: 'note', source };
   const { container } = render(
     <LocaleProvider locale="en">
       <HillHistoryList changes={[change]} />

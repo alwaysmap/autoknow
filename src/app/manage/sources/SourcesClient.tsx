@@ -1,15 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useActionState, useMemo, useState } from 'react';
 import Link from 'next/link';
 import DataTable from '../../../components/DataTable';
 import DateCell from '../../../components/DateCell';
 import PersonCell, { personFilterLabel } from '../../../components/PersonCell';
 import { useTableUrlSync } from '../../../lib/useTableUrlSync';
 import type { TableSort } from '../../../lib/tableUrlState';
-import { refreshSourceAction, toggleSourcePause, toggleSourceMode } from '../../actions/context';
+import { refreshSourceAction, toggleSourcePause, toggleSourceMode, type RefreshSourceState } from '../../actions/context';
 import { inferSource, LEGACY_TYPE_BY_KIND } from '../../../lib/sources';
-import { t, type StringKey } from '../../../lib/i18n';
+import { t, type Locale, type StringKey } from '../../../lib/i18n';
 import { useLocale } from '../../../components/LocaleProvider';
 import { MAX_DOC_CHARS } from '../../../lib/ingestLimits';
 
@@ -86,6 +86,57 @@ const STATE_KEY: Record<StateId, StringKey> = {
   snapshot: 'chipSnapshot',
   frozen: 'stateFrozen',
 };
+
+// A verdict worth a WORD beside the row. `frozen` is deliberately absent: freezing
+// rewrites the tracking chip two columns to the left, and repeating it here would be a
+// second encoding of one fact.
+const RESULT_KEY: Partial<Record<NonNullable<RefreshSourceState['result']>, StringKey>> = {
+  unchanged: 'refreshNoChange',
+  changed: 'refreshUpdated',
+};
+
+/**
+ * "Refresh now" for ONE row, with its own answer under it (autoknow-dv3). Its own
+ * component because the verdict is per-row state and `useActionState` cannot be called
+ * from inside `renderRow`'s loop.
+ *
+ * A refusal is the case this exists for: the button used to ride a bare `<form
+ * action={…}>`, so a Gemini decline left the row sitting exactly as it was with the
+ * reason only in the server log — the quieter costume of the perpetual spinner
+ * (AGENTS lesson 5). The reason is the server's own sentence (lib/geminiQuota names the
+ * cap and where to check it), so it is rendered rather than mapped to a key of ours.
+ */
+function RefreshSourceButton({ id, locale }: { id: number; locale: Locale }) {
+  const [state, formAction, pending] = useActionState<RefreshSourceState, FormData>(refreshSourceAction, {});
+  const resultKey = state.result ? RESULT_KEY[state.result] : undefined;
+  return (
+    <form action={formAction} style={{ display: 'inline' }} data-testid={`refresh-source-${id}`}>
+      <input type="hidden" name="id" value={id} />
+      <button type="submit" style={btn} disabled={pending} title={t(locale, 'sourcesLegend')}>
+        {pending ? '…' : t(locale, 'refreshNow')}
+      </button>
+      {!pending && state.error && (
+        <div
+          data-testid={`refresh-error-${id}`}
+          style={{
+            marginTop: '0.25rem', maxWidth: '18rem', whiteSpace: 'normal', textAlign: 'left',
+            fontSize: '0.6875rem', color: 'var(--bad)',
+          }}
+        >
+          {state.error}
+        </div>
+      )}
+      {!pending && !state.error && resultKey && (
+        <div
+          data-testid={`refresh-result-${id}`}
+          style={{ marginTop: '0.25rem', fontSize: '0.6875rem', color: 'var(--muted, #888)' }}
+        >
+          {t(locale, resultKey)}
+        </div>
+      )}
+    </form>
+  );
+}
 
 export default function SourcesClient({ sources, initialFilters, initialSort, initialQ = '' }: {
   sources: SourceRow[];
@@ -210,13 +261,12 @@ export default function SourcesClient({ sources, initialFilters, initialSort, in
             {s.revisions}
           </td>
           <td style={{ padding: '0.625rem 0', whiteSpace: 'nowrap', textAlign: 'right' }}>
-            <div style={{ display: 'inline-flex', gap: '0.375rem' }}>
+            {/* flex-start, not the default stretch: a row whose refresh reported a
+                refusal grows downward, and centred siblings would drift with it. */}
+            <div style={{ display: 'inline-flex', gap: '0.375rem', alignItems: 'flex-start' }}>
               {s.mode === 'watched' && (
                 <>
-                  <form action={refreshSourceAction} style={{ display: 'inline' }}>
-                    <input type="hidden" name="id" value={s.id} />
-                    <button type="submit" style={btn} title={t(locale, 'sourcesLegend')}>{t(locale, 'refreshNow')}</button>
-                  </form>
+                  <RefreshSourceButton id={s.id} locale={locale} />
                   <form action={toggleSourcePause} style={{ display: 'inline' }}>
                     <input type="hidden" name="id" value={s.id} />
                     <button type="submit" style={btn} title={t(locale, 'sourcesLegend')}>

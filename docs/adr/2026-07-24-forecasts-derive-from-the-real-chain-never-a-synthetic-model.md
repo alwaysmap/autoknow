@@ -4,7 +4,7 @@ date: 2026-07-24
 supersedes: ""
 superseded-by: ""
 extends: ""
-extended-by: ""
+extended-by: a-brief-reads-the-pages-computation-and-goes-stale-when-it-moves
 tags: [forecast, ui, data-integrity, charts, critical-chain]
 ---
 

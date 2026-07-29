@@ -134,6 +134,20 @@ copy it (2026-07-20, user call):
 * The open popup is a URL: `/programs/:id#status-history` opens it, and opening
   it writes that hash. There is no separate history *page* for needles — and as
   of 2026-07-21 none for phases either (§5), so `/history/**` is gone entirely.
+* **A log fragment and an UPDATE fragment are one family** (2026-07-29,
+  `autoknow-51j`), in all three places status is recorded — and the second member
+  is what a citation or a feed row must use. `#status-history` opens a program's
+  log; `#status-update-:stateId` opens it AND marks the one update that link was
+  about. Partner health is the same pair (`#relationship-history` /
+  `#relationship-update-:id`, shipped #111) and a phase's is
+  `#phase-:id-progress` / `#phase-:id-progress-:stateId` (§5). Each family's
+  vocabulary is owned by its DOMAIN module — `lib/needle`, `lib/relationship`,
+  `lib/phase` — and the route it hangs off by `lib/entityHref`; a fragment is
+  never hand-built at the call site. **Linking one update to the whole log is a
+  defect, not a shortcut**: the reader clicked a receipt under a bullet about the
+  May 1 update and had to find May 1 again in a column of near-identical cards.
+  The addressed entry carries `data-update-id` + `data-addressed`, and the list
+  that renders those attributes is also what scrolls the entry into view.
 
 Two `<dialog>` traps this pattern hit, worth knowing before writing another:
 `display: flex` on the dialog overrides the UA's `display: none` for the CLOSED
@@ -177,10 +191,19 @@ Three consequences that are easy to get wrong:
   phase, so the view fetches the rest on demand for the one phase you opened
   (`getPhaseLog`). Whatever it renders is the whole record — there is nothing
   further to click through to, and no "full history →" link to offer.
-* **`#phase-:id` and `#phase-:id-progress` are one family, not a collision**: the
-  bare id is the card, the suffix is the log over it. The parsers match exactly,
-  never by prefix, or the row anchor would swallow the extension. Fragments that
-  are not ours are left untouched when either writes or clears its own.
+* **`#phase-:id`, `#phase-:id-progress` and `#phase-:id-progress-:stateId` are one
+  family, not a collision**: the bare id is the card, `-progress` is the log over
+  it, and `-progress-:stateId` is that log opened AT one recorded update
+  (2026-07-29, `autoknow-51j` — §4b). An update lives IN the log, so addressing
+  one extends the log's fragment rather than claiming a fourth place. The parsers
+  match exactly, never by prefix, or the row anchor would swallow the extensions;
+  ask `phaseProgressOpenedBy` which phase a fragment opens rather than testing the
+  spellings one at a time, so no caller can handle `-progress` and forget the
+  addressed form. The phase id rides in the addressed fragment even though the
+  state id alone identifies the row — resolution is client-side, and looking the
+  state up to learn which phase to open would be a round-trip to answer what the
+  link already knows. Fragments that are not ours are left untouched when either
+  writes or clears its own.
 * **`#phase-:id-detail` is RETIRED but not inert.** A fragment cannot 404 the way
   a route can, so it is canonicalised onto the card on arrival, and stored brief
   citations carrying it are rewritten at the read boundary (`lib/summaries`).

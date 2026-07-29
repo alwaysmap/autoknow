@@ -3,8 +3,7 @@ import { createHash } from 'crypto';
 import { lookup } from 'node:dns/promises';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { embedForStorage, summarizeDocument, classifyContext, classifyWithinAnchor, digestToText, isQuotaError, type Classification, type DocDigest } from './gemini';
-import { quotaDeclineMessage } from './geminiQuota';
+import { embedForStorage, summarizeDocument, classifyContext, classifyWithinAnchor, digestToText, providerDeclineMessage, type Classification, type DocDigest } from './gemini';
 import { parseGoogleDocId, fetchGoogleDocText } from './google-docs';
 import { readCapped, isSourceRejected, REJECTION_KEY, MAX_FETCH_BYTES, isTruncated } from './ingestLimits';
 import type { StringKey } from './i18n';
@@ -92,7 +91,19 @@ export async function ingestContent(opts: IngestContentOptions): Promise<IngestR
     }
   }
 
-  const digest = await summarizeDocument(opts.text);
+  // The distillation is the FIRST provider call, and it can refuse — a project over its
+  // monthly spend cap answers every request with 429 RESOURCE_EXHAUSTED. It leaves by the
+  // same door as the embedding failure below rather than throwing, for the same reason:
+  // every caller of this function (quick-ingest, Chat, the seed) treats an `IngestResult`
+  // as the whole answer, so a thrown refusal here is an unhandled crash in a caller that
+  // is already holding a perfectly good "it declined, and nothing changed" path
+  // (AGENTS lesson 5; autoknow-j81 took a whole demo seed down this way).
+  let digest: DocDigest;
+  try {
+    digest = await summarizeDocument(opts.text);
+  } catch (e) {
+    return { ok: false, error: providerDeclineMessage(e, 'distill this source', 'nothing was saved') };
+  }
   const digestText = digestToText(digest);
   const title = opts.title || deriveTitle(opts.text);
 
@@ -146,12 +157,7 @@ export async function ingestContent(opts: IngestContentOptions): Promise<IngestR
   try {
     vectorStr = `[${(await embedForStorage(digestText)).join(',')}]`;
   } catch (e) {
-    return {
-      ok: false,
-      error: isQuotaError(e)
-        ? quotaDeclineMessage('nothing was saved')
-        : `Could not index this source: ${(e as Error).message}`,
-    };
+    return { ok: false, error: providerDeclineMessage(e, 'index this source', 'nothing was saved') };
   }
   const hash = hashContent(opts.text);
   const now = new Date();

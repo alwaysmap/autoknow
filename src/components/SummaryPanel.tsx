@@ -6,7 +6,7 @@ import type { SummaryView, SectionKey } from '../lib/summaries';
 import type { Segment } from '../lib/untrackedPeople';
 import { annotateUntracked, type UntrackedContext } from '../lib/untrackedPeople';
 import { TrackPersonProvider, UntrackedMention, type TrackPersonSurface } from './TrackPersonProse';
-import type { SummaryScope } from '../lib/summaryPrompts';
+import { scopeHasThemes, type SummaryScope } from '../lib/summaryPrompts';
 import { t, type StringKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import SummaryToolbar from './SummaryToolbar';
@@ -74,6 +74,13 @@ const SECTION_LABEL: Record<SectionKey, StringKey> = {
 
 // Risks and actions lead — that's what leadership scans for.
 const SECTION_ORDER: SectionKey[] = ['risks', 'actions', 'progress', 'themes'];
+
+// The rendering half of `scopeHasThemes` (lib/summaryPrompts owns the rule). The prompt
+// no longer ASKS a single program for themes — which it has no cross-program pattern to
+// fill; this is what stops the section rendering on briefs already stored, which are
+// append-only and would otherwise keep showing it until each went stale (#236 fix 3).
+const sectionsShownFor = (scope: SummaryScope): SectionKey[] =>
+  scopeHasThemes(scope) ? SECTION_ORDER : SECTION_ORDER.filter((k) => k !== 'themes');
 
 export default function SummaryPanel({
   scope,
@@ -179,7 +186,7 @@ export default function SummaryPanel({
     );
   }
 
-  const ordered = SECTION_ORDER.map((key) => summary.body.sections.find((s) => s.key === key)).filter(
+  const ordered = sectionsShownFor(scope).map((key) => summary.body.sections.find((s) => s.key === key)).filter(
     (s): s is NonNullable<typeof s> => !!s && s.bullets.length > 0,
   );
 

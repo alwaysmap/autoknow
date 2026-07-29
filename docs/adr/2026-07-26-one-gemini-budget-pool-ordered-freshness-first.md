@@ -4,7 +4,7 @@ date: 2026-07-26
 supersedes: ""
 superseded-by: ""
 extends: ingestion-health-is-a-serverless-signal-not-a-growing-table
-extended-by: ""
+extended-by: a-checkable-prompt-rule-is-checked-and-a-violation-buys-one-retry
 tags: [ingestion, gemini, cost, budget, summaries]
 ---
 
