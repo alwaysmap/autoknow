@@ -227,12 +227,16 @@ jobs:
       # scripts/ci/disk-guard.sh and bead autoknow-by9.
       - name: Disk after checkout
         run: npm run --silent ci:disk-report -- "after checkout"
-      # The webkit leg's transient peak is ~10 GiB against the ~12 GiB the runner has left
-      # after installs, and run 30304111252 spent that margin down to 31 MB. Buy headroom
-      # back from toolchains this job cannot use; scripts/ci/disk-reclaim.sh says what it
-      # will not touch and why. Measured on run 30305706777 it costs ~60s on what IS the
-      # critical-path leg; the numbers and the trade are in the note cited above.
+      # Buy headroom back from toolchains this job cannot use — the suite runs SLOWER
+      # without it, not merely closer to the floor (PR #261 measured skipping it at ~120s
+      # worse). scripts/ci/disk-reclaim.sh carries those numbers and says what it will not
+      # touch. It costs 51-71s on what IS the critical-path leg, which is why the set of
+      # paths is currently being measured rather than assumed: MEASURE=1 serialises the
+      # deletes and reports GiB-freed and seconds per path, so the list can be cut to the
+      # ~7 GiB the worse leg actually needs. Drop the flag once the list is trimmed.
       - name: Reclaim disk from preinstalled toolchains
+        env:
+          CI_DISK_RECLAIM_MEASURE: '1'
         run: npm run --silent ci:disk-reclaim
       - uses: actions/setup-node@v4
         with:

@@ -47,19 +47,54 @@ echo "DISK before reclaim: $(disk_gib "$before_kb") GiB free on / ($(disk_used_p
 
 # Removed in PARALLEL: this runs on the critical-path leg (docs/knowledge/ci-wall-clock-is-one-job-find-it-before-optimizing.md),
 # and serially these cost more than the headroom is worth.
-for path in \
-  /usr/local/lib/android \
-  /usr/share/dotnet \
-  /usr/share/swift \
-  /opt/ghc \
-  /usr/local/.ghcup \
-  /opt/az \
-  /opt/microsoft \
-  /home/linuxbrew; do
-  [ -e "$path" ] || continue
-  sudo rm -rf "$path" &
-done
-wait
+#
+# Each one reports what it freed and what it cost, because the SET is a live question and
+# guessing at it is what this whole exercise has been punishing. The job needs ~7 GiB of
+# headroom (webkit's transient peak, the worse leg); this list frees 24 GiB in 51-71s. If
+# one or two paths account for most of that, the rest are pure latency on the pole leg and
+# can go. A `du` first would cost more than the delete, so size is inferred from the
+# filesystem either side of it — which also means these numbers are the REAL effect,
+# including anything else running at the time.
+reclaim_one() {
+  local path="$1" t0 freed
+  t0="$(date +%s)"
+  before_one="$(disk_avail_kb)"
+  sudo rm -rf "$path"
+  freed=$(( $(disk_avail_kb) - before_one ))
+  echo "  reclaimed $(disk_gib "$freed") GiB in $(( $(date +%s) - t0 ))s — $path"
+}
+
+# Serialised ONLY while the per-path numbers are being gathered: in parallel the deletes
+# interleave and every measurement reads as the sum of whatever else was running. This is
+# the measurement build; the list gets trimmed from it and the `&` comes back.
+if [ "${CI_DISK_RECLAIM_MEASURE:-}" = "1" ]; then
+  for path in \
+    /usr/local/lib/android \
+    /usr/share/dotnet \
+    /usr/share/swift \
+    /opt/ghc \
+    /usr/local/.ghcup \
+    /opt/az \
+    /opt/microsoft \
+    /home/linuxbrew; do
+    [ -e "$path" ] || continue
+    reclaim_one "$path"
+  done
+else
+  for path in \
+    /usr/local/lib/android \
+    /usr/share/dotnet \
+    /usr/share/swift \
+    /opt/ghc \
+    /usr/local/.ghcup \
+    /opt/az \
+    /opt/microsoft \
+    /home/linuxbrew; do
+    [ -e "$path" ] || continue
+    sudo rm -rf "$path" &
+  done
+  wait
+fi
 
 after_kb="$(disk_avail_kb)"
 echo "DISK after reclaim: $(disk_gib "$after_kb") GiB free on / ($(disk_used_pct) used) — reclaimed $(disk_gib "$((after_kb - before_kb))") GiB"
