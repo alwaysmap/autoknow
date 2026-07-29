@@ -1,6 +1,6 @@
 /* Program templates — Tufte grammar per design.md: no card chrome. The table rules
    that used to live here went with the move to DataTable, which owns that grammar
-   now; what is left is the cell CONTENT this page puts inside it. */
+   now; what is left is the cell content and the page's own buttons. */
 
 .nameLink {
   font-weight: 400;

@@ -496,14 +496,16 @@
   color: var(--muted);
 }
 
-/* Hill history: earlier updates with their text — position glyph, date, note.
-   Sibling rhythm comes from the storyView gap; the HISTORY heading separates. */
+/* Hill history CONTAINER only — the rows inside it are HillHistoryList's, and have been
+   since the hill charts converged on one drawing. This sets the sibling rhythm; the
+   HISTORY heading does the separating. */
 .historyList {
   display: flex;
   flex-direction: column;
   gap: 0.3125rem;
 }
-/* Read-only meta lines on the default card: activities + Googler focus. */
+/* The read-only meta line on the standard card: Googler focus. (Activities had one too,
+   until the rail stopped surfacing pending action items.) */
 .metaLine {
   font-size: 0.75rem;
   line-height: 1.25rem;
@@ -608,7 +610,8 @@
   color: var(--bad);
 }
 
-/* Legend: one quiet line naming the station/track vocabulary. */
+/* Legend glyphs and swatch, at legend scale. The legend itself is an OverlayDialog of
+   .legendRow lines behind the ⓘ (PhaseTrack.tsx), not the quiet inline row it once was. */
 .legendGlyph {
   width: 0.875rem;
   height: 0.875rem;

@@ -230,8 +230,8 @@
   border-color: var(--bad);
 }
 
-/* Phase dialog. */
-
+/* Field primitives for the INLINE phase form (PhaseDagEditor). The phase dialog they
+   used to share went with the editors' merge — these are all that outlived it. */
 .textInput,
 .numInput,
 .selectInput {
@@ -248,4 +248,3 @@
 .numInput {
   width: 5rem;
 }
-
