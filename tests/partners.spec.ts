@@ -1,4 +1,4 @@
-import { test, expect } from './helpers/e2e';
+import { test, expect, openMenuItemDialog } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -113,16 +113,9 @@ test.describe('Ecosystem Partners Page', () => {
 
     // CREATE — hydration-guarded open, then the form, then the redirect to the new page.
     const dialog = page.locator('dialog[open]');
-    await expect(async () => {
-      if (!(await dialog.isVisible())) {
-        const item = page.getByTestId('new-partner');
-        // Scope to the header kebab: the partner page also has ⋯ menus in its Programs
-        // section and People card, so an unscoped kebab-menu is now ambiguous.
-        if (!(await item.isVisible())) await page.locator('header').getByTestId('kebab-menu').click({ timeout: 2000 });
-        await item.click({ timeout: 2000 });
-      }
-      await expect(dialog).toBeVisible({ timeout: 1500 });
-    }).toPass({ timeout: 20000 });
+    // Scope to the header kebab: the partner page also has ⋯ menus in its Programs
+    // section and People card, so an unscoped kebab-menu is now ambiguous.
+    await openMenuItemDialog(page.locator('header').getByTestId('kebab-menu'), page.getByTestId('new-partner'), dialog);
     await dialog.locator('#pfName').fill('Rivian');
     await dialog.locator('#pfType').selectOption({ label: 'Supplier' });
     await dialog.locator('#pfRegion').selectOption({ label: 'AMER' }); // region is required
@@ -135,17 +128,10 @@ test.describe('Ecosystem Partners Page', () => {
 
     // EDIT — change the website; the rail's contact line reflects the hostname.
     const editDialog = page.locator('dialog[open]');
-    await expect(async () => {
-      if (!(await editDialog.isVisible())) {
-        // Kebab items are role=menuitem now that the ⋯ menu is AnchoredPopover (#24).
-        const item = page.getByRole('menuitem', { name: 'Edit', exact: true });
-        // Scope to the header kebab: the partner page also has ⋯ menus in its Programs
-        // section and People card, so an unscoped kebab-menu is now ambiguous.
-        if (!(await item.isVisible())) await page.locator('header').getByTestId('kebab-menu').click({ timeout: 2000 });
-        await item.click({ timeout: 2000 });
-      }
-      await expect(editDialog).toBeVisible({ timeout: 1500 });
-    }).toPass({ timeout: 20000 });
+    // Kebab items are role=menuitem now that the ⋯ menu is AnchoredPopover (#24).
+    // Scope to the header kebab: the partner page also has ⋯ menus in its Programs
+    // section and People card, so an unscoped kebab-menu is now ambiguous.
+    await openMenuItemDialog(page.locator('header').getByTestId('kebab-menu'), page.getByRole('menuitem', { name: 'Edit', exact: true }), editDialog);
     await editDialog.locator('#pfWebsite').fill('https://rivian-updated.example');
     await editDialog.locator('button:has-text("Save Update")').click();
     await expect(page.locator('dialog[open]')).toHaveCount(0);
@@ -153,16 +139,9 @@ test.describe('Ecosystem Partners Page', () => {
 
     // DELETE — no programs/people on Rivian, so the name-confirm flow applies.
     const delDialog = page.locator('dialog[open]');
-    await expect(async () => {
-      if (!(await delDialog.isVisible())) {
-        const item = page.getByTestId('delete-partner');
-        // Scope to the header kebab: the partner page also has ⋯ menus in its Programs
-        // section and People card, so an unscoped kebab-menu is now ambiguous.
-        if (!(await item.isVisible())) await page.locator('header').getByTestId('kebab-menu').click({ timeout: 2000 });
-        await item.click({ timeout: 2000 });
-      }
-      await expect(delDialog).toBeVisible({ timeout: 1500 });
-    }).toPass({ timeout: 20000 });
+    // Scope to the header kebab: the partner page also has ⋯ menus in its Programs
+    // section and People card, so an unscoped kebab-menu is now ambiguous.
+    await openMenuItemDialog(page.locator('header').getByTestId('kebab-menu'), page.getByTestId('delete-partner'), delDialog);
     const confirmBtn = delDialog.locator('button:has-text("Permanently delete partner")');
     await expect(confirmBtn).toBeDisabled(); // until the exact name is typed
     await delDialog.locator('#confirmPartnerName').fill('Rivian');
@@ -176,16 +155,9 @@ test.describe('Ecosystem Partners Page', () => {
     await page.goto(`/partners/${partnerId}`);
 
     const dialog = page.locator('dialog[open]');
-    await expect(async () => {
-      if (!(await dialog.isVisible())) {
-        const item = page.getByTestId('delete-partner');
-        // Scope to the header kebab: the partner page also has ⋯ menus in its Programs
-        // section and People card, so an unscoped kebab-menu is now ambiguous.
-        if (!(await item.isVisible())) await page.locator('header').getByTestId('kebab-menu').click({ timeout: 2000 });
-        await item.click({ timeout: 2000 });
-      }
-      await expect(dialog).toBeVisible({ timeout: 1500 });
-    }).toPass({ timeout: 20000 });
+    // Scope to the header kebab: the partner page also has ⋯ menus in its Programs
+    // section and People card, so an unscoped kebab-menu is now ambiguous.
+    await openMenuItemDialog(page.locator('header').getByTestId('kebab-menu'), page.getByTestId('delete-partner'), dialog);
 
     // Explains the blocker; offers no doomed confirm input.
     await expect(dialog).toContainText('still owns 1 program');
@@ -221,16 +193,9 @@ test.describe('Ecosystem Partners Page', () => {
     await page.goto(`/partners/${zeta.id}`);
 
     const dialog = page.locator('dialog[open]');
-    await expect(async () => {
-      if (!(await dialog.isVisible())) {
-        const item = page.getByTestId('delete-partner');
-        // Scope to the header kebab: the partner page also has ⋯ menus in its Programs
-        // section and People section, so an unscoped kebab-menu is ambiguous.
-        if (!(await item.isVisible())) await page.locator('header').getByTestId('kebab-menu').click({ timeout: 2000 });
-        await item.click({ timeout: 2000 });
-      }
-      await expect(dialog).toBeVisible({ timeout: 1500 });
-    }).toPass({ timeout: 20000 });
+    // Scope to the header kebab: the partner page also has ⋯ menus in its Programs
+    // section and People section, so an unscoped kebab-menu is ambiguous.
+    await openMenuItemDialog(page.locator('header').getByTestId('kebab-menu'), page.getByTestId('delete-partner'), dialog);
 
     // The blocker the roster cannot see, and no confirm input to promise otherwise.
     await expect(dialog).toContainText('1 person record(s) still name this partner');

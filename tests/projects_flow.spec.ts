@@ -1,4 +1,4 @@
-import { test, expect, clickUntilNavigated } from './helpers/e2e';
+import { test, expect, clickUntilNavigated, openMenuItemDialog } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -91,14 +91,7 @@ test.describe('Projects and Partners Flow', () => {
     // Programs heading carry their own.
     const people = page.locator('section').filter({ has: page.locator('h2#people') });
     const dialog = page.locator('dialog[open]');
-    await expect(async () => {
-      if (!(await dialog.isVisible())) {
-        const item = page.getByTestId('new-person');
-        if (!(await item.isVisible())) await people.getByTestId('kebab-menu').click({ timeout: 2000 });
-        await item.click({ timeout: 2000 });
-      }
-      await expect(dialog).toBeVisible({ timeout: 1500 });
-    }).toPass({ timeout: 20000 });
+    await openMenuItemDialog(people.getByTestId('kebab-menu'), page.getByTestId('new-person'), dialog);
 
     // The New-person dialog opens with THIS partner pre-selected as the organization.
     await expect(dialog.locator('#npPartner')).toHaveValue(String(fordId));
