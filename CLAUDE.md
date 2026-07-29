@@ -27,9 +27,9 @@ bd close <id>         # Complete work
 
 The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
 
-- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
-- **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
-- **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
+- **Conservative (default)**: Use `bd` for task tracking. Git commit and git push are default-allowed — cheap and reversible, no need to ask first. Merging (`git merge` into main, `gh pr merge`, or any equivalent) is NOT default-allowed — always ask before merging. At handoff, report changed files, validation, and what was committed/pushed (or, if a merge is warranted, the proposed merge command awaiting approval).
+- **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same commit/push-by-default, ask-before-merge policy unless active instructions say otherwise.
+- **Team-maintainer**: Only when the repository explicitly opts in, agents may additionally close beads, run quality gates, and merge as part of session close. A current "do not commit", "do not push", or "do not merge" instruction still wins.
 
 ## Session Completion
 
@@ -40,8 +40,12 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 3. **Update issue status** - Close finished work, update in-progress items
 4. **Handle git/sync by active profile**:
    ```bash
-   # Conservative/minimal/default: report status and proposed commands; wait for approval.
-   git status
+   # Conservative/minimal/default: commit and push freely; merge needs approval.
+   git add <files>
+   git commit -F <message-file>       # never chain with push — see chained-commit lesson
+   git log --oneline -2                # verify the commit landed
+   git push -u origin <branch>
+   # Then STOP: ask before `git merge`, `gh pr merge`, or `bd dolt push` (remote sync).
 
    # Team-maintainer opt-in only, unless current instructions forbid it:
    git pull --rebase
@@ -49,10 +53,10 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
    git push
    git status
    ```
-5. **Hand off** - Summarize changes, validation, issue status, and any blocked sync/commit/push step
+5. **Hand off** - Summarize changes, validation, issue status, what was committed/pushed, and any merge awaiting approval.
 
 **Critical rules:**
 - Explicit user or orchestrator instructions override this Beads block.
-- Do not commit or push without clear authority from the active profile or the current user request.
-- If a required sync or push is blocked, stop and report the exact command and error.
+- Commit and push freely by default. Do not merge to main, or run Dolt remote sync, without clear authority from the active profile or the current user request.
+- If a required merge or sync is blocked, stop and report the exact command and error.
 <!-- END BEADS INTEGRATION -->

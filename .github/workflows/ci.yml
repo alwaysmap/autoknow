@@ -269,6 +269,20 @@ jobs:
       - uses: ./.github/actions/wait-for-postgres
       - name: Run the suite (under the disk guard)
         run: npm run --silent ci:disk-guard -- npm run test:e2e:${{ matrix.project }}
+      # if: failure() only — a green run's traces are dead weight (measured 584 KB
+      # playwright-report + 8.0 KB test-results per PR #226) and `trace: 'on-first-retry'`
+      # means nothing is even written unless a test failed. Without this the only way to
+      # diagnose a CI-only flake was reproducing it locally from scratch (autoknow-uxi,
+      # autoknow-dxa). Short retention: this is a debugging aid, not an audit trail.
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.project }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
       # always(): report even when the suite fails. It does NOT run when the runner itself
       # dies — which is exactly why the guard above exists.
       - name: Disk at job end

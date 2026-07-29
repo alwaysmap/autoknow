@@ -1,4 +1,4 @@
-import { test, expect, expandCard, openCard, type Page } from './helpers/e2e';
+import { test, expect, expandCard, openCard, closeCard, type Page } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
@@ -8,8 +8,9 @@ import { seedProgram, type SeededProgram } from './helpers/fixtures';
 // popover (required-note status update, involvement editing, read-only dependencies),
 // and structural editing gated behind whole-graph DAG validation.
 
-// `expandCard` (toggle) and `openCard` (ensure open) come from tests/helpers/e2e —
-// three specs wanted them, so they are not hand-rolled per file.
+// `expandCard` (toggle), `openCard` (ensure open) and `closeCard` (ensure closed,
+// guarded on aria-expanded) come from tests/helpers/e2e — three specs wanted them,
+// so they are not hand-rolled per file.
 
 test.describe('PhaseTrack rail', () => {
   test.describe.configure({ mode: 'serial' });
@@ -229,8 +230,11 @@ test.describe('PhaseTrack rail', () => {
     }
 
     // Clicking the card again folds it back to one line, taking the goal, the pills
-    // and the zoom button with it.
-    await expandCard(integration);
+    // and the zoom button with it. closeCard guards on the resulting STATE, not the
+    // click (autoknow-9at): a bare expandCard() here missed on webkit under
+    // full-suite load and the vanished-text assertion had nothing to retry against
+    // but a card that was never actually collapsed.
+    await closeCard(integration);
     await expect(integration).not.toContainText('Denso');
     await expect(integration.getByRole('button', { name: 'Details' })).toHaveCount(0);
   });

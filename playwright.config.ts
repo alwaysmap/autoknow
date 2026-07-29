@@ -40,11 +40,16 @@ export default defineConfig({
   // This once claimed the remaining retry keeps a real flake VISIBLE, failing on the
   // second attempt rather than being retried into a false green. It does not: a flake
   // that fails attempt 1 and passes the retry is reported FLAKY, the process exits 0,
-  // and the check is green — which is how autoknow-dxa survived three PRs. Judge a flake
-  // fix from the log (no `Retry #1`), never from the tick, until `failOnFlakyTests` is
-  // switched on (bead autoknow-zbt).
+  // and the check is green — which is how autoknow-dxa survived three PRs. So the
+  // known flakes (autoknow-dbw, autoknow-9at) got fixed at the interaction, not the
+  // retry, and failOnFlakyTests is on below (bead autoknow-zbt) — a rescued-by-retry
+  // test now fails the check instead of reporting green.
   // docs/knowledge/a-test-that-passes-on-retry-reports-the-check-green.md
   retries: process.env.CI ? 1 : 0,
+  // A test that passes only on retry is still telling you something is racy — see
+  // above. Off locally: a lone dev iterating on one spec should see the retry outcome,
+  // not a hard fail on a machine slower than CI's.
+  failOnFlakyTests: !!process.env.CI,
   // One worker per (server, database) pair provisioned below — never more, or the extra
   // workers would land on a port nothing is listening on.
   workers: WORKERS,

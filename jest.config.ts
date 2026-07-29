@@ -35,6 +35,15 @@ const config: Config = {
   // tests/helpers/worktree.ts — which is worth doing there because e2e is the CI critical
   // path, and not here, where the whole run is ~30s.)
   maxWorkers: 1,
+  // 28 suites call wipeAll() (25 sequential deleteMany round-trips) from `beforeAll`, so
+  // the default 5000ms hook timeout governs it too. Under full-suite load that budget is
+  // tight enough to fail on an UNRELATED PR — measured (autoknow-gj0): the suite alone
+  // 0.4s, pristine main under full-suite load 169s total / red on wipeAll's beforeAll at
+  // 5000ms, an immediate re-run 143s / green. Nothing about the assertions changed
+  // between runs, only contention — so raise the ceiling globally (one place governing
+  // the one shared cost, AGENTS lesson 7) rather than chase it file by file. Generous
+  // enough to absorb load, not so generous it stops catching a genuine hang.
+  testTimeout: 20_000,
 }
  
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

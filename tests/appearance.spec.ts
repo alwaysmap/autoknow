@@ -1,4 +1,4 @@
-import { test, expect } from './helpers/e2e';
+import { test, expect, openMenu } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
@@ -290,9 +290,15 @@ test.describe('Appearance: style and theme are independent', () => {
 
   test('the style picker persists the choice', async ({ page }) => {
     await page.goto('/');
-    await page.getByTestId('user-menu').click();
-
-    await page.getByRole('radio', { name: 'Instrument' }).click();
+    // The menu click is the first interaction after a page load, and a page reload
+    // below repeats that — both are hydration-guarded (AGENTS lesson 8) via the
+    // shared openMenu helper. autoknow-dbw: an unguarded click here landed before
+    // hydration on chromium and the radio never existed, so a "passed on retry" run
+    // still reported green.
+    const userMenu = page.getByTestId('user-menu');
+    const instrument = page.getByRole('radio', { name: 'Instrument' });
+    await openMenu(userMenu, instrument);
+    await instrument.click();
     await expect(root(page)).toHaveAttribute('data-style', 'instrument');
     expect(await page.evaluate((k) => localStorage.getItem(k), STYLE_KEY)).toBe('instrument');
 
@@ -300,8 +306,9 @@ test.describe('Appearance: style and theme are independent', () => {
     await expect(root(page)).toHaveAttribute('data-style', 'instrument');
 
     // And back, so the A/B is genuinely reversible.
-    await page.getByTestId('user-menu').click();
-    await page.getByRole('radio', { name: 'Standard' }).click();
+    const standard = page.getByRole('radio', { name: 'Standard' });
+    await openMenu(userMenu, standard);
+    await standard.click();
     await expect(root(page)).toHaveAttribute('data-style', 'standard');
   });
 });

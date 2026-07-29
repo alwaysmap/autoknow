@@ -1,4 +1,4 @@
-import { test, expect, type Locator } from './helpers/e2e';
+import { test, expect, openMenu } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -12,19 +12,6 @@ import { wipeAll } from './helpers/fixtures';
 // the page, so a stale panel is only visible during the client navigation; the NAV
 // survives every navigation, so a panel that never closed stays open forever — which is
 // exactly what the user reported.
-
-/** Open `trigger`'s menu and wait for `item` inside it, in the hydration-guarded shape a
- *  first interaction after a page load requires (AGENTS lesson 8): re-open only when the
- *  item is not already showing, never a bare click. Every test in this file needs it, so it
- *  is written once here and they differ only where they mean to. The same shape is still
- *  hand-rolled inline in the older specs; converging them onto one shared helper is tracked
- *  as autoknow-8g1. */
-async function openMenu(trigger: Locator, item: Locator): Promise<void> {
-  await expect(async () => {
-    if (!(await item.isVisible())) await trigger.click({ timeout: 2000 });
-    await expect(item).toBeVisible({ timeout: 2000 });
-  }).toPass({ timeout: 20000 });
-}
 
 test.describe('menus dismiss on navigate, and only on navigate', () => {
   test.describe.configure({ mode: 'serial' });
