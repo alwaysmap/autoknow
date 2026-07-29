@@ -263,11 +263,10 @@ function MiniHill({ progress, previousProgress }: { progress: number; previousPr
 // What a phase is FOR: the template-sourced Goal & definition of done, and where
 // Google leans in. Absent content still gets a doorway, and that doorway lands on
 // THIS phase's panel in the editor rather than merely on the editor.
-// ONE component, two surfaces: the standard card's left column and the popover's
-// About pane render it from the same source, so a copy edit or a new locale key
-// cannot land on one and miss the other (AGENTS lesson 7). It stays here rather than
-// becoming a file of its own because it is markup over `PhaseTrackRow` — the same
-// reason Station, StationGlyph and MiniHill live here.
+// It had two call sites — the card's left column and the popover's About pane — until
+// the popover retired (autoknow-crw.4), so it is down to one. It stays a component
+// anyway, and stays HERE rather than becoming a file of its own, because it is markup
+// over `PhaseTrackRow`: the same reason Station, StationGlyph and MiniHill live here.
 function PhaseGoal({ phase, projectId, locale }: { phase: PhaseTrackRow; projectId: number; locale: Locale }) {
   return (
     <>
@@ -752,9 +751,9 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
     }));
   };
 
-  // Everything interactive inside the card keeps its own job — pills navigate, the
-  // zoom button opens the popover. The TITLE is the exception: it is the card's own
-  // name, so it deep-links AND activates, which is also the keyboard path in.
+  // Everything interactive inside the card keeps its own job — pills navigate, and each
+  // affordance at the foot opens what it names. The TITLE is the exception: it is the
+  // card's own name, so it deep-links AND activates, which is also the keyboard path in.
   //
   // ONE CLICK MOVES THE PAGE ONCE. Following the title's href fires the browser's own
   // fragment jump, which is unconditional and — under html { scroll-behavior: smooth } —
@@ -804,7 +803,7 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
   // (autoknow-crw.1), and what was left is exactly "update + history". An overlay is the
   // right home for THAT: a genuine secondary reading, unlike the phase itself, which
   // should never have needed opening.
-  const details = progressId != null ? byId.get(progressId) : null;
+  const progressPhase = progressId != null ? byId.get(progressId) : null;
   const [drag, setDrag] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -821,10 +820,10 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
   const [editing, setEditing] = useState(false);
   const updateSvgRef = useRef<SVGSVGElement>(null);
   // The page preloads only the 6 newest updates per phase (a dozen phases render at
-  // once and the log is append-only), but this popover is a phase's whole record, so
-  // it pulls the rest for the ONE phase that was opened. The preloaded excerpt shows
-  // instantly and the older updates land under it; a failed fetch leaves the excerpt
-  // standing rather than emptying the pane.
+  // once and the log is append-only), but this view is a phase's whole LOG, so it pulls
+  // the rest for the ONE phase that was opened. The preloaded excerpt shows instantly
+  // and the older updates land under it; a failed fetch leaves the excerpt standing
+  // rather than emptying the pane.
   const [fullLog, setFullLog] = useState<{ phaseId: number; entries: PhaseHistoryEntry[] } | null>(null);
   const loadLog = async (phaseId: number) => {
     try { setFullLog({ phaseId, entries: await getPhaseLog(phaseId) }); }
@@ -861,15 +860,24 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
   const progressIdRef = useRef<number | null>(null);
   useEffect(() => { progressIdRef.current = progressId; }, [progressId]);
   useEffect(() => {
+    // Land on a phase: open its card and select it. `place` is the ONE difference
+    // between the two fragments that end up here, and it is not a preference — a bare
+    // `#phase-:id` gets the browser's own fragment jump for free, while a rewritten
+    // legacy URL does not, because `replaceState` never scrolls. So the canonicalised
+    // arrival has to place itself or the reader stays where the page happened to load.
+    const openCardAt = (id: number, place: boolean) => {
+      setCollapsed((s) => (s[id] === false ? s : { ...s, [id]: false }));
+      setFocusId(id);
+      if (place) scrollPageTo(headRefs.current.get(id), { behavior: 'smooth', block: 'start' });
+    };
+
     const openFromHash = () => {
       const hash = window.location.hash;
 
       const legacy = parseLegacyPhaseDetailHash(hash);
       if (legacy != null && byId.has(legacy)) {
-        setCollapsed((s) => ({ ...s, [legacy]: false }));
-        setFocusId(legacy);
         writeRowHash(legacy);
-        scrollPageTo(headRefs.current.get(legacy), { behavior: 'smooth', block: 'start' });
+        openCardAt(legacy, true);
         return;
       }
 
@@ -884,10 +892,7 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
       // scrolls, and every card rests collapsed, so without this a phase link landed on
       // a one-line header — which is precisely the "lossy preview" this epic removed.
       const row = parsePhaseHash(hash);
-      if (row != null && byId.has(row)) {
-        setCollapsed((s) => (s[row] === false ? s : { ...s, [row]: false }));
-        setFocusId(row);
-      }
+      if (row != null && byId.has(row)) openCardAt(row, false);
     };
     openFromHash();
     // Next <Link> navigates via pushState, which does not fire `hashchange`
@@ -899,9 +904,9 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
   // Commit (or clear) the explicit "work started on" date — shared by the date picker
   // and the drag-to-Not-Started gesture. An empty value nulls the start (nullable).
   const commitStarted = async (value: string) => {
-    if (!details) return;
+    if (!progressPhase) return;
     const fd = new FormData();
-    fd.set('phaseId', String(details.id));
+    fd.set('phaseId', String(progressPhase.id));
     fd.set('projectId', String(projectId));
     fd.set('startedOn', value);
     setSubmitting(true);
@@ -941,8 +946,8 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
   // are on the card and in the phase editor, so what remains is the update story, at
   // the width prose actually wants rather than half of a dossier.
   const progressOverlay = (() => {
-    if (!details) return null;
-    const p = details;
+    if (!progressPhase) return null;
+    const p = progressPhase;
     const dot = hillCoordinates(drag);
     // The complete log once it arrives, the page's preloaded 6 until then.
     const log = fullLog?.phaseId === p.id ? fullLog.entries : p.history;
@@ -972,8 +977,6 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
         {/* keyed by phase: swapping a neighbour into this window must remount the
             form (a half-typed note belongs to the phase it was typed for) */}
         <div className={styles.details} key={p.id}>
-            <div className={styles.progressPane}>
-
           {/* Two modes. VIEW (rest): read-only hill, the work-started fact, and
               the story — latest update big, older ones compact. EDIT (behind the
               Update affordance): the ball unlocks, the REQUIRED note appears —
@@ -1148,8 +1151,6 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
               )}
             </div>
           )}
-
-            </div>
         </div>
       </OverlayDialog>
     );
@@ -1451,8 +1452,8 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
 
               {open && (
                 <div className={styles.body}>
-                  {/* LEFT — what this phase is FOR, which used to be reachable only
-                      through the editor or the popover's About pane. */}
+                  {/* LEFT — what this phase is FOR. It was reachable only by opening
+                      something until autoknow-crw.2 gave it a column here. */}
                   <div className={styles.goalCol}>
                     <PhaseGoal phase={p} projectId={projectId} locale={locale} />
                   </div>

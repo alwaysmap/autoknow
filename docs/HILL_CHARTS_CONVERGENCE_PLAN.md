@@ -1,13 +1,17 @@
 # Hill Charts Convergence — Design & Build Plan
 
 Status: **Specified, not built — and one of its premises has since moved.** This is
-the buildable spec for issue #37. Written against the per-phase DETAILS popover as a
-phase's home; that popover RETIRED with autoknow-crw.4, so the reference assembly in
-§4 is now the card's **update & history** view at `#phase-:phaseId-progress`, and the
-phase itself is its card at `#phase-:phaseId` (design.md §5). The convergence this doc
-specifies is unaffected in substance — the drawing, the snapshot card and the
-affordance taxonomy all still apply — but every `-detail` fragment below reads as
-`-progress`, and "the popover" reads as "the progress view". The
+the buildable spec for issue #37.
+
+READ IT THROUGH ONE TRANSLATION. It was written against the per-phase DETAILS popover
+as a phase's home, and that popover RETIRED with autoknow-crw.4: a phase is now read on
+its CARD at `#phase-:phaseId`, and the only thing left over the card is the update &
+history view at `#phase-:phaseId-progress` (design.md §5). So **everywhere below,
+"the popover" and `#phase-:phaseId-detail` mean that progress view** — the body is left
+in its original words on purpose, because a half-applied rename would make a deliberate
+leave-alone indistinguishable from a miss. What this doc specifies is unaffected in
+substance: the drawing, the snapshot card and the affordance taxonomy all still apply
+to the surface that survived. The
 architectural decisions and hard rules are the immutable record in
 [ADR: Converge the hill charts on one drawing](adr/2026-07-23-converge-the-hill-charts-on-one-drawing.md);
 this doc carries the component API surface, the card layout, the usage audit, and
@@ -169,7 +173,7 @@ interface HillSnapshotCardProps {
 
 The per-phase popover (design.md §4b/§5) is the reference assembly the converged
 pieces slot into. It is `OverlayDialog` (#34), opened by the phase's fragment
-`#phase-:phaseId-progress`, and holds:
+`#phase-:phaseId-detail`, and holds:
 
 1. **VIEW (rest)** — `HillChart` single-phase, read-only, above the story
    (§5.1). One `status · date · Update` action line (design.md §7).
@@ -206,7 +210,7 @@ interface HillHistoryProps {
 
 ### 5.1 Per-phase history (exists, buried → extracted)
 
-- **Home unchanged**: the phase's progress view at `#phase-:phaseId-progress`
+- **Home unchanged**: the phase-detail popover at `#phase-:phaseId-detail`
   (design.md §5). It still carries the **complete** log — the program page preloads
   only the 6 newest states per phase, and the popover fetches the rest on open via
   `getPhaseLog` (already true; keep it). No "full history →" link — the popover *is*
@@ -230,14 +234,14 @@ interface HillHistoryProps {
   the global merge. This is the only new data the convergence needs.
 - **Home**: an `OverlayDialog` opened from the aggregate summary hill's affordance
   (§6), as its own URL fragment on the program page — `#phase-updates` (a program
-  fragment, distinct from `#phase-:id-progress`; "everything is a URL", design.md §2).
+  fragment, distinct from `#phase-:id-detail`; "everything is a URL", design.md §2).
 
 ## 6. Affordances (ADR Decisions 3, 5)
 
 | Hill | Gesture | Opens | Editable? |
 |---|---|---|---|
 | Aggregate summary (`PhaseTrack` band) | click the chart's affordance | aggregate history `#phase-updates` | **No** — read-only; dots still deep-link to rows |
-| Single phase (rail card / `PhaseGraph` / feed) | open the phase | per-phase progress view `#phase-:id-progress` | **Yes**, via in-place UPDATE (where the caller permits) |
+| Single phase (rail card / `PhaseGraph` / feed) | open the phase | per-phase popover `#phase-:id-detail` | **Yes**, via in-place UPDATE (where the caller permits) |
 
 The aggregate gets a **history** affordance, never a drag — it has no unambiguous
 subject to update (ADR Decision 3). A single-phase hill's affordance is the phase's
@@ -315,7 +319,7 @@ Swept `grep -rn "PhaseHillChart\|PhaseHillGauge\|PhaseHillSvg\|HillHistoryList\|
   phase can, in place (design.md §4b).
 - Both history views use the same snapshot card, laid out per §3.
 - Per-phase history still carries the complete log and still lives at
-  `#phase-:phaseId-progress`.
+  `#phase-:phaseId-detail`.
 - Label halos preserved (`ChartLabel`, #23).
 - No responsive regression: verified from screenshots at 360/768/1024/1440, both
   themes, both styles — a long phase name and a shingling-forcing phase count

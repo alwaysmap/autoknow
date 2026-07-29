@@ -244,18 +244,18 @@ test.describe('Project Details and Action Item Operations', () => {
     // thing the card still opens over itself (autoknow-crw.3). The guarded opener is
     // shared, and opens the card on the way: MIN is one line, so the affordance row is
     // not there yet.
-    const details = page.getByTestId('phase-progress');
+    const progressView = page.getByTestId('phase-progress');
     await openProgressView(page, row);
-    await expect(details.getByRole('heading', { name: 'Compliance Testing' })).toBeVisible();
+    await expect(progressView.getByRole('heading', { name: 'Compliance Testing' })).toBeVisible();
     // View mode at rest — the Update affordance reveals the ball + note editor.
-    await details.getByRole('button', { name: 'Update', exact: true }).click();
-    await details.locator('input[id^="phaseHillProgress-"]').fill('100');
-    await details.locator('[data-testid="note-editor"] [contenteditable="true"]').click();
+    await progressView.getByRole('button', { name: 'Update', exact: true }).click();
+    await progressView.locator('input[id^="phaseHillProgress-"]').fill('100');
+    await progressView.locator('[data-testid="note-editor"] [contenteditable="true"]').click();
     await page.keyboard.type('All CTS modules passing; phase complete.');
-    await details.getByRole('button', { name: 'Save Update' }).click();
+    await progressView.getByRole('button', { name: 'Save Update' }).click();
 
     // Save flips back to the story view (the overlay stays open); close it to read the rail.
-    await expect(details).toContainText('All CTS modules passing; phase complete.');
+    await expect(progressView).toContainText('All CTS modules passing; phase complete.');
     await page.keyboard.press('Escape');
 
     // Progress 100 derives Done — the row keeps the quiet completed state, and the

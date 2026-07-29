@@ -602,7 +602,12 @@ ${ev.records.map((e) => `[${e.id}] (${e.kind}) ${e.text}`).join('\n')}`;
 // The card is the right target for both, and deliberately not the progress view: a
 // citation says "this claim came from this phase", and the card is what states the
 // phase. Split into a pure rewrite plus an id-collector so the mapping is unit-tested
-// without a database, and delete both once no stored brief carries either shape.
+// without a database.
+//
+// This is HALF of the `-detail` retirement: the other half is `parseLegacyPhaseDetailHash`
+// (lib/phase), which canonicalises the same fragment when a reader ARRIVES on one. The
+// two are deliberately separate — a stored href and a live URL fail differently — and
+// they die together, once no stored brief carries either shape.
 const LEGACY_PHASE_HREF = /^(?:\/history\/phase\/(\d+)|\/programs\/\d+#phase-(\d+)-detail)$/;
 
 /** The phase id out of whichever legacy shape matched — the two patterns above put it

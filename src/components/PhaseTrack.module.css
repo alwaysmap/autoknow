@@ -770,18 +770,15 @@
   align-self: center;
   flex-shrink: 0;
 }
+/* The progress view's body — ONE column. It was the left half of a two-pane dossier
+   until the About half moved onto the card and into the phase editor (autoknow-crw.4),
+   and the surviving pane needs no flex ratio, no divider, no inner scroller and no
+   wrapper of its own: OverlayDialog's body is the single scroll region again, which is
+   the contract it was written to own. */
 .details {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-}
-
-/* The progress view's single pane. It was the left half of a two-pane dossier until
-   the About half moved onto the card and into the phase editor (autoknow-crw.4);
-   what is left is one column of prose, so it takes the whole beam and needs no
-   flex ratio, no divider and no inner scroller — OverlayDialog's own body is the one
-   scroll region again, which is the contract it was written to own. */
-.progressPane {
   min-width: 0;
 }
 .detailsHead {
@@ -1020,6 +1017,3 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
-
-
-

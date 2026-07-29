@@ -4,12 +4,12 @@ import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
 // Behavioral coverage for the PhaseTrack train-line surface (spec §2.13) and the
 // program phase editor: critical chain + explained constraint, compact read-only
-// cards (typed involvement pills, no role labels, no status words), the focused
-// popover (required-note status update, involvement editing, read-only dependencies),
-// and structural editing gated behind whole-graph DAG validation.
+// cards (typed involvement pills, no role labels, no status words), the card's three
+// affordances, the progress view's required-note status update, and structural editing
+// — including involvement — gated behind whole-graph DAG validation in the ONE editor.
 
 // `expandCard` (toggle), `openCard` (ensure open) and `closeCard` (ensure closed,
-// guarded on aria-expanded) come from tests/helpers/e2e — three specs wanted them,
+// guarded on aria-expanded) come from tests/helpers/e2e — several specs wanted them,
 // so they are not hand-rolled per file.
 
 test.describe('PhaseTrack rail', () => {
@@ -31,9 +31,9 @@ test.describe('PhaseTrack rail', () => {
     page.getByTestId('phase-row').filter({ has: page.locator(`a:text-is("${name}")`) });
   // The PROGRESS view (update + full log) is the only thing the card still opens over
   // itself; the focused DETAILS popover retired with autoknow-crw.4. The guarded opener
-  // is shared (tests/helpers/e2e) because three specs want it.
-  const details = (page: Page) => page.getByTestId('phase-progress');
-  const openDetails = (page: Page, name: string) => openProgressView(page, row(page, name));
+  // lives in tests/helpers/e2e because several specs want it.
+  const progressView = (page: Page) => page.getByTestId('phase-progress');
+  const openProgress = (page: Page, name: string) => openProgressView(page, row(page, name));
 
 
   // The phase name link carries a `title` ("Done · click to trace its dependencies").
@@ -237,7 +237,7 @@ test.describe('PhaseTrack rail', () => {
     await page.goto(`/programs/${seeded.projectId}`);
     const before = new URL(page.url());
 
-    await openDetails(page, 'Audio');
+    await openProgress(page, 'Audio');
     // Same page — a modal over the rail, no navigation. Opening the card on the way
     // sets `#phase-N` (the title is a real deep link), and the LAST thing this flow
     // does is open the log, which is itself a URL (design.md §5) — so it lands on
@@ -248,7 +248,7 @@ test.describe('PhaseTrack rail', () => {
     await expect(page.getByRole('dialog', { name: 'Audio' })).toBeVisible();
 
     await page.keyboard.press('Escape');
-    await expect(details(page)).toHaveCount(0);
+    await expect(progressView(page)).toHaveCount(0);
     // Closing falls back to the CARD's own anchor rather than to nothing: the phase is
     // still what you are looking at, and it is still addressable. The URL never claims
     // an open overlay.
@@ -257,26 +257,26 @@ test.describe('PhaseTrack rail', () => {
 
   test('a hill update REQUIRES a note; saving records history', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
-    await openDetails(page, 'Audio');
+    await openProgress(page, 'Audio');
 
     // The pane rests in view mode — the Update affordance reveals ball + editor.
-    await details(page).getByRole('button', { name: 'Update', exact: true }).click();
+    await progressView(page).getByRole('button', { name: 'Update', exact: true }).click();
 
     // Move the dot but say nothing → blocked with the inline error, still open.
-    await details(page).locator('input[id^="phaseHillProgress-"]').fill('55');
-    await details(page).getByRole('button', { name: 'Save Update' }).click();
-    await expect(details(page)).toContainText('A progress change needs a note');
-    await expect(details(page)).toBeVisible();
+    await progressView(page).locator('input[id^="phaseHillProgress-"]').fill('55');
+    await progressView(page).getByRole('button', { name: 'Save Update' }).click();
+    await expect(progressView(page)).toContainText('A progress change needs a note');
+    await expect(progressView(page)).toBeVisible();
 
     // Write the note in the WYSIWYG editor (markdown under the hood) and save.
-    await details(page).locator('[data-testid="note-editor"] [contenteditable="true"]').click();
+    await progressView(page).locator('[data-testid="note-editor"] [contenteditable="true"]').click();
     await page.keyboard.type('Codec samples landed; over the hill.');
-    await details(page).getByRole('button', { name: 'Save Update' }).click();
+    await progressView(page).getByRole('button', { name: 'Save Update' }).click();
 
     // Save drops back to the view-mode story: the fresh update leads, big.
-    await expect(details(page)).toContainText('Codec samples landed; over the hill.');
+    await expect(progressView(page)).toContainText('Codec samples landed; over the hill.');
     await page.keyboard.press('Escape');
-    await expect(details(page)).toHaveCount(0);
+    await expect(progressView(page)).toHaveCount(0);
 
     // Back on the track: the card (expanded — rows default collapsed) shows the LATEST
     // update and only that. The card is a reading surface for where the phase IS; the
@@ -290,12 +290,12 @@ test.describe('PhaseTrack rail', () => {
     await expect(audio.locator('[class*="historyList"]')).toHaveCount(0);
 
     // The history (with the prior update) lives in the progress view.
-    await openDetails(page, 'Audio');
-    await expect(details(page).getByText('History', { exact: true })).toBeVisible();
+    await openProgress(page, 'Audio');
+    await expect(progressView(page).getByText('History', { exact: true })).toBeVisible();
     // The LATEST update is the big headline; only the older one renders as a
     // compact history card.
-    await expect(details(page).locator('[class*="latestUpdate"]')).toContainText('Codec samples landed');
-    await expect(details(page).locator('[class*="historyList"] article')).toHaveCount(1);
+    await expect(progressView(page).locator('[class*="latestUpdate"]')).toContainText('Codec samples landed');
+    await expect(progressView(page).locator('[class*="historyList"] article')).toHaveCount(1);
   });
 
   // WHERE INVOLVEMENT IS EDITED moved, so its coverage moved with it. Two tests used to
