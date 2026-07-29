@@ -13,9 +13,10 @@
 // WITHIN a worktree, BOTH runners split again by worker, for the same reason: a suite
 // wipes its database, so two workers sharing one clobber each other's fixtures. e2e gives
 // each Playwright worker a database AND a web server bound to it (e2eWorkers below); jest
-// gives each of its workers a database (jestWorkers below) and needs no server. The two
-// lanes are named apart — `_w<n>` for Playwright, `_j<n>` for jest — so running both at
-// once cannot land worker 0 of each on one database.
+// gives each of its workers a database and needs no server, its count living in
+// jest.config's `maxWorkers` and its databases in tests/global-setup. The two lanes are
+// named apart — `_w<n>` for Playwright, `_j<n>` for jest — so running both at once cannot
+// land worker 0 of each on one database.
 
 import { createHash } from 'node:crypto';
 

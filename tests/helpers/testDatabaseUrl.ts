@@ -1,10 +1,11 @@
-// The single source of truth for which database tests may touch. It derives a
-// dedicated `<name>_<worktree>[_w<n>]_test` database from DATABASE_URL, so even a
+// The single source of truth for which database tests may touch. It derives a dedicated
+// `<name>_<worktree>[_w<n>|_j<n>]_test` database from DATABASE_URL, so even a
 // misconfigured environment can NEVER point the test suite at the real database — the
 // name is forced to end in `_test`, and we fail hard if that somehow isn't true. The
 // per-worktree segment keeps concurrent checkouts on separate databases, and the
-// per-worker segment does the same for the Playwright workers within one run, so no two
-// fixture wipes can collide (tests/helpers/worktree, AGENTS lesson 9).
+// per-worker LANE segment does the same for the workers within one run — Playwright's and
+// jest's alike, kept apart by the letter — so no two fixture wipes can collide
+// (tests/helpers/worktree, AGENTS lesson 9).
 
 import { currentLane, worktreeToken, type TestLane } from './worktree';
 
@@ -60,9 +61,11 @@ export function testDatabaseUrl(lane: TestLane | null = currentLane()): string {
  * once — without the letter, Playwright worker 0 and jest worker 0 would name one
  * database and wipe each other mid-run.
  */
+const LANE_LETTER: Record<TestLane['runner'], string> = { e2e: 'w', jest: 'j' };
+
 function testDbUrl(url: URL, lane: TestLane | null, worktree?: string): string {
   const stem = (url.pathname.replace(/^\//, '') || 'autoknow').replace(/_test$/, '');
-  const segment = lane === null ? undefined : `${lane.runner === 'e2e' ? 'w' : 'j'}${lane.index}`;
+  const segment = lane === null ? undefined : `${LANE_LETTER[lane.runner]}${lane.index}`;
   const parts = [stem, worktree, segment, 'test'];
   url.pathname = `/${parts.filter(Boolean).join('_')}`;
   return assertTestName(url);

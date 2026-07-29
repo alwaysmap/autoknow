@@ -30,18 +30,18 @@ const dbNameOf = (u: string) => new URL(u).pathname.replace(/^\//, '');
 // the stem and the worktree token. Left to default, it would resolve to this jest
 // worker's own lane and every expected name below would grow a `_j<n>` segment — the
 // suffix is the next describe's subject, not this one's.
-const base = () => testDatabaseUrl(null);
+const unlaned = () => testDatabaseUrl(null);
 
 describe('testDatabaseUrl — per-worktree isolation with the _test safety invariant', () => {
   it('ALWAYS yields a name ending in _test (lib/dbSafety keys on this)', () => {
     withEnv({ DATABASE_URL: DB, TEST_DATABASE_URL: undefined, WORKTREE_ID: 'alpha' }, () => {
-      expect(dbNameOf(base())).toMatch(/_test$/);
+      expect(dbNameOf(unlaned())).toMatch(/_test$/);
     });
   });
 
   it('folds the worktree token in, so two checkouts get different databases', () => {
-    const a = withEnv({ DATABASE_URL: DB, TEST_DATABASE_URL: undefined, WORKTREE_ID: 'alpha' }, base);
-    const b = withEnv({ DATABASE_URL: DB, TEST_DATABASE_URL: undefined, WORKTREE_ID: 'beta' }, base);
+    const a = withEnv({ DATABASE_URL: DB, TEST_DATABASE_URL: undefined, WORKTREE_ID: 'alpha' }, unlaned);
+    const b = withEnv({ DATABASE_URL: DB, TEST_DATABASE_URL: undefined, WORKTREE_ID: 'beta' }, unlaned);
     expect(dbNameOf(a)).toBe('autoknow_alpha_test');
     expect(dbNameOf(b)).toBe('autoknow_beta_test');
     expect(a).not.toBe(b);
@@ -50,21 +50,21 @@ describe('testDatabaseUrl — per-worktree isolation with the _test safety invar
   it('does not double-suffix when DATABASE_URL already names a _test db', () => {
     const u = withEnv(
       { DATABASE_URL: 'postgresql://u:p@h:5432/autoknow_test', TEST_DATABASE_URL: undefined, WORKTREE_ID: 'alpha' },
-      base,
+      unlaned,
     );
     expect(dbNameOf(u)).toBe('autoknow_alpha_test');
   });
 
   it('honors an explicit TEST_DATABASE_URL verbatim (CI/opt-out), still forcing _test', () => {
-    const pinned = withEnv({ TEST_DATABASE_URL: 'postgresql://u:p@h:5432/pinned_test' }, base);
+    const pinned = withEnv({ TEST_DATABASE_URL: 'postgresql://u:p@h:5432/pinned_test' }, unlaned);
     expect(dbNameOf(pinned)).toBe('pinned_test');
-    const coerced = withEnv({ TEST_DATABASE_URL: 'postgresql://u:p@h:5432/shared' }, base);
+    const coerced = withEnv({ TEST_DATABASE_URL: 'postgresql://u:p@h:5432/shared' }, unlaned);
     expect(dbNameOf(coerced)).toBe('shared_test');
   });
 
   it('is stable within a worktree — same token, same URL across calls', () => {
-    const once = withEnv({ DATABASE_URL: DB, TEST_DATABASE_URL: undefined, WORKTREE_ID: 'alpha' }, base);
-    const twice = withEnv({ DATABASE_URL: DB, TEST_DATABASE_URL: undefined, WORKTREE_ID: 'alpha' }, base);
+    const once = withEnv({ DATABASE_URL: DB, TEST_DATABASE_URL: undefined, WORKTREE_ID: 'alpha' }, unlaned);
+    const twice = withEnv({ DATABASE_URL: DB, TEST_DATABASE_URL: undefined, WORKTREE_ID: 'alpha' }, unlaned);
     expect(once).toBe(twice);
   });
 });
@@ -84,10 +84,23 @@ describe('testDatabaseUrl — the per-worker lane', () => {
     expect(named({ runner: 'jest', index: 3 })).toBe('autoknow_alpha_j3_test');
   });
 
-  it('never gives the same name to the two runners at one index', () => {
-    for (const index of [0, 1, 2, 3]) {
-      expect(named({ runner: 'e2e', index })).not.toBe(named({ runner: 'jest', index }));
-    }
+  // Both runners wipe the databases they are given and both can be running at once, so
+  // the two sets of lanes must not intersect ANYWHERE — not merely at the same index.
+  // Asserted as disjoint sets rather than index-by-index because the failure that matters
+  // is one name appearing on both sides, however the numbering got there.
+  //
+  // Over a fixed span rather than the configured worker counts: this is a property of how
+  // lanes are NAMED, so it must hold for any count either runner is later set to, and
+  // reading today's counts would only prove it for today's.
+  it('never lands a jest worker and an e2e worker on one database', () => {
+    const span = Array.from({ length: 16 }, (_, i) => i);
+    const e2e = span.map((index) => named({ runner: 'e2e', index }));
+    const jest = span.map((index) => named({ runner: 'jest', index }));
+
+    expect(new Set(jest).size).toBe(span.length);
+    expect(e2e.filter((db) => jest.includes(db))).toEqual([]);
+    // …and neither lane may take the unsuffixed database, which belongs to no runner.
+    expect([...e2e, ...jest]).not.toContain(withEnv(env, () => dbNameOf(testDatabaseUrl(null))));
   });
 
   it('appends the lane even under an explicit TEST_DATABASE_URL', () => {

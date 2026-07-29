@@ -9,6 +9,8 @@ import { readFileSync } from 'node:fs';
 import { testDatabaseUrl } from './helpers/testDatabaseUrl';
 import { sourceFiles, stripComments } from './helpers/sourceFiles';
 import { e2eWorkers, testServerPort } from './helpers/worktree';
+// The jest lanes these e2e ones must not collide with are a property of how names are
+// BUILT, so that half is asserted in tests/testDatabaseUrl.test.ts, with the naming module.
 
 // RECURSIVE, via the shared walker: tests/api/ is a whole directory of specs that a flat
 // readdir misses, and missing it is how the first run of this change failed.
@@ -50,25 +52,6 @@ describe('e2e worker isolation', () => {
     // Every name still ends in `_test` — testDatabaseUrl throws otherwise, but the suffix
     // is the wipe guard's entire basis, so assert it rather than assume it.
     for (const db of dbs) expect(new URL(db).pathname).toMatch(/_test$/);
-  });
-
-  // Both runners wipe the databases they are given and both can be running at once, so
-  // the two sets of lanes must not intersect ANYWHERE — not merely at the same index.
-  // Asserted as disjoint sets rather than index-by-index because the failure that matters
-  // is one name appearing on both sides, however the numbering got there.
-  //
-  // Over a fixed span rather than the configured worker counts: this is a property of how
-  // lanes are NAMED, so it must hold for any count either runner is later set to, and
-  // reading today's counts would only prove it for today's.
-  it('never lands a jest worker and an e2e worker on one database', () => {
-    const span = Array.from({ length: 16 }, (_, i) => i);
-    const e2e = span.map((index) => testDatabaseUrl({ runner: 'e2e', index }));
-    const jest = span.map((index) => testDatabaseUrl({ runner: 'jest', index }));
-
-    expect(new Set(jest).size).toBe(span.length);
-    expect(e2e.filter((db) => jest.includes(db))).toEqual([]);
-    // …and neither lane may take the unsuffixed database, which belongs to no runner.
-    expect([...e2e, ...jest]).not.toContain(testDatabaseUrl(null));
   });
 
   // The demo server (:3100) and the dev server (:3000) are long-lived and hold real data;

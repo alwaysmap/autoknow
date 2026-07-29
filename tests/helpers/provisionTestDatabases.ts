@@ -58,10 +58,12 @@ export function unmanagedConstraintSql(): string[] {
 }
 
 /**
- * @param lanes One entry per database to provision: a worker lane (Playwright's or
- *   jest's), or `null` for the unsuffixed database a single-server run uses.
+ * @param lanes One entry per database to provision — a worker lane, Playwright's or
+ *   jest's. Both runners now own every database they use, so there is no laneless case
+ *   here; `testDatabaseUrl(null)` still names the unsuffixed database, but nothing
+ *   provisions it.
  */
-export async function provisionTestDatabases(lanes: (TestLane | null)[]): Promise<void> {
+export async function provisionTestDatabases(lanes: TestLane[]): Promise<void> {
   const urls = lanes.map((lane) => new URL(testDatabaseUrl(lane)));
 
   // Create the missing databases over ONE maintenance connection — they all live on the

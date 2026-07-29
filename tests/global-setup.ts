@@ -21,8 +21,10 @@ import type { Config } from '@jest/types';
 import { provisionTestDatabases } from './helpers/provisionTestDatabases';
 
 export default async function globalSetup(globalConfig: Config.GlobalConfig) {
-  const workers = Math.max(1, globalConfig.maxWorkers);
   await provisionTestDatabases(
-    Array.from({ length: workers }, (_, index) => ({ runner: 'jest' as const, index })),
+    Array.from({ length: globalConfig.maxWorkers }, (_, index) => ({
+      runner: 'jest' as const,
+      index,
+    })),
   );
 }
