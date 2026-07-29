@@ -5,17 +5,6 @@
   margin: 0 0 1rem;
 }
 
-.titleRow {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin: 0 0 0.4375rem;
-}
-
-.title {
-  margin: 0;
-}
-
 .infoBtn {
   display: inline-flex;
   align-items: center;
@@ -102,10 +91,6 @@
    two column headings stay identical in every metric and differ only in ink. */
 .subtitle.act {
   color: var(--bad);
-}
-
-.reactions {
-  color: var(--muted);
 }
 
 .declareBtn {

@@ -145,19 +145,6 @@
   flex-shrink: 0;
 }
 
-.fullHistoryLink {
-  margin-right: auto;
-  align-self: center;
-  color: var(--link);
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
-  text-decoration: none;
-}
-
-.fullHistoryLink:hover {
-  text-decoration: underline;
-}
-
 /* Modal Dialog */
 .dialogForm {
   display: flex;

@@ -1,9 +1,3 @@
-.userLabel {
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
-  color: var(--muted);
-}
-
 /* The "My partners" scope toggle rides in DataTable's own filter bar now (#86);
    the column funnels + the one "× Clear filters" reset do the rest. */
 .toolbarToggle {
@@ -93,7 +87,6 @@
   color: var(--link);
   text-decoration: underline;
 }
-
 
 /* Class boxes on grouping columns (Type, Region) carry no identity colour — the
    BOX is the signal. Identity ink is reserved for result kinds, where the colour

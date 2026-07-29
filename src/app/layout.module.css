@@ -73,20 +73,6 @@
   color: var(--fg);
 }
 
-.sessionIndicator {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background-color: var(--white);
-  border: 1px solid var(--border);
-  padding: 0.375rem 0.75rem;
-  border-radius: 1.25rem;
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
-  font-weight: 500;
-  color: var(--fg);
-}
-
 /* Phone: tighter horizontal padding and a smaller brand↔links↔controls gap so the
    links region keeps as much room as possible — the nav still NEVER wraps (the links
    collapse into the ⋯ menu instead), it just has more space to place them. */
@@ -98,18 +84,4 @@
   .rightSection {
     gap: 1rem;
   }
-}
-
-.googleLogo {
-  width: 0.875rem;
-  height: 0.875rem;
-  background-color: #4285f4;
-  color: var(--white);
-  font-size: 0.5625rem;
-  line-height: 0.875rem;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
 }
