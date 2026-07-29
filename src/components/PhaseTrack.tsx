@@ -15,7 +15,10 @@ import { deriveEndPhase } from '../lib/programDag';
 import { validateTemplateDag } from '../lib/templateDag';
 import { HILL_PATH, hillCoordinates } from '../lib/geometry';
 import { t, statusKey, Locale } from '../lib/i18n';
-import { isPhaseActive, statusProgress, phaseColor, phaseDetailHash, parsePhaseDetailHash, phaseHash, phasesEditHref } from '../lib/phase';
+import {
+  isPhaseActive, statusProgress, phaseColor, phaseHash, parsePhaseHash,
+  phaseProgressHash, parsePhaseProgressHash, parseLegacyPhaseDetailHash, phasesEditHref,
+} from '../lib/phase';
 import AnchorHeading from './AnchorHeading';
 import AnchoredPopover from './AnchoredPopover';
 import OverlayDialog from './OverlayDialog';
@@ -27,7 +30,6 @@ import QuickIngest from './QuickIngest';
 import HillHistoryList from './HillHistoryList';
 import type { HillChange } from '../lib/history';
 import { updatePhaseHill, setPhaseStarted, getPhaseLog, type PhaseLogEntry } from '../app/actions/hill';
-import PhaseInvolvementEditor from './PhaseInvolvementEditor';
 import type { PhaseGraphRow } from './PhaseGraph';
 import styles from './PhaseTrack.module.css';
 import { localDate } from '../lib/dates';
@@ -75,13 +77,20 @@ import { localDate } from '../lib/dates';
 // is deliberately untouched by that: a 15-phase program stays scannable precisely
 // because every card but the one you clicked is a single line.
 //
-// The DETAILS affordance lifts the phase into a focused popover over a scrim (status
-// update with a REQUIRED note, full history, partner/people involvement editing) —
-// clearly a different mode, not a third inline density. It still holds the phase's
-// complete record; what it no longer holds ALONE is the goal and the latest update,
-// which the card now states. That popover is a phase's ONLY home: the standalone
-// /history/phase/:id page was retired 2026-07-21, so the popover is itself a URL
-// (`#phase-:id-detail`, lib/phase) and carries the COMPLETE log, not an excerpt.
+// THE CARD IS THE PHASE'S HOME, and reading a phase opens nothing (autoknow-crw).
+// The standalone /history/phase/:id page retired 2026-07-21 and the focused DETAILS
+// popover that replaced it retired with autoknow-crw.4, because everything it held
+// had somewhere better to be: the goal and the latest update are the card's two
+// columns, involvement is its footing, and WHO/WHAT/WHEN are edited in the one phase
+// editor (autoknow-crw.1). So `#phase-:id` IS the phase, and arriving there opens
+// that card.
+//
+// What is left over the card is exactly one thing, and it is a genuine secondary
+// reading rather than a second copy of the phase: UPDATE & HISTORY
+// (`#phase-:id-progress`), which carries the COMPLETE log — not an excerpt — plus the
+// form that adds to it, because an update IS an entry in that log. Three affordances
+// sit at the foot of the card: Edit, that view, and + Watch a source.
+//
 // STRUCTURE is not editable here: phases and dependencies are added/removed only in
 // the program phase editor (/programs/[id]/phases), which validates the whole DAG —
 // so the rail can never produce a broken program.
@@ -130,25 +139,29 @@ type InvolvedPill =
 interface PhaseTrackProps {
   projectId: number;
   phases: PhaseTrackRow[];
-  allPartners: { id: number; name: string }[];
-  allPeople: { id: number; name: string }[];
   locale: Locale;
 }
 
-// The open popover IS a URL — the same rule the needle's log follows (design.md
-// §4b). Opening writes `#phase-:id-detail`, closing takes it back off, and arriving
-// with it opens that phase. replaceState, never push: the popover is a mode of this
-// page, and a trail of entries would make Back mean "close the thing I already
-// closed". Fragments that aren't ours (the rail's own `#phase-:id` row anchors) are
-// left exactly as they are.
-const writeHash = (id: number | null) => {
+// The open PROGRESS view IS a URL — the same rule the needle's log follows (design.md
+// §4b). Opening writes `#phase-:id-progress`, closing falls back to the phase's own row
+// anchor rather than to nothing, because the card underneath is still the thing you are
+// looking at. Arriving with the fragment opens that phase's log.
+//
+// replaceState, never push: which view is open is a MODE of this page, and a trail of
+// entries would make Back mean "close the thing I already closed". Fragments that
+// aren't ours are left exactly as they are.
+const writeProgressHash = (id: number | null) => {
   const current = window.location.hash;
   if (id == null) {
-    if (parsePhaseDetailHash(current) == null) return;
-    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    // Which phase's log is closing is already IN the fragment being cleared, so the
+    // fallback needs no state passed in — and a caller that had to supply it would be
+    // a second place that could get it wrong.
+    const closing = parsePhaseProgressHash(current);
+    if (closing == null) return;
+    window.history.replaceState(null, '', `#${phaseHash(closing)}`);
     return;
   }
-  const want = `#${phaseDetailHash(id)}`;
+  const want = `#${phaseProgressHash(id)}`;
   if (current !== want) window.history.replaceState(null, '', want);
 };
 
@@ -276,7 +289,7 @@ function PhaseGoal({ phase, projectId, locale }: { phase: PhaseTrackRow; project
   );
 }
 
-export default function PhaseTrack({ projectId, phases, allPartners, allPeople, locale }: PhaseTrackProps) {
+export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProps) {
   const byId = new Map(phases.map((p) => [p.id, p]));
   const scrollPageTo = useSteadyPageScroll();
 
@@ -468,12 +481,12 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   );
 
   // Cards: EVERY phase starts collapsed (hide-all default) — the rail itself is the
-  // overview; expand is opt-in per row or via the ⋯ menu. One phase may own the
-  // focused DETAILS popover.
+  // overview; expand is opt-in per row, via a deep link, or via the ⋯ menu. One phase
+  // at a time may have its progress view open over it.
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
   const isCollapsed = (p: PhaseTrackRow) => collapsed[p.id] ?? true;
   const rowRefs = useRef(new Map<number, HTMLDivElement>());
-  const [detailsId, setDetailsId] = useState<number | null>(null);
+  const [progressId, setProgressId] = useState<number | null>(null);
 
   // FOUR levels while tracing, all on the one recession channel (PhaseTrack.module.css):
   // the phase itself, what WAITS on it at full strength, what it waits FOR at half,
@@ -531,7 +544,9 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     return up ? 'var(--trace-up-band)' : down ? 'var(--trace-down-band)' : undefined;
   };
 
-  const closeDetails = useCallback(() => { setDetailsId(null); writeHash(null); }, []);
+  // Closing the log falls back to the phase's own row anchor: the card is still there
+  // behind it, and it is the phase's address now that the popover has retired.
+  const closeProgress = useCallback(() => { setProgressId(null); writeProgressHash(null); }, []);
 
   // Title ⋯ menu: bulk expand/hide plus the one door to structural editing. Placement,
   // light-dismiss and focus come from AnchoredPopover (#24); each bulk item closes the
@@ -557,7 +572,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   const [flashId, setFlashId] = useState<number | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const jumpTo = useCallback((id: number) => {
-    closeDetails();
+    closeProgress();
     setCollapsed((s) => ({ ...s, [id]: false }));
     // Align the phase head to the TOP of the scrollport (it clears the sticky nav via
     // html { scroll-padding-top }), matching the row's `#phase-N` anchor so the two
@@ -566,7 +581,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     setFlashId(id);
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlashId(null), 1400);
-  }, [closeDetails, scrollPageTo]);
+  }, [closeProgress, scrollPageTo]);
   useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
 
   // Deeplinks from the summary hill chart: a dot click jump-and-flashes here.
@@ -591,11 +606,11 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
   // Esc leaves the traced mode too — but only once the popover has taken its turn,
   // so one key never closes two things at once.
   useEffect(() => {
-    if (focusId == null || detailsId != null) return;
+    if (focusId == null || progressId != null) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFocusId(null); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [focusId, detailsId]);
+  }, [focusId, progressId]);
 
   // Station y-centers are measured from the DOM so the track follows real row heights.
   // The measurement anchors on the phase NAME, not the header box: on a phone the
@@ -620,7 +635,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     setGeom({ ys, h: c.scrollHeight });
   };
 
-  useLayoutEffect(measure, [phases, collapsed, detailsId]);
+  useLayoutEffect(measure, [phases, collapsed, progressId]);
   useEffect(() => {
     const c = containerRef.current;
     if (!c || typeof ResizeObserver === 'undefined') return;
@@ -781,8 +796,15 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     return v.ok ? [] : v.errors.map((e) => e.message);
   }, [phases]);
 
-  // ---- Focused DETAILS popover: floats over a scrim, the rail dimmed behind ----
-  const details = detailsId != null ? byId.get(detailsId) : null;
+  // ---- The PROGRESS view: recording an update and the full hill log, over a scrim ----
+  //
+  // This pane is what the retired DETAILS popover was actually for. Everything else that
+  // popover carried — the goal, the latest update, who is involved, the neighbourhood
+  // chips — either moved onto the card (autoknow-crw.2) or into the one phase editor
+  // (autoknow-crw.1), and what was left is exactly "update + history". An overlay is the
+  // right home for THAT: a genuine secondary reading, unlike the phase itself, which
+  // should never have needed opening.
+  const details = progressId != null ? byId.get(progressId) : null;
   const [drag, setDrag] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -808,32 +830,68 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     try { setFullLog({ phaseId, entries: await getPhaseLog(phaseId) }); }
     catch (err) { console.error(err); }
   };
-  const openDetails = (p: PhaseTrackRow) => {
+  const openProgress = (p: PhaseTrackRow) => {
     setDrag(p.progress); setNoteError(false); setEditing(false);
     if (startedTimer.current) clearTimeout(startedTimer.current);
     setStartedSave(null);
     setFullLog(null);
-    setDetailsId(p.id);
-    writeHash(p.id);
+    setProgressId(p.id);
+    writeProgressHash(p.id);
     void loadLog(p.id);
   };
 
-  // Arriving at /programs/:id#phase-:phaseId-detail opens that phase's popover, so a
-  // link anywhere in the app (feeds, briefings, partner and person pages) lands on the
-  // record itself. Re-runs when `phases` changes identity after a revalidate; the
-  // already-open guard keeps that from resetting a pane someone is working in.
-  const detailsIdRef = useRef<number | null>(null);
-  useEffect(() => { detailsIdRef.current = detailsId; }, [detailsId]);
+  // ARRIVING BY URL. Three fragments land here, and each opens the thing it names, so a
+  // link from anywhere in the app (feeds, briefings, partner and person pages, a shared
+  // bookmark) lands on the record rather than at the top of a long page.
+  //
+  //   #phase-:id            the phase itself — opens its CARD, which is the phase's home
+  //   #phase-:id-progress   its update log
+  //   #phase-:id-detail     RETIRED with the popover (autoknow-crw.4)
+  //
+  // The retired one is canonicalised rather than ignored. Old briefs and shared links
+  // still carry it; it named the phase's whole record, and the card is what holds that
+  // record now, so it resolves there and the URL is rewritten to match — the reader ends
+  // up somewhere true, with an address they can share again. Stored citations get the
+  // same rewrite at their own read boundary (lib/summaries), because a fragment cannot
+  // 404 and so cannot tell the data layer it went stale. Both shims die together, once
+  // no `Summary.body` on file still cites the old form.
+  //
+  // Re-runs when `phases` changes identity after a revalidate; the already-open guard
+  // keeps that from resetting a pane someone is working in.
+  const progressIdRef = useRef<number | null>(null);
+  useEffect(() => { progressIdRef.current = progressId; }, [progressId]);
   useEffect(() => {
     const openFromHash = () => {
-      const id = parsePhaseDetailHash(window.location.hash);
-      if (id == null || id === detailsIdRef.current) return;
-      const target = byId.get(id);
-      if (target) openDetails(target);
+      const hash = window.location.hash;
+
+      const legacy = parseLegacyPhaseDetailHash(hash);
+      if (legacy != null && byId.has(legacy)) {
+        setCollapsed((s) => ({ ...s, [legacy]: false }));
+        setFocusId(legacy);
+        writeRowHash(legacy);
+        scrollPageTo(headRefs.current.get(legacy), { behavior: 'smooth', block: 'start' });
+        return;
+      }
+
+      const progressing = parsePhaseProgressHash(hash);
+      if (progressing != null && progressing !== progressIdRef.current) {
+        const target = byId.get(progressing);
+        if (target) openProgress(target);
+        return;
+      }
+
+      // The bare row anchor OPENS the card. The browser's own fragment jump only
+      // scrolls, and every card rests collapsed, so without this a phase link landed on
+      // a one-line header — which is precisely the "lossy preview" this epic removed.
+      const row = parsePhaseHash(hash);
+      if (row != null && byId.has(row)) {
+        setCollapsed((s) => (s[row] === false ? s : { ...s, [row]: false }));
+        setFocusId(row);
+      }
     };
     openFromHash();
     // Next <Link> navigates via pushState, which does not fire `hashchange`
-    // (#40) — subscribe to both so a same-page feed/graph link opens the popover.
+    // (#40) — subscribe to both so a same-page feed/graph link opens the phase.
     return subscribeLocationChange(openFromHash);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phases]);
@@ -878,30 +936,30 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
     if (next === 0) clearStarted();
   };
 
-  // The popover body — built only when a phase is focused, rendered into an OverlayDialog.
-  const detailsOverlay = (() => {
+  // The progress view's body — built only when a phase's log is open, rendered into an
+  // OverlayDialog. ONE pane now, not the two-pane dossier: the About half's contents
+  // are on the card and in the phase editor, so what remains is the update story, at
+  // the width prose actually wants rather than half of a dossier.
+  const progressOverlay = (() => {
     if (!details) return null;
     const p = details;
     const dot = hillCoordinates(drag);
-    const isConstraint = chain.constraintId === p.id;
-    const upstream = p.parents.filter((par) => byId.has(par.id));
-    const downstream = enables.get(p.id) ?? [];
     // The complete log once it arrives, the page's preloaded 6 until then.
     const log = fullLog?.phaseId === p.id ? fullLog.entries : p.history;
 
     return (
       <OverlayDialog
         open
-        onClose={closeDetails}
-        // two-pane dossier; updates are 4-5 sentence prose. The container still caps
-        // this at the safe viewport, so it is a max, not a size.
-        width="71.25rem"
+        onClose={closeProgress}
+        // Single column of 4-5 sentence prose updates. The container still caps this at
+        // the safe viewport, so it is a max, not a size.
+        width="42rem"
         closeLabel={t(locale, 'closeEdit')}
         className={styles.popover}
-        // MOVED here from the body div: the phase name now lives in the fixed header, and
-        // specs scope `getByRole('heading')` to this testid. Left on the body, the heading
-        // would sit outside the hook that looks for it.
-        dataTestId="phase-details"
+        // The phase name lives in the fixed header, and specs scope
+        // `getByRole('heading')` to this testid. Left on the body, the heading would sit
+        // outside the hook that looks for it.
+        dataTestId="phase-progress"
         title={(
           <div className={styles.detailsHead}>
             <StationGlyph progress={p.progress} />
@@ -914,15 +972,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
         {/* keyed by phase: swapping a neighbour into this window must remount the
             form (a half-typed note belongs to the phase it was typed for) */}
         <div className={styles.details} key={p.id}>
-          {isConstraint && (
-            <p className={styles.constraintWhy}>{constraintWhy(p).join(' · ')}</p>
-          )}
-
-          {/* Option-1 dossier: two zones, hard-separated. LEFT = Progress (what
-              happened — the update form + full history, scrollable). RIGHT =
-              About (what the phase IS — goal & definition of done, flow,
-              involvement, timing). Updates lead; metadata follows. */}
-          <div className={styles.dossier}>
             <div className={styles.progressPane}>
 
           {/* Two modes. VIEW (rest): read-only hill, the work-started fact, and
@@ -1101,108 +1150,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
           )}
 
             </div>
-
-            <div className={styles.aboutPane}>
-              {/* immediate neighbourhood as quiet clickable labels: ← feeds this
-                  phase, → departs it. Clicking swaps THAT phase into this same
-                  window (openDetails, not jumpTo — the popover is reused). The
-                  structure itself is edited only in the program phase editor. */}
-              {(upstream.length > 0 || downstream.length > 0) && (
-                <div className={styles.flowLinks}>
-                  {upstream.length > 0 && (
-                    <div className={styles.flowRow} aria-label={t(locale, 'after')}>
-                      <span className={styles.flowArrow} aria-hidden>←</span>
-                      <span className={styles.flowSet}>
-                        {/* Only ever changes WHERE you are (writeHash, via the same
-                            hash effect that opens this popover from a shared URL) —
-                            a link, not a button (design.md §6, #168). */}
-                        {upstream.map((par) => {
-                          const target = byId.get(par.id);
-                          if (!target) return null;
-                          return (
-                            <Link key={par.linkId} href={`#${phaseDetailHash(target.id)}`} replace scroll={false} className={styles.flowLink}
-                              title={`${t(locale, 'after')} · ${target.name}`}>
-                              {target.name}
-                            </Link>
-                          );
-                        })}
-                      </span>
-                    </div>
-                  )}
-                  {downstream.length > 0 && (
-                    <div className={styles.flowRow} aria-label={t(locale, 'enables')}>
-                      <span className={styles.flowArrow} aria-hidden>→</span>
-                      <span className={styles.flowSet}>
-                        {downstream.map((d) => {
-                          const target = byId.get(d.id);
-                          if (!target) return null;
-                          return (
-                            <Link key={d.linkId} href={`#${phaseDetailHash(target.id)}`} replace scroll={false} className={styles.flowLink}
-                              title={`${t(locale, 'enables')} · ${target.name}`}>
-                              {target.name}
-                            </Link>
-                          );
-                        })}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-              <PhaseGoal phase={p} projectId={projectId} locale={locale} />
-              <div className={styles.aboutMeta}>
-              {/* who's involved: partners and people, through the ONE involvement
-                  control (PhaseInvolvementEditor) that the phase editor also uses —
-                  this pane and that panel cannot drift apart because they are the same
-                  component. Chips at rest; the ghost "+" reveals the picker on demand.
-                  Roles are edited here, where the free-text function is written — the
-                  rail itself shows type-coloured pills. */}
-              <div className={styles.detailsSection}>
-                <span className={styles.depsLabel}>{t(locale, 'partnersLabel')}</span>
-                <span className={styles.chipCell}>
-                  <PhaseInvolvementEditor
-                    kind="partner"
-                    phaseId={p.id}
-                    projectId={projectId}
-                    involved={p.partners.map((pp) => ({
-                      linkId: pp.linkId, entityId: pp.partnerId, name: pp.name, role: pp.role,
-                    }))}
-                    options={allPartners}
-                  />
-                </span>
-              </div>
-
-              <div className={styles.detailsSection}>
-                <span className={styles.depsLabel}>{t(locale, 'peopleLabel')}</span>
-                <span className={styles.chipCell}>
-                  <PhaseInvolvementEditor
-                    kind="person"
-                    phaseId={p.id}
-                    projectId={projectId}
-                    involved={p.people.map((pp) => ({
-                      linkId: pp.linkId, entityId: pp.personId, name: pp.name, role: pp.role,
-                    }))}
-                    options={allPeople}
-                  />
-                </span>
-              </div>
-
-              </div>
-
-              {/* Watch a source scoped to THIS phase (#49): the classifier already
-                  sets ContextUrl.phaseId, but only a human choosing the phase makes
-                  it deliberate — a bug or CR link most naturally belongs to a phase.
-                  anchorKind=program + phaseId is what the action needs to honour the
-                  phase (context.ts). Collapsed by default, no chrome at rest. */}
-              <div className={styles.watchSection}>
-                <QuickIngest
-                  anchorKind="program"
-                  anchorId={projectId}
-                  phaseId={p.id}
-                  path={`/programs/${projectId}`}
-                />
-              </div>
-            </div>
-          </div>
         </div>
       </OverlayDialog>
     );
@@ -1489,28 +1436,16 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                   style={!open && p.progress >= 100 ? { color: 'var(--muted)' } : undefined}>
                   {p.name}
                 </a>
-                {/* The head is name on the left, plan + zoom right-justified on the SAME
-                    line (headRight is margin-left:auto). A clamped goal EXCERPT used to
-                    ride here and is gone for good: a half-sentence per row was noise
-                    between the two things that matter, the name and the schedule, and
-                    the whole Goal now has a column of its own in the body below. The
-                    zoom button shows only at standard size, so min stays one clean line. */}
+                {/* The head is name on the left, plan right-justified on the SAME line
+                    (headRight is margin-left:auto). A clamped goal EXCERPT used to ride
+                    here and is gone for good: a half-sentence per row was noise between
+                    the two things that matter, the name and the schedule, and the whole
+                    Goal now has a column of its own in the body below. The EXPAND button
+                    that used to sit here is gone too — there is no longer anywhere for it
+                    to expand to (autoknow-crw.3). */}
                 <span className={styles.headRight}>
                   <span className={styles.plan}>{planWords(p)}</span>
                   {paceChip(p)}
-                  {/* The card's ONE affordance, and only at standard size — the step
-                      the card cannot do itself: lift the phase into its focused
-                      popover. Arrows breaking outward, because that is the promise:
-                      bigger, not "more below". Only ever changes WHERE you are
-                      (writeHash) — a link, not a button (design.md §6, #168). */}
-                  {open && <Link href={`#${phaseDetailHash(p.id)}`} replace scroll={false} className={styles.iconBtn}
-                    title={t(locale, 'details')} aria-label={t(locale, 'details')}>
-                    <svg viewBox="0 0 14 14" width={13} height={13} aria-hidden>
-                      <path d="M8.5 5.5 L12.5 1.5 M12.5 1.5 H9 M12.5 1.5 V5
-                               M5.5 8.5 L1.5 12.5 M1.5 12.5 H5 M1.5 12.5 V9"
-                        fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </Link>}
                 </span>
               </div>
 
@@ -1574,6 +1509,41 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                       })}
                     </div>
                   )}
+
+                  {/* ACTIONS — the three steps the card cannot take itself, replacing the
+                      single expand button that used to lift the phase into a popover
+                      (autoknow-crw.3). They come LAST in the card and therefore last in
+                      the keyboard order: the title is still the way in, and these join
+                      that order rather than jumping it.
+
+                      Each opens something that has its own address, which is the whole
+                      argument for them being links rather than buttons (design.md §6,
+                      #168): a phase's editor, a phase's log and — for the one that is a
+                      form — a disclosure that stays put. */}
+                  <div className={`${styles.rowFoot} ${styles.actionRow}`}>
+                    <Link href={phasesEditHref(projectId, p.id)} className={styles.actionLink}>
+                      {t(locale, 'editPhase')}
+                    </Link>
+                    {/* UPDATE + HISTORY, named for both jobs. An affordance labelled only
+                        "History" would hide this app's most frequent WRITE behind a word
+                        that means looking backwards — the popover's update form lives in
+                        here now, because an update IS an entry in the log it joins. */}
+                    <Link href={`#${phaseProgressHash(p.id)}`} replace scroll={false}
+                      className={styles.actionLink} data-testid="phase-progress-link">
+                      {t(locale, 'updateAndHistory')}
+                    </Link>
+                    {/* Watch a source scoped to THIS phase (#49): the classifier already
+                        sets ContextUrl.phaseId, but only a human choosing the phase makes
+                        it deliberate — a bug or CR link most naturally belongs to a phase.
+                        anchorKind=program + phaseId is what the action needs to honour the
+                        phase (context.ts). Collapsed by default, no chrome at rest. */}
+                    <QuickIngest
+                      anchorKind="program"
+                      anchorId={projectId}
+                      phaseId={p.id}
+                      path={`/programs/${projectId}`}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -1636,7 +1606,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
         </div>
       </OverlayDialog>
 
-      {detailsOverlay}
+      {progressOverlay}
     </div>
   );
 }

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import PhaseHillGauge from './PhaseHillGauge';
 import ConstraintRing from './ConstraintRing';
 import Markdown from './Markdown';
-import { hillStatus, hillStatusColor, phaseColor, phaseDetailHref } from '../lib/phase';
+import { hillStatus, hillStatusColor, phaseColor, phaseHref } from '../lib/phase';
 import { computeCriticalChain } from '../lib/criticalChain';
 import { addPhase, deletePhase } from '../app/programs/[id]/actions';
 import PhaseInvolvementEditor from './PhaseInvolvementEditor';
@@ -283,7 +283,7 @@ export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGrap
                 className={styles.head}
                 onClick={onHeaderClick(p)}
               >
-                <Link href={phaseDetailHref(projectId, p.id)} scroll={false} className={styles.name} style={state === 'collapsed' && p.progress >= 100 ? { color: 'var(--muted)' } : undefined}>
+                <Link href={phaseHref(projectId, p.id)} scroll={false} className={styles.name} style={state === 'collapsed' && p.progress >= 100 ? { color: 'var(--muted)' } : undefined}>
                   {p.name}
                 </Link>
                 <span className={styles.status} style={{ color: hillStatusColor(p.progress) }}>{status}</span>

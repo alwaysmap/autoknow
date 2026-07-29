@@ -73,46 +73,74 @@ export function effectiveStartedAt<T>(
 }
 
 /**
- * A phase's home is the DETAILS popover on its program page — there is no
- * standalone phase page (`/history/phase/:id` was retired 2026-07-21). The
- * popover IS a URL: this fragment opens it, and opening it writes the fragment.
+ * THE PHASE'S OWN FRAGMENT — and, since autoknow-crw.4, the phase's whole address.
  *
- * `#phase-:id` (the rail row) and `#phase-:id-detail` (the popover over it) are
- * deliberately one family: the row anchor is the prefix, so a reader who knows
- * one can guess the other and neither can collide with the other's target.
- */
-export const phaseDetailHash = (phaseId: number): string => `phase-${phaseId}-detail`;
-
-/** The full deep link: `/programs/12#phase-218-detail`. */
-export const phaseDetailHref = (projectId: number, phaseId: number): string =>
-  `/programs/${projectId}#${phaseDetailHash(phaseId)}`;
-
-/**
- * The bare phase fragment — the prefix `phaseDetailHash` extends. It names the rail's
- * row on the program page and, on the phase editor, the node whose panel opens. One
- * phase, one fragment, whichever page is reading it.
+ * A phase's home is its CARD on the program rail. It was the focused DETAILS popover
+ * until that retired, and a standalone `/history/phase/:id` page before that
+ * (2026-07-21); the card states the goal, the latest update and who is involved
+ * without opening anything, so there is nothing left for a second URL to name.
+ *
+ * One fragment, whichever page is reading it: on the program page it names the rail's
+ * row (and arriving there opens that card), and on the phase editor it names the node
+ * whose panel opens.
  */
 export const phaseHash = (phaseId: number): string => `phase-${phaseId}`;
 
+/** The full deep link to a phase: `/programs/12#phase-218`. */
+export const phaseHref = (projectId: number, phaseId: number): string =>
+  `/programs/${projectId}#${phaseHash(phaseId)}`;
+
+/**
+ * The phase's PROGRESS view — recording an update and the full hill log, which is one
+ * affordance because an update IS an entry in that log. The only thing the card still
+ * opens over itself, and addressable for the same reason the popover was: a history
+ * someone can link to is worth more than a modal that only opens by clicking.
+ *
+ * It extends `phaseHash` rather than standing alone, so a reader who knows one
+ * fragment can guess the other and neither can collide with the other's target.
+ */
+export const phaseProgressHash = (phaseId: number): string => `phase-${phaseId}-progress`;
+
+/** The full deep link to a phase's update log: `/programs/12#phase-218-progress`. */
+export const phaseProgressHref = (projectId: number, phaseId: number): string =>
+  `/programs/${projectId}#${phaseProgressHash(phaseId)}`;
+
 /** Where a phase's plan is EDITED — name, forecast, dependencies, Goal & DoD, and who
  *  is involved: since #crw.1 this is the ONE editor of a phase, so an Edit affordance
- *  anywhere has exactly one target. Distinct from phaseDetailHref, which opens one
- *  phase's record to READ. Pass a phaseId to land with that phase's panel already
- *  open — a phase editor is a place, not a mode. Owned here for the same reason as
- *  the rest of this family: it was hand-built at four call sites, and a URL in this
- *  app is data as well as code (AGENTS lesson 15). */
+ *  anywhere has exactly one target. Distinct from phaseHref, which opens one phase's
+ *  record to READ. Pass a phaseId to land with that phase's panel already open — a
+ *  phase editor is a place, not a mode. Owned here for the same reason as the rest of
+ *  this family: it was hand-built at four call sites, and a URL in this app is data as
+ *  well as code (AGENTS lesson 15). */
 export const phasesEditHref = (projectId: number, phaseId?: number): string =>
   `/programs/${projectId}/phases${phaseId != null ? `#${phaseHash(phaseId)}` : ''}`;
 
-/** Phase id out of a `#phase-:id-detail` fragment (with or without the `#`), or null. */
-export const parsePhaseDetailHash = (hash: string): number | null => {
-  const m = /^#?phase-(\d+)-detail$/.exec(hash);
+/** Phase id out of a `#phase-:id-progress` fragment (with or without the `#`), or null. */
+export const parsePhaseProgressHash = (hash: string): number | null => {
+  const m = /^#?phase-(\d+)-progress$/.exec(hash);
   return m ? parseInt(m[1], 10) : null;
 };
 
 /** Phase id out of a bare `#phase-:id` fragment, or null. Deliberately does NOT match
- *  `#phase-:id-detail`: the two fragments open different things on different pages. */
+ *  the `-progress` or the retired `-detail` extension: the fragments open different
+ *  things, and a prefix match would make the row anchor swallow both. */
 export const parsePhaseHash = (hash: string): number | null => {
   const m = /^#?phase-(\d+)$/.exec(hash);
+  return m ? parseInt(m[1], 10) : null;
+};
+
+/**
+ * RETIRED (autoknow-crw.4): `#phase-:id-detail` opened the focused popover, which no
+ * longer exists. Kept only to RECOGNISE the fragment, never to build one — the two
+ * places that still have to are the read-boundary shim that rewrites stored AI-brief
+ * citations (lib/summaries) and the rail's arrival handler, which canonicalises an old
+ * bookmark onto the card rather than leaving the reader at the top of the page.
+ *
+ * A URL here is DATA as well as code (AGENTS lesson 15, and the ADR
+ * "Retiring a URL deletes the route and migrates the data that cites it"), so this
+ * goes away only once no stored `Summary.body` still cites the old form.
+ */
+export const parseLegacyPhaseDetailHash = (hash: string): number | null => {
+  const m = /^#?phase-(\d+)-detail$/.exec(hash);
   return m ? parseInt(m[1], 10) : null;
 };

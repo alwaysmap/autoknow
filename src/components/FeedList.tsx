@@ -115,9 +115,9 @@ export default function FeedList({
                 <a className={styles.title} href={it.href} title={it.title}
                   target="_blank" rel="noopener noreferrer">{it.title}</a>
               ) : (
-                // A hash href is a STATE fragment (#phase-:id-detail, #status-history) with no
-                // scroll target, so Next would jump to the page top (#40); scroll={false} keeps
-                // the reader's place and lets the popover open.
+                // A hash href is a STATE fragment (#phase-:id-progress, #status-history) whose
+                // target may not exist yet, so Next would jump to the page top (#40);
+                // scroll={false} keeps the reader's place and lets the view open itself.
                 <Link className={styles.title} href={it.href} title={it.title}
                   scroll={it.href.includes('#') ? false : undefined}>{it.title}</Link>
               )}

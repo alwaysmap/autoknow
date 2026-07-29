@@ -1,6 +1,6 @@
 'use client';
 
-// The hash is app STATE here: `/programs/:id#phase-:id-detail` and
+// The hash is app STATE here: `/programs/:id#phase-:id-progress` and
 // `#status-history` open a popover (design.md §5/§4b), and openers listen for
 // `hashchange` to react. But Next's App Router `<Link>` navigates via
 // `history.pushState`, and **pushState does NOT fire `hashchange`** — so a

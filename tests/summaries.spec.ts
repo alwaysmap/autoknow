@@ -90,8 +90,12 @@ test.describe('Leadership summaries', () => {
     await expect(panel).toContainText('Risks');
     await expect(panel).toContainText('Actions');
     await expect(panel).toContainText('Codec drops are blocking the DSP path');
-    // Citation superscript deep-links to that phase's DETAILS popover.
-    await expect(panel.locator(`a[href="/programs/${seeded.projectId}#phase-${seeded.phases.integration}-detail"]`)).toBeVisible();
+    // Citation superscript deep-links to that phase's card on the program page.
+    // The brief above was stored with the RETIRED popover href, exactly as briefs
+    // written before autoknow-crw.4 still are on disk. getSummary rewrites it on read,
+    // so the receipt renders as a live link to the phase's card rather than a fragment
+    // that names nothing (AGENTS lesson 15).
+    await expect(panel.locator(`a[href="/programs/${seeded.projectId}#phase-${seeded.phases.integration}"]`)).toBeVisible();
     await expect(panel).toContainText('from 6 sources');
   });
 

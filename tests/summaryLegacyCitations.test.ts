@@ -1,9 +1,11 @@
 /** @jest-environment node */
-// Briefs are stored append-only with their citation hrefs baked in, so every brief
-// written before /history/phase/:id was retired (2026-07-21) still cites a page that
-// now 404s — and a brief is only regenerated once its scope goes stale, which can be
-// never. getSummary therefore rewrites those citations on read, onto the DETAILS
-// popover that replaced the page.
+// Briefs are stored append-only with their citation hrefs baked in, and are only
+// regenerated once their scope goes stale — which can be never. So a phase citation on
+// disk may carry EITHER retired shape: `/history/phase/:id` (the standalone page,
+// retired 2026-07-21) or `/programs/:id#phase-:id-detail` (the focused popover, retired
+// by autoknow-crw.4). getSummary rewrites both on read, onto the phase's CARD, which is
+// its home now. Both hop straight there rather than one hopping to the other — a chain
+// would grow a link every time this surface moves.
 import { testDatabaseUrl } from './helpers/testDatabaseUrl';
 import { prisma, disconnectTestDb } from './helpers/db';
 import { seedProgram, SeededProgram } from './helpers/fixtures';
@@ -37,16 +39,38 @@ const hrefsOf = (body: { sections: { bullets: { citations: { href: string }[] }[
   body.sections.flatMap((s) => s.bullets.flatMap((b) => b.citations.map((c) => c.href)));
 
 describe('rewriteLegacyPhaseCitations (pure)', () => {
-  it('rewrites a retired phase-history href onto the program-page deep link', () => {
+  it('rewrites a retired phase-history PAGE href onto the phase card', () => {
     const out = summaries.rewriteLegacyPhaseCitations(
       bodyCiting('/history/phase/7') as never,
       new Map([[7, 3]]),
     );
-    expect(hrefsOf(out)).toEqual(['/programs/3#phase-7-detail']);
+    expect(hrefsOf(out)).toEqual(['/programs/3#phase-7']);
+  });
+
+  it('rewrites a retired POPOVER href onto the phase card, in one hop', () => {
+    const out = summaries.rewriteLegacyPhaseCitations(
+      bodyCiting('/programs/3#phase-7-detail') as never,
+      new Map([[7, 3]]),
+    );
+    expect(hrefsOf(out)).toEqual(['/programs/3#phase-7']);
+  });
+
+  it('takes the project id from the MAP, not from the stale href that carries one', () => {
+    // The popover shape embeds a program id, and a phase can be re-homed. Resolving it
+    // from the phase → program map is what keeps a moved phase's receipt correct.
+    const out = summaries.rewriteLegacyPhaseCitations(
+      bodyCiting('/programs/3#phase-7-detail') as never,
+      new Map([[7, 42]]),
+    );
+    expect(hrefsOf(out)).toEqual(['/programs/42#phase-7']);
   });
 
   it('leaves every other href untouched', () => {
-    for (const href of ['/programs/3#status-history', '/programs/3', 'https://docs.example/x', '/history/phase/abc']) {
+    for (const href of [
+      '/programs/3#status-history', '/programs/3', 'https://docs.example/x', '/history/phase/abc',
+      '/programs/3#phase-7',           // already canonical — rewriting it again is a no-op
+      '/programs/3#phase-7-progress',  // the log's own address, not a retired shape
+    ]) {
       const out = summaries.rewriteLegacyPhaseCitations(bodyCiting(href) as never, new Map([[7, 3]]));
       expect(hrefsOf(out)).toEqual([href]);
     }
@@ -60,7 +84,7 @@ describe('rewriteLegacyPhaseCitations (pure)', () => {
   });
 
   it('collects the ids to resolve, deduplicated, and nothing for a modern brief', () => {
-    const modern = bodyCiting('/programs/3#phase-7-detail') as never;
+    const modern = bodyCiting('/programs/3#phase-7') as never;
     expect(summaries.legacyPhaseCitationIds(modern)).toEqual([]);
     const legacy = {
       sections: [
@@ -96,7 +120,7 @@ describe('getSummary', () => {
 
     const view = await summaries.getSummary('program', seeded.projectId);
     expect(hrefsOf(view!.body)).toEqual([
-      `/programs/${seeded.projectId}#phase-${seeded.phases.integration}-detail`,
+      `/programs/${seeded.projectId}#phase-${seeded.phases.integration}`,
     ]);
   });
 });

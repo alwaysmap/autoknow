@@ -270,7 +270,14 @@ const STRINGS = {
   history: { en: 'History', de: 'Verlauf', ja: '履歴', ko: '기록' },
   partnersLabel: { en: 'Partners', de: 'Partner', ja: 'パートナー', ko: '파트너' },
   peopleLabel: { en: 'People', de: 'Personen', ja: '担当者', ko: '관련 인원' },
-  details: { en: 'Details', de: 'Details', ja: '詳細', ko: '상세' },
+  // The phase card's three affordances (autoknow-crw.3). `editPhase` is SINGULAR and
+  // deliberately distinct from `editPhases` ('Edit phases →', the section-level door to
+  // the whole DAG): this one lands on one phase's panel. `updateAndHistory` names both
+  // jobs on purpose — the view it opens is where an update is RECORDED as well as read,
+  // and a label saying only 'History' would hide the app's most frequent write behind a
+  // word that means looking backwards.
+  editPhase: { en: 'Edit phase', de: 'Phase bearbeiten', ja: 'フェーズを編集', ko: '단계 편집' },
+  updateAndHistory: { en: 'Update & history', de: 'Update & Verlauf', ja: '更新と履歴', ko: '업데이트 및 기록' },
   involved: { en: 'Involved', de: 'Beteiligt', ja: '関係者', ko: '참여' },
   involvementLabel: { en: 'Involvement', de: 'Beteiligung', ja: '関与', ko: '참여' },
   involvementAfterSave: {

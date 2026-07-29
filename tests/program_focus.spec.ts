@@ -65,7 +65,7 @@ test.describe('a phase past its estimate is flagged at program level', () => {
     await expect(flag).toContainText('Exploit the constraint');
     // The phase mention is a link to its record, like every entity mention.
     await expect(flag.getByRole('link', { name: 'VHAL Integration' })).toHaveAttribute(
-      'href', new RegExp(`/programs/${projectId}#phase-\\d+-detail$`),
+      'href', new RegExp(`/programs/${projectId}#phase-\\d+$`),
     );
 
     // PROGRAM level means above the Critical chain section, not inside it — the

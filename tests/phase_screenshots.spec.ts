@@ -1,4 +1,4 @@
-import { test, expect, openCard, type Page } from './helpers/e2e';
+import { test, expect, openCard, openProgressView, type Page } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
@@ -29,19 +29,10 @@ test.describe('Phase UI screenshots', () => {
     await page.screenshot({ path: 'screenshots/01-phase-rail.png', fullPage: true });
   });
 
-  test('phase details', async ({ page }) => {
+  test('phase progress view', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
-    // hydration-resilient open (see phase_graph.spec.ts)
-    await expect(async () => {
-      if (!(await page.getByTestId('phase-details').isVisible())) {
-        // MIN is one line, so the card opens before the zoom button exists.
-        const zoom = row(page, 'Integration').getByRole('link', { name: 'Details' });
-        if (!(await zoom.isVisible())) await row(page, 'Integration').locator('a[data-card-title]').click();
-        await zoom.click({ timeout: 2000 });
-      }
-      await expect(page.getByTestId('phase-details')).toBeVisible({ timeout: 1500 });
-    }).toPass({ timeout: 20000 });
-    await page.screenshot({ path: 'screenshots/02-phase-details.png', fullPage: true });
+    await openProgressView(page, row(page, 'Integration'));
+    await page.screenshot({ path: 'screenshots/02-phase-progress.png', fullPage: true });
   });
 
   test('templates list', async ({ page }) => {
@@ -155,7 +146,7 @@ test.describe('Phase card anatomy screenshots', () => {
       // no-op once the card is open, so retrying it cannot toggle the card shut.
       await expect(async () => {
         await openCard(row(page, c.phase));
-        await expect(row(page, c.phase).getByRole('link', { name: 'Details' }))
+        await expect(row(page, c.phase).getByTestId('phase-progress-link'))
           .toBeVisible({ timeout: 1500 });
       }).toPass({ timeout: 20000 });
       await page.screenshot({ path: `screenshots/${c.file}`, fullPage: true });

@@ -20,7 +20,7 @@ import { geminiConfigured } from '../../../lib/gemini';
 import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
 import { personDirectorySelect } from '../../../lib/people';
 import { profilesAsOf } from '../../../lib/profiles';
-import { effectiveStartedAt, phaseDetailHref, statusProgress } from '../../../lib/phase';
+import { effectiveStartedAt, phaseHref, statusProgress } from '../../../lib/phase';
 import PhaseHillChart from '../../../components/PhaseHillChart';
 import { tNodes } from '../../../components/tNodes';
 import ChainLedger from '../../../components/ChainLedger';
@@ -391,7 +391,7 @@ export default async function ProjectDetailsPage(props: {
           <p className={styles.focus} data-testid="program-focus">
             <span className={styles.focusLabel}>{t(locale, 'clFocusLabel')}</span>
             {tNodes(locale, 'clFocusPhase', {
-              phase: <Link href={phaseDetailHref(projectId, focus.phaseId)}>{focus.phaseName}</Link>,
+              phase: <Link href={phaseHref(projectId, focus.phaseId)}>{focus.phaseName}</Link>,
               pct: focus.overPct,
               r: focus.remainingDays,
             })}{' '}
@@ -468,8 +468,10 @@ export default async function ProjectDetailsPage(props: {
               {railMounted ? (
                 // PhaseTrack owns its title row — the ⋯ menu (expand/hide/edit) rides
                 // beside it and needs the component's collapse state.
-                <PhaseTrack projectId={projectId} phases={graphRows} allPartners={allPartners}
-                  allPeople={allPeople} locale={locale} />
+                // No partner/person option sets: WHO is on a phase is edited in the one
+                // phase editor now (autoknow-crw.1), and the rail's card links to that
+                // rather than embedding a second copy of the control.
+                <PhaseTrack projectId={projectId} phases={graphRows} locale={locale} />
               ) : (
                 <>
                   <AnchorHeading id="phases" linkLabel={t(locale, 'anchorLink')}>
