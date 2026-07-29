@@ -39,3 +39,9 @@
 .empty {
   color: var(--muted);
 }
+
+/* Past its target and still open — coloured ink, the app's existing attention hue. */
+.overdue {
+  color: var(--warn);
+  cursor: help;
+}

@@ -16,10 +16,12 @@ import {
   STATUS_DISPLAY_KEY,
   UNTRIAGED,
   isOpen,
+  isOverdue,
   orgLevelRank,
   orgLevelToken,
   severityRank,
   severityToken,
+  targetRank,
   type EscalationOrgLevel,
   type EscalationSeverity,
   type EscalationStatus,
@@ -45,6 +47,7 @@ interface Escalation {
   severity: EscalationSeverity | null;
   orgLevel: EscalationOrgLevel | null;
   createdAt: string;
+  targetDate: string | null;
   partner: { id: number; name: string } | null;
   project: { id: number; name: string } | null;
   owner: PersonRef | null;
@@ -166,6 +169,13 @@ export default function EscalationsClient({
               ...personRefFunnel(escalations, (e) => e.decisionMaker),
             },
             { key: 'createdAt', label: t(locale, 'escRaisedOn') },
+            {
+              // NULLs sort LAST via targetRank — a missing target is "nobody said", not
+              // "infinitely soon". RESOLVED is deliberately not a column: it is empty for
+              // every open row, which is most of them, so it lives on the detail page.
+              key: 'targetDate', label: t(locale, 'escTargetDate'),
+              sortValue: (row) => targetRank((row as Escalation).targetDate),
+            },
           ]}
           data={rows}
           renderRow={(e: (typeof rows)[number]) => (
@@ -197,6 +207,18 @@ export default function EscalationsClient({
               <td><PersonCell person={e.owner} fallback={t(locale, 'escUnassigned')} /></td>
               <td><PersonCell person={e.decisionMaker} fallback={t(locale, 'escUnassigned')} /></td>
               <td><DateCell value={e.createdAt} /></td>
+              <td>
+                {e.targetDate ? (
+                  <span
+                    className={isOverdue(e.targetDate, e.status) ? styles.overdue : undefined}
+                    title={isOverdue(e.targetDate, e.status) ? t(locale, 'escOverdueTitle') : undefined}
+                  >
+                    <DateCell value={e.targetDate} />
+                  </span>
+                ) : (
+                  <span className={styles.empty}>—</span>
+                )}
+              </td>
             </tr>
           )}
           // Severity leads the default sort among open escalations (#245): `openRank`

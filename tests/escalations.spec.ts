@@ -113,16 +113,27 @@ test.describe('Escalations', () => {
     await expect(page.locator('body')).toContainText(
       'escalate the cert slip on EX90 — marketing had already committed externally',
     );
-    // The caveat has to be here, in the same voice as the Chat acks: a snapshot, never a
-    // watch (docs/SCALING_LIMITS.md §3).
-    const body = await page.locator('body').innerText();
-    expect(body).toMatch(/does not follow its thread/i);
-    expect(body).not.toMatch(/\broom\b/i);
-
-    await expect(page.getByRole('link', { name: 'Source thread' })).toHaveAttribute(
+    // The page itself carries only the way OUT to the thread — the caveats moved into the
+    // ⓘ so the quote is not buried under two paragraphs read once (§7).
+    await expect(page.getByRole('link', { name: 'Source', exact: true })).toHaveAttribute(
       'href',
       'https://chat.google.com/room/volvo-ex90/cert-escalation',
     );
+    // VISIBILITY, not presence: AnchoredPopover renders its panel into the top layer and
+    // keeps the content in the DOM while closed, so a text assertion would pass against a
+    // page that still showed both paragraphs. What moved is what the reader SEES.
+    const caveat = page.getByText('does not follow its thread');
+    await expect(caveat).toBeHidden();
+
+    // …and opening the ⓘ still tells the truth, in the Chat acks' voice: a snapshot,
+    // never a watch (docs/SCALING_LIMITS.md §3). Hydration-guarded, like any first
+    // interaction after a load.
+    const info = page.getByRole('button', { name: 'About the original request' });
+    await expect(async () => {
+      if (!(await caveat.isVisible())) await info.click({ timeout: 2000 });
+      await expect(caveat).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+    expect(await caveat.innerText()).not.toMatch(/\broom\b/i);
   });
 
   test('assigns and triages through the edit dialog', async ({ page }) => {

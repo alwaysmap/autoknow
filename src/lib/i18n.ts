@@ -2237,6 +2237,17 @@ const STRINGS = {
   escOrgExec: { en: 'Exec', de: 'Geschäftsleitung', ja: '経営層', ko: '경영진' },
   escOrgLevelLabel: { en: 'Org level', de: 'Organisationsebene', ja: '組織レベル', ko: '조직 레벨' },
   escUntriaged: { en: 'Not triaged', de: 'Nicht eingestuft', ja: '未分類', ko: '미분류' },
+  // The Opened / Target / Resolved trio. Only the middle one is a column; the other two
+  // are createdAt and closedAt, which needed a presentation rather than a schema.
+  escTargetDate: { en: 'Target', de: 'Ziel', ja: '目標期日', ko: '목표일' },
+  escNoTarget: { en: 'No target set', de: 'Kein Ziel gesetzt', ja: '目標期日なし', ko: '목표일 없음' },
+  escOverdue: { en: 'Overdue', de: 'Überfällig', ja: '期限超過', ko: '기한 초과' },
+  escOverdueTitle: {
+    en: 'Past its target date and still open.',
+    de: 'Zieldatum überschritten und weiterhin offen.',
+    ja: '目標期日を過ぎており、まだ未解決です。',
+    ko: '목표일이 지났고 아직 진행 중입니다.',
+  },
 
   escOwner: { en: 'Owner', de: 'Verantwortlich', ja: 'オーナー', ko: '담당자' },
   escDecisionMaker: { en: 'Decision maker', de: 'Entscheider', ja: '意思決定者', ko: '의사결정자' },
@@ -2256,7 +2267,13 @@ const STRINGS = {
     ja: 'チャットで起票されたそのままの文面です。何が依頼されたかの記録なので編集はできません。整えられるのは上のステートメントです。',
     ko: '채팅에서 제기된 그대로의 문구입니다. 무엇이 요청되었는지에 대한 기록이므로 편집할 수 없으며, 다듬을 수 있는 것은 위의 서술입니다.',
   },
-  escSourceThread: { en: 'Source thread', de: 'Quell-Thread', ja: '元スレッド', ko: '원본 스레드' },
+  escOriginalRequestAbout: {
+    en: 'About the original request',
+    de: 'Über die ursprüngliche Anfrage',
+    ja: '元の依頼について',
+    ko: '원본 요청 정보',
+  },
+  escSourceThread: { en: 'Source', de: 'Quelle', ja: 'ソース', ko: '원본' },
   // The snapshot caveat, in the same voice as the Chat acks (docs/SCALING_LIMITS.md §3):
   // never "room", never "watched".
   escThreadSnapshotNote: {

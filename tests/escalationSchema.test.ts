@@ -26,6 +26,7 @@ const fields = {
   ownerPersonId: '',
   decisionMakerPersonId: '',
   requestedOfPersonId: '',
+  targetDate: '',
 };
 
 describe('the enums are closed at the boundary', () => {
@@ -92,6 +93,21 @@ describe('triage is optional, and blank means untriaged rather than invalid', ()
     expect(parsed.ownerPersonId).toBeNull();
     expect(parsed.decisionMakerPersonId).toBeNull();
     expect(parsed.requestedOfPersonId).toBeNull();
+  });
+});
+
+describe('target date', () => {
+  it('accepts a date and normalizes a blank one to null', () => {
+    expect(escalationFieldsSchema.parse({ ...fields, targetDate: '2026-09-01' }).targetDate)
+      .toBeInstanceOf(Date);
+    // Blank is a real answer — "no target set" — not a rejected value.
+    expect(escalationFieldsSchema.parse({ ...fields, targetDate: '' }).targetDate).toBeNull();
+    expect(escalationFieldsSchema.parse(fields).targetDate).toBeNull();
+  });
+
+  it('refuses something that is not a date at all', () => {
+    expect(escalationFieldsSchema.safeParse({ ...fields, targetDate: 'next tuesday' }).success)
+      .toBe(false);
   });
 });
 

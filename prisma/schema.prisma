@@ -730,6 +730,17 @@ model Escalation {
   severity EscalationSeverity?
   /// Null = not yet triaged, as above.
   orgLevel EscalationOrgLevel?
+  /// OPTIONAL, and no default: a date nobody chose is a commitment nobody made, so
+  /// defaulting it would make every untriaged escalation look scheduled. Triage, not
+  /// provenance — set in the edit dialog beside severity and org level.
+  ///
+  /// There is deliberately no stored `overdue` flag beside it: overdue is
+  /// f(targetDate, now, status) and is derived at read time (lib/escalation). Storing it
+  /// would need a cron to keep it true, which is the O(time) shape the ingestion-health
+  /// ADR rejects.
+  targetDate DateTime?
+  /// When it was CLOSED. With `createdAt` this is the "Opened / Target / Resolved" trio
+  /// the detail rail reads; neither of those two needed a column, only a presentation.
   closedAt DateTime?
 
   // An escalation is about a partner and/or a program — at least one, a policy that lives

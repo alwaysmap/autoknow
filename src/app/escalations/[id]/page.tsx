@@ -8,11 +8,13 @@ import ClassBox from '../../../components/ClassBox';
 import DateCell from '../../../components/DateCell';
 import PersonCell, { type PersonRef } from '../../../components/PersonCell';
 import EscalationAdminControls from '../../../components/EscalationEditor';
+import InfoPopover from '../../../components/InfoPopover';
 import {
   ORG_LEVEL_KEY,
   SEVERITY_KEY,
   STATUS_DISPLAY_KEY,
   isClosed,
+  isOverdue,
   type EscalationOrgLevel,
   type EscalationSeverity,
   type EscalationStatus,
@@ -97,6 +99,8 @@ export default async function EscalationDetailPage({ params }: PageProps) {
 
   const status = escalation.status as EscalationStatus;
   const closed = isClosed(status);
+  // Derived, never stored (lib/escalation explains why a column would need a cron).
+  const overdue = isOverdue(escalation.targetDate, status);
 
   const person = (p: PersonRef | null) => (
     <PersonCell person={p} fallback={<span className={styles.empty}>{t(locale, 'escUnassigned')}</span>} />
@@ -151,18 +155,31 @@ export default async function EscalationDetailPage({ params }: PageProps) {
               no original request, and an empty quoted block would imply something was lost. */}
           {escalation.originalRequest && (
             <section className={styles.section}>
-              <AnchorHeading id="original-request" linkLabel={t(locale, 'anchorLink')}>
+              {/* The two caveats move into the ⓘ (§7): they are true, worth having, and
+                  read ONCE — leaving them on the page made everyone who wanted the quote
+                  re-read them forever. The affordance rides in `actions`, never as a
+                  sibling (§8c, third trap). */}
+              <AnchorHeading
+                id="original-request"
+                linkLabel={t(locale, 'anchorLink')}
+                actions={
+                  <InfoPopover label={t(locale, 'escOriginalRequestAbout')}>
+                    <p>{t(locale, 'escOriginalRequestHint')}</p>
+                    <p>{t(locale, 'escThreadSnapshotNote')}</p>
+                  </InfoPopover>
+                }
+              >
                 {t(locale, 'escOriginalRequest')}
               </AnchorHeading>
               <blockquote className={styles.original}>
                 <p className={styles.originalText}>{escalation.originalRequest}</p>
               </blockquote>
-              <p className={styles.hint}>{t(locale, 'escOriginalRequestHint')}</p>
+              {/* All that is left on the page is the way OUT to the thread. External
+                  (chat.google.com), so it opens away from the app; what that thread IS to
+                  us — a snapshot, never a watch (docs/SCALING_LIMITS.md §3) — is in the ⓘ
+                  above, which is where a caveat read once belongs. */}
               {escalation.contextUrl && (
                 <p className={styles.hint}>
-                  {/* The source is an EXTERNAL link (chat.google.com), so it opens away
-                      from the app; the caveat beside it says what that thread is to us —
-                      a snapshot, never a watch (docs/SCALING_LIMITS.md §3). */}
                   <a
                     href={escalation.contextUrl.url}
                     className={styles.factLink}
@@ -171,8 +188,6 @@ export default async function EscalationDetailPage({ params }: PageProps) {
                   >
                     {t(locale, 'escSourceThread')}
                   </a>
-                  {' — '}
-                  {t(locale, 'escThreadSnapshotNote')}
                 </p>
               )}
             </section>
@@ -189,6 +204,7 @@ export default async function EscalationDetailPage({ params }: PageProps) {
               status,
               severity: escalation.severity as EscalationSeverity | null,
               orgLevel: escalation.orgLevel as EscalationOrgLevel | null,
+              targetDate: escalation.targetDate?.toISOString() ?? null,
               partnerId: escalation.partnerId,
               projectId: escalation.projectId,
               ownerPersonId: escalation.ownerPersonId,
@@ -226,14 +242,31 @@ export default async function EscalationDetailPage({ params }: PageProps) {
                 fallback={<span className={styles.empty}>—</span>}
               />
             </Fact>
+            {/* OPENED / TARGET / RESOLVED, and all three are ALWAYS rendered — an omitted
+                row reads as "this page has no such field", where an em dash says "nobody
+                set one". Only the middle one is a column; the other two are createdAt and
+                closedAt, which needed a presentation rather than a schema. */}
             <Fact label={t(locale, 'escRaisedOn')}>
               <DateCell value={escalation.createdAt.toISOString()} />
             </Fact>
-            {closed && (
-              <Fact label={t(locale, 'escClosedOn')}>
-                <DateCell value={escalation.closedAt?.toISOString() ?? null} />
-              </Fact>
-            )}
+            <Fact label={t(locale, 'escTargetDate')}>
+              {escalation.targetDate ? (
+                <span
+                  className={overdue ? styles.overdue : undefined}
+                  title={overdue ? t(locale, 'escOverdueTitle') : undefined}
+                >
+                  <DateCell value={escalation.targetDate.toISOString()} />
+                  {overdue && <> · {t(locale, 'escOverdue')}</>}
+                </span>
+              ) : (
+                <span className={styles.empty}>—</span>
+              )}
+            </Fact>
+            <Fact label={t(locale, 'escClosedOn')}>
+              {closed
+                ? <DateCell value={escalation.closedAt?.toISOString() ?? null} />
+                : <span className={styles.empty}>—</span>}
+            </Fact>
             {escalation.duplicateOf && (
               <Fact label={t(locale, 'escDuplicateOf')}>
                 <Link href={escalationHref(escalation.duplicateOf.id)} className={styles.factLink}>
