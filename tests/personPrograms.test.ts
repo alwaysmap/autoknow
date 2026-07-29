@@ -17,13 +17,14 @@ jest.mock('server-only', () => ({}));
 
 // Dynamic import AFTER the env assignment above (docs/knowledge).
 let personProgramRows: typeof import('../src/lib/personPrograms')['personProgramRows'];
+let personProgramCounts: typeof import('../src/lib/personPrograms')['personProgramCounts'];
 
 const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 
 let personId: number;
 
 beforeAll(async () => {
-  ({ personProgramRows } = await import('../src/lib/personPrograms'));
+  ({ personProgramRows, personProgramCounts } = await import('../src/lib/personPrograms'));
   await wipeAll();
 
   const region = { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } };
@@ -72,6 +73,14 @@ beforeAll(async () => {
   await mkProgram('Retracted finish', [{ at: '2021-01-01', p: 100 }, { at: '2022-01-01', p: 40 }]);
   await mkProgram('Finished in the gap', [{ at: '2023-06-01', p: 100 }]);
   await mkProgram('Never updated', []);
+
+  // A program can be BOTH led and involved (#243) — TEL ownership and a phase role
+  // are independent DB facts, so nothing stops a person carrying both on one project.
+  const both = await prisma.project.create({
+    data: { name: 'Owned and involved', partnerId: bosch.id, ownerPersonId: personId },
+  });
+  const bothPhase = await prisma.phase.create({ data: { name: 'Owned and involved phase', projectId: both.id } });
+  await prisma.phasePerson.create({ data: { phaseId: bothPhase.id, personId, role: 'FAE' } });
 });
 
 afterAll(async () => {
@@ -147,4 +156,55 @@ it('an anchor in a career gap yields null — a dash, never the nearest company'
   expect(row).toBeDefined();
   expect(row?.heldThen).toBeNull();
   expect(row?.heldThenSummary).toBe('');
+});
+
+// #243: the list page's counts and the person page's per-row discriminator must
+// state the SAME rule — a program someone leads (TEL) and one they're involved in
+// (a phase role or action item) are different claims, and neither surface may
+// collapse them into one union again.
+describe('#243 connection kinds — leads vs involved', () => {
+  it('a TEL-only row carries exactly one kind: leads', async () => {
+    const row = (await rows()).get('Owned as TEL');
+    expect(row?.connectionKinds).toEqual(['leads']);
+    expect(row?.roleSummary).toBe('');
+  });
+
+  it('an involvement-only row carries exactly one kind: involved', async () => {
+    const row = (await rows()).get('Live now');
+    expect(row?.connectionKinds).toEqual(['involved']);
+  });
+
+  it('a program can be BOTH led and involved — the row carries both kinds', async () => {
+    const row = (await rows()).get('Owned and involved');
+    expect(row?.connectionKinds).toEqual(['leads', 'involved']);
+    expect(row?.roles).toEqual(['FAE']);
+  });
+
+  it('personProgramCounts (the list) agrees with personProgramRows\' connectionKinds (the person page) on one fixture', async () => {
+    const person = await prisma.person.findUniqueOrThrow({
+      where: { id: personId },
+      include: {
+        phaseInvolvements: {
+          include: { phase: { select: { id: true, name: true, project: { select: { id: true, name: true } } } } },
+        },
+        actionItems: {
+          select: { phase: { select: { id: true, name: true, project: { select: { id: true, name: true } } } } },
+        },
+      },
+    });
+    const owned = await prisma.project.findMany({ where: { ownerPersonId: personId }, select: { id: true } });
+
+    const counts = personProgramCounts({
+      owned,
+      phaseInvolvements: person.phaseInvolvements,
+      actionItems: person.actionItems,
+    });
+    const all = [...(await rows()).values()];
+
+    expect(counts.leads).toBe(all.filter((r) => r.connectionKinds.includes('leads')).length);
+    expect(counts.involved).toBe(all.filter((r) => r.connectionKinds.includes('involved')).length);
+    // Pinned to this fixture's shape so a silent regression shows as a wrong number,
+    // not just "the two sides still agree with each other" (they could both be wrong).
+    expect(counts).toEqual({ leads: 2, involved: 6 });
+  });
 });

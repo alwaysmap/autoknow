@@ -8,7 +8,8 @@ import { coversDay, jobLabel } from './people';
 // held two years ago used to render identically to one held now (#144); each row now
 // carries the company and role held at the time of the involvement, resolved from the
 // person's own career, plus (#144) whether that connection is still live, when it
-// ended, and which of the three routes put the row there.
+// ended, and which of the three routes put the row there — and (#243) whether that
+// route makes this person a LEADER of the program, someone INVOLVED in it, or both.
 //
 // A lib module rather than page code because the involvement DATING below is a rule, not
 // a rendering choice, and rules get tests (tests/personPrograms.test.ts). It reaches for
@@ -36,8 +37,8 @@ export interface PersonProgramRow {
   /** Distinct `PhasePerson.role` values held in this program. Often empty — the field
    *  is nullable and most rows do not set it. */
   roles: string[];
-  /** TEL + roles as one string: what the Role column SORTS on, since a column cannot
-   *  sort on a badge plus an array. Built server-side so SSR and client agree. */
+  /** Per-phase roles as one string: what the Role column SORTS on, since a column
+   *  cannot sort on an array. Built server-side so SSR and client agree. */
   roleSummary: string;
   phases: { id: number; name: string; role: string | null }[];
   heldThen: HeldThen | null;
@@ -60,12 +61,46 @@ export interface PersonProgramRow {
   /** WHY this row is here (#144 goal 3): the routes that put it there. Previously the
    *  intro said the list mixes three provenances and no row said which it was. */
   via: ProgramRoute[];
+  /** #243: which of two connection CONCEPTS this row is — leading it (`via` has 'tel')
+   *  and being named on it (`via` has 'phase' or 'action') are different claims, and a
+   *  row can be both. Never empty: a row exists only because at least one route
+   *  matched. This is the Connection column's discriminator, not the Role column's
+   *  badge — the badge conflated "how you're attached" (leadership) with "which role"
+   *  (a specific `PhasePerson.role`), which is why #243 could hide behind it. */
+  connectionKinds: ('leads' | 'involved')[];
+  /** What the Connection column SORTS on — unlocalized tokens, never rendered
+   *  (`roleSummary`'s convention). */
+  connectionSummary: string;
 }
 
 interface InvolvedPhase {
   id: number;
   name: string;
   project: { id: number; name: string };
+}
+
+/** Distinct project ids a person LEADS — the TEL-ownership route, the same one
+ *  `personProgramRows` folds into `via` via `row.via.add('tel')` (#144). Used by
+ *  `personProgramCounts` for the list page's cheap, DB-round-trip-free count: that
+ *  function can't read `via` directly, since building it means running the full async
+ *  row assembly below, so this restates the classification rather than sharing code
+ *  with it — `tests/personPrograms.test.ts` pins a fixture proving the two stay in
+ *  agreement (#243). */
+function ledProjectIds(owned: { id: number }[]): Set<number> {
+  return new Set(owned.map((p) => p.id));
+}
+
+/** Distinct project ids a person is INVOLVED in — a phase role or an action item riding
+ *  a phase, the same two routes `via` folds in as 'phase'/'action'. Same reason as
+ *  `ledProjectIds`. */
+function involvedProjectIds(
+  phaseInvolvements: { phase: { project: { id: number } } }[],
+  actionItems: { phase: { project: { id: number } } }[],
+): Set<number> {
+  return new Set([
+    ...phaseInvolvements.map((i) => i.phase.project.id),
+    ...actionItems.map((a) => a.phase.project.id),
+  ]);
 }
 
 /** One employment period as the page already loads it — newest start first, the same
@@ -124,7 +159,8 @@ export async function personProgramRows(input: {
 }): Promise<PersonProgramRow[]> {
   const { owned, phaseInvolvements, actionItems, career } = input;
 
-  type Draft = Omit<PersonProgramRow, 'heldThen' | 'heldThenSummary' | 'status' | 'endedOn' | 'via'>
+  type Draft =
+    Omit<PersonProgramRow, 'heldThen' | 'heldThenSummary' | 'status' | 'endedOn' | 'via' | 'connectionKinds' | 'connectionSummary'>
     & { via: Set<ProgramRoute> };
   const programs = new Map<number, Draft>();
   const rowFor = (project: { id: number; name: string }): Draft => {
@@ -195,18 +231,45 @@ export async function personProgramRows(input: {
   return [...programs.values()].map((row) => {
     const { at: anchor, endedOn } = anchorOf(row);
     const heldPeriod = career.find((period) => coversDay(period, anchor));
+    // #243: derived straight from `via` (#144) rather than a second pass over
+    // `owned`/`phaseInvolvements`/`actionItems` — one place in this function decides
+    // which routes reached a project, and this just regroups that decision's output.
+    const connectionKinds: PersonProgramRow['connectionKinds'] = [
+      ...(row.via.has('tel') ? (['leads'] as const) : []),
+      ...(row.via.has('phase') || row.via.has('action') ? (['involved'] as const) : []),
+    ];
     return {
       ...row,
       via: [...row.via],
       status: endedOn ? ('ended' as const) : ('live' as const),
       endedOn: endedOn ? endedOn.toISOString() : null,
-      // The Role column's sort key. 'TEL' unlocalized on purpose: this is a sort value,
-      // never rendered — the cell renders the badge and `telRole` carries the expansion.
-      roleSummary: [row.tel ? 'TEL' : '', ...row.roles].filter(Boolean).join(', '),
+      roleSummary: row.roles.join(', '),
+      connectionKinds,
+      connectionSummary: connectionKinds.join(', '),
       heldThen: heldPeriod
         ? { partnerId: heldPeriod.partnerId, partnerName: heldPeriod.partner.name, role: heldPeriod.role }
         : null,
       heldThenSummary: heldPeriod ? jobLabel(heldPeriod) : '',
     };
   });
+}
+
+/** The list page's counts (#243): "leads" (TEL ownership) and "involved" (a phase role
+ *  or action item) are different claims about a person and must never collapse into one
+ *  union — that collapse, dropping the TEL route entirely, was the original bug: a
+ *  person who leads a program with no phase involvement vanished from the list's old
+ *  single "programs" count while still appearing on their own page. Mirrors the same
+ *  three routes `personProgramRows` folds into `via` (#144) and derives
+ *  `connectionKinds` from — necessarily a SEPARATE computation, since the list page
+ *  can't afford `personProgramRows`'s per-row DB round trip just to get a count;
+ *  `tests/personPrograms.test.ts` pins a fixture asserting the two stay in agreement. */
+export function personProgramCounts(input: {
+  owned: { id: number }[];
+  phaseInvolvements: { phase: { project: { id: number } } }[];
+  actionItems: { phase: { project: { id: number } } }[];
+}): { leads: number; involved: number } {
+  return {
+    leads: ledProjectIds(input.owned).size,
+    involved: involvedProjectIds(input.phaseInvolvements, input.actionItems).size,
+  };
 }

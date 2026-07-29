@@ -142,8 +142,12 @@
 
 /* One line under a section heading saying what the table below actually contains —
    a column header cannot carry "named on it, OR holding an action item there". */
-/* The Role cell holds up to two things — the TEL badge and any phase roles — which
-   ran together as "TELTPM" when laid out as bare inline spans. */
+/* Shared by the Connection cell (its two ClassBoxes, #243) and the Affiliation cell
+   (name + role) — cells that can hold more than one inline piece, which ran together
+   unreadably ("TELTPM") the one time this app laid two spans out bare with no gap.
+   The Role cell reuses it too, for the same wrapping flex layout, even though it
+   holds one piece today (the comma-joined roles, or the dash) — TEL moved out of it
+   into Connection, so it no longer collides with anything. */
 .roleCell {
   display: flex;
   align-items: baseline;
@@ -165,15 +169,15 @@
   font-style: italic;
 }
 
-.telMark {
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+/* The Connection column's two boxes (#243): leadership keeps TEL's brand ink
+   (unchanged from the badge this replaced), involvement is muted like any other
+   secondary class (§6) — the SHAPE (box, from `ClassBox`) already says "this is a
+   class, not a name"; ink only tells the two classes apart from each other. */
+.leadBox {
   color: var(--p-600);
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  padding: 0 0.4375rem;
+}
+.involvedBox {
+  color: var(--muted);
 }
 
 .phaseChips {

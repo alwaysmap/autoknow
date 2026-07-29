@@ -18,9 +18,14 @@ import styles from './page.module.css';
 //
 // Never paged: one person's involvement, capped by their record.
 //
-// The Role column carries HOW this person is attached to the program, which is the
-// thing the chips could not say: TEL ownership, and any per-phase role. Both come
-// from the DB (`Project.ownerPersonId` and `PhasePerson.role`); neither is inferred.
+// The Connection column carries HOW this person is attached to the program — leading
+// it (TEL) or being named on it (a phase role / an action item) — as a first-class
+// discriminator (#243), not a badge buried inside Role. A row can be BOTH, and shows
+// both boxes: leadership and phase involvement are different claims from the DB
+// (`Project.ownerPersonId` and `PhasePerson.role`/`ActionItem`), neither inferred from
+// the other. The Role column now carries only the SPECIFIC per-phase role text — a
+// row can lead a program with no per-phase role at all, which renders a dash (the
+// Affiliation column's own dash convention below, restated here on purpose).
 // The Affiliation column carries WHO THEY WERE at the time — the job held during the
 // involvement (#127 E11) — and Status/To carry WHETHER the connection is still live and
 // when it ended (#144). All three are resolved and dated in lib/personPrograms, which
@@ -37,6 +42,10 @@ export default function PersonProgramsTable({ rows, locale }: { rows: PersonProg
     <DataTable
       headers={[
         { key: 'name', label: t(locale, 'programLabel') },
+        // Not filterable: a row can carry BOTH kinds, and the funnel's OR semantics
+        // are single-value-per-row (`PartnerPeopleTable`'s Status column pattern) —
+        // same reason `phases` below stays unfilterable and sort-only via a summary.
+        { key: 'connectionSummary', label: t(locale, 'connectionHeader') },
         { key: 'roleSummary', label: t(locale, 'roleHeader') },
         { key: 'heldThenSummary', label: t(locale, 'affiliationHeader') },
         // A CLASS, so it is a filterable ClassBox and never navigates (design.md §6).
@@ -64,14 +73,30 @@ export default function PersonProgramsTable({ rows, locale }: { rows: PersonProg
           </th>
           <td>
             <span className={styles.roleCell}>
-              {/* The acronym stays visible; `telRole` carries its expansion, so the
-                  string is configurable rather than a literal in the markup. */}
-              {r.tel && <span className={styles.telMark} title={t(locale, 'telRole')}>TEL</span>}
+              {/* The acronym itself stays a literal (it's app vocabulary, unlocalized —
+                  see roleSummary's sort-token convention); `telRole` only carries its
+                  hover expansion. */}
+              {r.connectionKinds.includes('leads') && (
+                <ClassBox className={styles.leadBox} title={t(locale, 'telRole')}>TEL</ClassBox>
+              )}
+              {r.connectionKinds.includes('involved') && (
+                <ClassBox className={styles.involvedBox} title={t(locale, 'involvedConnectionTitle')}>
+                  {t(locale, 'involvedConnectionLabel')}
+                </ClassBox>
+              )}
+            </span>
+          </td>
+          <td>
+            <span className={styles.roleCell}>
               {r.roles.length > 0 && <span className={styles.phaseRole}>{r.roles.join(', ')}</span>}
-              {/* WHY the row is here (#144 goal 3). The TEL badge already says one of the
-                  three; this names the other two, which nothing on the row said before. */}
+              {/* WHY the row is here (#144 goal 3). The Connection column already says
+                  leads/involved; this names the finer reason when Role would otherwise
+                  be blank and nothing else on the row explains an involved-only row. */}
               {r.via.includes('action') && !r.via.includes('phase') && (
                 <span className={styles.phaseRole}>{t(locale, 'viaActionItem')}</span>
+              )}
+              {r.roles.length === 0 && !(r.via.includes('action') && !r.via.includes('phase')) && (
+                <span className={styles.phaseRole}>—</span>
               )}
             </span>
           </td>

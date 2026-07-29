@@ -16,10 +16,15 @@ import styles from './ClassBox.module.css';
 // hairline in `currentColor`, never a filled badge (design.md §6), and inherits
 // its ink so callers colour it by setting `color`.
 
-export default function ClassBox({ children, className }: {
+export default function ClassBox({ children, className, title }: {
   children: React.ReactNode;
   /** Extra class from the caller (e.g. to set the ink). */
   className?: string;
+  /** Supplementary hover text — an abbreviation's expansion (e.g. "TEL" → its full
+   *  title) or any other explanatory tooltip a box needs. Plain passthrough, not a
+   *  caller-side wrapper, so a box that IS the filter/nav trigger (no separate button)
+   *  can still carry one. */
+  title?: string;
 }) {
-  return <span className={`${styles.box} ${className ?? ''}`}>{children}</span>;
+  return <span className={`${styles.box} ${className ?? ''}`} title={title}>{children}</span>;
 }

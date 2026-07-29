@@ -27,7 +27,12 @@ interface PersonRow {
   companyId: number | null;
   company: string;
   role: string;
-  programs: number;
+  /** #243: TEL ownership and phase/action-item involvement are different claims about
+   *  this person, counted separately so a row leading 5 and involved in 2 doesn't
+   *  render as an undifferentiated 7 — the collapsed union that used to silently
+   *  disagree with the person page's own Programs table. */
+  programsLed: number;
+  programsInvolved: number;
 }
 
 export default function PeopleClient({ people, partners, initialFilters, initialSort, initialQ = '' }: {
@@ -56,7 +61,8 @@ export default function PeopleClient({ people, partners, initialFilters, initial
               { key: 'name', label: t(locale, 'nameLabel') },
               { key: 'company', label: t(locale, 'companyLabel'), filterable: true, filterValue: (row) => (row as PersonRow).company || '—' },
               { key: 'role', label: t(locale, 'roleTitle'), filterable: true, filterValue: (row) => (row as PersonRow).role || '—' },
-              { key: 'programs', label: t(locale, 'navPrograms') },
+              { key: 'programsLed', label: t(locale, 'programsLedLabel') },
+              { key: 'programsInvolved', label: t(locale, 'programsInvolvedLabel') },
               { key: 'email', label: t(locale, 'emailHeader') },
             ]}
             data={people}
@@ -87,13 +93,25 @@ export default function PeopleClient({ people, partners, initialFilters, initial
                 </td>
                 <td>
                   {/* Bare count (§6, one measure per cell): the noun lives in the
-                      accessible name, never announced as a context-free number. */}
+                      accessible name, never announced as a context-free number. Both
+                      counts link to the same Programs section — the Connection column
+                      there (#243) is where a reader sees WHICH programs made up each
+                      number. */}
                   <Link
-                    href={personHref(p.id)}
+                    href={`${personHref(p.id)}#programs`}
                     className={styles.lifetimeProgramsLink}
-                    aria-label={t(locale, p.programs === 1 ? 'programsCountAriaOne' : 'programsCountAria', { n: p.programs })}
+                    aria-label={t(locale, p.programsLed === 1 ? 'programsLedAriaOne' : 'programsLedAria', { n: p.programsLed })}
                   >
-                    {p.programs}
+                    {p.programsLed}
+                  </Link>
+                </td>
+                <td>
+                  <Link
+                    href={`${personHref(p.id)}#programs`}
+                    className={styles.lifetimeProgramsLink}
+                    aria-label={t(locale, p.programsInvolved === 1 ? 'programsInvolvedAriaOne' : 'programsInvolvedAria', { n: p.programsInvolved })}
+                  >
+                    {p.programsInvolved}
                   </Link>
                 </td>
                 <td>
