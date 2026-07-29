@@ -75,7 +75,8 @@ already applied, dating a new fixture, or writing a backfill script that reuses
 
 ## Test databases
 
-`<name>_test` is SHARED by jest and Playwright and wiped per spec file —
-never run two suites concurrently, never point a server or demo at it. Need a
+Every worker of both runners owns a `<name>_<worktree>_<lane>_test` database and
+wipes it freely — `_w<n>` for Playwright, `_j<n>` for jest, named apart so the
+two suites can run at once. Never point a server or demo at any of them. Need a
 sandbox? `CREATE DATABASE x` + `DATABASE_URL=… npm run db:migrate:deploy` is
 two commands; do that instead (a live demo got wiped mid-session, 2026-07-19).

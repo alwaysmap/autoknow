@@ -11,5 +11,7 @@ import { provisionTestDatabases } from './helpers/provisionTestDatabases';
 import { e2eWorkers } from './helpers/worktree';
 
 export default async function globalSetup() {
-  await provisionTestDatabases(Array.from({ length: e2eWorkers() }, (_, i) => i));
+  await provisionTestDatabases(
+    Array.from({ length: e2eWorkers() }, (_, index) => ({ runner: 'e2e' as const, index })),
+  );
 }

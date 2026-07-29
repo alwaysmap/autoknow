@@ -1,12 +1,13 @@
-// The single source of truth for which database tests may touch. It derives a
-// dedicated `<name>_<worktree>[_w<n>]_test` database from DATABASE_URL, so even a
+// The single source of truth for which database tests may touch. It derives a dedicated
+// `<name>_<worktree>[_w<n>|_j<n>]_test` database from DATABASE_URL, so even a
 // misconfigured environment can NEVER point the test suite at the real database — the
 // name is forced to end in `_test`, and we fail hard if that somehow isn't true. The
 // per-worktree segment keeps concurrent checkouts on separate databases, and the
-// per-worker segment does the same for the Playwright workers within one run, so no two
-// fixture wipes can collide (tests/helpers/worktree, AGENTS lesson 9).
+// per-worker LANE segment does the same for the workers within one run — Playwright's and
+// jest's alike, kept apart by the letter — so no two fixture wipes can collide
+// (tests/helpers/worktree, AGENTS lesson 9).
 
-import { e2eWorkerIndex, worktreeToken } from './worktree';
+import { currentLane, worktreeToken, type TestLane } from './worktree';
 
 export const DEFAULT_DB_URL = 'postgresql://postgres:postgres@localhost:5432/autoknow';
 
@@ -27,38 +28,49 @@ export function announceDbFallback(): void {
 }
 
 /**
- * @param workerIndex Which Playwright worker's database. Defaults to the caller's own
- *   worker (null outside one), which is what makes tests/helpers/db correct with no
- *   argument: it is imported INSIDE a worker process, so it lands on that worker's
- *   database, while jest — which has no TEST_PARALLEL_INDEX — keeps the unsuffixed one.
- *   playwright.config.ts and global-setup-e2e run in the MAIN process and must therefore
- *   pass the index explicitly; they are provisioning other processes' databases, not
- *   their own.
+ * @param lane Whose worker's database, and which one. Defaults to the caller's own lane
+ *   (null outside any worker), which is what makes tests/helpers/db correct with no
+ *   argument: it is imported INSIDE a worker process — Playwright's or jest's — so it
+ *   lands on that worker's database. playwright.config.ts and both global setups run in a
+ *   MAIN process and must therefore pass a lane explicitly; they are provisioning other
+ *   processes' databases, not their own.
  */
-export function testDatabaseUrl(workerIndex = e2eWorkerIndex()): string {
+export function testDatabaseUrl(lane: TestLane | null = currentLane()): string {
   // Explicit opt-out: an operator or CI can pin the base name via TEST_DATABASE_URL (no
   // per-worktree token injected).
   const explicit = process.env.TEST_DATABASE_URL;
-  if (explicit) return testDbUrl(new URL(explicit), workerIndex);
+  if (explicit) return testDbUrl(new URL(explicit), lane);
 
   let base = process.env.DATABASE_URL;
   if (!base) {
     announceDbFallback();
     base = DEFAULT_DB_URL;
   }
-  return testDbUrl(new URL(base), workerIndex, worktreeToken());
+  return testDbUrl(new URL(base), lane, worktreeToken());
 }
 
 /**
- * Rebuild `url`'s database name as `<stem>[_<worktree>][_w<n>]_test`. Any existing `_test`
- * suffix is stripped first, so the stem is stable whether DATABASE_URL points at
- * `autoknow` or `autoknow_test`, and the result always ends in `_test` — the wipe guard
- * keys on that. The worker segment is appended even under TEST_DATABASE_URL, because it
- * is not a preference: two workers on one database wipe each other's fixtures.
+ * `w` for Playwright and `j` for jest, so the two runners' lanes cannot collide. They are
+ * separate processes with separate worker numbering, and both suites can be running at
+ * once — without the letter, Playwright worker 0 and jest worker 0 would name one
+ * database and wipe each other mid-run.
+ *
+ * A Record rather than a ternary so the mapping is exhaustive: a third runner fails to
+ * compile here instead of silently inheriting `j`.
  */
-function testDbUrl(url: URL, workerIndex: number | null, worktree?: string): string {
+const LANE_LETTER: Record<TestLane['runner'], string> = { e2e: 'w', jest: 'j' };
+
+/**
+ * Rebuild `url`'s database name as `<stem>[_<worktree>][_w<n>|_j<n>]_test`. Any existing
+ * `_test` suffix is stripped first, so the stem is stable whether DATABASE_URL points at
+ * `autoknow` or `autoknow_test`, and the result always ends in `_test` — the wipe guard
+ * keys on that. The lane segment is appended even under TEST_DATABASE_URL, because it is
+ * not a preference: two workers on one database wipe each other's fixtures.
+ */
+function testDbUrl(url: URL, lane: TestLane | null, worktree?: string): string {
   const stem = (url.pathname.replace(/^\//, '') || 'autoknow').replace(/_test$/, '');
-  const parts = [stem, worktree, workerIndex === null ? undefined : `w${workerIndex}`, 'test'];
+  const segment = lane === null ? undefined : `${LANE_LETTER[lane.runner]}${lane.index}`;
+  const parts = [stem, worktree, segment, 'test'];
   url.pathname = `/${parts.filter(Boolean).join('_')}`;
   return assertTestName(url);
 }

@@ -10,11 +10,13 @@
 // worktrees. testDatabaseUrl() folds it into the DB name and playwright.config folds
 // it into the port, so concurrent worktrees are isolated by construction.
 //
-// WITHIN a worktree, e2e now splits again by Playwright worker: each parallel worker
-// gets its own database AND its own web server bound to it (e2eWorkers below), because
-// every spec wipes its database in beforeAll and workers that share one clobber each
-// other's fixtures. jest is unaffected — it still runs maxWorkers:1 against the one
-// unsuffixed database.
+// WITHIN a worktree, BOTH runners split again by worker, for the same reason: a suite
+// wipes its database, so two workers sharing one clobber each other's fixtures. e2e gives
+// each Playwright worker a database AND a web server bound to it (e2eWorkers below); jest
+// gives each of its workers a database and needs no server, its count living in
+// jest.config's `maxWorkers` and its databases in tests/global-setup. The two lanes are
+// named apart — `_w<n>` for Playwright, `_j<n>` for jest — so running both at once cannot
+// land worker 0 of each on one database.
 
 import { createHash } from 'node:crypto';
 
@@ -62,6 +64,46 @@ export function e2eWorkers(): number {
 export function e2eWorkerIndex(): number | null {
   const raw = parseInt(process.env.TEST_PARALLEL_INDEX ?? '', 10);
   return Number.isFinite(raw) && raw >= 0 ? raw : null;
+}
+
+/**
+ * Which jest worker THIS process belongs to, or null outside one (global-setup, and any
+ * non-jest caller). jest numbers its workers from 1 — including the in-band case, where a
+ * single-file run still reports worker 1 — so the lane is JEST_WORKER_ID - 1, which lines
+ * the jest lanes up with Playwright's 0-based slots and with the provisioning loop.
+ *
+ * There is deliberately no `jestWorkers()` twin of `e2eWorkers()`: jest's worker count
+ * lives in jest.config.ts, and tests/global-setup reads it back off the resolved
+ * globalConfig rather than recomputing it. A second definition here would be a number
+ * that only LOOKS authoritative — the drift `e2eWorkers()`'s "one function" note warns of.
+ */
+export function jestWorkerIndex(): number | null {
+  const raw = parseInt(process.env.JEST_WORKER_ID ?? '', 10);
+  return Number.isFinite(raw) && raw >= 1 ? raw - 1 : null;
+}
+
+/**
+ * One test database's identity: whose worker it belongs to, and which one. `null` — no
+ * lane — is the unsuffixed database, which now belongs to no runner and is only what a
+ * caller outside any worker (a script, a global setup asking about itself) resolves to.
+ */
+export interface TestLane {
+  runner: 'e2e' | 'jest';
+  index: number;
+}
+
+/**
+ * The lane THIS process belongs to, which is what makes `testDatabaseUrl()` correct with
+ * no argument in ~40 suites: they are evaluated inside a worker, so they land on that
+ * worker's database. Playwright wins when both are set, because a spec runs inside a
+ * Playwright worker whose environment jest may also have stamped.
+ */
+export function currentLane(): TestLane | null {
+  const e2e = e2eWorkerIndex();
+  if (e2e !== null) return { runner: 'e2e', index: e2e };
+  const jest = jestWorkerIndex();
+  if (jest !== null) return { runner: 'jest', index: jest };
+  return null;
 }
 
 /**

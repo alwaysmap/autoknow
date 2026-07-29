@@ -4,6 +4,10 @@
 // pointed at the wrong server still passes most of the time, and only turns into an
 // unreproducible fixture flake under load. So they are asserted here, in the cheap suite,
 // rather than left to review (AGENTS lesson 2).
+//
+// The other half of that invariant — that jest's lanes never collide with these — is a
+// property of how names are BUILT, so it is asserted in tests/testDatabaseUrl.test.ts,
+// with the naming module.
 
 import { readFileSync } from 'node:fs';
 import { testDatabaseUrl } from './helpers/testDatabaseUrl';
@@ -42,14 +46,11 @@ describe('e2e worker isolation', () => {
 
   it('gives every worker a distinct database and a distinct port', () => {
     const indices = Array.from({ length: e2eWorkers() }, (_, i) => i);
-    const dbs = indices.map((i) => testDatabaseUrl(i));
+    const dbs = indices.map((index) => testDatabaseUrl({ runner: 'e2e', index }));
     const ports = indices.map((i) => testServerPort(i));
 
     expect(new Set(dbs).size).toBe(indices.length);
     expect(new Set(ports).size).toBe(indices.length);
-    // …and none of them is the database jest is using right now, which no e2e worker may
-    // share: jest wipes it too, and the two suites can run at the same time.
-    expect(dbs).not.toContain(testDatabaseUrl(null));
     // Every name still ends in `_test` — testDatabaseUrl throws otherwise, but the suffix
     // is the wipe guard's entire basis, so assert it rather than assume it.
     for (const db of dbs) expect(new URL(db).pathname).toMatch(/_test$/);

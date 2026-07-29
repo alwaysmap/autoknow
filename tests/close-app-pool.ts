@@ -6,11 +6,13 @@
 // whenever NODE_ENV !== 'production' — which includes jest (NODE_ENV=test). Any suite
 // that exercises app code (a route handler, a lib query) transitively imports
 // src/lib/db and opens that pool, but nothing ever closed it: tests/helpers/db's
-// disconnectTestDb() closes only the separate TEST pool. Because `npm run test` runs
-// serially in one long-lived worker (jest.config maxWorkers: 1), those app pools leak
-// and their connections accumulate across files — sampling pg_stat_activity during a
-// full run showed the count climbing to ~42 against the *_test DB. Not a failure today,
-// but a latent flake as the suite grows toward Postgres's max_connections ceiling.
+// disconnectTestDb() closes only the separate TEST pool. A worker is long-lived and runs
+// many files, so those app pools leak and their connections accumulate across the run —
+// sampling pg_stat_activity during a full run showed the count climbing to ~42 against
+// the *_test DB, back when the whole suite was one worker (jest.config maxWorkers: 1).
+// It is now one such run PER worker against Postgres's one max_connections ceiling, so
+// the headroom this buys got proportionally more valuable rather than less: measured a
+// peak of 10 against a limit of 100 at four workers, WITH this teardown in place.
 //
 // Why it READS `global` instead of importing a teardown helper from src/lib/db:
 // importing that module here would evaluate it at setup time — before any test body

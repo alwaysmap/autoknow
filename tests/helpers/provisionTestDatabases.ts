@@ -1,8 +1,8 @@
 // Create the disposable test databases and sync the Prisma schema into them. Called from
-// both global setups — tests/global-setup.ts (jest: one database) and
-// tests/global-setup-e2e.ts (Playwright: one per worker) — which differ only in how many
-// they ask for. Runs against `<name>_test` names only; testDatabaseUrl enforces that, so
-// the real database can never be a target.
+// both global setups — tests/global-setup.ts (jest) and tests/global-setup-e2e.ts
+// (Playwright) — which now ask for the same thing, one database per worker, and differ
+// only in whose workers they are naming. Runs against `<name>_test` names only;
+// testDatabaseUrl enforces that, so the real database can never be a target.
 
 import { execFile } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { Client } from 'pg';
 import { testDatabaseUrl } from './testDatabaseUrl';
+import type { TestLane } from './worktree';
 
 const execFileAsync = promisify(execFile);
 
@@ -57,11 +58,13 @@ export function unmanagedConstraintSql(): string[] {
 }
 
 /**
- * @param workerIndices One entry per database to provision: a Playwright worker index,
- *   or `null` for the unsuffixed database that jest and a single-server run use.
+ * @param lanes One entry per database to provision — a worker lane, Playwright's or
+ *   jest's. Both runners now own every database they use, so there is no laneless case
+ *   here; `testDatabaseUrl(null)` still names the unsuffixed database, but nothing
+ *   provisions it.
  */
-export async function provisionTestDatabases(workerIndices: (number | null)[]): Promise<void> {
-  const urls = workerIndices.map((i) => new URL(testDatabaseUrl(i)));
+export async function provisionTestDatabases(lanes: TestLane[]): Promise<void> {
+  const urls = lanes.map((lane) => new URL(testDatabaseUrl(lane)));
 
   // Create the missing databases over ONE maintenance connection — they all live on the
   // same server — and before any schema work, since `prisma db push` cannot create its

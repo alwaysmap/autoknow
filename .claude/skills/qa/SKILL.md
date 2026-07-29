@@ -44,28 +44,35 @@ warnings is the bar — the suite was once left red on main and it hid real bugs
 
 ## How the test layers work
 
-- **Jest** (unit + DB): DB suites bind the `<name>_<worktree>_test` database via
-  `tests/helpers/testDatabaseUrl` — the `process.env.DATABASE_URL` assignment
-  must come BEFORE any import of `src/lib/db` (dynamic-import pattern used in
-  every DB test; copy `tests/owner.test.ts` as the template).
+- **Jest** (unit + DB): DB suites bind their worker's `<name>_<worktree>_j<n>_test`
+  database via `tests/helpers/testDatabaseUrl` — called with no argument, it
+  resolves the caller's own lane, so a suite needs no per-file wiring. The
+  `process.env.DATABASE_URL` assignment must come BEFORE any import of
+  `src/lib/db` (dynamic-import pattern used in every DB test; copy
+  `tests/owner.test.ts` as the template).
 - **Per-worktree isolation**: the `*_test` DB name and the Playwright port both
   carry a token derived from the checkout (`tests/helpers/worktree`), so
   concurrent worktrees get separate DBs/ports and can't clobber each other
   (AGENTS lesson 9). Override with `WORKTREE_ID` / `TEST_SERVER_PORT` /
   `TEST_DATABASE_URL` (e.g. to pin a name in CI). Test DBs are created lazily by
-  the global setups and **never auto-dropped**, so a worktree leaves
-  `autoknow_<token>_test` plus one `…_w<n>_test` per e2e worker behind — run
+  the global setups and **never auto-dropped**, so a worktree leaves one
+  `…_w<n>_test` per e2e worker and one `…_j<n>_test` per jest worker behind — run
   **`npm run db:test:clean`** to drop every idle `autoknow…_test` DB (it skips
   any with open connections, and never touches the real `autoknow` DB or the
   demo/scratch DBs, which lack the `_test` suffix).
-- **Per-worker isolation (e2e)**: Playwright runs `e2eWorkers()` workers — 4 by
-  default, `E2E_WORKERS` overrides — and each owns a `…_w<n>_test` database AND
-  its own `next start` on `basePort + n`, so the wipe in a spec's `beforeAll` is
-  invisible to the other workers. Three things must agree for that to hold (the
-  worker count, the port, the DB name) and all three fail silently, so
-  `tests/e2eWorkerIsolation.test.ts` asserts them. **A spec must import `test`
-  from `tests/helpers/e2e`, never from `@playwright/test`** — the per-worker
-  `baseURL` lives in that fixture, and the guard test fails the build otherwise.
+- **Per-worker isolation**: BOTH runners give every worker its own database,
+  because both wipe what they are given. The lanes are named apart — `_w<n>` for
+  Playwright, `_j<n>` for jest — so the two suites can run at the same time;
+  `tests/testDatabaseUrl.test.ts` asserts the two sets never intersect.
+  - *jest*: `maxWorkers` (jest.config, `JEST_WORKERS` overrides, 4 by default);
+    `tests/global-setup` provisions one database per worker by reading that
+    resolved count back off jest's own globalConfig, so the two cannot drift.
+  - *e2e*: `e2eWorkers()` workers — 4 by default, `E2E_WORKERS` overrides — each
+    owning a `…_w<n>_test` database AND its own `next start` on `basePort + n`.
+    Three things must agree (worker count, port, DB name) and all three fail
+    silently, so `tests/e2eWorkerIsolation.test.ts` asserts them. **A spec must
+    import `test` from `tests/helpers/e2e`, never from `@playwright/test`** — the
+    per-worker `baseURL` lives in that fixture, and the guard fails the build.
 - **Playwright**: serves a PROD build out of `.next-test` with stubbed auth. The
   build runs ONCE, in the `test:e2e*` npm scripts, before Playwright starts — the
   `webServer` entries only `next start`, so run e2e through the scripts, not

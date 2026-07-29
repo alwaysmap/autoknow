@@ -120,6 +120,14 @@ model Project {
   // The dominant read behind the FK is "programs owned by this person" (the person
   // page), and Postgres does not auto-index FK columns.
   @@index([ownerPersonId])
+  // The same reasoning as `@@index([ownerPersonId])` above, missed when that one was
+  // added (20260726232108): partnerId is the OTHER un-auto-indexed FK, and it is read
+  // harder. The partner page's program list is exactly `where partnerId order by name`
+  // (lib/partnerPrograms), so the composite serves filter and sort in one scan; partnerId
+  // alone is the prefix, which is what lib/partnerDeletion's blocker count and
+  // lib/search's partner-scoped program reads use. Postgres also scans this to ENFORCE
+  // the RESTRICT on every partner delete, so the write path pays for its absence too.
+  @@index([partnerId, name])
 }
 
 // Leadership summary for one scope (ecosystem / partner / program): risks, progress,
@@ -245,6 +253,17 @@ model PhaseState {
   // The dominant read is "latest state for this phase" (orderBy timestamp desc,
   // take 1) — Postgres does not auto-index FK columns.
   @@index([phaseId, timestamp])
+  // The UNSCOPED reads, which the composite above cannot serve: with no phaseId
+  // predicate its leading column is unconstrained, so Postgres sorts the whole table.
+  // Two callers — lib/summaries' ecosystem staleness probe and lib/activity's ecosystem
+  // feed. This is the table where it matters most, because it is append-only and the
+  // fastest-growing in the schema. Migration 20260729015546 has the measurement, and why
+  // the probe's HEALTHY case is its expensive one.
+  //
+  // NOT the redundancy `drop_redundant_affiliation_indexes` removed: that dropped
+  // single-column indexes that were strict PREFIXES of a composite. `timestamp` is this
+  // composite's SUFFIX, which no prefix rule reaches — so do not "align" the two on sight.
+  @@index([timestamp])
 }
 
 model ActionItem {
@@ -428,6 +447,19 @@ model Person {
   ownedProjects    Project[] // back-relation of Project.ownerPersonId (#127 E6)
   phaseInvolvements PhasePerson[]
   embedding        Unsupported("vector(768)")?
+
+  // E9 dropped `Person_email_key` when it dropped `@unique` — correctly, since the
+  // uniqueness claim was false — but the READER survived the constraint: the duplicate
+  // check on every person creation is `findFirst({ where: { email } })`
+  // (app/actions/people). This restores the index without restoring the claim, and it is
+  // the plain-`=` index only: the ILIKE/`mode:'insensitive'` lookups in lib/personDirectory
+  // and app/me cannot use a plain btree and are deliberately left to the seq scan the
+  // column comment above already reasons about.
+  @@index([email])
+  // Unindexed FK, same as Project.partnerId: lib/partnerDeletion counts people at a
+  // partner to decide whether the delete is blocked, and Postgres scans this to enforce
+  // the RESTRICT itself.
+  @@index([currentPartnerId])
 }
 
 // Program templates (PHASE_TEMPLATES_PLAN): a reusable phase DAG with rich per-phase
@@ -565,6 +597,10 @@ model ProjectState {
   sourceUrl         String?
 
   @@index([projectId, timestamp])
+  // The unscoped reads the composite cannot serve: lib/summaries' ecosystem staleness
+  // probe and lib/activity's ecosystem feed, the same two that motivate the identical
+  // index on PhaseState. Migration 20260729015546 carries the full account.
+  @@index([timestamp])
 }
 
 model PartnerState {
@@ -586,6 +622,13 @@ model PartnerState {
   sourceUrl         String?
 
   @@index([partnerId, timestamp])
+  // The unscoped reads the composite cannot serve — same shape as the identical index on
+  // PhaseState, but only ONE of its two callers: lib/activity's ecosystem feed reads this
+  // table too, while lib/summaries' staleness probe never does (its partner branch is
+  // scoped). The caller unique to here is app/partners, which loads EVERY relationship
+  // state, `orderBy timestamp desc` with no where, and reduces to the latest score plus a
+  // 10-point history per partner in JS. Migration 20260729015546 has the account.
+  @@index([timestamp])
 }
 
 
