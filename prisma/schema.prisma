@@ -120,13 +120,13 @@ model Project {
   // The dominant read behind the FK is "programs owned by this person" (the person
   // page), and Postgres does not auto-index FK columns.
   @@index([ownerPersonId])
-  // The same reasoning one line up, which this schema missed until #253's follow-up:
-  // partnerId is the OTHER un-auto-indexed FK, and it is read harder than ownerPersonId.
-  // The partner page's program list is exactly `where partnerId order by name`
-  // (lib/partnerPrograms), so the composite serves the filter and the sort in one scan;
-  // partnerId alone is the prefix, which is what lib/partnerDeletion's blocker count and
-  // lib/search's two subselects use. It is also what Postgres scans to ENFORCE the
-  // RESTRICT on every partner delete, so the write path pays for its absence too.
+  // The same reasoning as `@@index([ownerPersonId])` above, missed when that one was
+  // added (20260726232108): partnerId is the OTHER un-auto-indexed FK, and it is read
+  // harder. The partner page's program list is exactly `where partnerId order by name`
+  // (lib/partnerPrograms), so the composite serves filter and sort in one scan; partnerId
+  // alone is the prefix, which is what lib/partnerDeletion's blocker count and
+  // lib/search's partner-scoped program reads use. Postgres also scans this to ENFORCE
+  // the RESTRICT on every partner delete, so the write path pays for its absence too.
   @@index([partnerId, name])
 }
 
@@ -255,17 +255,13 @@ model PhaseState {
   @@index([phaseId, timestamp])
   // The UNSCOPED reads, which the composite above cannot serve: with no phaseId
   // predicate its leading column is unconstrained, so Postgres sorts the whole table.
-  // Two callers, and the expensive one is the HEALTHY case — lib/summaries' ecosystem
-  // staleness probe is `findFirst({ where: { timestamp: { gt: after } } })`, which when
-  // the brief IS fresh matches nothing and therefore scans everything to return null.
-  // This table is append-only and the fastest-growing in the schema, so that scan is the
-  // one that degrades first. The other caller is lib/activity's ecosystem feed
-  // (`orderBy timestamp desc, take N`, no where).
+  // lib/summaries' ecosystem staleness probe and lib/activity's ecosystem feed; the
+  // migration header has the measurement and why the probe's HEALTHY case is its
+  // expensive one.
   //
-  // NOT redundant with the composite, and not the case `drop_redundant_affiliation_indexes`
-  // cleaned up: that migration dropped single-column indexes that were strict PREFIXES of
-  // a composite. `timestamp` is the composite's SUFFIX, which no prefix rule reaches — so
-  // do not "align" the two on sight.
+  // NOT the redundancy `drop_redundant_affiliation_indexes` removed: that dropped
+  // single-column indexes that were strict PREFIXES of a composite. `timestamp` is this
+  // composite's SUFFIX, which no prefix rule reaches — so do not "align" the two on sight.
   @@index([timestamp])
 }
 
@@ -624,10 +620,12 @@ model PartnerState {
   sourceUrl         String?
 
   @@index([partnerId, timestamp])
-  // The unscoped read the composite cannot serve: app/partners loads EVERY relationship
-  // state, `orderBy timestamp desc` with no where, and reduces to the latest score plus a
-  // 10-point history per partner in JS. Same shape and reason as
-  // PhaseState.@@index([timestamp]), which carries the full account.
+  // Same SHAPE as PhaseState.@@index([timestamp]) — an unscoped read that a
+  // leading-scope composite cannot serve — but a different caller, and this one is it:
+  // app/partners loads EVERY relationship state, `orderBy timestamp desc` with no where,
+  // and reduces to the latest score plus a 10-point history per partner in JS. (The
+  // ecosystem staleness probe that motivates the other two never reads this table
+  // unscoped.)
   @@index([timestamp])
 }
 
