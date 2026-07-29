@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
 import NeedleHistoryList from './NeedleHistoryList';
 import OverlayDialog from './OverlayDialog';
@@ -92,7 +93,7 @@ export default function RelationshipScale({
   // it at that update (nnu — shared with NeedleGauge; the eager-ref fix here is what
   // NeedleGauge's own copy was missing before the two were unified). Opening writes
   // the hash, so the open popover IS a shareable URL.
-  const { open: detailOpen, addressed, openDetail, closeDetail: closePopover, mayDismiss } = useHashAddressablePopover({
+  const { open: detailOpen, addressed, closeDetail: closePopover, mayDismiss } = useHashAddressablePopover({
     matchesHash: isRelationshipHash,
     parseAddressed: parseRelUpdateHash,
     hashToWrite: RELATIONSHIP_HISTORY_HASH,
@@ -168,8 +169,13 @@ export default function RelationshipScale({
       )}
       {/* faces · date · DETAIL — one horizontal cluster (§7). Updating happens inside
           the popover, so the resting row states the fact and offers one way in,
-          exactly as the program gauge's row does. */}
-      <button type="button" onClick={openDetail} className={styles.updateBtn}>{t(locale, 'detail')}</button>
+          exactly as the program gauge's row does. DETAIL only ever changes WHERE you
+          are (writes `#relationship-history`) — a link, not a button (design.md §6,
+          #168 — that sweep's own table missed this site; caught converting this
+          component onto the shared popover hook, nnu). `openDetail` (still returned by
+          the hook for a caller that needs it) goes unused here, same as NeedleGauge's
+          own DETAIL after #168. */}
+      <Link href={`#${RELATIONSHIP_HISTORY_HASH}`} replace scroll={false} className={styles.updateBtn}>{t(locale, 'detail')}</Link>
 
       {/* The complete log — faces, the qualitative label, author, timestamp and the
           written note in full (it feeds the AI briefing and is deliberately absent

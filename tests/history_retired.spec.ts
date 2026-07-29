@@ -83,7 +83,7 @@ test.describe('Retired history pages', () => {
     // line), so expand the card first when it is collapsed.
     await expect(async () => {
       if (!(await details.isVisible())) {
-        const zoom = row.getByRole('button', { name: 'Details' });
+        const zoom = row.getByRole('link', { name: 'Details' });
         if (!(await zoom.isVisible())) {
           const title = row.locator('a[data-card-title]');
           if ((await title.getAttribute('aria-expanded')) !== 'true') await title.click();

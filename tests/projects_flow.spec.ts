@@ -128,7 +128,7 @@ test.describe('Projects and Partners Flow', () => {
     const archLock = page.locator('[data-testid="phase-row"]')
       .filter({ has: page.locator('a:text-is("Architecture lock")') });
     await archLock.locator('a[data-card-title]').click();
-    await archLock.getByRole('button', { name: 'Details' }).click();
+    await archLock.getByRole('link', { name: 'Details' }).click();
     const details = page.getByTestId('phase-details');
     // Template content copied onto the live phase (Goal/Done-when format since the
     // phase-dossier overhaul, PR #15).
