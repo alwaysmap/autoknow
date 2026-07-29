@@ -9,6 +9,8 @@ import nextJest from 'next/jest.js'
 // a typo'd setting that silently falls back to the default surfaces later as an
 // unreproducible fixture flake, not as a bad setting. `Number(...) || 4` would take
 // JEST_WORKERS=foo, 2.5 and -1 without a word.
+/** 4 because a GitHub runner has 4 vCPU, and ci.yml never sets the knob — so this
+ *  constant IS the CI worker count, not just a local convenience. */
 const DEFAULT_JEST_WORKERS = 4
 function jestWorkerCount(): number {
   const raw = process.env.JEST_WORKERS?.trim()

@@ -6,6 +6,10 @@ import { worktreeToken, testServerPort } from './helpers/worktree';
 // a token unique to the checkout, so concurrent worktrees stop clobbering one shared
 // `autoknow_test` DB / one :3130 socket — WITHOUT ever weakening the invariant that the
 // name ends in `_test` (the wipe guard in lib/dbSafety keys on exactly that).
+//
+// And one level down from the token: the per-worker LANE, which keeps Playwright's
+// workers and jest's off each other's databases. That invariant is about how names are
+// built, so it is asserted here rather than in either runner's own suite.
 
 function withEnv<T>(patch: Record<string, string | undefined>, fn: () => T): T {
   const saved: Record<string, string | undefined> = {};
@@ -94,13 +98,13 @@ describe('testDatabaseUrl — the per-worker lane', () => {
   // reading today's counts would only prove it for today's.
   it('never lands a jest worker and an e2e worker on one database', () => {
     const span = Array.from({ length: 16 }, (_, i) => i);
-    const e2e = span.map((index) => named({ runner: 'e2e', index }));
-    const jest = span.map((index) => named({ runner: 'jest', index }));
+    const e2eNames = span.map((index) => named({ runner: 'e2e', index }));
+    const jestNames = span.map((index) => named({ runner: 'jest', index }));
 
-    expect(new Set(jest).size).toBe(span.length);
-    expect(e2e.filter((db) => jest.includes(db))).toEqual([]);
+    expect(new Set(jestNames).size).toBe(span.length);
+    expect(e2eNames.filter((db) => jestNames.includes(db))).toEqual([]);
     // …and neither lane may take the unsuffixed database, which belongs to no runner.
-    expect([...e2e, ...jest]).not.toContain(withEnv(env, () => dbNameOf(testDatabaseUrl(null))));
+    expect([...e2eNames, ...jestNames]).not.toContain(named(null));
   });
 
   it('appends the lane even under an explicit TEST_DATABASE_URL', () => {

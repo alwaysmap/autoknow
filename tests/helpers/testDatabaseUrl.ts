@@ -50,19 +50,23 @@ export function testDatabaseUrl(lane: TestLane | null = currentLane()): string {
 }
 
 /**
+ * `w` for Playwright and `j` for jest, so the two runners' lanes cannot collide. They are
+ * separate processes with separate worker numbering, and both suites can be running at
+ * once — without the letter, Playwright worker 0 and jest worker 0 would name one
+ * database and wipe each other mid-run.
+ *
+ * A Record rather than a ternary so the mapping is exhaustive: a third runner fails to
+ * compile here instead of silently inheriting `j`.
+ */
+const LANE_LETTER: Record<TestLane['runner'], string> = { e2e: 'w', jest: 'j' };
+
+/**
  * Rebuild `url`'s database name as `<stem>[_<worktree>][_w<n>|_j<n>]_test`. Any existing
  * `_test` suffix is stripped first, so the stem is stable whether DATABASE_URL points at
  * `autoknow` or `autoknow_test`, and the result always ends in `_test` — the wipe guard
  * keys on that. The lane segment is appended even under TEST_DATABASE_URL, because it is
  * not a preference: two workers on one database wipe each other's fixtures.
- *
- * `w` for Playwright and `j` for jest, so the two runners' lanes cannot collide. They are
- * separate processes with separate worker numbering, and both suites can be running at
- * once — without the letter, Playwright worker 0 and jest worker 0 would name one
- * database and wipe each other mid-run.
  */
-const LANE_LETTER: Record<TestLane['runner'], string> = { e2e: 'w', jest: 'j' };
-
 function testDbUrl(url: URL, lane: TestLane | null, worktree?: string): string {
   const stem = (url.pathname.replace(/^\//, '') || 'autoknow').replace(/_test$/, '');
   const segment = lane === null ? undefined : `${LANE_LETTER[lane.runner]}${lane.index}`;

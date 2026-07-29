@@ -1,8 +1,8 @@
 // Create the disposable test databases and sync the Prisma schema into them. Called from
-// both global setups — tests/global-setup.ts (jest: one database) and
-// tests/global-setup-e2e.ts (Playwright: one per worker) — which differ only in how many
-// they ask for. Runs against `<name>_test` names only; testDatabaseUrl enforces that, so
-// the real database can never be a target.
+// both global setups — tests/global-setup.ts (jest) and tests/global-setup-e2e.ts
+// (Playwright) — which now ask for the same thing, one database per worker, and differ
+// only in whose workers they are naming. Runs against `<name>_test` names only;
+// testDatabaseUrl enforces that, so the real database can never be a target.
 
 import { execFile } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';

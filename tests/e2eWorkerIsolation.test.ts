@@ -4,13 +4,15 @@
 // pointed at the wrong server still passes most of the time, and only turns into an
 // unreproducible fixture flake under load. So they are asserted here, in the cheap suite,
 // rather than left to review (AGENTS lesson 2).
+//
+// The other half of that invariant — that jest's lanes never collide with these — is a
+// property of how names are BUILT, so it is asserted in tests/testDatabaseUrl.test.ts,
+// with the naming module.
 
 import { readFileSync } from 'node:fs';
 import { testDatabaseUrl } from './helpers/testDatabaseUrl';
 import { sourceFiles, stripComments } from './helpers/sourceFiles';
 import { e2eWorkers, testServerPort } from './helpers/worktree';
-// The jest lanes these e2e ones must not collide with are a property of how names are
-// BUILT, so that half is asserted in tests/testDatabaseUrl.test.ts, with the naming module.
 
 // RECURSIVE, via the shared walker: tests/api/ is a whole directory of specs that a flat
 // readdir misses, and missing it is how the first run of this change failed.
