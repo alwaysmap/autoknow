@@ -1282,6 +1282,21 @@ const STRINGS = {
   telsHeader: { en: 'Technical Engagement Leads', de: 'Technische Engagement-Leads', ja: 'テクニカルエンゲージメントリード', ko: '기술 참여 리드' },
   // Singular of telsHeader — the badge shows the acronym, this is its expansion on hover.
   telRole: { en: 'Technical Engagement Lead', de: 'Technischer Engagement-Lead', ja: 'テクニカルエンゲージメントリード', ko: '기술 참여 리드' },
+  // The People table's two program-count columns (#243) — see the aria-label pair
+  // below for why they are two columns and not one.
+  programsLedLabel: { en: 'Programs Led', de: 'Geleitete Programme', ja: '主導プログラム', ko: '주도 프로그램' },
+  programsInvolvedLabel: { en: 'Programs Involved', de: 'Beteiligte Programme', ja: '関与プログラム', ko: '참여 프로그램' },
+  // The person page's Programs table Connection column (#243): a first-class
+  // discriminator for "leads it" vs "is named on it", where the TEL badge used to be
+  // the only marker and lived inside the Role column instead.
+  connectionHeader: { en: 'Connection', de: 'Verbindung', ja: '関わり方', ko: '연결' },
+  involvedConnectionLabel: { en: 'Involved', de: 'Beteiligt', ja: '関与', ko: '참여' },
+  involvedConnectionTitle: {
+    en: 'Named on a phase or holding an action item in this program',
+    de: 'In einer Phase genannt oder mit einer Aufgabe in diesem Programm betraut',
+    ja: 'このプログラムのフェーズに名前があるか、アクションアイテムを担当しています',
+    ko: '이 프로그램의 단계에 이름이 올라 있거나 액션 아이템을 맡고 있습니다',
+  },
   roleHeader: { en: 'Role', de: 'Rolle', ja: '役割', ko: '역할' },
   // The Programs table's affiliation-held-then column (#127 E11). Deliberately not
   // "Company": the program's partner is also a company, and this column answers a
@@ -1327,10 +1342,15 @@ const STRINGS = {
   activeProgramsAria: { en: '{n} active programs', de: '{n} aktive Programme', ja: 'アクティブなプログラム{n}件', ko: '활성 프로그램 {n}개' },
   lifetimeProgramsAriaOne: { en: '{n} lifetime program', de: '{n} Programm insgesamt', ja: '累計プログラム{n}件', ko: '누적 프로그램 {n}개' },
   lifetimeProgramsAria: { en: '{n} lifetime programs', de: '{n} Programme insgesamt', ja: '累計プログラム{n}件', ko: '누적 프로그램 {n}개' },
-  // Same rule for the People table's bare "Programs" count cell — the noun lives in
-  // the link's accessible name so it is not announced as a context-free number.
-  programsCountAriaOne: { en: '{n} program', de: '{n} Programm', ja: 'プログラム{n}件', ko: '프로그램 {n}개' },
-  programsCountAria: { en: '{n} programs', de: '{n} Programme', ja: 'プログラム{n}件', ko: '프로그램 {n}개' },
+  // Same rule for the People table's two program-count cells (#243) — the noun lives
+  // in the link's accessible name so it is not announced as a context-free number.
+  // These replaced a single "programs" count that unioned TEL ownership with phase/
+  // action-item involvement into one number — the union is exactly the bug: a TEL
+  // with no phase involvement vanished from that count while still on their own page.
+  programsLedAriaOne: { en: '{n} program led', de: '{n} geleitetes Programm', ja: '主導プログラム{n}件', ko: '주도 프로그램 {n}개' },
+  programsLedAria: { en: '{n} programs led', de: '{n} geleitete Programme', ja: '主導プログラム{n}件', ko: '주도 프로그램 {n}개' },
+  programsInvolvedAriaOne: { en: '{n} program involved', de: '{n} beteiligtes Programm', ja: '関与プログラム{n}件', ko: '참여 프로그램 {n}개' },
+  programsInvolvedAria: { en: '{n} programs involved', de: '{n} beteiligte Programme', ja: '関与プログラム{n}件', ko: '참여 프로그램 {n}개' },
   noPartnersMatchFilters: { en: 'No ecosystem partners found matching filters.', de: 'Keine Ökosystem-Partner entsprechen den Filtern.', ja: 'フィルターに一致するパートナーが見つかりません。', ko: '필터와 일치하는 에코시스템 파트너가 없습니다.' },
   partnerProfileSuffix: { en: '{t} Partner Profile', de: '{t}-Partnerprofil', ja: '{t}パートナープロフィール', ko: '{t} 파트너 프로필' },
   relationshipSummary: { en: 'Relationship Summary', de: 'Beziehungsübersicht', ja: '関係サマリー', ko: '관계 요약' },

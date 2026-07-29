@@ -1,12 +1,19 @@
 import { prisma } from '../../lib/db';
 import { profilesAsOf } from '../../lib/profiles';
+import { personProgramCounts } from '../../lib/personPrograms';
 import PeopleClient from './PeopleClient';
 
 export const dynamic = 'force-dynamic';
 
 // The people directory: everyone AutoKnow knows about, with their current company,
-// role, and how many programs they touch. Company deep-links (?company=) preselect
-// the column funnel — same grammar as /partners (design.md §6).
+// role, and how many programs they touch — split into Leads and Involved (#243):
+// collapsing TEL ownership and phase/action-item involvement into one number is what
+// let a person's list count silently disagree with their own page's Programs table.
+// `personProgramCounts` (lib/personPrograms) classifies the same three routes the
+// person page's Connection column reads off `via` (#144) — a separate, synchronous
+// computation (the list can't afford a per-row DB round trip just for a count), kept
+// honest by the fixture `tests/personPrograms.test.ts` pins. Company deep-links
+// (?company=) preselect the column funnel — same grammar as /partners (design.md §6).
 
 import { parseFilterParams, parseSortParams } from '../../lib/tableUrlState';
 
@@ -23,8 +30,9 @@ export default async function PeoplePage(props: { searchParams: Promise<SearchPa
       id: true,
       name: true,
       email: true,
-      phaseInvolvements: { select: { phase: { select: { projectId: true } } } },
-      actionItems: { select: { phase: { select: { projectId: true } } } },
+      ownedProjects: { select: { id: true } },
+      phaseInvolvements: { select: { phase: { select: { project: { select: { id: true } } } } } },
+      actionItems: { select: { phase: { select: { project: { select: { id: true } } } } } },
     },
   });
 
@@ -37,6 +45,11 @@ export default async function PeoplePage(props: { searchParams: Promise<SearchPa
     // month. Blank cells, never a guessed company: the funnel filter groups on the
     // rendered value, so an invented one would open a phantom facet.
     const profile = profileByPerson.get(p.id);
+    const { leads, involved } = personProgramCounts({
+      owned: p.ownedProjects,
+      phaseInvolvements: p.phaseInvolvements,
+      actionItems: p.actionItems,
+    });
     return {
       id: p.id,
       name: p.name,
@@ -44,10 +57,8 @@ export default async function PeoplePage(props: { searchParams: Promise<SearchPa
       companyId: profile?.partnerId ?? null,
       company: profile?.partner.name ?? '',
       role: profile?.role ?? '',
-      programs: new Set([
-        ...p.phaseInvolvements.map((i) => i.phase.projectId),
-        ...p.actionItems.map((a) => a.phase.projectId),
-      ]).size,
+      programsLed: leads,
+      programsInvolved: involved,
     };
   });
 
