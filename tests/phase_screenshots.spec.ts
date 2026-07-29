@@ -35,7 +35,7 @@ test.describe('Phase UI screenshots', () => {
     await expect(async () => {
       if (!(await page.getByTestId('phase-details').isVisible())) {
         // MIN is one line, so the card opens before the zoom button exists.
-        const zoom = row(page, 'Integration').getByRole('button', { name: 'Details' });
+        const zoom = row(page, 'Integration').getByRole('link', { name: 'Details' });
         if (!(await zoom.isVisible())) await row(page, 'Integration').locator('a[data-card-title]').click();
         await zoom.click({ timeout: 2000 });
       }
@@ -155,7 +155,7 @@ test.describe('Phase card anatomy screenshots', () => {
       // no-op once the card is open, so retrying it cannot toggle the card shut.
       await expect(async () => {
         await openCard(row(page, c.phase));
-        await expect(row(page, c.phase).getByRole('button', { name: 'Details' }))
+        await expect(row(page, c.phase).getByRole('link', { name: 'Details' }))
           .toBeVisible({ timeout: 1500 });
       }).toPass({ timeout: 20000 });
       await page.screenshot({ path: `screenshots/${c.file}`, fullPage: true });

@@ -211,12 +211,12 @@ test.describe('Project Details and Action Item Operations', () => {
     // The Progress & Health card: the row offers DETAIL, and the update form
     // opens inside that popup (see NeedleGauge / needle.spec.ts).
     const card = page.locator('[class*="summaryCard"]')
-      .filter({ has: page.getByRole('button', { name: 'Detail', exact: true }) });
+      .filter({ has: page.getByRole('link', { name: 'Detail', exact: true }) });
     const dialog = page.getByTestId('needle-detail');
     await expect(async () => {
       if (!(await dialog.isVisible())) {
         await page.evaluate(() => window.scrollTo(0, 0));
-        await card.getByRole('button', { name: 'Detail', exact: true }).click({ timeout: 2000 });
+        await card.getByRole('link', { name: 'Detail', exact: true }).click({ timeout: 2000 });
       }
       await expect(dialog).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
@@ -246,7 +246,7 @@ test.describe('Project Details and Action Item Operations', () => {
     const details = page.getByTestId('phase-details');
     await expect(async () => {
       if (!(await details.isVisible())) {
-        const zoom = row.getByRole('button', { name: 'Details' });
+        const zoom = row.getByRole('link', { name: 'Details' });
         if (!(await zoom.isVisible())) await row.locator('a[data-card-title]').click();
         await zoom.click({ timeout: 2000 });
       }
@@ -266,7 +266,7 @@ test.describe('Project Details and Action Item Operations', () => {
 
     // Progress 100 derives Done — the row keeps the quiet completed state, and the
     // card is still at standard size from the open above, so its zoom stays there.
-    await expect(row.getByRole('button', { name: 'Details' })).toBeVisible({ timeout: 10000 });
+    await expect(row.getByRole('link', { name: 'Details' })).toBeVisible({ timeout: 10000 });
     await expect(page.locator('body')).toContainText('All CTS modules passing; phase complete.');
   });
 });

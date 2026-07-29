@@ -10,9 +10,11 @@ import { parseScore } from '../lib/relationship';
 import { PhaseHillSvg } from './PhaseHillGauge';
 import { deleteFeedItem } from '../app/actions/status';
 import { t, type Locale } from '../lib/i18n';
+import { tNodes } from './tNodes';
 import { useLocale } from './LocaleProvider';
 import AiBadge from './AiBadge';
 import KindBox from './KindBox';
+import RelativeTime from './RelativeTime';
 import styles from './FeedList.module.css';
 import { localDate } from '../lib/dates';
 
@@ -96,7 +98,11 @@ export default function FeedList({
             </div>
           ) : it.hill ? (
             <div className={styles.gauge}>
-              <PhaseHillSvg progress={it.hill.progress} previousProgress={it.hill.previousProgress} color={it.hill.color} label={it.title} />
+              {/* Axis captions off, inkScale up: this teaser's .gauge is 7.25rem, well
+                  under the ~16.25rem (--status-viz-w) PhaseHillSvg's `1` is tuned
+                  against, so the unscaled default rendered the caption text at a
+                  couple of px (#164) — a feed card already carries the title beside it. */}
+              <PhaseHillSvg progress={it.hill.progress} previousProgress={it.hill.previousProgress} color={it.hill.color} label={it.title} axisLabels={null} inkScale={2.25} />
             </div>
           ) : (
             <div className={styles.kind}><KindBox kind={it.kind} locale={locale} /></div>
@@ -127,7 +133,17 @@ export default function FeedList({
                 </form>
               )}
             </div>
-            {it.subtitle && <div className={styles.meta}>{it.subtitle}</div>}
+            {/* #171: `checkedAt` is a FRESHNESS stamp riding alongside `subtitle` (never
+                baked into it — getActivity has no locale to phrase "checked … ago" in,
+                and a relative duration has to render client-side to be hydration-safe
+                and stay current on a page left open). */}
+            {(it.subtitle || it.checkedAt) && (
+              <div className={styles.meta}>
+                {it.subtitle}
+                {it.subtitle && it.checkedAt && ' · '}
+                {it.checkedAt && tNodes(locale, 'checkedAt', { when: <RelativeTime value={it.checkedAt} /> })}
+              </div>
+            )}
             {it.detail && (
               <div className={styles.detail}>
                 {/* context details are Gemini digests/deltas, never human prose (design.md §8) */}

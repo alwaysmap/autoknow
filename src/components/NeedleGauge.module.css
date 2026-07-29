@@ -5,12 +5,61 @@
   font-family: var(--body-font);
 }
 
+.gaugeColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .gaugeContainer {
   width: 100%;
   max-width: var(--status-viz-w);
   position: relative;
   overflow: visible;
   margin-bottom: 0.25rem;
+}
+
+/* Hidden below the container threshold below; restated `display: block` there.
+   `history[0].notes` — the same entry `updatedAt` names — never the note being
+   drafted in the (separate) update form. */
+.restingNote {
+  display: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  padding-top: 0.25rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--fg);
+}
+
+/* #168: the newest note reads beside the gauge once the CARD (not the viewport —
+   `.summaryCard` in ProjectStatusDashboard.module.css sets `container-type` and
+   `container-name: needle-card`) has room for it. Below the threshold this stays a
+   single centered column exactly as before; a media query would show the note at
+   959px and hide it at 961px regardless of how wide the card sitting there actually
+   is — a 20rem sidebar card and a collapsed full-width one can both be on either
+   side of any viewport breakpoint. Placed AFTER the plain `.restingNote` rule above
+   on purpose: an `@container` block carries no extra specificity over a class
+   selector, so a later plain rule for the same class silently wins regardless of
+   whether the container condition holds — this file's first draft had the block
+   BEFORE `.restingNote` and the note stayed hidden at every width, caught only by
+   reading `.restingNote`'s computed `display` in the running app, not by eye. */
+@container needle-card (min-width: 34rem) {
+  .gaugeWrapper {
+    flex-direction: row;
+    align-items: flex-start;
+    align-self: stretch;
+    gap: 1.5rem;
+  }
+
+  .gaugeColumn {
+    flex: 0 0 auto;
+  }
+
+  .restingNote {
+    display: block;
+  }
 }
 
 /* One horizontal cluster: status · updated date · action (design.md §7). */

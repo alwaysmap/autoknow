@@ -1,16 +1,19 @@
 'use client';
 
-import { subscribeLocationChange } from '../lib/locationHash';
-import { useEffect, useRef, useState } from 'react';
+import { useHashAddressablePopover } from '../lib/useHashAddressablePopover';
+import Link from 'next/link';
+import { useRef, useState } from 'react';
 import styles from './NeedleGauge.module.css';
+import Markdown from './Markdown';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
 import NeedleHistoryList from './NeedleHistoryList';
 import OverlayDialog from './OverlayDialog';
+import RelativeTime from './RelativeTime';
 import { t } from '../lib/i18n';
+import { tNodes } from './tNodes';
 import { useLocale } from './LocaleProvider';
 import { updateNeedleStatus } from '../app/actions/needle';
 import { HEALTHS, healthColor, healthKey, parseHealth, type Health } from '../lib/health';
-import { localDate } from '../lib/dates';
 import type { NeedleChange } from '../lib/history';
 import { CX, CY, A0, A1, SWEEP, VB_X, VB_Y, VB_W, VB_H, clamp01, Gauge, NeedleGaugeSvg } from './NeedleGaugeSvg';
 
@@ -49,15 +52,10 @@ export default function NeedleGauge({
   const [noteError, setNoteError] = useState(false);
 
   const [adding, setAdding] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
   // The note lives inside MarkdownNoteEditor; mirror it out so a dismissal can tell
   // whether there is unsaved work to protect (#35).
   const [noteText, setNoteText] = useState('');
-  // Mirror detailOpen into a ref so the once-subscribed deep-link handler reads the live
-  // value without re-subscribing on every open/close.
-  const detailOpenRef = useRef(false);
-  useEffect(() => { detailOpenRef.current = detailOpen; }, [detailOpen]);
 
   const resetForm = () => { setDragProgress(progress); setPickHealth(currentHealth); setNoteError(false); setNoteText(''); };
   const openUpdate = () => { resetForm(); setUpdateOpen(true); };
@@ -66,34 +64,26 @@ export default function NeedleGauge({
   // Has the open form actually changed anything worth protecting? The needle, the health
   // pick, or a typed note.
   const fieldsDirty = pickHealth !== currentHealth || dragProgress !== progress || noteText.trim() !== '';
-  // The guard every dismissal path (× / Escape / backdrop) runs through: a close proceeds
-  // freely unless the open form (`active`) has unsaved work, in which case it must be
-  // confirmed first — so a stray close can't silently drop an in-progress edit, while a
-  // pristine form still closes without a nag (#35).
-  const mayDismiss = (active: boolean) => !(active && fieldsDirty) || window.confirm(t(locale, 'discardUpdateConfirm'));
 
-  // Detail popup: the log, with UPDATE revealing the form IN PLACE. Opening a
-  // second <dialog> over this one would stack scrims and trap focus in the
-  // wrong layer, so the form is a mode of this popup, not another modal (§4b).
-  // Opening also writes the hash, so the open popup IS a shareable URL. The
-  // OverlayDialog owns the body-scroll lock and the box-based light-dismiss now;
-  // `canClose` (via fieldsDirty) makes every dismissal — × / Escape / backdrop —
-  // confirm before dropping an in-progress edit (#35).
-  const openDetail = () => {
-    resetForm();
-    setAdding(false);
-    setDetailOpen(true);
-    if (window.location.hash !== `#${STATUS_HISTORY_HASH}`) {
-      window.history.replaceState(null, '', `#${STATUS_HISTORY_HASH}`);
-    }
-  };
-  const closeDetail = () => {
-    setAdding(false);
-    setDetailOpen(false);
-    if (window.location.hash === `#${STATUS_HISTORY_HASH}`) {
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
-    }
-  };
+  // Detail popup: the log, with UPDATE revealing the form IN PLACE. Opening a second
+  // <dialog> over this one would stack scrims and trap focus in the wrong layer, so
+  // the form is a mode of this popup, not another modal (§4b). Opening is just
+  // navigating DETAIL (a <Link> to `#status-history`, #168) — the hook's hash-listen
+  // effect is what actually reacts and opens the popup, the same path a shared/
+  // bookmarked URL or browser back/forward already took (nnu — shared with
+  // RelationshipScale, which is why `openDetail` below goes unused here but the hook
+  // still returns it uniformly). The OverlayDialog owns the body-scroll lock and the
+  // box-based light-dismiss now; `canClose` (via `mayDismiss`) makes every dismissal
+  // — × / Escape / backdrop — confirm before dropping an in-progress edit (#35).
+  const { open: detailOpen, closeDetail: closePopover, mayDismiss } = useHashAddressablePopover({
+    matchesHash: (hash) => !!history && hash === `#${STATUS_HISTORY_HASH}`,
+    hashToWrite: STATUS_HISTORY_HASH,
+    onOpen: resetForm,
+    fieldsDirty,
+    confirmMessage: t(locale, 'discardUpdateConfirm'),
+    deps: [history],
+  });
+  const closeDetail = () => { setAdding(false); closePopover(); };
   const startAdding = () => { resetForm(); setAdding(true); };
 
   // One submit path for both the standalone dialog and the inline form.
@@ -109,24 +99,6 @@ export default function NeedleGauge({
     } catch (err) { console.error(err); }
     finally { setIsSubmitting(false); }
   };
-
-  // Deep link: /programs/:id#status-history opens the log directly, so the URL
-  // can be shared. Runs once per mount and on in-page hash changes.
-  useEffect(() => {
-    if (!history) return;
-    const openIfHashed = () => {
-      if (window.location.hash === `#${STATUS_HISTORY_HASH}` && !detailOpenRef.current) {
-        resetForm();
-        setAdding(false);
-        setDetailOpen(true);
-      }
-    };
-    openIfHashed();
-    // Next <Link> navigates via pushState, which does not fire `hashchange`
-    // (#40) — subscribe to both so a same-page feed link opens the log.
-    return subscribeLocationChange(openIfHashed);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history]);
 
   const setFromPointer = (clientX: number, clientY: number) => {
     if (!svgRef.current) return;
@@ -194,28 +166,55 @@ export default function NeedleGauge({
     </>
   );
 
+  // The newest entry is what `updatedAt` already refers to — the note beside the
+  // gauge (§4b, #168) has to be the SAME update the gauge itself is showing.
+  const newestNote = history?.[0]?.notes;
+
   return (
     <div className={styles.gaugeWrapper}>
-      <div className={styles.gaugeContainer} style={{ pointerEvents: 'none' }}>
-        <svg className={styles.gaugeSvg} viewBox={viewBox}>
-          <Gauge progress={progress / 100} color={healthColor(currentHealth)} prevProgress={previousProgress != null ? previousProgress / 100 : null} prevColor={healthColor(previousHealth ?? health)} />
-        </svg>
+      <div className={styles.gaugeColumn}>
+        <div className={styles.gaugeContainer}>
+          <svg className={styles.gaugeSvg} viewBox={viewBox} role="img"
+            aria-label={t(locale, 'programHealthAria', { health: t(locale, healthKey(currentHealth)) })}>
+            {/* The needle's angle states progress and its colour states health — the
+                visible "Some Risk" word next to it was the only non-colour carrier of
+                health (#168), so removing it moves that fact here instead of dropping
+                it: a screen reader gets it from the accessible name, a sighted user
+                from hovering (this SVG no longer sits in a pointer-events:none box). */}
+            <title>{t(locale, 'programHealthAria', { health: t(locale, healthKey(currentHealth)) })}</title>
+            <Gauge progress={progress / 100} color={healthColor(currentHealth)} prevProgress={previousProgress != null ? previousProgress / 100 : null} prevColor={healthColor(previousHealth ?? health)} />
+          </svg>
+        </div>
+
+        {/* fact · date · action on one line (design.md §7), never a three-line stack.
+            Health is now colour-only here (its word lives in the gauge's accessible
+            name above, not as a second visible encoding of the same fact). */}
+        <div className={styles.statusRow}>
+          {/* #171: "is this current" answered as a duration, not a date the reader has
+              to subtract by hand — RelativeTime owns the crossover/hydration-safe swap;
+              tNodes keeps `{d}`'s slot in the LOCALE's own word order (JA/KO put it
+              first) instead of always concatenating "Updated" + the value. */}
+          {updatedAt && <span className={styles.updatedAt}>{tNodes(locale, 'updatedOn', { d: <RelativeTime value={updatedAt} /> })}</span>}
+          {/* DETAIL only ever changes WHERE you are — it writes `#status-history` and
+              nothing else — so it is a link, not a button (design.md §6, #168): a
+              plain <Link>, relying on lib/locationHash's pushState patch to notify
+              the hash listener below the same way a native <a> or back/forward would. */}
+          {history
+            ? <Link href={`#${STATUS_HISTORY_HASH}`} replace scroll={false} className={styles.updateBtn}>{t(locale, 'detail')}</Link>
+            : editable && <button type="button" onClick={openUpdate} className={styles.updateBtn}>{t(locale, 'update')}</button>}
+        </div>
       </div>
 
-      {/* fact · date · action on one line (design.md §7), never a three-line stack */}
-      <div className={styles.statusRow}>
-        <span className={styles.statusValue} style={{ color: healthColor(currentHealth) }}>{t(locale, healthKey(currentHealth))}</span>
-        {updatedAt && <span className={styles.updatedAt}>{t(locale, 'updatedOn', { d: localDate(updatedAt, locale, { month: 'short', day: 'numeric' }) })}</span>}
-        {/* graphic · date · DETAIL. Updating happens inside the detail popup, so
-            the resting row states the fact and offers one way in. */}
-        {history
-          ? <button type="button" onClick={openDetail} className={styles.updateBtn}>{t(locale, 'detail')}</button>
-          : editable && <button type="button" onClick={openUpdate} className={styles.updateBtn}>{t(locale, 'update')}</button>}
-      </div>
+      {/* The newest update's note, beside the gauge once the CARD (not the
+          viewport) is wide enough — NeedleGauge.module.css hides this entirely
+          below that container threshold, where DETAIL remains the only way to
+          read it. */}
+      {newestNote && (
+        <div className={styles.restingNote}><Markdown>{newestNote}</Markdown></div>
+      )}
 
       {/* Detail: the complete log — graphic, health label, author, timestamp, and
-          the written note in full (it feeds the AI briefing and is deliberately
-          absent beside the gauge). UPDATE reveals the form in place rather than
+          every written note in full. UPDATE reveals the form in place rather than
           opening a second modal over this one. */}
       {history && (
         <OverlayDialog

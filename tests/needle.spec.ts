@@ -16,7 +16,7 @@ async function openDetail(page: Page, card: Locator, dialog: Locator) {
   await expect(async () => {
     if (!(await dialog.isVisible())) {
       await page.evaluate(() => window.scrollTo(0, 0));
-      await card.getByRole('button', { name: 'Detail', exact: true }).click({ timeout: 2000 });
+      await card.getByRole('link', { name: 'Detail', exact: true }).click({ timeout: 2000 });
     }
     await expect(dialog).toBeVisible({ timeout: 1500 });
   }).toPass({ timeout: 20000 });
@@ -154,7 +154,7 @@ test.describe('Progress & Health gauge updates', () => {
 
     // The resting row states the fact and offers ONE way in: Detail.
     const card = page.locator('[class*="summaryCard"]')
-      .filter({ has: page.getByRole('button', { name: 'Detail', exact: true }) });
+      .filter({ has: page.getByRole('link', { name: 'Detail', exact: true }) });
     await expect(card).toContainText('On Track');
 
     const dialog = page.getByTestId('needle-detail');
@@ -179,7 +179,7 @@ test.describe('Progress & Health gauge updates', () => {
   test('Detail popup: complete log with author, and UPDATE in place', async ({ page }) => {
     await page.goto(`/programs/${projectId}`);
     const card = page.locator('[class*="summaryCard"]')
-      .filter({ has: page.getByRole('button', { name: 'Detail', exact: true }) });
+      .filter({ has: page.getByRole('link', { name: 'Detail', exact: true }) });
     const detail = page.getByTestId('needle-detail');
     await openDetail(page, card, detail);
 
@@ -228,7 +228,7 @@ test.describe('Progress & Health gauge updates', () => {
   test('Update mode: no duplicate Close, and a stray dismissal cannot silently drop an edit', async ({ page }) => {
     await page.goto(`/programs/${projectId}`);
     const card = page.locator('[class*="summaryCard"]')
-      .filter({ has: page.getByRole('button', { name: 'Detail', exact: true }) });
+      .filter({ has: page.getByRole('link', { name: 'Detail', exact: true }) });
     const detail = page.getByTestId('needle-detail');
     await openDetail(page, card, detail);
 
@@ -279,7 +279,7 @@ test.describe('Progress & Health gauge updates', () => {
     await page.goto(`/programs/${projectId}`);
 
     const card = page.locator('[class*="summaryCard"]')
-      .filter({ has: page.getByRole('button', { name: 'Detail', exact: true }) });
+      .filter({ has: page.getByRole('link', { name: 'Detail', exact: true }) });
     const detail = page.getByTestId('needle-detail');
     await openDetail(page, card, detail);
     await detail.getByRole('button', { name: 'Update', exact: true }).click();

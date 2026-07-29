@@ -1,9 +1,9 @@
 'use client';
 
 import ChartLabel from './ChartLabel';
-import { layoutHill, type HillStatus } from '../lib/hillLayout';
+import { layoutHill } from '../lib/hillLayout';
 import { phaseColor } from '../lib/phase';
-import { t, statusKey, type StringKey } from '../lib/i18n';
+import { t, statusKey } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 
 // Task progress for a program's phases: one dot per phase on the hill (uphill
@@ -35,12 +35,6 @@ const HILL_CP = [[10, 80], [50, 80], [70, 10], [100, 10], [130, 10], [150, 80], 
 const hillPath = (sx: number) => {
   const p = HILL_CP.map(([x, y]) => `${(x * sx).toFixed(1)} ${y}`);
   return `M ${p[0]} C ${p[1]}, ${p[2]}, ${p[3]} C ${p[4]}, ${p[5]}, ${p[6]}`;
-};
-
-const STATUS_KEY: Record<HillStatus, StringKey> = {
-  notStarted: 'statusNotStarted',
-  inProgress: 'statusInProgress',
-  done: 'statusDone',
 };
 
 export default function PhaseHillChart({ phases, wide = false }: { phases: PhaseDot[]; wide?: boolean }) {
@@ -79,7 +73,6 @@ export default function PhaseHillChart({ phases, wide = false }: { phases: Phase
     dotRadius: 5.5 * INK_SCALE,
     // A fingertip, not ink — so NOT scaled. See HillLayoutOptions.
     hitRadius: wide ? 8 : 10,
-    statusLabel: (s) => t(locale, STATUS_KEY[s]),
     axisLabels,
   });
 
@@ -122,16 +115,20 @@ export default function PhaseHillChart({ phases, wide = false }: { phases: Phase
       <path d={hillPath(sx)} fill="none" stroke="var(--border)" strokeWidth={2.5 * INK_SCALE} strokeLinecap="round" />
       <line x1={100 * sx} y1={10} x2={100 * sx} y2={80} stroke="var(--border)" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
       {/* Labels first, dots on top: where a long name has nowhere to go but across a
-          stack, the coins stay whole and the text tucks behind them. */}
+          stack, the coins stay whole and the text tucks behind them. Every phase gets
+          its own label now (#1xs) — `l.textAnchor` grows the two end piles INWARD
+          (start = not-started, growing right; end = done, growing left) instead of
+          centering a box that would overhang the viewBox edge; layoutHill already
+          solved each one clear of every other label, the curve, and the axis captions. */}
       {layout.labels.map((l) => (
         <ChartLabel
           key={l.key}
           x={l.x}
           y={l.y}
-          textAnchor="middle"
+          textAnchor={l.textAnchor}
           fontSize={labelFs}
-          fontWeight={l.kind === 'group' ? 500 : 600}
-          fill={l.kind === 'group' ? 'var(--muted)' : 'var(--fg)'}
+          fontWeight={600}
+          fill="var(--fg)"
           data-testid={`hill-label-${l.anchorId}`}
         >
           {l.text}

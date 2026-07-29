@@ -39,7 +39,7 @@ test.describe('PhaseTrack rail', () => {
     // — so the card is opened first when it is not already.
     await expect(async () => {
       if (!(await details(page).isVisible())) {
-        const zoom = row(page, name).getByRole('button', { name: 'Details' });
+        const zoom = row(page, name).getByRole('link', { name: 'Details' });
         if (!(await zoom.isVisible())) await openCard(row(page, name));
         await zoom.click({ timeout: 2000 });
       }
@@ -196,7 +196,7 @@ test.describe('PhaseTrack rail', () => {
     // and no Goal — the min size is untouched by the standard card's dossier
     // (autoknow-crw.2), which is what keeps a 15-phase program scannable.
     const bringUp = row(page, 'Bring-up');
-    await expect(bringUp.getByRole('button', { name: 'Details' })).toHaveCount(0);
+    await expect(bringUp.getByRole('link', { name: 'Details' })).toHaveCount(0);
     await expect(bringUp).not.toContainText('Goal:');
 
     // Status is carried by glyphs, not words, on the card header.
@@ -213,7 +213,7 @@ test.describe('PhaseTrack rail', () => {
     // The zoom button appears at standard size, and so does the Goal & definition of
     // done — the standard card is the phase's dossier, so what it is FOR is readable
     // without opening anything (autoknow-crw.2).
-    await expect(integration.getByRole('button', { name: 'Details' })).toBeVisible();
+    await expect(integration.getByRole('link', { name: 'Details' })).toBeVisible();
     await expect(integration).toContainText('Goal:');
     // …the latest update whole, beside it: the words, the date and the author.
     await expect(integration).toContainText('Codec drops blocking the DSP path.');
@@ -236,7 +236,7 @@ test.describe('PhaseTrack rail', () => {
     // but a card that was never actually collapsed.
     await closeCard(integration);
     await expect(integration).not.toContainText('Denso');
-    await expect(integration.getByRole('button', { name: 'Details' })).toHaveCount(0);
+    await expect(integration.getByRole('link', { name: 'Details' })).toHaveCount(0);
   });
 
 

@@ -1048,7 +1048,6 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                   <HillHistoryList
                     compact
                     locale={locale}
-                    color={phaseColor(p.id)}
                     changes={log.slice(1).map((h, i): HillChange => ({
                       timestamp: h.at,
                       progress: h.progress,
@@ -1075,13 +1074,19 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     <div className={styles.flowRow} aria-label={t(locale, 'after')}>
                       <span className={styles.flowArrow} aria-hidden>←</span>
                       <span className={styles.flowSet}>
-                        {upstream.map((par) => (
-                          <button key={par.linkId} type="button" className={styles.flowLink}
-                            title={`${t(locale, 'after')} · ${byId.get(par.id)?.name}`}
-                            onClick={() => { const target = byId.get(par.id); if (target) openDetails(target); }}>
-                            {byId.get(par.id)?.name}
-                          </button>
-                        ))}
+                        {/* Only ever changes WHERE you are (writeHash, via the same
+                            hash effect that opens this popover from a shared URL) —
+                            a link, not a button (design.md §6, #168). */}
+                        {upstream.map((par) => {
+                          const target = byId.get(par.id);
+                          if (!target) return null;
+                          return (
+                            <Link key={par.linkId} href={`#${phaseDetailHash(target.id)}`} replace scroll={false} className={styles.flowLink}
+                              title={`${t(locale, 'after')} · ${target.name}`}>
+                              {target.name}
+                            </Link>
+                          );
+                        })}
                       </span>
                     </div>
                   )}
@@ -1089,13 +1094,16 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                     <div className={styles.flowRow} aria-label={t(locale, 'enables')}>
                       <span className={styles.flowArrow} aria-hidden>→</span>
                       <span className={styles.flowSet}>
-                        {downstream.map((d) => (
-                          <button key={d.linkId} type="button" className={styles.flowLink}
-                            title={`${t(locale, 'enables')} · ${byId.get(d.id)?.name}`}
-                            onClick={() => { const target = byId.get(d.id); if (target) openDetails(target); }}>
-                            {byId.get(d.id)?.name}
-                          </button>
-                        ))}
+                        {downstream.map((d) => {
+                          const target = byId.get(d.id);
+                          if (!target) return null;
+                          return (
+                            <Link key={d.linkId} href={`#${phaseDetailHash(target.id)}`} replace scroll={false} className={styles.flowLink}
+                              title={`${t(locale, 'enables')} · ${target.name}`}>
+                              {target.name}
+                            </Link>
+                          );
+                        })}
                       </span>
                     </div>
                   )}
@@ -1454,15 +1462,16 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                   {/* The card's ONE affordance, and only at standard size — the step
                       the card cannot do itself: lift the phase into its focused
                       popover. Arrows breaking outward, because that is the promise:
-                      bigger, not "more below". */}
-                  {open && <button type="button" className={styles.iconBtn} onClick={() => openDetails(p)}
+                      bigger, not "more below". Only ever changes WHERE you are
+                      (writeHash) — a link, not a button (design.md §6, #168). */}
+                  {open && <Link href={`#${phaseDetailHash(p.id)}`} replace scroll={false} className={styles.iconBtn}
                     title={t(locale, 'details')} aria-label={t(locale, 'details')}>
                     <svg viewBox="0 0 14 14" width={13} height={13} aria-hidden>
                       <path d="M8.5 5.5 L12.5 1.5 M12.5 1.5 H9 M12.5 1.5 V5
                                M5.5 8.5 L1.5 12.5 M1.5 12.5 H5 M1.5 12.5 V9"
                         fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                  </button>}
+                  </Link>}
                 </span>
               </div>
 

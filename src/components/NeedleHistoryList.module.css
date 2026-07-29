@@ -6,15 +6,23 @@
 
 /* Gauge left, words right — and every word in that right column starts on the
    SAME left edge (label, author, date, note), top-aligned so multi-line notes
-   don't drag the gauge to the middle of the card. */
+   don't drag the gauge to the middle of the card.
+   #2xy: no border/background/border-radius/padding of its own — the borderless
+   entries this page has always actually shown ARE the intended look, not a bug.
+   globals.css's `[class*="card"]` blanket (Tufte minimal ink, applied app-wide,
+   line ~569) already forces border/box-shadow/background off and sets its own
+   `0.75rem 0` padding on anything matching `.card` by SUBSTRING, including this
+   hashed module class
+   (docs/knowledge/global-class-substring-selector-catches-module-classes.md) — so
+   the four declarations this rule used to carry never rendered. Declaring them
+   anyway described a bordered card the page has never shown; deleted rather than
+   restored, since the borderless read is `.card[data-addressed]`'s own baseline
+   below and this page's established Tufte-flat language (design.md §1/§7,
+   ProjectStatusDashboard's "no shaded wrapper, whitespace does the separation"). */
 .card {
   display: flex;
   gap: 1.125rem;
   align-items: flex-start;
-  padding: 0.875rem 1.125rem;
-  border: 1px solid var(--border);
-  border-radius: 0.625rem;
-  background: var(--surface);
 }
 
 /* The one update a deep link addressed (#111). A reader who followed
@@ -120,14 +128,22 @@
 }
 
 /* Compact variant — the same history cards at phase-popover scale. */
+/* padding removed alongside the base `.card`'s above (#2xy) — same dead
+   declaration, same blanket. `gap` is untouched by it and still does real work. */
 .compact .card {
-  padding: 0.5rem 0.625rem;
   gap: 0.625rem;
 }
 
+/* 7rem, not 4rem (#165): only HillHistoryList currently renders `compact` — Needle's
+   own history (NeedleGaugeSvg) carries no text either way — and its hill gauge now
+   draws a top-left date+person caption through PhaseHillSvg's own ChartLabel. That
+   caption needs enough room to clear the ~9px type floor (design.md §8d rule 3)
+   without shrinking to an unreadable "Ap…"; 4rem was too narrow for any caption to
+   survive truncation as more than an ellipsis. The card lost its meta row in the
+   same change, so this is space the row used to spend, not new width from nowhere. */
 .compact .gauge {
-  width: 4rem;
-  flex: 0 0 4rem;
+  width: 7rem;
+  flex: 0 0 7rem;
 }
 
 .compact .head {

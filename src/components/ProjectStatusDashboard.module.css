@@ -20,6 +20,11 @@
   align-items: center;
   text-align: center;
   position: relative;
+  /* #168: NeedleGauge queries this card's OWN inline size (not the viewport) to
+     decide whether the newest note has room beside the gauge. Named so the query
+     in NeedleGauge.module.css can't accidentally latch onto some other ancestor. */
+  container-type: inline-size;
+  container-name: needle-card;
 }
 
 .summaryCardLabel {

@@ -2,14 +2,20 @@
 
 import React from 'react';
 import { t } from '../lib/i18n';
+import { tNodes } from './tNodes';
 import { useLocale } from './LocaleProvider';
 import AiBadge from './AiBadge';
+import RelativeTime from './RelativeTime';
 import styles from './SummaryToolbar.module.css';
 
 // The provenance row shared by every AI-summary surface: the AI badge, the
-// "Generated <date> from <n> sources" line, an optional "Updating…" flag, and a
+// "Generated <when> from <n> sources" line, an optional "Updating…" flag, and a
 // reload-style refresh button. One component so the treatment (and vertical
 // alignment) can't drift between scopes.
+//
+// #171: <when> answers "is this current" as a duration (RelativeTime), not a UTC
+// stamp the reader subtracts by hand — the exact instant survives in `dateTime`/
+// `title`, RelativeTime's own contract.
 
 function ReloadIcon({ size = 15 }: { size?: number }) {
   return (
@@ -22,13 +28,13 @@ function ReloadIcon({ size = 15 }: { size?: number }) {
 }
 
 export default function SummaryToolbar({
-  generatedLabel,
+  generatedAt,
   sourceCount,
   updating,
   pending,
   onRefresh,
 }: {
-  generatedLabel: string;
+  generatedAt: string | Date;
   sourceCount: number;
   updating: boolean;
   pending: boolean;
@@ -39,7 +45,7 @@ export default function SummaryToolbar({
     <div className={styles.bar}>
       <span className={styles.provenance}>
         <AiBadge />
-        <span>{t(locale, 'summaryProvenance', { d: generatedLabel, n: sourceCount })}</span>
+        <span>{tNodes(locale, 'summaryProvenance', { d: <RelativeTime value={generatedAt} />, n: sourceCount })}</span>
         {updating && <span className={styles.updating}>{t(locale, 'summaryUpdating')}</span>}
       </span>
       {onRefresh && (

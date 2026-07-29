@@ -4,7 +4,6 @@ import { formatNeedleValue } from './needle';
 import { deriveScore } from './relationship';
 import { hillStatus, phaseColor } from './phase';
 import { phaseDetailHref, programHref, relationshipUpdateHref } from './entityHref';
-import { isoDateTime } from './dates';
 import { coversDay, jobLabel, personAliases } from './people';
 import type { FeedItem, FeedScope, FeedKind } from './feed';
 
@@ -165,26 +164,27 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
   });
   for (const c of context) {
     // Freshness provenance rides on the subtitle (plan §2.2): watched sources say
-    // when they were last checked; frozen ones say why they no longer are.
-    // To the minute (see lib/dates.isoDateTime for why a date alone cannot answer the
-    // question this line is asked). The strings stay unlocalized because getActivity has
-    // no locale in scope — a pre-existing gap, not a new one.
-    const provenance = c.frozenReason
-      ? `frozen — ${c.frozenReason}`
-      : c.mode === 'watched' && c.lastCheckedAt
-        ? `checked ${isoDateTime(c.lastCheckedAt)} UTC`
-        : null;
+    // when they were last checked; frozen ones say why they no longer are. The
+    // frozen case stays a plain (still unlocalized — getActivity has no locale in
+    // scope, a pre-existing gap this issue does not extend) string; the "checked"
+    // case is a FRESHNESS STAMP (#171), not a caption, so it rides in `checkedAt` as
+    // a raw instant instead of being baked into `subtitle` — the renderer (FeedList /
+    // LatestTeasers) answers "is this current" as a duration via RelativeTime,
+    // client-side, hydration-safe, on the viewer's own locale.
+    const frozenNote = c.frozenReason ? `frozen — ${c.frozenReason}` : null;
+    const checkedAt = !c.frozenReason && c.mode === 'watched' ? c.lastCheckedAt?.toISOString() ?? null : null;
     push(events, {
       id: `ctx-${c.id}`,
       kind: 'context',
       title: c.title || 'Ingested document',
-      subtitle: [meta(c.project?.name ?? c.partner?.name ?? null, c.type, false), provenance]
+      subtitle: [meta(c.project?.name ?? c.partner?.name ?? null, c.type, false), frozenNote]
         .filter(Boolean)
         .join(' · ') || null,
       detail: clampDetail(c.ingestedText),
       href: c.url,
       external: true,
       timestamp: c.createdAt.toISOString(),
+      checkedAt,
     });
   }
 
