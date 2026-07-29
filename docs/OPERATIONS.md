@@ -408,13 +408,80 @@ GOOGLE_PROJECT_NUMBER=""   # gcloud projects describe <project-id> --format="val
      changes, wait (up to an hour) before judging a test; rapid edit/reinstall
      cycles keep hitting stale state and can themselves produce
      "internal error" delivery failures.
-   - Optionally register a `/autoknow` slash command, and a message action
-     ("Save to AutoKnow") — message actions are Developer Preview as of mid-2026.
+   - **Slash commands: §6.1.** (`/autoknow` was never registered; the one the app
+     has a use for is `/escalate`.) A message action ("Save to AutoKnow") is
+     Developer Preview as of mid-2026 and is not configured.
    - **Visibility**: make the app available to your domain.
 4. Users then add the app to a space and `@AutoKnow` messages to ingest them.
-   The endpoint (`/api/chat/events`) verifies the JWT Chat sends (issuer
-   `chat@system.gserviceaccount.com`, audience = your project number), saves the
-   thread-as-of-now (re-mentions become revisions), and replies in-thread.
+   The endpoint (`/api/chat/events`) verifies the token Chat sends — **either**
+   shape: the legacy `chat@system.gserviceaccount.com` JWT with your project number
+   as audience, **or** the add-on runtime's Google ID token for
+   `service-<PROJECT_NUMBER>@gcp-sa-gsuiteaddons.iam.gserviceaccount.com` (§6.0,
+   `verifyChatToken`). It then saves the thread-as-of-now (re-mentions become
+   revisions) and replies in-thread.
+
+### 6.1 Slash commands — registering `/escalate`
+
+> **STATUS: the console half is NOT done.** The app ships the TEXT trigger today
+> (`@AutoKnow escalate <topic>`, `parseEscalateTrigger` in `src/lib/chatEvents.ts`),
+> which works with no Google-side config at all. The slash command is sugar over
+> the same handler and needs the two halves below, **in this order**. Bead
+> `autoknow-u46.9.4`; issue #245 part (d).
+
+Slash commands are part of the Chat app CONFIG, so — like everything else in §6.0 —
+they are console-only. There is no Terraform resource and no REST call; the
+DEPLOYMENT_GCP plan that said otherwise is corrected in its STATUS block.
+
+**Half 1 — register the command (console, human, ~5 min + propagation).**
+
+1. Open the Chat API config **as `dylan@alwaysmap.com`** — a consumer account or the
+   wrong Workspace identity silently shows a different project (AGENTS.md's
+   Google-identity rule):
+   `https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat?project=autoknow-prod-1895f1&authuser=dylan@alwaysmap.com`
+   **Verify the avatar top-right before trusting the page.**
+2. Under **Commands → Add a command**, set:
+   | Field | Value | Why |
+   |---|---|---|
+   | Name | `/escalate` | The leading `/` is part of the name Chat stores. |
+   | Command ID | any unused positive integer (e.g. `1`) | **Write it down** — it is what the payload carries, not the name, and Half 2 keys on it. |
+   | Description | `Raise an escalation from this thread` | Shown in the `/` autocomplete. |
+   | Type | **Slash command** | Not "Link preview"/"App action". |
+   | Opens a dialog | **unchecked** | The app replies in-thread; it has no dialog UI. |
+3. Save. **Then wait.** Chat caches app metadata aggressively (§6.0) — allow up to
+   an hour before judging, and do not edit-retry in a loop; rapid cycles produce
+   their own "internal error" delivery failures.
+
+**Half 2 — teach the app the payload (an app PR, config-gated, merges second).**
+
+Not written yet, deliberately: the add-on envelope's slash-command shape is not
+documented reliably enough to code blind against, and the app already logs exactly
+what is needed. `normalizeChatEvent` (`src/lib/chatEvents.ts`) falls through to:
+
+```
+[chat] unmapped add-on payload keys=["user","appCommandPayload"]
+```
+
+So the capture step is: register the command, type `/escalate something` in a space
+with the app, then read the real keys out of prod —
+
+```bash
+gcloud logging read \
+  'resource.type="cloud_run_revision" AND resource.labels.service_name="autoknow" AND textPayload:"unmapped add-on payload"' \
+  --project autoknow-prod-1895f1 --freshness=1h --format='value(textPayload)'
+```
+
+Then the PR adds an `appCommandPayload` branch mapping onto the SAME internal object
+the text trigger produces — `parseEscalateTrigger` is exported for exactly this, so
+there is no second parser — plus the command id as config. **The app behaves
+identically without that config**, which is what makes the ordering safe: the text
+trigger keeps working throughout, and merging Half 2 before propagation finishes
+breaks nothing.
+
+**How to tell it worked.** Typing `/escalate` should offer the command in the
+autocomplete (that alone proves Half 1 propagated), and sending it should produce an
+in-thread reply naming a new escalation. Until Half 2 merges, the command delivers an
+event the app does not recognise — it will log the unmapped-keys line above and reply
+with nothing, which is the expected intermediate state, not a regression.
 
 Scopes for the Chat paths, for reference:
 

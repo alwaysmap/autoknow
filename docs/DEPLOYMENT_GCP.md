@@ -26,6 +26,15 @@
 >   and assert the ADC principal before touching the backend.
 > - **Single-flight:** shipped in #57 as `src/lib/singleFlight.ts` — NOT §2's
 >   `$queryRaw` sketch, which survives only as a marked-wrong example.
+> - **Chat app config is CONSOLE-ONLY — §4b and §7's `null_resource` + `local-exec`
+>   → Chat REST API plan did NOT happen and cannot.** Every config the current
+>   console creates is locked into the Workspace add-on framework, whose
+>   registration chain (OAuth consent screen → Marketplace SDK App Configuration →
+>   Store Listing → per-user install) has no API surface. Terraform owns the APIs
+>   behind it (`gsuiteaddons`, `appsmarket-component`) and the contributors group,
+>   and nothing more. The two sections below are left as written because they are
+>   the PLAN; this line is what actually shipped, and OPERATIONS §6 is the
+>   procedure. Slash commands are part of that console config — OPERATIONS §6.1.
 >
 > Day-2 operations (verify what's serving, redeploy, roll back): OPERATIONS §9.
 
@@ -234,7 +243,7 @@ apply` as Google allows.** Here is every setup action and how it's done:
 | DB migrations | `prisma migrate deploy` in CI | ❌ |
 | Cloud SQL backups/PITR, custom domain, TLS | native resources | ❌ |
 | **Human sign-in identity** | **IAP** (`google_iap_brand` + `google_iap_client`) — see below | ❌ (IAP path) |
-| **Chat app configuration** | `null_resource` + `local-exec` → Chat REST API, run by `terraform apply` | ❌ if the API accepts it; else one 2-min click |
+| **Chat app configuration** | ~~`null_resource` + `local-exec` → Chat REST API~~ — **console-only, as built.** The add-on registration chain has no API; see the STATUS block and OPERATIONS §6 | ⚠️ console, every time |
 | **Workspace Chat/Marketplace allowlist** | `googleworkspace` provider if covered; else org-admin | ⚠️ one org-admin toggle |
 
 **The identity decision is what determines whether auth is Terraform-native.**
@@ -262,8 +271,9 @@ else is still HCL.
 **The escape hatch for anything without a resource:** a `null_resource` with a
 `local-exec` provisioner that calls `gcloud` or the REST API, keyed on a trigger so it
 re-runs when inputs change. It's still declared in HCL and executed by `terraform
-apply` — no clicking. Use it for the Chat app config (Chat REST API) and any
-`googleworkspace` gap. The provider set is: `hashicorp/google`,
+apply` — no clicking. Use it for any `googleworkspace` gap. **Not for the Chat app
+config**, which this plan expected to reach that way and does not: the add-on
+registration chain is console-only (STATUS block, OPERATIONS §6). The provider set is: `hashicorp/google`,
 `hashicorp/google-beta`, and `hashicorp/googleworkspace` (Admin SDK — users, groups,
 org units, and some app settings).
 
@@ -339,13 +349,15 @@ Cloud Run relay + Tailscale funnel, and (b) a Workspace admin policy. Cloud Run 
   (issuer `chat@system.gserviceaccount.com`, audience = `GOOGLE_PROJECT_NUMBER`),
   which the app verifies — not Cloud Run IAM. This is why the service is public-ingress
   with app-layer auth (§1).
-- **Terraform does:** enable the Chat API (`google_project_service "chat"`), set
+- **Terraform does:** enable the Chat API (`google_project_service "chat"`) plus the two
+  add-on APIs behind it (`gsuiteaddons`, `appsmarket-component`), set
   `GOOGLE_PROJECT_NUMBER` from `data.google_project`, keep the Drive/Chat service
-  account, and drive the **Chat app configuration** (name, avatar, App URL, auth
-  audience, slash commands) via a `null_resource` + `local-exec` that POSTs to the Chat
-  REST API — declared in HCL, applied by `terraform apply`, no console (§4b). The App
-  URL it sets is the Cloud Run service URL from `google_cloud_run_v2_service.uri`, so it
-  updates automatically if the URL changes.
+  account, and manage the Workspace contributors group. **It does NOT configure the Chat
+  app** — this plan expected a `null_resource` + `local-exec` against the Chat REST API,
+  and that is not reachable: the app name, avatar, App URL and slash commands all live in
+  the console's add-on registration chain (STATUS block; procedure in OPERATIONS §6, slash
+  commands in §6.1). Consequence worth knowing: the App URL does NOT follow
+  `google_cloud_run_v2_service.uri` — changing the serving origin is a console edit.
 - **The one org-admin item:** the **Workspace Marketplace/Chat allowlist** in
   admin.google.com — an org decision the Admin SDK may not expose, ~24h propagation.
   This is the single genuinely-manual toggle and it is not a GCP object.
