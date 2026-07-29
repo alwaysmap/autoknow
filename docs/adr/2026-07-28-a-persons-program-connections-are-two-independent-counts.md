@@ -19,12 +19,22 @@ phase role or an action item) are different claims about a person, not two
 routes into one number. `/people` counts them SEPARATELY — Programs Led,
 Programs Involved — and `/people/:id`'s Programs table carries a Connection
 column stating which claim(s) hold for each row (`connectionKinds`,
-`src/lib/personPrograms.ts`). A row can be both, and shows both boxes. Both
-the list's counts and the person page's per-row kinds are built by calling
-the same two functions — `ledProjectIds`, `involvedProjectIds` — rather than
-each independently re-deriving "leads"/"involved" from the raw routes, so the
-two surfaces read one definition instead of two that happen to agree today;
-`tests/personPrograms.test.ts` still pins a fixture as a regression guard.
+`src/lib/personPrograms.ts`). A row can be both, and shows both boxes.
+
+The two surfaces classify the same three routes (TEL ownership, phase role,
+action item) through two DIFFERENT computations, not one shared function —
+this PR was rebased onto #144 (`via: ProgramRoute[]`, whether a connection is
+LIVE or ENDED), which already classifies those same three routes per row
+while assembling the full Programs table asynchronously (a DB round trip per
+person, for `phaseFinishTimes`). `personProgramRows` derives
+`connectionKinds` straight from that row's `via` Set — one place decides
+which routes reached a project, and `connectionKinds` regroups its output.
+`personProgramCounts`, the list page's count, cannot reuse `via`: the list
+renders every person on one page load, and a DB round trip per row there is
+the cost #144's design deliberately avoids for the *table*. It re-classifies
+the same three routes synchronously via `ledProjectIds`/`involvedProjectIds`,
+kept honest not by shared code but by a pinned fixture in
+`tests/personPrograms.test.ts` asserting the two computations still agree.
 
 **Alternatives rejected.**
 - *Keep one union count, add the TEL route to it* — restores the old failure
@@ -35,6 +45,12 @@ two surfaces read one definition instead of two that happen to agree today;
   false to the data: a TEL can also hold a phase role on their own program,
   and forcing an either/or would silently drop one of two true facts about
   that row.
+- *Make `personProgramCounts` reuse `personProgramRows`/`via` directly* —
+  rejected on cost, not principle: `via` only exists after the async
+  per-row assembly (`phaseFinishTimes`'s DB round trip), and the list page
+  renders every person in one page load. Paying that cost per row just to
+  extract a count would make the list slower for a benefit the list doesn't
+  need (the finish-date-derived `status`/`endedOn` fields it never renders).
 
 **Consequences.** Any future person-connection surface reads two counts, not
 one, and states which is which — the same pattern `/partners` already uses for
