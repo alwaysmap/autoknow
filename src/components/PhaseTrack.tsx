@@ -15,7 +15,7 @@ import { deriveEndPhase } from '../lib/programDag';
 import { validateTemplateDag } from '../lib/templateDag';
 import { HILL_PATH, hillCoordinates } from '../lib/geometry';
 import { t, statusKey, Locale } from '../lib/i18n';
-import { isPhaseActive, statusProgress, phaseColor, phaseDetailHash, parsePhaseDetailHash, phasesEditHref } from '../lib/phase';
+import { isPhaseActive, statusProgress, phaseColor, phaseDetailHash, parsePhaseDetailHash, phaseHash, phasesEditHref } from '../lib/phase';
 import AnchorHeading from './AnchorHeading';
 import AnchoredPopover from './AnchoredPopover';
 import OverlayDialog from './OverlayDialog';
@@ -150,6 +150,15 @@ const writeHash = (id: number | null) => {
   }
   const want = `#${phaseDetailHash(id)}`;
   if (current !== want) window.history.replaceState(null, '', want);
+};
+
+// The addressed ROW, for the card title's own href. Written rather than navigated to,
+// so activating a card records where you are without the browser's fragment jump also
+// scrolling the page (see `onCardClick`). replaceState for the same reason as above:
+// which card is open is a mode of this page, not a stop on the way back.
+const writeRowHash = (id: number) => {
+  const want = `#${phaseHash(id)}`;
+  if (window.location.hash !== want) window.history.replaceState(null, '', want);
 };
 
 // Ink rides the theme token — a hardcoded dark gray vanishes on the dark paper.
@@ -709,18 +718,48 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
       const clearance = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
       const box = node.getBoundingClientRect();
       if (box.top >= clearance && box.bottom <= window.innerHeight) return;
-      // `block: 'start'` honours html { scroll-padding-top } and matches the card's
-      // own `#phase-N` anchor, so the deep link and this scroll agree.
-      scrollPageTo(node, { behavior: 'smooth', block: 'start' });
+      // And when it DOES move, it moves the LEAST that works. `block: 'start'` aligned
+      // the card to the top of the scrollport, so a card clipped by ten pixels at the
+      // bottom paid a full-page jump to recover them — the guard above was honoured and
+      // the motion still read as a yank (autoknow-ff7). `nearest` scrolls to whichever
+      // edge is closer and stops there, and it resolves that against the same
+      // html { scroll-padding-top } region the guard measured, so "clear of the sticky
+      // nav" keeps meaning one thing. A card TALLER than that region falls back to
+      // start-alignment on its own, which is the right answer for it: the head is the
+      // part worth showing. Nothing is reserved at the BOTTOM edge because nothing
+      // occupies it — the nav is the layout's only sticky element and there is no footer.
+      //
+      // This is deliberately NOT what `jumpTo` does. That path serves deep links,
+      // station clicks and chain links, where aligning to top makes the scroll agree
+      // with the `#phase-N` anchor the same click addressed; here there is no anchor to
+      // agree with, only a card to keep on screen.
+      scrollPageTo(node, { behavior: 'smooth', block: 'nearest' });
     }));
   };
 
   // Everything interactive inside the card keeps its own job — pills navigate, the
   // zoom button opens the popover. The TITLE is the exception: it is the card's own
   // name, so it deep-links AND activates, which is also the keyboard path in.
+  //
+  // ONE CLICK MOVES THE PAGE ONCE. Following the title's href fires the browser's own
+  // fragment jump, which is unconditional and — under html { scroll-behavior: smooth } —
+  // animated. Measured on /programs/:id, that jump moved the page 1353 -> 1685 and
+  // `activateCard` then nudged it a further 8px, so a card that was already whole on
+  // screen still got yanked to the top: exactly the rule activateCard implements,
+  // defeated by a scroll it never asked for (autoknow-06t). `activateCard` is the half
+  // that knows whether the page should move at all, so it gets to be the only one that
+  // moves it, and the fragment is WRITTEN instead of navigated to.
   const onCardClick = (p: PhaseTrackRow) => (e: React.MouseEvent) => {
     const hit = (e.target as HTMLElement).closest('a, button, input, select, textarea, form');
-    if (hit && !hit.hasAttribute('data-card-title')) return;
+    const onTitle = hit?.hasAttribute('data-card-title') ?? false;
+    if (hit && !onTitle) return;
+    if (onTitle) {
+      // A modified click is "open this in a new tab" / "copy this link" — a real href is
+      // what makes those work, so the browser keeps the gesture and this card stays put.
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      e.preventDefault();
+      writeRowHash(p.id);
+    }
     activateCard(p);
   };
 
@@ -1430,7 +1469,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
           ];
 
           return (
-            <div key={p.id} id={`phase-${p.id}`}
+            <div key={p.id} id={phaseHash(p.id)}
               ref={(el) => { if (el) rowRefs.current.set(p.id, el); else rowRefs.current.delete(p.id); }}
               className={`${styles.row} ${flashId === p.id ? styles.flash : ''}`}
               data-rel={relOf(p.id)} data-testid="phase-row"
@@ -1442,7 +1481,7 @@ export default function PhaseTrack({ projectId, phases, allPartners, allPeople, 
                 {/* The card's own name: a real href so the section stays linkable and
                     copyable, and the keyboard route into everything the card click
                     does — aria-expanded because it is now what opens the card. */}
-                <a href={`#phase-${p.id}`} className={styles.name} data-card-title
+                <a href={`#${phaseHash(p.id)}`} className={styles.name} data-card-title
                   ref={(el) => { if (el) nameRefs.current.set(p.id, el); else nameRefs.current.delete(p.id); }}
                   aria-current={focusId === p.id ? 'true' : undefined}
                   aria-expanded={open}
