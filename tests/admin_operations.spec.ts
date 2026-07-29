@@ -1,4 +1,4 @@
-import { test, expect, type Locator } from './helpers/e2e';
+import { test, expect, openMenu, clickMenuItem } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -60,26 +60,6 @@ test.describe('Admin and Maintenance Operations', () => {
     await prisma.$disconnect();
   });
 
-  // Maintenance lives behind the title kebab now. Opening it is hydration-guarded
-  // (AGENTS lesson 8) and the guard lives HERE, once: a second copy of these timeouts
-  // is a second thing to keep in step, and the copy is what drifts.
-  //
-  // `probe` is the item whose visibility proves the menu is open and populated. Kebab
-  // items are role=menuitem now that the ⋯ menu is AnchoredPopover (#24).
-  const openPersonKebab = async (page: import('./helpers/e2e').Page, probe: Locator) => {
-    await expect(async () => {
-      if (!(await probe.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
-      await expect(probe).toBeVisible({ timeout: 1500 });
-    }).toPass({ timeout: 20000 });
-  };
-
-  /** Open the kebab and click one of its items, then work in the dialog it opens. */
-  const viaPersonKebab = async (page: import('./helpers/e2e').Page, label: string) => {
-    const item = page.getByRole('menuitem', { name: label, exact: true });
-    await openPersonKebab(page, item);
-    await item.click();
-  };
-
   // Since #127 E14 a move IS the one Edit dialog with an effective date filled in —
   // there is no separate Move door. The date is BACKDATED here so the change has
   // already taken effect and the identity line must show it; a future date would
@@ -92,7 +72,7 @@ test.describe('Admin and Maintenance Operations', () => {
     // Verify Bob starts at Waymo
     await expect(page.locator('body')).toContainText('Waymo');
 
-    await viaPersonKebab(page, 'Edit details');
+    await clickMenuItem(page.getByTestId('kebab-menu'), page.getByRole('menuitem', { name: 'Edit details', exact: true }));
     const dialog = page.locator('dialog[open]');
     await dialog.locator('select[name="partnerId"]').selectOption(ford?.id.toString() || '');
     await dialog.locator('input[name="role"]').fill('Lead Systems Architect');
@@ -115,7 +95,7 @@ test.describe('Admin and Maintenance Operations', () => {
 
     // Delete is the probe: its testid survives a copy edit and a translation alike,
     // and its presence proves the menu is really open and populated.
-    await openPersonKebab(page, page.getByTestId('delete-person'));
+    await openMenu(page.getByTestId('kebab-menu'), page.getByTestId('delete-person'));
     await expect(page.getByRole('menuitem', { name: /copy/i })).toHaveCount(0);
   });
 
@@ -123,15 +103,8 @@ test.describe('Admin and Maintenance Operations', () => {
     const project = await prisma.project.findFirst({ where: { name: 'Waymo Autonomous Trucking' } });
     await page.goto(`/programs/${project?.id}`);
 
-    const viaKebab = async (label: string) => {
-      // Kebab items are role=menuitem now that the ⋯ menu is AnchoredPopover (#24).
-      const item = page.getByRole('menuitem', { name: label, exact: true });
-      await expect(async () => {
-        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
-        await expect(item).toBeVisible({ timeout: 1500 });
-      }).toPass({ timeout: 20000 });
-      await item.click();
-    };
+    const viaKebab = (label: string) =>
+      clickMenuItem(page.getByTestId('kebab-menu'), page.getByRole('menuitem', { name: label, exact: true }));
 
     // Cancel — an explicit lifecycle fact, set in the UI.
     await viaKebab('Mark cancelled');
@@ -157,15 +130,8 @@ test.describe('Admin and Maintenance Operations', () => {
     await page.goto(`/programs/${project?.id}`);
 
     // Header actions live in the ⋯ menu now; open it (hydration-guarded), then act.
-    const viaKebab = async (label: string) => {
-      // Kebab items are role=menuitem now that the ⋯ menu is AnchoredPopover (#24).
-      const item = page.getByRole('menuitem', { name: label, exact: true });
-      await expect(async () => {
-        if (!(await item.isVisible())) await page.getByTestId('kebab-menu').click({ timeout: 2000 });
-        await expect(item).toBeVisible({ timeout: 1500 });
-      }).toPass({ timeout: 20000 });
-      await item.click();
-    };
+    const viaKebab = (label: string) =>
+      clickMenuItem(page.getByTestId('kebab-menu'), page.getByRole('menuitem', { name: label, exact: true }));
 
     // Archive project
     await viaKebab('Archive');

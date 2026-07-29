@@ -100,3 +100,31 @@ export async function openMenu(trigger: Locator, item: Locator): Promise<void> {
     await expect(item).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 20000 });
 }
+
+/**
+ * `openMenu` plus the click that usually follows it: open `trigger`'s menu and
+ * click `item`. Lives here for the same reason `openMenu` does (autoknow-8g1) —
+ * admin_operations.spec.ts had this exact composition three times (once as a
+ * module-scope helper, twice more as local closures inside individual tests).
+ */
+export async function clickMenuItem(trigger: Locator, item: Locator): Promise<void> {
+  await openMenu(trigger, item);
+  await item.click();
+}
+
+/**
+ * Open `trigger`'s menu, click `item`, and wait for the `dialog` it opens — retried
+ * as ONE unit, not `openMenu` followed by a separate assertion (autoknow-92u): a
+ * kebab item whose click opens a dialog needs the WHOLE chain retried together, since
+ * a menu that closed before the dialog appeared needs re-opening, not a re-click on a
+ * control that may no longer be there.
+ */
+export async function openMenuItemDialog(trigger: Locator, item: Locator, dialog: Locator): Promise<void> {
+  await expect(async () => {
+    if (!(await dialog.isVisible())) {
+      if (!(await item.isVisible())) await trigger.click({ timeout: 2000 });
+      await item.click({ timeout: 2000 });
+    }
+    await expect(dialog).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 20000 });
+}
