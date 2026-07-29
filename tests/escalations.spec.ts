@@ -128,18 +128,14 @@ test.describe('Escalations', () => {
   test('assigns and triages through the edit dialog', async ({ page }) => {
     await page.goto(`/escalations/${chatEscalationId}`);
 
-    // `menuitem`, NOT `button`: AnchoredPopover applies the menuitem role to its focusable
-    // children in an EFFECT (AnchoredPopover.tsx), so a `button` locator matches only in
-    // the window before that effect runs — it wins the race on an idle machine and never
-    // matches again under load, burning the whole retry budget on a control that is right
-    // there. The sibling specs (partners.spec) already address kebab items this way.
-    await openMenuItemDialog(
-      page.getByTestId('kebab-menu'),
-      page.getByRole('menuitem', { name: 'Edit', exact: true }),
-      page.locator('dialog[open]'),
-    );
-
+    // Edit is a plain button ON the page now — no menu to open first.
     const dialog = page.locator('dialog[open]');
+    await expect(async () => {
+      if (!(await dialog.isVisible())) {
+        await page.getByTestId('escalation-edit').click({ timeout: 2000 });
+      }
+      await expect(dialog).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
     await dialog.getByLabel('Severity').selectOption('s1');
     await dialog.getByLabel('Org level').selectOption('director');
     await dialog.getByLabel('Decision maker').selectOption({ label: deciderName });
@@ -163,39 +159,28 @@ test.describe('Escalations', () => {
   test('closes with a terminal state, then re-opens', async ({ page }) => {
     await page.goto(`/escalations/${chatEscalationId}`);
 
-    await openMenuItemDialog(
-      page.getByTestId('kebab-menu'),
-      page.getByTestId('escalation-status'),
-      page.locator('dialog[open]'),
-    );
-    let dialog = page.locator('dialog[open]');
-    await dialog.getByLabel('Close as').selectOption('resolved');
-    await dialog.getByRole('button', { name: 'Save' }).click();
-
-    await expect(page.locator('dialog[open]')).toHaveCount(0);
-    // The terminal state reads as CLOSED — "Resolved" alone would not say it is over.
-    await expect(page.locator('body')).toContainText('Closed — Resolved');
+    // Closing is now pick-and-press, in the open — no menu, no dialog.
+    await expect(async () => {
+      await page.getByLabel('Close as').selectOption('resolved');
+      await page.getByTestId('escalation-close').click({ timeout: 2000 });
+      await expect(page.locator('body')).toContainText('Closed — Resolved', { timeout: 2000 });
+    }).toPass({ timeout: 20000 });
 
     const closed = await prisma.escalation.findUniqueOrThrow({ where: { id: chatEscalationId } });
     expect(closed.status).toBe('resolved');
     // `closedAt` is derived by the action, never submitted.
     expect(closed.closedAt).not.toBeNull();
 
-    // Re-opening is legitimate: the decision did not stick.
+    // Re-opening is legitimate: the decision did not stick. A CLOSED escalation offers
+    // re-open and nothing else — the panel cannot offer a transition the action refuses,
+    // so the "Close as" picker is not even rendered.
     await page.reload();
-    await openMenuItemDialog(
-      page.getByTestId('kebab-menu'),
-      page.getByTestId('escalation-status'),
-      page.locator('dialog[open]'),
-    );
-    dialog = page.locator('dialog[open]');
-    // A closed escalation offers re-open and NOTHING else — the dialog cannot offer a
-    // transition the server action would refuse.
-    await expect(dialog.getByLabel('Close as').locator('option')).toHaveCount(1);
-    await dialog.getByLabel('Close as').selectOption('open');
-    await dialog.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByLabel('Close as')).toHaveCount(0);
+    await expect(async () => {
+      await page.getByTestId('escalation-reopen').click({ timeout: 2000 });
+      await expect(page.getByTestId('escalation-close')).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20000 });
 
-    await expect(page.locator('dialog[open]')).toHaveCount(0);
     const reopened = await prisma.escalation.findUniqueOrThrow({ where: { id: chatEscalationId } });
     expect(reopened.status).toBe('open');
     // Re-opening CLEARS the close stamp, or the page would report a live escalation as

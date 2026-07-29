@@ -21,14 +21,14 @@ import {
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import dash from './ProjectStatusDashboard.module.css';
-import meta from './ProjectMetaHeader.module.css';
 import KebabMenu from './KebabMenu';
 import OverlayDialog from './OverlayDialog';
+import styles from './EscalationEditor.module.css';
 import useDialogAction from './useDialogAction';
 
 // Escalation write surfaces (#245 part a): one shared form for create and edit, plus the
-// status control. Mirrors `PartnerEditor` — the list header gets a New button, the detail
-// page gets quiet Edit · Change status affordances in a ⋯ menu.
+// status control. The LIST header gets a New button in a ⋯ menu — creating is incidental
+// to browsing. The DETAIL page does not: see EscalationAdminControls below.
 //
 // Every field that names another entity is a PICKER over existing rows, never free text
 // (AGENTS lesson 3): the three person roles, the partner and the program. That is also why
@@ -158,11 +158,13 @@ export function NewEscalationButton({
           {t(locale, 'newEscalation')}
         </button>
       </KebabMenu>
-      <OverlayDialog open={open} onClose={() => setOpen(false)} width="30rem"
+      <OverlayDialog open={open} onClose={() => setOpen(false)} width="52rem"
         title={t(locale, 'newEscalation')} closeLabel={t(locale, 'close')}>
         <form action={async (fd) => { await runAction(fd, createEscalation); }} className={dash.dialogForm}>
           {errorLine}
-          <EscalationFormFields partners={partners} projects={projects} people={people} />
+          <div className={styles.formGrid}>
+            <EscalationFormFields partners={partners} projects={projects} people={people} />
+          </div>
           <div className={dash.actionRow}>
             <button type="button" onClick={() => setOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
             <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'save')}</button>
@@ -174,13 +176,23 @@ export function NewEscalationButton({
 }
 
 /**
- * Edit · Change status, in the detail page's ⋯ menu.
+ * The escalation's own action panel — the two things this page exists to do, ON the page.
  *
- * The status dialog offers only the transitions `lib/escalation.canTransition` allows —
- * an OPEN escalation offers the four ways to close, a CLOSED one offers re-open and
- * nothing else. That is the same predicate the server action enforces, so the UI cannot
- * offer a change the boundary will refuse (the `autoknow-aa7` failure, in miniature: a
- * dialog that formed its own opinion about what the server would allow).
+ * They used to live behind a ⋯ menu, which is right for a LIST header (one row among many,
+ * actions are incidental) and wrong here: a detail page is opened in order to act on the
+ * one record it shows, and closing was four interactions deep — kebab, menu item, dialog,
+ * select, save. The close reason is now a picker sitting in the open, so the common case is
+ * pick-and-press. The kebab is gone rather than kept alongside: two doors to one action is
+ * the duplication the reviews here keep deleting.
+ *
+ * The panel offers exactly the transitions `lib/escalation.canTransition` allows, which is
+ * the property the dialog version had and the one worth keeping: a control that offers a
+ * change the server action then refuses is `autoknow-aa7` in miniature — a surface forming
+ * its own opinion about what the boundary will accept.
+ *
+ * EDIT stays a dialog, because it is a whole form rather than one decision — but a wide
+ * one, in two columns (see `formGrid`): the old 30rem sheet stacked eleven fields into a
+ * scrolling column while the page around it sat empty.
  */
 export default function EscalationAdminControls({
   escalation, partners, projects, people, duplicateCandidates,
@@ -197,80 +209,89 @@ export default function EscalationAdminControls({
 }) {
   const locale = useLocale();
   const [editOpen, setEditOpen] = useState(false);
-  const [statusOpen, setStatusOpen] = useState(false);
   const [nextStatus, setNextStatus] = useState<EscalationStatus>(
     isClosed(escalation.status) ? 'open' : 'resolved',
   );
-  const { saving, errorLine, runAction } = useDialogAction();
+  // TWO runners, not one: `errorLine` is rendered in two places here (the panel and the
+  // dialog), and a shared one would paint a failed edit onto the page behind its own open
+  // dialog. Each surface owns its own error.
+  const status = useDialogAction();
+  const edit = useDialogAction();
 
   const closed = isClosed(escalation.status);
-  const choices: EscalationStatus[] = closed ? ['open'] : TERMINAL_STATUSES;
 
   return (
-    <span className={meta.actions}>
-      <KebabMenu ariaLabel={t(locale, 'moreActions')}>
-        <button type="button" onClick={() => setEditOpen(true)}>{t(locale, 'edit')}</button>
-        <button type="button" data-testid="escalation-status" onClick={() => setStatusOpen(true)}>
-          {closed ? t(locale, 'escReopen') : t(locale, 'escChangeStatus')}
-        </button>
-      </KebabMenu>
+    <div className={styles.panel}>
+      {status.errorLine}
 
-      <OverlayDialog open={editOpen} onClose={() => setEditOpen(false)} width="30rem"
-        title={t(locale, 'escEdit')} closeLabel={t(locale, 'close')}>
+      {closed ? (
+        // A closed escalation offers re-open and nothing else — the same set
+        // `canTransition` allows, so the panel cannot offer a change the action refuses.
         <form
-          action={async (fd) => { if (await runAction(fd, updateEscalation)) setEditOpen(false); }}
-          className={dash.dialogForm}
+          action={async (fd) => { await status.runAction(fd, setEscalationStatus); }}
+          className={styles.statusForm}
         >
-          {errorLine}
           <input type="hidden" name="escalationId" value={escalation.id} />
-          <EscalationFormFields defaults={escalation} partners={partners} projects={projects} people={people} />
-          <div className={dash.actionRow}>
-            <button type="button" onClick={() => setEditOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
-            <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'save')}</button>
-          </div>
+          <input type="hidden" name="status" value="open" />
+          <button type="submit" data-testid="escalation-reopen" disabled={status.saving} className={styles.primaryBtn}>
+            {status.saving ? t(locale, 'saving') : t(locale, 'escReopen')}
+          </button>
         </form>
-      </OverlayDialog>
-
-      <OverlayDialog open={statusOpen} onClose={() => setStatusOpen(false)} width="30rem"
-        title={closed ? t(locale, 'escReopen') : t(locale, 'escClose')} closeLabel={t(locale, 'close')}>
+      ) : (
         <form
-          action={async (fd) => { if (await runAction(fd, setEscalationStatus)) setStatusOpen(false); }}
-          className={dash.dialogForm}
+          action={async (fd) => { await status.runAction(fd, setEscalationStatus); }}
+          className={styles.statusForm}
         >
-          {errorLine}
           <input type="hidden" name="escalationId" value={escalation.id} />
-          <div className={dash.textInputGroup}>
-            <label htmlFor="esStatus" className={dash.formLabel}>{t(locale, 'escCloseAs')}</label>
+          <label htmlFor="escCloseAs" className={styles.label}>{t(locale, 'escCloseAs')}</label>
+          <div className={styles.statusRow}>
             <select
-              id="esStatus" name="status" className={dash.textInput}
+              id="escCloseAs" name="status" className={styles.select}
               value={nextStatus}
               onChange={(e) => setNextStatus(e.target.value as EscalationStatus)}
             >
-              {/* Bare names, not the "Closed — " forms: the label above already says
-                  "Close as", so the qualifier would be said twice (lib/escalation). */}
-              {choices.map((s) => (
+              {/* Bare names: the label already says "Close as", so the "Closed — " form
+                  would say closed twice (lib/escalation). */}
+              {TERMINAL_STATUSES.map((s) => (
                 <option key={s} value={s}>{t(locale, STATUS_KEY[s])}</option>
               ))}
             </select>
+            <button type="submit" data-testid="escalation-close" disabled={status.saving} className={styles.primaryBtn}>
+              {status.saving ? t(locale, 'saving') : t(locale, 'escClose')}
+            </button>
           </div>
           {/* Only `duplicate` needs a target, so the picker appears only for it — a
-              permanently visible "duplicate of" select would read as a field every close
-              has to answer. Required here mirrors the zod refinement. */}
+              permanently visible one would read as a field every close must answer. */}
           {nextStatus === 'duplicate' && (
-            <div className={dash.textInputGroup}>
-              <label htmlFor="esDuplicateOf" className={dash.formLabel}>{t(locale, 'escDuplicateOf')}</label>
-              <select id="esDuplicateOf" name="duplicateOfId" required className={dash.textInput} defaultValue="">
-                <option value="">{t(locale, 'escDuplicateOfPlaceholder')}</option>
-                {duplicateCandidates.map((e) => <option key={e.id} value={e.id}>#{e.id} — {e.name}</option>)}
-              </select>
-            </div>
+            <select name="duplicateOfId" required className={styles.select} defaultValue="">
+              <option value="">{t(locale, 'escDuplicateOfPlaceholder')}</option>
+              {duplicateCandidates.map((e) => <option key={e.id} value={e.id}>#{e.id} — {e.name}</option>)}
+            </select>
           )}
+        </form>
+      )}
+
+      <button type="button" data-testid="escalation-edit" onClick={() => setEditOpen(true)} className={styles.secondaryBtn}>
+        {t(locale, 'escEdit')}
+      </button>
+
+      <OverlayDialog open={editOpen} onClose={() => setEditOpen(false)} width="52rem"
+        title={t(locale, 'escEdit')} closeLabel={t(locale, 'close')}>
+        <form
+          action={async (fd) => { if (await edit.runAction(fd, updateEscalation)) setEditOpen(false); }}
+          className={dash.dialogForm}
+        >
+          {edit.errorLine}
+          <input type="hidden" name="escalationId" value={escalation.id} />
+          <div className={styles.formGrid}>
+            <EscalationFormFields defaults={escalation} partners={partners} projects={projects} people={people} />
+          </div>
           <div className={dash.actionRow}>
-            <button type="button" onClick={() => setStatusOpen(false)} disabled={saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
-            <button type="submit" disabled={saving} className={dash.submitBtn}>{saving ? t(locale, 'saving') : t(locale, 'save')}</button>
+            <button type="button" onClick={() => setEditOpen(false)} disabled={edit.saving} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
+            <button type="submit" disabled={edit.saving} className={dash.submitBtn}>{edit.saving ? t(locale, 'saving') : t(locale, 'save')}</button>
           </div>
         </form>
       </OverlayDialog>
-    </span>
+    </div>
   );
 }

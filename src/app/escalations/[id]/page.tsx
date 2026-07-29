@@ -72,7 +72,8 @@ export default async function EscalationDetailPage({ params }: PageProps) {
   });
   if (!escalation) notFound();
 
-  // The pickers the ⋯ menu's dialogs need. Archived programs are hidden from pickers, the
+  // The pickers the action panel needs — its edit dialog AND its close-as-duplicate
+  // target. Archived programs are hidden from pickers, the
   // rule every other list follows (lib/lifecycle's `visibleInLists`).
   const [partners, projects, people, otherEscalations] = await Promise.all([
     prisma.partner.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
@@ -106,25 +107,6 @@ export default async function EscalationDetailPage({ params }: PageProps) {
       <header className={styles.header}>
         <div className={styles.titleRow}>
           <h1>{escalation.title}</h1>
-          <EscalationAdminControls
-            escalation={{
-              id: escalation.id,
-              title: escalation.title,
-              summary: escalation.summary,
-              status,
-              severity: escalation.severity as EscalationSeverity | null,
-              orgLevel: escalation.orgLevel as EscalationOrgLevel | null,
-              partnerId: escalation.partnerId,
-              projectId: escalation.projectId,
-              ownerPersonId: escalation.ownerPersonId,
-              decisionMakerPersonId: escalation.decisionMakerPersonId,
-              requestedOfPersonId: escalation.requestedOfPersonId,
-            }}
-            partners={partners}
-            projects={projects}
-            people={people}
-            duplicateCandidates={otherEscalations.map((e) => ({ id: e.id, name: e.title }))}
-          />
         </div>
         {/* What this is ABOUT, as navigation (§2: no plain-text dead ends). */}
         <div className={styles.identLine}>
@@ -199,6 +181,27 @@ export default async function EscalationDetailPage({ params }: PageProps) {
 
         <aside className={styles.sidebar}>
           <div className={styles.sidebarCard}>
+          <EscalationAdminControls
+            escalation={{
+              id: escalation.id,
+              title: escalation.title,
+              summary: escalation.summary,
+              status,
+              severity: escalation.severity as EscalationSeverity | null,
+              orgLevel: escalation.orgLevel as EscalationOrgLevel | null,
+              partnerId: escalation.partnerId,
+              projectId: escalation.projectId,
+              ownerPersonId: escalation.ownerPersonId,
+              decisionMakerPersonId: escalation.decisionMakerPersonId,
+              requestedOfPersonId: escalation.requestedOfPersonId,
+            }}
+            partners={partners}
+            projects={projects}
+            people={people}
+            duplicateCandidates={otherEscalations.map((e) => ({ id: e.id, name: e.title }))}
+          />
+
+
             <Fact label={t(locale, 'escSeverityLabel')}>
               {escalation.severity
                 ? <ClassBox className={styles.classInk}>{t(locale, SEVERITY_KEY[escalation.severity as EscalationSeverity])}</ClassBox>

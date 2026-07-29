@@ -46,7 +46,7 @@ const ROLE_LABELS = [
 export type EscalationRoles = { [K in (typeof ROLE_LABELS)[number]['field']]: number | null };
 
 /** What to say about a status change. */
-export function describeStatusChange(
+function describeStatusChange(
   id: number,
   title: string,
   status: EscalationStatus,
@@ -65,27 +65,27 @@ export function describeStatusChange(
  * is "ALL meaningful updates"): "requested of" is who the ask is actually pointed at, so a
  * thread not told about it is missing the one name it most needs.
  */
-export async function describeAssignmentChange(
+async function describeAssignmentChange(
   id: number,
   title: string,
   before: EscalationRoles,
-  after: EscalationRoles,
+  now: EscalationRoles,
 ): Promise<string | null> {
-  const changed = ROLE_LABELS.filter((r) => (before[r.field] ?? null) !== (after[r.field] ?? null));
+  const changed = ROLE_LABELS.filter((r) => (before[r.field] ?? null) !== (now[r.field] ?? null));
   if (changed.length === 0) return null;
 
   // ONE query for the names, not one per role — three assignments in a single submit is an
   // ordinary edit, not an exceptional one.
-  const ids = changed.map((r) => after[r.field]).filter((v): v is number => v != null);
+  const ids = changed.map((r) => now[r.field]).filter((v): v is number => v != null);
   const people = ids.length
     ? await prisma.person.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } })
     : [];
   const nameOf = new Map(people.map((p) => [p.id, p.name]));
 
   const sentences = changed.map((r) => {
-    const now = after[r.field];
-    return now != null
-      ? tr('escPostRoleNow', { role: tr(r.key), name: nameOf.get(now) ?? '' })
+    const assigned = now[r.field];
+    return assigned != null
+      ? tr('escPostRoleNow', { role: tr(r.key), name: nameOf.get(assigned) ?? '' })
       : tr('escPostRoleCleared', { role: tr(r.key) });
   });
   return tr('escPostAssignment', { n: id, title, changes: sentences.join('; ') });
