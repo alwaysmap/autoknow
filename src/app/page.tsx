@@ -5,6 +5,7 @@ import AnchorHeading from '../components/AnchorHeading';
 import EcosystemStatStrip from '../components/EcosystemStatStrip';
 import { getActivity } from '../lib/activity';
 import { getEcosystemDashboardData, getPartnerRelationshipScores } from '../lib/dashboardData';
+import { getOpenEscalationsCount } from '../lib/escalationQueries';
 import { getLocale } from '../lib/locale';
 import { t } from '../lib/i18n';
 import { tNodes } from '../components/tNodes';
@@ -28,10 +29,11 @@ const TEASER_COUNT = 5;
 export default async function Landing(props: { searchParams: Promise<{ q?: string; lang?: string }> }) {
   const { q, lang } = await props.searchParams;
   const locale = await getLocale(lang);
-  const [latest, { serializedProjects }, relationshipScores] = await Promise.all([
+  const [latest, { serializedProjects }, relationshipScores, openEscalationCount] = await Promise.all([
     getActivity({ kind: 'ecosystem' }, TEASER_COUNT),
     getEcosystemDashboardData(),
     getPartnerRelationshipScores(),
+    getOpenEscalationsCount(),
   ]);
 
   // Snapshot "now" server-side so SSR and hydration agree — same rule as /ecosystem.
@@ -43,7 +45,12 @@ export default async function Landing(props: { searchParams: Promise<{ q?: strin
       {/* Outside <main>, which labels the hero. The strip must stay short enough that
           the autofocused input keeps its place above the fold — otherwise the browser
           scrolls straight past the strip on load (design.md §2b). */}
-      <EcosystemStatStrip programs={serializedProjects} relationshipScores={relationshipScores} now={now} />
+      <EcosystemStatStrip
+        programs={serializedProjects}
+        relationshipScores={relationshipScores}
+        now={now}
+        openEscalationCount={openEscalationCount}
+      />
 
       <main className={styles.hero}>
         <UnifiedSearch

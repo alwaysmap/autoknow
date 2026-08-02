@@ -5,11 +5,14 @@ import { getSummary } from '../../lib/summaries';
 import { geminiConfigured } from '../../lib/gemini';
 import CapacityChart from '../../components/CapacityChart';
 import { getEcosystemDashboardData, getPartnerRelationshipScores } from '../../lib/dashboardData';
+import { getEcosystemEscalations, getOpenEscalationsCount } from '../../lib/escalationQueries';
 import { getLocale } from '../../lib/locale';
 import { t } from '../../lib/i18n';
 import EcosystemDashboardClient from './EcosystemDashboardClient';
+import EscalationRows from '../../components/EscalationRows';
 import styles from './page.module.css';
 import AnchorHeading from '../../components/AnchorHeading';
+import KebabMenu from '../../components/KebabMenu';
 import PageShell from '../../components/PageShell';
 
 export const dynamic = 'force-dynamic';
@@ -21,9 +24,11 @@ export default async function Home() {
   // 2. Load the shared dashboard data (projects, forecasts, cycle times, briefings,
   //    the ecosystem chain busiest-resources roll-up) plus the partner relationship
   //    scores the mix tile reads.
-  const [{ serializedProjects, busiest }, relationshipScores] = await Promise.all([
+  const [{ serializedProjects, busiest }, relationshipScores, openEscalationCount, escalations] = await Promise.all([
     getEcosystemDashboardData(),
     getPartnerRelationshipScores(),
+    getOpenEscalationsCount(),
+    getEcosystemEscalations(),
   ]);
 
   // Snapshot "now" server-side so SSR and hydration agree. This is an async Server
@@ -36,7 +41,12 @@ export default async function Home() {
   return (
     <PageShell title={t(locale, 'ecosystemDashboard')} maxWidth="68.75rem">
         {/* answered in time by the capacity chart below */}
-        <EcosystemStatStrip programs={serializedProjects} relationshipScores={relationshipScores} now={now} />
+        <EcosystemStatStrip
+          programs={serializedProjects}
+          relationshipScores={relationshipScores}
+          now={now}
+          openEscalationCount={openEscalationCount}
+        />
 
         {/* the capacity picture gets the full page width — it's the chart leadership
             actually reads, and hover needs room */}
@@ -58,7 +68,28 @@ export default async function Home() {
         </section>
         {/* Recent activity retired from this page (2026-07-18): the ecosystem page
             is the leadership strip + briefing; activity lives on partner/program
-            pages where it has an anchor. */}
+            pages where it has an anchor. This panel is NOT that — it does not
+            reopen 2026-07-18's decision. It is a fixed, pre-canned READ of one
+            entity (open escalations across the portfolio), the same shape the
+            strip tiles above already are, not a stream of everything that happened. */}
+        <section className={styles.dashboardSection}>
+          <AnchorHeading
+            id="escalations"
+            linkLabel={t(locale, 'anchorLink')}
+            actions={
+              <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+                <Link href="/escalations?status=open">{t(locale, 'escalationsLabel')}</Link>
+              </KebabMenu>
+            }
+          >
+            {t(locale, 'escalationsLabel')}
+          </AnchorHeading>
+          <EscalationRows
+            escalations={escalations}
+            locale={locale}
+            emptyLabel={t(locale, 'escNoOpenEscalations')}
+          />
+        </section>
 
         {serializedProjects.length === 0 ? (
           <section className={styles.dashboardSection}>
