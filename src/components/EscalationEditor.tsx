@@ -25,6 +25,7 @@ import KebabMenu from './KebabMenu';
 import OverlayDialog from './OverlayDialog';
 import styles from './EscalationEditor.module.css';
 import useDialogAction from './useDialogAction';
+import Combobox from './Combobox';
 
 // Escalation write surfaces (#245 part a): one shared form for create and edit, plus the
 // status control. The LIST header gets a New button in a ⋯ menu — creating is incidental
@@ -74,14 +75,20 @@ function EscalationFormFields({
 }) {
   const locale = useLocale();
   // A person picker three times over, so the three roles cannot drift apart in markup the
-  // way three hand-written selects would.
-  const personSelect = (id: string, name: string, label: string, value: number | null) => (
+  // way three hand-written comboboxes would. `Combobox` (gh-269) replaces the bare
+  // `<select>` this used to be: with 15 people in the seed and hundreds in a real
+  // deployment, scrolling a closed dropdown to find one name does not scale — this one
+  // types "vol" and narrows to it.
+  const personPicker = (id: string, name: string, label: string, value: number | null) => (
     <div className={dash.textInputGroup}>
       <label htmlFor={id} className={dash.formLabel}>{label}</label>
-      <select id={id} name={name} defaultValue={value ?? ''} className={dash.textInput}>
-        <option value="">{t(locale, 'escUnassigned')}</option>
-        {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-      </select>
+      <Combobox
+        id={id} name={name}
+        options={people.map((p) => ({ value: String(p.id), label: p.name }))}
+        defaultValue={value != null ? String(value) : ''}
+        emptyLabel={t(locale, 'escUnassigned')}
+        aria-label={label}
+      />
     </div>
   );
 
@@ -105,17 +112,23 @@ function EscalationFormFields({
           browser can only express it per field: marking both would demand both. */}
       <div className={dash.textInputGroup}>
         <label htmlFor="efPartner" className={dash.formLabel}>{t(locale, 'partnerLabel')}</label>
-        <select id="efPartner" name="partnerId" defaultValue={defaults?.partnerId ?? ''} className={dash.textInput}>
-          <option value="">—</option>
-          {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        <Combobox
+          id="efPartner" name="partnerId"
+          options={partners.map((p) => ({ value: String(p.id), label: p.name }))}
+          defaultValue={defaults?.partnerId != null ? String(defaults.partnerId) : ''}
+          emptyLabel="—"
+          aria-label={t(locale, 'partnerLabel')}
+        />
       </div>
       <div className={dash.textInputGroup}>
         <label htmlFor="efProject" className={dash.formLabel}>{t(locale, 'programLabel')}</label>
-        <select id="efProject" name="projectId" defaultValue={defaults?.projectId ?? ''} className={dash.textInput}>
-          <option value="">—</option>
-          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        <Combobox
+          id="efProject" name="projectId"
+          options={projects.map((p) => ({ value: String(p.id), label: p.name }))}
+          defaultValue={defaults?.projectId != null ? String(defaults.projectId) : ''}
+          emptyLabel="—"
+          aria-label={t(locale, 'programLabel')}
+        />
       </div>
 
       {/* Triage. Blank is a real answer — "not yet triaged" — so both keep an empty
@@ -146,9 +159,9 @@ function EscalationFormFields({
         />
       </div>
 
-      {personSelect('efOwner', 'ownerPersonId', t(locale, 'escOwner'), defaults?.ownerPersonId ?? null)}
-      {personSelect('efDecider', 'decisionMakerPersonId', t(locale, 'escDecisionMaker'), defaults?.decisionMakerPersonId ?? null)}
-      {personSelect('efRequestedOf', 'requestedOfPersonId', t(locale, 'escRequestedOf'), defaults?.requestedOfPersonId ?? null)}
+      {personPicker('efOwner', 'ownerPersonId', t(locale, 'escOwner'), defaults?.ownerPersonId ?? null)}
+      {personPicker('efDecider', 'decisionMakerPersonId', t(locale, 'escDecisionMaker'), defaults?.decisionMakerPersonId ?? null)}
+      {personPicker('efRequestedOf', 'requestedOfPersonId', t(locale, 'escRequestedOf'), defaults?.requestedOfPersonId ?? null)}
     </>
   );
 }

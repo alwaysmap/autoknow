@@ -1,6 +1,27 @@
-import { test, expect, openMenuItemDialog } from './helpers/e2e';
+import { test, expect, openMenuItemDialog, type Locator } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
+
+/** Drive the `Combobox` picker (gh-269) that replaced the bare `<select>` for partner,
+ *  program and the three person roles: type enough of the label to narrow to it, then
+ *  click the option. Hydration-guarded like any first interaction after a load, and
+ *  retried as one unit for the same reason `openMenuItemDialog` is — a field that
+ *  hasn't hydrated yet ignores the keystrokes, and there is nothing to click again if
+ *  the SECOND attempt starts from "already open" without checking. */
+async function pickCombobox(scope: Locator, fieldLabel: string, query: string, optionLabel: string) {
+  // `getByRole('combobox', …)`, not `getByLabel`: the listbox this input controls shares
+  // its `aria-label`, so a plain label lookup is ambiguous between the two.
+  const field = scope.getByRole('combobox', { name: fieldLabel, exact: true });
+  const option = scope.getByRole('option', { name: optionLabel, exact: true });
+  await expect(async () => {
+    if (!(await option.isVisible())) {
+      await field.click({ timeout: 2000 });
+      await field.fill(query);
+    }
+    await expect(option).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 20000 });
+  await option.click();
+}
 
 // The escalation lifecycle end to end (#245 part a): raise → assign → triage → close →
 // re-open, driven through the real dialogs, plus the two things the detail page exists to
@@ -88,7 +109,8 @@ test.describe('Escalations', () => {
 
     const dialog = page.locator('dialog[open]');
     await dialog.getByLabel('Statement').fill('Second-source audio codec decision needed');
-    await dialog.getByLabel('Partner').selectOption(String(partnerId));
+    // "vol" — the substring case gh-269 was filed against — must find "Volvo Cars".
+    await pickCombobox(dialog, 'Partner', 'vol', 'Volvo Cars');
     await dialog.getByRole('button', { name: 'Save' }).click();
 
     // Creation redirects to the new escalation's own page.
@@ -149,7 +171,7 @@ test.describe('Escalations', () => {
     }).toPass({ timeout: 20000 });
     await dialog.getByLabel('Severity').selectOption('s1');
     await dialog.getByLabel('Org level').selectOption('director');
-    await dialog.getByLabel('Decision maker').selectOption({ label: deciderName });
+    await pickCombobox(dialog, 'Decision maker', deciderName.split(' ')[0], deciderName);
     await dialog.getByRole('button', { name: 'Save' }).click();
 
     await expect(page.locator('dialog[open]')).toHaveCount(0);
