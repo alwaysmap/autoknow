@@ -3,7 +3,7 @@ import { prisma } from './db';
 import { formatNeedleValue } from './needle';
 import { deriveScore } from './relationship';
 import { hillStatus, phaseColor } from './phase';
-import { phaseUpdateHref, programHref, programStatusUpdateHref, relationshipUpdateHref } from './entityHref';
+import { escalationHref, phaseUpdateHref, programHref, programStatusUpdateHref, relationshipUpdateHref } from './entityHref';
 import { coversDay, jobLabel, personAliases } from './people';
 import type { FeedItem, FeedScope, FeedKind } from './feed';
 
@@ -13,6 +13,20 @@ import type { FeedItem, FeedScope, FeedKind } from './feed';
 // the FeedItem shape with search so one component renders both.
 
 const PROGRAM_CREATED_NOTE = 'Program created';
+
+// Plain English, deliberately not run through `t()`: `getActivity` has no locale in
+// scope (server-side, shared across every viewer, same reason the "frozen — reason"
+// subtitle above stays unlocalized). "Closed — " prefixes mirror `STATUS_DISPLAY_KEY`
+// in lib/escalation so the wording matches the detail page's own; kept as a local literal
+// rather than imported because that map's values are StringKeys, not display strings.
+const ESCALATION_STATUS_LABEL: Record<string, string> = {
+  open: 'Open',
+  resolved: 'Closed — Resolved',
+  duplicate: 'Closed — Duplicate',
+  addressed: 'Closed — Addressed',
+  obsolete: 'Closed — Obsolete',
+};
+const ESCALATION_SEVERITY_LABEL: Record<string, string> = { s1: 'S1', s2: 'S2', s3: 'S3' };
 // Feed cards clamp the detail visually; truncating here keeps whole ingested digests
 // (up to `take` of them) out of the serialized page payload.
 const DETAIL_MAX = 600;
@@ -354,6 +368,93 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
           score,
           previousScore: prev ? deriveScore(prev) : null,
         },
+      });
+    }
+  }
+
+  // ---- Escalations: RAISED and CLOSED, and only those two (#245 section A) ----
+  //
+  // An escalation is newsworthy by construction — somebody raised it because it needs a
+  // decision — so its absence from the feed was the wrong default, not a missing
+  // nice-to-have. Assignment and triage changes are deliberately NOT feed events: a feed
+  // showing every reassignment buries the two events a reader actually scans for. This is
+  // the opposite call from the Chat post-back on purpose (lib/escalationPostBack), which
+  // announces assignments because the THREAD needs them — the feed is a different
+  // audience with a different question ("what happened", not "who owns what now").
+  //
+  // PERSON SCOPE is the one exception, and it emits RAISED only. The whole-file
+  // convention is that person scope narrows by ACTOR (who recorded it), and closing an
+  // escalation deliberately records no actor (#245 decision 2: the post-back names the
+  // change, never who clicked) — there is nothing to match a person against. `raisedBy`
+  // is the one actor-shaped column here, and only chat-raised escalations set it; a
+  // manually-created one has no creator column at all, so it can never appear on anyone's
+  // own activity feed. That gap is real and is the same shape as `ContextRevision`'s
+  // person-scope skip a few blocks up (a re-distillation is machine-driven and has no
+  // actor either) — not solved here, and not silently hidden: this comment is where the
+  // next reader finds it.
+  const escalationWhere =
+    scope.kind === 'partner'
+      ? { partnerId: scope.id }
+      : scope.kind === 'project'
+        ? { projectId: scope.id }
+        : scope.kind === 'person'
+          ? { OR: aliases.map((a) => ({ raisedBy: { equals: a, mode: 'insensitive' as const } })) }
+          : {};
+  const escalations = await prisma.escalation.findMany({
+    where: escalationWhere,
+    select: {
+      id: true, title: true, status: true, severity: true, createdAt: true, closedAt: true,
+      partner: { select: { name: true } },
+      project: { select: { name: true } },
+      ownerPerson: { select: { name: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take,
+  });
+  for (const e of escalations) {
+    // Suppress the scope's OWN name, same rule the relationship block above uses — a
+    // partner's feed does not need to be told it is about that partner. Ecosystem and
+    // person scope span many partners/programs, so both names are offered there.
+    const entityLabel =
+      scope.kind === 'project' ? null
+      : scope.kind === 'partner' ? (e.project?.name ?? null)
+      : (e.project?.name ?? e.partner?.name ?? null);
+    // Severity and owner are the CURRENT values, not what they were at the moment of
+    // the event — this row has no historical triage snapshot the way ProjectState/
+    // PhaseState give the status/phase blocks above. Acceptable: it is still the most
+    // useful answer available, and the two events are recent by definition.
+    const severityLabel = e.severity ? ESCALATION_SEVERITY_LABEL[e.severity] : null;
+    const who = e.ownerPerson?.name ?? null;
+    const href = escalationHref(e.id);
+
+    push(events, {
+      id: `esc-raised-${e.id}`,
+      kind: 'escalation',
+      title: e.title,
+      // An escalation is always created open — the RAISED event states that fact, not
+      // whatever the row's status has become since (the CLOSED event below is where a
+      // later status shows up).
+      subtitle: [meta(entityLabel, null, false), ESCALATION_STATUS_LABEL.open, severityLabel, who]
+        .filter(Boolean)
+        .join(' · ') || null,
+      href,
+      external: false,
+      timestamp: e.createdAt.toISOString(),
+    });
+
+    // Closed, and only in scopes where "who closed it" cannot even be asked — see the
+    // block comment above for why person scope stops here.
+    if (scope.kind !== 'person' && e.closedAt) {
+      push(events, {
+        id: `esc-closed-${e.id}`,
+        kind: 'escalation',
+        title: e.title,
+        subtitle: [meta(entityLabel, null, false), ESCALATION_STATUS_LABEL[e.status] ?? e.status, severityLabel, who]
+          .filter(Boolean)
+          .join(' · ') || null,
+        href,
+        external: false,
+        timestamp: e.closedAt.toISOString(),
       });
     }
   }

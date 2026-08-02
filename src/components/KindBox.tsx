@@ -23,6 +23,7 @@ const KIND_KEY: Record<FeedKind, StringKey> = {
   phase: 'phaseLabel',
   relationship: 'partnerLabel',
   'program-created': 'feedCatCreated',
+  escalation: 'escalationsLabel',
 };
 
 export const KIND_COLOR: Record<FeedKind, string> = {
@@ -34,6 +35,7 @@ export const KIND_COLOR: Record<FeedKind, string> = {
   phase: 'var(--kind-partner)',
   relationship: 'var(--kind-person)',
   'program-created': 'var(--kind-partner)',
+  escalation: 'var(--kind-escalation)',
 };
 
 export default function KindBox({ kind, locale }: { kind: FeedKind; locale: Locale }) {

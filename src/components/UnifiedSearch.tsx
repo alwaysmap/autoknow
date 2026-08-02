@@ -32,6 +32,7 @@ const KIND_LABEL: Record<FeedKind, StringKey> = {
   phase: 'phaseLabel',
   relationship: 'partnerLabel',
   'program-created': 'feedCatCreated',
+  escalation: 'escalationsLabel',
 };
 
 /** Enough to recognise the thing you meant; the full list is one click away. */

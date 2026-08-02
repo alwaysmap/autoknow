@@ -22,7 +22,7 @@ export type FeedType = 'partner' | 'program' | 'person' | 'context';
 export const FEED_TYPES: FeedType[] = ['partner', 'program', 'person', 'context'];
 
 /** All item kinds: the searchable types plus system-of-record event kinds. */
-export type FeedKind = FeedType | 'status' | 'phase' | 'relationship' | 'program-created';
+export type FeedKind = FeedType | 'status' | 'phase' | 'relationship' | 'program-created' | 'escalation';
 
 /** Payload that lets an item render as a compact needle "list card" in the feed. */
 export interface NeedlePayload {
