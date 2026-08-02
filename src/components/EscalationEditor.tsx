@@ -45,6 +45,13 @@ interface Option {
   name: string;
 }
 
+/** `Option` rows as `Combobox` wants them: a stable string id, never the display name,
+ *  under `value` (AGENTS lesson 3 — a picker's committed value is the id, not the label
+ *  the reader happened to type or see). */
+function toComboboxOptions(options: Option[]): { value: string; label: string }[] {
+  return options.map((o) => ({ value: String(o.id), label: o.name }));
+}
+
 export interface EscalationRecord {
   id: number;
   title: string;
@@ -84,7 +91,7 @@ function EscalationFormFields({
       <label htmlFor={id} className={dash.formLabel}>{label}</label>
       <Combobox
         id={id} name={name}
-        options={people.map((p) => ({ value: String(p.id), label: p.name }))}
+        options={toComboboxOptions(people)}
         defaultValue={value != null ? String(value) : ''}
         emptyLabel={t(locale, 'escUnassigned')}
         aria-label={label}
@@ -114,7 +121,7 @@ function EscalationFormFields({
         <label htmlFor="efPartner" className={dash.formLabel}>{t(locale, 'partnerLabel')}</label>
         <Combobox
           id="efPartner" name="partnerId"
-          options={partners.map((p) => ({ value: String(p.id), label: p.name }))}
+          options={toComboboxOptions(partners)}
           defaultValue={defaults?.partnerId != null ? String(defaults.partnerId) : ''}
           emptyLabel="—"
           aria-label={t(locale, 'partnerLabel')}
@@ -124,7 +131,7 @@ function EscalationFormFields({
         <label htmlFor="efProject" className={dash.formLabel}>{t(locale, 'programLabel')}</label>
         <Combobox
           id="efProject" name="projectId"
-          options={projects.map((p) => ({ value: String(p.id), label: p.name }))}
+          options={toComboboxOptions(projects)}
           defaultValue={defaults?.projectId != null ? String(defaults.projectId) : ''}
           emptyLabel="—"
           aria-label={t(locale, 'programLabel')}

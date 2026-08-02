@@ -1,8 +1,8 @@
 /* The type-to-filter entity picker (gh-269). The INPUT reuses the form's own
    `dash.textInput` look (it replaces a `<select>` in a form full of them, and design.md
-   §7 says a form should read as one grammar) — only the dropdown listbox is this
-   component's own to style. No root margin (§9b) — the parent `textInputGroup` supplies
-   spacing the same way it does around every other field. */
+   §6's "one grammar" rule says a form should read as one grammar) — only the dropdown
+   listbox is this component's own to style. No root margin (§9b) — the parent
+   `textInputGroup` supplies spacing the same way it does around every other field. */
 
 .wrap {
   position: relative;

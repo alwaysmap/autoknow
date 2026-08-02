@@ -20,6 +20,9 @@ import styles from './Combobox.module.css';
 // (type to filter, arrow to navigate), not button-driven, so the two do not fit
 // together. This reuses the one genuinely shared piece — `anchoredPosition`, the pure,
 // unit-tested placement math — without forcing the mismatched invoker mechanism on it.
+// (`UnifiedSearch` also hand-rolls a roving-index listbox for its own suggestions list —
+// a different use case, navigational search rather than a form field with a committed
+// value, so not folded in here; worth a follow-up look if a third variant ever appears.)
 //
 // THE GUARANTEE THIS EXISTS TO KEEP (AGENTS lesson 3 / design.md §2 — entity inputs are
 // PICKERS, never free text): the component NEVER posts unmatched text. `selectedId` is
@@ -140,6 +143,9 @@ export default function Combobox({
   // Position the list while open, and keep it anchored as the trigger scrolls/resizes —
   // the same responsibilities `AnchoredPopover` carries for its own panel, done here with
   // the same pure `anchoredPosition` math since this is not that component (see header).
+  // `query` is a dependency too, not just `open`: filtering changes how many rows render,
+  // which changes `panel.offsetHeight` — without recomputing here, a filtered-down list
+  // would keep the taller unfiltered list's placement.
   useEffect(() => {
     if (!open) return;
     const position = () => {
