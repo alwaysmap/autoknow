@@ -136,6 +136,11 @@
   --kind-program: #1a4d8f;
   --kind-person:  #7a4ea0;
   --kind-context: #8a5300;
+  /* Teal — the one hue none of the other four kinds or the health palette (--ok/--warn/
+     --bad) use, which is the point: design.md §6 says kind colour is IDENTITY, never
+     health, and an escalation is urgent but this ink must not read as a verdict.
+     6.98:1 against --bg (measured). */
+  --kind-escalation: #125e57;
 
   /* Links are BLUE, not the brand green: green is the app's "good/early/saved"
      signal, and using it for navigation made every link read as a status.
@@ -260,6 +265,8 @@
   --kind-program: #93b8e8;
   --kind-person:  #c1a3dd;
   --kind-context: #e0a95c;
+  /* 9.77:1 against dark --bg (measured) — see the light-theme token's note. */
+  --kind-escalation: #5eead4;
   --ok-ring: rgba(126, 216, 161, 0.35);
   --bad-ring: rgba(255, 143, 137, 0.35);
 
