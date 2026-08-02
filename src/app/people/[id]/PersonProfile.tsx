@@ -14,6 +14,8 @@ import PersonHistoryTable from './PersonHistoryTable';
 import PersonProgramsTable from './PersonProgramsTable';
 import { personProgramRows } from '../../../lib/personPrograms';
 import { untrackedContext } from '../../../lib/untrackedContext';
+import { getPersonEscalations } from '../../../lib/escalationQueries';
+import EscalationRows from '../../../components/EscalationRows';
 
 // THE person page BODY, rendered by TWO routes: `/people/:id` (any person, by id) and
 // `/me` (the signed-in person, by session). Both render this — /me does NOT redirect,
@@ -86,6 +88,11 @@ export default async function PersonProfile({ personId }: { personId: number }) 
   // render, scoped by actor instead of subject, each row labelled with the job held on
   // ITS OWN day (ADR a-dated-row-is-labelled-as-of-its-own-date).
   const activity = await getActivity({ kind: 'person', id: person.id });
+
+  // What is ON THIS PERSON'S PLATE (#245 section C decision 9/10): every escalation
+  // where they are owner, decision maker, OR requested-of. Renders here rather than in a
+  // /me-only panel because this component IS both routes — see the file header.
+  const escalations = await getPersonEscalations(person.id);
 
   // Who is already tracked (under EVERY address they have held) and who has been
   // dismissed — the two things the pure detector cannot know (#127 E15).
@@ -192,6 +199,16 @@ export default async function PersonProfile({ personId }: { personId: number }) 
             ) : (
               <PersonProgramsTable locale={locale} rows={programRows} />
             )}
+          </section>
+
+          <section className={styles.section}>
+            {/* What is on THIS person's plate (#245 section C) — owner, decision maker,
+                or requested-of, oldest-open-first via the shared query. Reads right after
+                Programs and before career History: it is current work, not a record. */}
+            <AnchorHeading id="escalations" linkLabel={t(locale, 'anchorLink')}>
+              {t(locale, 'escalationsLabel')}
+            </AnchorHeading>
+            <EscalationRows escalations={escalations} locale={locale} />
           </section>
 
           <section className={styles.section}>

@@ -36,17 +36,30 @@ export interface EscalationRow {
   orgLevel: EscalationOrgLevel | null;
   createdAt: string;
   owner: PersonRef | null;
+  /** What this escalation is ABOUT, when the panel spans more than one entity (the
+   *  ecosystem and person pre-canned views, #245 section C) — the partner or program
+   *  name. Absent on the partner/program pages themselves: a partner's own escalation
+   *  section does not need to be told it is about that partner, the same rule the
+   *  activity feed's `meta()` follows for the same reason. Plain text, not a link — the
+   *  ROW's own link (the title) is where this panel points; a second link per row would
+   *  be two doors for one decision. */
+  entityLabel?: string | null;
 }
 
 export default function EscalationRows({
   escalations,
   locale,
+  emptyLabel,
 }: {
   escalations: EscalationRow[];
   locale: Locale;
+  /** Override the generic "No escalations." — the ecosystem panel shows only OPEN rows,
+   *  so an empty result there reads better as "No open escalations." (#245 section C
+   *  decision 13: empty is a real state and says so). */
+  emptyLabel?: string;
 }) {
   if (escalations.length === 0) {
-    return <p className={styles.empty}>{t(locale, 'escNoneForEntity')}</p>;
+    return <p className={styles.empty}>{emptyLabel ?? t(locale, 'escNoneForEntity')}</p>;
   }
 
   return (
@@ -58,6 +71,12 @@ export default function EscalationRows({
         <li key={e.id} className={isOpen(e.status) ? styles.row : styles.rowClosed}>
           <Link href={escalationHref(e.id)} className={styles.title}>{e.title}</Link>
           <span className={styles.facts}>
+            {e.entityLabel && (
+              <>
+                <span className={styles.fact}>{e.entityLabel}</span>
+                <span className={styles.sep}>·</span>
+              </>
+            )}
             <span className={styles.fact}>{t(locale, STATUS_DISPLAY_KEY[e.status])}</span>
             {e.severity && (
               <>

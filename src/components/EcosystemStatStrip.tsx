@@ -1,15 +1,21 @@
 import EcosystemStats from './EcosystemStats';
 import SopRiskStat from './SopRiskStat';
 import RelationshipMix from './RelationshipMix';
+import EscalationsStat from './EscalationsStat';
 import type { DashboardProject } from '../lib/dashboardData';
 import styles from './EcosystemStatStrip.module.css';
 
 // The leadership strip, in reading order: how much work is in flight, how much of it
-// is slipping its SOP, and how healthy the partner book carrying it is.
+// is slipping its SOP, how healthy the partner book carrying it is, and — since #245
+// section C — how many escalations are open.
 //
 // A COMPONENT rather than a copied block (#133): it renders on `/` and `/ecosystem`,
-// and the three tiles have to agree about what "active" and "at risk" mean. Two
-// hand-rolled strips is how the same word ends up reporting two counts.
+// and the tiles have to agree about what "active" and "at risk" mean. Two hand-rolled
+// strips is how the same word ends up reporting two counts. That is also why the open-
+// escalation count is a PROP here rather than derived from `programs` the way
+// `activeCount` is — an escalation is not a property of any program in this list (it
+// may be partner-only), so there is nothing in `programs` to derive it from; the caller
+// fetches it from `lib/escalationQueries.getOpenEscalationsCount` alongside the rest.
 //
 // It derives `activeCount` itself for the same reason: `!isArchived && progress < 100`
 // IS the definition of the number EcosystemStats renders, so it belongs with the tile
@@ -19,11 +25,13 @@ export default function EcosystemStatStrip({
   programs,
   relationshipScores,
   now,
+  openEscalationCount,
 }: {
   programs: DashboardProject[];
   relationshipScores: (number | null)[];
   /** Snapshotted by the caller's Server Component so SSR and hydration agree. */
   now: number;
+  openEscalationCount: number;
 }) {
   const activeCount = programs.filter((p) => !p.isArchived && p.hillChartProgress < 100).length;
 
@@ -32,6 +40,7 @@ export default function EcosystemStatStrip({
       <EcosystemStats activeCount={activeCount} allTimeCount={programs.length} />
       <SopRiskStat now={now} programs={programs} />
       <RelationshipMix scores={relationshipScores} />
+      <EscalationsStat count={openEscalationCount} />
     </section>
   );
 }

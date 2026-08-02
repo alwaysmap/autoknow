@@ -461,6 +461,20 @@ const STRINGS = {
     ja: '評価済みパートナー関係の健全度クラス別の割合、危機的（左）から模範的（右）まで。',
     ko: '평가된 파트너 관계의 상태 등급별 비율, 위기(왼쪽)에서 모범적(오른쪽)까지.',
   },
+  // Ecosystem strip tile 4 (#245 section C) — open escalations, the leadership count.
+  statsOpenEscalations: { en: 'Open escalations', de: 'Offene Eskalationen', ja: '未解決のエスカレーション', ko: '진행 중인 에스컬레이션' },
+  statsViewOpenEscalations: {
+    en: 'View open escalations',
+    de: 'Offene Eskalationen anzeigen',
+    ja: '未解決のエスカレーションを表示',
+    ko: '진행 중인 에스컬레이션 보기',
+  },
+  escNoOpenEscalations: {
+    en: 'No open escalations.',
+    de: 'Keine offenen Eskalationen.',
+    ja: '未解決のエスカレーションはありません。',
+    ko: '진행 중인 에스컬레이션이 없습니다.',
+  },
   // Phrased so it stays grammatical at any count — this catalog has no pluralization
   // (cf. '{n} days', '{n} units') and "1 partners" is not worth inventing one for.
   statsRelationshipSegment: {
