@@ -63,7 +63,7 @@ export default function EcosystemDashboardClient({
   // The fixed risk view: active programs (not archived, not done) whose CURRENT
   // health is Concerned — the worst state, not "Some Risk or worse". No filter
   // chrome here — the URL-shareable /programs table is the place for ad-hoc
-  // slicing, and it still floors at Some Risk.
+  // slicing.
   const filteredProjects = initialProjects
     .filter((proj) => visibleInLists(proj) && deriveProgramStatus(proj) === 'Active' && parseHealth(proj.theNeedle) === 'Concerned')
     // every row is Concerned, so health can no longer order them: least-progressed
@@ -73,7 +73,7 @@ export default function EcosystemDashboardClient({
   return (
     <div className={styles.clientWrapper}>
       {/* Filter panel + leader alert removed (2026-07-18, user call): the table
-          below IS the risk view — active programs currently Concerned. */}
+          below IS the risk view — see the filter above for what it admits. */}
 
       {/* Scorecard strip removed (2026-07-18, user call) — the numbers the
           leadership strip and table don't already carry added noise, not signal. */}
