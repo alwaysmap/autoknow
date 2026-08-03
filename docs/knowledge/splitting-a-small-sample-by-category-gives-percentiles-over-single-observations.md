@@ -35,7 +35,8 @@ it can support the claim.
 
 - If the answer is "all of it", do not group at all. One population, and the category
   becomes a hover detail rather than an axis. This is what flowmetrics does for cycle time,
-  and it is what the rework did here: 44 rows and ~3800px collapsed to one 380px chart.
+  and it is what the rework did here: 44 rows at ~3800px collapsed to a single chart
+  measuring ~520px on the page (a constant 800x380 viewBox).
 - If per-category really is the question, gate on sample size per bucket and say what the
   sample was. `CycleTimeStats.sampleSize` rides inside the stats object for that reason, so
   percentiles cannot be rendered without the number that qualifies them, and below
@@ -46,7 +47,7 @@ it can support the claim.
 **How we found out.** The chart had been computed on every dashboard render and mounted
 nowhere, so nobody had ever looked at it. Mounting it made the shape obvious in one
 screenshot — row after row of identical P50/P85 pairs — which is the same lesson AGENTS 18
-teaches about overlays: counting elements proves existence, not sense. `docs/COMPONENT_PLAN`
+teaches about overlays: counting elements proves existence, not visibility. `docs/COMPONENT_PLAN`
 §2.8 still specified "cycle time per phase-name … percentiles" for the unbuilt
 `ConstraintView`; that line was corrected in the same change, because a spec is where this
 mistake would have been made a second time.
