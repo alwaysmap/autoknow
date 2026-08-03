@@ -302,9 +302,6 @@ describe('CycleTimeScatterPlot — the healthy tight spread is the crowding case
     // All three lines are the same value here, so all three must be drawn at one y even
     // though their captions were dodged apart. A caption that dragged its line with it
     // would be the chart lying about the number.
-    // All three percentiles are 12 here, so all three reference lines must be drawn at ONE
-    // y — the full-width ones spanning the plot, identifiable by their x extent. A caption
-    // that dragged its line along would show up as three distinct ys.
     const refLineYs = new Set(
       Array.from(container.querySelectorAll<SVGLineElement>('[data-testid^="cycle-line-"]'))
         .map((l) => l.getAttribute('y1')),
@@ -313,10 +310,31 @@ describe('CycleTimeScatterPlot — the healthy tight spread is the crowding case
     expect(new Set(captionBoxes(container).map((b) => b.y)).size).toBe(3); // dodged apart
   });
 
-  it('leaves an uncrowded set on its natural baseline', () => {
-    const { container } = wrap(<CycleTimeScatterPlot data={data} stats={wide} />);
-    const ys = captionBoxes(container).map((b) => b.y);
-    expect(new Set(ys).size).toBe(3); // three distinct values, none nudged into another
+  it('leaves an uncrowded set on its own lines, not merely at three distinct heights', () => {
+    // "Three distinct ys" is what a DODGED set produces too, so it cannot tell the two
+    // apart. This asserts the stronger thing: every caption sits on the line it names.
+    //
+    // The fixture carries a 100-day point on purpose. `maxDays` is driven by the largest of
+    // the data and p95, so a p95 at the top of the range lands on `marginTop` and
+    // `dodgeLabels` clamps its caption inward to keep it from clipping — correct, but it is
+    // a CLAMP, not a dodge, and it would make this assertion fail for a reason the test is
+    // not about.
+    const roomy: CycleTimeData[] = [...data, {
+      phaseId: 99, phaseName: 'Long one', projectId: 1, programName: 'Demo program',
+      finishedAt: new Date(Date.UTC(2026, 0, 9)).toISOString(), cycleTimeDays: 100,
+    }];
+    const { container } = wrap(<CycleTimeScatterPlot data={roomy} stats={wide} />);
+    // Raw `y` attributes on both sides. `boxOf` returns a label's CENTRE, and the caption's
+    // y is a BASELINE, so comparing those two would be off by the baseline-to-centre delta
+    // for every caption — a constant that has nothing to do with dodging.
+    const attrYs = (sel: string) =>
+      Array.from(container.querySelectorAll<SVGElement>(sel))
+        .map((el) => Number(el.getAttribute(sel.includes('line') ? 'y1' : 'y')))
+        .sort((a, b) => a - b);
+    const captionYs = attrYs('[data-testid^="cycle-p"]');
+    const lineYs = attrYs('[data-testid^="cycle-line-"]');
+    expect(captionYs).toHaveLength(3);
+    captionYs.forEach((y, i) => expect(y).toBeCloseTo(lineYs[i], 0));
   });
 
   it('draws no percentile lines at all when the sample is too thin to support them', () => {

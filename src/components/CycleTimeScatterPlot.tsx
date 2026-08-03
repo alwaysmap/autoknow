@@ -22,9 +22,8 @@ import styles from './CycleTimeScatterPlot.module.css';
 //
 // Shape follows dvhthomas/flowmetrics, whose cycle-time chart is per-item points under
 // empirical P50/P85/P95 reference lines. Two things borrowed deliberately: the percentiles
-// are EMPIRICAL (drawn from completed work, never a model), and they ship with their sample
-// size, because a P85 over 43 items and one over 3 are different claims and only the chart
-// can say which this is.
+// are EMPIRICAL (drawn from completed work, never a model), and they travel with their
+// sample size — see `CycleTimeStats.sampleSize` for why that field is not optional.
 
 export interface CycleTimeData {
   phaseId: number;
@@ -40,7 +39,14 @@ export interface CycleTimeStats {
   p50: number;
   p85: number;
   p95: number;
-  /** How many FINISHED phases the three figures above were computed from. */
+  /**
+   * How many FINISHED phases the three figures above were computed from — and NOT optional.
+   * These are empirical percentiles, so a P85 over 43 phases and a P85 over 6 are different
+   * claims wearing the same label, and the chart is the only thing in a position to say
+   * which one the reader is looking at. It rides inside this object rather than beside it
+   * so the percentiles cannot be rendered without the number that qualifies them; below
+   * `MIN_SAMPLE` they are not drawn at all.
+   */
   sampleSize: number;
 }
 
@@ -194,8 +200,9 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
             onFocus={() => setActive(d)}
             onBlur={() => setActive(null)}
           >
-            {/* The native tooltip stays: it is what a mouse user gets before they click, and
-                it is the only detail a printed or screenshotted chart can carry. */}
+            {/* Kept alongside the readout, not instead of it: this is the fallback for a
+                pointer that dwells without the panel in view, and it travels with the SVG
+                if the markup is ever rendered outside this component. */}
             <title>{t(locale, 'cyclePointTitle', { name: d.phaseName, n: d.cycleTimeDays })}</title>
           </circle>
         ))}
@@ -214,7 +221,7 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
             </Link>
             {' · '}{active.programName}
             {' · '}{t(locale, 'daysShort', { n: active.cycleTimeDays })}
-            {' · '}{localDate(new Date(active.finishedAt), locale, { year: 'numeric', month: 'short', day: 'numeric' })}
+            {' · '}{localDate(active.finishedAt, locale, { year: 'numeric', month: 'short', day: 'numeric' })}
           </p>
         ) : (
           <p className={styles.detailHint}>{t(locale, 'cycleTimeHint')}</p>

@@ -1159,8 +1159,7 @@ const STRINGS = {
   // The /ecosystem/cycle-time PAGE title and its one-line read. The subtitle earns its line
   // by naming both axes and the two things a reader would otherwise assume wrongly: the
   // reference lines are percentiles over ONE population (not per phase name), and in-flight
-  // work is absent by design rather than missing — it has an elapsed time, not a cycle
-  // time, and belongs on Aging WIP.
+  // work is absent BY DESIGN rather than missing (lib/dashboardData says why).
   cycleTimeTitle: { en: 'Phase cycle time', de: 'Phasen-Zykluszeit', ja: 'フェーズのサイクルタイム', ko: '단계 사이클 타임' },
   cycleTimeSub: {
     en: 'One point per completed phase: when it landed, against how long it took. Any reference lines are percentiles across all of them. Work still in flight is not here — that is Aging WIP.',
@@ -1173,10 +1172,9 @@ const STRINGS = {
   // two used to point at each other's case.
   notEnoughCycleTime: { en: 'No completed phases yet.', de: 'Noch keine abgeschlossenen Phasen.', ja: '完了したフェーズはまだありません。', ko: '아직 완료된 단계가 없습니다.' },
   cycleTimeHint: { en: 'Point at a dot for its phase, program and completion date.', de: 'Auf einen Punkt zeigen für Phase, Programm und Abschlussdatum.', ja: '点にカーソルを合わせると、フェーズ・プログラム・完了日が表示されます。', ko: '점을 가리키면 단계, 프로그램, 완료일이 표시됩니다.' },
-  // The sample size is NOT optional decoration: these are empirical percentiles, so a P85
-  // over 43 finished phases and one over 6 are different claims and the chart is the only
-  // thing that can tell them apart. Below MIN_SAMPLE the lines are not drawn at all and
-  // this says why, rather than showing a threshold the data cannot support.
+  // Two strings for one rule (`CycleTimeStats.sampleSize`): the sample qualifies the
+  // percentiles, and below MIN_SAMPLE they are not drawn at all — so the second string
+  // explains an ABSENCE rather than captioning a threshold the data cannot support.
   cycleTimeSample: {
     en: 'P50/P85/P95 from {n} finished phases.',
     de: 'P50/P85/P95 aus {n} abgeschlossenen Phasen.',

@@ -215,8 +215,8 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
   // it split a 67-point sample into 44 buckets averaging 1.5 items each, so most "P50"s
   // were a single observation wearing a percentile's name — and because the key was the
   // raw string, four of those buckets were the SAME phase split by capitalisation.
-  // `sampleSize` ships with the percentiles because a percentile over 43 items and one over
-  // 3 are not the same claim, and the reader can only tell if we say so.
+  // `sampleSize` ships with the percentiles — `CycleTimeStats.sampleSize` says why it is
+  // not an optional extra.
   const finishedDays = cycleTimeData.map((ct) => ct.cycleTimeDays);
   const cycleTimeStats: CycleTimeStats | null = finishedDays.length
     ? {
