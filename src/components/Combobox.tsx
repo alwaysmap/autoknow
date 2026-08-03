@@ -84,6 +84,9 @@ export interface ComboboxProps {
    *  the reader has already said "add one", so the field they asked for takes focus, and
    *  because focus opens the list they land on it ready to type. */
   autoFocus?: boolean;
+  /** Names the input AND the listbox it controls, so it is worth passing even where a
+   *  visible `<label htmlFor>` already exists. The shared name is also why a test must
+   *  reach for the input by ROLE — `getByLabel` is ambiguous between the two. */
   'aria-label'?: string;
   /** Appended to the shared `dash.textInput` look. Anything overriding a property
    *  `textInput` also sets must out-specify it — see `PhaseInvolvementEditor.module.css`. */
@@ -151,10 +154,8 @@ export default function Combobox({
 
   // The empty choice is a real row in the list, first, filtered by the same rule as
   // everything else once editing — so typing "una" surfaces "Unassigned" exactly like any
-  // option. It is offered only when clearing is a legal answer: under `required` the row
-  // could do nothing but fail validation, and `emptyLabel` then reads purely as the
-  // placeholder prompt it also is ("Select a person…"). The `<select>`s this replaced
-  // said the same thing with `<option value="" disabled>`.
+  // option. Whether it is offered at all is the `emptyLabel` prop's doc; the `<select>`s
+  // this replaced drew the same distinction with `<option value="" disabled>`.
   const allOptions: ComboboxOption[] = required
     ? options
     : [{ value: '', label: emptyLabel }, ...options];
@@ -274,10 +275,9 @@ export default function Combobox({
       } else if (open) {
         // Enter on a query that matches NOTHING. Falling through would submit the form
         // while the field still displays text that was never committed — the one state
-        // this component exists to make impossible, and the state `required` on the
-        // visible input would be read against. So it means the same thing Escape does:
-        // abandon what was typed. The form is not submitted by this keystroke; a second
-        // Enter submits, now with the field showing exactly what it will post.
+        // this component exists to make impossible. So it means what Escape does: abandon
+        // what was typed. The form is not submitted by this keystroke; a second Enter
+        // submits, now with the field showing exactly what it will post.
         e.preventDefault();
         revertAndClose();
       }

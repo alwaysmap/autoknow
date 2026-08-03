@@ -135,10 +135,10 @@ describe('a11y wiring', () => {
   });
 });
 
-// The props the picker grew when it went from one call site to every entity picker in the
-// app (`ProjectMetaHeader`, `PersonEditor`, `PhaseInvolvementEditor`). Each is here
-// because a bare `<select>` gave it for free and dropping it would have been a silent
-// regression on a form that already worked.
+// The props the picker grew when it went from one call site to `ProjectMetaHeader`,
+// `PersonEditor` and `PhaseInvolvementEditor`. Each is here because a bare `<select>` gave
+// it for free and dropping it would have been a silent regression on a form that already
+// worked.
 
 describe('required', () => {
   it('validates through the VISIBLE input, so the browser can focus what it complains about', () => {

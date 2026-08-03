@@ -286,8 +286,8 @@ export default function PersonAdminControls({
                 separate hidden input carried the same number to the server. One control
                 owning both jobs is one fewer place for them to disagree. */}
             {/* `key` remounts the picker each time the dialog opens, and it is load-bearing:
-                `OverlayDialog` keeps children mounted while closed (see the note on `uid`
-                above), and `Combobox` reads `defaultValue` once into state. Without it the
+                `OverlayDialog` keeps children mounted while closed (see `EditPersonDialog`'s
+                `uid` note above), and `Combobox` reads `defaultValue` once into state. Without it the
                 `setPickedProgram('')` beside `setAssignOpen(true)` resets only THIS
                 component — the picker would reopen still showing the last program and
                 still posting its id, while the phase list below it, driven by the state

@@ -156,9 +156,10 @@ export async function openMenuItemDialog(trigger: Locator, item: Locator, dialog
 }
 
 /** Choose an option in a `Combobox` (gh-269) — the type-to-filter picker that replaced the
- *  bare `<select>` in every entity field, so `selectOption` no longer applies to any of
- *  them. Lives here rather than in one spec because five specs across four surfaces now
- *  need it.
+ *  bare `<select>` in the CONVERTED entity fields, where `selectOption` no longer applies.
+ *  The sweep is unfinished (`autoknow-wak`), so `/programs/new` and `/me` still take
+ *  `selectOption` — reaching for this helper there fails to find a `combobox` role. Lives
+ *  here rather than in one spec because five specs across four surfaces need it.
  *
  *  `query` defaults to the option's own label, which is what you want unless the point of
  *  the test is the FILTER — pass a partial (`'vol'` for `'Volvo Cars'`) only then.
