@@ -48,7 +48,7 @@ async function firstFreeTemplateName(
     const candidate = series(n);
     if (!taken.has(candidate)) return candidate;
   }
-  // Unreachable while the candidates stay distinct — a `format` that ignores `n` would
+  // Unreachable while the candidates stay distinct — a `series` that ignores `n` would
   // land here rather than silently colliding at the database.
   throw new Error('Could not find a free template name');
 }
@@ -86,17 +86,17 @@ export async function cloneTemplate(formData: FormData) {
   if (!source) throw new Error('Unknown template');
 
   const createdBy = (await getCurrentUser()).handle;
+  // The name pick runs inside the transaction so it and the phase copy are one unit of
+  // work — NOT because that serializes it. This `$transaction` takes no `isolationLevel`,
+  // so it runs at READ COMMITTED and a concurrent clone may still commit between that read
+  // and its write; `@@unique([name, isBuiltIn])` is what stops that becoming a duplicate,
+  // exactly as `prisma/schema.prisma` describes it. Two people cloning the same template
+  // in the same instant can still see the P2002 — the sequential case this fixes is the
+  // one that was reachable by one person clicking twice. Making the race impossible is
+  // `dependencies.ts`'s explicit Serializable isolation, which costs retry handling this
+  // does not need.
   const copy = await prisma.$transaction(async (tx) => {
     const created = await tx.programTemplate.create({
-      // Inside the transaction so the name pick and the phase copy are one unit of work
-      // — NOT because that serializes it. This `$transaction` takes no `isolationLevel`,
-      // so it runs at READ COMMITTED and a concurrent clone may still commit between this
-      // read and this write; `@@unique([name, isBuiltIn])` is what stops that becoming a
-      // duplicate, exactly as `prisma/schema.prisma` describes it. Two people cloning the
-      // same template in the same instant can still see the P2002 — the sequential case
-      // this fixes is the one that was reachable by one person clicking twice. Making the
-      // race impossible is `dependencies.ts`'s explicit Serializable isolation, which
-      // costs retry handling this does not need.
       data: {
         name: await firstFreeTemplateName(tx, copyName(source.name)),
         description: source.description,
