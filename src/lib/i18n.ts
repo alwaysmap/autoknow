@@ -1163,13 +1163,16 @@ const STRINGS = {
   // time, and belongs on Aging WIP.
   cycleTimeTitle: { en: 'Phase cycle time', de: 'Phasen-Zykluszeit', ja: 'フェーズのサイクルタイム', ko: '단계 사이클 타임' },
   cycleTimeSub: {
-    en: 'One point per completed phase: when it landed, against how long it took. The reference lines are the percentiles across all of them. Work still in flight is not here — that is Aging WIP.',
-    de: 'Ein Punkt je abgeschlossener Phase: wann sie fertig wurde, gegen ihre Dauer. Die Referenzlinien sind die Perzentile über alle. Laufende Arbeit steht hier nicht — dafür gibt es Aging WIP.',
-    ja: '完了したフェーズごとに 1 点 — 完了時期を横軸、所要日数を縦軸に取ります。基準線はその全体の分位点です。進行中の作業はここには含まれません（Aging WIP を参照）。',
-    ko: '완료된 단계마다 점 하나 — 가로축은 완료 시점, 세로축은 소요 기간입니다. 기준선은 전체의 백분위수입니다. 진행 중인 작업은 여기 없으며 Aging WIP에서 다룹니다.',
+    en: 'One point per completed phase: when it landed, against how long it took. Any reference lines are percentiles across all of them. Work still in flight is not here — that is Aging WIP.',
+    de: 'Ein Punkt je abgeschlossener Phase: wann sie fertig wurde, gegen ihre Dauer. Referenzlinien, sofern vorhanden, sind Perzentile über alle. Laufende Arbeit steht hier nicht — dafür gibt es Aging WIP.',
+    ja: '完了したフェーズごとに 1 点 — 完了時期を横軸、所要日数を縦軸に取ります。基準線がある場合はその全体の分位点です。進行中の作業はここには含まれません（Aging WIP を参照）。',
+    ko: '완료된 단계마다 점 하나 — 가로축은 완료 시점, 세로축은 소요 기간입니다. 기준선이 있다면 전체의 백분위수입니다. 진행 중인 작업은 여기 없으며 Aging WIP에서 다룹니다.',
   },
-  notEnoughCycleTime: { en: 'Not enough cycle time data to visualize.', de: 'Nicht genug Zykluszeit-Daten für eine Darstellung.', ja: '可視化に十分なサイクルタイムデータがありません。', ko: '시각화할 사이클 타임 데이터가 부족합니다.' },
-  cycleTimeHint: { en: 'Hover or select a point for its phase, program and dates.', de: 'Für Phase, Programm und Daten einen Punkt auswählen oder darauf zeigen.', ja: '点にカーソルを合わせるか選択すると、フェーズ・プログラム・日付が表示されます。', ko: '점에 마우스를 올리거나 선택하면 단계, 프로그램, 날짜가 표시됩니다.' },
+  // The ZERO state — nothing has finished yet. Distinct from `cycleTimeThinSample`, which is
+  // "some have, but too few to draw percentiles from"; naming both "not enough" is how the
+  // two used to point at each other's case.
+  notEnoughCycleTime: { en: 'No completed phases yet.', de: 'Noch keine abgeschlossenen Phasen.', ja: '完了したフェーズはまだありません。', ko: '아직 완료된 단계가 없습니다.' },
+  cycleTimeHint: { en: 'Point at a dot for its phase, program and completion date.', de: 'Auf einen Punkt zeigen für Phase, Programm und Abschlussdatum.', ja: '点にカーソルを合わせると、フェーズ・プログラム・完了日が表示されます。', ko: '점을 가리키면 단계, 프로그램, 완료일이 표시됩니다.' },
   // The sample size is NOT optional decoration: these are empirical percentiles, so a P85
   // over 43 finished phases and one over 6 are different claims and the chart is the only
   // thing that can tell them apart. Below MIN_SAMPLE the lines are not drawn at all and

@@ -4,14 +4,12 @@
    into a 117px-wide sliver. The component header says why that shape is gone. */
 .container {
   width: 100%;
-  position: relative;
-  background-color: transparent;
 }
 
-/* The hover/click readout, and the line that tells a reader hovering is worth doing. Below
-   the plot rather than floating over it — a panel that follows the pointer covers the
-   neighbouring points the reader is comparing against. `min-height` so the chart does not
-   jump when the readout appears (§8d: anything affecting height lands on a whole pixel). */
+/* The hover/focus readout, and the line that tells a reader pointing at something is worth
+   doing. `min-height` holds the row while the text swaps between the hint and a detail line
+   long enough to wrap at narrow widths — without it the chart above shifts as the pointer
+   moves, which is the one thing a reader comparing points cannot tolerate. */
 .detail {
   min-height: 1.5rem;
   margin: 0.5rem 0 0;
@@ -85,7 +83,6 @@
   opacity: 1;
 }
 
-
 .percentileLine {
   stroke: var(--muted);
   stroke-width: 1px;
@@ -98,9 +95,10 @@
   font-weight: 700;
 }
 
-/* The point the readout is describing. A ring rather than a fill change, so the
-   finished/in-flight distinction the fill carries survives being selected. */
-.pointSelected {
+/* The point the readout is describing. A ring rather than a fill swap: points overlap
+   wherever several phases landed the same week, and a ring stays findable in a cluster
+   where a recoloured fill just becomes another dot. */
+.pointActive {
   stroke: var(--fg);
   stroke-width: 2px;
 }

@@ -302,12 +302,15 @@ describe('CycleTimeScatterPlot — the healthy tight spread is the crowding case
     // All three lines are the same value here, so all three must be drawn at one y even
     // though their captions were dodged apart. A caption that dragged its line with it
     // would be the chart lying about the number.
-    const lineYs = Array.from(container.querySelectorAll<SVGLineElement>('line'))
-      .map((l) => l.getAttribute('y1'))
-      .filter((y, i, all) => y !== null && all.indexOf(y) === i);
-    const captionYs = captionBoxes(container).map((b) => b.y);
-    expect(new Set(captionYs).size).toBe(3); // dodged apart
-    expect(lineYs.length).toBeGreaterThan(0);
+    // All three percentiles are 12 here, so all three reference lines must be drawn at ONE
+    // y — the full-width ones spanning the plot, identifiable by their x extent. A caption
+    // that dragged its line along would show up as three distinct ys.
+    const refLineYs = new Set(
+      Array.from(container.querySelectorAll<SVGLineElement>('[data-testid^="cycle-line-"]'))
+        .map((l) => l.getAttribute('y1')),
+    );
+    expect(refLineYs.size).toBe(1);
+    expect(new Set(captionBoxes(container).map((b) => b.y)).size).toBe(3); // dodged apart
   });
 
   it('leaves an uncrowded set on its natural baseline', () => {

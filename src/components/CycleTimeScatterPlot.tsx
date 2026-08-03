@@ -6,6 +6,7 @@ import { baselineToCentreY, centreToBaselineY, dodgeLabels, estimateTextWidth, h
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import { localDate } from '../lib/dates';
+import Link from 'next/link';
 import { phaseHref } from '../lib/phase';
 import styles from './CycleTimeScatterPlot.module.css';
 
@@ -13,20 +14,11 @@ import styles from './CycleTimeScatterPlot.module.css';
 // (x) against how long it took (y), with the empirical percentiles as horizontal reference
 // lines across the whole chart.
 //
-// Completed work ONLY. An in-flight phase has an elapsed time, not a cycle time: it enters
-// the sample at less than its eventual duration, so including it drags every percentile
-// down and makes the portfolio look faster than it is. "How long has this been open, and is
-// that unusual" is a real question, but it is a different chart — Aging WIP — and the
-// filter lives at the data boundary (lib/dashboardData) so this component cannot be handed
-// unfinished work by a future caller.
+// Completed work ONLY, filtered at the data boundary — lib/dashboardData states why, and is
+// where that rule is enforced rather than merely observed here.
 //
-// It used to be one ROW PER PHASE NAME, and that was a false classification. It split a
-// 67-point sample into 44 buckets averaging 1.5 items each, so most of the "P50"s it drew
-// were a single observation wearing a percentile's name; four buckets were the same phase
-// split by capitalisation. It also made the chart's height a function of the portfolio's
-// vocabulary — 44 rows, ~3800px — for no analytical return. Treating the phases as equal
-// costs nothing real: what the reader wanted from the row labels is WHICH phase a point is,
-// and that is a hover away.
+// ONE population and not one row per phase name — lib/dashboardData carries why that
+// grouping was invalid. What the row labels were for, WHICH phase a point is, is a hover.
 //
 // Shape follows dvhthomas/flowmetrics, whose cycle-time chart is per-item points under
 // empirical P50/P85/P95 reference lines. Two things borrowed deliberately: the percentiles
@@ -75,7 +67,10 @@ const marginBottom = 44;
 
 export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPlotProps) {
   const locale = useLocale();
-  const [selected, setSelected] = useState<CycleTimeData | null>(null);
+  // `active`, not `selected`: a hover overwrites it and leaving clears it, so it tracks what
+  // the reader is pointing at rather than a choice they made. Released on leave/blur so the
+  // readout is never stranded describing a point nobody is looking at any more.
+  const [active, setActive] = useState<CycleTimeData | null>(null);
 
   const maxDays = useMemo(() => {
     const ceiling = Math.max(...data.map((d) => d.cycleTimeDays), stats?.p95 ?? 0, 10);
@@ -101,8 +96,8 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
 
   const innerWidth = width - marginLeft - marginRight;
   const innerHeight = height - marginTop - marginBottom;
-  const xScale = (iso: string) =>
-    marginLeft + ((new Date(iso).getTime() - timeRange.min) / (timeRange.max - timeRange.min)) * innerWidth;
+  const xScale = (ms: number) =>
+    marginLeft + ((ms - timeRange.min) / (timeRange.max - timeRange.min)) * innerWidth;
   const yScale = (days: number) => marginTop + innerHeight - (days / maxDays) * innerHeight;
 
   const yTicks: number[] = [];
@@ -112,7 +107,8 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
   // positions in it rather than one per datum.
   const xTicks = [0, 1, 2, 3].map((i) => timeRange.min + ((timeRange.max - timeRange.min) * i) / 3);
 
-  const showPercentiles = stats !== null && stats.sampleSize >= MIN_SAMPLE;
+  const sampleSize = stats?.sampleSize ?? 0;
+  const showPercentiles = stats !== null && sampleSize >= MIN_SAMPLE;
   const rawBands = showPercentiles
     ? [
       { key: 'p50', days: stats.p50, label: 'P50' },
@@ -121,6 +117,10 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
     ]
     : [];
 
+  // No ink passed, and that is safe rather than an omission (cf. autoknow-fs3): the captions
+  // sit at x >= width - marginRight + 6, past where every reference line stops, so nothing
+  // inside the plot can overlap them in x.
+  //
   // The captions ride at their own line's height, so a TIGHT distribution stacks them —
   // and a tight distribution is the HEALTHY one, which is exactly why this cannot be left
   // to chance (AGENTS lesson 19). `dodgeLabels`, not `keepNonOverlapping`: all three are
@@ -158,18 +158,17 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
 
         {xTicks.map((ms, i) => (
           <g key={`x-${i}`}>
-            <line x1={xScale(new Date(ms).toISOString())} y1={height - marginBottom} x2={xScale(new Date(ms).toISOString())} y2={height - marginBottom + 4} className={styles.axisLine} />
-            <ChartLabel x={xScale(new Date(ms).toISOString())} y={height - marginBottom + 18} textAnchor="middle" className={styles.axisLabel}>
+            <line x1={xScale(ms)} y1={height - marginBottom} x2={xScale(ms)} y2={height - marginBottom + 4} className={styles.axisLine} />
+            <ChartLabel x={xScale(ms)} y={height - marginBottom + 18} textAnchor="middle" className={styles.axisLabel}>
               {localDate(new Date(ms), locale, { month: 'short', day: 'numeric' })}
             </ChartLabel>
           </g>
         ))}
 
-        {/* The reference lines. Horizontal and full-width because they describe the whole
-            population — the thing the per-phase-name version could never say. */}
+        {/* Horizontal and full-width: they describe the whole population, not any one point. */}
         {bands.map((b) => (
           <g key={b.key}>
-            <line x1={marginLeft} y1={yScale(b.days)} x2={width - marginRight} y2={yScale(b.days)} className={styles.percentileLine} />
+            <line data-testid={`cycle-line-${b.key}`} x1={marginLeft} y1={yScale(b.days)} x2={width - marginRight} y2={yScale(b.days)} className={styles.percentileLine} />
             <ChartLabel data-testid={`cycle-${b.key}`} x={width - marginRight + 6} y={b.captionY} className={styles.percentileLabel}>
               {b.label} · {t(locale, 'daysShort', { n: b.days })}
             </ChartLabel>
@@ -179,17 +178,21 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
         {data.map((d) => (
           <circle
             key={d.phaseId}
-            cx={xScale(d.finishedAt)}
+            cx={xScale(new Date(d.finishedAt).getTime())}
             cy={yScale(d.cycleTimeDays)}
             r={5}
-            className={`${styles.point} ${selected?.phaseId === d.phaseId ? styles.pointSelected : ''}`}
-            onClick={() => setSelected(d)}
-            onMouseEnter={() => setSelected(d)}
+            className={`${styles.point} ${active?.phaseId === d.phaseId ? styles.pointActive : ''}`}
+            // Focusable and described, but NOT `role="button"` and no key handler: pointing
+            // the readout at a point is not an activation, and promising one that does
+            // nothing is worse than promising none. Going TO the phase is the readout's own
+            // link, which is a real link rather than a keystroke this would have to fake.
             tabIndex={0}
-            role="button"
             aria-label={t(locale, 'cyclePointTitle', { name: d.phaseName, n: d.cycleTimeDays })}
-            onFocus={() => setSelected(d)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelected(d); }}
+            onClick={() => setActive(d)}
+            onMouseEnter={() => setActive(d)}
+            onMouseLeave={() => setActive(null)}
+            onFocus={() => setActive(d)}
+            onBlur={() => setActive(null)}
           >
             {/* The native tooltip stays: it is what a mouse user gets before they click, and
                 it is the only detail a printed or screenshotted chart can carry. */}
@@ -198,18 +201,20 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
         ))}
       </svg>
 
-      {/* The detail panel replaces the y-axis labels the old shape spent 44 rows on. It is
-          BELOW the chart, not floating over it: a panel that follows the pointer covers the
+      {/* BELOW the chart, not floating over it: a panel that follows the pointer covers the
           neighbouring points a reader is trying to compare against. */}
-      <div className={styles.detail} aria-live="polite">
-        {selected ? (
+      {/* No `aria-live`: every point already carries the same sentence as its accessible
+          name, so announcing the panel too would say it twice per focus move — and on a
+          mouse it would fire for every point the pointer crossed. */}
+      <div className={styles.detail} data-testid="cycle-readout">
+        {active ? (
           <p className={styles.detailLine}>
-            <a href={phaseHref(selected.projectId, selected.phaseId)} className={styles.detailLink}>
-              {selected.phaseName}
-            </a>
-            {' · '}{selected.programName}
-            {' · '}{t(locale, 'daysShort', { n: selected.cycleTimeDays })}
-            {' · '}{localDate(new Date(selected.finishedAt), locale, { year: 'numeric', month: 'short', day: 'numeric' })}
+            <Link href={phaseHref(active.projectId, active.phaseId)} className={styles.detailLink}>
+              {active.phaseName}
+            </Link>
+            {' · '}{active.programName}
+            {' · '}{t(locale, 'daysShort', { n: active.cycleTimeDays })}
+            {' · '}{localDate(new Date(active.finishedAt), locale, { year: 'numeric', month: 'short', day: 'numeric' })}
           </p>
         ) : (
           <p className={styles.detailHint}>{t(locale, 'cycleTimeHint')}</p>
@@ -217,9 +222,7 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
       </div>
 
       <p className={styles.sample}>
-        {showPercentiles
-          ? t(locale, 'cycleTimeSample', { n: stats!.sampleSize })
-          : t(locale, 'cycleTimeThinSample', { n: stats?.sampleSize ?? 0 })}
+        {t(locale, showPercentiles ? 'cycleTimeSample' : 'cycleTimeThinSample', { n: sampleSize })}
       </p>
     </div>
   );
