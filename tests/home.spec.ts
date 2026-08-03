@@ -32,6 +32,34 @@ test.describe('Ecosystem dashboard (/ecosystem)', () => {
     await expect(page.getByRole('heading', { name: 'Programs at Risk', exact: true })).toBeVisible();
   });
 
+  // The table's floor is a SEMANTIC promise — "Programs at Risk" means currently
+  // Concerned, nothing milder — and it lives inline in a client component, so a
+  // real render is the only place to hold it. It was silently "Some Risk or worse"
+  // until 2026-08-03, with nothing asserting either version.
+  test('the risk table shows only currently-Concerned programs', async ({ page }) => {
+    await wipeAll();
+    const region = { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } };
+
+    const mkProgram = async (name: string, partnerName: string, theNeedle: string) => {
+      const partner = await prisma.partner.create({ data: { name: partnerName, region } });
+      await prisma.project.create({
+        data: { name, partnerId: partner.id, theNeedle, hillChartProgress: 30, volumeFirstYear: 1000 },
+      });
+    };
+
+    await mkProgram('Concerned Bring-up', 'Concerned Partner Co', 'Concerned');
+    await mkProgram('Some Risk Bring-up', 'Some Risk Partner Co', 'Some Risk');
+    await mkProgram('On Track Bring-up', 'On Track Partner Co', 'On Track');
+
+    await page.goto('/ecosystem');
+    const table = page.getByRole('heading', { name: 'Programs at Risk', exact: true })
+      .locator('xpath=ancestor::section[1]');
+
+    await expect(table.getByRole('link', { name: 'Concerned Bring-up' })).toBeVisible();
+    await expect(table.getByRole('link', { name: 'Some Risk Bring-up' })).toHaveCount(0);
+    await expect(table.getByRole('link', { name: 'On Track Bring-up' })).toHaveCount(0);
+  });
+
   // The one coupling worth e2e minutes on this page: the relationship-mix tile
   // deep-links into the /partners relationship funnel using the exact canonical token
   // the table filters on ("4", "unrated"). The two sides live in different files, and

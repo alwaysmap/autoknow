@@ -9,7 +9,7 @@ import { formatNeedleValue } from '../../lib/needle';
 import { NeedleGaugeSvg } from '../../components/NeedleGaugeSvg';
 import SopOutlookCell from '../../components/SopOutlookCell';
 import { deriveProgramStatus, visibleInLists } from '../../lib/lifecycle';
-import { healthKey, healthOrder } from '../../lib/health';
+import { healthKey, parseHealth } from '../../lib/health';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 import BusiestResources from '../../components/BusiestResources';
@@ -60,18 +60,20 @@ export default function EcosystemDashboardClient({
 }: EcosystemDashboardClientProps) {
   const locale = useLocale();
 
-  // The fixed risk view: active programs (not archived, not done) at Some Risk or
-  // worse. No filter chrome here — the URL-shareable /programs table is the place
-  // for ad-hoc slicing.
+  // The fixed risk view: active programs (not archived, not done) whose CURRENT
+  // health is Concerned — the worst state, not "Some Risk or worse". No filter
+  // chrome here — the URL-shareable /programs table is the place for ad-hoc
+  // slicing, and it still floors at Some Risk.
   const filteredProjects = initialProjects
-    .filter((proj) => visibleInLists(proj) && deriveProgramStatus(proj) === 'Active' && healthOrder(proj.theNeedle) >= 1)
-    // risk-first reading order: worst health on top, least-progressed breaking ties
-    .sort((a, b) => healthOrder(b.theNeedle) - healthOrder(a.theNeedle) || a.hillChartProgress - b.hillChartProgress);
+    .filter((proj) => visibleInLists(proj) && deriveProgramStatus(proj) === 'Active' && parseHealth(proj.theNeedle) === 'Concerned')
+    // every row is Concerned, so health can no longer order them: least-progressed
+    // on top, because that is the one furthest from getting out of trouble
+    .sort((a, b) => a.hillChartProgress - b.hillChartProgress);
 
   return (
     <div className={styles.clientWrapper}>
       {/* Filter panel + leader alert removed (2026-07-18, user call): the table
-          below IS the risk view — floored at Some Risk, active programs only. */}
+          below IS the risk view — active programs currently Concerned. */}
 
       {/* Scorecard strip removed (2026-07-18, user call) — the numbers the
           leadership strip and table don't already carry added noise, not signal. */}
@@ -136,8 +138,8 @@ export default function EcosystemDashboardClient({
               </tr>
             );
           }}
-          defaultSortKey="" // pre-sorted by risk, then progress; headers re-sort
-          emptyStateMessage={t(locale, 'noProgramsMatchFilters')}
+          defaultSortKey="" // pre-sorted by progress (health no longer varies); headers re-sort
+          emptyStateMessage={t(locale, 'noCurrentConcerns')}
         />
       </section>
 
