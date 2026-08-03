@@ -41,10 +41,9 @@ export default async function Home() {
   return (
     <PageShell
       title={t(locale, 'ecosystemDashboard')}
-      // The cycle-time view is one row per phase NAME, so at portfolio scale it is taller
-      // than everything else on this page put together — that is why it is not a section,
-      // and the kebab is how it is reached instead, at no vertical cost. The argument in
-      // full is app/ecosystem/cycle-time/page.tsx (autoknow-7ii).
+      // Cycle time is a diagnostic rather than a headline, so it is reached from here
+      // rather than occupying the column. It is no longer too TALL to be a section —
+      // app/ecosystem/cycle-time/page.tsx says what the reason is now (autoknow-7ii).
       actions={
         <KebabMenu ariaLabel={t(locale, 'moreActions')}>
           <Link href="/ecosystem/cycle-time">{t(locale, 'cycleTimeTitle')}</Link>

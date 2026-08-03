@@ -1,8 +1,7 @@
-/* No fixed height: the viewBox is a constant 800x380 now, so letting the svg keep its own
-   ratio is both correct and all that is needed. (It was NOT always a constant — the chart
-   used to be one row per phase name and sized itself to the portfolio's vocabulary, which a
-   `height: 25rem` here silently crushed into a 117px-wide sliver. See the component header
-   for why that shape is gone.) */
+/* No fixed height: the viewBox is a constant 800x380, so letting the svg keep its own ratio
+   is both correct and all that is needed. It was not always constant — the chart used to
+   size itself to the portfolio's vocabulary, which a `height: 25rem` here silently crushed
+   into a 117px-wide sliver. The component header says why that shape is gone. */
 .container {
   width: 100%;
   position: relative;
