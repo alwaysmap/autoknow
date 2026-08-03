@@ -171,6 +171,13 @@ export default function DataTable<T>({
       ro?.disconnect();
     };
   }, []);
+  // Two separate hook calls, not one returning `{left, right}`: useSyncExternalStore
+  // compares snapshots by reference, so a composite object would be a NEW reference on
+  // every render regardless of whether either flag actually changed — an infinite
+  // render loop, not just a wasted one. Two booleans avoids the trap entirely; the cost
+  // is `subscribeScroll` running twice (two listeners, two observers on the same
+  // element), which is cheap for a component with one scrollport.
+  //
   // 1px of slack: a table that exactly fits can report a fractional scrollWidth vs.
   // clientWidth mismatch from subpixel layout, which would flash a permanent cue on a
   // table that never actually scrolls.
@@ -462,7 +469,7 @@ export default function DataTable<T>({
               )}
             </tbody>
           </table>
-  
+
           {/* Pagination Footer — suppressed IN FULL by `paginate={false}`; a partial hide
               (count kept, buttons dropped) is the bug that prop exists to fix. */}
           {paginate && sortedData.length > 0 && (
@@ -512,10 +519,15 @@ export default function DataTable<T>({
             </div>
           )}
         </div>
-        {/* Decorative only (aria-hidden) — the real information (more columns exist) is
-            not conveyed any other way to assistive tech today, matching this component's
-            existing sort/filter affordances which are likewise visual-only cues layered
-            over content that is itself fully in the DOM either way. */}
+        {/* Decorative only (aria-hidden) — unlike this component's other affordances,
+            which DO have a non-visual equivalent (`aria-sort` on a sorted header,
+            `aria-label` on the filter trigger), this cue currently has none: a table's
+            full column set is already in the DOM regardless of scroll position, so
+            nothing is HIDDEN from assistive tech, only from a sighted reader scanning a
+            clipped viewport. Fine as a sighted-only affordance for that reason, but if
+            the horizontal scroll position ever became load-bearing for a screen-reader
+            user (e.g. content that only renders once scrolled into view), this would
+            need a real signal, not just a decorative one. */}
         <div className={`${styles.scrollCue} ${styles.scrollCueLeft}`} data-visible={canScrollLeft} aria-hidden="true" />
         <div className={`${styles.scrollCue} ${styles.scrollCueRight}`} data-visible={canScrollRight} aria-hidden="true" />
       </div>
