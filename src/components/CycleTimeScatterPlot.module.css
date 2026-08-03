@@ -1,13 +1,20 @@
+/* NO fixed height. The component sizes its own viewBox at 60px per phase NAME, so the
+   chart's height is set by how many distinct phases the portfolio has — a `height: 25rem`
+   here fought that and lost: `preserveAspectRatio` (xMidYMid meet) scaled an 800x2740
+   viewBox down to fit 400px and rendered a 117px-wide illegible sliver, centred in the
+   container. That went unnoticed for as long as the chart was mounted nowhere
+   (autoknow-7ii). Letting the SVG keep its intrinsic ratio is what makes the row pitch the
+   component computes actually reach the screen. */
 .container {
   width: 100%;
-  height: 25rem;
   position: relative;
   background-color: transparent;
 }
 
 .svg {
   width: 100%;
-  height: 100%;
+  height: auto;
+  display: block;
   overflow: visible;
 }
 

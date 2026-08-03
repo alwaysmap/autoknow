@@ -39,7 +39,19 @@ export default async function Home() {
   const now = Date.now();
 
   return (
-    <PageShell title={t(locale, 'ecosystemDashboard')} maxWidth="68.75rem">
+    <PageShell
+      title={t(locale, 'ecosystemDashboard')}
+      // The cycle-time view lives on its own page rather than in this column: it is one row
+      // per phase NAME, and at portfolio scale that is taller than everything else here put
+      // together (autoknow-7ii). A kebab link costs the page no vertical space, which is the
+      // whole reason it is not a section.
+      actions={
+        <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+          <Link href="/ecosystem/cycle-time">{t(locale, 'cycleTimeTitle')}</Link>
+        </KebabMenu>
+      }
+      maxWidth="68.75rem"
+    >
         {/* answered in time by the capacity chart below */}
         <EcosystemStatStrip
           programs={serializedProjects}

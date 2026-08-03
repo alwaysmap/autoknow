@@ -1156,6 +1156,18 @@ const STRINGS = {
   hillProgressAria: { en: 'Progress on the hill (0–100%); use arrow keys to adjust', de: 'Fortschritt auf dem Hügel (0–100 %); mit den Pfeiltasten anpassen', ja: 'ヒル上の進捗（0〜100%）。矢印キーで調整', ko: '힐 진행도(0–100%); 화살표 키로 조정' },
   workingItOut: { en: 'Working it out', de: 'Klären', ja: '模索中', ko: '파악 중' },
   gettingItDone: { en: 'Getting it done', de: 'Umsetzen', ja: '仕上げ中', ko: '마무리 중' },
+  // The /ecosystem section title and its one-line read. The subtitle earns its line
+  // because the whiskers are otherwise unexplained: they are per-phase-NAME percentiles
+  // over FINISHED instances only (lib/dashboardData groups by name and skips unfinished),
+  // so a reader comparing a still-running point against them is comparing to a reference
+  // class, not to that program's own history.
+  cycleTimeTitle: { en: 'Phase cycle time', de: 'Phasen-Zykluszeit', ja: 'フェーズのサイクルタイム', ko: '단계 사이클 타임' },
+  cycleTimeSub: {
+    en: 'Days each phase has taken across the portfolio. P50 and P85 are drawn from finished instances of the same phase.',
+    de: 'Tage je Phase über das gesamte Portfolio. P50 und P85 stammen aus abgeschlossenen Durchläufen derselben Phase.',
+    ja: 'ポートフォリオ全体で各フェーズに要した日数。P50 と P85 は同一フェーズの完了済み実績から算出しています。',
+    ko: '포트폴리오 전체에서 각 단계에 걸린 일수입니다. P50과 P85는 같은 단계의 완료된 사례에서 산출합니다.',
+  },
   notEnoughCycleTime: { en: 'Not enough cycle time data to visualize.', de: 'Nicht genug Zykluszeit-Daten für eine Darstellung.', ja: '可視化に十分なサイクルタイムデータがありません。', ko: '시각화할 사이클 타임 데이터가 부족합니다.' },
   cyclePointTitle: { en: '{name}: {n} days {status}', de: '{name}: {n} Tage {status}', ja: '{name}: {n}日 {status}', ko: '{name}: {n}일 {status}' },
   finishedParen: { en: '(Finished)', de: '(Fertig)', ja: '（完了）', ko: '(완료)' },
