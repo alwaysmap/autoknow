@@ -493,7 +493,7 @@ test.describe('Program phase editor', () => {
     // TWO involvement editors (partners and people), so the role input and Add button are
     // only unambiguous within the one form that is open.
     const addPartner = panel(page).locator('form').filter({ has: page.getByRole('combobox', { name: 'Partner to involve' }) });
-    await pickCombobox(addPartner, 'Partner to involve', 'riv', 'Rivian');
+    await pickCombobox(addPartner, 'Partner to involve', 'Rivian');
     await addPartner.locator('input[aria-label="Role (optional)"]').fill('OEM');
     await addPartner.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(chip('Rivian')).toBeVisible();
@@ -522,7 +522,7 @@ test.describe('Program phase editor', () => {
     // Same scoping as the partner half above; the picker is no longer a single element
     // with the role input as its next sibling, so an xpath sibling walk no longer applies.
     const addPerson = panel(page).locator('form').filter({ has: page.getByRole('combobox', { name: 'Person to involve' }) });
-    await pickCombobox(addPerson, 'Person to involve', 'kenji', 'Kenji Sato');
+    await pickCombobox(addPerson, 'Person to involve', 'Kenji Sato');
     await addPerson.locator('input[aria-label="Role (optional)"]').fill('Audio lead');
     await addPerson.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(chip('Kenji Sato')).toContainText('Audio lead');

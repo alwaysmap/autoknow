@@ -17,11 +17,12 @@ const OPTIONS = [
   { value: '3', label: 'Bosch' },
 ];
 
-function renderCombobox(defaultValue = '') {
+function renderCombobox(props: Partial<React.ComponentProps<typeof Combobox>> = {}) {
   render(
     <Combobox
-      id="cb" name="partnerId" options={OPTIONS} defaultValue={defaultValue}
+      id="cb" name="partnerId" options={OPTIONS}
       emptyLabel="Unassigned" aria-label="Partner"
+      {...props}
     />,
   );
   return {
@@ -68,7 +69,7 @@ describe('the one guarantee: never posts unmatched text', () => {
   });
 
   it('reverts to the PREVIOUSLY selected option, not to blank, when a later edit is abandoned', () => {
-    const { input, hidden } = renderCombobox('1'); // starts on Volvo Cars
+    const { input, hidden } = renderCombobox({ defaultValue: '1' }); // starts on Volvo Cars
     expect(input.value).toBe('Volvo Cars');
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: 'garbled' } });
@@ -78,7 +79,7 @@ describe('the one guarantee: never posts unmatched text', () => {
   });
 
   it('Escape reverts the same way blur does', () => {
-    const { input, hidden } = renderCombobox('1');
+    const { input, hidden } = renderCombobox({ defaultValue: '1' });
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: 'garbled' } });
     fireEvent.keyDown(input, { key: 'Escape' });
@@ -98,7 +99,7 @@ describe('choosing an option', () => {
   });
 
   it('choosing the empty option CLEARS the field, rather than leaving the old value', () => {
-    const { input, hidden } = renderCombobox('1');
+    const { input, hidden } = renderCombobox({ defaultValue: '1' });
     fireEvent.focus(input);
     fireEvent.mouseDown(screen.getByRole('option', { name: 'Unassigned' }));
     expect(hidden.value).toBe('');
@@ -141,13 +142,8 @@ describe('a11y wiring', () => {
 
 describe('required', () => {
   it('validates through the VISIBLE input, so the browser can focus what it complains about', () => {
-    render(
-      <Combobox id="cb" name="partnerId" options={OPTIONS} emptyLabel="Unassigned"
-        required aria-label="Partner" />,
-    );
-    const input = screen.getByRole('combobox') as HTMLInputElement;
-    // A `type="hidden"` control is barred from constraint validation and a `display:none`
-    // one cannot be focused to report it — hence the visible input carrying the attribute.
+    // Why the visible input and not the hidden one: see the `required` prop's own doc.
+    const { input } = renderCombobox({ required: true });
     expect(input).toBeRequired();
     expect(input.checkValidity()).toBe(false);
 
@@ -182,11 +178,7 @@ describe('required', () => {
 describe('onChange', () => {
   it('fires on an explicit choice — the dependent-picker case', () => {
     const onChange = jest.fn();
-    render(
-      <Combobox id="cb" name="partnerId" options={OPTIONS} emptyLabel="Unassigned"
-        onChange={onChange} aria-label="Partner" />,
-    );
-    const input = screen.getByRole('combobox');
+    const { input } = renderCombobox({ onChange });
     fireEvent.focus(input);
     fireEvent.mouseDown(screen.getByRole('option', { name: 'Volvo Cars' }));
     expect(onChange).toHaveBeenCalledWith('1');
@@ -194,11 +186,7 @@ describe('onChange', () => {
 
   it('does NOT fire while typing — a caller never sees an uncommitted value', () => {
     const onChange = jest.fn();
-    render(
-      <Combobox id="cb" name="partnerId" options={OPTIONS} emptyLabel="Unassigned"
-        onChange={onChange} aria-label="Partner" />,
-    );
-    const input = screen.getByRole('combobox');
+    const { input } = renderCombobox({ onChange });
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: 'Volvo' } });
     fireEvent.blur(input);
@@ -210,23 +198,14 @@ describe('initial state', () => {
   it('a defaultValue naming no option lands as "nothing selected", not as an invisible value', () => {
     // The inverse of the `required` invariant: a field that LOOKS empty while holding an
     // id would make the browser block a submit and point at a blank-looking field.
-    render(
-      <Combobox id="cb" name="partnerId" options={OPTIONS} defaultValue="999"
-        emptyLabel="Unassigned" required aria-label="Partner" />,
-    );
-    const input = screen.getByRole('combobox') as HTMLInputElement;
-    const hidden = document.querySelector('input[name="partnerId"][type="hidden"]') as HTMLInputElement;
+    const { input, hidden } = renderCombobox({ defaultValue: '999', required: true });
     expect(input.value).toBe('');
     expect(hidden.value).toBe('');
     expect(input.checkValidity()).toBe(false);
   });
 
   it('does NOT offer the empty row when required — it could only fail validation', () => {
-    render(
-      <Combobox id="cb" name="partnerId" options={OPTIONS} emptyLabel="Select a partner…"
-        required aria-label="Partner" />,
-    );
-    const input = screen.getByRole('combobox') as HTMLInputElement;
+    const { input } = renderCombobox({ emptyLabel: 'Select a partner…', required: true });
     // Still the placeholder prompt, just not a choosable row.
     expect(input).toHaveAttribute('placeholder', 'Select a partner…');
     fireEvent.focus(input);
@@ -235,8 +214,8 @@ describe('initial state', () => {
   });
 
   it('offers it when NOT required, where clearing is a legal answer', () => {
-    renderCombobox('1');
-    fireEvent.focus(screen.getByRole('combobox'));
+    const { input } = renderCombobox({ defaultValue: '1' });
+    fireEvent.focus(input);
     expect(screen.getByRole('option', { name: 'Unassigned' })).toBeInTheDocument();
   });
 });

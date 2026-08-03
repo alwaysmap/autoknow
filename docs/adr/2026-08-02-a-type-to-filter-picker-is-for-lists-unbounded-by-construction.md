@@ -39,16 +39,27 @@ screenful is the signal to revisit, not the row count on the day it was written.
   someone seeds a sixth region. The judgement is a design-time one and belongs in a
   record, not in a branch.
 
-**Consequences.** "Why is this still a `<select>`?" now has an answer that is not "nobody
-got to it" — but only because `Combobox.tsx`'s SCOPE comment sorts the survivors into two
-lists, DELIBERATE and NOT YET DONE, and keeps them apart. The distinction is the whole
-value: a single undifferentiated list of exceptions is indistinguishable from an
-abandoned migration. Five unbounded pickers are still unconverted at the time of writing
-(`autoknow-wak`), two of them the same named field as a converted one — so the rule is
-settled while the sweep is not.
+**Consequences.** "Why is this still a `<select>`?" has an answer that is not "nobody got
+to it" — but only if the two kinds of survivor are kept apart, because an undifferentiated
+list of exceptions is indistinguishable from an abandoned migration:
 
-The cost is that the boundary is a judgement, not a rule a linter can hold: a lookup table
-that quietly grows past a screenful will not announce itself.
+- *Deliberate, by the rule above.* `PartnerEditor`'s type (`OEM | Supplier`) and region
+  (`AMER | EMEA | APAC`); `PersonEditor`'s phase picker (the phases of one already-chosen
+  program). Every enum-valued control — severity, org level, escalation status, lead role —
+  is outside this decision altogether: those are not entity pickers, and no growth turns
+  them into one.
+- *Not yet done, and unbounded.* Tracked in `autoknow-wak`, which names each call site.
+  Two of them are the SAME named field as a converted one ("Googler Owner" on
+  `/programs/new`, "Organization" in `TrackPersonProse`), so until they land, one field
+  has two interaction models on different pages. **The rule is settled; the sweep is not**
+  (AGENTS lesson 7).
+
+Deliberately NOT restated in `Combobox.tsx` — the component links here instead. A second
+copy of an exception list is the staleness trap this record exists to prevent, and the
+first version of that comment was already wrong on the day it landed.
+
+The remaining cost is that the boundary is a judgement, not a rule a linter can hold: a
+lookup table that quietly grows past a screenful will not announce itself.
 
 **Receipts.** PR for `autoknow-zl8`; the primitive and its invoker constraint are
 [the preceding ADR](2026-08-02-a-text-input-picker-cant-share-anchoredpopovers-invoker.md);

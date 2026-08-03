@@ -210,7 +210,7 @@ test.describe('People and Biographical History', () => {
 
     await dialog.locator('#npName').fill('Priya Nair');
     await dialog.locator('#npEmail').fill('priya@ford.example');
-    await pickCombobox(dialog, 'New Organization', 'ford', 'Ford');
+    await pickCombobox(dialog, 'New Organization', 'Ford');
     await dialog.locator('#npRole').fill('Connectivity Lead');
     await dialog.locator('button:has-text("Save")').last().click();
 
@@ -260,7 +260,7 @@ test.describe('People and Biographical History', () => {
       await expect(dialog).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
 
-    await pickCombobox(dialog, 'Program', 'waymo', 'Waymo Gen 6 Integration');
+    await pickCombobox(dialog, 'Program', 'Waymo Gen 6 Integration');
     await dialog.locator('#assignPhase').selectOption({ label: 'Compute integration' });
     await dialog.locator('#assignRole').fill('Integration lead');
     await dialog.locator('button:has-text("Save")').last().click();
@@ -303,7 +303,7 @@ test.describe('People and Biographical History', () => {
     await dialog.locator('input[name="effectiveDate"]').fill(future.toISOString().slice(0, 10));
     await expect(dialog).toContainText('schedules');
 
-    await pickCombobox(dialog, 'Organization', 'ford', 'Ford');
+    await pickCombobox(dialog, 'Organization', 'Ford');
     await dialog.locator('input[name="role"]').fill('Platform Lead');
     await dialog.locator('button:has-text("Save changes")').click();
     await expect(page.locator('dialog[open]')).toHaveCount(0);

@@ -89,7 +89,7 @@ test.describe('Escalations', () => {
     const dialog = page.locator('dialog[open]');
     await dialog.getByLabel('Statement').fill('Second-source audio codec decision needed');
     // "vol" — the substring case gh-269 was filed against — must find "Volvo Cars".
-    await pickCombobox(dialog, 'Partner', 'vol', 'Volvo Cars');
+    await pickCombobox(dialog, 'Partner', 'Volvo Cars', 'vol');
     await dialog.getByRole('button', { name: 'Save' }).click();
 
     // Creation redirects to the new escalation's own page.
@@ -150,7 +150,7 @@ test.describe('Escalations', () => {
     }).toPass({ timeout: 20000 });
     await dialog.getByLabel('Severity').selectOption('s1');
     await dialog.getByLabel('Org level').selectOption('director');
-    await pickCombobox(dialog, 'Decision maker', deciderName.split(' ')[0], deciderName);
+    await pickCombobox(dialog, 'Decision maker', deciderName, deciderName.split(' ')[0]);
     await dialog.getByRole('button', { name: 'Save' }).click();
 
     await expect(page.locator('dialog[open]')).toHaveCount(0);

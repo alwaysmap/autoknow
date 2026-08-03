@@ -73,7 +73,7 @@ test.describe('Admin and Maintenance Operations', () => {
 
     await clickMenuItem(page.getByTestId('kebab-menu'), page.getByRole('menuitem', { name: 'Edit details', exact: true }));
     const dialog = page.locator('dialog[open]');
-    await pickCombobox(dialog, 'Organization', 'ford', 'Ford');
+    await pickCombobox(dialog, 'Organization', 'Ford');
     await dialog.locator('input[name="role"]').fill('Lead Systems Architect');
     await dialog.locator('input[name="effectiveDate"]').fill('2026-06-01');
     await dialog.locator('button:has-text("Save changes")').click();

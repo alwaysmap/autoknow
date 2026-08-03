@@ -196,10 +196,10 @@ test.describe('Project Details and Action Item Operations', () => {
       await expect(dialog).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
 
-    await pickCombobox(dialog, 'Lead partner (OEM)', 'bmw', 'BMW Group (OEM)');
+    await pickCombobox(dialog, 'Lead partner (OEM)', 'BMW Group (OEM)', 'bmw');
     // Owner is a required pick from existing people (no freeform entry). The option label
     // carries the address as well as the name, because two people can share a name.
-    await pickCombobox(dialog, 'Googler Owner', 'priya', 'Priya PM (priya@google.com)');
+    await pickCombobox(dialog, 'Googler Owner', 'Priya PM (priya@google.com)', 'priya');
     await dialog.locator('#editSop').fill('2027-06');
     await dialog.getByRole('button', { name: /Save/ }).click();
     await expect(page.locator('dialog[open]')).toHaveCount(0);

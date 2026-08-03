@@ -160,13 +160,16 @@ export async function openMenuItemDialog(trigger: Locator, item: Locator, dialog
  *  them. Lives here rather than in one spec because five specs across four surfaces now
  *  need it.
  *
+ *  `query` defaults to the option's own label, which is what you want unless the point of
+ *  the test is the FILTER — pass a partial (`'vol'` for `'Volvo Cars'`) only then.
+ *
  *  `getByRole('combobox', …)`, not `getByLabel`: the listbox the input controls carries the
  *  SAME `aria-label`, so a plain label lookup is ambiguous between the two.
  *
  *  The retry wraps the OPEN, not just the assertion: this is frequently the first
  *  interaction after a dialog mounts, which is this suite's top flake source. */
 export async function pickCombobox(
-  scope: Locator, fieldLabel: string, query: string, optionLabel: string,
+  scope: Locator, fieldLabel: string, optionLabel: string, query = optionLabel,
 ): Promise<void> {
   const field = scope.getByRole('combobox', { name: fieldLabel, exact: true });
   const option = scope.getByRole('option', { name: optionLabel, exact: true });
