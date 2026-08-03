@@ -9,6 +9,7 @@ symptoms:
   - the screenshot is one flat expanse of page background and nothing else
   - the DOM says the element is there — visibility visible, opacity 1, a non-zero bounding rect
   - the same content screenshots correctly when the page is scrolled to the top
+  - every screenshot of one tab comes back blank after a `computer` scroll timed out on it
 verified_by: '#111 partner-health popover, feed row at scrollY 1019: elementFromPoint(640,360) returned the dialog''s history list while two consecutive screenshots came back blank; 2026-08-03 ecosystem risk-table empty state at scrollY 2106 with NO dialog in the document — elementFromPoint hit the TD, three consecutive screenshots blank, captured fine in both themes after hiding preceding siblings to bring the section to scrollY 0'
 ---
 
@@ -25,9 +26,8 @@ most expensive direction. AGENTS lesson 18 says to trust the SCREENSHOT over
 element counts, because three defects in a row rendered valid geometry that was
 invisible. Here the screenshot is the thing that lies, so an agent who follows
 the rule faithfully concludes the content does not render, and goes looking for a
-bug in a component that works. "Correct element you cannot see" and "correct
-element the camera missed" produce the same flat rectangle, so the image alone
-cannot separate them.
+bug in a component that works — and the image alone cannot separate "correct
+element you cannot see" from "correct element the camera missed".
 
 **A modal is not required, and the top layer is not the mechanism.** This note
 was first written from a `showModal()` popover and blamed the browser's top
@@ -54,4 +54,7 @@ To get the shot, put the content at **scrollY 0**: reload its deep link directly
 `display: none` the section's preceding siblings so it rises to the top, capture,
 then undo — that changes nothing about the section you are signing off. Scrolling
 to the top will not rescue the shot while a modal is open: `OverlayDialog` locks
-body scroll on purpose, and that lock working is not the problem.
+body scroll on purpose, and that lock working is not the problem. Nor will
+anything rescue a tab that has already failed a `computer` action with "the
+Browser pane is currently hidden" — it returns blanks thereafter even at scrollY
+0, so open a fresh tab, which also tells you which failure you had.

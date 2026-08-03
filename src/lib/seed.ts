@@ -450,6 +450,10 @@ async function seedMockCorpus(): Promise<CorpusSeedReport> {
  * chat-sourced and triaged (the normal case, with provenance and a source thread); one
  * closed-resolved (the terminal display, `closedAt`, the receded row treatment); and one
  * open but UNTRIAGED, which is what the webhook actually creates and what sorts last.
+ *
+ * Between them they also cover BOTH causes of the urgency mark on `EscalationRows` — the
+ * first row is S1, the third is past its target — so neither branch is invisible in the
+ * demo the way an unexercised state usually is.
  */
 async function seedEscalations(): Promise<number> {
   const [volvoProgram, volvoPartner, stellantis] = await Promise.all([
@@ -509,6 +513,14 @@ async function seedEscalations(): Promise<number> {
       originalRequest: 'escalate the second-source audio codec question before the EX90 gate',
       title: 'Second-source audio codec decision needed before the EX90 gate',
       status: 'open',
+      // OVERDUE, and computed backwards from today rather than written as a literal — a
+      // literal past date is correct forever but drifts into absurdity ("overdue by three
+      // years"), which is the mirror of the expiring-future-date trap
+      // (docs/knowledge/a-literal-future-date-in-a-fixture-expires.md). It exists so the
+      // demo carries an overdue row that is NOT the S1 one: the urgency mark has two
+      // independent causes, and a seed exercising only severity would leave the other
+      // invisible exactly the way the seed hides a chart's crowding case.
+      targetDate: new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10),
       partnerId: volvoPartner.id,
       projectId: volvoProgram.id,
       raisedBy: 'dylan@alwaysmap.com',

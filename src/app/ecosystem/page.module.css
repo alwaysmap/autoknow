@@ -2,6 +2,32 @@
   margin-bottom: 1.875rem;
 }
 
+/* The escalations panel — the ONE tinted section on this page, and a deliberate second
+   exception to §1's "no background wrappers around page sections" (2026-08-03, user
+   call; §1 now records it). The argument for the exception is the same one that makes
+   §1's Filter Bar exception legal: the tint marks a block that is a DIFFERENT KIND of
+   thing from the reports around it — there, controls rather than data; here, the only
+   block on the page that is asking someone to act today rather than reporting state.
+
+   `--warn-soft`, not `--bad-soft`: the strip tile counting these same rows renders
+   `tone='warn'` when the count is non-zero, and a section that shouted louder than the
+   number that sent the reader to it would be two readings of one fact. Per-row `--bad`
+   ink (EscalationRows `.mark` / `.urgentFact`) is the level above, and it is scoped to
+   rows that earned it.
+
+   Applied ONLY when the section has open rows: "No open escalations." inside an alarm
+   panel is an alarm about nothing. */
+.escalationsPanel {
+  background-color: var(--warn-soft);
+  border-radius: 0.5rem;
+  padding: 1rem 1.125rem 1.125rem;
+}
+
+/* The heading's own margin is supplied by the panel's padding, so it does not stack. */
+.escalationsPanel > :first-child {
+  margin-top: 0;
+}
+
 .sectionHeader {
   display: flex;
   align-items: baseline;

@@ -2202,11 +2202,26 @@ const STRINGS = {
     ko: '최근 4주 버퍼 변화 · 걸린 규모',
   },
   clLostDays: { en: '{name} lost {d} days', de: '{name} verlor {d} Tage', ja: '{name}は{d}日減', ko: '{name} {d}일 감소' },
+  // Just "no change" since 2026-08-03: the trailing "nothing to do here" was the part
+  // that actively wasted the row, and the disclosure control below the table now carries
+  // that meaning once for the whole collapsed group instead of on every line.
   clNoChangeCell: {
-    en: 'no change — nothing to do here',
-    de: 'keine Änderung — hier ist nichts zu tun',
-    ja: '変化なし — 対応不要',
-    ko: '변화 없음 — 조치 불필요',
+    en: 'no change',
+    de: 'keine Änderung',
+    ja: '変化なし',
+    ko: '변화 없음',
+  },
+  clBusiestQuietShow: {
+    en: 'Show {n} more with nothing to act on',
+    de: '{n} weitere ohne Handlungsbedarf anzeigen',
+    ja: '対応不要の他{n}件を表示',
+    ko: '조치가 필요 없는 {n}건 더 보기',
+  },
+  clBusiestQuietHide: {
+    en: 'Hide {n} with nothing to act on',
+    de: '{n} ohne Handlungsbedarf ausblenden',
+    ja: '対応不要の{n}件を隠す',
+    ko: '조치가 필요 없는 {n}건 숨기기',
   },
   clUnitsIn: { en: '{units} units in {year}', de: '{units} Einheiten in {year}', ja: '{year}に{units}台', ko: '{year}에 {units}대' },
   clNMore: { en: '{n} more', de: '{n} weitere', ja: '他{n}件', ko: '외 {n}건' },
@@ -2292,6 +2307,15 @@ const STRINGS = {
   escTargetDate: { en: 'Target', de: 'Ziel', ja: '目標期日', ko: '목표일' },
   escNoTarget: { en: 'No target set', de: 'Kein Ziel gesetzt', ja: '目標期日なし', ko: '목표일 없음' },
   escOverdue: { en: 'Overdue', de: 'Überfällig', ja: '期限超過', ko: '기한 초과' },
+  // The accessible name of the urgency glyph on an escalation row — it says what the mark
+  // MEANS, not what it depicts ("warning triangle" would describe the picture and leave a
+  // screen-reader user to guess why it is there).
+  escUrgentMark: {
+    en: 'Needs attention now',
+    de: 'Erfordert jetzt Aufmerksamkeit',
+    ja: '今すぐ対応が必要',
+    ko: '지금 조치가 필요함',
+  },
   escOverdueTitle: {
     en: 'Past its target date and still open.',
     de: 'Zieldatum überschritten und weiterhin offen.',

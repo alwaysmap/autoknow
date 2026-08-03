@@ -26,6 +26,11 @@ const SELECT = {
   severity: true,
   orgLevel: true,
   createdAt: true,
+  // Read so the panel can mark a row URGENT (`isOverdue`) rather than only late-looking.
+  // Overdue is derived at read time by design — it is f(targetDate, now, status), so a
+  // stored column would need a cron to stay true (prisma/schema.prisma, and the same
+  // argument the ingestion-health ADR makes against O(time) tables).
+  targetDate: true,
   ownerPerson: { select: { id: true, name: true } },
 } satisfies Prisma.EscalationSelect;
 
@@ -41,6 +46,7 @@ const toRow = (e: Row): EscalationRow => ({
   severity: e.severity as EscalationSeverity | null,
   orgLevel: e.orgLevel as EscalationOrgLevel | null,
   createdAt: e.createdAt.toISOString(),
+  targetDate: e.targetDate?.toISOString() ?? null,
   owner: e.ownerPerson,
 });
 
