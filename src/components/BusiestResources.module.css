@@ -46,8 +46,7 @@
 }
 
 /* The collapsed-rows disclosure. A quiet text control, not a button-looking button:
-   §1's no-chrome rule, and the same muted small type the legend below it uses, so the
-   two read as one footer rather than as a widget parked above a caption. */
+   §1's no-chrome rule, in the muted small type a footer control takes. */
 .quietToggle {
   display: block;
   background: none;
@@ -65,12 +64,4 @@
 .quietToggle:hover {
   color: var(--fg);
   text-decoration: underline;
-}
-
-.legend {
-  color: var(--muted);
-  font-size: 0.75rem;
-  line-height: 1.5;
-  margin: 0.5rem 0 0;
-  max-width: 58rem;
 }

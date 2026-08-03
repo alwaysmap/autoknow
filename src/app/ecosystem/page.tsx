@@ -4,7 +4,11 @@ import SummaryPanel from '../../components/SummaryPanel';
 import { getSummary } from '../../lib/summaries';
 import { geminiConfigured } from '../../lib/gemini';
 import CapacityChart from '../../components/CapacityChart';
+import ProgramTimeline from '../../components/ProgramTimeline';
 import { getEcosystemDashboardData, getPartnerRelationshipScores } from '../../lib/dashboardData';
+import { getProgramStartMs } from '../../lib/programTimelineData';
+import { buildTimelineMarks } from '../../lib/programTimeline';
+import { deriveProgramStatus } from '../../lib/lifecycle';
 import { getEcosystemEscalations, getOpenEscalationsCount } from '../../lib/escalationQueries';
 import { getLocale } from '../../lib/locale';
 import { t } from '../../lib/i18n';
@@ -17,7 +21,14 @@ import PageShell from '../../components/PageShell';
 
 export const dynamic = 'force-dynamic';
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ pop?: string }> }) {
+  // Poppable charts: a PARAMETER for humans, not a route per chart — a route family would
+  // explode as the sweep grows, and `?pop=` reuses this page's session and its assembly
+  // rather than duplicating either
+  // (docs/adr/2026-07-22-poppable-charts-a-parameter-a-shared-assembly-and-a-token.md).
+  // The machine-facing `/embed` half of that ADR, with its own credential, is autoknow-7wi
+  // and is deliberately not built here.
+  const { pop } = await searchParams;
   const locale = await getLocale();
   const summary = await getSummary('ecosystem', 0);
 
@@ -37,6 +48,40 @@ export default async function Home() {
   // false positive here.
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
+
+  // The portfolio timeline (#159). Active programs only — this page is the leadership view
+  // of what is IN FLIGHT — and what that leaves out is counted rather than silently
+  // dropped, so the chart never quietly disagrees with the strip's program count above it.
+  // One extra query for the page, shared with /programs through `getProgramStartMs`.
+  const inFlight = serializedProjects.filter((p) => deriveProgramStatus(p) === 'Active');
+  const timeline = buildTimelineMarks(
+    inFlight, await getProgramStartMs(inFlight.map((p) => p.id)), now,
+  );
+
+  // …and the count is a LINK, because the statuses are named from the excluded rows
+  // themselves rather than assumed. `/programs`' status funnel keys on exactly this
+  // vocabulary (`deriveProgramStatus`), so the destination shows those programs and no
+  // others — including Archived, which this page counts and that table can still show.
+  // Spelling out the statuses beats a `?filter=` shorthand: the reader lands on a table
+  // whose funnel already says which statuses they are looking at (design.md §6).
+  const notInFlight = serializedProjects.filter((p) => deriveProgramStatus(p) !== 'Active');
+  const notInFlightHref = `/programs?${[...new Set(notInFlight.map((p) => deriveProgramStatus(p)))]
+    .map((s) => `status=${encodeURIComponent(s)}`).join('&')}`;
+
+  // The popped form: the chart alone, keeping the nav (`chrome: full`, the human default in
+  // the ADR) so the page is still navigable. Same component, same layout object — a popped
+  // chart that recomputed anything would be the second assembly the ADR exists to prevent.
+  if (pop === 'timeline') {
+    return (
+      <PageShell title={t(locale, 'timelineTitle')} subtitle={t(locale, 'timelineSub')} maxWidth="68.75rem">
+        <ProgramTimeline
+          layout={timeline}
+          filteredOut={notInFlight.length}
+          filteredOutHref={notInFlightHref}
+        />
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell
@@ -106,6 +151,29 @@ export default async function Home() {
               sopDate: p.sopDate, volumeFirstYear: p.volumeFirstYear, lifecycle: p.lifecycle,
               hasGas: p.hasGas, hasGbi: p.hasGbi, hasDigitalKey: p.hasDigitalKey, hasAap: p.hasAap,
             }))}
+          />
+        </section>
+
+        {/* What is in flight and when it lands — the question the capacity chart above
+            cannot answer, because y is load-bearing there (units) so lateness and start
+            cannot be shown at all. Sits under it: same subject, finer grain. */}
+        <section className={styles.dashboardSection}>
+          <AnchorHeading
+            id="timeline"
+            linkLabel={t(locale, 'anchorLink')}
+            actions={
+              <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+                <Link href="/ecosystem?pop=timeline">{t(locale, 'timelinePop')}</Link>
+              </KebabMenu>
+            }
+          >
+            {t(locale, 'timelineTitle')}
+          </AnchorHeading>
+          <p className={styles.sectionSub}>{t(locale, 'timelineSub')}</p>
+          <ProgramTimeline
+            layout={timeline}
+            filteredOut={notInFlight.length}
+            filteredOutHref={notInFlightHref}
           />
         </section>
 

@@ -69,3 +69,13 @@ query structure rather than scale, and stays gated by
 **Receipts.** PR #259 (`0b97448`), migration
 `20260729015546_add_missing_fk_and_unscoped_timestamp_indexes`; the staleness probe at 200k
 synthetic rows — Index Scan 0.046 ms vs Seq Scan 36.5 ms.
+
+The method also earns its keep by saying NO. #159 specified that a sequential scan in
+`getProgramStartMs` would ship a partial index on `("phaseId") WHERE "hillChartProgress" > 0`.
+Built at synthetic scale (4.8M `PhaseState`, 16k `Phase`, 2k `Project`) that index is a
+pessimization — parallel seq scan + HashAggregate **569 ms**, partial covering index-only scan
+**979 ms**, and +72 MB on a 595 MB table — so it was not shipped, and the numbers live beside
+the query in `src/lib/programTimelineData.ts`. This is the first corollary above ("a
+low-selectivity boolean gets no index") reaching a grouped aggregate: `> 0` matches over half
+the rows, so an index lets the query skip nothing, and skipping rows is the only thing an index
+sells. Had the spec been followed on faith, the cost would have been invisible until it was not.

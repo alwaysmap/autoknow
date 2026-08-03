@@ -28,6 +28,15 @@
   margin-top: 0;
 }
 
+/* The one-line read under a section heading (design.md §7). Muted and small so it explains
+   the chart below without competing with it. */
+.sectionSub {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--muted);
+}
+
 .sectionHeader {
   display: flex;
   align-items: baseline;
