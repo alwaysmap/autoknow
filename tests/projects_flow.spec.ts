@@ -1,4 +1,4 @@
-import { test, expect, clickUntilNavigated, openCard, openMenuItemDialog } from './helpers/e2e';
+import { test, expect, clickUntilNavigated, openCard, openMenuItemDialog, pickCombobox } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -59,9 +59,12 @@ test.describe('Projects and Partners Flow', () => {
       await item.click({ timeout: 2000 });
     });
 
-    // Landed on the full-page create form (name + template picker present).
+    // Landed on the full-page create form (name + template picker present). The template
+    // picker is a `Combobox` now, so it is a `role=combobox` input over a hidden field —
+    // asserting the hidden field keeps this about "the form is here" rather than about
+    // which control renders it.
     await expect(page.locator('input[name="name"]')).toBeVisible();
-    await expect(page.locator('select[name="template"]')).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Program Template (Critical Chain DAG)' })).toBeVisible();
   });
 
   test('the partner page Programs section creates a program pre-selecting that partner', async ({ page }) => {
@@ -78,8 +81,11 @@ test.describe('Projects and Partners Flow', () => {
       await item.click({ timeout: 2000 });
     });
 
-    // The deep link pre-selects THIS partner in the create form.
-    await expect(page.locator('select[name="partnerId"]')).toHaveValue(String(fordId));
+    // The deep link pre-selects THIS partner in the create form. Two assertions because the
+    // picker is a `Combobox` and they are different claims: the reader SEES the partner (by
+    // the label this form composes, name + type), and the form POSTS its id.
+    await expect(page.getByRole('combobox', { name: 'Partner (OEM / Supplier)' })).toHaveValue('Ford (OEM)');
+    await expect(page.locator('input[type="hidden"][name="partnerId"]')).toHaveValue(String(fordId));
   });
 
   test('the partner page People section creates a person pre-selecting that partner', async ({ page }) => {
@@ -105,10 +111,12 @@ test.describe('Projects and Partners Flow', () => {
 
     // Templates come from the database (built-ins seeded on demand), not a constant.
     await page.fill('input[name="name"]', 'Ford F-150 AAOS Bring-up');
-    await page.selectOption('select[name="partnerId"]', fordId.toString());
-    await page.selectOption('select[name="template"]', { label: 'AAOS Bring-up (chipset → GBI)' });
-    // Owner is picked from existing people (no freeform text) — value is the email.
-    await page.selectOption('select[name="owner"]', 'dylan@google.com');
+    // All three are Comboboxes now (gh-269). The partner label carries its TYPE and the
+    // owner label its ADDRESS, so the option text is not the bare name in either case.
+    const form = page.locator('form');
+    await pickCombobox(form, 'Partner (OEM / Supplier)', 'Ford (OEM)');
+    await pickCombobox(form, 'Program Template (Critical Chain DAG)', 'AAOS Bring-up (chipset → GBI)');
+    await pickCombobox(form, 'Googler Owner', 'Dylan Lead (dylan@google.com)');
     // SOP target is REQUIRED at creation (month/year; month-end assumed).
     await page.fill('input[name="sopMonth"]', '2027-06');
     await page.check('input[name="hasGas"]');

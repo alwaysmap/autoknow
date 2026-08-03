@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation';
+import Combobox from '../../../components/Combobox';
+import { toComboboxOptions } from '../../../lib/comboboxOptions';
 import { prisma } from '../../../lib/db';
 import { listTemplates, getTemplateWithPhases } from '../../../lib/programTemplates';
 import { validateTemplateDag } from '../../../lib/templateDag';
@@ -194,35 +196,46 @@ export default async function NewProjectPage(props: {
 
           <div className={styles.field}>
             <label htmlFor="partnerId">{t(locale, 'partnerOemSupplier')}</label>
-            <select id="partnerId" name="partnerId" required defaultValue={preselectedPartnerId}>
-              <option value="">{t(locale, 'selectAPartner')}</option>
-              {partners.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.type?.name})
-                </option>
-              ))}
-            </select>
+            {/* Mapped inline rather than through `toComboboxOptions`: the label carries the
+                partner's TYPE, which is how a reader tells two similarly named OEMs and
+                suppliers apart when typing. */}
+            <Combobox
+              id="partnerId" name="partnerId"
+              options={partners.map((p) => ({ value: String(p.id), label: `${p.name} (${p.type?.name})` }))}
+              defaultValue={preselectedPartnerId ? String(preselectedPartnerId) : ''}
+              emptyLabel={t(locale, 'selectAPartner')}
+              required
+              aria-label={t(locale, 'partnerOemSupplier')}
+            />
           </div>
 
           <div className={styles.field}>
             <label htmlFor="template">{t(locale, 'projectTemplateDag')}</label>
-            <select id="template" name="template" required>
-              {templates.map((tpl) => (
-                <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
-              ))}
-            </select>
+            {/* Templates are user-authored and grow with the business, so they meet the
+                same unbounded-by-construction test as the entity pickers — the ADR's rule
+                is about growth, not today's count. Not in autoknow-wak's list; converted
+                here rather than left as a sixth instance for a third pass (lesson 7). */}
+            <Combobox
+              id="template" name="template"
+              options={toComboboxOptions(templates)}
+              emptyLabel={t(locale, 'selectATemplate')}
+              required
+              aria-label={t(locale, 'projectTemplateDag')}
+            />
           </div>
 
           <div className={styles.field}>
             <label htmlFor="owner">{t(locale, 'googlerOwner')}</label>
-            <select id="owner" name="owner" required defaultValue="">
-              <option value="" disabled>{t(locale, 'selectAPerson')}</option>
-              {people.map(p => (
-                <option key={p.id} value={p.email}>
-                  {p.name} ({p.email})
-                </option>
-              ))}
-            </select>
+            {/* The committed value is the ADDRESS, not the row id — the same write contract
+                as `ProjectMetaHeader`'s owner picker (`requireOwner` resolves the address),
+                which is why this maps inline instead of through `toComboboxOptions`. */}
+            <Combobox
+              id="owner" name="owner"
+              options={people.map((p) => ({ value: p.email, label: `${p.name} (${p.email})` }))}
+              emptyLabel={t(locale, 'selectAPerson')}
+              required
+              aria-label={t(locale, 'googlerOwner')}
+            />
           </div>
 
           {/* the SOP target is REQUIRED — it is the on-track yardstick and places the

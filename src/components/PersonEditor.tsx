@@ -10,7 +10,8 @@ import meta from './ProjectMetaHeader.module.css';
 import admin from './ProjectAdminControls.module.css';
 import KebabMenu from './KebabMenu';
 import OverlayDialog from './OverlayDialog';
-import Combobox, { toComboboxOptions } from './Combobox';
+import Combobox from './Combobox';
+import { toComboboxOptions } from '../lib/comboboxOptions';
 
 // Person maintenance behind the title kebab (the app-wide grammar: quiet ⋯ beside
 // the name, dialogs for the work) — replaces the old full-width "Profile

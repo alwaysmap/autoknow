@@ -6,6 +6,9 @@ import { deriveEmail, normalizeHandle } from '../../lib/auth';
 import { getCurrentUser } from '../../lib/session';
 import { getLocale } from '../../lib/locale';
 import { t } from '../../lib/i18n';
+import Combobox from '../../components/Combobox';
+import { toComboboxOptions } from '../../lib/comboboxOptions';
+import dash from '../../components/ProjectStatusDashboard.module.css';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,11 +71,18 @@ export default async function MePage(props: { searchParams: Promise<SearchParams
       <form action={createMyProfile} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
         {/* stub-mode override only; ignored when real auth is configured */}
         <input type="hidden" name="user" value={user} />
-        <select name="partnerId" required defaultValue=""
-          style={{ fontSize: '0.8125rem', padding: '0.375rem 0.625rem', border: '1px solid var(--border)', borderRadius: '0.375rem', background: 'var(--paper)' }}>
-          <option value="">{t(locale, 'selectPartner')}</option>
-          {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        {/* `dash.textInput` rather than this form's inline styles: `Combobox` takes a
+            className, and the shared form look is the closest thing to what the hand-rolled
+            styles here were imitating. The rest of this page is still inline-styled — that
+            is pre-existing, and not this change's to sweep. */}
+        <Combobox
+          id="mePartner" name="partnerId"
+          options={toComboboxOptions(partners)}
+          emptyLabel={t(locale, 'selectPartner')}
+          required
+          className={dash.textInput}
+          aria-label={t(locale, 'selectPartner')}
+        />
         <button type="submit" data-testid="create-my-profile"
           style={{ fontSize: '0.8125rem', fontWeight: 600, padding: '0.375rem 0.875rem', border: '1px solid var(--p-600)', borderRadius: '0.375rem', background: 'var(--p-600)', color: 'var(--paper)', cursor: 'pointer' }}>
           {t(locale, 'createMyProfile')}
