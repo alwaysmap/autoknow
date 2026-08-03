@@ -1221,7 +1221,7 @@ const STRINGS = {
   // ---- portfolio timeline (#159) ----
   // No per-mark labels by design — forty program names on a shared axis is a collision
   // problem with no good answer — so everything a reader needs per program lives in the
-  // hover title these compose.
+  // readout below the plot and in each mark's accessible name, which these compose.
   timelineTitle: { en: 'Programs in flight', de: 'Laufende Programme', ja: '進行中のプログラム', ko: '진행 중인 프로그램' },
   timelineSub: {
     en: 'One mark per program on a shared timeline: when it started, its target SOP inked by health, and where the critical chain forecasts it finishing.',

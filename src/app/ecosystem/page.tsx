@@ -52,9 +52,21 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
   // The portfolio timeline (#159). Active programs only — this page is the leadership view
   // of what is IN FLIGHT — and what that leaves out is counted rather than silently
   // dropped, so the chart never quietly disagrees with the strip's program count above it.
+  //
+  // One partition, so "in flight = Active" is decided once. The excluded STATUSES are
+  // collected in the same pass because the note below links to them by name.
   // One extra query for the page, through `getProgramStartMs` — the shared assembly /programs
   // will call too when #159's second surface lands.
-  const inFlight = serializedProjects.filter((p) => deriveProgramStatus(p) === 'Active');
+  const inFlight: typeof serializedProjects = [];
+  const excludedStatuses = new Set<ReturnType<typeof deriveProgramStatus>>();
+  let notInFlightCount = 0;
+  for (const p of serializedProjects) {
+    const status = deriveProgramStatus(p);
+    if (status === 'Active') { inFlight.push(p); continue; }
+    notInFlightCount += 1;
+    excludedStatuses.add(status);
+  }
+
   const timeline = buildTimelineMarks(
     inFlight, await getProgramStartMs(inFlight.map((p) => p.id)), now,
   );
@@ -65,8 +77,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
   // others — including Archived, which this page counts and that table can still show.
   // Spelling out the statuses beats a `?filter=` shorthand: the reader lands on a table
   // whose funnel already says which statuses they are looking at (design.md §6).
-  const notInFlight = serializedProjects.filter((p) => deriveProgramStatus(p) !== 'Active');
-  const notInFlightHref = `/programs?${[...new Set(notInFlight.map((p) => deriveProgramStatus(p)))]
+  const notInFlightHref = `/programs?${[...excludedStatuses]
     .map((s) => `status=${encodeURIComponent(s)}`).join('&')}`;
 
   // The popped form: the chart alone, keeping the nav (`chrome: full`, the human default in
@@ -77,7 +88,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
       <PageShell title={t(locale, 'timelineTitle')} subtitle={t(locale, 'timelineSub')} maxWidth="68.75rem">
         <ProgramTimeline
           layout={timeline}
-          filteredOut={notInFlight.length}
+          filteredOut={notInFlightCount}
           filteredOutHref={notInFlightHref}
         />
       </PageShell>
@@ -173,7 +184,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
           <p className={styles.sectionSub}>{t(locale, 'timelineSub')}</p>
           <ProgramTimeline
             layout={timeline}
-            filteredOut={notInFlight.length}
+            filteredOut={notInFlightCount}
             filteredOutHref={notInFlightHref}
           />
         </section>

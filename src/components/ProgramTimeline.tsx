@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { t } from '../lib/i18n';
+import { t, type Locale } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import { localDate } from '../lib/dates';
 import { healthColor, healthKey, parseHealth, HEALTHS, type Health } from '../lib/health';
@@ -18,11 +18,18 @@ import styles from './ProgramTimeline.module.css';
 // surface decides WHICH programs it plots and hands the same shape across, so /ecosystem
 // and the popped form are one component over one shape (#159's "one shape, two pages").
 //
-// DOM AND CSS, NOT SVG, and that is the point. design.md §9b says a chart fills its
-// container's inline size and owns its own height in rem; the `viewBox` charts here scale
-// height by width instead. For THIS chart that failure is not cosmetic — a fixed-aspect
-// viewBox renders ~4px per lane at the 360px compliance width, where this renders 20px. So: x is a percentage of the time window (no measurement, which
-// §9b also bans), y is whole-pixel rem lanes, and the height follows the lane count.
+// DOM AND CSS, NOT SVG, for one concrete reason rather than a stylistic preference: a
+// fixed-aspect `viewBox` scaled by width renders ~4px per lane at the 360px compliance
+// width, where this renders 20px. (§9b's rem `max-height` remedy, which `PhaseHillChart`
+// applies, keeps a viewBox chart legible — it cannot give a per-row chart its rows back.)
+// So: x is a percentage of the time window (no measurement, which §9b also bans), y is
+// whole-pixel rem lanes, and the height follows the lane count.
+//
+// NO PER-MARK LABELS, deliberately: forty program names on a shared axis is a collision
+// problem with no good answer. Everything a reader needs per program is in the readout
+// below the plot (`readoutFacts`) and in each mark's accessible name (`markTitle`) — which
+// is why the axis strip is the chart's only text, and why nothing here needs a
+// label-placement pass.
 //
 // Each whisker is a real `<a href>`: keyboard-reachable and a genuine URL for free
 // (design.md §2), rather than an SVG hit-rect with hand-rolled focus.
@@ -42,7 +49,7 @@ export interface ProgramTimelineProps {
 }
 
 const LANE_REM = 1.25;
-/** Passed explicitly, not left to `monthTicks`' default: the phone breakpoint in the module
+/** Passed explicitly because `monthTicks` requires it: the phone breakpoint in the module
  *  CSS hides every other tick, and that rule is only correct for THIS number. The two ends
  *  of that coupling should be visible to each other. */
 const MAX_TICKS = 8;
@@ -172,7 +179,7 @@ export default function ProgramTimeline({ layout, filteredOut = 0, filteredOutHr
                       className={styles.overshoot}
                       style={{
                         left: within(m.sopMs!, from, to),
-                        width: `${((m.finishMs! - m.sopMs!) / Math.max(1, to - from)) * 100}%`,
+                        width: withinWidth(m.finishMs! - m.sopMs!, from, to),
                       }}
                       aria-hidden="true"
                     />
@@ -275,12 +282,15 @@ const tickShift = (p: number) =>
 const within = (ms: number, from: number, to: number) =>
   `${((ms - from) / Math.max(1, to - from)) * 100}%`;
 
-/** The whole per-mark story, for the readout AND the link's accessible name. There are
- *  deliberately NO per-mark labels in the plot: forty program names on a shared axis is a
- *  collision problem with no good answer. */
+/** The width of a stretch of time as a share of its own mark — `within`'s twin, so every
+ *  expression placing ink inside a mark goes through this pair rather than one of them
+ *  being spelled out inline. Distinct from `across`, which is the WINDOW's scale. */
+const withinWidth = (durationMs: number, from: number, to: number) =>
+  `${(durationMs / Math.max(1, to - from)) * 100}%`;
+
 /** The dated facts a mark carries, in TIME order. A mark with no SOP contributes no SOP
  *  fact; the caller states that absence separately, since it has no date to sort by. */
-function readoutFacts(locale: ReturnType<typeof useLocale>, m: TimelineMark) {
+function readoutFacts(locale: Locale, m: TimelineMark) {
   const facts: { key: string; ms: number; glyph: string; style?: React.CSSProperties; text: string }[] = [];
   if (m.startMs != null) {
     facts.push({ key: 'start', ms: m.startMs, glyph: styles.legendStart, text: t(locale, 'timelineStarted', { d: day(locale, m.startMs) }) });
@@ -294,12 +304,12 @@ function readoutFacts(locale: ReturnType<typeof useLocale>, m: TimelineMark) {
   return facts.sort((a, b) => a.ms - b.ms);
 }
 
-const day = (locale: ReturnType<typeof useLocale>, ms: number) =>
+const day = (locale: Locale, ms: number) =>
   localDate(new Date(ms), locale, { year: 'numeric', month: 'short', day: 'numeric' });
 
 /** The same facts as the readout, flattened — this is the LINK's accessible name, which must
  *  be a string, so it cannot carry the glyphs and says the words instead. */
-function markTitle(locale: ReturnType<typeof useLocale>, m: TimelineMark): string {
+function markTitle(locale: Locale, m: TimelineMark): string {
   const parts = [m.name];
   if (m.startMs != null) parts.push(t(locale, 'timelineStarted', { d: day(locale, m.startMs) }));
   parts.push(m.sopMs != null ? t(locale, 'timelineSop', { d: day(locale, m.sopMs) }) : t(locale, 'timelineNoSop'));

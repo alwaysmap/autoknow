@@ -18,7 +18,8 @@ const DAY_MS = 86_400_000;
  *  `DashboardProject` satisfies this as it stands (`dashboardData.ts`). `/programs`'s
  *  serialized project does NOT yet: it computes `chain.remainingDays` only to pass into
  *  `sopBufferCategory` and drops it from the object it returns, so wiring that page to this
- *  chart adds `chainRemainingDays: chain.remainingDays` there. One line, but not zero. */
+ *  chart adds `chainRemainingDays: chain.remainingDays` there. One line, but not zero —
+ *  tracked as autoknow-ws1. */
 export interface TimelineProgram {
   id: number;
   name: string;
@@ -163,10 +164,9 @@ export function buildTimelineMarks(
  *   3. No target SOP at all. Last, because there is no date to be urgent about — but still
  *      present, which is the point of plotting them.
  *
- * Ties break on id, so the order is fully determined by the data and never by the array
- * position it arrived in — the rule `hillLayout` states for itself ("every offset here is
- * derived from the input order"): an index-derived value moves when an upstream query's
- * ordering changes, and nothing tells you it moved.
+ * Ties break on id, so the row order is fully determined by the data and never by the
+ * position a mark happened to arrive in. Otherwise adding an `orderBy` to a query three
+ * modules away silently reshuffles this chart, and nothing tells you it moved.
  */
 export function sortByUrgency(marks: TimelineMark[]): TimelineMark[] {
   const overrunMs = (m: TimelineMark) =>
@@ -187,8 +187,11 @@ function dates(m: TimelineMark): number[] {
 }
 
 /** Month boundaries across the window, for the axis strip. Thinned to `max` ticks so the
- *  labels cannot collide — the chart has no other text, so this is the whole label story. */
-export function monthTicks(windowMinMs: number, windowMaxMs: number, max = 8): number[] {
+ *  labels cannot collide — the chart has no other text, so this is the whole label story.
+ *
+ *  `max` is REQUIRED, deliberately. A default here would be a second home for a number the
+ *  component's phone breakpoint is also written against, free to drift out of step with it. */
+export function monthTicks(windowMinMs: number, windowMaxMs: number, max: number): number[] {
   const all: number[] = [];
   for (let ms = windowMinMs; ms <= windowMaxMs; ms = monthCeil(ms)) all.push(ms);
   if (all.length <= max) return all;
