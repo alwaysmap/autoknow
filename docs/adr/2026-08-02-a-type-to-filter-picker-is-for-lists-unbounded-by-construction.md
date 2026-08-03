@@ -29,19 +29,26 @@ screenful is the signal to revisit, not the row count on the day it was written.
 **Alternatives rejected.**
 
 - *Convert everything, for consistency.* Consistency of MECHANISM, bought with a worse
-  control on the surfaces that did not need it. The forms already read as one grammar
-  because `Combobox` reuses `dash.textInput` — a native `<select>` beside it is not a
-  visual inconsistency, and design.md §7 is about grammar, not about widget identity.
+  control on the surfaces that did not need it. The fields still LOOK alike either way,
+  because `Combobox` reuses `dash.textInput`, so a native `<select>` beside one is not a
+  visual break — and the consistency that actually matters to a reader is that the same
+  NAMED field behaves the same way wherever it appears, which is a claim about finishing
+  the sweep (below), not about converting every `<select>` in the app.
 - *A row-count threshold in code, picking the control at runtime.* Two controls to keep
   working, two sets of e2e interactions, and a field that changes interaction model when
   someone seeds a sixth region. The judgement is a design-time one and belongs in a
   record, not in a branch.
 
 **Consequences.** "Why is this still a `<select>`?" now has an answer that is not "nobody
-got to it", and the answer is written where the next reader will be — `Combobox.tsx`'s
-SCOPE comment names each survivor and why. The cost is that the boundary is a judgement,
-not a rule a linter can hold: a lookup table that quietly grows past a screenful will not
-announce itself.
+got to it" — but only because `Combobox.tsx`'s SCOPE comment sorts the survivors into two
+lists, DELIBERATE and NOT YET DONE, and keeps them apart. The distinction is the whole
+value: a single undifferentiated list of exceptions is indistinguishable from an
+abandoned migration. Five unbounded pickers are still unconverted at the time of writing
+(`autoknow-wak`), two of them the same named field as a converted one — so the rule is
+settled while the sweep is not.
+
+The cost is that the boundary is a judgement, not a rule a linter can hold: a lookup table
+that quietly grows past a screenful will not announce itself.
 
 **Receipts.** PR for `autoknow-zl8`; the primitive and its invoker constraint are
 [the preceding ADR](2026-08-02-a-text-input-picker-cant-share-anchoredpopovers-invoker.md);

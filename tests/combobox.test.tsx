@@ -205,3 +205,38 @@ describe('onChange', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 });
+
+describe('initial state', () => {
+  it('a defaultValue naming no option lands as "nothing selected", not as an invisible value', () => {
+    // The inverse of the `required` invariant: a field that LOOKS empty while holding an
+    // id would make the browser block a submit and point at a blank-looking field.
+    render(
+      <Combobox id="cb" name="partnerId" options={OPTIONS} defaultValue="999"
+        emptyLabel="Unassigned" required aria-label="Partner" />,
+    );
+    const input = screen.getByRole('combobox') as HTMLInputElement;
+    const hidden = document.querySelector('input[name="partnerId"][type="hidden"]') as HTMLInputElement;
+    expect(input.value).toBe('');
+    expect(hidden.value).toBe('');
+    expect(input.checkValidity()).toBe(false);
+  });
+
+  it('does NOT offer the empty row when required — it could only fail validation', () => {
+    render(
+      <Combobox id="cb" name="partnerId" options={OPTIONS} emptyLabel="Select a partner…"
+        required aria-label="Partner" />,
+    );
+    const input = screen.getByRole('combobox') as HTMLInputElement;
+    // Still the placeholder prompt, just not a choosable row.
+    expect(input).toHaveAttribute('placeholder', 'Select a partner…');
+    fireEvent.focus(input);
+    expect(screen.queryByRole('option', { name: 'Select a partner…' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('option')).toHaveLength(OPTIONS.length);
+  });
+
+  it('offers it when NOT required, where clearing is a legal answer', () => {
+    renderCombobox('1');
+    fireEvent.focus(screen.getByRole('combobox'));
+    expect(screen.getByRole('option', { name: 'Unassigned' })).toBeInTheDocument();
+  });
+});

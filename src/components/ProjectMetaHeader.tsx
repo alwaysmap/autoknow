@@ -253,7 +253,7 @@ export default function ProjectMetaHeader({
                 options={[...partnerOptions!]
                   .sort((a, b) => Number(b.isOem) - Number(a.isOem) || a.name.localeCompare(b.name))
                   .map((po) => ({ value: String(po.id), label: `${po.name}${po.isOem ? ' (OEM)' : ''}` }))}
-                defaultValue={String(leadPartnerId)}
+                defaultValue={leadPartnerId != null ? String(leadPartnerId) : ''}
                 emptyLabel={t(locale, 'selectPartner')}
                 required
                 aria-label={t(locale, 'leadPartnerLabel')}
@@ -262,16 +262,14 @@ export default function ProjectMetaHeader({
           )}
           <div className={dash.textInputGroup}>
             <label htmlFor="editOwner" className={dash.formLabel}>{t(locale, 'googlerOwner')}</label>
-            {/* Picked from existing people only. The field NAME stays `ownerName`: that
-                is the write contract (`requireOwner` turns the submitted address back
-                into the {ownerName, ownerPersonId} pair, lib/owner). Only the DEFAULT
-                changed — it is now the owner's current address looked up BY ID (#127 E7),
-                not a string match, so an owner who has moved still shows as selected. */}
-            {/* The committed value is the ADDRESS, not the row id — that is this field's
-                write contract, not a lapse from it, and it is why the options are mapped
-                here instead of through `toComboboxOptions`. The label carries the address
-                too, because two people can share a display name and only the address
-                tells them apart. */}
+            {/* Picked from existing people only, and both the field NAME and the committed
+                VALUE are addresses — that is this field's write contract, not a lapse from
+                AGENTS lesson 3: `requireOwner` turns the submitted address back into the
+                {ownerName, ownerPersonId} pair (lib/owner). Hence the inline map rather
+                than `toComboboxOptions`, whose value is always the row id. The label
+                carries the address as well, because two people can share a display name.
+                The DEFAULT looks the address up BY ID (#127 E7), never by string match, so
+                an owner who has moved still shows as selected. */}
             <Combobox
               id="editOwner" name="ownerName"
               options={(peopleOptions ?? []).map((p) => ({ value: p.email, label: `${p.name} (${p.email})` }))}

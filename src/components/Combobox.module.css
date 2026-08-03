@@ -1,7 +1,9 @@
 /* The type-to-filter entity picker (gh-269). The INPUT reuses the form's own
-   `dash.textInput` look (it replaces a `<select>` in a form full of them, and design.md
-   §6's "one grammar" rule says a form should read as one grammar) — only the dropdown
-   listbox is this component's own to style. No root margin (§9b) — the parent
+   `dash.textInput` look, because it replaces a `<select>` in a form full of them and a
+   field that looks unlike its neighbours reads as a different KIND of field — only the
+   dropdown listbox is this component's own to style. (design.md's "one grammar" rule is
+   §6, and is scoped to tabular/list surfaces; no section states a form rule, so this is
+   the local reason rather than a citation.) No root margin (§9b) — the parent
    `textInputGroup` supplies spacing the same way it does around every other field. */
 
 .wrap {
@@ -13,10 +15,10 @@
    flex, so it stretched to the field width for free. `.wrap` now takes that flex item's
    place and the input inside it is no longer stretched by anything — left alone it falls
    back to a text input's ~20-character intrinsic width and reads as a different, narrower
-   field than every sibling in the same form (design.md §7: one form grammar). Child
-   selector so it beats the single-class `textInput` outright rather than by bundle order;
-   a call site that wants it narrower still gets there through `max-width`. */
-.wrap > input {
+   field than every sibling in the same form. Nothing else declares a width on these inputs
+   (`textInput` sets only type and box metrics), so this is the sole owner of the field's
+   width; a call site that wants it narrower gets there through `max-width`. */
+.wrap > input[type='text'] {
   width: 100%;
 }
 

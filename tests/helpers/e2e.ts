@@ -178,4 +178,9 @@ export async function pickCombobox(
     await expect(option).toBeVisible({ timeout: 1500 });
   }).toPass({ timeout: 20000 });
   await option.click();
+  // Assert the choice COMMITTED. Without this a pick that silently failed surfaces three
+  // assertions later, as a wrong row or a validation error, with nothing pointing back at
+  // the picker. The visible text becoming the option's label is exactly the component's
+  // guarantee that the hidden field now holds that option's value.
+  await expect(field).toHaveValue(optionLabel);
 }

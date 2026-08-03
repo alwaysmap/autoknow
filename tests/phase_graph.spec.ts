@@ -489,9 +489,13 @@ test.describe('Program phase editor', () => {
 
     // Add a partner through the picker — the option set IS the partner directory.
     await panel(page).getByTestId('add-partner').click();
-    await pickCombobox(panel(page), 'Partner to involve', 'riv', 'Rivian');
-    await panel(page).locator('input[aria-label="Role (optional)"]').first().fill('OEM');
-    await panel(page).getByRole('button', { name: 'Add', exact: true }).first().click();
+    // Scoped to the open add-form, not `.first()` across the panel: a phase panel hosts
+    // TWO involvement editors (partners and people), so the role input and Add button are
+    // only unambiguous within the one form that is open.
+    const addPartner = panel(page).locator('form').filter({ has: page.getByRole('combobox', { name: 'Partner to involve' }) });
+    await pickCombobox(addPartner, 'Partner to involve', 'riv', 'Rivian');
+    await addPartner.locator('input[aria-label="Role (optional)"]').fill('OEM');
+    await addPartner.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(chip('Rivian')).toBeVisible();
     expect(await prisma.phasePartner.count({
       where: { phaseId: seeded.phases.integration, partnerId: seeded.oemId },
@@ -515,12 +519,12 @@ test.describe('Program phase editor', () => {
     })).toBe(0);
 
     await panel(page).getByTestId('add-person').click();
-    await pickCombobox(panel(page), 'Person to involve', 'kenji', 'Kenji Sato');
-    // The picker is no longer a single element with the role input as its next sibling —
-    // it is a Combobox wrapper — so reach for the row's own fields by label instead of by
-    // sibling position.
-    await panel(page).locator('input[aria-label="Role (optional)"]').first().fill('Audio lead');
-    await panel(page).getByRole('button', { name: 'Add', exact: true }).first().click();
+    // Same scoping as the partner half above; the picker is no longer a single element
+    // with the role input as its next sibling, so an xpath sibling walk no longer applies.
+    const addPerson = panel(page).locator('form').filter({ has: page.getByRole('combobox', { name: 'Person to involve' }) });
+    await pickCombobox(addPerson, 'Person to involve', 'kenji', 'Kenji Sato');
+    await addPerson.locator('input[aria-label="Role (optional)"]').fill('Audio lead');
+    await addPerson.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(chip('Kenji Sato')).toContainText('Audio lead');
     expect(await prisma.phasePerson.count({
       where: { phaseId: seeded.phases.integration, personId: seeded.personId },

@@ -32,14 +32,20 @@ what the wrapper broke. It reads as a styling bug in the new component, so the s
 starts in the wrong file.
 
 **What to do.** A component that wraps a form control must make the control fill the
-wrapper — `.wrap > input { width: 100% }`. Use a CHILD selector, not a bare class: the
-shared `textInput` class is also one class, so two single-class selectors tie on specificity
-and the winner is then whichever module lands later in the bundle, which no component
-controls. The same reasoning is why a call site that wants the field NARROWER
-(`PhaseInvolvementEditor`'s compact inline row) must out-specify with `.addForm .picker`
-rather than trusting its own module to come last. After fixing one, measure the siblings:
+wrapper — `.wrap > input[type='text'] { width: 100% }`. Then measure rather than eyeball:
 compare `getBoundingClientRect().width` across the converted field and an untouched one in
-the same form rather than eyeballing it.
+the same form.
+
+Check for a specificity tie before reasoning about one, because the two halves of this fix
+differ. For WIDTH there is no tie — nothing else declares a width on these inputs, so the
+new rule is the sole owner and a bare class would have worked identically (the child
+selector is chosen to avoid minting a class every caller must remember, not to win
+anything). Where the shared class DOES declare the property, the tie is real and decided by
+bundle order, which no component controls: `PhaseInvolvementEditor`'s compact inline row
+overrides `font-size`, `padding`, `border`, `background` and `color`, all of which
+`textInput` also sets, so it must out-specify with `.addForm .picker`. Reading "class
+conflict, therefore out-specify" onto a property nobody else sets is a plausible-sounding
+rationale for a rule that is doing nothing.
 
 **How we found out.** Rolling `Combobox` into `ProjectMetaHeader`'s two pickers. A
 screenshot showed the lead-partner and owner fields visibly narrower than the Target SOP

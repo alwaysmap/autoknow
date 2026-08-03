@@ -32,17 +32,23 @@ import styles from './Combobox.module.css';
 // currently selected, so the input can never show a string that does not match the
 // value the form will actually submit.
 //
-// SCOPE. This is now every entity picker in the app: `EscalationEditor`'s five,
-// `ProjectMetaHeader`'s lead-partner and owner, `PersonEditor`'s partner/program/new-
-// person-partner, and `PhaseInvolvementEditor`'s.
+// SCOPE — which pickers use this, and which deliberately do not. The rule and its
+// reasoning are the ADR; this list is only the current state of the sweep:
+// docs/adr/2026-08-02-a-type-to-filter-picker-is-for-lists-unbounded-by-construction.md
 //
-// What is deliberately still a bare `<select>`, because the reason for this component is
-// a list UNBOUNDED BY CONSTRUCTION and these are not: `PartnerEditor`'s type (`OEM` /
-// `Supplier`) and region (`AMER` / `EMEA` / `APAC`) are closed lookup tables, and
-// `PersonEditor`'s phase picker is the phases of ONE already-chosen program. Below about
-// a screenful a native `<select>` is strictly better — one tap to the OS picker on a
-// phone, no filtering to explain — so converting those would cost the reader to buy
-// nothing. A lookup table growing past a screenful is the signal to revisit.
+// Converted: `EscalationEditor`'s five, `ProjectMetaHeader`'s lead-partner and owner,
+// `PersonEditor`'s partner / program / new-person-partner, `PhaseInvolvementEditor`'s.
+//
+// Deliberately still a bare `<select>` — the option set is CLOSED and short, where a
+// native control is strictly better: `PartnerEditor`'s type (`OEM` / `Supplier`) and
+// region (`AMER` / `EMEA` / `APAC`), and `PersonEditor`'s phase picker (the phases of one
+// already-chosen program).
+//
+// STILL TO CONVERT (unbounded, and not yet done — autoknow-wak): the owner and partner
+// pickers on `/programs/new`, `TrackPersonProse`'s organization picker, `/me`'s partner
+// picker, and `EscalationEditor`'s `duplicateOfId`. The first two matter most: they are
+// the SAME named fields as converted ones ("Googler Owner", "Organization"), so until
+// they land the same field has two interaction models on different pages.
 //
 // The `DataTable` column-funnel half of the original report (open the funnel, type to
 // narrow the checklist) is DELIBERATELY NOT attempted here — it is a genuinely different
@@ -69,9 +75,11 @@ export interface ComboboxProps {
   /** The option's `value` to start selected, or '' for none — same contract as a native
    *  `<select defaultValue>`. */
   defaultValue?: string;
-  /** Shown when nothing is selected: as the input's placeholder AND as the first,
-   *  always-offered choice (the native `<select>`'s `<option value="">…</option>` row) —
-   *  typing part of this word finds it exactly like any other option. */
+  /** Shown when nothing is selected. Always the input's placeholder; and, unless
+   *  `required`, also the first row of the list — the native `<select>`'s
+   *  `<option value="">…</option>`, findable by typing part of it like any other option.
+   *  Under `required` it stays placeholder-only, since a row that can only fail
+   *  validation is not a choice. */
   emptyLabel: string;
   /** Native constraint validation, and it rides the VISIBLE input rather than the hidden
    *  one that carries the value: a `type="hidden"` control is barred from validation
@@ -90,9 +98,10 @@ export interface ComboboxProps {
    *  because focus opens the list they land on it ready to type. */
   autoFocus?: boolean;
   'aria-label'?: string;
-  /** Appended to the shared `dash.textInput` look. Both are single-class selectors, so a
-   *  declaration you need to WIN must out-specify it (`.parent .yours`) rather than rely
-   *  on the order they land in the bundle. */
+  /** Appended to the shared `dash.textInput` look. A declaration that must OVERRIDE one
+   *  `textInput` also sets ties with it on specificity and is then decided by bundle
+   *  order, so out-specify it (`.parent .yours`) — see `PhaseInvolvementEditor`'s compact
+   *  variant. */
   className?: string;
 }
 
@@ -125,8 +134,14 @@ export default function Combobox({
 }: ComboboxProps) {
   const labelOf = (value: string): string => options.find((o) => o.value === value)?.label ?? '';
 
-  const [selectedId, setSelectedId] = useState(defaultValue);
-  const [query, setQuery] = useState(defaultValue ? labelOf(defaultValue) : '');
+  // Both states resolve through the SAME lookup, so a `defaultValue` naming no option
+  // lands as "nothing selected" rather than as a value with no visible text. That
+  // combination would invert the invariant `required` is read against — the field would
+  // look empty while holding an id — and the browser would then block a submit while
+  // pointing at a field the reader sees as blank.
+  const initialId = labelOf(defaultValue) ? defaultValue : '';
+  const [selectedId, setSelectedId] = useState(initialId);
+  const [query, setQuery] = useState(labelOf(initialId));
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   // Whether the visible text has been EDITED since the last commit. Opening a populated
@@ -148,10 +163,15 @@ export default function Combobox({
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
 
-  // The empty choice is a real row in the list, always first, filtered by the same rule
-  // as everything else once editing — so typing "una" surfaces "Unassigned" exactly like
-  // any option.
-  const allOptions: ComboboxOption[] = [{ value: '', label: emptyLabel }, ...options];
+  // The empty choice is a real row in the list, first, filtered by the same rule as
+  // everything else once editing — so typing "una" surfaces "Unassigned" exactly like any
+  // option. It is offered only when clearing is a legal answer: under `required` the row
+  // could do nothing but fail validation, and `emptyLabel` then reads purely as the
+  // placeholder prompt it also is ("Select a person…"). The `<select>`s this replaced
+  // said the same thing with `<option value="" disabled>`.
+  const allOptions: ComboboxOption[] = required
+    ? options
+    : [{ value: '', label: emptyLabel }, ...options];
   const filtered: ComboboxOption[] = editing
     ? allOptions.filter((o) => matches(o.label, query))
     : allOptions;
@@ -238,13 +258,10 @@ export default function Combobox({
     if (focusToken > 0) inputRef.current?.focus();
   }, [focusToken]);
 
-  // Initial focus through an effect rather than React's `autoFocus` prop. `autoFocus`
-  // focuses during the commit phase, so this component's own `onFocus` — which calls
-  // `setOpen` — would run against a tree still mounting; an effect is an unambiguously
-  // post-mount moment. It is the same reason `focusToken` above does its ref work here
-  // instead of inline, so the file stays consistent about where focus is touched.
-  // Mount-only on purpose — `autoFocus` states an intent for the first render, and a
-  // later flip must not yank focus out from under whatever the reader is doing.
+  // Mount-only on purpose: `autoFocus` states an intent for the FIRST render, so a later
+  // flip must not yank focus out from under whatever the reader is doing. (Focus lives in
+  // an effect here for the same reason `focusToken` above does — this repo's ref-safety
+  // lint rejects the equivalent ref read from render.)
   useEffect(() => {
     if (autoFocus) inputRef.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
