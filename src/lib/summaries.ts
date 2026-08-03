@@ -141,14 +141,19 @@ class EvidenceList {
   /**
    * A record ABOUT the evidence rather than a piece of it. Two shapes today: "nothing has
    * been ingested here" (#236 fix 7) and the previous brief's own claim, which the
-   * contrast is drawn against. Two deliberate differences from `push`:
+   * contrast is drawn against. Three deliberate differences from `push`:
    *
    *  - it ignores the cap, because what it carries is exactly what must not be dropped —
    *    losing "no source material exists" because the list filled with phase updates is
    *    the dishonesty it exists to prevent, and losing the previous claim does not make
    *    the delta thinner, it makes it impossible;
    *  - it does not touch `counts`, which the panel renders as "N sources" — neither a
-   *    statement about missing sources nor our own last brief is a source.
+   *    statement about missing sources nor our own last brief is a source;
+   *  - it takes no `at` and so carries no `deltaPrefix`. These records are the one
+   *    exception to the legend's "unmarked means current state", so each one says what it
+   *    is IN ITS OWN TEXT ("PREVIOUS BRIEF, generated …") rather than relying on a marker.
+   *    A third shape that is neither current state nor self-describing would need the
+   *    legend widened, not just a call added here.
    */
   pushFraming(kind: SummaryEvidence['kind'], text: string, citation: SummaryCitation) {
     this.records.push({ id: this.records.length, kind, text, citation });
@@ -764,6 +769,11 @@ export async function createSummary(
   const windowEnd = new Date();
   const windowStart = last?.generatedAt ?? new Date(windowEnd.getTime() - WINDOW_DAYS * 24 * 3600 * 1000);
 
+  // NOT `windowStart`: these two differ exactly when there is no previous brief, and the
+  // difference is load-bearing. `windowStart` falls back to 30 days ago so the gather has
+  // a window; `since` stays null so nothing is marked at all (deltaPrefix's first case).
+  // Passing `windowStart` here would mark every record on a first brief against a
+  // boundary no reader has ever seen.
   const ev = new EvidenceList(last?.generatedAt ?? null);
   const reg = new EntityRegistry();
   let subject: string;

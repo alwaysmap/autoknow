@@ -9,6 +9,8 @@
 import { relUpdateHash } from './relationship';
 import { statusUpdateHash } from './needle';
 
+import type { SummaryScope } from './summaryPrompts';
+
 export const personHref = (id: number): string => `/people/${id}`;
 export const partnerHref = (id: number): string => `/partners/${id}`;
 export const programHref = (id: number): string => `/programs/${id}`;
@@ -24,7 +26,7 @@ export const escalationHref = (id: number): string => `/escalations/${id}`;
  *  addresses the page that rendered it, the honest target for "the claim you already
  *  have". Here rather than in `summaries.ts` for the same reason as `escalationHref`
  *  above: a brief citation persists its href, so this one is DATA (AGENTS lesson 15). */
-export const summaryScopeHref = (scope: 'ecosystem' | 'partner' | 'program', targetId: number): string => {
+export const summaryScopeHref = (scope: SummaryScope, targetId: number): string => {
   if (scope === 'program') return programHref(targetId);
   if (scope === 'partner') return partnerHref(targetId);
   return '/ecosystem';
