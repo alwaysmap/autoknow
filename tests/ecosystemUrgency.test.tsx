@@ -25,8 +25,14 @@ import BusiestResources from '../src/components/BusiestResources';
 import EscalationRows, { type EscalationRow } from '../src/components/EscalationRows';
 import type { BusiestRow, BusiestProgramRef } from '../src/lib/chainLedger';
 
+// Ids come from a counter, never from the fixture's own text: the component keys and
+// looks rows up by identity, so two equal-length names deriving the same id would surface
+// as a React key collision and a mislookup that reads like a component bug.
+let nextId = 0;
+const id = () => (nextId += 1);
+
 const prog = (name: string, deltaDays: number | null, buffer: number | null = 40): BusiestProgramRef => ({
-  programId: name.length + Math.abs(deltaDays ?? 0),
+  programId: id(),
   programName: name,
   bufferDays: buffer,
   fourWeekDeltaDays: deltaDays,
@@ -37,7 +43,7 @@ const prog = (name: string, deltaDays: number | null, buffer: number | null = 40
 
 const person = (name: string, over: Partial<BusiestRow> = {}): BusiestRow => ({
   kind: 'person',
-  id: name.length,
+  id: id(),
   name,
   constraintIn: [],
   alsoActiveIn: [],

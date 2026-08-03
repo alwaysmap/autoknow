@@ -40,7 +40,7 @@ export default async function Home() {
 
   return (
     <PageShell title={t(locale, 'ecosystemDashboard')} maxWidth="68.75rem">
-        {/* answered in time by the capacity chart below */}
+        {/* answered in time by the capacity chart further down the page */}
         <EcosystemStatStrip
           programs={serializedProjects}
           relationshipScores={relationshipScores}
@@ -61,6 +61,10 @@ export default async function Home() {
             reopen 2026-07-18's decision. It is a fixed, pre-canned READ of one
             entity (open escalations across the portfolio), the same shape the
             strip tiles above already are, not a stream of everything that happened. */}
+        {/* The tint is gated on the SAME emptiness `EscalationRows` renders `emptyLabel`
+            for — design.md §1's new exception makes non-emptiness a rule, so if the
+            component ever starts filtering its own rows these two must be reconciled
+            rather than left to disagree into an alarm panel over "No open escalations." */}
         <section
           className={`${styles.dashboardSection} ${escalations.length > 0 ? styles.escalationsPanel : ''}`}
         >

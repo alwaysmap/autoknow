@@ -72,8 +72,9 @@
 /* The urgency mark, and the fact that earned it. Both take `--bad` so the glyph and the
    word are visibly one signal; `--bad` (not `--crit`) because the strip tile counting
    these same rows is `tone='warn'` and the section must not out-shout the number that
-   sent the reader here. Sized in `em` so it tracks the row's type rather than pinning a
-   glyph height the text can outgrow. */
+   sent the reader here. Both the glyph size and the `top` that centres it are `rem`
+   (§9) off the same type scale as the title's 1.375rem line box, so they move together
+   rather than one of them tracking a font size the other does not. */
 .mark {
   position: absolute;
   left: 0;

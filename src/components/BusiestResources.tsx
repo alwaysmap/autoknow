@@ -51,8 +51,8 @@ const RowLink = ({ row }: { row: BusiestRow }) =>
     : <PersonCell person={{ id: row.id, name: row.name }} />;
 const sopYear = (p: BusiestProgramRef) => (p.sopDate ? `’${p.sopDate.slice(2, 4)}` : '');
 
-/** The React key AND the `considerFor` key — one spelling, so a row cannot be looked up
- *  under a name it was not stored under. */
+/** React needs a string; nothing else here does — `considerFor` is keyed by the row
+ *  OBJECT, which cannot be spelled wrong. */
 const rowKey = (r: BusiestRow) => `${r.kind}${r.id}`;
 
 /** Losing buffer on any program it gates. The second half of `earnsSpace`: a row with no
@@ -64,9 +64,11 @@ const losingBuffer = (r: BusiestRow) => r.constraintIn.some((p) => (p.fourWeekDe
 export default function BusiestResources({ locale, rows }: BusiestResourcesProps) {
   const [showQuiet, setShowQuiet] = useState(false);
 
-  // Only rows leadership can act on: gating an SOP somewhere, or split across
-  // several programs at once.
-  const visible = rows
+  // Everything this section will CONSIDER showing: gating an SOP somewhere, or split
+  // across several programs at once, capped and already ranked by exposure. Which of
+  // these earn the space is `earnsSpace` below — the cap runs first, so the disclosure
+  // only ever covers rows that were going to render anyway.
+  const candidates = rows
     .filter((r) => r.constraintIn.length > 0 || r.constraintIn.length + r.alsoActiveIn.length >= 2)
     .slice(0, MAX_ROWS);
 
@@ -100,10 +102,10 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
   // parallel predicate is the same-control-twice trap (AGENTS lesson 7) with a silent
   // failure mode: the two would drift and rows would collapse while still rendering
   // advice.
-  const considerFor = new Map(visible.map((r) => [rowKey(r), considerLine(r)] as const));
-  const earnsSpace = (r: BusiestRow) => considerFor.get(rowKey(r)) != null || losingBuffer(r);
-  const actionable = visible.filter(earnsSpace);
-  const quiet = visible.filter((r) => !earnsSpace(r));
+  const considerFor = new Map(candidates.map((r) => [r, considerLine(r)] as const));
+  const earnsSpace = (r: BusiestRow) => considerFor.get(r) != null || losingBuffer(r);
+  const actionable = candidates.filter(earnsSpace);
+  const quiet = candidates.filter((r) => !earnsSpace(r));
 
   // Nothing to act on anywhere is not a finding worth a heading (§7: a heading that
   // restates what the content obviously is gets deleted) — and a section reading
@@ -133,7 +135,7 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
         // Empty: keep the exposure order buildBusiestResources already applied.
         defaultSortKey=""
         renderRow={(r: BusiestRow) => {
-          const consider = considerFor.get(rowKey(r)) ?? null;
+          const consider = considerFor.get(r);
           return (
             <React.Fragment key={rowKey(r)}>
               <tr className={consider ? styles.hasConsider : undefined}>
