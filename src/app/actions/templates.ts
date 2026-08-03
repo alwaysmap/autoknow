@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/db';
 import { getCurrentUser } from '../../lib/session';
 
@@ -17,10 +18,58 @@ async function requireEditable(templateId: number) {
   return t;
 }
 
+/**
+ * The first name in a numbered series that no user template already holds.
+ *
+ * `ProgramTemplate` is `@@unique([name, isBuiltIn])`, and both writers below used to
+ * name their row with a CONSTANT — `"${source.name} (copy)"` and `'New template'`. So the
+ * second clone of any template, and the second unnamed template, threw P2002 out of a
+ * server action, which fails before its `redirect`: the user stayed on /templates with a
+ * generic error, no new template, and nothing to do about it (AGENTS lesson 5). Both had
+ * this shape, so both call this — fixing one would have left the same bug wearing the
+ * other name (AGENTS lesson 7).
+ *
+ * `format` receives 1 for the first candidate, so a caller decides whether that reads
+ * "X (copy)" or "New template" and only the LATER ones carry a number.
+ *
+ * Bounded by construction: the candidates are distinct, so one of the first `taken.size
+ * + 1` of them must be free. Scoped to `isBuiltIn: false` because that is the half of
+ * the unique key every row written here lands on.
+ */
+async function firstFreeTemplateName(
+  tx: Prisma.TransactionClient,
+  format: (n: number) => string,
+): Promise<string> {
+  const rows = await tx.programTemplate.findMany({
+    where: { isBuiltIn: false },
+    select: { name: true },
+  });
+  const taken = new Set(rows.map((r) => r.name));
+  for (let n = 1; n <= taken.size + 1; n++) {
+    const candidate = format(n);
+    if (!taken.has(candidate)) return candidate;
+  }
+  // Unreachable while the candidates stay distinct — a `format` that ignores `n` would
+  // land here rather than silently colliding at the database.
+  throw new Error('Could not find a free template name');
+}
+
+/** "X (copy)", then "X (copy 2)" — the number rides INSIDE the parenthesis so the copy
+ *  marker stays one token. Applied to the source's whole name, so cloning something
+ *  already called "X (copy)" yields "X (copy) (copy)": repetitive, but it never silently
+ *  re-points the reader at a different lineage than the one they cloned. */
+const copyName = (sourceName: string) => (n: number) =>
+  n === 1 ? `${sourceName} (copy)` : `${sourceName} (copy ${n})`;
+
+/** "New template", then "New template 2" — no parenthesis to sit inside, so the number
+ *  trails. A fresh template is named by its author moments later; this only has to be
+ *  free and obviously provisional. */
+const newTemplateName = (n: number) => (n === 1 ? 'New template' : `New template ${n}`);
+
 export async function createTemplate() {
   const createdBy = (await getCurrentUser()).handle;
   const t = await prisma.programTemplate.create({
-    data: { name: 'New template', createdBy },
+    data: { name: await firstFreeTemplateName(prisma, newTemplateName), createdBy },
   });
   revalidatePath('/templates');
   redirect(`/templates/${t.id}/edit`);
@@ -37,7 +86,13 @@ export async function cloneTemplate(formData: FormData) {
   const createdBy = (await getCurrentUser()).handle;
   const copy = await prisma.$transaction(async (tx) => {
     const created = await tx.programTemplate.create({
-      data: { name: `${source.name} (copy)`, description: source.description, createdBy },
+      // Inside the transaction, so the read that picks the name and the write that takes
+      // it cannot be separated by another clone committing between them.
+      data: {
+        name: await firstFreeTemplateName(tx, copyName(source.name)),
+        description: source.description,
+        createdBy,
+      },
     });
     const idMap = new Map<number, number>();
     for (const p of source.phases) {

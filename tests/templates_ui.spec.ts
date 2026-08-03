@@ -42,6 +42,35 @@ test.describe('Program template authoring', () => {
     await expect(page.getByTestId('dag-errors')).toHaveCount(0);
   });
 
+  // The SECOND clone is the regression (autoknow-qru). `ProgramTemplate` is unique on
+  // (name, isBuiltIn) and the copy used to be named `${source.name} (copy)` flat, so
+  // cloning anything twice threw P2002 out of the server action — which fails before its
+  // redirect, leaving the user on /templates with a generic error and no template. Runs
+  // after the clone above, whose "Digital Key (copy)" is exactly what this must not
+  // collide with. `createTemplate` had the same shape with a hardcoded 'New template',
+  // so both halves of the pattern are asserted here (AGENTS lesson 7).
+  test('cloning twice, and creating twice, pick the next free name instead of failing', async ({ page }) => {
+    await page.goto('/templates');
+    await page.getByTestId('template-row')
+      .filter({ hasText: 'Digital Key' }).first()
+      .getByRole('button', { name: 'Clone' }).click();
+
+    await page.waitForURL(/\/templates\/\d+\/edit/);
+    await expect(page.getByLabel('Template name')).toHaveValue('Digital Key (copy 2)');
+
+    await page.goto('/templates');
+    await page.getByRole('button', { name: 'New template' }).click();
+    await page.waitForURL(/\/templates\/\d+\/edit/);
+    const first = await page.getByLabel('Template name').inputValue();
+
+    await page.goto('/templates');
+    await page.getByRole('button', { name: 'New template' }).click();
+    await page.waitForURL(/\/templates\/\d+\/edit/);
+    // Left unnamed on purpose: two provisional templates must be able to coexist, which
+    // is the state the constant name made unreachable.
+    await expect(page.getByLabel('Template name')).not.toHaveValue(first);
+  });
+
   test('authors a new template on the card-DAG editor with live validation', async ({ page }) => {
     const card = (name: string) => page.locator(`[data-testid="phase-card"][data-name="${name}"]`);
     const panel = page.getByTestId('phase-panel');
