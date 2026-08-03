@@ -1011,14 +1011,17 @@ const STRINGS = {
   typePartnerNameExactly: { en: 'Type the partner name exactly', de: 'Partnernamen exakt eingeben', ja: 'パートナー名を正確に入力', ko: '파트너 이름을 정확히 입력' },
   // Programs and people are deliberately ABSENT from the list below: they block the
   // delete rather than being removed by it, and the dialog states those with its own
-  // counts in its blocked branch (autoknow-aa7). The lead-partner clause is there for the opposite
-  // reason — `phase.leadPartnerId` is NOT a blocker (lib/partnerDeletion counts only
-  // Project.partnerId and Person.currentPartnerId) but IS cleared, so deleting a partner
-  // silently strips it as lead from phases on OTHER partners' programs. That is the one
-  // consequence reaching outside the partner, which is exactly what a reader cannot
-  // recover after the fact. Cached summaries are omitted as a derived artifact that
-  // regenerates. No leading question: `confirmPartnerDeletion` is the dialog TITLE and
-  // already asks one (autoknow-qz1).
+  // counts in its blocked branch (autoknow-aa7). The lead-partner clause is there for
+  // the opposite reason — `phase.leadPartnerId` is NOT a blocker (lib/partnerDeletion
+  // counts only Project.partnerId and Person.currentPartnerId) but IS cleared, so
+  // deleting a partner strips it as lead from phases on OTHER partners' programs.
+  //
+  // NOT a complete accounting of what the delete touches, and do not read it as one.
+  // `Escalation.partnerId` is ON DELETE SET NULL and nothing here mentions it, which is
+  // a real gap rather than a considered omission — tracked as autoknow-40f, and this
+  // sentence gets revisited when that lands. Cached summaries are omitted on purpose:
+  // derived, not authored. No leading question: `confirmPartnerDeletion` is the dialog
+  // TITLE and already asks one (autoknow-qz1).
   deletePartnerWarning: {
     en: 'This permanently removes their relationship history, people affiliations, ingested sources, and phase involvements. Any phases they lead elsewhere will lose their lead partner.',
     de: 'Beziehungsverlauf, Personenzugehörigkeiten, erfasste Quellen und Phasenbeteiligungen werden dauerhaft entfernt. Phasen, die dieser Partner anderswo leitet, verlieren ihren Lead-Partner.',
