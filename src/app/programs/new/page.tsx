@@ -164,8 +164,12 @@ export default async function NewProjectPage(props: {
   });
   // Only honour the deep link when it names a real partner; anything else falls
   // back to the "Select a partner…" placeholder rather than a dangling value.
+  // `?? ''` on the true branch as well: TypeScript cannot narrow `partnerIdParam` through
+  // the `.some()` above, so without it the type stays `string | undefined` and every
+  // consumer has to launder it. It is a string either way — a `String()` at the call site
+  // would convert nothing and tell the next reader this is a numeric id.
   const preselectedPartnerId = partners.some((p) => String(p.id) === partnerIdParam)
-    ? partnerIdParam
+    ? partnerIdParam ?? ''
     : '';
   // Owner is picked from existing people, never typed freeform.
   const people = await prisma.person.findMany({
@@ -202,7 +206,7 @@ export default async function NewProjectPage(props: {
             <Combobox
               id="partnerId" name="partnerId"
               options={partners.map((p) => ({ value: String(p.id), label: `${p.name} (${p.type?.name})` }))}
-              defaultValue={preselectedPartnerId ? String(preselectedPartnerId) : ''}
+              defaultValue={preselectedPartnerId}
               emptyLabel={t(locale, 'selectAPartner')}
               required
               aria-label={t(locale, 'partnerOemSupplier')}

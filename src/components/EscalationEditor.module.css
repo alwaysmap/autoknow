@@ -35,10 +35,26 @@
 /* Layout only. `flex`/`min-width` mean something for the close-as `<select>` and nothing for
    the duplicate-of `Combobox`, whose flex item is its own wrapper div rather than the input
    this class lands on — harmless there, and not worth a second class to say so. The LOOK is
-   in `.statusForm .select` below, once, for both. */
+   in `.statusForm .select` directly below, once, for both. */
 .select {
   flex: 1;
   min-width: 0;
+}
+
+/* The look for BOTH controls in this row. Two classes rather than one because the picker's
+   input also carries `dash.textInput`, which sets padding, font-size, line-height, border
+   and border-radius — at single-class specificity, so a bare `.select` would tie with it and
+   the winner would be whichever module the bundler emitted last. (`color` and `background`
+   are not in that tie; they ride here so the row's look stays in one place.) Same fix and
+   same reason as `PhaseInvolvementEditor.module.css`'s `.addForm .picker`. */
+.statusForm .select {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  padding: 0.25rem 0.375rem;
+  color: var(--fg);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
 }
 
 /* Green is this app's "good / saved" signal and is sanctioned for solid button fills
@@ -97,18 +113,3 @@
   }
 }
 
-/* The look for BOTH controls in this row. Two classes rather than one because the picker's
-   input also carries `dash.textInput`, which sets padding, font-size, line-height, border
-   and border-radius — at single-class specificity, so a bare `.select` would tie with it and
-   the winner would be whichever module the bundler emitted last. (`color` and `background`
-   are not in that tie; they ride here so the row's look stays in one place.) Same fix and
-   same reason as `PhaseInvolvementEditor.module.css`'s `.addForm .picker`. */
-.statusForm .select {
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
-  padding: 0.25rem 0.375rem;
-  color: var(--fg);
-  background: var(--paper);
-  border: 1px solid var(--border);
-  border-radius: 0.375rem;
-}
