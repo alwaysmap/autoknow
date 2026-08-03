@@ -19,6 +19,17 @@ export const programHref = (id: number): string => `/programs/${id}`;
  *  moving it later means migrating rows, not grepping `src/**` (AGENTS lesson 15). */
 export const escalationHref = (id: number): string => `/escalations/${id}`;
 
+/** Where a leadership brief LIVES, for the citation on the previous-brief evidence record
+ *  (#236). There is no per-brief URL — a scope's panel always shows its newest — so this
+ *  addresses the page that rendered it, the honest target for "the claim you already
+ *  have". Here rather than in `summaries.ts` for the same reason as `escalationHref`
+ *  above: a brief citation persists its href, so this one is DATA (AGENTS lesson 15). */
+export const summaryScopeHref = (scope: 'ecosystem' | 'partner' | 'program', targetId: number): string => {
+  if (scope === 'program') return programHref(targetId);
+  if (scope === 'partner') return partnerHref(targetId);
+  return '/ecosystem';
+};
+
 export { phaseHref, phaseProgressHref, phaseUpdateHref } from './phase';
 
 /** `/programs/7#status-update-42` — opens the program's status log at ONE update.

@@ -58,6 +58,12 @@ Never use this filler (it reads as AI slop): delve, leverage, robust, seamless, 
 // `themes` is conditional because on a SINGLE program it has no cross-program pattern to
 // find, and became reworded risks in every brief that carried one. It stays where it
 // means something: the ecosystem, and a partner's portfolio.
+//
+// `progress` says "where the evidence marks a change". What DOES the marking is the
+// [new]/[prior] legend, which deliberately does NOT live here: it describes the FORMAT of
+// the evidence, so it rides outside this DB-tunable text where no prompt edit can drop it
+// (src/lib/summaries.ts, beside the untrusted-data guard). Tune the sentence below freely;
+// the markers it refers to are not yours to remove.
 const sectionsBlock = (themes: boolean) => `Sections:
 - tldr: the one thing a leader must take away, in 1-3 sentences. Start with it. If the story is what CHANGED since the last brief, lead with the change.
 - progress: what actually MOVED — shipped, unblocked, advanced. Direction of travel, in words. Lead with what changed since the previous brief where the evidence marks a change, and say plainly when the answer is that nothing did: "no movement on X since the last brief" is a finding, not an empty bullet. A restatement of standing status is not progress.
