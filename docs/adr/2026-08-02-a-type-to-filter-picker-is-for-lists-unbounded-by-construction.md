@@ -48,11 +48,13 @@ list of exceptions is indistinguishable from an abandoned migration:
   already-chosen program). Every enum-valued control — severity, org level, escalation status, lead role —
   is outside this decision altogether: those are not entity pickers, and no growth turns
   them into one.
-- *Not yet done, and unbounded.* Tracked in `autoknow-wak`, which names each call site.
-  Two of them are the SAME named field as a converted one ("Googler Owner" on
-  `/programs/new`, "Organization" in `TrackPersonProse`), so until they land, one field
-  has two interaction models on different pages. **The rule is settled; the sweep is not**
-  (AGENTS lesson 7).
+- *Done.* `autoknow-wak` closed the remainder, including the two that were the SAME named
+  field as an already-converted one ("Googler Owner" on `/programs/new`, "Organization" in
+  `TrackPersonProse`) — until they landed, one field had two interaction models on
+  different pages, which is the state this bullet used to describe. It also swept up a
+  SIXTH the bead had missed, `/programs/new`'s template picker: user-authored templates
+  grow with the business, so the rule above catches them. **The rule and the sweep are now
+  both settled**; a new picker is decided by the rule, not by this list.
 
 Deliberately NOT restated in `Combobox.tsx` — the component links here instead. A second
 copy of an exception list is the staleness trap this record exists to prevent, and the

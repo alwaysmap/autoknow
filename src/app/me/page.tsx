@@ -8,7 +8,6 @@ import { getLocale } from '../../lib/locale';
 import { t } from '../../lib/i18n';
 import Combobox from '../../components/Combobox';
 import { toComboboxOptions } from '../../lib/comboboxOptions';
-import dash from '../../components/ProjectStatusDashboard.module.css';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,17 +70,17 @@ export default async function MePage(props: { searchParams: Promise<SearchParams
       <form action={createMyProfile} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
         {/* stub-mode override only; ignored when real auth is configured */}
         <input type="hidden" name="user" value={user} />
-        {/* `dash.textInput` rather than this form's inline styles: `Combobox` takes a
-            className, and the shared form look is the closest thing to what the hand-rolled
-            styles here were imitating. The rest of this page is still inline-styled — that
-            is pre-existing, and not this change's to sweep. */}
+        {/* No className: `Combobox` already applies the shared `dash.textInput` look, so
+            passing it again would render the class twice and change nothing. The picker
+            therefore does NOT match this form's hand-rolled inline styles — the rest of the
+            page is still inline-styled, which is pre-existing and not this change's to
+            sweep. */}
         <Combobox
           id="mePartner" name="partnerId"
           options={toComboboxOptions(partners)}
           emptyLabel={t(locale, 'selectPartner')}
           required
-          className={dash.textInput}
-          aria-label={t(locale, 'selectPartner')}
+          aria-label={t(locale, 'organizationLabel')}
         />
         <button type="submit" data-testid="create-my-profile"
           style={{ fontSize: '0.8125rem', fontWeight: 600, padding: '0.375rem 0.875rem', border: '1px solid var(--p-600)', borderRadius: '0.375rem', background: 'var(--p-600)', color: 'var(--paper)', cursor: 'pointer' }}>

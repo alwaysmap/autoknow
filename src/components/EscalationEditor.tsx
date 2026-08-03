@@ -301,7 +301,10 @@ export default function EscalationAdminControls({
               emptyLabel={t(locale, 'escDuplicateOfPlaceholder')}
               required
               className={styles.select}
-              aria-label={t(locale, 'escDuplicateOfPlaceholder')}
+              // The accessible name NAMES the field; the prompt is the placeholder above.
+              // This picker has no visible label — it is revealed inline by the status
+              // choice — so the name is the only thing that says what it is asking for.
+              aria-label={t(locale, 'escDuplicateOf')}
             />
           )}
         </form>

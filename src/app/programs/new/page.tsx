@@ -212,8 +212,9 @@ export default async function NewProjectPage(props: {
           <div className={styles.field}>
             <label htmlFor="template">{t(locale, 'projectTemplateDag')}</label>
             {/* Templates are user-authored and grow with the business, so they meet the
-                same unbounded-by-construction test as the entity pickers — the ADR's rule
-                is about growth, not today's count. Not in autoknow-wak's list; converted
+                same unbounded-by-construction test as the entity pickers, and that rule is
+                about growth rather than today's count (docs/adr/2026-08-02-a-type-to-filter-
+                picker-is-for-lists-unbounded-by-construction.md). Not in autoknow-wak's list; converted
                 here rather than left as a sixth instance for a third pass (lesson 7). */}
             <Combobox
               id="template" name="template"

@@ -8,8 +8,6 @@ import { useLocale } from './LocaleProvider';
 import styles from './Combobox.module.css';
 import type { ComboboxOption } from '../lib/comboboxOptions';
 
-export type { ComboboxOption };
-
 // A type-to-filter ENTITY PICKER (gh-269) — a drop-in replacement for a bare `<select>`
 // over a full table, which is what every entity picker in this app was: the escalation
 // edit dialog alone opens five (three person roles, partner, program), and the lists are
@@ -42,7 +40,8 @@ export type { ComboboxOption };
 // `<select>`, which is the better control there. The rule, the survivors and why each one
 // is a survivor:
 // docs/adr/2026-08-02-a-type-to-filter-picker-is-for-lists-unbounded-by-construction.md
-// The sweep is NOT finished — `autoknow-wak` holds the pickers that still qualify.
+// The sweep is COMPLETE as of `autoknow-wak`: every picker over an unbounded set uses this,
+// and the survivors named in that ADR are survivors on purpose.
 //
 // `DataTable`'s column funnels are out of scope by a different argument: a multi-select
 // checklist with OR-together semantics is not one committed value, so it needs its own

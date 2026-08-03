@@ -2,8 +2,8 @@
 // than in the component because `Combobox` is a `'use client'` module, and Next marks EVERY
 // export of one as a client reference. A server component calling `toComboboxOptions()` from
 // there fails at request time with "attempted to call … from the server", which typecheck
-// cannot see: three server pages (`/programs/new`, `/me`) render this picker, so the helper
-// has to live somewhere both sides may call.
+// cannot see. Two server pages import it — `/programs/new` and `/me` — so the helper has to
+// live somewhere both server and client may call.
 
 export interface ComboboxOption {
   /** The value posted under the field's `name` when this option is chosen — a stable id,

@@ -32,6 +32,10 @@
   color: var(--muted);
 }
 
+/* Shared by the close-as `<select>` and the duplicate-of `Combobox`, whose className lands
+   on its INPUT. `flex`/`min-width` only mean something for the real `<select>` — the
+   picker's flex item is its own wrapper div, not this element — but they are harmless on an
+   input and splitting the rule would give one control two spellings of one look. */
 .select {
   flex: 1;
   min-width: 0;
@@ -98,4 +102,18 @@
   .formGrid {
     grid-template-columns: 1fr;
   }
+}
+
+/* The picker's input carries `dash.textInput` as well, and every property `.select` needs
+   to win is one `textInput` also sets — two single-class selectors, so the winner would
+   otherwise be whichever module the bundler emitted last. Two classes beats one outright.
+   Same fix, same reason, as `PhaseInvolvementEditor.module.css`'s `.addForm .picker`. */
+.statusForm .select {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  padding: 0.25rem 0.375rem;
+  color: var(--fg);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
 }
