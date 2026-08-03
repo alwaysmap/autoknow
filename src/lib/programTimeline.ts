@@ -1,9 +1,9 @@
 import { deriveProgramStatus } from './lifecycle';
-import { sopOutlook } from './sop';
 
 // The portfolio whisker chart's layout (#159), as pure data: which programs get a mark,
-// where each mark's three dates sit on a shared time window, and which lane each occupies
-// so no two collide. Zero DOM, so it unit-tests without a browser — the convention of
+// where each mark's three dates sit on a shared time window, and what ORDER the rows go in.
+// One row per program, most urgent first — see `sortByUrgency`, which replaced greedy lane
+// packing. Zero DOM, so it unit-tests without a browser — the convention of
 // `labelPlacement`, `phaseTrackLayout` and `focusWindow`.
 //
 // The component over this is a pure renderer. It does not query, does not derive, and does
@@ -13,8 +13,12 @@ import { sopOutlook } from './sop';
 const DAY_MS = 86_400_000;
 
 /** The structural subset both page shapes already satisfy — the convention
- *  `phaseTrackLayout` set ("operates on a structural subset of PhaseTrackRow"), so neither
- *  `DashboardProject` nor `/programs`'s serialized project needs a field inventing for it. */
+ *  `phaseTrackLayout` set ("operates on a structural subset of PhaseTrackRow").
+ *
+ *  `DashboardProject` satisfies this as it stands (`dashboardData.ts`). `/programs`'s
+ *  serialized project does NOT yet: it computes `chain.remainingDays` only to pass into
+ *  `sopBufferCategory` and drops it from the object it returns, so wiring that page to this
+ *  chart adds `chainRemainingDays: chain.remainingDays` there. One line, but not zero. */
 export interface TimelineProgram {
   id: number;
   name: string;
@@ -43,7 +47,13 @@ export interface TimelineMark {
   sopMs: number | null;
   startMs: number | null;
   finishMs: number | null;
-  /** Lane index. y carries no meaning beyond keeping marks off each other. */
+  /**
+   * Row index. y carries no meaning beyond separating programs.
+   *
+   * A FIRST-PAINT value. The component re-sorts and re-assigns rows on every render (it has
+   * to: hiding a health band must close its rows rather than leave gaps), so this is what
+   * SSR paints and what the tests assert, not a number the client trusts afterwards.
+   */
   lane: number;
 }
 
@@ -91,8 +101,13 @@ export function buildTimelineMarks(
     const sopMs = p.sopDate ? new Date(p.sopDate).getTime() : null;
     const startMs = startById.get(p.id) ?? null;
 
-    // The forecast is `now + remaining chain days` — the SAME quantity the page's own SOP
-    // outlook column reads (`sopBufferCategory` → `sopOutlook`), NOT the ledger's cascade.
+    // The forecast is `now + remaining chain days` — the SAME arithmetic `sopOutlook` does
+    // (`lib/sop`: `forecastFinishMs = now + remainingChainDays * DAY_MS`), and so the SAME
+    // quantity the page's own SOP-outlook column reads. NOT the ledger's cascade.
+    //
+    // Inlined rather than called, because `sopOutlook` requires a `sopDate` in order to
+    // return a buffer we do not want, and this chart plots programs that have no SOP at all.
+    // If that formula ever moves, `lib/sop` is the definition of record and this follows it.
     // The ledger is the better forecast and is what a program's own page prints, but a
     // chart that used it would draw a whisker overshooting its SOP on a row whose outlook
     // cell three columns away says On track. A page must not contradict itself.
@@ -102,9 +117,7 @@ export function buildTimelineMarks(
     // `sopBufferCategory` applies before it reports anything at all.
     const active = deriveProgramStatus(p) === 'Active';
     const finishMs = active && p.chainRemainingDays > 0
-      ? (sopMs != null
-        ? sopOutlook(p.chainRemainingDays, p.sopDate!, now).forecastFinishMs
-        : now + p.chainRemainingDays * DAY_MS)
+      ? now + p.chainRemainingDays * DAY_MS
       : null;
 
     if (sopMs == null && startMs == null && finishMs == null) {
@@ -151,17 +164,18 @@ export function buildTimelineMarks(
  *      present, which is the point of plotting them.
  *
  * Ties break on id, so the order is fully determined by the data and never by the array
- * position it arrived in (the jitter-seed bug in `CycleTimeScatterPlot` is the precedent:
- * an index-derived value moves when upstream ordering changes).
+ * position it arrived in — the rule `hillLayout` states for itself ("every offset here is
+ * derived from the input order"): an index-derived value moves when an upstream query's
+ * ordering changes, and nothing tells you it moved.
  */
 export function sortByUrgency(marks: TimelineMark[]): TimelineMark[] {
-  const overrunDays = (m: TimelineMark) =>
+  const overrunMs = (m: TimelineMark) =>
     m.sopMs != null && m.finishMs != null && m.finishMs > m.sopMs ? m.finishMs - m.sopMs : 0;
-  const band = (m: TimelineMark) => (overrunDays(m) > 0 ? 0 : m.sopMs != null ? 1 : 2);
+  const band = (m: TimelineMark) => (overrunMs(m) > 0 ? 0 : m.sopMs != null ? 1 : 2);
 
   return [...marks].sort((a, b) =>
     band(a) - band(b)
-    || overrunDays(b) - overrunDays(a)
+    || overrunMs(b) - overrunMs(a)
     || (a.sopMs ?? Infinity) - (b.sopMs ?? Infinity)
     || a.id - b.id);
 }

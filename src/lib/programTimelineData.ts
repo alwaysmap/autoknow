@@ -2,8 +2,11 @@ import 'server-only';
 import { prisma } from './db';
 
 // THE shared server assembly for the portfolio whisker chart (#159), and the reason it is a
-// module rather than a few lines inside a page: every surface that renders this chart —
-// /programs, /ecosystem, and the popped form — calls this one function.
+// module rather than a few lines inside a page: it is the one function every surface that
+// renders this chart calls. Today that is /ecosystem and its popped form (one call site,
+// `app/ecosystem/page.tsx`); #159 also places the chart on /programs, and the point of
+// putting this here BEFORE that lands is that the second surface has something to call
+// instead of a second copy to write.
 //
 // That is the poppable-charts precondition, not a tidiness preference: the ADR states that
 // "the per-chart data assembly lives in the page … so a second entry point duplicates it and

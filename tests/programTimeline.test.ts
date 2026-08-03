@@ -163,4 +163,22 @@ describe('monthTicks', () => {
     const ticks = monthTicks(Date.UTC(2026, 0, 1), Date.UTC(2026, 3, 1), 8);
     expect(ticks).toHaveLength(4);
   });
+
+  it('does NOT always end on the window edge once it has thinned', () => {
+    // The reason `ProgramTimeline`'s tick labels take their pull-back from their own
+    // POSITION and never from `:last-child`. Thinning keeps every `step`-th month, so the
+    // final tick lands on the edge only when the month count happens to divide. A
+    // `:last-child { translateX(-100%) }` rule right-aligns the last label whatever its
+    // position, which for these windows puts it half a label-width left of the date it
+    // names — and it shipped that way on a 29-month view before anyone noticed.
+    const off = [9, 11, 13, 16, 20].map((months) => {
+      const min = Date.UTC(2026, 0, 1);
+      const max = Date.UTC(2026, months, 1);
+      const ticks = monthTicks(min, max, 8);
+      return (ticks[ticks.length - 1] - min) / (max - min);
+    });
+    expect(off.every((f) => f < 0.95)).toBe(true);  // none of them reaches the edge
+    expect(monthTicks(Date.UTC(2026, 0, 1), Date.UTC(2026, 24, 1), 8).at(-1))
+      .toBe(Date.UTC(2026, 24, 1));                 // ...while others land exactly on it
+  });
 });

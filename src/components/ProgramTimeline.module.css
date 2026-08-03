@@ -6,9 +6,8 @@
   width: 100%;
 }
 
-/* Height is author-set from the lane count by the component (§9b: a chart owns its own
-   height; `aspect-ratio` height is rejected). Above ~24 lanes this scrolls VERTICALLY
-   inside itself — the page never scrolls horizontally (§9). */
+/* The scrollport. Above ~24 programs the rows scroll VERTICALLY inside this box while the
+   axis stays stuck to its bottom edge; the page never scrolls horizontally (§9). */
 .plot {
   position: relative;
   width: 100%;
@@ -17,8 +16,21 @@
   overflow-x: hidden;
 }
 
-/* Today. One dashed rule across every lane, labelled in the axis strip rather than here —
-   it is the only thing that would put text inside the plot, where it would cross marks. */
+/* The rows. Height is author-set from the lane count by the component (§9b: a chart owns its
+   own height; `aspect-ratio` height is rejected), and it is THIS box — not the scrollport —
+   that the marks and the today rule position against, so both span every row rather than
+   only the first screenful. */
+.track {
+  position: relative;
+  width: 100%;
+}
+
+/* Today. One dashed rule across every lane — every lane, not every VISIBLE lane, which is
+   why it hangs off `.track` and not off the scrollport: `top: 0; bottom: 0` inside a scroll
+   container resolves against the padding box, so a rule parented there would cover one
+   screenful and then scroll away, leaving the rows below it with no anchor. Labelled in the
+   axis strip rather than here — it is the only thing that would put text inside the plot,
+   where it would cross marks. */
 .today {
   position: absolute;
   top: 0;
@@ -33,8 +45,9 @@
   height: 1.25rem;
   display: block;
   text-decoration: none;
-  /* The mark can be a single dot wide; padding gives the pointer and the focus ring
-     something to land on without changing where the ink sits. */
+  /* A mark whose three dates fall on one day computes to zero width. The floor is one SOP
+     dot, so the pointer and the focus ring still have something to land on, and it widens
+     only the box — the dots inside position independently, so no ink moves. */
   min-width: 0.4375rem;
 }
 
@@ -93,27 +106,26 @@
   transition: transform 120ms ease-out;
 }
 
-/* The axis strip. The chart's ONLY text, and it sits below the plot where nothing can
-   cross it — which is why this component needs no label-placement pass and carries no
-   `<text>` halo (see the component header). */
+/* The axis strip. The chart's ONLY text, and it sits below the rows where nothing can cross
+   it — which is why this component needs no label-placement pass and carries no `<text>`
+   halo (see the component header).
+
+   STICKY inside the scrollport, so it stays put while rows scroll behind it, and so it can
+   never be a different width from the rows it labels. Opaque, because rows do scroll behind
+   it; `z-index` because a mark is positioned and would otherwise paint over it. */
 .axis {
-  position: relative;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   height: 1.25rem;
   margin-top: 0.25rem;
+  background: var(--paper);
   border-top: 1px solid var(--border);
 }
 
-/* First and last ticks sit ON the container edges, where a centred label would be half
-   cut off. Clamping the transform keeps them inside without moving the tick they name —
-   the label shifts, the position it labels does not. */
-.tick:first-child {
-  transform: none;
-}
-
-.tick:last-child {
-  transform: translateX(-100%);
-}
-
+/* The label's pull-back is set inline by the component, from the tick's POSITION — a tick
+   near an edge would otherwise hang outside the box. It is not keyed on DOM order; see
+   `tickShift` for the thinning bug that made `:last-child` wrong. */
 .tick {
   position: absolute;
   top: 0.25rem;
@@ -130,9 +142,9 @@
    rather than by measuring the axis keeps §9b's no-measurement rule: the surviving ticks
    still sit exactly over the dates they name, there are simply fewer of them.
 
-   Hiding the EVEN children is what keeps the edge rules above intact — the first tick is
-   odd, so it always survives with its `transform: none`, and the last surviving tick is
-   never the one at 100%, so nothing needs the right-edge clamp it just lost. */
+   Hiding the EVEN children keeps the first tick, which is the one whose label would hang off
+   the left edge if it went. Every surviving tick keeps the inline pull-back `tickShift` gave
+   it from its own position, so thinning cannot displace a label from the date it names. */
 @media (max-width: 560px) {
   .tick:nth-child(even) {
     display: none;

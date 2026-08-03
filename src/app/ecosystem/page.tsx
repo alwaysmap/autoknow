@@ -52,7 +52,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
   // The portfolio timeline (#159). Active programs only — this page is the leadership view
   // of what is IN FLIGHT — and what that leaves out is counted rather than silently
   // dropped, so the chart never quietly disagrees with the strip's program count above it.
-  // One extra query for the page, shared with /programs through `getProgramStartMs`.
+  // One extra query for the page, through `getProgramStartMs` — the shared assembly /programs
+  // will call too when #159's second surface lands.
   const inFlight = serializedProjects.filter((p) => deriveProgramStatus(p) === 'Active');
   const timeline = buildTimelineMarks(
     inFlight, await getProgramStartMs(inFlight.map((p) => p.id)), now,
