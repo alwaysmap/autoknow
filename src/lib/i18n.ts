@@ -1769,6 +1769,7 @@ const STRINGS = {
     ko: '저장하지 않은 업데이트를 취소하시겠습니까?',
   },
 
+  // ---- section headings (AnchorHeading) ----
   briefingHeading: { en: 'Briefing', de: 'Briefing', ja: 'ブリーフィング', ko: '브리핑' },
 
   // ---- Critical Chain ledger (docs/CRITICAL_CHAIN_VIEW_PLAN.md) ----

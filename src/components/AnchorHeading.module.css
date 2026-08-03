@@ -4,7 +4,7 @@
 
 /* The ROW is the block-level unit and owns the spacing below the heading.
    Any margin left on the h2 itself lands INSIDE the flex line, so centring
-   measures the heading's margin box and drops the ⓘ/# below the text — which
+   measures the heading's margin box and drops the ⓘ below the text — which
    is exactly what page rules like `.historySection h2 { margin: 0 0 0.5rem }`
    were doing. */
 .row {
@@ -48,14 +48,8 @@
   line-height: 1.75rem;
 }
 
-/* No `.anchor` rule lives here any more. The row used to carry a zero-width “#”
-   that hover revealed, focus-visible revealed for keyboards, and `@media (hover:
-   none)` showed permanently at 0.45 — three states of one glyph, on every <h2> in
-   the app. It read as clutter, so the link and all three states are gone; the
-   heading's id still makes the section addressable. Its layout arithmetic went
-   with it and needed no replacement: the zero width plus a `-1 * --gr-gap` margin
-   existed precisely so the row measured as if the anchor were absent (#25), which
-   is now literally true. */
+/* There is deliberately no `.anchor` rule: the hover-revealed “#” is gone, and
+   the row is measured without it — see the ADR, a-section-heading-carries-its-id. */
 
 /* Instrument: the rule trailing every section heading is a graticule, not a
    line. AnchorHeading wraps every <h2> in the app (design.md §2), so this one

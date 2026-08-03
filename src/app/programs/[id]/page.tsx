@@ -413,7 +413,11 @@ export default async function ProjectDetailsPage(props: {
             side; everything from the Critical Chain section down spans the full
             width of both columns. */}
         <div className={styles.topGrid}>
-          <div id="program-status" className={styles.anchor}>
+          {/* id only: the scroll offset for every in-page jump lives once on
+              `html { scroll-padding-top }` (globals.css). `styles.anchor` used to
+              ride here too — page.module.css has had no such rule since the offset
+              moved, so it resolved to undefined and painted nothing. */}
+          <div id="program-status">
             <ProjectStatusDashboard
               projectId={project.id}
               currentNeedle={project.theNeedle}
