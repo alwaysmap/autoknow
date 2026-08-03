@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import AnchoredPopover from './AnchoredPopover';
@@ -138,6 +138,63 @@ export default function DataTable<T>({
   const [sortKey, setSortKey] = useState<string>(defaultSortKey);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(defaultSortOrder);
   const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // ---- Off-screen-column affordance (gh-268): a horizontally-scrolled table gives no
+  // sign columns exist past either edge, and the frozen first column (below) makes the
+  // usual clipped-mid-glyph cue absent at the left. A pure-CSS scroll-shadow was tried
+  // first and reverted (see the GitHub issue) — it painted BEHIND the table's own opaque
+  // cell backgrounds and was invisible in a screenshot. This reads real scroll state
+  // instead (the NavLinks/ThemeToggle pattern: useSyncExternalStore, refs unattached
+  // pre-mount → both `false`, matching a table that fits, so hydration never mismatches),
+  // and renders the cue as its own stacked DOM element (see `.scrollCue` in the module
+  // CSS) — a real element painting above the table settles the "which paints on top"
+  // question the background-trick version left to chance. ----
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const subscribeScroll = useCallback((onChange: () => void) => {
+    const el = scrollRef.current;
+    if (!el) return () => {};
+    el.addEventListener('scroll', onChange, { passive: true });
+    window.addEventListener('resize', onChange);
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      // Content width can change without a resize or a scroll (a column filter narrows
+      // the option list's own width not at all, but sorting/paging can change row text
+      // enough to grow/shrink columns) — observe the table's own box, not just the
+      // window's.
+      ro = new ResizeObserver(onChange);
+      ro.observe(el);
+    }
+    return () => {
+      el.removeEventListener('scroll', onChange);
+      window.removeEventListener('resize', onChange);
+      ro?.disconnect();
+    };
+  }, []);
+  // Two separate hook calls, not one returning `{left, right}`: useSyncExternalStore
+  // compares snapshots by reference, so a composite object would be a NEW reference on
+  // every render regardless of whether either flag actually changed — an infinite
+  // render loop, not just a wasted one. Two booleans avoids the trap entirely; the cost
+  // is `subscribeScroll` running twice (two listeners, two observers on the same
+  // element), which is cheap for a component with one scrollport.
+  //
+  // 1px of slack: a table that exactly fits can report a fractional scrollWidth vs.
+  // clientWidth mismatch from subpixel layout, which would flash a permanent cue on a
+  // table that never actually scrolls.
+  const canScrollLeft = useSyncExternalStore(
+    subscribeScroll,
+    () => (scrollRef.current ? scrollRef.current.scrollLeft > 1 : false),
+    () => false,
+  );
+  const canScrollRight = useSyncExternalStore(
+    subscribeScroll,
+    () => {
+      const el = scrollRef.current;
+      if (!el) return false;
+      return el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    },
+    () => false,
+  );
 
   // ---- Page size: the per-user ROWS_PER_TABLE preference (#31), read hydration-safe as an
   // external store (ThemeToggle is the reference; setState-in-effect is a lint error).
@@ -307,154 +364,172 @@ export default function DataTable<T>({
           )}
         </div>
       )}
-      <div className={styles.tableWrapper}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              {headers.map((h) => {
-                const isSorted = sortKey === h.key;
-                const isSortable = h.sortable !== false;
-              
-                return (
-                  <th
-                    key={h.key}
-                    className={`${styles.th} ${isSortable ? styles.sortable : ''} ${isSorted ? styles.sorted : ''}`}
-                    style={h.width ? { width: h.width } : undefined}
-                    aria-sort={isSorted ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}
-                  >
-                    <div className={styles.headerCell}>
-                      {/* Sorting is a real control: a button so it's focusable and
-                          announced, not a click-only span. */}
-                      {isSortable ? (
-                        <button type="button" className={styles.sortButton} onClick={() => handleSort(h.key, h.sortable)}>
-                          {h.label}
-                          {isSorted && <span className={styles.sortIndicator}>{sortOrder === 'asc' ? ' ▲' : ' ▼'}</span>}
-                        </button>
-                      ) : (
-                        <span>{h.label}</span>
-                      )}
-                      {h.filterable && (
-                        <span className={styles.filterWrap}>
-                          <AnchoredPopover
-                            variant="panel"
-                            panelLabel={t(locale, 'filterColumn', { c: h.label })}
-                            panelClassName={styles.filterPop}
-                            renderTrigger={(triggerProps) => (
-                              <button
-                                {...triggerProps}
-                                type="button"
-                                className={`${styles.filterBtn} ${(filters[h.key]?.length ?? 0) > 0 ? styles.filterActive : ''}`}
-                                aria-label={t(locale, 'filterColumn', { c: h.label })}
-                                data-testid={`filter-${h.key}`}
-                                // popoverTarget (in triggerProps) toggles the panel; stop the
-                                // click bubbling so it never reaches the header's sort control
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {/* the standard three-line funnel */}
-                                <svg viewBox="0 0 12 12" width={11} height={11} aria-hidden>
-                                  <line x1={1} y1={2.5} x2={11} y2={2.5} stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
-                                  <line x1={3} y1={6} x2={9} y2={6} stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
-                                  <line x1={5} y1={9.5} x2={7} y2={9.5} stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
-                                </svg>
-                                {(filters[h.key]?.length ?? 0) > 0 && <span className={styles.filterCount}>{filters[h.key].length}</span>}
-                              </button>
-                            )}
-                          >
-                            {optionsFor(h).map((v) => {
-                              const checked = filters[h.key]?.includes(v) ?? false;
-                              return (
-                                <label key={v || '(empty)'} className={styles.filterOption}>
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() => {
-                                      const cur = filters[h.key] ?? [];
-                                      setFilters({ ...filters, [h.key]: checked ? cur.filter((x) => x !== v) : [...cur, v] });
-                                    }}
-                                  />
-                                  <span>{v ? (h.filterLabel ? h.filterLabel(v) : v) : '—'}</span>
-                                </label>
-                              );
-                            })}
-                            {(filters[h.key]?.length ?? 0) > 0 && (
-                              <button
-                                type="button"
-                                className={styles.filterClear}
-                                onClick={() => setFilters({ ...filters, [h.key]: [] })}
-                              >
-                                {t(locale, 'clearFilter')}
-                              </button>
-                            )}
-                          </AnchoredPopover>
-                        </span>
-                      )}
-                    </div>
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedData.length === 0 ? (
+      {/* `.scrollRegion` wraps the scrollport rather than being it: the two cue strips
+          are its DIRECT children, siblings of `.tableWrapper` rather than descendants of
+          it, so they sit outside the horizontal scroll and never move with it — no
+          `position: sticky` bookkeeping, and no competing with the frozen column's own
+          stacking for who paints on top (see the hook comment above). */}
+      <div className={styles.scrollRegion}>
+        <div className={styles.tableWrapper} ref={scrollRef}>
+          <table className={styles.table}>
+            <thead>
               <tr>
-                <td colSpan={headers.length} className={styles.info} style={{ padding: '1rem', textAlign: 'center', fontStyle: 'italic' }}>
-                  {emptyMessage}
-                </td>
+                {headers.map((h) => {
+                  const isSorted = sortKey === h.key;
+                  const isSortable = h.sortable !== false;
+                
+                  return (
+                    <th
+                      key={h.key}
+                      className={`${styles.th} ${isSortable ? styles.sortable : ''} ${isSorted ? styles.sorted : ''}`}
+                      style={h.width ? { width: h.width } : undefined}
+                      aria-sort={isSorted ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}
+                    >
+                      <div className={styles.headerCell}>
+                        {/* Sorting is a real control: a button so it's focusable and
+                            announced, not a click-only span. */}
+                        {isSortable ? (
+                          <button type="button" className={styles.sortButton} onClick={() => handleSort(h.key, h.sortable)}>
+                            {h.label}
+                            {isSorted && <span className={styles.sortIndicator}>{sortOrder === 'asc' ? ' ▲' : ' ▼'}</span>}
+                          </button>
+                        ) : (
+                          <span>{h.label}</span>
+                        )}
+                        {h.filterable && (
+                          <span className={styles.filterWrap}>
+                            <AnchoredPopover
+                              variant="panel"
+                              panelLabel={t(locale, 'filterColumn', { c: h.label })}
+                              panelClassName={styles.filterPop}
+                              renderTrigger={(triggerProps) => (
+                                <button
+                                  {...triggerProps}
+                                  type="button"
+                                  className={`${styles.filterBtn} ${(filters[h.key]?.length ?? 0) > 0 ? styles.filterActive : ''}`}
+                                  aria-label={t(locale, 'filterColumn', { c: h.label })}
+                                  data-testid={`filter-${h.key}`}
+                                  // popoverTarget (in triggerProps) toggles the panel; stop the
+                                  // click bubbling so it never reaches the header's sort control
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {/* the standard three-line funnel */}
+                                  <svg viewBox="0 0 12 12" width={11} height={11} aria-hidden>
+                                    <line x1={1} y1={2.5} x2={11} y2={2.5} stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
+                                    <line x1={3} y1={6} x2={9} y2={6} stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
+                                    <line x1={5} y1={9.5} x2={7} y2={9.5} stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
+                                  </svg>
+                                  {(filters[h.key]?.length ?? 0) > 0 && <span className={styles.filterCount}>{filters[h.key].length}</span>}
+                                </button>
+                              )}
+                            >
+                              {optionsFor(h).map((v) => {
+                                const checked = filters[h.key]?.includes(v) ?? false;
+                                return (
+                                  <label key={v || '(empty)'} className={styles.filterOption}>
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() => {
+                                        const cur = filters[h.key] ?? [];
+                                        setFilters({ ...filters, [h.key]: checked ? cur.filter((x) => x !== v) : [...cur, v] });
+                                      }}
+                                    />
+                                    <span>{v ? (h.filterLabel ? h.filterLabel(v) : v) : '—'}</span>
+                                  </label>
+                                );
+                              })}
+                              {(filters[h.key]?.length ?? 0) > 0 && (
+                                <button
+                                  type="button"
+                                  className={styles.filterClear}
+                                  onClick={() => setFilters({ ...filters, [h.key]: [] })}
+                                >
+                                  {t(locale, 'clearFilter')}
+                                </button>
+                              )}
+                            </AnchoredPopover>
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
-            ) : (
-              paginatedData.map((item) => renderRow(item))
-            )}
-          </tbody>
-        </table>
-
-        {/* Pagination Footer — suppressed IN FULL by `paginate={false}`; a partial hide
-            (count kept, buttons dropped) is the bug that prop exists to fix. */}
-        {paginate && sortedData.length > 0 && (
-          <div className={styles.pagination}>
-            <div className={styles.footerLeft}>
-              <div className={styles.info}>
-                {t(locale, 'showingResults', { a: startIndex, b: endIndex, c: sortedData.length })}
-              </div>
-              {showPageSizeControl && (
-                <label className={styles.pageSizeControl}>
-                  <span>{t(locale, 'rowsPerPage')}</span>
-                  <select
-                    className={styles.pageSizeSelect}
-                    value={effectivePageSize}
-                    aria-label={t(locale, 'rowsPerPage')}
-                    onChange={(e) => {
-                      writeLocalPref(ROWS_PER_TABLE, Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                  >
-                    {(ROWS_PER_TABLE.values ?? []).map((n) => (
-                      <option key={n} value={n}>{n}</option>
-                    ))}
-                  </select>
-                </label>
+            </thead>
+            <tbody>
+              {paginatedData.length === 0 ? (
+                <tr>
+                  <td colSpan={headers.length} className={styles.info} style={{ padding: '1rem', textAlign: 'center', fontStyle: 'italic' }}>
+                    {emptyMessage}
+                  </td>
+                </tr>
+              ) : (
+                paginatedData.map((item) => renderRow(item))
               )}
+            </tbody>
+          </table>
+
+          {/* Pagination Footer — suppressed IN FULL by `paginate={false}`; a partial hide
+              (count kept, buttons dropped) is the bug that prop exists to fix. */}
+          {paginate && sortedData.length > 0 && (
+            <div className={styles.pagination}>
+              <div className={styles.footerLeft}>
+                <div className={styles.info}>
+                  {t(locale, 'showingResults', { a: startIndex, b: endIndex, c: sortedData.length })}
+                </div>
+                {showPageSizeControl && (
+                  <label className={styles.pageSizeControl}>
+                    <span>{t(locale, 'rowsPerPage')}</span>
+                    <select
+                      className={styles.pageSizeSelect}
+                      value={effectivePageSize}
+                      aria-label={t(locale, 'rowsPerPage')}
+                      onChange={(e) => {
+                        writeLocalPref(ROWS_PER_TABLE, Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                    >
+                      {(ROWS_PER_TABLE.values ?? []).map((n) => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </div>
+              <div className={styles.controls}>
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, activePage - 1))}
+                  disabled={activePage === 1}
+                  className={styles.pageButton}
+                >
+                  {t(locale, 'prev')}
+                </button>
+                <span className={styles.pageIndicator}>
+                  {t(locale, 'pageOf', { a: activePage, b: totalPages })}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, activePage + 1))}
+                  disabled={activePage === totalPages}
+                  className={styles.pageButton}
+                >
+                  {t(locale, 'next')}
+                </button>
+              </div>
             </div>
-            <div className={styles.controls}>
-              <button
-                onClick={() => setCurrentPage(Math.max(1, activePage - 1))}
-                disabled={activePage === 1}
-                className={styles.pageButton}
-              >
-                {t(locale, 'prev')}
-              </button>
-              <span className={styles.pageIndicator}>
-                {t(locale, 'pageOf', { a: activePage, b: totalPages })}
-              </span>
-              <button
-                onClick={() => setCurrentPage(Math.min(totalPages, activePage + 1))}
-                disabled={activePage === totalPages}
-                className={styles.pageButton}
-              >
-                {t(locale, 'next')}
-              </button>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
+        {/* Decorative only (aria-hidden) — unlike this component's other affordances,
+            which DO have a non-visual equivalent (`aria-sort` on a sorted header,
+            `aria-label` on the filter trigger), this cue currently has none: a table's
+            full column set is already in the DOM regardless of scroll position, so
+            nothing is HIDDEN from assistive tech, only from a sighted reader scanning a
+            clipped viewport. Fine as a sighted-only affordance for that reason, but if
+            the horizontal scroll position ever became load-bearing for a screen-reader
+            user (e.g. content that only renders once scrolled into view), this would
+            need a real signal, not just a decorative one. */}
+        <div className={`${styles.scrollCue} ${styles.scrollCueLeft}`} data-visible={canScrollLeft} aria-hidden="true" />
+        <div className={`${styles.scrollCue} ${styles.scrollCueRight}`} data-visible={canScrollRight} aria-hidden="true" />
       </div>
     </div>
   );
