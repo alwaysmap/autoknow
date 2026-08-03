@@ -12,11 +12,26 @@
   gap: 0.4375rem;
 }
 
+/* Row-gap is TIGHTER than the list's own 0.4375rem, and that difference is load-bearing:
+   a long statement pushes its trailing facts onto a second line, and with one gap serving
+   both axes that wrapped line sat exactly as far from its own title as the next row did —
+   so a two-line record read as two records. The facts now hug the statement they belong
+   to, and the list gap remains the boundary between records (§7 rule 1).
+
+   The mark HANGS in a left gutter, and is positioned OUT of the flex flow to get there.
+   As a flex sibling it broke the row at 360px: flex collects items into lines by their
+   max-content size and prefers wrapping to shrinking, so a statement long enough to wrap
+   was pushed off the mark's line entirely, leaving the glyph stranded on a line of its
+   own. Out of flow it cannot be wrapped away from what it marks, and every row starts on
+   the same vertical edge whether or not it is urgent. */
 .row {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.5rem;
+  column-gap: 0.5rem;
+  row-gap: 0.125rem;
+  padding-left: 1.125rem;
   min-width: 0;
 }
 
@@ -52,6 +67,28 @@
 
 .fact {
   color: var(--muted);
+}
+
+/* The urgency mark, and the fact that earned it. Both take `--bad` so the glyph and the
+   word are visibly one signal; `--bad` (not `--crit`) because the strip tile counting
+   these same rows is `tone='warn'` and the section must not out-shout the number that
+   sent the reader here. Sized in `em` so it tracks the row's type rather than pinning a
+   glyph height the text can outgrow. */
+.mark {
+  position: absolute;
+  left: 0;
+  /* Centred on the FIRST line specifically — (title line-height − mark height) / 2 — so a
+     statement that wraps to three lines keeps its mark beside the line it starts on
+     rather than beside the middle of the block. */
+  top: 0.3125rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--bad);
+}
+
+.urgentFact {
+  color: var(--bad);
+  font-weight: 600;
 }
 
 .sep {

@@ -48,31 +48,22 @@ export default async function Home() {
           openEscalationCount={openEscalationCount}
         />
 
-        {/* the capacity picture gets the full page width — it's the chart leadership
-            actually reads, and hover needs room */}
-        <section className={styles.dashboardSection}>
-          <CapacityChart
-            now={now}
-            programs={serializedProjects.map((p) => ({
-              id: p.id, name: p.name,
-              sopDate: p.sopDate, volumeFirstYear: p.volumeFirstYear, lifecycle: p.lifecycle,
-              hasGas: p.hasGas, hasGbi: p.hasGbi, hasDigitalKey: p.hasDigitalKey, hasAap: p.hasAap,
-            }))}
-          />
-        </section>
+        {/* Escalations sit SECOND, directly under the strip (2026-08-03, user call).
+            The strip's fourth tile already counts open escalations, so the section
+            immediately below it is that tile's detail — the tile says how many, this
+            says which — and the most time-sensitive thing on the page stops being the
+            last thing read. This costs the capacity chart the fold, which is a decision,
+            not a side effect: reading the ramp is considered work, and an open S1 is not.
 
-        {/* the ecosystem leadership summary — risks/actions first, fully cited */}
-        <section className={styles.dashboardSection}>
-          <SummaryPanel scope="ecosystem" targetId={0} path="/ecosystem"
-            summary={summary} configured={geminiConfigured} />
-        </section>
-        {/* Recent activity retired from this page (2026-07-18): the ecosystem page
+            Recent activity retired from this page (2026-07-18): the ecosystem page
             is the leadership strip + briefing; activity lives on partner/program
             pages where it has an anchor. This panel is NOT that — it does not
             reopen 2026-07-18's decision. It is a fixed, pre-canned READ of one
             entity (open escalations across the portfolio), the same shape the
             strip tiles above already are, not a stream of everything that happened. */}
-        <section className={styles.dashboardSection}>
+        <section
+          className={`${styles.dashboardSection} ${escalations.length > 0 ? styles.escalationsPanel : ''}`}
+        >
           <AnchorHeading
             id="escalations"
             linkLabel={t(locale, 'anchorLink')}
@@ -91,6 +82,24 @@ export default async function Home() {
           />
         </section>
 
+        {/* the capacity picture gets the full page width — it's the chart leadership
+            actually reads, and hover needs room */}
+        <section className={styles.dashboardSection}>
+          <CapacityChart
+            now={now}
+            programs={serializedProjects.map((p) => ({
+              id: p.id, name: p.name,
+              sopDate: p.sopDate, volumeFirstYear: p.volumeFirstYear, lifecycle: p.lifecycle,
+              hasGas: p.hasGas, hasGbi: p.hasGbi, hasDigitalKey: p.hasDigitalKey, hasAap: p.hasAap,
+            }))}
+          />
+        </section>
+
+        {/* the ecosystem leadership summary — risks/actions first, fully cited */}
+        <section className={styles.dashboardSection}>
+          <SummaryPanel scope="ecosystem" targetId={0} path="/ecosystem"
+            summary={summary} configured={geminiConfigured} />
+        </section>
         {serializedProjects.length === 0 ? (
           <section className={styles.dashboardSection}>
             <div className={styles.sectionHeader}>

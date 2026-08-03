@@ -2307,6 +2307,15 @@ const STRINGS = {
   escTargetDate: { en: 'Target', de: 'Ziel', ja: '目標期日', ko: '목표일' },
   escNoTarget: { en: 'No target set', de: 'Kein Ziel gesetzt', ja: '目標期日なし', ko: '목표일 없음' },
   escOverdue: { en: 'Overdue', de: 'Überfällig', ja: '期限超過', ko: '기한 초과' },
+  // The accessible name of the urgency glyph on an escalation row — it says what the mark
+  // MEANS, not what it depicts ("warning triangle" would describe the picture and leave a
+  // screen-reader user to guess why it is there).
+  escUrgentMark: {
+    en: 'Needs attention now',
+    de: 'Erfordert jetzt Aufmerksamkeit',
+    ja: '今すぐ対応が必要',
+    ko: '지금 조치가 필요함',
+  },
   escOverdueTitle: {
     en: 'Past its target date and still open.',
     de: 'Zieldatum überschritten und weiterhin offen.',
