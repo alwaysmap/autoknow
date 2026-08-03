@@ -1,12 +1,20 @@
 /* The type-to-filter entity picker (gh-269). The INPUT reuses the form's own
-   `dash.textInput` look (it replaces a `<select>` in a form full of them, and design.md
-   §6's "one grammar" rule says a form should read as one grammar) — only the dropdown
-   listbox is this component's own to style. No root margin (§9b) — the parent
+   `dash.textInput` look, because it replaces a `<select>` in a form full of them and a
+   field that looks unlike its neighbours reads as a different KIND of field — only the
+   dropdown listbox is this component's own to style. No root margin (§9b) — the parent
    `textInputGroup` supplies spacing the same way it does around every other field. */
 
 .wrap {
   position: relative;
   min-width: 0;
+}
+
+/* `.wrap`, not the input, is now the flex item `.textInputGroup` stretches — so without
+   this the field renders at a text input's ~20-character intrinsic width beside full-width
+   siblings. The trap generalises, and is written up as
+   docs/knowledge/a-component-that-wraps-the-control-loses-the-stretch-the-bare-control-had.md */
+.wrap > input[type='text'] {
+  width: 100%;
 }
 
 /* `position: fixed` and placed in JS by the same `anchoredPosition` math

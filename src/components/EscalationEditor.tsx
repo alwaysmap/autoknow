@@ -25,7 +25,7 @@ import KebabMenu from './KebabMenu';
 import OverlayDialog from './OverlayDialog';
 import styles from './EscalationEditor.module.css';
 import useDialogAction from './useDialogAction';
-import Combobox from './Combobox';
+import Combobox, { toComboboxOptions } from './Combobox';
 
 // Escalation write surfaces (#245 part a): one shared form for create and edit, plus the
 // status control. The LIST header gets a New button in a ⋯ menu — creating is incidental
@@ -43,13 +43,6 @@ import Combobox from './Combobox';
 interface Option {
   id: number;
   name: string;
-}
-
-/** `Option` rows as `Combobox` wants them: a stable string id, never the display name,
- *  under `value` (AGENTS lesson 3 — a picker's committed value is the id, not the label
- *  the reader happened to type or see). */
-function toComboboxOptions(options: Option[]): { value: string; label: string }[] {
-  return options.map((o) => ({ value: String(o.id), label: o.name }));
 }
 
 export interface EscalationRecord {

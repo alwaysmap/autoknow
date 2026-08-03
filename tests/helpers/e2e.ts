@@ -154,3 +154,37 @@ export async function openMenuItemDialog(trigger: Locator, item: Locator, dialog
     await expect(dialog).toBeVisible({ timeout: 1500 });
   }).toPass({ timeout: 20000 });
 }
+
+/** Choose an option in a `Combobox` (gh-269) — the type-to-filter picker that replaced the
+ *  bare `<select>` in the CONVERTED entity fields, where `selectOption` no longer applies.
+ *  The sweep is unfinished (`autoknow-wak`), so `/programs/new` and `/me` still take
+ *  `selectOption` — reaching for this helper there fails to find a `combobox` role. Lives
+ *  here rather than in one spec because five specs across four surfaces need it.
+ *
+ *  `query` defaults to the option's own label, which is what you want unless the point of
+ *  the test is the FILTER — pass a partial (`'vol'` for `'Volvo Cars'`) only then.
+ *
+ *  `getByRole('combobox', …)`, not `getByLabel`: the listbox the input controls carries the
+ *  SAME `aria-label`, so a plain label lookup is ambiguous between the two.
+ *
+ *  The retry wraps the OPEN, not just the assertion: this is frequently the first
+ *  interaction after a dialog mounts, which is this suite's top flake source. */
+export async function pickCombobox(
+  scope: Locator, fieldLabel: string, optionLabel: string, query = optionLabel,
+): Promise<void> {
+  const field = scope.getByRole('combobox', { name: fieldLabel, exact: true });
+  const option = scope.getByRole('option', { name: optionLabel, exact: true });
+  await expect(async () => {
+    if (!(await option.isVisible())) {
+      await field.click({ timeout: 2000 });
+      await field.fill(query);
+    }
+    await expect(option).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 20000 });
+  await option.click();
+  // Assert the choice COMMITTED. Without this a pick that silently failed surfaces three
+  // assertions later, as a wrong row or a validation error, with nothing pointing back at
+  // the picker. The visible text becoming the option's label is exactly the component's
+  // guarantee that the hidden field now holds that option's value.
+  await expect(field).toHaveValue(optionLabel);
+}

@@ -16,6 +16,7 @@ import pills from './PhaseTrack.module.css';
 import styles from './ProjectMetaHeader.module.css';
 import KebabMenu from './KebabMenu';
 import PersonCell, { type PersonRef } from './PersonCell';
+import Combobox from './Combobox';
 import { partnerHref } from '../lib/entityHref';
 import { localDate } from '../lib/dates';
 
@@ -244,29 +245,39 @@ export default function ProjectMetaHeader({
           {(partnerOptions?.length ?? 0) > 0 && (
             <div className={dash.textInputGroup}>
               <label htmlFor="editLeadPartner" className={dash.formLabel}>{t(locale, 'leadPartnerLabel')}</label>
-              <select id="editLeadPartner" name="partnerId" defaultValue={leadPartnerId} className={dash.textInput}>
-                {[...partnerOptions!].sort((a, b) => Number(b.isOem) - Number(a.isOem) || a.name.localeCompare(b.name)).map((po) => (
-                  <option key={po.id} value={po.id}>
-                    {po.name}{po.isOem ? ' (OEM)' : ''}
-                  </option>
-                ))}
-              </select>
+              {/* Mapped inline rather than through `toComboboxOptions`: the label is
+                  composed (the OEM marker), and OEMs sort ahead of suppliers regardless
+                  of name — an order the reader relies on and a plain id/name map loses. */}
+              <Combobox
+                id="editLeadPartner" name="partnerId"
+                options={[...partnerOptions!]
+                  .sort((a, b) => Number(b.isOem) - Number(a.isOem) || a.name.localeCompare(b.name))
+                  .map((po) => ({ value: String(po.id), label: `${po.name}${po.isOem ? ' (OEM)' : ''}` }))}
+                defaultValue={leadPartnerId != null ? String(leadPartnerId) : ''}
+                emptyLabel={t(locale, 'selectPartner')}
+                required
+                aria-label={t(locale, 'leadPartnerLabel')}
+              />
             </div>
           )}
           <div className={dash.textInputGroup}>
             <label htmlFor="editOwner" className={dash.formLabel}>{t(locale, 'googlerOwner')}</label>
-            {/* Picked from existing people only. The field NAME stays `ownerName`: that
-                is the write contract (`requireOwner` turns the submitted address back
-                into the {ownerName, ownerPersonId} pair, lib/owner). Only the DEFAULT
-                changed — it is now the owner's current address looked up BY ID (#127 E7),
-                not a string match, so an owner who has moved still shows as selected. */}
-            <select id="editOwner" name="ownerName" required className={dash.textInput}
-              defaultValue={(peopleOptions ?? []).find((p) => p.id === owner?.id)?.email ?? ''}>
-              <option value="" disabled>{t(locale, 'selectAPerson')}</option>
-              {(peopleOptions ?? []).map((p) => (
-                <option key={p.id} value={p.email}>{p.name} ({p.email})</option>
-              ))}
-            </select>
+            {/* Picked from existing people only, and both the field NAME and the committed
+                VALUE are addresses — that is this field's write contract, not a lapse from
+                AGENTS lesson 3: `requireOwner` turns the submitted address back into the
+                {ownerName, ownerPersonId} pair (lib/owner). Hence the inline map rather
+                than `toComboboxOptions`, whose value is always the row id. The label
+                carries the address as well, because two people can share a display name.
+                The DEFAULT looks the address up BY ID (#127 E7), never by string match, so
+                an owner who has moved still shows as selected. */}
+            <Combobox
+              id="editOwner" name="ownerName"
+              options={(peopleOptions ?? []).map((p) => ({ value: p.email, label: `${p.name} (${p.email})` }))}
+              defaultValue={(peopleOptions ?? []).find((p) => p.id === owner?.id)?.email ?? ''}
+              emptyLabel={t(locale, 'selectAPerson')}
+              required
+              aria-label={t(locale, 'googlerOwner')}
+            />
           </div>
           <div className={dash.textInputGroup}>
             <label htmlFor="editSop" className={dash.formLabel}>{t(locale, 'sopMonthLabel')}</label>

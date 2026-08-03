@@ -3,6 +3,8 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { anchoredPosition, rovingIndex } from '../lib/anchoredPosition';
 import dash from './ProjectStatusDashboard.module.css';
+import { t } from '../lib/i18n';
+import { useLocale } from './LocaleProvider';
 import styles from './Combobox.module.css';
 
 // A type-to-filter ENTITY PICKER (gh-269) — a drop-in replacement for a bare `<select>`
@@ -32,18 +34,16 @@ import styles from './Combobox.module.css';
 // currently selected, so the input can never show a string that does not match the
 // value the form will actually submit.
 //
-// SCOPE (recorded here so the next reader does not have to reconstruct it from the
-// diff): this ships the primitive and wires it into `EscalationEditor`'s five pickers —
-// the case the report was filed against. `PartnerEditor`, `ProjectMetaHeader`'s owner
-// picker, `PhaseInvolvementEditor` and `PersonEditor` still use bare `<select>`s; folding
-// them in is the same "add a prop, never fork it" move once someone is next in those
-// files. The `DataTable` column-funnel half of the original report (open the funnel,
-// type to narrow the checklist) is DELIBERATELY NOT attempted here — it is a genuinely
-// different UI shape (a multi-select checklist with OR-together semantics, not a single
-// committed value) and touches the highest-blast-radius shared component in the app;
-// see the follow-up issue for the open design question that has to be answered first
-// (whether the funnel needs its own `multiple`-aware variant of this component, or a
-// text filter bolted onto the existing checklist).
+// WHEN TO REACH FOR THIS: the option set is UNBOUNDED BY CONSTRUCTION — it grows with the
+// business, so no reader can be expected to scan it. A closed, short set keeps its native
+// `<select>`, which is the better control there. The rule, the survivors and why each one
+// is a survivor:
+// docs/adr/2026-08-02-a-type-to-filter-picker-is-for-lists-unbounded-by-construction.md
+// The sweep is NOT finished — `autoknow-wak` holds the pickers that still qualify.
+//
+// `DataTable`'s column funnels are out of scope by a different argument: a multi-select
+// checklist with OR-together semantics is not one committed value, so it needs its own
+// design answer before it needs this component (gh-269).
 
 export interface ComboboxOption {
   /** The value posted under `name` when this option is chosen — a stable id, never a
@@ -62,12 +62,44 @@ export interface ComboboxProps {
   /** The option's `value` to start selected, or '' for none — same contract as a native
    *  `<select defaultValue>`. */
   defaultValue?: string;
-  /** Shown when nothing is selected: as the input's placeholder AND as the first,
-   *  always-offered choice (the native `<select>`'s `<option value="">…</option>` row) —
-   *  typing part of this word finds it exactly like any other option. */
+  /** Shown when nothing is selected. Always the input's placeholder; and, unless
+   *  `required`, also the first row of the list — the native `<select>`'s
+   *  `<option value="">…</option>`, findable by typing part of it like any other option.
+   *  Under `required` it stays placeholder-only, since a row that can only fail
+   *  validation is not a choice. */
   emptyLabel: string;
+  /** Native constraint validation, and it rides the VISIBLE input rather than the hidden
+   *  one that carries the value: a `type="hidden"` control is barred from validation
+   *  altogether, and the usual workaround — a real input hidden with `display:none` — is
+   *  worse than nothing, because the browser cannot focus it to report the violation and
+   *  silently refuses to submit at all. The visible input is safe to validate because
+   *  this component keeps it and `selectedId` in lockstep: it is empty exactly when
+   *  nothing is selected (see `revertAndClose`, and the no-match `Enter` branch). */
+  required?: boolean;
+  /** Fired on an explicit choice only — never while typing, so a caller deriving state
+   *  from it (a dependent picker, a conditional `required`) sees committed values only,
+   *  matching what a native `<select onChange>` would have given it. */
+  onChange?: (value: string) => void;
+  /** For a picker that is REVEALED by an explicit action rather than present on load —
+   *  the reader has already said "add one", so the field they asked for takes focus, and
+   *  because focus opens the list they land on it ready to type. */
+  autoFocus?: boolean;
+  /** Names the input AND the listbox it controls, so it is worth passing even where a
+   *  visible `<label htmlFor>` already exists. The shared name is also why a test must
+   *  reach for the input by ROLE — `getByLabel` is ambiguous between the two. */
   'aria-label'?: string;
+  /** Appended to the shared `dash.textInput` look. Anything overriding a property
+   *  `textInput` also sets must out-specify it — see `PhaseInvolvementEditor.module.css`. */
   className?: string;
+}
+
+/** Rows named `{ id, name }` — the shape most of this app's pickers already fetch — as
+ *  options. The id goes to `value` and the name to `label`, never the other way round
+ *  (AGENTS lesson 3: a picker's committed value is the id, not the display string). A
+ *  picker whose value is not the id, or whose label is composed from more than `name`,
+ *  maps inline at its own call site rather than growing options onto this. */
+export function toComboboxOptions(rows: { id: number; name: string }[]): ComboboxOption[] {
+  return rows.map((r) => ({ value: String(r.id), label: r.name }));
 }
 
 /** Case-insensitive substring, matching `DataTable`'s own key-column filter — the same
@@ -82,13 +114,23 @@ export default function Combobox({
   options,
   defaultValue = '',
   emptyLabel,
+  required,
+  onChange,
+  autoFocus,
   'aria-label': ariaLabel,
   className,
 }: ComboboxProps) {
+  const locale = useLocale();
   const labelOf = (value: string): string => options.find((o) => o.value === value)?.label ?? '';
 
-  const [selectedId, setSelectedId] = useState(defaultValue);
-  const [query, setQuery] = useState(defaultValue ? labelOf(defaultValue) : '');
+  // Both states resolve through the SAME lookup, so a `defaultValue` naming no option
+  // lands as "nothing selected" rather than as a value with no visible text. That
+  // combination would invert the invariant `required` is read against — the field would
+  // look empty while holding an id — and the browser would then block a submit while
+  // pointing at a field the reader sees as blank.
+  const initialId = labelOf(defaultValue) ? defaultValue : '';
+  const [selectedId, setSelectedId] = useState(initialId);
+  const [query, setQuery] = useState(labelOf(initialId));
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   // Whether the visible text has been EDITED since the last commit. Opening a populated
@@ -110,10 +152,15 @@ export default function Combobox({
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
 
-  // The empty choice is a real row in the list, always first, filtered by the same rule
-  // as everything else once editing — so typing "una" surfaces "Unassigned" exactly like
-  // any option.
-  const allOptions: ComboboxOption[] = [{ value: '', label: emptyLabel }, ...options];
+  // The empty choice is a real row in the list, first, filtered by the same rule as
+  // everything else once editing — so typing "una" surfaces "Unassigned" exactly like any
+  // option. Whether it is offered at all is the `emptyLabel` prop's doc. Suppressing it
+  // under `required` is a real behaviour CHANGE, not just a port: two of the `<select>`s
+  // this replaced already said it with `<option value="" disabled>`, but `PersonEditor`'s
+  // program and new-person-partner pickers offered a plainly selectable empty row.
+  const allOptions: ComboboxOption[] = required
+    ? options
+    : [{ value: '', label: emptyLabel }, ...options];
   const filtered: ComboboxOption[] = editing
     ? allOptions.filter((o) => matches(o.label, query))
     : allOptions;
@@ -138,6 +185,7 @@ export default function Combobox({
     setEditing(false);
     setOpen(false);
     setFocusToken((t) => t + 1);
+    onChange?.(option.value);
   };
 
   // Position the list while open, and keep it anchored as the trigger scrolls/resizes —
@@ -199,6 +247,16 @@ export default function Combobox({
     if (focusToken > 0) inputRef.current?.focus();
   }, [focusToken]);
 
+  // Mount-only on purpose: `autoFocus` states an intent for the FIRST render, so a later
+  // flip must not yank focus out from under whatever the reader is doing. React's own
+  // `autoFocus` attribute would do the same job here; this keeps every focus call in this
+  // component on one path (`focusToken` above is the other caller) rather than splitting
+  // it between an attribute and an effect.
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -218,6 +276,14 @@ export default function Combobox({
       if (open && filtered[activeIndex]) {
         e.preventDefault();
         choose(filtered[activeIndex]);
+      } else if (open) {
+        // Enter on a query that matches NOTHING. Falling through would submit the form
+        // while the field still displays text that was never committed — the one state
+        // this component exists to make impossible. So it means what Escape does: abandon
+        // what was typed. The form is not submitted by this keystroke; a second Enter
+        // submits, now with the field showing exactly what it will post.
+        e.preventDefault();
+        revertAndClose();
       }
     } else if (e.key === 'Escape') {
       if (open) {
@@ -241,6 +307,7 @@ export default function Combobox({
         aria-label={ariaLabel}
         autoComplete="off"
         placeholder={emptyLabel}
+        required={required}
         value={query}
         className={`${dash.textInput} ${className ?? ''}`}
         onFocus={(e) => {
@@ -278,7 +345,9 @@ export default function Combobox({
         style={{ display: open ? 'block' : 'none' }}
       >
         {filtered.length === 0 ? (
-          <li className={styles.empty} role="presentation">{emptyLabel}</li>
+          // NOT `emptyLabel`: that is a prompt ("Select a person…"), and printing it where
+          // a search found nothing tells the reader to do the thing they just did.
+          <li className={styles.empty} role="presentation">{t(locale, 'noResultsFound')}</li>
         ) : (
           filtered.map((o, i) => (
             <li

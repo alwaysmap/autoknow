@@ -53,7 +53,12 @@
   min-width: 0;
 }
 
-.picker,
+/* `.addForm` prefix on `.picker` is load-bearing, not tidiness: the picker is a
+   `Combobox`, whose input already carries the shared `dash.textInput` class. Two
+   single-class selectors tie on specificity and the winner is then whichever lands later
+   in the bundle — an ordering this file does not control. Two classes beats one
+   outright, so the compact inline size holds wherever the modules end up. */
+.addForm .picker,
 .roleInput {
   font-size: 0.6875rem;
   line-height: 1rem;
@@ -64,8 +69,8 @@
   color: var(--muted);
   max-width: 10rem;
 }
-.picker:hover,
-.picker:focus,
+.addForm .picker:hover,
+.addForm .picker:focus,
 .roleInput:hover,
 .roleInput:focus {
   background: var(--paper);
