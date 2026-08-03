@@ -1302,6 +1302,12 @@ const STRINGS = {
   activeBlockers: { en: '{n} active blockers', de: '{n} aktive Blocker', ja: 'アクティブなブロッカー{n}件', ko: '활성 블로커 {n}건' },
   noPendingActionItems: { en: 'No pending action items detected. Clear skies! ☀️', de: 'Keine offenen Action Items. Freie Fahrt! ☀️', ja: '未処理のアクションアイテムはありません。快晴です！☀️', ko: '대기 중인 액션 아이템이 없습니다. 맑음! ☀️' },
   programsAtRisk: { en: 'Programs at Risk', de: 'Gefährdete Programme', ja: 'リスクのあるプログラム', ko: '위험 프로그램' },
+  // The ecosystem risk table has no filter chrome, so `noProgramsMatchFilters` would
+  // name a control the reader cannot see. Empty here is the good news — nothing is
+  // Concerned. This wording and the "Programs at Risk" heading it sits under are both
+  // the user's call (2026-08-03): the vocabulary gap between them is known and kept,
+  // so do not "fix" it into agreement.
+  noCurrentConcerns: { en: 'No current concerns', de: 'Keine aktuellen Bedenken', ja: '現在、懸念なし', ko: '현재 우려 없음' },
   welcomeAutoknow: { en: 'Welcome to AutoKnow 🌱', de: 'Willkommen bei AutoKnow 🌱', ja: 'AutoKnowへようこそ 🌱', ko: 'AutoKnow에 오신 것을 환영합니다 🌱' },
   onboardingIntro: {
     en: 'This tracker helps teams align on Android Automotive OS integrations, Google Automotive Services, and Digital Key standards. Get started by launching your first program from a standard template:',
