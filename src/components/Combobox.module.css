@@ -46,7 +46,7 @@
 }
 
 .option:hover,
-.active {
+.option.active {
   background: var(--surface);
 }
 

@@ -24,8 +24,8 @@ import styles from './Combobox.module.css';
 // a different use case, navigational search rather than a form field with a committed
 // value, so not folded in here; worth a follow-up look if a third variant ever appears.)
 //
-// THE GUARANTEE THIS EXISTS TO KEEP (AGENTS lesson 3 / design.md §2 — entity inputs are
-// PICKERS, never free text): the component NEVER posts unmatched text. `selectedId` is
+// THE GUARANTEE THIS EXISTS TO KEEP (AGENTS lesson 3 — entity inputs are PICKERS, never
+// free text): the component NEVER posts unmatched text. `selectedId` is
 // the only thing written to the hidden form field, and it changes ONLY when a real
 // option is chosen — never as a side effect of typing. Losing focus (blur, Escape, or
 // submitting with the list still open) reverts the visible text to whatever is
