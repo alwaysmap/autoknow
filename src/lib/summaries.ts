@@ -96,26 +96,64 @@ interface EvidenceRecord extends SummaryEvidence {
   citation: SummaryCitation;
 }
 
+/**
+ * The delta marker prefixed to an evidence record's text (#236): `[new]` for an event
+ * that arrived since the previous brief, `[prior]` for one that was already true when it
+ * was written, and nothing at all in the two cases where either would be a lie —
+ *
+ *  - `since` is null: this scope has never had a brief, so there is no "since" and every
+ *    record would be `[new]`, which invites a "what changed" section written against
+ *    nothing;
+ *  - `at` is undefined: the record is current STATE, not an event. The ledger, the chain
+ *    and the program's owner are recomputed on every generation, so they are neither new
+ *    nor prior, and the legend tells the model to read untagged records that way.
+ *
+ * Pure, so it unit-tests without a model or a database.
+ */
+export function deltaTag(since: Date | null, at?: Date): '[new] ' | '[prior] ' | '' {
+  if (!since || !at) return '';
+  return at >= since ? '[new] ' : '[prior] ';
+}
+
 class EvidenceList {
   records: EvidenceRecord[] = [];
   counts: Record<string, number> = {};
+
+  /**
+   * @param since the previous brief's `generatedAt`, or null when this scope has never
+   *  had one. `windowStart` already FILTERED on this date; what was missing is that
+   *  nothing LABELLED which surviving record is new, so the model could not draw a
+   *  contrast it had no way to see (#236). Null on a first brief: everything is new
+   *  then, and tagging it would invite a "what changed" section written against nothing.
+   */
+  constructor(private readonly since: Date | null) {}
+
   get isFull(): boolean {
     return this.records.length >= MAX_EVIDENCE;
   }
-  push(kind: SummaryEvidence['kind'], text: string, citation: SummaryCitation) {
+
+  /**
+   * @param at when this record HAPPENED, for records that are events — an update, an
+   *  ingested document. Omitted for records that are current STATE (the ledger, the
+   *  chain, who owns the program): those are recomputed every time and are neither new
+   *  nor old, and tagging them either way would be a claim this cannot support.
+   */
+  push(kind: SummaryEvidence['kind'], text: string, citation: SummaryCitation, at?: Date) {
     if (this.isFull) return;
     this.counts[kind] = (this.counts[kind] ?? 0) + 1;
-    this.records.push({ id: this.records.length, kind, text, citation });
+    this.records.push({ id: this.records.length, kind, text: `${deltaTag(this.since, at)}${text}`, citation });
   }
   /**
-   * A record ABOUT the evidence rather than a piece of it — today's shape is "nothing
-   * has been ingested here" (#236 fix 7). Two deliberate differences from `push`:
+   * A record ABOUT the evidence rather than a piece of it. Two shapes today: "nothing has
+   * been ingested here" (#236 fix 7) and the previous brief's own claim, which the
+   * contrast is drawn against. Two deliberate differences from `push`:
    *
-   *  - it ignores the cap, because it is only ever emitted when a whole class of
-   *    evidence is ABSENT, and dropping "no source material exists" because the list
-   *    filled with phase updates is exactly the dishonesty it exists to prevent;
-   *  - it does not touch `counts`, which the panel renders as "N sources" — a statement
-   *    about missing sources is not itself a source.
+   *  - it ignores the cap, because what it carries is exactly what must not be dropped —
+   *    losing "no source material exists" because the list filled with phase updates is
+   *    the dishonesty it exists to prevent, and losing the previous claim does not make
+   *    the delta thinner, it makes it impossible;
+   *  - it does not touch `counts`, which the panel renders as "N sources" — neither a
+   *    statement about missing sources nor our own last brief is a source.
    */
   pushFraming(kind: SummaryEvidence['kind'], text: string, citation: SummaryCitation) {
     this.records.push({ id: this.records.length, kind, text, citation });
@@ -137,6 +175,15 @@ class EntityRegistry {
     this.seen.add(key);
     this.links.push({ name: n, href, external: false });
   }
+}
+
+/** Where a brief LIVES, for the citation on the previous-brief record. There is no
+ *  per-brief URL — a scope's panel always shows its newest — so this addresses the page
+ *  that rendered it, which is the honest target for "the claim you already have". */
+function scopeHref(scope: SummaryScope, targetId: number): string {
+  if (scope === 'program') return programHref(targetId);
+  if (scope === 'partner') return partnerHref(targetId);
+  return '/ecosystem';
 }
 
 // An action's `nextStep` names which SIDE moves next; the prompt's actions rule keys
@@ -395,6 +442,7 @@ async function gatherProgramEvidence(
         // reader who clicks the receipt under a bullet about the May 1 update should not
         // have to find it again in a log of near-identical cards (autoknow-51j).
         { label: `Weekly update · ${fmtDate(s.timestamp)}`, href: programStatusUpdateHref(projectId, s.id), external: false },
+        s.timestamp,
       );
     });
 
@@ -441,6 +489,7 @@ async function gatherProgramEvidence(
           // ONE update, so the citation addresses one — the progress view AT that entry
           // rather than at the top of the log (autoknow-51j).
           { label: `${phase.name} · ${fmtDate(s.timestamp)}`, href: phaseUpdateHref(projectId, phase.id, s.id), external: false },
+          s.timestamp,
         );
       });
 
@@ -468,6 +517,7 @@ async function gatherProgramEvidence(
         'context',
         `${lifecyclePrefix(c)}ingested ${c.type} ${proseDay(c.createdAt)}${c.title ? ` "${c.title}"` : ''} (${project.name}): ${c.ingestedText!.slice(0, 600)}`,
         { label: c.title || `${c.type} source`, href: c.url, external: true },
+        c.createdAt,
       );
     });
 
@@ -716,12 +766,15 @@ export async function createSummary(
   const last = await prisma.summary.findFirst({
     where: { scope, targetId },
     orderBy: { generatedAt: 'desc' },
-    select: { generatedAt: true },
+    // `tldr` as well as the date: the contrast needs the previous CLAIM, not just the
+    // previous timestamp. Without it the model can see which records are new but has
+    // nothing to say they are new *against*.
+    select: { generatedAt: true, tldr: true },
   });
   const windowEnd = new Date();
   const windowStart = last?.generatedAt ?? new Date(windowEnd.getTime() - WINDOW_DAYS * 24 * 3600 * 1000);
 
-  const ev = new EvidenceList();
+  const ev = new EvidenceList(last?.generatedAt ?? null);
   const reg = new EntityRegistry();
   let subject: string;
   // The schedule this brief is written against, stored so a later read can tell whether
@@ -745,6 +798,19 @@ export async function createSummary(
   }
   if (ev.records.length === 0) return none;
 
+  // The previous brief's own claim, so "what changed" has something to change FROM
+  // (#236). `pushFraming`, for both of its reasons: it must survive the MAX_EVIDENCE cap
+  // — dropping the baseline is the one omission that makes the contrast impossible
+  // rather than merely thinner — and a brief is not a SOURCE, so it must not inflate the
+  // "N sources" count the panel renders.
+  if (last) {
+    ev.pushFraming(
+      'context',
+      `PREVIOUS BRIEF, generated ${proseDay(last.generatedAt)} — this is the claim the reader already has, not new evidence. Say what has changed since it: "${last.tldr}"`,
+      { label: `Previous brief · ${fmtDate(last.generatedAt)}`, href: scopeHref(scope, targetId), external: false },
+    );
+  }
+
   // Honest emptiness (#236 fix 7). Hyundai Ioniq's brief was a worse rendering of the
   // hill chart below it, and nothing told the reader that no meeting or document had
   // ever been ingested for it — so the brief read as synthesis when it was narration.
@@ -765,7 +831,17 @@ export async function createSummary(
   // to say whether a human signal is stale and had no idea what day it was, so needles
   // six and eight weeks old passed without comment. It is not tunable because it is not
   // a matter of taste.
+  //
+  // So does the `[new]`/`[prior]` legend. Those markers are a fact about the FORMAT of
+  // the records below, not a style: a prompt edit that dropped the legend would leave
+  // the model reading tokens it had never been told the meaning of, which is worse than
+  // never having tagged them. Whether to LEAD with the delta is taste, and stays in the
+  // tunable prompt's `progress` rule.
+  const deltaLegend = last
+    ? `\nEvidence records that are events are tagged: [new] means it arrived since the previous brief, [prior] means it was already true when that brief was written. Untagged records are current state (the schedule, the ledger, who owns what) — recomputed each time, so neither new nor old. Use the tags to say what CHANGED; do not repeat a [prior] record as though it were news.\n`
+    : '';
   const fullPrompt = `${prompt.replaceAll('{SUBJECT}', subject)}
+${deltaLegend}
 
 Today is ${proseDay(windowEnd)}. Every date in the evidence is a real one; say how long ago something was when that is the point ("the needle has not been touched in six weeks"), and never write today's date as though it were a fact from the evidence.
 

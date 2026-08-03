@@ -60,7 +60,7 @@ Never use this filler (it reads as AI slop): delve, leverage, robust, seamless, 
 // means something: the ecosystem, and a partner's portfolio.
 const sectionsBlock = (themes: boolean) => `Sections:
 - tldr: the one thing a leader must take away, in 1-3 sentences. Start with it. If the story is what CHANGED since the last brief, lead with the change.
-- progress: what actually moved — shipped, unblocked, advanced. Direction of travel, in words.
+- progress: what actually MOVED — shipped, unblocked, advanced. Direction of travel, in words. Lead with what changed since the previous brief where the evidence marks a change, and say plainly when the answer is that nothing did: "no movement on X since the last brief" is a finding, not an empty bullet. A restatement of standing status is not progress.
 - risks: what plausibly costs the SOP, the quality of the launch, or the relationship. Apply the test before writing a bullet: if the buffer absorbs it, it is not a risk — say nothing. Being the current constraint is not by itself a risk; name the constraint only when knowing it changes what the reader should do. A risk bullet says what is at stake and roughly how much.${
   themes
     ? '\n- themes: patterns ACROSS the evidence — a blocker recurring across programs, a partner behavior, a systemic gap. Only a pattern spanning more than one program belongs here; a restatement of a risk does not.'
