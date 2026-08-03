@@ -162,8 +162,11 @@ test.describe('Program template authoring', () => {
 
   test('the authored template is offered by project creation', async ({ page }) => {
     await page.goto('/programs/new');
+    // The template picker is a `Combobox` now (gh-269), so its options exist only while the
+    // list is open — open it, then assert the authored template is among them.
+    await page.getByRole('combobox', { name: 'Program Template (Critical Chain DAG)' }).click();
     await expect(
-      page.locator('select[name="template"] option', { hasText: 'Cluster Display Bring-up' }),
+      page.getByRole('option', { name: 'Cluster Display Bring-up', exact: true }),
     ).toHaveCount(1);
   });
 

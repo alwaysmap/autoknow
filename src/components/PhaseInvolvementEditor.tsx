@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import PersonCell from './PersonCell';
-import Combobox, { toComboboxOptions } from './Combobox';
+import Combobox from './Combobox';
+import { toComboboxOptions } from '../lib/comboboxOptions';
 import { addPhasePartner, removePhasePartner } from '../app/actions/phasePartners';
 import { addPhasePerson, removePhasePerson } from '../app/actions/phasePeople';
 import type { ActionResult } from '../lib/actionResult';

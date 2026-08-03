@@ -25,7 +25,8 @@ import KebabMenu from './KebabMenu';
 import OverlayDialog from './OverlayDialog';
 import styles from './EscalationEditor.module.css';
 import useDialogAction from './useDialogAction';
-import Combobox, { toComboboxOptions } from './Combobox';
+import Combobox from './Combobox';
+import { toComboboxOptions } from '../lib/comboboxOptions';
 
 // Escalation write surfaces (#245 part a): one shared form for create and edit, plus the
 // status control. The LIST header gets a New button in a ⋯ menu — creating is incidental
@@ -116,7 +117,7 @@ function EscalationFormFields({
           id="efPartner" name="partnerId"
           options={toComboboxOptions(partners)}
           defaultValue={defaults?.partnerId != null ? String(defaults.partnerId) : ''}
-          emptyLabel="—"
+          emptyLabel={t(locale, 'escNoPartner')}
           aria-label={t(locale, 'partnerLabel')}
         />
       </div>
@@ -126,7 +127,7 @@ function EscalationFormFields({
           id="efProject" name="projectId"
           options={toComboboxOptions(projects)}
           defaultValue={defaults?.projectId != null ? String(defaults.projectId) : ''}
-          emptyLabel="—"
+          emptyLabel={t(locale, 'escNoProgram')}
           aria-label={t(locale, 'programLabel')}
         />
       </div>
@@ -290,10 +291,21 @@ export default function EscalationAdminControls({
           {/* Only `duplicate` needs a target, so the picker appears only for it — a
               permanently visible one would read as a field every close must answer. */}
           {nextStatus === 'duplicate' && (
-            <select name="duplicateOfId" required className={styles.select} defaultValue="">
-              <option value="">{t(locale, 'escDuplicateOfPlaceholder')}</option>
-              {duplicateCandidates.map((e) => <option key={e.id} value={e.id}>#{e.id} — {e.name}</option>)}
-            </select>
+            <Combobox
+              id="escDuplicateOf" name="duplicateOfId"
+              // The id is IN the label, not just the value: escalation titles repeat across
+              // programs, so "#42" is often the only thing that distinguishes two rows a
+              // reader is choosing between. Hence an inline map rather than
+              // `toComboboxOptions`, whose label is the bare name.
+              options={duplicateCandidates.map((e) => ({ value: String(e.id), label: `#${e.id} — ${e.name}` }))}
+              emptyLabel={t(locale, 'escDuplicateOfPlaceholder')}
+              required
+              className={styles.select}
+              // The accessible name NAMES the field; the prompt is the placeholder above.
+              // This picker has no visible label — it is revealed inline by the status
+              // choice — so the name is the only thing that says what it is asking for.
+              aria-label={t(locale, 'escDuplicateOf')}
+            />
           )}
         </form>
       )}

@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation';
+import Combobox from '../../../components/Combobox';
+import { toComboboxOptions } from '../../../lib/comboboxOptions';
 import { prisma } from '../../../lib/db';
 import { listTemplates, getTemplateWithPhases } from '../../../lib/programTemplates';
 import { validateTemplateDag } from '../../../lib/templateDag';
@@ -162,8 +164,12 @@ export default async function NewProjectPage(props: {
   });
   // Only honour the deep link when it names a real partner; anything else falls
   // back to the "Select a partner…" placeholder rather than a dangling value.
+  // `?? ''` on the true branch as well: TypeScript cannot narrow `partnerIdParam` through
+  // the `.some()` above, so without it the type stays `string | undefined` and every
+  // consumer has to launder it. It is a string either way — a `String()` at the call site
+  // would convert nothing and tell the next reader this is a numeric id.
   const preselectedPartnerId = partners.some((p) => String(p.id) === partnerIdParam)
-    ? partnerIdParam
+    ? partnerIdParam ?? ''
     : '';
   // Owner is picked from existing people, never typed freeform.
   const people = await prisma.person.findMany({
@@ -194,35 +200,47 @@ export default async function NewProjectPage(props: {
 
           <div className={styles.field}>
             <label htmlFor="partnerId">{t(locale, 'partnerOemSupplier')}</label>
-            <select id="partnerId" name="partnerId" required defaultValue={preselectedPartnerId}>
-              <option value="">{t(locale, 'selectAPartner')}</option>
-              {partners.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.type?.name})
-                </option>
-              ))}
-            </select>
+            {/* Mapped inline rather than through `toComboboxOptions`: the label carries the
+                partner's TYPE, which is how a reader tells two similarly named OEMs and
+                suppliers apart when typing. */}
+            <Combobox
+              id="partnerId" name="partnerId"
+              options={partners.map((p) => ({ value: String(p.id), label: `${p.name} (${p.type?.name})` }))}
+              defaultValue={preselectedPartnerId}
+              emptyLabel={t(locale, 'selectAPartner')}
+              required
+              aria-label={t(locale, 'partnerOemSupplier')}
+            />
           </div>
 
           <div className={styles.field}>
             <label htmlFor="template">{t(locale, 'projectTemplateDag')}</label>
-            <select id="template" name="template" required>
-              {templates.map((tpl) => (
-                <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
-              ))}
-            </select>
+            {/* Templates are user-authored and grow with the business, so they meet the
+                same unbounded-by-construction test as the entity pickers, and that rule is
+                about growth rather than today's count (docs/adr/2026-08-02-a-type-to-filter-
+                picker-is-for-lists-unbounded-by-construction.md). Not in autoknow-wak's list; converted
+                here rather than left as a sixth instance for a third pass (lesson 7). */}
+            <Combobox
+              id="template" name="template"
+              options={toComboboxOptions(templates)}
+              emptyLabel={t(locale, 'selectATemplate')}
+              required
+              aria-label={t(locale, 'projectTemplateDag')}
+            />
           </div>
 
           <div className={styles.field}>
             <label htmlFor="owner">{t(locale, 'googlerOwner')}</label>
-            <select id="owner" name="owner" required defaultValue="">
-              <option value="" disabled>{t(locale, 'selectAPerson')}</option>
-              {people.map(p => (
-                <option key={p.id} value={p.email}>
-                  {p.name} ({p.email})
-                </option>
-              ))}
-            </select>
+            {/* The committed value is the ADDRESS, not the row id — the same write contract
+                as `ProjectMetaHeader`'s owner picker (`requireOwner` resolves the address),
+                which is why this maps inline instead of through `toComboboxOptions`. */}
+            <Combobox
+              id="owner" name="owner"
+              options={people.map((p) => ({ value: p.email, label: `${p.name} (${p.email})` }))}
+              emptyLabel={t(locale, 'selectAPerson')}
+              required
+              aria-label={t(locale, 'googlerOwner')}
+            />
           </div>
 
           {/* the SOP target is REQUIRED — it is the on-track yardstick and places the

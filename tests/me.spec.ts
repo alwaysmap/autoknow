@@ -1,4 +1,4 @@
-import { test, expect, clickUntilNavigated } from './helpers/e2e';
+import { test, expect, clickUntilNavigated, pickCombobox } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -101,7 +101,7 @@ test.describe('Me Landing Page', () => {
     // a plain retry would restart on the destination and hunt for a partner picker the
     // person page is correct not to have (note: a-retry-loop-that-navigates-strands-itself).
     await clickUntilNavigated(page, /\/people\/\d+/, async () => {
-      await page.selectOption('select[name="partnerId"]', { label: 'Google LLC' });
+      await pickCombobox(page.locator('form'), 'Organization', 'Google LLC');
       await page.getByTestId('create-my-profile').click();
     });
     await expect(page.locator('h1')).toContainText('Casey');

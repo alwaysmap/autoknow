@@ -1723,6 +1723,7 @@ const STRINGS = {
   createNewProject: { en: 'Create New Program', de: 'Neues Programm erstellen', ja: '新規プログラムを作成', ko: '새 프로그램 만들기' },
   projectNamePlaceholder: { en: 'e.g. Ford F-150 AAOS Bring-up', de: 'z. B. Ford F-150 AAOS Bring-up', ja: '例: Ford F-150 AAOS Bring-up', ko: '예: Ford F-150 AAOS Bring-up' },
   partnerOemSupplier: { en: 'Partner (OEM / Supplier)', de: 'Partner (OEM / Zulieferer)', ja: 'パートナー（OEM / サプライヤー）', ko: '파트너 (OEM / 공급업체)' },
+  selectATemplate: { en: 'Select a template…', de: 'Vorlage wählen…', ja: 'テンプレートを選択…', ko: '템플릿 선택…' },
   selectAPartner: { en: 'Select a partner...', de: 'Partner wählen…', ja: 'パートナーを選択...', ko: '파트너 선택...' },
   projectTemplateDag: { en: 'Program Template (Critical Chain DAG)', de: 'Programmvorlage (Kritische-Kette-DAG)', ja: 'プログラムテンプレート（クリティカルチェーンDAG）', ko: '프로그램 템플릿 (크리티컬 체인 DAG)' },
   selectAPerson: { en: 'Select a person...', de: 'Person wählen…', ja: '担当者を選択...', ko: '담당자 선택...' },
@@ -2357,6 +2358,13 @@ const STRINGS = {
   escRaisedBy: { en: 'Raised by', de: 'Gemeldet von', ja: '起票者', ko: '제기자' },
   escRaisedOn: { en: 'Raised', de: 'Gemeldet', ja: '起票日', ko: '제기일' },
   escClosedOn: { en: 'Closed', de: 'Geschlossen', ja: 'クローズ日', ko: '종료일' },
+  // The empty row on the partner/program pickers. They used to pass a literal "—", which
+  // was defensible for an `<option>` but is not now that `emptyLabel` is ALSO the
+  // placeholder and a filterable list row — an em dash is neither readable as a prompt nor
+  // findable by typing. Distinct strings because the two fields are not interchangeable:
+  // an escalation is about a partner and/or a program, so which one is blank matters.
+  escNoPartner: { en: 'No partner', de: 'Kein Partner', ja: 'パートナーなし', ko: '파트너 없음' },
+  escNoProgram: { en: 'No program', de: 'Kein Programm', ja: 'プログラムなし', ko: '프로그램 없음' },
   escUnassigned: { en: 'Unassigned', de: 'Nicht zugewiesen', ja: '未割り当て', ko: '미지정' },
   escDuplicateOf: { en: 'Duplicate of', de: 'Duplikat von', ja: '重複元', ko: '중복 원본' },
 

@@ -6,6 +6,7 @@ import dash from './ProjectStatusDashboard.module.css';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import styles from './Combobox.module.css';
+import type { ComboboxOption } from '../lib/comboboxOptions';
 
 // A type-to-filter ENTITY PICKER (gh-269) — a drop-in replacement for a bare `<select>`
 // over a full table, which is what every entity picker in this app was: the escalation
@@ -39,19 +40,12 @@ import styles from './Combobox.module.css';
 // `<select>`, which is the better control there. The rule, the survivors and why each one
 // is a survivor:
 // docs/adr/2026-08-02-a-type-to-filter-picker-is-for-lists-unbounded-by-construction.md
-// The sweep is NOT finished — `autoknow-wak` holds the pickers that still qualify.
+// The sweep is COMPLETE as of `autoknow-wak`: every picker over an unbounded set uses this,
+// and the survivors named in that ADR are survivors on purpose.
 //
 // `DataTable`'s column funnels are out of scope by a different argument: a multi-select
 // checklist with OR-together semantics is not one committed value, so it needs its own
 // design answer before it needs this component (gh-269).
-
-export interface ComboboxOption {
-  /** The value posted under `name` when this option is chosen — a stable id, never a
-   *  display string (the option a row filters TO must be the same option however it was
-   *  found: typed, arrowed to, or already selected on page load). */
-  value: string;
-  label: string;
-}
 
 export interface ComboboxProps {
   id: string;
@@ -91,15 +85,6 @@ export interface ComboboxProps {
   /** Appended to the shared `dash.textInput` look. Anything overriding a property
    *  `textInput` also sets must out-specify it — see `PhaseInvolvementEditor.module.css`. */
   className?: string;
-}
-
-/** Rows named `{ id, name }` — the shape most of this app's pickers already fetch — as
- *  options. The id goes to `value` and the name to `label`, never the other way round
- *  (AGENTS lesson 3: a picker's committed value is the id, not the display string). A
- *  picker whose value is not the id, or whose label is composed from more than `name`,
- *  maps inline at its own call site rather than growing options onto this. */
-export function toComboboxOptions(rows: { id: number; name: string }[]): ComboboxOption[] {
-  return rows.map((r) => ({ value: String(r.id), label: r.name }));
 }
 
 /** Case-insensitive substring, matching `DataTable`'s own key-column filter — the same

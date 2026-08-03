@@ -6,6 +6,8 @@ import { deriveEmail, normalizeHandle } from '../../lib/auth';
 import { getCurrentUser } from '../../lib/session';
 import { getLocale } from '../../lib/locale';
 import { t } from '../../lib/i18n';
+import Combobox from '../../components/Combobox';
+import { toComboboxOptions } from '../../lib/comboboxOptions';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,11 +70,18 @@ export default async function MePage(props: { searchParams: Promise<SearchParams
       <form action={createMyProfile} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
         {/* stub-mode override only; ignored when real auth is configured */}
         <input type="hidden" name="user" value={user} />
-        <select name="partnerId" required defaultValue=""
-          style={{ fontSize: '0.8125rem', padding: '0.375rem 0.625rem', border: '1px solid var(--border)', borderRadius: '0.375rem', background: 'var(--paper)' }}>
-          <option value="">{t(locale, 'selectPartner')}</option>
-          {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        {/* No className: `Combobox` already applies the shared `dash.textInput` look, so
+            passing it again would render the class twice and change nothing. The picker
+            therefore does NOT match this form's hand-rolled inline styles — the rest of the
+            page is still inline-styled, which is pre-existing and not this change's to
+            sweep. */}
+        <Combobox
+          id="mePartner" name="partnerId"
+          options={toComboboxOptions(partners)}
+          emptyLabel={t(locale, 'selectPartner')}
+          required
+          aria-label={t(locale, 'organizationLabel')}
+        />
         <button type="submit" data-testid="create-my-profile"
           style={{ fontSize: '0.8125rem', fontWeight: 600, padding: '0.375rem 0.875rem', border: '1px solid var(--p-600)', borderRadius: '0.375rem', background: 'var(--p-600)', color: 'var(--paper)', cursor: 'pointer' }}>
           {t(locale, 'createMyProfile')}

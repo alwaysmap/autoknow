@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState } from 'react';
 import { dismissAddress, trackPerson } from '../app/actions/people';
 import { inferPartnerFromAddress, type UntrackedContext } from '../lib/untrackedPeople';
+import Combobox from './Combobox';
+import { toComboboxOptions } from '../lib/comboboxOptions';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import dash from './ProjectStatusDashboard.module.css';
@@ -102,11 +104,17 @@ function TrackPersonDialog({ open, onClose, address, config, onResolved }: {
         </div>
         <div className={dash.textInputGroup}>
           <label htmlFor="tpPartner" className={dash.formLabel}>{t(locale, 'organizationLabel')}</label>
-          <select id="tpPartner" name="partnerId" required className={dash.textInput}
-            defaultValue={inferPartnerFromAddress(address, config.partners) ?? ''}>
-            <option value="">{t(locale, 'selectPartner')}</option>
-            {config.partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          <Combobox
+            id="tpPartner" name="partnerId"
+            options={toComboboxOptions(config.partners)}
+            // The address-derived guess stays a DEFAULT, not a commitment: it pre-fills the
+            // picker and the reader can type over it, which is the same contract the
+            // `<select>` had.
+            defaultValue={String(inferPartnerFromAddress(address, config.partners) ?? '')}
+            emptyLabel={t(locale, 'selectPartner')}
+            required
+            aria-label={t(locale, 'organizationLabel')}
+          />
         </div>
         <div className={dash.textInputGroup}>
           <label htmlFor="tpRole" className={dash.formLabel}>{t(locale, 'roleTitle')}</label>
