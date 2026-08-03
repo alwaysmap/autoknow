@@ -1011,7 +1011,7 @@ const STRINGS = {
   typePartnerNameExactly: { en: 'Type the partner name exactly', de: 'Partnernamen exakt eingeben', ja: 'パートナー名を正確に入力', ko: '파트너 이름을 정확히 입력' },
   // Programs and people are deliberately ABSENT from the list below: they block the
   // delete rather than being removed by it, and the dialog states those with its own
-  // counts above (autoknow-aa7). The lead-partner clause is there for the opposite
+  // counts in its blocked branch (autoknow-aa7). The lead-partner clause is there for the opposite
   // reason — `phase.leadPartnerId` is NOT a blocker (lib/partnerDeletion counts only
   // Project.partnerId and Person.currentPartnerId) but IS cleared, so deleting a partner
   // silently strips it as lead from phases on OTHER partners' programs. That is the one
@@ -1022,7 +1022,7 @@ const STRINGS = {
   deletePartnerWarning: {
     en: 'This permanently removes their relationship history, people affiliations, ingested sources, and phase involvements. Any phases they lead elsewhere will lose their lead partner.',
     de: 'Beziehungsverlauf, Personenzugehörigkeiten, erfasste Quellen und Phasenbeteiligungen werden dauerhaft entfernt. Phasen, die dieser Partner anderswo leitet, verlieren ihren Lead-Partner.',
-    ja: '関係履歴、人物の所属、取り込み済みソース、フェーズ参加が完全に削除されます。このパートナーが他で主導しているフェーズは、リードパートナーを失います。',
+    ja: '関係履歴、人物の所属、取り込み済みソース、フェーズへの関与が完全に削除されます。このパートナーが他で主導しているフェーズは、リードパートナーを失います。',
     ko: '관계 기록, 인물 소속, 수집된 소스, 단계 참여가 영구적으로 제거됩니다. 이 파트너가 다른 곳에서 주도하는 단계는 리드 파트너를 잃게 됩니다.',
   },
   confirmTypePartnerName: {
@@ -1144,10 +1144,11 @@ const STRINGS = {
   archiveProject: { en: 'Archive Program', de: 'Programm archivieren', ja: 'プログラムをアーカイブ', ko: '프로그램 보관' },
   deleteProject: { en: 'Delete Program', de: 'Programm löschen', ja: 'プログラムを削除', ko: '프로그램 삭제' },
   confirmProjectDeletion: { en: 'Confirm Program Deletion', de: 'Programmlöschung bestätigen', ja: 'プログラム削除の確認', ko: '프로그램 삭제 확인' },
-  // PROGRAM-only, both of these — a new entity gets its own pair, the way
-  // `deletePartnerWarning` / `confirmTypePartnerName` did. The partner dialog borrowed
-  // them once and spent months telling partner readers about phases and action items
-  // (autoknow-qz1).
+  // `deleteWarning` and `confirmTypeName` below are PROGRAM-only (`cannotBeUndone`
+  // between them is NOT — every delete dialog shares it). A new entity gets its own pair,
+  // the way `deletePartnerWarning` / `confirmTypePartnerName` did: the partner dialog
+  // borrowed these and spent months telling partner readers about phases and action
+  // items (autoknow-qz1).
   deleteWarning: {
     en: 'Are you sure you want to delete this program? This will permanently remove all associated phases, action items, and status log histories.',
     de: 'Dieses Programm wirklich löschen? Alle zugehörigen Phasen, Action Items und Statusverläufe werden dauerhaft entfernt.',
