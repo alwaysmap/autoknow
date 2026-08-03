@@ -117,7 +117,7 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
 
   return (
     <section className={styles.wrapper} data-testid="busiest-resources">
-      <AnchorHeading id="busiest-resources" linkLabel={t(locale, 'anchorLink')} className={styles.title}>
+      <AnchorHeading id="busiest-resources" className={styles.title}>
         {t(locale, 'clBusiest')}
       </AnchorHeading>
       <p className={styles.intro}>{t(locale, 'clBusiestIntro')}</p>

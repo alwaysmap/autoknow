@@ -81,7 +81,6 @@ export default async function Home() {
         >
           <AnchorHeading
             id="escalations"
-            linkLabel={t(locale, 'anchorLink')}
             actions={
               <KebabMenu ariaLabel={t(locale, 'moreActions')}>
                 <Link href="/escalations?status=open">{t(locale, 'escalationsLabel')}</Link>
@@ -118,7 +117,7 @@ export default async function Home() {
         {serializedProjects.length === 0 ? (
           <section className={styles.dashboardSection}>
             <div className={styles.sectionHeader}>
-              <AnchorHeading id="programs-at-risk" linkLabel={t(locale, 'anchorLink')}>
+              <AnchorHeading id="programs-at-risk">
                 {t(locale, 'programsAtRisk')}
               </AnchorHeading>
             </div>

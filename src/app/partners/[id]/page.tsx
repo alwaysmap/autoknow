@@ -247,7 +247,6 @@ export default async function PartnerDetailPage(props: PageProps) {
                 programs list header (src/app/programs/page.tsx). */}
             <AnchorHeading
               id="programs"
-              linkLabel={t(locale, 'anchorLink')}
               actions={
                 <KebabMenu ariaLabel={t(locale, 'moreActions')}>
                   <Link href={`/programs/new?partnerId=${partner.id}`} data-testid="new-program">
@@ -267,7 +266,6 @@ export default async function PartnerDetailPage(props: PageProps) {
                 drops in unchanged from the rail card it used to sit in. */}
             <AnchorHeading
               id="people"
-              linkLabel={t(locale, 'anchorLink')}
               actions={<NewPersonButton partners={allPartners} defaultPartnerId={partner.id} />}
             >
               {t(locale, 'peopleLabel')}
@@ -281,7 +279,6 @@ export default async function PartnerDetailPage(props: PageProps) {
                 list, not to a fixed panel about one entity (EscalationRows says why). */}
             <AnchorHeading
               id="escalations"
-              linkLabel={t(locale, 'anchorLink')}
               actions={
                 <KebabMenu ariaLabel={t(locale, 'moreActions')}>
                   <Link href={`/escalations?partner=${encodeURIComponent(partner.name)}`}>
@@ -296,7 +293,7 @@ export default async function PartnerDetailPage(props: PageProps) {
           </section>
 
           <section className={styles.projectsSection}>
-            <AnchorHeading id="activity" linkLabel={t(locale, 'anchorLink')}>
+            <AnchorHeading id="activity">
               {t(locale, 'navActivity')}
             </AnchorHeading>
             {/* Activity is filtered by ActivityFeed's own SearchField (over the

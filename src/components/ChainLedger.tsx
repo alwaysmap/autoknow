@@ -322,7 +322,6 @@ export default function ChainLedger({
     <section className={styles.wrapper} data-testid="chain-ledger">
       <AnchorHeading
         id="critical-chain"
-        linkLabel={t(locale, 'anchorLink')}
         actions={
           /* the key lives behind the ⓘ, not on the page (design.md §7) — same
              pattern as the Phases decoder */

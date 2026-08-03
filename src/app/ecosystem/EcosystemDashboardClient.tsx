@@ -93,7 +93,7 @@ export default function EcosystemDashboardClient({
 
       {/* Main Database Table */}
       <section className={styles.tableSection}>
-        <AnchorHeading id="programs-at-risk" linkLabel={t(locale, 'anchorLink')}>
+        <AnchorHeading id="programs-at-risk">
           {t(locale, 'programsAtRisk')}
         </AnchorHeading>
         <DataTable

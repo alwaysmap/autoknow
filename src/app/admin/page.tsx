@@ -93,7 +93,7 @@ export default async function AdminPage() {
 
       {/* Simulation & Integrations Help */}
       <section className={styles.helpSection}>
-        <AnchorHeading id="simulate-chat" linkLabel={t(locale, 'anchorLink')}>
+        <AnchorHeading id="simulate-chat">
           {t(locale, 'simulateChatHeading')}
         </AnchorHeading>
         <p className={styles.helpIntro}>
