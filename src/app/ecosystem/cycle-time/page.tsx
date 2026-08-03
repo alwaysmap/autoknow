@@ -4,15 +4,25 @@ import { t } from '../../../lib/i18n';
 import PageShell from '../../../components/PageShell';
 import CycleTimeScatterPlot from '../../../components/CycleTimeScatterPlot';
 
-// The phase cycle-time view (autoknow-7ii). Its own page, not a section on /ecosystem: the
-// chart is ONE ROW PER PHASE NAME, so its height is set by the portfolio's vocabulary
-// rather than by a layout choice — 44 names in the demo seed, and it grows with the
-// business. On the dashboard that made it taller than every other section combined and
-// pushed the briefing below the fold; here it can be exactly as tall as it needs to be,
-// which is the only place a chart like this reads honestly.
+// The phase cycle-time view (autoknow-7ii), and THE statement of why it lives here rather
+// than on /ecosystem — the two pointers back at this file (the dashboard's kebab and the
+// component's CSS) exist so this argument has one home.
+//
+// The chart is ONE ROW PER PHASE NAME, so its height is set by the portfolio's vocabulary
+// rather than by a layout choice: 44 names in the demo seed at 60px each, and it grows
+// with the business. Rendered honestly that is ~3800px — taller than the whole dashboard
+// put together, which is why it is not a section there.
+//
+// It WAS on the dashboard until 2026-07-18 (`0ae0aa5`), removed when that page was slimmed
+// to strip + briefing. This does not reopen that decision: the chart is not returning to
+// /ecosystem, it is getting the one surface where its height is nobody else's problem.
+// Note it was never TALL there — `.container` pinned it to 400px, so what that page showed
+// was the crushed sliver the component's CSS comment describes.
 //
 // The data comes from the same `getEcosystemDashboardData` the dashboard calls — this page
 // adds no new query, it renders fields that were already being computed and discarded.
+
+export const dynamic = 'force-dynamic';
 
 export default async function CycleTimePage() {
   const locale = await getLocale();
