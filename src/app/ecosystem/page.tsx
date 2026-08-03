@@ -51,13 +51,51 @@ export default async function Home() {
       }
       maxWidth="68.75rem"
     >
-        {/* answered in time by the capacity chart below */}
+        {/* answered in time by the capacity chart further down the page */}
         <EcosystemStatStrip
           programs={serializedProjects}
           relationshipScores={relationshipScores}
           now={now}
           openEscalationCount={openEscalationCount}
         />
+
+        {/* Escalations sit SECOND, directly under the strip (2026-08-03, user call).
+            The strip's fourth tile already counts open escalations, so the section
+            immediately below it is that tile's detail — the tile says how many, this
+            says which — and the most time-sensitive thing on the page stops being the
+            last thing read. This costs the capacity chart the fold, which is a decision,
+            not a side effect: reading the ramp is considered work, and an open S1 is not.
+
+            Recent activity retired from this page (2026-07-18): the ecosystem page
+            is the leadership strip + briefing; activity lives on partner/program
+            pages where it has an anchor. This panel is NOT that — it does not
+            reopen 2026-07-18's decision. It is a fixed, pre-canned READ of one
+            entity (open escalations across the portfolio), the same shape the
+            strip tiles above already are, not a stream of everything that happened. */}
+        {/* The tint is gated on the SAME emptiness `EscalationRows` renders `emptyLabel`
+            for — design.md §1's new exception makes non-emptiness a rule, so if the
+            component ever starts filtering its own rows these two must be reconciled
+            rather than left to disagree into an alarm panel over "No open escalations." */}
+        <section
+          className={`${styles.dashboardSection} ${escalations.length > 0 ? styles.escalationsPanel : ''}`}
+        >
+          <AnchorHeading
+            id="escalations"
+            linkLabel={t(locale, 'anchorLink')}
+            actions={
+              <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+                <Link href="/escalations?status=open">{t(locale, 'escalationsLabel')}</Link>
+              </KebabMenu>
+            }
+          >
+            {t(locale, 'escalationsLabel')}
+          </AnchorHeading>
+          <EscalationRows
+            escalations={escalations}
+            locale={locale}
+            emptyLabel={t(locale, 'escNoOpenEscalations')}
+          />
+        </section>
 
         {/* the capacity picture gets the full page width — it's the chart leadership
             actually reads, and hover needs room */}
@@ -77,31 +115,6 @@ export default async function Home() {
           <SummaryPanel scope="ecosystem" targetId={0} path="/ecosystem"
             summary={summary} configured={geminiConfigured} />
         </section>
-        {/* Recent activity retired from this page (2026-07-18): the ecosystem page
-            is the leadership strip + briefing; activity lives on partner/program
-            pages where it has an anchor. This panel is NOT that — it does not
-            reopen 2026-07-18's decision. It is a fixed, pre-canned READ of one
-            entity (open escalations across the portfolio), the same shape the
-            strip tiles above already are, not a stream of everything that happened. */}
-        <section className={styles.dashboardSection}>
-          <AnchorHeading
-            id="escalations"
-            linkLabel={t(locale, 'anchorLink')}
-            actions={
-              <KebabMenu ariaLabel={t(locale, 'moreActions')}>
-                <Link href="/escalations?status=open">{t(locale, 'escalationsLabel')}</Link>
-              </KebabMenu>
-            }
-          >
-            {t(locale, 'escalationsLabel')}
-          </AnchorHeading>
-          <EscalationRows
-            escalations={escalations}
-            locale={locale}
-            emptyLabel={t(locale, 'escNoOpenEscalations')}
-          />
-        </section>
-
         {serializedProjects.length === 0 ? (
           <section className={styles.dashboardSection}>
             <div className={styles.sectionHeader}>

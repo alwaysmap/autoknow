@@ -1009,6 +1009,31 @@ const STRINGS = {
   confirmPartnerDeletion: { en: 'Delete this partner?', de: 'Diesen Partner löschen?', ja: 'このパートナーを削除しますか？', ko: '이 파트너를 삭제하시겠습니까?' },
   permanentlyDeletePartner: { en: 'Permanently delete partner', de: 'Partner endgültig löschen', ja: 'パートナーを完全に削除', ko: '파트너 영구 삭제' },
   typePartnerNameExactly: { en: 'Type the partner name exactly', de: 'Partnernamen exakt eingeben', ja: 'パートナー名を正確に入力', ko: '파트너 이름을 정확히 입력' },
+  // Programs and people are deliberately ABSENT from the list below: they block the
+  // delete rather than being removed by it, and the dialog states those with its own
+  // counts in its blocked branch (autoknow-aa7). The lead-partner clause is there for
+  // the opposite reason — `phase.leadPartnerId` is NOT a blocker (lib/partnerDeletion
+  // counts only Project.partnerId and Person.currentPartnerId) but IS cleared, so
+  // deleting a partner strips it as lead from phases on OTHER partners' programs.
+  //
+  // NOT a complete accounting of what the delete touches, and do not read it as one.
+  // `Escalation.partnerId` is ON DELETE SET NULL and nothing here mentions it, which is
+  // a real gap rather than a considered omission — tracked as autoknow-40f, and this
+  // sentence gets revisited when that lands. Cached summaries are omitted on purpose:
+  // derived, not authored. No leading question: `confirmPartnerDeletion` is the dialog
+  // TITLE and already asks one (autoknow-qz1).
+  deletePartnerWarning: {
+    en: 'This permanently removes their relationship history, people affiliations, ingested sources, and phase involvements. Any phases they lead elsewhere will lose their lead partner.',
+    de: 'Beziehungsverlauf, Personenzugehörigkeiten, erfasste Quellen und Phasenbeteiligungen werden dauerhaft entfernt. Phasen, die dieser Partner anderswo leitet, verlieren ihren Lead-Partner.',
+    ja: '関係履歴、人物の所属、取り込み済みソース、フェーズへの関与が完全に削除されます。このパートナーが他で主導しているフェーズは、リードパートナーを失います。',
+    ko: '관계 기록, 인물 소속, 수집된 소스, 단계 참여가 영구적으로 제거됩니다. 이 파트너가 다른 곳에서 주도하는 단계는 리드 파트너를 잃게 됩니다.',
+  },
+  confirmTypePartnerName: {
+    en: 'Please type the name of the partner to confirm',
+    de: 'Zur Bestätigung bitte den Partnernamen eingeben',
+    ja: '確認のためパートナー名を入力してください',
+    ko: '확인을 위해 파트너 이름을 입력하세요',
+  },
   partnerHasPrograms: {
     en: 'This partner still owns {n} program(s) — reassign or delete them first.',
     de: 'Dieser Partner besitzt noch {n} Programm(e) — zuerst neu zuordnen oder löschen.',
@@ -1122,6 +1147,11 @@ const STRINGS = {
   archiveProject: { en: 'Archive Program', de: 'Programm archivieren', ja: 'プログラムをアーカイブ', ko: '프로그램 보관' },
   deleteProject: { en: 'Delete Program', de: 'Programm löschen', ja: 'プログラムを削除', ko: '프로그램 삭제' },
   confirmProjectDeletion: { en: 'Confirm Program Deletion', de: 'Programmlöschung bestätigen', ja: 'プログラム削除の確認', ko: '프로그램 삭제 확인' },
+  // `deleteWarning` and `confirmTypeName` below are PROGRAM-only (`cannotBeUndone`
+  // between them is NOT — the program and partner dialogs both render it). A new entity
+  // gets its own pair, the way `deletePartnerWarning` / `confirmTypePartnerName` did:
+  // the partner dialog borrowed these two and shipped that way for two weeks, telling
+  // partner readers about phases and action items (autoknow-qz1).
   deleteWarning: {
     en: 'Are you sure you want to delete this program? This will permanently remove all associated phases, action items, and status log histories.',
     de: 'Dieses Programm wirklich löschen? Alle zugehörigen Phasen, Action Items und Statusverläufe werden dauerhaft entfernt.',
@@ -1300,6 +1330,12 @@ const STRINGS = {
   activeBlockers: { en: '{n} active blockers', de: '{n} aktive Blocker', ja: 'アクティブなブロッカー{n}件', ko: '활성 블로커 {n}건' },
   noPendingActionItems: { en: 'No pending action items detected. Clear skies! ☀️', de: 'Keine offenen Action Items. Freie Fahrt! ☀️', ja: '未処理のアクションアイテムはありません。快晴です！☀️', ko: '대기 중인 액션 아이템이 없습니다. 맑음! ☀️' },
   programsAtRisk: { en: 'Programs at Risk', de: 'Gefährdete Programme', ja: 'リスクのあるプログラム', ko: '위험 프로그램' },
+  // The ecosystem risk table has no filter chrome, so `noProgramsMatchFilters` would
+  // name a control the reader cannot see. Empty here is the good news — nothing is
+  // Concerned. This wording and the "Programs at Risk" heading it sits under are both
+  // the user's call (2026-08-03): the vocabulary gap between them is known and kept,
+  // so do not "fix" it into agreement.
+  noCurrentConcerns: { en: 'No current concerns', de: 'Keine aktuellen Bedenken', ja: '現在、懸念なし', ko: '현재 우려 없음' },
   welcomeAutoknow: { en: 'Welcome to AutoKnow 🌱', de: 'Willkommen bei AutoKnow 🌱', ja: 'AutoKnowへようこそ 🌱', ko: 'AutoKnow에 오신 것을 환영합니다 🌱' },
   onboardingIntro: {
     en: 'This tracker helps teams align on Android Automotive OS integrations, Google Automotive Services, and Digital Key standards. Get started by launching your first program from a standard template:',
@@ -2194,11 +2230,26 @@ const STRINGS = {
     ko: '최근 4주 버퍼 변화 · 걸린 규모',
   },
   clLostDays: { en: '{name} lost {d} days', de: '{name} verlor {d} Tage', ja: '{name}は{d}日減', ko: '{name} {d}일 감소' },
+  // Just "no change" since 2026-08-03: the trailing "nothing to do here" was the part
+  // that actively wasted the row, and the disclosure control below the table now carries
+  // that meaning once for the whole collapsed group instead of on every line.
   clNoChangeCell: {
-    en: 'no change — nothing to do here',
-    de: 'keine Änderung — hier ist nichts zu tun',
-    ja: '変化なし — 対応不要',
-    ko: '변화 없음 — 조치 불필요',
+    en: 'no change',
+    de: 'keine Änderung',
+    ja: '変化なし',
+    ko: '변화 없음',
+  },
+  clBusiestQuietShow: {
+    en: 'Show {n} more with nothing to act on',
+    de: '{n} weitere ohne Handlungsbedarf anzeigen',
+    ja: '対応不要の他{n}件を表示',
+    ko: '조치가 필요 없는 {n}건 더 보기',
+  },
+  clBusiestQuietHide: {
+    en: 'Hide {n} with nothing to act on',
+    de: '{n} ohne Handlungsbedarf ausblenden',
+    ja: '対応不要の{n}件を隠す',
+    ko: '조치가 필요 없는 {n}건 숨기기',
   },
   clUnitsIn: { en: '{units} units in {year}', de: '{units} Einheiten in {year}', ja: '{year}に{units}台', ko: '{year}에 {units}대' },
   clNMore: { en: '{n} more', de: '{n} weitere', ja: '他{n}件', ko: '외 {n}건' },
@@ -2284,6 +2335,15 @@ const STRINGS = {
   escTargetDate: { en: 'Target', de: 'Ziel', ja: '目標期日', ko: '목표일' },
   escNoTarget: { en: 'No target set', de: 'Kein Ziel gesetzt', ja: '目標期日なし', ko: '목표일 없음' },
   escOverdue: { en: 'Overdue', de: 'Überfällig', ja: '期限超過', ko: '기한 초과' },
+  // The accessible name of the urgency glyph on an escalation row — it says what the mark
+  // MEANS, not what it depicts ("warning triangle" would describe the picture and leave a
+  // screen-reader user to guess why it is there).
+  escUrgentMark: {
+    en: 'Needs attention now',
+    de: 'Erfordert jetzt Aufmerksamkeit',
+    ja: '今すぐ対応が必要',
+    ko: '지금 조치가 필요함',
+  },
   escOverdueTitle: {
     en: 'Past its target date and still open.',
     de: 'Zieldatum überschritten und weiterhin offen.',

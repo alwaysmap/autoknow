@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/db';
 import { getCurrentUser } from '../../lib/session';
 
@@ -17,10 +18,61 @@ async function requireEditable(templateId: number) {
   return t;
 }
 
+/** How a caller numbers its candidates: given 1, 2, 3… it returns the name to try. */
+type NameSeries = (n: number) => string;
+
+/**
+ * The first name in a series that no user template already holds.
+ *
+ * `ProgramTemplate` is `@@unique([name, isBuiltIn])`, so a writer that picks a name
+ * without consulting the table throws P2002 out of a server action — which fails before
+ * its `redirect`, leaving the user on /templates with a generic error and no template.
+ * Both CONSTANT-name writers here route through this. `updateTemplateMeta` deliberately
+ * does not — a name the user typed should come back as a validation message naming the
+ * conflict, never be silently renumbered into something they did not ask to save — but
+ * that message does not exist yet and it still throws a raw P2002 (autoknow-6ls).
+ *
+ * `series` receives 1 for the first candidate, so the caller decides whether that reads
+ * "X (copy)" or "New template" and only the LATER ones carry a number.
+ *
+ * Bounded by construction: the candidates are distinct, so one of the first `taken.size
+ * + 1` of them must be free. Scoped to `isBuiltIn: false` because that is the half of
+ * the unique key every row written here lands on.
+ */
+async function firstFreeTemplateName(
+  db: Prisma.TransactionClient,
+  series: NameSeries,
+): Promise<string> {
+  const rows = await db.programTemplate.findMany({
+    where: { isBuiltIn: false },
+    select: { name: true },
+  });
+  const taken = new Set(rows.map((r) => r.name));
+  for (let n = 1; n <= taken.size + 1; n++) {
+    const candidate = series(n);
+    if (!taken.has(candidate)) return candidate;
+  }
+  // Unreachable while the candidates stay distinct — a `series` that ignores `n` would
+  // land here rather than silently colliding at the database.
+  throw new Error('Could not find a free template name');
+}
+
+/** "X (copy)", then "X (copy 2)" — the number rides INSIDE the parenthesis so the copy
+ *  marker stays one token. Applied to the source's whole name, so cloning something
+ *  already called "X (copy)" yields "X (copy) (copy)": repetitive, but it never silently
+ *  re-points the reader at a different lineage than the one they cloned. */
+const copyName = (sourceName: string): NameSeries => (n) =>
+  n === 1 ? `${sourceName} (copy)` : `${sourceName} (copy ${n})`;
+
+/** "New template", then "New template 2" — no parenthesis to sit inside, so the number
+ *  trails. A fresh template is named by its author moments later; this only has to be
+ *  free and obviously provisional. */
+const newTemplateName: NameSeries = (n) => (n === 1 ? 'New template' : `New template ${n}`);
+
 export async function createTemplate() {
   const createdBy = (await getCurrentUser()).handle;
   const t = await prisma.programTemplate.create({
-    data: { name: 'New template', createdBy },
+    data: { name: await firstFreeTemplateName(prisma, newTemplateName), createdBy },
   });
   revalidatePath('/templates');
   redirect(`/templates/${t.id}/edit`);
@@ -35,9 +87,22 @@ export async function cloneTemplate(formData: FormData) {
   if (!source) throw new Error('Unknown template');
 
   const createdBy = (await getCurrentUser()).handle;
+  // The name pick runs inside the transaction so it and the phase copy are one unit of
+  // work — NOT because that serializes it. This `$transaction` takes no `isolationLevel`,
+  // so it runs at READ COMMITTED and a concurrent clone may still commit between that read
+  // and its write; `@@unique([name, isBuiltIn])` is what stops that becoming a duplicate,
+  // exactly as `prisma/schema.prisma` describes it. Two people cloning the same template
+  // in the same instant can still see the P2002 — the sequential case this fixes is the
+  // one that was reachable by one person clicking twice. Making the race impossible is
+  // `dependencies.ts`'s explicit Serializable isolation, which costs retry handling this
+  // does not need.
   const copy = await prisma.$transaction(async (tx) => {
     const created = await tx.programTemplate.create({
-      data: { name: `${source.name} (copy)`, description: source.description, createdBy },
+      data: {
+        name: await firstFreeTemplateName(tx, copyName(source.name)),
+        description: source.description,
+        createdBy,
+      },
     });
     const idMap = new Map<number, number>();
     for (const p of source.phases) {

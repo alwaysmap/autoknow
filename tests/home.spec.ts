@@ -1,6 +1,7 @@
 import { test, expect } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
+import type { Health } from '../src/lib/health';
 
 // Two smoke tests, one per surface, after the 2026-07-20 split: `/` is the landing
 // page (search is the point), `/ecosystem` is the leadership dashboard that used to
@@ -27,9 +28,42 @@ test.describe('Landing page (/)', () => {
 test.describe('Ecosystem dashboard (/ecosystem)', () => {
   test.describe.configure({ mode: 'serial' });
 
+  // Every program here needs a partner, and every partner a region (schema.prisma:
+  // Partner.regionId is non-optional); the seeding tests below do not vary it, so it
+  // is one shape rather than three copies.
+  const region = { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } };
+
   test('renders the leadership dashboard (smoke)', async ({ page }) => {
     await page.goto('/ecosystem');
     await expect(page.getByRole('heading', { name: 'Programs at Risk', exact: true })).toBeVisible();
+  });
+
+  // The table's admission rule is a SEMANTIC promise — "Programs at Risk" means
+  // currently Concerned, nothing milder — and it lives inline in a client component,
+  // so a real render is the only place to hold it. It was silently "Some Risk or
+  // worse" until 2026-08-03, with nothing asserting either version.
+  test('the risk table shows only currently-Concerned programs', async ({ page }) => {
+    await wipeAll();
+
+    const mkProgramAtHealth = async (name: string, partnerName: string, theNeedle: Health) => {
+      const partner = await prisma.partner.create({ data: { name: partnerName, region } });
+      await prisma.project.create({
+        data: { name, partnerId: partner.id, theNeedle, hillChartProgress: 30, volumeFirstYear: 1000 },
+      });
+    };
+
+    // One program per health state: the one the equality admits, and the two it excludes.
+    await mkProgramAtHealth('Concerned Bring-up', 'Concerned Partner Co', 'Concerned');
+    await mkProgramAtHealth('Some Risk Bring-up', 'Some Risk Partner Co', 'Some Risk');
+    await mkProgramAtHealth('On Track Bring-up', 'On Track Partner Co', 'On Track');
+
+    await page.goto('/ecosystem');
+    const riskSection = page.getByRole('heading', { name: 'Programs at Risk', exact: true })
+      .locator('xpath=ancestor::section[1]');
+
+    await expect(riskSection.getByRole('link', { name: 'Concerned Bring-up' })).toBeVisible();
+    await expect(riskSection.getByRole('link', { name: 'Some Risk Bring-up' })).toHaveCount(0);
+    await expect(riskSection.getByRole('link', { name: 'On Track Bring-up' })).toHaveCount(0);
   });
 
   // The one coupling worth e2e minutes on this page: the relationship-mix tile
@@ -40,7 +74,6 @@ test.describe('Ecosystem dashboard (/ecosystem)', () => {
   // "unrated" count are covered because they use different tokens.
   test('relationship-mix links open the partners list filtered to that class', async ({ page }) => {
     await wipeAll();
-    const region = { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } };
     const strong = await prisma.partner.create({ data: { name: 'Strong Partner Co', region } });
     const strained = await prisma.partner.create({ data: { name: 'Strained Partner Co', region } });
     // A partner with no state at all — never rated — so the "unrated" link has a target.
@@ -82,10 +115,9 @@ test.describe('Ecosystem dashboard (/ecosystem)', () => {
   // exactly the exhausted one.
   test('the SOP-at-risk tile opens the programs list filtered to the buffer-exhausted programs', async ({ page }) => {
     await wipeAll();
-    const region = { connectOrCreate: { where: { name: 'AMER' }, create: { name: 'AMER' } } };
     const DAY = 86_400_000;
 
-    const mkProgram = async (name: string, partnerName: string, sopDate: Date) => {
+    const mkProgramWithSop = async (name: string, partnerName: string, sopDate: Date) => {
       const partner = await prisma.partner.create({ data: { name: partnerName, region } });
       const project = await prisma.project.create({
         data: { name, partnerId: partner.id, hillChartProgress: 30, volumeFirstYear: 1000, sopDate },
@@ -98,9 +130,9 @@ test.describe('Ecosystem dashboard (/ecosystem)', () => {
     };
 
     // Active + SOP already in the past → the remaining chain work can't fit: buffer gone.
-    await mkProgram('Late Bring-up', 'Late Partner Co', new Date(Date.now() - 10 * DAY));
+    await mkProgramWithSop('Late Bring-up', 'Late Partner Co', new Date(Date.now() - 10 * DAY));
     // Active + SOP far in the future → buffer intact.
-    await mkProgram('On-Track Bring-up', 'OnTrack Partner Co', new Date(Date.now() + 800 * DAY));
+    await mkProgramWithSop('On-Track Bring-up', 'OnTrack Partner Co', new Date(Date.now() + 800 * DAY));
 
     await page.goto('/ecosystem');
     const tile = page.getByTestId('sop-risk-stat').getByRole('link');

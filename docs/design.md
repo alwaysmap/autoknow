@@ -7,7 +7,19 @@ This document defines the core product design decisions, graphic presentation st
 ## 1. Edward Tufte Data-Ink Principles
 To maximize readability and ensure a clean, distraction-free environment:
 * **No Excess Borders**: Do not use heavy borders, drop shadows, or background wrappers around page sections, cards, or lists. All standard cards/panels must be transparent and borderless.
-* **Separated Filter Bars**: The only exception to the border rule is the **Filter Bar** concept. Controls, status gauges, search inputs, and sliders must be grouped inside a dedicated card styled with a cream background (`var(--surface)`), thin solid border, and rounded corners to separate them visually from database reports.
+* **Separated Filter Bars**: The first exception to the border rule is the **Filter Bar** concept. Controls, status gauges, search inputs, and sliders must be grouped inside a dedicated card styled with a cream background (`var(--surface)`), thin solid border, and rounded corners to separate them visually from database reports.
+* **A block that ASKS rather than REPORTS may take a tint** (2026-08-03, user call —
+  the second and, so far, last exception). `/ecosystem`'s escalations section is
+  the only block on that page addressed to somebody who must act today; everything
+  around it reports state. The tint is what marks that difference, and the exception
+  generalizes the Filter Bar's own logic rather than widening it: a wrapper is legal
+  when the block is a **different kind of thing** from its neighbours, never to give
+  an ordinary section emphasis. Constraints that come with it: the tint is a `-soft`
+  status token (never a new colour, §8b), it must not out-shout whatever tile or
+  count already reports the same fact elsewhere on the page, and it renders **only
+  when the block is non-empty** — an empty state inside an alarm panel is an alarm
+  about nothing. Two tinted sections on one page means this is being used for
+  emphasis, and the second one is wrong.
 * **Minimalist Tables**:
   * Tables must have generous breathing room (`padding: 0.875rem 1.125rem !important` on cells — 14/18px equivalent; rem-first per §9).
   * Use only thin horizontal rules (`border-bottom: 1px solid var(--border)`).
