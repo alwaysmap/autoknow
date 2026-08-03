@@ -173,7 +173,7 @@ export default function PartnerAdminControls({
         ) : (
           <>
             <p className={admin.warningText}>
-              {t(locale, 'deleteWarning')} <strong>{t(locale, 'cannotBeUndone')}</strong>
+              {t(locale, 'deletePartnerWarning')} <strong>{t(locale, 'cannotBeUndone')}</strong>
             </p>
             <form
               action={async (fd) => { await runAction(fd, async (f) => (isConfirmed ? deletePartner(f) : {})); }}
@@ -183,7 +183,7 @@ export default function PartnerAdminControls({
               <input type="hidden" name="partnerId" value={partner.id} />
               <div className={admin.formGroup}>
                 <label htmlFor="confirmPartnerName" className={admin.formLabel}>
-                  {t(locale, 'confirmTypeName')} (<strong>{partner.name}</strong>):
+                  {t(locale, 'confirmTypePartnerName')} (<strong>{partner.name}</strong>):
                 </label>
                 <input
                   id="confirmPartnerName"
