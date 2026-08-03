@@ -9,6 +9,8 @@
 import { relUpdateHash } from './relationship';
 import { statusUpdateHash } from './needle';
 
+import type { SummaryScope } from './summaryPrompts';
+
 export const personHref = (id: number): string => `/people/${id}`;
 export const partnerHref = (id: number): string => `/partners/${id}`;
 export const programHref = (id: number): string => `/programs/${id}`;
@@ -18,6 +20,17 @@ export const programHref = (id: number): string => `/programs/${id}`;
  *  a thread that keeps it forever, and AI-brief citations persist hrefs — so retiring or
  *  moving it later means migrating rows, not grepping `src/**` (AGENTS lesson 15). */
 export const escalationHref = (id: number): string => `/escalations/${id}`;
+
+/** Where a leadership brief LIVES, for the citation on the previous-brief evidence record
+ *  (#236). There is no per-brief URL — a scope's panel always shows its newest — so this
+ *  addresses the page that rendered it, the honest target for "the claim you already
+ *  have". Here rather than in `summaries.ts` for the same reason as `escalationHref`
+ *  above: a brief citation persists its href, so this one is DATA (AGENTS lesson 15). */
+export const summaryScopeHref = (scope: SummaryScope, targetId: number): string => {
+  if (scope === 'program') return programHref(targetId);
+  if (scope === 'partner') return partnerHref(targetId);
+  return '/ecosystem';
+};
 
 export { phaseHref, phaseProgressHref, phaseUpdateHref } from './phase';
 
