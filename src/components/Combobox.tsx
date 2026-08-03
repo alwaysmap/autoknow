@@ -32,18 +32,25 @@ import styles from './Combobox.module.css';
 // currently selected, so the input can never show a string that does not match the
 // value the form will actually submit.
 //
-// SCOPE (recorded here so the next reader does not have to reconstruct it from the
-// diff): this ships the primitive and wires it into `EscalationEditor`'s five pickers —
-// the case the report was filed against. `PartnerEditor`, `ProjectMetaHeader`'s owner
-// picker, `PhaseInvolvementEditor` and `PersonEditor` still use bare `<select>`s; folding
-// them in is the same "add a prop, never fork it" move once someone is next in those
-// files. The `DataTable` column-funnel half of the original report (open the funnel,
-// type to narrow the checklist) is DELIBERATELY NOT attempted here — it is a genuinely
-// different UI shape (a multi-select checklist with OR-together semantics, not a single
-// committed value) and touches the highest-blast-radius shared component in the app;
-// see the follow-up issue for the open design question that has to be answered first
-// (whether the funnel needs its own `multiple`-aware variant of this component, or a
-// text filter bolted onto the existing checklist).
+// SCOPE. This is now every entity picker in the app: `EscalationEditor`'s five,
+// `ProjectMetaHeader`'s lead-partner and owner, `PersonEditor`'s partner/program/new-
+// person-partner, and `PhaseInvolvementEditor`'s.
+//
+// What is deliberately still a bare `<select>`, because the reason for this component is
+// a list UNBOUNDED BY CONSTRUCTION and these are not: `PartnerEditor`'s type (`OEM` /
+// `Supplier`) and region (`AMER` / `EMEA` / `APAC`) are closed lookup tables, and
+// `PersonEditor`'s phase picker is the phases of ONE already-chosen program. Below about
+// a screenful a native `<select>` is strictly better — one tap to the OS picker on a
+// phone, no filtering to explain — so converting those would cost the reader to buy
+// nothing. A lookup table growing past a screenful is the signal to revisit.
+//
+// The `DataTable` column-funnel half of the original report (open the funnel, type to
+// narrow the checklist) is DELIBERATELY NOT attempted here — it is a genuinely different
+// UI shape (a multi-select checklist with OR-together semantics, not a single committed
+// value) and touches the highest-blast-radius shared component in the app; see the
+// follow-up issue for the open design question that has to be answered first (whether the
+// funnel needs its own `multiple`-aware variant of this component, or a text filter
+// bolted onto the existing checklist).
 
 export interface ComboboxOption {
   /** The value posted under `name` when this option is chosen — a stable id, never a
@@ -66,8 +73,36 @@ export interface ComboboxProps {
    *  always-offered choice (the native `<select>`'s `<option value="">…</option>` row) —
    *  typing part of this word finds it exactly like any other option. */
   emptyLabel: string;
+  /** Native constraint validation, and it rides the VISIBLE input rather than the hidden
+   *  one that carries the value: a `type="hidden"` control is barred from validation
+   *  altogether, and the usual workaround — a real input hidden with `display:none` — is
+   *  worse than nothing, because the browser cannot focus it to report the violation and
+   *  silently refuses to submit at all. The visible input is safe to validate because
+   *  this component keeps it and `selectedId` in lockstep: it is empty exactly when
+   *  nothing is selected (see `revertAndClose`, and the no-match `Enter` branch). */
+  required?: boolean;
+  /** Fired on an explicit choice only — never while typing, so a caller deriving state
+   *  from it (a dependent picker, a conditional `required`) sees committed values only,
+   *  matching what a native `<select onChange>` would have given it. */
+  onChange?: (value: string) => void;
+  /** For a picker that is REVEALED by an explicit action rather than present on load —
+   *  the reader has already said "add one", so the field they asked for takes focus, and
+   *  because focus opens the list they land on it ready to type. */
+  autoFocus?: boolean;
   'aria-label'?: string;
+  /** Appended to the shared `dash.textInput` look. Both are single-class selectors, so a
+   *  declaration you need to WIN must out-specify it (`.parent .yours`) rather than rely
+   *  on the order they land in the bundle. */
   className?: string;
+}
+
+/** Rows named `{ id, name }` — the shape most of this app's pickers already fetch — as
+ *  options. The id goes to `value` and the name to `label`, never the other way round
+ *  (AGENTS lesson 3: a picker's committed value is the id, not the display string). A
+ *  picker whose value is not the id, or whose label is composed from more than `name`,
+ *  maps inline at its own call site rather than growing options onto this. */
+export function toComboboxOptions(rows: { id: number; name: string }[]): ComboboxOption[] {
+  return rows.map((r) => ({ value: String(r.id), label: r.name }));
 }
 
 /** Case-insensitive substring, matching `DataTable`'s own key-column filter — the same
@@ -82,6 +117,9 @@ export default function Combobox({
   options,
   defaultValue = '',
   emptyLabel,
+  required,
+  onChange,
+  autoFocus,
   'aria-label': ariaLabel,
   className,
 }: ComboboxProps) {
@@ -138,6 +176,7 @@ export default function Combobox({
     setEditing(false);
     setOpen(false);
     setFocusToken((t) => t + 1);
+    onChange?.(option.value);
   };
 
   // Position the list while open, and keep it anchored as the trigger scrolls/resizes —
@@ -199,6 +238,18 @@ export default function Combobox({
     if (focusToken > 0) inputRef.current?.focus();
   }, [focusToken]);
 
+  // Initial focus through an effect rather than React's `autoFocus` prop. `autoFocus`
+  // focuses during the commit phase, so this component's own `onFocus` — which calls
+  // `setOpen` — would run against a tree still mounting; an effect is an unambiguously
+  // post-mount moment. It is the same reason `focusToken` above does its ref work here
+  // instead of inline, so the file stays consistent about where focus is touched.
+  // Mount-only on purpose — `autoFocus` states an intent for the first render, and a
+  // later flip must not yank focus out from under whatever the reader is doing.
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -218,6 +269,15 @@ export default function Combobox({
       if (open && filtered[activeIndex]) {
         e.preventDefault();
         choose(filtered[activeIndex]);
+      } else if (open) {
+        // Enter on a query that matches NOTHING. Falling through would submit the form
+        // while the field still displays text that was never committed — the one state
+        // this component exists to make impossible, and the state `required` on the
+        // visible input would be read against. So it means the same thing Escape does:
+        // abandon what was typed. The form is not submitted by this keystroke; a second
+        // Enter submits, now with the field showing exactly what it will post.
+        e.preventDefault();
+        revertAndClose();
       }
     } else if (e.key === 'Escape') {
       if (open) {
@@ -241,6 +301,7 @@ export default function Combobox({
         aria-label={ariaLabel}
         autoComplete="off"
         placeholder={emptyLabel}
+        required={required}
         value={query}
         className={`${dash.textInput} ${className ?? ''}`}
         onFocus={(e) => {

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import PersonCell from './PersonCell';
+import Combobox, { toComboboxOptions } from './Combobox';
 import { addPhasePartner, removePhasePartner } from '../app/actions/phasePartners';
 import { addPhasePerson, removePhasePerson } from '../app/actions/phasePeople';
 import type { ActionResult } from '../lib/actionResult';
@@ -116,11 +117,14 @@ export default function PhaseInvolvementEditor({
         >
           <input type="hidden" name="phaseId" value={phaseId} />
           <input type="hidden" name="projectId" value={projectId} />
-          <select name={idField} className={styles.picker} defaultValue="" required autoFocus
-            aria-label={t(locale, pickLabel)}>
-            <option value="" disabled>{t(locale, addLabel)}</option>
-            {available.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
+          <Combobox
+            id={`involvement-${kind}-${phaseId}`} name={idField}
+            options={toComboboxOptions(available)}
+            emptyLabel={t(locale, addLabel)}
+            required autoFocus
+            className={styles.picker}
+            aria-label={t(locale, pickLabel)}
+          />
           <input name="role" className={styles.roleInput} placeholder={t(locale, 'role')}
             aria-label={t(locale, 'roleOptional')} />
           <button type="submit" className={styles.miniBtn}>{t(locale, 'add')}</button>

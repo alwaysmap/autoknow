@@ -9,6 +9,17 @@
   min-width: 0;
 }
 
+/* The `<select>` this component replaces was a DIRECT child of `.textInputGroup`, a column
+   flex, so it stretched to the field width for free. `.wrap` now takes that flex item's
+   place and the input inside it is no longer stretched by anything — left alone it falls
+   back to a text input's ~20-character intrinsic width and reads as a different, narrower
+   field than every sibling in the same form (design.md §7: one form grammar). Child
+   selector so it beats the single-class `textInput` outright rather than by bundle order;
+   a call site that wants it narrower still gets there through `max-width`. */
+.wrap > input {
+  width: 100%;
+}
+
 /* `position: fixed` and placed in JS by the same `anchoredPosition` math
    `AnchoredPopover` uses — see the component file for why this is NOT rendered through
    that component (its dismiss model needs a button invoker; a combobox is input-driven).

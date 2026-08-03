@@ -10,6 +10,7 @@ import meta from './ProjectMetaHeader.module.css';
 import admin from './ProjectAdminControls.module.css';
 import KebabMenu from './KebabMenu';
 import OverlayDialog from './OverlayDialog';
+import Combobox, { toComboboxOptions } from './Combobox';
 
 // Person maintenance behind the title kebab (the app-wide grammar: quiet ⋯ beside
 // the name, dialogs for the work) — replaces the old full-width "Profile
@@ -145,11 +146,16 @@ function EditPersonDialog({ open, onClose, personId, partners, seed }: {
         </div>
         <div className={dash.textInputGroup}>
           <label htmlFor={`${uid}-personPartner`} className={dash.formLabel}>{t(locale, 'organizationLabel')}</label>
-          <select id={`${uid}-personPartner`} name="partnerId" className={dash.textInput} value={partnerId}
-            onChange={(e) => setPartnerId(e.target.value)}>
-            <option value="">{t(locale, 'selectPartner')}</option>
-            {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          {/* `partnerId` is tracked here, not just posted: naming an organization is what
+              makes the role field below required. */}
+          <Combobox
+            id={`${uid}-personPartner`} name="partnerId"
+            options={toComboboxOptions(partners)}
+            defaultValue={partnerId}
+            emptyLabel={t(locale, 'selectPartner')}
+            onChange={setPartnerId}
+            aria-label={t(locale, 'organizationLabel')}
+          />
         </div>
         <div className={dash.textInputGroup}>
           <label htmlFor={`${uid}-personRole`} className={dash.formLabel}>{t(locale, 'roleTitle')}</label>
@@ -273,14 +279,21 @@ export default function PersonAdminControls({
         >
           <input type="hidden" name="personId" value={personId} />
           {errorLine}
-          <input type="hidden" name="projectId" value={pickedProgram || ''} />
           <div className={dash.textInputGroup}>
             <label htmlFor="assignProgram" className={dash.formLabel}>{t(locale, 'programLabel')}</label>
-            <select id="assignProgram" required className={dash.textInput} value={pickedProgram}
-              onChange={(e) => setPickedProgram(e.target.value ? parseInt(e.target.value, 10) : '')}>
-              <option value="">{t(locale, 'selectProgram')}</option>
-              {programs.map((pr) => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
-            </select>
+            {/* Posts `projectId` itself. The `<select>` this replaced could not — it had no
+                `name`, because its value also has to drive the phase list below, so a
+                separate hidden input carried the same number to the server. One control
+                owning both jobs is one fewer place for them to disagree. */}
+            <Combobox
+              id="assignProgram" name="projectId"
+              options={toComboboxOptions(programs)}
+              defaultValue={pickedProgram ? String(pickedProgram) : ''}
+              emptyLabel={t(locale, 'selectProgram')}
+              required
+              onChange={(v) => setPickedProgram(v ? parseInt(v, 10) : '')}
+              aria-label={t(locale, 'programLabel')}
+            />
           </div>
           <div className={dash.textInputGroup}>
             <label htmlFor="assignPhase" className={dash.formLabel}>{t(locale, 'phaseLabel')}</label>
@@ -373,11 +386,14 @@ export function NewPersonButton({ partners, defaultPartnerId }: {
           </div>
           <div className={dash.textInputGroup}>
             <label htmlFor="npPartner" className={dash.formLabel}>{t(locale, 'newOrganization')}</label>
-            <select id="npPartner" name="partnerId" required className={dash.textInput}
-              defaultValue={defaultPartnerId ?? ''}>
-              <option value="">{t(locale, 'selectPartner')}</option>
-              {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <Combobox
+              id="npPartner" name="partnerId"
+              options={toComboboxOptions(partners)}
+              defaultValue={defaultPartnerId != null ? String(defaultPartnerId) : ''}
+              emptyLabel={t(locale, 'selectPartner')}
+              required
+              aria-label={t(locale, 'newOrganization')}
+            />
           </div>
           <div className={dash.textInputGroup}>
             <label htmlFor="npRole" className={dash.formLabel}>{t(locale, 'roleTitle')}</label>

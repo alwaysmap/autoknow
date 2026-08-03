@@ -4,7 +4,7 @@ date: 2026-08-02
 supersedes: ""
 superseded-by: ""
 extends: ""
-extended-by: ""
+extended-by: "a-type-to-filter-picker-is-for-lists-unbounded-by-construction"
 tags: [ui, a11y, forms]
 ---
 

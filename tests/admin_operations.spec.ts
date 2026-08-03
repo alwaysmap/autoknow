@@ -1,4 +1,4 @@
-import { test, expect, openMenu, clickMenuItem } from './helpers/e2e';
+import { test, expect, openMenu, clickMenuItem, pickCombobox } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -66,7 +66,6 @@ test.describe('Admin and Maintenance Operations', () => {
   // correctly leave the page reading Waymo (that half is people.spec.ts's).
   test('should allow moving a person to a different company', async ({ page }) => {
     const person = await prisma.person.findFirst({ where: { name: 'Bob Miller' } });
-    const ford = await prisma.partner.findFirst({ where: { name: 'Ford' } });
     await page.goto(`/people/${person?.id}`);
 
     // Verify Bob starts at Waymo
@@ -74,7 +73,7 @@ test.describe('Admin and Maintenance Operations', () => {
 
     await clickMenuItem(page.getByTestId('kebab-menu'), page.getByRole('menuitem', { name: 'Edit details', exact: true }));
     const dialog = page.locator('dialog[open]');
-    await dialog.locator('select[name="partnerId"]').selectOption(ford?.id.toString() || '');
+    await pickCombobox(dialog, 'Organization', 'ford', 'Ford');
     await dialog.locator('input[name="role"]').fill('Lead Systems Architect');
     await dialog.locator('input[name="effectiveDate"]').fill('2026-06-01');
     await dialog.locator('button:has-text("Save changes")').click();

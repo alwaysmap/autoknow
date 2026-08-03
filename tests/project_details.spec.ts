@@ -1,4 +1,4 @@
-import { test, expect, openProgressView } from './helpers/e2e';
+import { test, expect, openProgressView, pickCombobox } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -196,9 +196,10 @@ test.describe('Project Details and Action Item Operations', () => {
       await expect(dialog).toBeVisible({ timeout: 1500 });
     }).toPass({ timeout: 20000 });
 
-    await dialog.locator('#editLeadPartner').selectOption({ label: 'BMW Group (OEM)' });
-    // Owner is a required pick from existing people (no freeform entry).
-    await dialog.locator('#editOwner').selectOption('priya@google.com');
+    await pickCombobox(dialog, 'Lead partner (OEM)', 'bmw', 'BMW Group (OEM)');
+    // Owner is a required pick from existing people (no freeform entry). The option label
+    // carries the address as well as the name, because two people can share a name.
+    await pickCombobox(dialog, 'Googler Owner', 'priya', 'Priya PM (priya@google.com)');
     await dialog.locator('#editSop').fill('2027-06');
     await dialog.getByRole('button', { name: /Save/ }).click();
     await expect(page.locator('dialog[open]')).toHaveCount(0);

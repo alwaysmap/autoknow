@@ -154,3 +154,28 @@ export async function openMenuItemDialog(trigger: Locator, item: Locator, dialog
     await expect(dialog).toBeVisible({ timeout: 1500 });
   }).toPass({ timeout: 20000 });
 }
+
+/** Choose an option in a `Combobox` (gh-269) — the type-to-filter picker that replaced the
+ *  bare `<select>` in every entity field, so `selectOption` no longer applies to any of
+ *  them. Lives here rather than in one spec because five specs across four surfaces now
+ *  need it.
+ *
+ *  `getByRole('combobox', …)`, not `getByLabel`: the listbox the input controls carries the
+ *  SAME `aria-label`, so a plain label lookup is ambiguous between the two.
+ *
+ *  The retry wraps the OPEN, not just the assertion: this is frequently the first
+ *  interaction after a dialog mounts, which is this suite's top flake source. */
+export async function pickCombobox(
+  scope: Locator, fieldLabel: string, query: string, optionLabel: string,
+): Promise<void> {
+  const field = scope.getByRole('combobox', { name: fieldLabel, exact: true });
+  const option = scope.getByRole('option', { name: optionLabel, exact: true });
+  await expect(async () => {
+    if (!(await option.isVisible())) {
+      await field.click({ timeout: 2000 });
+      await field.fill(query);
+    }
+    await expect(option).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 20000 });
+  await option.click();
+}

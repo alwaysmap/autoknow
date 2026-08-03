@@ -1,4 +1,4 @@
-import { test, expect, expandCard, openCard, closeCard, openProgressView, type Page } from './helpers/e2e';
+import { test, expect, expandCard, openCard, closeCard, openProgressView, pickCombobox, type Page } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { seedProgram, type SeededProgram } from './helpers/fixtures';
 
@@ -489,7 +489,7 @@ test.describe('Program phase editor', () => {
 
     // Add a partner through the picker — the option set IS the partner directory.
     await panel(page).getByTestId('add-partner').click();
-    await panel(page).locator('select[aria-label="Partner to involve"]').selectOption({ label: 'Rivian' });
+    await pickCombobox(panel(page), 'Partner to involve', 'riv', 'Rivian');
     await panel(page).locator('input[aria-label="Role (optional)"]').first().fill('OEM');
     await panel(page).getByRole('button', { name: 'Add', exact: true }).first().click();
     await expect(chip('Rivian')).toBeVisible();
@@ -515,11 +515,12 @@ test.describe('Program phase editor', () => {
     })).toBe(0);
 
     await panel(page).getByTestId('add-person').click();
-    await panel(page).locator('select[aria-label="Person to involve"]').selectOption({ label: 'Kenji Sato' });
-    await panel(page).locator('select[aria-label="Person to involve"]')
-      .locator('xpath=following-sibling::input[1]').fill('Audio lead');
-    await panel(page).locator('select[aria-label="Person to involve"]')
-      .locator('xpath=following-sibling::button[1]').click();
+    await pickCombobox(panel(page), 'Person to involve', 'kenji', 'Kenji Sato');
+    // The picker is no longer a single element with the role input as its next sibling —
+    // it is a Combobox wrapper — so reach for the row's own fields by label instead of by
+    // sibling position.
+    await panel(page).locator('input[aria-label="Role (optional)"]').first().fill('Audio lead');
+    await panel(page).getByRole('button', { name: 'Add', exact: true }).first().click();
     await expect(chip('Kenji Sato')).toContainText('Audio lead');
     expect(await prisma.phasePerson.count({
       where: { phaseId: seeded.phases.integration, personId: seeded.personId },

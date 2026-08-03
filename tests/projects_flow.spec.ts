@@ -94,7 +94,10 @@ test.describe('Projects and Partners Flow', () => {
     await openMenuItemDialog(people.getByTestId('kebab-menu'), page.getByTestId('new-person'), dialog);
 
     // The New-person dialog opens with THIS partner pre-selected as the organization.
-    await expect(dialog.locator('#npPartner')).toHaveValue(String(fordId));
+    // Two assertions because the picker is a Combobox (gh-269) and they are different
+    // claims: the reader SEES the partner's name, and the form POSTS its id.
+    await expect(dialog.locator('#npPartner')).toHaveValue('Ford');
+    await expect(dialog.locator('input[type="hidden"][name="partnerId"]')).toHaveValue(String(fordId));
   });
 
   test('creates a project from the DB-backed 15-phase AAOS template', async ({ page }) => {

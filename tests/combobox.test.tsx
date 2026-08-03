@@ -133,3 +133,75 @@ describe('a11y wiring', () => {
     expect(input).toHaveAttribute('aria-expanded', 'true');
   });
 });
+
+// The props the picker grew when it went from one call site to every entity picker in the
+// app (`ProjectMetaHeader`, `PersonEditor`, `PhaseInvolvementEditor`). Each is here
+// because a bare `<select>` gave it for free and dropping it would have been a silent
+// regression on a form that already worked.
+
+describe('required', () => {
+  it('validates through the VISIBLE input, so the browser can focus what it complains about', () => {
+    render(
+      <Combobox id="cb" name="partnerId" options={OPTIONS} emptyLabel="Unassigned"
+        required aria-label="Partner" />,
+    );
+    const input = screen.getByRole('combobox') as HTMLInputElement;
+    // A `type="hidden"` control is barred from constraint validation and a `display:none`
+    // one cannot be focused to report it — hence the visible input carrying the attribute.
+    expect(input).toBeRequired();
+    expect(input.checkValidity()).toBe(false);
+
+    fireEvent.focus(input);
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'Bosch' }));
+    expect(input.checkValidity()).toBe(true);
+  });
+
+  it('Enter on a query matching NOTHING reverts instead of submitting a field that lies', () => {
+    const onSubmit = jest.fn((e: React.FormEvent) => e.preventDefault());
+    render(
+      <form onSubmit={onSubmit}>
+        <Combobox id="cb" name="partnerId" options={OPTIONS} emptyLabel="Unassigned"
+          required aria-label="Partner" />
+      </form>,
+    );
+    const input = screen.getByRole('combobox') as HTMLInputElement;
+    const hidden = document.querySelector('input[name="partnerId"][type="hidden"]') as HTMLInputElement;
+
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'zzz' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    // The visible text is back to what the field actually holds — nothing — so `required`
+    // is now read against the truth rather than against 'zzz'.
+    expect(input.value).toBe('');
+    expect(hidden.value).toBe('');
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+});
+
+describe('onChange', () => {
+  it('fires on an explicit choice — the dependent-picker case', () => {
+    const onChange = jest.fn();
+    render(
+      <Combobox id="cb" name="partnerId" options={OPTIONS} emptyLabel="Unassigned"
+        onChange={onChange} aria-label="Partner" />,
+    );
+    const input = screen.getByRole('combobox');
+    fireEvent.focus(input);
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'Volvo Cars' }));
+    expect(onChange).toHaveBeenCalledWith('1');
+  });
+
+  it('does NOT fire while typing — a caller never sees an uncommitted value', () => {
+    const onChange = jest.fn();
+    render(
+      <Combobox id="cb" name="partnerId" options={OPTIONS} emptyLabel="Unassigned"
+        onChange={onChange} aria-label="Partner" />,
+    );
+    const input = screen.getByRole('combobox');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'Volvo' } });
+    fireEvent.blur(input);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
