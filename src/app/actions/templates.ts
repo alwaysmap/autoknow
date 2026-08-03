@@ -18,15 +18,19 @@ async function requireEditable(templateId: number) {
   return t;
 }
 
+/** How a caller numbers its candidates: given 1, 2, 3… it returns the name to try. */
+type NameSeries = (n: number) => string;
+
 /**
  * The first name in a series that no user template already holds.
  *
  * `ProgramTemplate` is `@@unique([name, isBuiltIn])`, so a writer that picks a name
  * without consulting the table throws P2002 out of a server action — which fails before
  * its `redirect`, leaving the user on /templates with a generic error and no template.
- * Both CONSTANT-name writers here route through this (`updateTemplateMeta` does not: its
- * name comes from the user, so a collision there wants a validation message, not a
- * number).
+ * Both CONSTANT-name writers here route through this. `updateTemplateMeta` deliberately
+ * does not — a name the user typed should come back as a validation message naming the
+ * conflict, never be silently renumbered into something they did not ask to save — but
+ * that message does not exist yet and it still throws a raw P2002 (autoknow-6ls).
  *
  * `series` receives 1 for the first candidate, so the caller decides whether that reads
  * "X (copy)" or "New template" and only the LATER ones carry a number.
@@ -52,9 +56,6 @@ async function firstFreeTemplateName(
   // land here rather than silently colliding at the database.
   throw new Error('Could not find a free template name');
 }
-
-/** How a caller numbers its candidates: given 1, 2, 3… it returns the name to try. */
-type NameSeries = (n: number) => string;
 
 /** "X (copy)", then "X (copy 2)" — the number rides INSIDE the parenthesis so the copy
  *  marker stays one token. Applied to the source's whole name, so cloning something
