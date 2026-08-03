@@ -39,7 +39,18 @@ export default async function Home() {
   const now = Date.now();
 
   return (
-    <PageShell title={t(locale, 'ecosystemDashboard')} maxWidth="68.75rem">
+    <PageShell
+      title={t(locale, 'ecosystemDashboard')}
+      // Cycle time is a diagnostic rather than a headline, so it is reached from here
+      // rather than occupying the column. It is no longer too TALL to be a section —
+      // app/ecosystem/cycle-time/page.tsx says what the reason is now (autoknow-7ii).
+      actions={
+        <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+          <Link href="/ecosystem/cycle-time">{t(locale, 'cycleTimeTitle')}</Link>
+        </KebabMenu>
+      }
+      maxWidth="68.75rem"
+    >
         {/* answered in time by the capacity chart further down the page */}
         <EcosystemStatStrip
           programs={serializedProjects}

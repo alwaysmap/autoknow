@@ -79,8 +79,10 @@ export default function EcosystemDashboardClient({
           leadership strip and table don't already carry added noise, not signal. */}
 
 
-      {/* Cycle-time point chart removed (2026-07-18, user call) — phase duration
-          diagnostics live on the ecosystem-summary page if needed again. */}
+      {/* Cycle-time point chart removed from this page 2026-07-18 (user call). It now has
+          its own page, /ecosystem/cycle-time, reached from the kebab in this page's title
+          row — that comment used to send readers to /ecosystem-summary, which has never
+          carried phase-duration content (autoknow-7ii). */}
 
       {/* SOP timeline chart removed entirely (2026-07-18, user call): redundant
           with the capacity chart's quarter drill-down + the sortable Target SOP

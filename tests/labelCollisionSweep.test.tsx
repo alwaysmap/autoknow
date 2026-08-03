@@ -248,72 +248,103 @@ describe('CapacityChart — direct band labels, crowded on purpose', () => {
   });
 });
 
-// ---- 3. CycleTimeScatterPlot: the healthy p50 == p85 -----------------------------
+// ---- 3. CycleTimeScatterPlot: the healthy tight spread is the crowding case ------
+//
+// The chart is ONE population now, not one row per phase name, so there are exactly three
+// captions instead of two per phase. The crowding case did not go away with the rows — it
+// got sharper: p50/p85/p95 sit at their own line heights, so the TIGHTER the distribution
+// the closer the three captions get, and a tight distribution is the healthy one.
 
-describe('CycleTimeScatterPlot — the healthy distribution is the crowding case', () => {
-  const phases = ['Concept', 'Design', 'Development', 'Certification'];
-  const data: CycleTimeData[] = phases.flatMap((phaseName, i) =>
-    [10, 12, 11, 13].map((cycleTimeDays, j) => ({
-      phaseId: i * 10 + j,
-      phaseName,
-      cycleTimeDays,
-      isFinished: true,
-    })),
-  );
+describe('CycleTimeScatterPlot — the healthy tight spread is the crowding case', () => {
+  const data: CycleTimeData[] = [10, 12, 11, 13, 12, 11].map((cycleTimeDays, j) => ({
+    phaseId: j,
+    phaseName: `Phase ${j}`,
+    projectId: 1,
+    programName: 'Demo program',
+    finishedAt: new Date(Date.UTC(2026, 0, 1 + j)).toISOString(),
+    cycleTimeDays,
+  }));
 
-  /** p50 === p85: the tight, healthy spread. This is the dataset that used to print
-   *  "P50" and "P85" on the same pixel and turn both into mush. */
-  const identical: Record<string, CycleTimeStats> = Object.fromEntries(
-    phases.map((n) => [n, { p50: 12, p85: 12, p95: 12 }]),
-  );
-  /** One day apart — still inside a label width, so still a collision. */
-  const nearlyIdentical: Record<string, CycleTimeStats> = Object.fromEntries(
-    phases.map((n) => [n, { p50: 12, p85: 13, p95: 20 }]),
-  );
+  /** All three equal: the tightest possible spread, and the one that used to print three
+   *  captions on one pixel. `sampleSize` is over MIN_SAMPLE so the lines actually draw. */
+  const identical: CycleTimeStats = { p50: 12, p85: 12, p95: 12, sampleSize: 6 };
+  /** A day apart each — still inside a caption's height, so still a collision. */
+  const nearlyIdentical: CycleTimeStats = { p50: 12, p85: 13, p95: 14, sampleSize: 6 };
   /** A wide spread: nothing to de-collide, and the captions must NOT move. */
-  const wide: Record<string, CycleTimeStats> = Object.fromEntries(
-    phases.map((n) => [n, { p50: 5, p85: 40, p95: 60 }]),
-  );
+  const wide: CycleTimeStats = { p50: 5, p85: 40, p95: 60, sampleSize: 6 };
 
   const captionBoxes = (container: HTMLElement) =>
     Array.from(container.querySelectorAll<SVGTextElement>('[data-testid^="cycle-p"]'))
       .map((el) => ({ ...boxOf(el, 10), id: el.getAttribute('data-testid')! }));
 
   it.each([
-    ['identical p50/p85', identical],
+    ['all three identical', identical],
     ['one day apart', nearlyIdentical],
     ['a wide spread', wide],
   ])('never overlaps a percentile caption — %s', (_name, stats) => {
     const { container } = wrap(<CycleTimeScatterPlot data={data} stats={stats} />);
     const boxes = captionBoxes(container);
-    expect(boxes).toHaveLength(phases.length * 2);
+    expect(boxes).toHaveLength(3);
     expect(collidingPairs(boxes)).toEqual([]);
   });
 
-  it('keeps BOTH captions when they collide — neither percentile is inferable', () => {
+  it('keeps ALL THREE captions when they collide — no scale here recovers a hidden one', () => {
+    // dodgeLabels, not keepNonOverlapping: the y axis reads in days, but nothing on the
+    // chart tells you WHICH percentile a line is except its caption, so hiding one destroys
+    // the fact rather than making the reader work for it.
     const { container } = wrap(<CycleTimeScatterPlot data={data} stats={identical} />);
-    const boxes = captionBoxes(container);
-    expect(boxes.filter((b) => b.text === 'P50')).toHaveLength(phases.length);
-    expect(boxes.filter((b) => b.text === 'P85')).toHaveLength(phases.length);
+    const ids = captionBoxes(container).map((b) => b.id).sort();
+    expect(ids).toEqual(['cycle-p50', 'cycle-p85', 'cycle-p95']);
   });
 
-  it('separates a colliding pair in y, not by moving it off its own whisker in x', () => {
+  it('moves only the caption — the reference LINE stays on its true value', () => {
     const { container } = wrap(<CycleTimeScatterPlot data={data} stats={identical} />);
-    const boxes = captionBoxes(container);
-    const p50 = boxes.find((b) => b.id === 'cycle-p50-0')!;
-    const p85 = boxes.find((b) => b.id === 'cycle-p85-0')!;
-    expect(p50.x).toBeCloseTo(p85.x); // same whisker, same x — the caption never lies about which line it names
-    expect(Math.abs(p50.y - p85.y)).toBeGreaterThanOrEqual(p50.halfH + p85.halfH);
+    // All three lines are the same value here, so all three must be drawn at one y even
+    // though their captions were dodged apart. A caption that dragged its line with it
+    // would be the chart lying about the number.
+    const refLineYs = new Set(
+      Array.from(container.querySelectorAll<SVGLineElement>('[data-testid^="cycle-line-"]'))
+        .map((l) => l.getAttribute('y1')),
+    );
+    expect(refLineYs.size).toBe(1);
+    expect(new Set(captionBoxes(container).map((b) => b.y)).size).toBe(3); // dodged apart
   });
 
-  it('leaves an uncrowded pair on its natural baseline', () => {
-    const { container } = wrap(<CycleTimeScatterPlot data={data} stats={wide} />);
-    const ys = captionBoxes(container).filter((b) => b.id.endsWith('-0')).map((b) => b.y);
-    expect(new Set(ys).size).toBe(1); // both still on one baseline (rowY - 22, as centres)
+  it('leaves an uncrowded set on its own lines, not merely at three distinct heights', () => {
+    // "Three distinct ys" is what a DODGED set produces too, so it cannot tell the two
+    // apart. This asserts the stronger thing: every caption sits on the line it names.
+    //
+    // The fixture carries a 100-day point on purpose. `maxDays` is driven by the largest of
+    // the data and p95, so a p95 at the top of the range lands on `marginTop` and
+    // `dodgeLabels` clamps its caption inward to keep it from clipping — correct, but it is
+    // a CLAMP, not a dodge, and it would make this assertion fail for a reason the test is
+    // not about.
+    const roomy: CycleTimeData[] = [...data, {
+      phaseId: 99, phaseName: 'Long one', projectId: 1, programName: 'Demo program',
+      finishedAt: new Date(Date.UTC(2026, 0, 9)).toISOString(), cycleTimeDays: 100,
+    }];
+    const { container } = wrap(<CycleTimeScatterPlot data={roomy} stats={wide} />);
+    // Raw `y` attributes on both sides. `boxOf` returns a label's CENTRE, and the caption's
+    // y is a BASELINE, so comparing those two would be off by the baseline-to-centre delta
+    // for every caption — a constant that has nothing to do with dodging.
+    const attrYs = (sel: string) =>
+      Array.from(container.querySelectorAll<SVGElement>(sel))
+        .map((el) => Number(el.getAttribute(sel.includes('line') ? 'y1' : 'y')))
+        .sort((a, b) => a - b);
+    const captionYs = attrYs('[data-testid^="cycle-p"]');
+    const lineYs = attrYs('[data-testid^="cycle-line-"]');
+    expect(captionYs).toHaveLength(3);
+    captionYs.forEach((y, i) => expect(y).toBeCloseTo(lineYs[i], 0));
   });
 
-  it('keeps every percentile caption off the chart\'s own horizontal rules', () => {
-    // Same as CapacityChart's: an outcome check on a chart that does not pass its ink in.
+  it('draws no percentile lines at all when the sample is too thin to support them', () => {
+    const { container } = wrap(
+      <CycleTimeScatterPlot data={data} stats={{ p50: 12, p85: 12, p95: 12, sampleSize: 2 }} />,
+    );
+    expect(captionBoxes(container)).toHaveLength(0);
+  });
+
+  it("keeps every percentile caption off the chart's own horizontal rules", () => {
     const { container } = wrap(<CycleTimeScatterPlot data={data} stats={identical} />);
     expectOffTheRules(captionBoxes(container), container);
   });

@@ -82,15 +82,17 @@ describe('getEcosystemDashboardData', () => {
     expect([...counts].sort((a, b) => b - a)).toEqual(counts);
   });
 
-  it('computes cycle times from first-in-flight to first-complete', async () => {
+  it('computes cycle times from first-in-flight to first-complete, FINISHED work only', async () => {
     const data = await getEcosystemDashboardData();
     const byName = Object.fromEntries(data.cycleTimeData.map((c) => [c.phaseName, c]));
 
     // bringUp seeded straight at 100: started and finished on the same state row.
-    expect(byName['Bring-up']?.isFinished).toBe(true);
     expect(byName['Bring-up']?.cycleTimeDays).toBeGreaterThanOrEqual(1);
-    // integration is in flight (40)
-    expect(byName['Integration']?.isFinished).toBe(false);
+    expect(byName['Bring-up']?.finishedAt).toBeTruthy();
+    // Integration is in flight (40). It is EXCLUDED, not included-and-flagged: an unfinished
+    // phase has an elapsed time, not a cycle time, and counting it would enter the sample
+    // below its eventual duration and drag every percentile down. Aging WIP is its chart.
+    expect(byName['Integration']).toBeUndefined();
     // certification never started (0) — no cycle time at all
     expect(byName['Certification']).toBeUndefined();
   });

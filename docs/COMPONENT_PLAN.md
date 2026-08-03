@@ -99,7 +99,7 @@ Template — **Decision** · **MUST** (one thing) · **COULD** (extras) · **Dat
 - **Decision (leadership):** which phase is the systemic bottleneck across the portfolio?
 - **MUST:** the slowest stage(s) by real cycle-time distribution — one truth (merge today's fabricated "Flow Constraint Diagnosis" with the real cycle-time data).
 - **COULD:** trend over quarters; per-partner breakdown.
-- **Data required:** [DER] cycle time per phase-name from `PhaseState` history; throughput; percentiles. [AI] narrative ("Compliance Testing is your constraint; here's why").
+- **Data required:** [DER] cycle time from `PhaseState` history; throughput; percentiles over ONE population — NOT per phase-name. At this data volume that split gives ~1.5 items per name, so each "percentile" is a single observation: [note](knowledge/splitting-a-small-sample-by-category-gives-percentiles-over-single-observations.md). [AI] narrative ("Compliance Testing is your constraint; here's why").
 - **Context:** Ecosystem.
 
 ### 2.9 `RelationshipPanel`
@@ -220,7 +220,7 @@ The union of every "Data required" above. **This is what must exist for the UI t
 - All ingested records carry: text, source type, source URL, timestamp, **real embedding**, entity attachment.
 
 **Tier 3 — Derived (partially exists, some fabricated):**
-- Cycle time & throughput per phase-name from state history *(exists)*.
+- Cycle time from state history, as one population of COMPLETED phases with empirical percentiles *(exists — `lib/dashboardData`, `/ecosystem/cycle-time`)*. The per-phase-name split this line used to describe was retired in `autoknow-7ii`; in-flight work is not here and awaits an Aging WIP chart (`autoknow-jc4`). Throughput *(not built)*.
 - **Critical chain** — longest remaining-duration path over the phase DAG (`forecastedDuration × remaining progress`), plus the current constraint phase → drives `PhaseGraph` emphasis and a `ProgramBrief` evidence record *(exists — `lib/criticalChain.ts`)*.
 - SOP-vs-forecast slip; cumulative vehicle volume; volume-at-risk *(NEW/real)*.
 - Replace fabricated p85 and hardcoded constraint panel with computed truth *(done for p85; constraint panel still hardcoded)*.
