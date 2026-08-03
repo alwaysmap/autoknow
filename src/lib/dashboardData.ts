@@ -56,7 +56,7 @@ export interface LiveConstraint {
 export interface EcosystemDashboardData {
   serializedProjects: DashboardProject[];
   cycleTimeData: CycleTimeData[];
-  cycleTimeStats: Record<string, CycleTimeStats>;
+  cycleTimeStats: CycleTimeStats | null;
   /** Cross-portfolio constraint resources (docs/CRITICAL_CHAIN_VIEW_PLAN.md §4c). */
   busiest: BusiestRow[];
   /** Which PHASES sit on a live critical chain right now, most-blocking first (#129). */
@@ -177,47 +177,55 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
   // start/finish timestamps are aggregated in SQL — never by materializing each
   // phase's full state history into memory.
   const spans = await prisma.$queryRaw<
-    { id: number; name: string; startedAt: Date | null; finishedAt: Date | null }[]
+    {
+      id: number; name: string; projectId: number; programName: string;
+      startedAt: Date | null; finishedAt: Date | null;
+    }[]
   >`
-    SELECT p.id, p.name,
+    SELECT p.id, p.name, proj.id AS "projectId", proj.name AS "programName",
            MIN(s."timestamp") FILTER (WHERE s."hillChartProgress" > 0)    AS "startedAt",
            MIN(s."timestamp") FILTER (WHERE s."hillChartProgress" >= 100) AS "finishedAt"
     FROM "Phase" p
     JOIN "Project" proj ON proj.id = p."projectId"
     LEFT JOIN "PhaseState" s ON s."phaseId" = p.id
     WHERE proj."isArchived" = false
-    GROUP BY p.id, p.name`;
+    GROUP BY p.id, p.name, proj.id, proj.name`;
 
+  // FINISHED phases only. Cycle time is a completed-work measure: an in-flight phase has
+  // an elapsed time, not a cycle time, and mixing the two understates the distribution —
+  // every unfinished phase enters the sample at less than its eventual duration and drags
+  // the percentiles down. Work still in flight is a different question (how long has this
+  // been open, and is that unusual), answered by an Aging WIP chart rather than here.
   const cycleTimeData: CycleTimeData[] = [];
   for (const span of spans) {
-    if (!span.startedAt) continue;
-    const end = span.finishedAt ?? new Date();
-    const days = Math.max(1, Math.round((end.getTime() - span.startedAt.getTime()) / (1000 * 60 * 60 * 24)));
+    if (!span.startedAt || !span.finishedAt) continue;
+    const days = Math.max(1, Math.round(
+      (span.finishedAt.getTime() - span.startedAt.getTime()) / (1000 * 60 * 60 * 24)));
     cycleTimeData.push({
       phaseId: span.id,
       phaseName: span.name,
+      projectId: span.projectId,
+      programName: span.programName,
+      finishedAt: span.finishedAt.toISOString(),
       cycleTimeDays: days,
-      isFinished: !!span.finishedAt,
     });
   }
 
-  const cycleTimeStats: Record<string, CycleTimeStats> = {};
-  const groupedByName: Record<string, number[]> = {};
-  for (const ct of cycleTimeData) {
-    if (ct.isFinished) {
-      if (!groupedByName[ct.phaseName]) groupedByName[ct.phaseName] = [];
-      groupedByName[ct.phaseName].push(ct.cycleTimeDays);
+  // ONE population, not one per phase name. Grouping by name was a false classification:
+  // it split a 67-point sample into 44 buckets averaging 1.5 items each, so most "P50"s
+  // were a single observation wearing a percentile's name — and because the key was the
+  // raw string, four of those buckets were the SAME phase split by capitalisation.
+  // `sampleSize` ships with the percentiles — `CycleTimeStats.sampleSize` says why it is
+  // not an optional extra.
+  const finishedDays = cycleTimeData.map((ct) => ct.cycleTimeDays);
+  const cycleTimeStats: CycleTimeStats | null = finishedDays.length
+    ? {
+      p50: percentile(finishedDays, 0.5),
+      p85: percentile(finishedDays, 0.85),
+      p95: percentile(finishedDays, 0.95),
+      sampleSize: finishedDays.length,
     }
-  }
-  for (const [name, daysArr] of Object.entries(groupedByName)) {
-    if (daysArr.length > 0) {
-      cycleTimeStats[name] = {
-        p50: percentile(daysArr, 0.5),
-        p85: percentile(daysArr, 0.85),
-        p95: percentile(daysArr, 0.95),
-      };
-    }
-  }
+    : null;
 
   // Busiest people and partners: full chain ledgers per live program (buffer +
   // four-week trend from the state-history replay), aggregated per resource.

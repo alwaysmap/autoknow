@@ -1186,10 +1186,38 @@ const STRINGS = {
   hillProgressAria: { en: 'Progress on the hill (0–100%); use arrow keys to adjust', de: 'Fortschritt auf dem Hügel (0–100 %); mit den Pfeiltasten anpassen', ja: 'ヒル上の進捗（0〜100%）。矢印キーで調整', ko: '힐 진행도(0–100%); 화살표 키로 조정' },
   workingItOut: { en: 'Working it out', de: 'Klären', ja: '模索中', ko: '파악 중' },
   gettingItDone: { en: 'Getting it done', de: 'Umsetzen', ja: '仕上げ中', ko: '마무리 중' },
-  notEnoughCycleTime: { en: 'Not enough cycle time data to visualize.', de: 'Nicht genug Zykluszeit-Daten für eine Darstellung.', ja: '可視化に十分なサイクルタイムデータがありません。', ko: '시각화할 사이클 타임 데이터가 부족합니다.' },
-  cyclePointTitle: { en: '{name}: {n} days {status}', de: '{name}: {n} Tage {status}', ja: '{name}: {n}日 {status}', ko: '{name}: {n}일 {status}' },
-  finishedParen: { en: '(Finished)', de: '(Fertig)', ja: '（完了）', ko: '(완료)' },
-  activeParen: { en: '(Active)', de: '(Aktiv)', ja: '（進行中）', ko: '(진행 중)' },
+  // The /ecosystem/cycle-time PAGE title and its one-line read. The subtitle earns its line
+  // by naming both axes and the two things a reader would otherwise assume wrongly: the
+  // reference lines are percentiles over ONE population (not per phase name), and in-flight
+  // work is absent BY DESIGN rather than missing (lib/dashboardData says why).
+  cycleTimeTitle: { en: 'Phase cycle time', de: 'Phasen-Zykluszeit', ja: 'フェーズのサイクルタイム', ko: '단계 사이클 타임' },
+  cycleTimeSub: {
+    en: 'One point per completed phase: when it landed, against how long it took. Any reference lines are percentiles across all of them. Work still in flight is not here — that is Aging WIP.',
+    de: 'Ein Punkt je abgeschlossener Phase: wann sie fertig wurde, gegen ihre Dauer. Referenzlinien, sofern vorhanden, sind Perzentile über alle. Laufende Arbeit steht hier nicht — dafür gibt es Aging WIP.',
+    ja: '完了したフェーズごとに 1 点 — 完了時期を横軸、所要日数を縦軸に取ります。基準線がある場合はその全体の分位点です。進行中の作業はここには含まれません（Aging WIP を参照）。',
+    ko: '완료된 단계마다 점 하나 — 가로축은 완료 시점, 세로축은 소요 기간입니다. 기준선이 있다면 전체의 백분위수입니다. 진행 중인 작업은 여기 없으며 Aging WIP에서 다룹니다.',
+  },
+  // The ZERO state — nothing has finished yet. Distinct from `cycleTimeThinSample`, which is
+  // "some have, but too few to draw percentiles from"; naming both "not enough" is how the
+  // two used to point at each other's case.
+  notEnoughCycleTime: { en: 'No completed phases yet.', de: 'Noch keine abgeschlossenen Phasen.', ja: '完了したフェーズはまだありません。', ko: '아직 완료된 단계가 없습니다.' },
+  cycleTimeHint: { en: 'Point at a dot for its phase, program and completion date.', de: 'Auf einen Punkt zeigen für Phase, Programm und Abschlussdatum.', ja: '点にカーソルを合わせると、フェーズ・プログラム・完了日が表示されます。', ko: '점을 가리키면 단계, 프로그램, 완료일이 표시됩니다.' },
+  // Two strings for one rule (`CycleTimeStats.sampleSize`): the sample qualifies the
+  // percentiles, and below MIN_SAMPLE they are not drawn at all — so the second string
+  // explains an ABSENCE rather than captioning a threshold the data cannot support.
+  cycleTimeSample: {
+    en: 'P50/P85/P95 from {n} finished phases.',
+    de: 'P50/P85/P95 aus {n} abgeschlossenen Phasen.',
+    ja: 'P50/P85/P95 は完了した {n} 件のフェーズから算出。',
+    ko: '완료된 {n}개 단계에서 산출한 P50/P85/P95입니다.',
+  },
+  cycleTimeThinSample: {
+    en: 'Only {n} finished phases so far — too few for percentiles, so none are drawn.',
+    de: 'Bisher nur {n} abgeschlossene Phasen — zu wenige für Perzentile, daher keine dargestellt.',
+    ja: '完了したフェーズはまだ {n} 件のみ。パーセンタイルには不足のため表示していません。',
+    ko: '아직 완료된 단계가 {n}개뿐이라 백분위수를 산출하기에 부족하여 표시하지 않습니다.',
+  },
+  cyclePointTitle: { en: '{name}: {n} days', de: '{name}: {n} Tage', ja: '{name}: {n}日', ko: '{name}: {n}일' },
   // ---- SOP chart ----
   sopChartEmpty: {
     en: 'No active programs with target SOP dates found. Edit programs to set SOP target dates.',
