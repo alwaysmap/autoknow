@@ -1145,10 +1145,10 @@ const STRINGS = {
   deleteProject: { en: 'Delete Program', de: 'Programm löschen', ja: 'プログラムを削除', ko: '프로그램 삭제' },
   confirmProjectDeletion: { en: 'Confirm Program Deletion', de: 'Programmlöschung bestätigen', ja: 'プログラム削除の確認', ko: '프로그램 삭제 확인' },
   // `deleteWarning` and `confirmTypeName` below are PROGRAM-only (`cannotBeUndone`
-  // between them is NOT — every delete dialog shares it). A new entity gets its own pair,
-  // the way `deletePartnerWarning` / `confirmTypePartnerName` did: the partner dialog
-  // borrowed these and spent months telling partner readers about phases and action
-  // items (autoknow-qz1).
+  // between them is NOT — the program and partner dialogs both render it). A new entity
+  // gets its own pair, the way `deletePartnerWarning` / `confirmTypePartnerName` did:
+  // the partner dialog borrowed these two and shipped that way for two weeks, telling
+  // partner readers about phases and action items (autoknow-qz1).
   deleteWarning: {
     en: 'Are you sure you want to delete this program? This will permanently remove all associated phases, action items, and status log histories.',
     de: 'Dieses Programm wirklich löschen? Alle zugehörigen Phasen, Action Items und Statusverläufe werden dauerhaft entfernt.',
