@@ -1009,6 +1009,26 @@ const STRINGS = {
   confirmPartnerDeletion: { en: 'Delete this partner?', de: 'Diesen Partner löschen?', ja: 'このパートナーを削除しますか？', ko: '이 파트너를 삭제하시겠습니까?' },
   permanentlyDeletePartner: { en: 'Permanently delete partner', de: 'Partner endgültig löschen', ja: 'パートナーを完全に削除', ko: '파트너 영구 삭제' },
   typePartnerNameExactly: { en: 'Type the partner name exactly', de: 'Partnernamen exakt eingeben', ja: 'パートナー名を正確に入力', ko: '파트너 이름을 정확히 입력' },
+  // The partner dialog's own warning and confirm prompt. It used to borrow the PROGRAM
+  // keys (`deleteWarning`, `confirmTypeName`), so it said "delete this program … all
+  // associated phases, action items, and status log histories" above a button reading
+  // "Permanently delete partner" — contradicting itself in one screen (autoknow-qz1).
+  // The list here is what `deletePartner` actually removes (app/actions/partners.ts):
+  // relationship history, affiliations, ingested sources, phase involvements. Programs and
+  // people are NOT in it — they BLOCK the delete instead, and the dialog says so above
+  // with its own counts.
+  deletePartnerWarning: {
+    en: 'Are you sure you want to delete this partner? This will permanently remove their relationship history, people affiliations, ingested sources, and phase involvements.',
+    de: 'Diesen Partner wirklich löschen? Beziehungsverlauf, Personenzuordnungen, erfasste Quellen und Phasenbeteiligungen werden dauerhaft entfernt.',
+    ja: 'このパートナーを削除しますか？関係履歴、人物の所属、取り込み済みソース、フェーズ参加が完全に削除されます。',
+    ko: '이 파트너를 삭제하시겠습니까? 관계 기록, 인물 소속, 수집된 출처, 단계 참여가 영구적으로 제거됩니다.',
+  },
+  confirmTypePartnerName: {
+    en: 'Please type the name of the partner to confirm',
+    de: 'Zur Bestätigung bitte den Partnernamen eingeben',
+    ja: '確認のためパートナー名を入力してください',
+    ko: '확인을 위해 파트너 이름을 입력하세요',
+  },
   partnerHasPrograms: {
     en: 'This partner still owns {n} program(s) — reassign or delete them first.',
     de: 'Dieser Partner besitzt noch {n} Programm(e) — zuerst neu zuordnen oder löschen.',
