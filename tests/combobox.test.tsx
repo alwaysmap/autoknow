@@ -3,8 +3,10 @@
 // the one the report was filed to fix without breaking: substring matching that finds
 // BOTH "Volvo Cars" and "Involved" on "vol" — and the one AGENTS lesson 3 demands of
 // every entity input: the component must NEVER post a string the reader merely typed.
-// The hidden `<input name>` is the only thing a server action reads, so every assertion
-// here checks THAT field, not the visible text, for the guarantee that actually matters.
+// The hidden `<input name>` is the only thing a server action reads, so wherever THAT
+// guarantee is what's at stake the assertion is on that field and never on the visible
+// text. (The later blocks assert other things — validity, the offered rows — on the
+// visible input, because those are claims about what the reader sees.)
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';

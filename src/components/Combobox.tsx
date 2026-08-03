@@ -154,8 +154,10 @@ export default function Combobox({
 
   // The empty choice is a real row in the list, first, filtered by the same rule as
   // everything else once editing — so typing "una" surfaces "Unassigned" exactly like any
-  // option. Whether it is offered at all is the `emptyLabel` prop's doc; the `<select>`s
-  // this replaced drew the same distinction with `<option value="" disabled>`.
+  // option. Whether it is offered at all is the `emptyLabel` prop's doc. Suppressing it
+  // under `required` is a real behaviour CHANGE, not just a port: two of the `<select>`s
+  // this replaced already said it with `<option value="" disabled>`, but `PersonEditor`'s
+  // program and new-person-partner pickers offered a plainly selectable empty row.
   const allOptions: ComboboxOption[] = required
     ? options
     : [{ value: '', label: emptyLabel }, ...options];
@@ -246,8 +248,10 @@ export default function Combobox({
   }, [focusToken]);
 
   // Mount-only on purpose: `autoFocus` states an intent for the FIRST render, so a later
-  // flip must not yank focus out from under whatever the reader is doing. In an effect for
-  // the same reason `focusToken` above is.
+  // flip must not yank focus out from under whatever the reader is doing. React's own
+  // `autoFocus` attribute would do the same job here; this keeps every focus call in this
+  // component on one path (`focusToken` above is the other caller) rather than splitting
+  // it between an attribute and an effect.
   useEffect(() => {
     if (autoFocus) inputRef.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
