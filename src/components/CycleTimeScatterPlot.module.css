@@ -1,12 +1,57 @@
-/* NO fixed height — the viewBox height is data-driven (60px per phase NAME), so a fixed
-   one crushes it: `height: 25rem` against an 800x2740 viewBox made `preserveAspectRatio`
-   (xMidYMid meet) scale the chart to 800/2740 x 400 = a 117px-wide illegible sliver,
-   centred in an 1100px container. Why the height is data-driven, and where that leaves
-   the chart, is app/ecosystem/cycle-time/page.tsx. */
+/* No fixed height: the viewBox is a constant 800x380 now, so letting the svg keep its own
+   ratio is both correct and all that is needed. (It was NOT always a constant — the chart
+   used to be one row per phase name and sized itself to the portfolio's vocabulary, which a
+   `height: 25rem` here silently crushed into a 117px-wide sliver. See the component header
+   for why that shape is gone.) */
 .container {
   width: 100%;
   position: relative;
   background-color: transparent;
+}
+
+/* The hover/click readout, and the line that tells a reader hovering is worth doing. Below
+   the plot rather than floating over it — a panel that follows the pointer covers the
+   neighbouring points the reader is comparing against. `min-height` so the chart does not
+   jump when the readout appears (§8d: anything affecting height lands on a whole pixel). */
+.detail {
+  min-height: 1.5rem;
+  margin: 0.5rem 0 0;
+}
+
+.detailLine,
+.detailHint {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+.detailHint {
+  color: var(--muted);
+}
+
+.detailLink {
+  font-weight: 600;
+}
+
+/* The sample size behind the percentile lines. Muted and last: it qualifies the chart
+   rather than competing with it, but it is never optional — see the component header. */
+.sample {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  color: var(--muted);
+}
+
+/* The empty state, which used to lean on the container's fixed height for its centring. */
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 8rem;
+  color: var(--muted);
+  /* 13px inherits 1.5 → a 19.5px half-pixel line box (design.md §8d), so state it. */
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
 }
 
 .svg {
@@ -41,12 +86,6 @@
   opacity: 1;
 }
 
-.pointActive {
-  fill: transparent;
-  stroke: var(--p-600);
-  stroke-width: 2px;
-  opacity: 0.8;
-}
 
 .percentileLine {
   stroke: var(--muted);
@@ -58,4 +97,11 @@
   fill: var(--muted);
   font-size: 0.625rem;
   font-weight: 700;
+}
+
+/* The point the readout is describing. A ring rather than a fill change, so the
+   finished/in-flight distinction the fill carries survives being selected. */
+.pointSelected {
+  stroke: var(--fg);
+  stroke-width: 2px;
 }
