@@ -9,9 +9,10 @@ import CycleTimeScatterPlot from '../../../components/CycleTimeScatterPlot';
 // component's CSS) exist so this argument has one home.
 //
 // The chart is ONE ROW PER PHASE NAME, so its height is set by the portfolio's vocabulary
-// rather than by a layout choice: 44 names in the demo seed at 60px each, and it grows
-// with the business. Rendered honestly that is ~3800px — taller than the whole dashboard
-// put together, which is why it is not a section there.
+// rather than by a layout choice: 44 names in the demo seed at 60px each is a 2740-tall
+// viewBox, ~3800px once that scales up to the 1100px column — taller than the whole
+// dashboard put together, which is why it is not a section there. It grows with the
+// business.
 //
 // It WAS on the dashboard until 2026-07-18 (`0ae0aa5`), removed when that page was slimmed
 // to strip + briefing. This does not reopen that decision: the chart is not returning to
