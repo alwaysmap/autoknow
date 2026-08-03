@@ -1,0 +1,62 @@
+/* The type-to-filter entity picker (gh-269). The INPUT reuses the form's own
+   `dash.textInput` look (it replaces a `<select>` in a form full of them, and design.md
+   §6's "one grammar" rule says a form should read as one grammar) — only the dropdown
+   listbox is this component's own to style. No root margin (§9b) — the parent
+   `textInputGroup` supplies spacing the same way it does around every other field. */
+
+.wrap {
+  position: relative;
+  min-width: 0;
+}
+
+/* `position: fixed` and placed in JS by the same `anchoredPosition` math
+   `AnchoredPopover` uses — see the component file for why this is NOT rendered through
+   that component (its dismiss model needs a button invoker; a combobox is input-driven).
+   Not a native top-layer popover, so it relies on normal stacking order — correct for
+   its one shipped use (inside an `OverlayDialog`, itself already top-layer, so anything
+   painted within its DOM subtree sits above the page behind it without needing its own
+   escape hatch). */
+.list {
+  position: fixed;
+  z-index: 20;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  max-height: 14rem;
+  overflow-y: auto;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.18);
+}
+
+.option {
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.25rem;
+  /* 13px is an ODD size (design.md §8d rule 3) — 1.5 × 13 = 19.5px, a half-pixel line
+     box. Pinned to 1.25rem (20px) explicitly, the same pairing every other 0.8125rem
+     table/row fact in the app uses (e.g. EscalationRows.module.css). */
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--fg);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.option:hover,
+.option.active {
+  background: var(--surface);
+}
+
+.option[aria-selected='true'] {
+  font-weight: 600;
+}
+
+.empty {
+  padding: 0.375rem 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--muted);
+}
