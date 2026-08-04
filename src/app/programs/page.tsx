@@ -55,8 +55,9 @@ export default async function ProgramsPage(props: {
   const now = Date.now();
 
   const serializedProjects = projects.map(proj => {
-    // Remaining chain days vs the SOP target is THE on-track signal, and it drives the
-    // SOP-outlook column + the ecosystem "SOP at risk" tile's deep link.
+    // Remaining chain days vs the SOP target is THE will-we-make-it signal, read
+    // four ways by lib/sop.sopBufferCategory below; it drives the SOP-outlook column
+    // and the ecosystem "SOP at risk" tile's deep link.
     const chain = computeCriticalChain(
       proj.phases.map((p) => ({
         id: p.id,
