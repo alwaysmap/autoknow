@@ -39,9 +39,7 @@ describe('sopForecastTone (#21)', () => {
   });
 
   it('is exactly the class, with late and atrisk folded onto one warn tone', () => {
-    // Three tones over four classes: the header renders a bare DATE, so its ink can
-    // only carry severity — the class name is what distinguishes a forecast miss from
-    // a thin buffer, and the header shows no name. Any other folding is a bug.
+    // The ONLY fold sanctioned by sop.SOP_TONE_BY_CLASS. Any other collapse is a bug.
     const cases = [
       { args: { bufferDays: -30, guidelineDays: 20, sopMs: NOW - 10 * DAY_MS, now: NOW }, cls: 'blown', tone: 'blown' },
       { args: { bufferDays: -30, guidelineDays: 20, sopMs: NOW + 40 * DAY_MS, now: NOW }, cls: 'late', tone: 'atRisk' },

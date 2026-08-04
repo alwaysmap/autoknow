@@ -19,10 +19,9 @@ import { useLocale } from '../../components/LocaleProvider';
 
 // SOP-outlook column vocabulary: canonical token → localized label + ink. Only the bad
 // classes are colored; the rest stay quiet so the column doesn't read as a field of
-// warnings. The ink follows severity and the LABEL carries the distinction — 'late' and
-// 'atrisk' are both --warn (they map to one tone, lib/sop.TONE_OF, which is also what
-// paints the program header's forecast date) while 'blown' takes --bad, because a date
-// already missed is not the same news as a date forecast to be missed.
+// warnings. The ink follows severity, the LABEL carries the distinction: 'late' and
+// 'atrisk' share --warn (the same fold `lib/sop.sopForecastTone` makes), while 'blown'
+// takes --bad, because a date already missed is not the same news as one forecast to be.
 const SOP_OUTLOOK_KEY: Record<SopBufferCategory, StringKey> = {
   blown: 'sopOutlookBlown',
   late: 'sopOutlookLate',

@@ -1,4 +1,4 @@
-import { monthEndDate, parseSopInput, sopOutlook, buildProductCapacitySeries, unitsAt, riskScore, sopBufferRisk, sopBufferCategory, sopBufferClass, SOP_FLAGGED_CLASSES, DAY_MS } from '../src/lib/sop';
+import { monthEndDate, parseSopInput, sopOutlook, buildProductCapacitySeries, unitsAt, riskScore, sopBufferRisk, sopBufferCategory, sopBufferClass, isSopFlagged, guidelineFor, DAY_MS } from '../src/lib/sop';
 
 // SOP-target math: month-end assumption, the on-track signal (remaining chain weeks
 // vs the SOP date), the quarterly capacity series (with/without GAS), and risk ranking.
@@ -149,6 +149,13 @@ describe('sopBufferClass — the one reading of a buffer, severity-ordered', () 
   it('is ontrack with no buffer data at all — never a guess', () => {
     expect(sopBufferClass({ bufferDays: null, guidelineDays: null, sopMs: NOW, now: NOW })).toBe('ontrack');
   });
+
+  it('takes its reserve from guidelineFor — the one place the 50% lives', () => {
+    // chainLedger measures the same rule over a different chain; pinning the helper
+    // rather than the literal is what keeps "50%" a single edit.
+    expect(guidelineFor(74)).toBe(37);
+    expect(guidelineFor(0)).toBe(0);
+  });
 });
 
 describe('sopBufferCategory — the per-program token the SOP-outlook column filters on', () => {
@@ -185,7 +192,7 @@ describe('sopBufferRisk — the ecosystem tally behind the "SOP at risk" tile', 
       ],
       NOW,
     );
-    expect(r).toEqual({ blown: 1, late: 1, atRisk: 1, flagged: 3, assessable: 4, undated: 0 });
+    expect(r).toEqual({ blown: 1, late: 1, atrisk: 1, flagged: 3, assessable: 4, undated: 0 });
   });
 
   it('counts a thin buffer the OLD rule called on track — the tile now agrees with the header', () => {
@@ -193,13 +200,13 @@ describe('sopBufferRisk — the ecosystem tally behind the "SOP at risk" tile', 
     // ProjectMetaHeader painted the same program --warn at the 50% line.
     const r = sopBufferRisk([{ ...ACTIVE, sopDate: THIN }], NOW);
     expect(r.flagged).toBe(1);
-    expect(r.atRisk).toBe(1);
+    expect(r.atrisk).toBe(1);
     expect(r.blown + r.late).toBe(0);
   });
 
   it('reports SOP-less active programs separately instead of counting them safe', () => {
     const r = sopBufferRisk([{ ...ACTIVE, sopDate: null }], NOW);
-    expect(r).toEqual({ blown: 0, late: 0, atRisk: 0, flagged: 0, assessable: 0, undated: 1 });
+    expect(r).toEqual({ blown: 0, late: 0, atrisk: 0, flagged: 0, assessable: 0, undated: 1 });
   });
 
   it('ignores everything that is not Active — done, cancelled, archived', () => {
@@ -214,11 +221,11 @@ describe('sopBufferRisk — the ecosystem tally behind the "SOP at risk" tile', 
       ],
       NOW,
     );
-    expect(r).toEqual({ blown: 0, late: 0, atRisk: 0, flagged: 0, assessable: 0, undated: 0 });
+    expect(r).toEqual({ blown: 0, late: 0, atrisk: 0, flagged: 0, assessable: 0, undated: 0 });
   });
 
   it('is all zeros on an empty ecosystem', () => {
-    expect(sopBufferRisk([], NOW)).toEqual({ blown: 0, late: 0, atRisk: 0, flagged: 0, assessable: 0, undated: 0 });
+    expect(sopBufferRisk([], NOW)).toEqual({ blown: 0, late: 0, atrisk: 0, flagged: 0, assessable: 0, undated: 0 });
   });
 
   it('agrees with the deep link by construction: flagged == the set SOP_FLAGGED_CLASSES selects', () => {
@@ -232,9 +239,7 @@ describe('sopBufferRisk — the ecosystem tally behind the "SOP at risk" tile', 
       { ...ACTIVE, sopDate: null },
       { ...ACTIVE, sopDate: SOON, lifecycle: 'cancelled' },
     ];
-    const selected = programs.filter((p) =>
-      SOP_FLAGGED_CLASSES.includes(sopBufferCategory(p, NOW) as never),
-    ).length;
+    const selected = programs.filter((p) => isSopFlagged(sopBufferCategory(p, NOW))).length;
     expect(selected).toBe(sopBufferRisk(programs, NOW).flagged);
     expect(selected).toBe(3);
   });

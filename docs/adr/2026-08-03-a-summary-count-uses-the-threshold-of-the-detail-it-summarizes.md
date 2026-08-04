@@ -27,6 +27,8 @@ its literal form, one file apart.
    record page answer the same question, the threshold is computed once —
    `sop.sopBufferClass` — and every surface derives from it. A tile that applies its own,
    stricter test is not a summary; it is a second opinion wearing a summary's clothes.
+   The 50% rule itself is `sop.guidelineFor`, so "50%" is one edit rather than a grep
+   for `/ 2` across two modules.
 2. **A date already missed is not a forecast, and gets its own class.** The SOP outlook
    is four classes, severity-ordered — `blown` (SOP passed), `late` (chain overruns a SOP
    still ahead), `atrisk` (buffer positive, under the 50% reserve), `ontrack` — each with
@@ -62,6 +64,17 @@ new i18n keys, four locales. This does not touch the *basis* of the forecast, wh
 still `now + remaining chain work` and still cannot say when a program will actually land
 (autoknow-7tg), nor the fact that the ledger and the portfolio compute two different
 projected finishes (autoknow-9jd).
+
+**The fourth surface is the receipt for rule 1.** The first pass of this change fixed the
+tile, the column and the header and stopped there — leaving `SopOutlookCell` (the
+/ecosystem and /ecosystem-summary at-risk tables) still branching on the binary
+`sopOutlook().onTrack`, which is the SAME defect one file over, found by review rather
+than by a user (AGENTS lesson 7 again, inside the commit that was fixing an instance of
+it). Its text stays the buffer in weeks — that is a quantity, and quantities are not
+verdicts — while its ink now comes from the class. The demo seed shows why the ink had to
+move: one program reads `≈10w buffer` in green and another reads `≈10w buffer` in amber,
+because ten weeks against twenty of chain and ten weeks against sixty are not the same
+program.
 
 **Receipts.** Diagnosed against the demo seed: `/programs` showed one `FORECAST LATE`
 (Polaris EV Digital Key) and four `BUFFER LOW` that the tile had been counting as On
