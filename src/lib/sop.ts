@@ -29,12 +29,6 @@ export function parseSopInput(value: string): Date | null {
   return isNaN(+d) ? null : d;
 }
 
-export interface SopOutlook {
-  forecastFinishMs: number; // now + remaining chain work
-  bufferDays: number; // positive = finishes before SOP, negative = late
-  onTrack: boolean;
-}
-
 /**
  * THE four-way reading of a forecast finish against a target SOP, and the ONE place
  * those four questions are asked. Every SOP-health surface derives from it — the
@@ -104,12 +98,21 @@ export function sopForecastTone(args: SopBufferInputs): SopForecastTone {
   return SOP_TONE_BY_CLASS[sopBufferClass(args)];
 }
 
-/** The on-track signal: does now + remaining chain weeks land on or before the SOP? */
-export function sopOutlook(remainingChainDays: number, sopDate: Date | string, now: number): SopOutlook {
+/**
+ * The buffer: days between `now + remaining chain work` and the SOP. Positive = room in
+ * hand, negative = the chain overruns the target.
+ *
+ * It used to return an `onTrack: bufferDays >= 0` alongside, and that boolean was the
+ * whole defect — five surfaces read it and each called a thin buffer healthy. It is gone
+ * rather than deprecated, because a superseded variant left in reach is how the last one
+ * reached a second page and a third file
+ * ([ADR](../../docs/adr/2026-07-24-forecasts-derive-from-the-real-chain-never-a-synthetic-model.md)).
+ * The question it answered is `sopBufferClass`'s now, with three ways to be unhealthy
+ * instead of one.
+ */
+export function sopBufferDays(remainingChainDays: number, sopDate: Date | string, now: number): number {
   const sop = typeof sopDate === 'string' ? new Date(sopDate) : sopDate;
-  const forecastFinishMs = now + remainingChainDays * DAY_MS;
-  const bufferDays = Math.round((+sop - forecastFinishMs) / DAY_MS);
-  return { forecastFinishMs, bufferDays, onTrack: bufferDays >= 0 };
+  return Math.round((+sop - (now + remainingChainDays * DAY_MS)) / DAY_MS);
 }
 
 // ---- capacity over time ----
@@ -272,10 +275,10 @@ export function sopBufferCategory(p: SopBufferProgram, now: number): SopBufferCa
  */
 export function sopBufferReading(
   chainRemainingDays: number,
-  sopDate: Date | string, // same pair sopOutlook takes: a row's Date, or a serialized ISO string
+  sopDate: Date | string, // a row's Date, or the serialized ISO string a client gets
   now: number,
 ): { cls: SopBufferClass; bufferDays: number } {
-  const { bufferDays } = sopOutlook(chainRemainingDays, sopDate, now);
+  const bufferDays = sopBufferDays(chainRemainingDays, sopDate, now);
   const cls = sopBufferClass({
     bufferDays,
     guidelineDays: guidelineFor(chainRemainingDays),

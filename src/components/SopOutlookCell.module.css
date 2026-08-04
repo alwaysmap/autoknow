@@ -7,15 +7,17 @@
    identically, so the ink a reader sees in this cell is traceably the same reading the
    program header paints and the ecosystem tile counts — and the component's
    INK_BY_CLASS map is one line per class with nothing to translate. Type and weight are
-   the cell's, not the verdict's, so they live once in `.reading`; each class below
-   contributes ONLY its colour. */
+   the READING's, not each verdict's, so the four share `.reading` and contribute ONLY a
+   colour; `.unknown` is not a reading and keeps its own type (see the foot). */
 
 .reading {
   font-weight: 600;
   font-size: 0.75rem;
 }
 
-/* Buffer intact and comfortably clear of the reserve. */
+/* Buffer intact and comfortably clear of the reserve. Also the FINISHED row: a program
+   past 100% has no buffer to report, and the one thing worth saying about it is that it
+   is not a problem — the good-news ink is that sentence, not a buffer reading. */
 .ontrack {
   composes: reading;
   color: var(--ok);
@@ -46,7 +48,9 @@
 /* No SOP date: absence of a reading, not a verdict — muted, never the ok/warn ink, and
    not bold, because it is not reporting anything. Not a SopBufferClass: the four above
    answer "how is the buffer", this one answers "is there a buffer to read at all"
-   (lib/sop's `nosop`). */
+   (lib/sop's `nosop`). It stands OUTSIDE `.reading` for that reason and so restates the
+   size — sharing the base to save one line would put it in the set it is defined
+   against, and the next editor would give it the weight too. */
 .unknown {
   color: var(--muted);
   font-size: 0.75rem;

@@ -1,4 +1,4 @@
-import { monthEndDate, parseSopInput, sopOutlook, buildProductCapacitySeries, unitsAt, riskScore, sopBufferRisk, sopBufferCategory, sopBufferClass, isSopFlagged, guidelineFor, DAY_MS } from '../src/lib/sop';
+import { monthEndDate, parseSopInput, sopBufferDays, buildProductCapacitySeries, unitsAt, riskScore, sopBufferRisk, sopBufferCategory, sopBufferClass, isSopFlagged, guidelineFor, DAY_MS } from '../src/lib/sop';
 
 // SOP-target math: month-end assumption, the on-track signal (remaining chain weeks
 // vs the SOP date), the quarterly capacity series (with/without GAS), and risk ranking.
@@ -18,20 +18,17 @@ describe('monthEndDate / parseSopInput', () => {
   });
 });
 
-describe('sopOutlook', () => {
+describe('sopBufferDays', () => {
   const now = Date.UTC(2026, 6, 13); // 2026-07-13
 
-  it('is on track when remaining chain work lands before the SOP', () => {
-    const o = sopOutlook(74, new Date(Date.UTC(2027, 2, 31)), now);
-    expect(o.onTrack).toBe(true);
-    expect(o.bufferDays).toBeGreaterThan(180);
+  it('is positive room when remaining chain work lands before the SOP', () => {
+    expect(sopBufferDays(74, new Date(Date.UTC(2027, 2, 31)), now)).toBeGreaterThan(180);
   });
 
-  it('is late when the chain overshoots the SOP', () => {
-    const o = sopOutlook(74, new Date(Date.UTC(2026, 7, 31)), now); // SOP 2026-08-31
-    expect(o.onTrack).toBe(false);
-    expect(o.bufferDays).toBe(Math.round((Date.UTC(2026, 7, 31) - (now + 74 * DAY_MS)) / DAY_MS));
-    expect(o.bufferDays).toBeLessThan(0);
+  it('goes negative by exactly the overshoot when the chain passes the SOP', () => {
+    const buffer = sopBufferDays(74, new Date(Date.UTC(2026, 7, 31)), now); // SOP 2026-08-31
+    expect(buffer).toBe(Math.round((Date.UTC(2026, 7, 31) - (now + 74 * DAY_MS)) / DAY_MS));
+    expect(buffer).toBeLessThan(0);
   });
 });
 

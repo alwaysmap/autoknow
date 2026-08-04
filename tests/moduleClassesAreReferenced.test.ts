@@ -12,10 +12,13 @@
 //
 // WHY DELETING IS SAFE, which is also why this ratchet can be strict: a module class
 // reaches the DOM through its import binding, or through another class in the same module
-// that `composes:` it. Both are counted below. There is no computed `styles[expr]` and no
+// that `composes:` it. Both are counted below. There is no computed `styles[expr]`, no
 // MODULE class ever named as a literal string (the one literal className in `src` is a
-// GLOBAL class, `dark-theme`). So a class no component names and nothing composes is
-// applied to no element, and a rule for it can never match. globals.css's blanket
+// GLOBAL class, `dark-theme`), and no cross-module `composes: x from './other.css'` — that
+// last one is latched at `composedClasses` rather than counted, so if one ever appears it
+// costs a name a false death report, never a silent survival. So a class no component
+// names and nothing composes is applied to no element, and a rule for it can never match.
+// globals.css's blanket
 // `[class*="card"]` selectors do not change that: they style elements that already carry
 // the class, and nothing carries these.
 //
@@ -65,7 +68,10 @@ export function definedClasses(css: string): Set<string> {
  *  the same name alive by coincidence. */
 export function composedClasses(css: string): Set<string> {
   const out = new Set<string>();
-  for (const decl of blankComments(css).matchAll(/composes\s*:\s*([^;{}]+);/g)) {
+  // Terminated by `;` OR by the block's closing brace — a last declaration needs no
+  // semicolon, and requiring one would report the class it keeps alive as dead, which is
+  // the exact failure this whole file exists to prevent.
+  for (const decl of blankComments(css).matchAll(/composes\s*:\s*([^;{}]+)[;}]/g)) {
     if (/\bfrom\b/.test(decl[1])) continue;
     for (const name of decl[1].trim().split(/\s+/)) out.add(name);
   }
@@ -158,12 +164,16 @@ describe('every CSS-module class is referenced by a component', () => {
     expect([spread.opaque, prop.opaque]).toEqual([true, true]);
   });
 
-  // Anti-vacuity 5: `composes:` is a reference, and only the LOCAL form is one. Without
-  // the first case a composed-only base class reads as dead; without the second, a name
-  // imported from another module would keep an unrelated local class of that name alive.
+  // Anti-vacuity 5: `composes:` is a reference, and only the LOCAL form is one. Four ways
+  // this rots, one case each — without the first a composed-only base class reads as dead;
+  // without the second a name imported from another module keeps an unrelated local class
+  // of that name alive; without the third a last declaration written without its optional
+  // semicolon stops counting; and the fourth is anti-vacuity 3's rule, which every reader
+  // of this file has to obey too — a comment ABOUT composing is not composing.
   it('counts a locally composed class as referenced, and an imported one as not', () => {
     expect([...composedClasses('.a { composes: base tight; }')]).toEqual(['base', 'tight']);
     expect([...composedClasses(".a { composes: base from './other.module.css'; }")]).toEqual([]);
+    expect([...composedClasses('.a { composes: base }')]).toEqual(['base']);
     expect([...composedClasses('/* composes: ghost; */ .a { color: red }')]).toEqual([]);
   });
 });
