@@ -244,6 +244,24 @@ export interface SopBufferRisk extends Record<SopFlaggedClass, number> {
  *           absence is its own problem — never silently "safe").
  *   na    — not active (Done / Cancelled / Archived): the SOP outlook is moot.
  * Only Active programs get a real reading — lib/lifecycle is the visibility boundary.
+ */
+export function sopBufferCategory(p: SopBufferProgram, now: number): SopBufferCategory {
+  if (deriveProgramStatus(p) !== 'Active') return 'na';
+  if (!p.sopDate) return 'nosop';
+  return sopBufferReading(p.chainRemainingDays, p.sopDate, now).cls;
+}
+
+/**
+ * The reading for a program that HAS a chain and a SOP — the composition every portfolio
+ * surface needs, in one place. `sopBufferClass` takes a buffer and a reserve; deriving
+ * both from a program is four lines that were being written per call site, which is how
+ * a `/ 2` and a `sopMs` drift apart. Callers that also have to decide "is this assessable
+ * at all" want `sopBufferCategory`; callers that already know it is (a table cell, a
+ * brief clause) want this.
+ *
+ * It returns the buffer ALONGSIDE the class because the surfaces that show a verdict
+ * almost all show the quantity behind it too, and computing that quantity a second time
+ * at the call site is the same duplication one variable over.
  *
  * The reserve is taken against the SAME remaining-chain quantity the buffer is measured
  * from, so the two halves of the comparison agree. Note this is the LIVE
@@ -252,31 +270,19 @@ export interface SopBufferRisk extends Record<SopFlaggedClass, number> {
  * and the deeper split (two answers to "when does this finish") is autoknow-9jd, not this
  * function's to resolve.
  */
-export function sopBufferCategory(p: SopBufferProgram, now: number): SopBufferCategory {
-  if (deriveProgramStatus(p) !== 'Active') return 'na';
-  if (!p.sopDate) return 'nosop';
-  return sopBufferClassFor(p.chainRemainingDays, p.sopDate, now);
-}
-
-/**
- * The class of a program that HAS a chain and a SOP — the composition every portfolio
- * surface needs, in one place. `sopBufferClass` takes a buffer and a reserve; deriving
- * both from a program is three lines that were being written per call site, which is
- * how a `/ 2` and a `sopMs` drift apart. Callers that also have to decide "is this
- * assessable at all" want `sopBufferCategory`; callers that already know it is (a table
- * cell, a brief clause) want this.
- */
-export function sopBufferClassFor(
+export function sopBufferReading(
   chainRemainingDays: number,
   sopDate: Date | string, // same pair sopOutlook takes: a row's Date, or a serialized ISO string
   now: number,
-): SopBufferClass {
-  return sopBufferClass({
-    bufferDays: sopOutlook(chainRemainingDays, sopDate, now).bufferDays,
+): { cls: SopBufferClass; bufferDays: number } {
+  const { bufferDays } = sopOutlook(chainRemainingDays, sopDate, now);
+  const cls = sopBufferClass({
+    bufferDays,
     guidelineDays: guidelineFor(chainRemainingDays),
     sopMs: +new Date(sopDate),
     now,
   });
+  return { cls, bufferDays };
 }
 
 /**

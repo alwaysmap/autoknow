@@ -149,11 +149,10 @@ describe('sopBufferClass — the one reading of a buffer, severity-ordered', () 
   it('is ontrack with no buffer data at all — never a guess', () => {
     expect(sopBufferClass({ bufferDays: null, guidelineDays: null, sopMs: NOW, now: NOW })).toBe('ontrack');
   });
-
 });
 
 describe('guidelineFor — the one place the 50% rule lives', () => {
-  // sopBufferClassFor and chainLedger both measure this rule, over different chains.
+  // sopBufferReading and chainLedger both measure this rule, over different chains.
   // Pinning the helper rather than each caller's literal is what keeps "50%" one edit.
   it('is half the remaining work, rounded', () => {
     expect(guidelineFor(74)).toBe(37);

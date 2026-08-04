@@ -14,7 +14,7 @@ import {
   programStatusUpdateHref, relationshipUpdateHref, summaryScopeHref,
 } from './entityHref';
 import { linkify, type EntityLink, type Segment } from './summaryLinkify';
-import { sopOutlook, sopBufferClassFor } from './sop';
+import { sopBufferReading } from './sop';
 import { localDate } from './dates';
 import { profilesAsOf } from './profiles';
 
@@ -609,14 +609,15 @@ async function gatherEcosystemEvidence(windowStart: Date, ev: EvidenceList, reg:
     // (docs/adr/2026-08-03-a-summary-count-uses-the-threshold-of-the-detail-it-summarizes.md).
     let sopClause = 'no SOP target set (required)';
     if (proj.sopDate) {
-      const now = Date.now();
-      const { bufferDays } = sopOutlook(chain.remainingDays, proj.sopDate, now);
+      const { cls, bufferDays } = sopBufferReading(chain.remainingDays, proj.sopDate, Date.now());
       const month = proseMonth(proj.sopDate);
-      const cls = sopBufferClassFor(chain.remainingDays, proj.sopDate, now);
+      // The thin-buffer arm gives the model both numbers rather than the word, because
+      // "at risk with 40 days of buffer" is only judgeable against the work still ahead.
+      const thin = `only ≈${bufferDays}d buffer against ${chain.remainingDays}d of remaining chain work (under the 50% reserve)`;
       sopClause =
         cls === 'blown' ? `SOP ${month} ALREADY MISSED (≈${-bufferDays}d past it)`
         : cls === 'late' ? `SOP ${month} AT RISK (≈${-bufferDays}d overshoot)`
-        : cls === 'atrisk' ? `SOP ${month} AT RISK: only ≈${bufferDays}d buffer against ${chain.remainingDays}d of remaining chain work (under the 50% reserve)`
+        : cls === 'atrisk' ? `SOP ${month} AT RISK: ${thin}`
         : `SOP ${month} reachable (≈${bufferDays}d buffer)`;
     }
     const products = [proj.hasGas && 'GAS', proj.hasGbi && 'GBI', proj.hasDigitalKey && 'Digital Key']
