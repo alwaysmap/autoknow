@@ -1205,7 +1205,6 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
           opens off the edge of the container. */}
       <AnchorHeading
         id="phases"
-        linkLabel={t(locale, 'anchorLink')}
         actions={
           <>
             <button type="button" className={styles.infoBtn} title={t(locale, 'phaseKeyTitle')}

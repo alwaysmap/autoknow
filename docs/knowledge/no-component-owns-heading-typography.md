@@ -1,7 +1,7 @@
 ---
 title: No component owns heading typography — every page module redeclares it, so headings drift page to page
 status: current
-updated: 2026-07-25
+updated: 2026-08-03
 applies_to:
   - src/app/**/page.module.css
   - src/components/AnchorHeading.module.css
@@ -15,7 +15,7 @@ verified_by: 'tests/headings.test.ts "no heading paints itself from the brand-gr
 
 # No component owns heading typography — every page module redeclares it
 
-**The lesson.** `AnchorHeading` owns the heading's MARKUP — the row, the `#` anchor, the
+**The lesson.** `AnchorHeading` owns the heading's MARKUP — the row, the id, the
 trailing graticule — and deliberately sets only `margin` and `line-height`
 (`.row .heading`). It does not set font, size or colour. Those come from a **page-level
 descendant rule** that each page module writes for itself: `.historySection h2`,

@@ -72,7 +72,7 @@ export default async function Landing(props: { searchParams: Promise<{ q?: strin
       </main>
 
       <section className={styles.latest}>
-        <AnchorHeading id="latest-updates" linkLabel={t(locale, 'anchorLink')}>
+        <AnchorHeading id="latest-updates">
           {t(locale, 'landingLatest')}
         </AnchorHeading>
         <LatestTeasers items={latest} locale={locale} />

@@ -413,7 +413,11 @@ export default async function ProjectDetailsPage(props: {
             side; everything from the Critical Chain section down spans the full
             width of both columns. */}
         <div className={styles.topGrid}>
-          <div id="program-status" className={styles.anchor}>
+          {/* id only: the scroll offset for every in-page jump lives once on
+              `html { scroll-padding-top }` (globals.css). `styles.anchor` used to
+              ride here too — page.module.css has had no such rule since the offset
+              moved, so it resolved to undefined and painted nothing. */}
+          <div id="program-status">
             <ProjectStatusDashboard
               projectId={project.id}
               currentNeedle={project.theNeedle}
@@ -425,7 +429,7 @@ export default async function ProjectDetailsPage(props: {
             />
           </div>
           <section>
-            <AnchorHeading id="briefing" linkLabel={t(locale, 'anchorLink')} className={styles.briefingHeading}>
+            <AnchorHeading id="briefing" className={styles.briefingHeading}>
               {t(locale, 'briefingHeading')}
             </AnchorHeading>
             <SummaryPanel scope="program" targetId={projectId} path={`/programs/${projectId}`}
@@ -479,7 +483,7 @@ export default async function ProjectDetailsPage(props: {
                 <PhaseTrack projectId={projectId} phases={graphRows} locale={locale} />
               ) : (
                 <>
-                  <AnchorHeading id="phases" linkLabel={t(locale, 'anchorLink')}>
+                  <AnchorHeading id="phases">
                     {t(locale, 'phasesCard')}
                   </AnchorHeading>
                   <PhaseGraph projectId={projectId} phases={graphRows} allPartners={allPartners} />
@@ -493,7 +497,6 @@ export default async function ProjectDetailsPage(props: {
             <section className={styles.historySection}>
               <AnchorHeading
                 id="escalations"
-                linkLabel={t(locale, 'anchorLink')}
                 actions={
                   <KebabMenu ariaLabel={t(locale, 'moreActions')}>
                     <Link href={`/escalations?project=${encodeURIComponent(project.name)}`}>
@@ -510,7 +513,7 @@ export default async function ProjectDetailsPage(props: {
             {/* Activity: scoped search riding on top of the feed — one section, one
                 chip row (the feed's), no duplicated heading or intro */}
             <section className={styles.historySection}>
-              <AnchorHeading id="activity" linkLabel={t(locale, 'anchorLink')}>
+              <AnchorHeading id="activity">
                 {t(locale, 'navActivity')}
               </AnchorHeading>
               {/* Activity is filtered by ActivityFeed's own SearchField (over the

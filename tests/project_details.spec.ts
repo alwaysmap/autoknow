@@ -71,7 +71,8 @@ test.describe('Project Details and Action Item Operations', () => {
       const section = await heading.locator('xpath=ancestor::section[1]').boundingBox();
       expect(h && m && section).toBeTruthy();
 
-      // Adjacent to the title: the gap fits the # anchor and the ⓘ, nothing more.
+      // Adjacent to the title: the gap fits the ⓘ and nothing more. (The bound was
+      // sized when a “#” anchor shared this space; it is slack now, not wrong.)
       const gap = m!.x - (h!.x + h!.width);
       expect(gap).toBeGreaterThanOrEqual(0);
       expect(gap).toBeLessThan(80);

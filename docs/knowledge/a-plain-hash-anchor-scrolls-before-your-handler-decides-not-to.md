@@ -1,7 +1,7 @@
 ---
 title: A plain `<a href="#x">` scrolls the page before your handler decides it shouldn't
 status: current
-updated: 2026-07-28
+updated: 2026-08-03
 applies_to:
   - src/components/**  # any anchor whose href is a same-page fragment AND which also runs a click handler
   - src/app/globals.css  # `html { scroll-behavior: smooth }` is what makes that jump an animation
@@ -33,8 +33,10 @@ precisely so they can be shared, and the same elements are the click targets. A 
 `<Link scroll={false}>` suppresses the jump, which is why the several `<Link>`-based
 hash controls on the phase rail never showed this — the bug needs a *plain* `<a>`.
 
-**What to do.** Decide which half owns the page. If the anchor is purely an address
-(`AnchorHeading`'s ¶ link), let the browser have it and add no handler. If a handler
+**What to do.** Decide which half owns the page. If the anchor is purely an address —
+a fragment link that only wants the browser's own jump — let the browser have it and
+add no handler. (`AnchorHeading`'s hover-revealed `#` was the example here until it was
+removed on 2026-08-03; the section ids it addressed are still there.) If a handler
 also places the page, take the whole gesture: `preventDefault()`, write the fragment
 with `replaceState` (which state is showing is a mode of the page, not a stop on the
 way back), and let the handler scroll. Leave modified clicks alone — meta/ctrl/shift/

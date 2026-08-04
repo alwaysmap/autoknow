@@ -190,7 +190,7 @@ export default async function PersonProfile({ personId }: { personId: number }) 
 
         <div className={styles.colMain}>
           <section className={styles.section}>
-            <AnchorHeading id="programs" linkLabel={t(locale, 'anchorLink')}>
+            <AnchorHeading id="programs">
               {t(locale, 'navPrograms')}
             </AnchorHeading>
             <p className={styles.sectionIntro}>{t(locale, 'personProgramsIntro')}</p>
@@ -205,14 +205,14 @@ export default async function PersonProfile({ personId }: { personId: number }) 
             {/* What is on THIS person's plate (#245 section C) — owner, decision maker,
                 or requested-of, oldest-open-first via the shared query. Reads right after
                 Programs and before career History: it is current work, not a record. */}
-            <AnchorHeading id="escalations" linkLabel={t(locale, 'anchorLink')}>
+            <AnchorHeading id="escalations">
               {t(locale, 'escalationsLabel')}
             </AnchorHeading>
             <EscalationRows escalations={escalations} locale={locale} />
           </section>
 
           <section className={styles.section}>
-            <AnchorHeading id="history" linkLabel={t(locale, 'anchorLink')}>
+            <AnchorHeading id="history">
               {t(locale, 'historyLabel')}
             </AnchorHeading>
             {(() => {
@@ -254,7 +254,7 @@ export default async function PersonProfile({ personId }: { personId: number }) 
           </section>
 
           <section className={styles.section}>
-            <AnchorHeading id="activity" linkLabel={t(locale, 'anchorLink')}>
+            <AnchorHeading id="activity">
               {t(locale, 'navActivity')}
             </AnchorHeading>
             {/* The intro states the feed's limit rather than absorbing it — see

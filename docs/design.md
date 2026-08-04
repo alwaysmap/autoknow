@@ -29,13 +29,14 @@ To maximize readability and ensure a clean, distraction-free environment:
 
 ## 2. "Everything is a URL" Navigation Pattern
 * **Sections own their deep link**: every `<h2>` renders through
-  `AnchorHeading` — hovering (or tabbing to) the heading reveals a quiet `#`
-  beside it, and clicking it puts the section anchor in the address bar to
-  share. No standing "on this page" nav rows. The id is passed explicitly and
-  is never derived from the heading text: headings are localized, so a
-  slugified anchor would differ per locale and break links already shared. The
-  `#` link is a SIBLING of the heading, never a child — nested, its text joins
-  the heading's accessible name.
+  `AnchorHeading`, which puts the id on the heading, so `#phases` is a real
+  address the browser scrolls to and anyone can share. No standing "on this
+  page" nav rows. The id is passed explicitly and is never derived from the
+  heading text: headings are localized, so a slugified anchor would differ per
+  locale and break links already shared. The heading shows no `#` affordance —
+  a hover-revealed one shipped and was removed: repeated on every `<h2>` in the
+  app, the glyph read as clutter, and the address is already in the URL bar once
+  you arrive ([ADR](adr/2026-08-03-a-section-heading-carries-its-id-and-shows-no-affordance.md)).
 Every entity displayed in a dashboard view or detail card must serve as an active navigation affordance:
 * **Hyperlinked Names**: Partner names, OEM names, Supplier lists and program owners must
   always be links leading to their respective detail pages (`/partners/[id]`,

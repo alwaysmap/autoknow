@@ -145,7 +145,7 @@ export default function EcosystemSummaryClient({
 
       {/* Active Implementation Pipelines */}
       <section className={styles.tableSection}>
-        <AnchorHeading id="lifecycle-launches" linkLabel={t(locale, 'anchorLink')}>
+        <AnchorHeading id="lifecycle-launches">
           {t(locale, 'programLifecycleLaunches')}
         </AnchorHeading>
         <DataTable

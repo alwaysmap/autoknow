@@ -1,18 +1,18 @@
-/* Section heading with a hover-revealed deep link (see AnchorHeading.tsx).
+/* Section heading: an <h2> carrying its own id (see AnchorHeading.tsx).
    globals.css applies `* { padding: 0; margin: 0 }`, so spacing here is
    explicit rather than inherited from UA heading defaults. */
 
 /* The ROW is the block-level unit and owns the spacing below the heading.
    Any margin left on the h2 itself lands INSIDE the flex line, so centring
-   measures the heading's margin box and drops the ⓘ/# below the text — which
+   measures the heading's margin box and drops the ⓘ below the text — which
    is exactly what page rules like `.historySection h2 { margin: 0 0 0.5rem }`
    were doing. */
 .row {
   display: flex;
   align-items: center;
   /* --gr-gap is the row's own flex gap (heading ↔ affordances). The graticule reads
-     it back (calc below) so its leading nets out to --graticule-lead whatever this is,
-     and the # anchor cancels one copy of it — see .anchor (#25). */
+     it back (calc below) so its leading nets out to --graticule-lead whatever this
+     is, rather than to --graticule-lead + gap (#25). */
   --gr-gap: 0.25rem;
   gap: var(--gr-gap);
   margin-bottom: 0.5rem;
@@ -26,7 +26,7 @@
    the heading's text baseline. `align-self: baseline` on the graticule ALONE is
    not enough — with the row centred it is the only baseline item, so it has no
    sibling baseline to share and floats ~15px high (measured). Baselining the row
-   gives it the h2's baseline; the action items (#, ⓘ, menus) are pinned back to
+   gives it the h2's baseline; the action items (ⓘ, menus) are pinned back to
    centre so only the graticule moves. Standard keeps align-items: center. */
 :global(:root[data-style='instrument']) .row {
   align-items: baseline;
@@ -48,44 +48,8 @@
   line-height: 1.75rem;
 }
 
-/* The # sits BESIDE the heading but must not push the trailing graticule right by a
-   glyph nobody can see (#25): it was `opacity: 0` yet still held ~10px of layout, so
-   every <h2>'s rule started ~16px from the ink instead of the declared ~12px. Zero-
-   width + overflow keeps it out of the width budget while the glyph still paints and
-   stays clickable; the negative margin cancels the one flex gap in front of it, so the
-   row lays out as if the anchor were absent. opacity (not visibility/display) still does
-   the reveal, so hover NEVER reflows the row — the property that made opacity the right
-   choice is preserved, only its footprint is removed. */
-.anchor {
-  width: 0;
-  overflow: visible;
-  white-space: nowrap;
-  margin-left: calc(-1 * var(--gr-gap));
-  color: var(--muted);
-  font-weight: 400;
-  text-decoration: none;
-  opacity: 0;
-  transition: opacity 0.12s ease;
-}
-
-/* Revealed by hovering the heading row, or by tabbing to the link itself —
-   keyboard users get the same affordance, never a link they can focus but
-   cannot see. */
-.row:hover .anchor,
-.anchor:focus-visible {
-  opacity: 1;
-}
-
-.anchor:hover {
-  color: var(--fg);
-}
-
-/* Coarse pointers have no hover state: show the link permanently, quietly. */
-@media (hover: none) {
-  .anchor {
-    opacity: 0.45;
-  }
-}
+/* There is deliberately no `.anchor` rule: the hover-revealed “#” is gone, and
+   the row is measured without it — see the ADR, a-section-heading-carries-its-id. */
 
 /* Instrument: the rule trailing every section heading is a graticule, not a
    line. AnchorHeading wraps every <h2> in the app (design.md §2), so this one

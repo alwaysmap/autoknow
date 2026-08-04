@@ -143,7 +143,7 @@ export default async function EscalationDetailPage({ params }: PageProps) {
       <main className={styles.main}>
         <div className={styles.colMain}>
           <section className={styles.section}>
-            <AnchorHeading id="statement" linkLabel={t(locale, 'anchorLink')}>
+            <AnchorHeading id="statement">
               {t(locale, 'escSummaryLabel')}
             </AnchorHeading>
             {escalation.summary
@@ -161,7 +161,6 @@ export default async function EscalationDetailPage({ params }: PageProps) {
                   sibling (§8c, third trap). */}
               <AnchorHeading
                 id="original-request"
-                linkLabel={t(locale, 'anchorLink')}
                 actions={
                   <InfoPopover label={t(locale, 'escOriginalRequestAbout')}>
                     <p>{t(locale, 'escOriginalRequestHint')}</p>
