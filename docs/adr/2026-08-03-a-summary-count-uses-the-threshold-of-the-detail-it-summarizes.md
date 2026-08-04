@@ -65,16 +65,26 @@ still `now + remaining chain work` and still cannot say when a program will actu
 (autoknow-7tg), nor the fact that the ledger and the portfolio compute two different
 projected finishes (autoknow-9jd).
 
-**The fourth surface is the receipt for rule 1.** The first pass of this change fixed the
-tile, the column and the header and stopped there — leaving `SopOutlookCell` (the
-/ecosystem and /ecosystem-summary at-risk tables) still branching on the binary
-`sopOutlook().onTrack`, which is the SAME defect one file over, found by review rather
-than by a user (AGENTS lesson 7 again, inside the commit that was fixing an instance of
-it). Its text stays the buffer in weeks — that is a quantity, and quantities are not
-verdicts — while its ink now comes from the class. The demo seed shows why the ink had to
-move: one program reads `≈10w buffer` in green and another reads `≈10w buffer` in amber,
-because ten weeks against twenty of chain and ten weeks against sixty are not the same
-program.
+**The surfaces the first two passes missed are the receipt for rule 1.** This landed in
+three commits, and the second and third exist because review found the SAME defect
+further along the same rule — twice, inside the change that was fixing an instance of it
+(AGENTS lesson 7, which is why it says *sweep before closing*):
+
+- `SopOutlookCell` (the /ecosystem and /ecosystem-summary at-risk tables) still branched
+  on the binary `sopOutlook().onTrack`. Its text stays the buffer in weeks — that is a
+  quantity, and quantities are not verdicts — while its ink now comes from the class.
+  The demo seed shows why the ink had to move: one program reads `≈10w buffer` in green
+  and another reads `≈10w buffer` in amber, because ten weeks against twenty of chain
+  and ten weeks against sixty are not the same program.
+- `lib/summaries` built the AI brief's SOP clause the same binary way, so a thin-buffer
+  program was described to the model — and then to a leader — as "reachable" while every
+  screen in the app called it at risk. A brief that contradicts the page it summarizes is
+  the most expensive version of this defect, because the reader has no way to see the
+  disagreement.
+
+The composition itself is now `sop.sopBufferClassFor(chainRemainingDays, sopDate, now)`:
+the three lines that derive a buffer and a reserve from a program were being written per
+call site, which is how the next site drifts.
 
 **Receipts.** Diagnosed against the demo seed: `/programs` showed one `FORECAST LATE`
 (Polaris EV Digital Key) and four `BUFFER LOW` that the tile had been counting as On

@@ -551,12 +551,12 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
     const nowPt = series.points.find((p) => p.ms === dayFloor(now)) ?? series.points[series.points.length - 1];
     const blown = blownAt(series.points);
     // The 50%-of-remaining reserve is a value that only exists as of NOW
-    // (chainLedger.ts defines it as remainingTotal / 2), so it is a marker, never a
-    // rule across the chart — a full-width line would state a threshold that did not
-    // apply in the past (decision 7). A reserve of ZERO days is not a threshold but a
-    // program with no work left, so it draws nothing. A reserve ABOVE the frame is
-    // the COMMON case, not the rare one (guidelineDays is remainingTotal/2, so any
-    // program with more remaining work than B₀ pushes past 100% of it) — stretching
+    // (sop.guidelineFor, which chainLedger applies to its remaining total), so it is a
+    // marker, never a rule across the chart — a full-width line would state a threshold
+    // that did not apply in the past (decision 7). A reserve of ZERO days is not a
+    // threshold but a program with no work left, so it draws nothing. A reserve ABOVE
+    // the frame is the COMMON case, not the rare one (it is half the remaining work, so
+    // any program with more remaining work than B₀ pushes past 100% of it) — stretching
     // the frame to hold it would squash the reading the chart exists for, so instead
     // it draws an OFF-SCALE marker pinned to the frame's own top edge (autoknow-4dr.2,
     // decided over clamping it there silently or rebasing it against remaining work:

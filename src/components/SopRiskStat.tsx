@@ -10,9 +10,11 @@ import styles from './SopRiskStat.module.css';
 // The Big Number, second seat: how many active programs are in trouble against their
 // SOP — the date already missed, the chain overrunning a date still ahead, or the
 // buffer fallen under the 50%-rule reserve (lib/sop.SOP_FLAGGED_CLASSES; why all three
-// and not just the last is the ADR's job, not this file's). Same per-row signal the
-// /programs "SOP outlook" column renders, counted across the ecosystem, so a leader
-// sees the size of the slip problem before reading which programs it is.
+// and not only the first is
+// docs/adr/2026-08-03-a-summary-count-uses-the-threshold-of-the-detail-it-summarizes.md,
+// not this file). Same per-row signal the /programs "SOP outlook" column renders,
+// counted across the ecosystem, so a leader sees the size of the slip problem before
+// reading which programs it is.
 //
 // The figure is a door to exactly those programs: the deep link preselects that
 // column's funnel on the same classes (selections are OR-ed within a column,

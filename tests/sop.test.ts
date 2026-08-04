@@ -150,10 +150,14 @@ describe('sopBufferClass — the one reading of a buffer, severity-ordered', () 
     expect(sopBufferClass({ bufferDays: null, guidelineDays: null, sopMs: NOW, now: NOW })).toBe('ontrack');
   });
 
-  it('takes its reserve from guidelineFor — the one place the 50% lives', () => {
-    // chainLedger measures the same rule over a different chain; pinning the helper
-    // rather than the literal is what keeps "50%" a single edit.
+});
+
+describe('guidelineFor — the one place the 50% rule lives', () => {
+  // sopBufferClassFor and chainLedger both measure this rule, over different chains.
+  // Pinning the helper rather than each caller's literal is what keeps "50%" one edit.
+  it('is half the remaining work, rounded', () => {
     expect(guidelineFor(74)).toBe(37);
+    expect(guidelineFor(75)).toBe(38);
     expect(guidelineFor(0)).toBe(0);
   });
 });

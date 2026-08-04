@@ -1,8 +1,19 @@
 'use client';
 
-import { sopOutlook, sopBufferClass, guidelineFor } from '../lib/sop';
+import { sopOutlook, sopBufferClassFor, type SopBufferClass } from '../lib/sop';
 import { t, Locale } from '../lib/i18n';
 import styles from './SopOutlookCell.module.css';
+
+/** Class token → its ink, one row each, the way every other token-keyed surface here
+ *  spells it (ProgramsClient's SOP_OUTLOOK_COLOR, sop's SOP_TONE_BY_CLASS). A Record
+ *  is exhaustive, so a fifth class would fail to compile rather than fall through to
+ *  whichever branch happened to be last. */
+const INK: Record<SopBufferClass, string> = {
+  blown: styles.blown,
+  late: styles.late,
+  atrisk: styles.atrisk,
+  ontrack: styles.ontrack,
+};
 
 /**
  * THE "will this make its SOP" cell, shared by /ecosystem and /ecosystem-summary.
@@ -39,27 +50,18 @@ export default function SopOutlookCell({
 }) {
   // No SOP set is not an outlook — say so rather than implying a healthy one.
   if (!sopDate) return <span className={styles.unknown}>{t(locale, 'tbd')}</span>;
-  if (hillChartProgress >= 100) return <span className={styles.ok}>{t(locale, 'finishedLabel')}</span>;
+  if (hillChartProgress >= 100) return <span className={styles.ontrack}>{t(locale, 'finishedLabel')}</span>;
 
+  // Two independent readings of the same buffer, and keeping them independent is the
+  // point: the SIGN picks the sentence (weeks in hand, or weeks past), the CLASS picks
+  // the ink. Asking the class which sentence to print would put the verdict back in
+  // charge of the quantity.
   const { bufferDays } = sopOutlook(chainRemainingDays, sopDate, now);
-  const cls = sopBufferClass({
-    bufferDays,
-    guidelineDays: guidelineFor(chainRemainingDays),
-    sopMs: Date.parse(sopDate),
-    now,
-  });
-  // Positive buffer still reads as buffer — the reader wants the weeks. Only the ink
-  // changes: thin is amber, gone is amber, a date already missed is --bad.
-  if (cls === 'ontrack' || cls === 'atrisk') {
-    return (
-      <span className={cls === 'atrisk' ? styles.thin : styles.ok}>
-        {t(locale, 'slackWeeks', { n: Math.floor(bufferDays / 7) })}
-      </span>
-    );
-  }
   return (
-    <span className={cls === 'blown' ? styles.missed : styles.late}>
-      {t(locale, 'lateByWeeks', { n: Math.ceil(-bufferDays / 7) })}
+    <span className={INK[sopBufferClassFor(chainRemainingDays, sopDate, now)]}>
+      {bufferDays >= 0
+        ? t(locale, 'slackWeeks', { n: Math.floor(bufferDays / 7) })
+        : t(locale, 'lateByWeeks', { n: Math.ceil(-bufferDays / 7) })}
     </span>
   );
 }

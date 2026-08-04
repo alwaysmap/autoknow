@@ -255,10 +255,26 @@ export interface SopBufferRisk extends Record<SopFlaggedClass, number> {
 export function sopBufferCategory(p: SopBufferProgram, now: number): SopBufferCategory {
   if (deriveProgramStatus(p) !== 'Active') return 'na';
   if (!p.sopDate) return 'nosop';
+  return sopBufferClassFor(p.chainRemainingDays, p.sopDate, now);
+}
+
+/**
+ * The class of a program that HAS a chain and a SOP — the composition every portfolio
+ * surface needs, in one place. `sopBufferClass` takes a buffer and a reserve; deriving
+ * both from a program is three lines that were being written per call site, which is
+ * how a `/ 2` and a `sopMs` drift apart. Callers that also have to decide "is this
+ * assessable at all" want `sopBufferCategory`; callers that already know it is (a table
+ * cell, a brief clause) want this.
+ */
+export function sopBufferClassFor(
+  chainRemainingDays: number,
+  sopDate: Date | string, // same pair sopOutlook takes: a row's Date, or a serialized ISO string
+  now: number,
+): SopBufferClass {
   return sopBufferClass({
-    bufferDays: sopOutlook(p.chainRemainingDays, p.sopDate, now).bufferDays,
-    guidelineDays: guidelineFor(p.chainRemainingDays),
-    sopMs: +new Date(p.sopDate),
+    bufferDays: sopOutlook(chainRemainingDays, sopDate, now).bufferDays,
+    guidelineDays: guidelineFor(chainRemainingDays),
+    sopMs: +new Date(sopDate),
     now,
   });
 }

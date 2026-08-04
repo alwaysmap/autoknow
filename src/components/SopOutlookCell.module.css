@@ -1,18 +1,22 @@
-/* One class per SOP-buffer reading — the classes these replace were one `.finishedText`
-   carrying "Finished", "≈9w buffer" AND "TBD", so a reader could not tell from the
-   class which one a row was showing, and "no SOP set" is not a good-news state.
-   The four states here are lib/sop.sopBufferClass's, so the ink a reader sees in this
-   cell is the same reading the program header paints and the ecosystem tile counts. */
+/* One class per SOP-buffer reading, NAMED FOR THE READING — the classes these replace
+   were one `.finishedText` carrying "Finished", "≈9w buffer" AND "TBD", so a reader
+   could not tell from the class which one a row was showing, and "no SOP set" is not a
+   good-news state.
 
-.ok {
+   The four below are `lib/sop.SopBufferClass`'s own tokens, spelled identically, so the
+   ink a reader sees in this cell is traceably the same reading the program header
+   paints and the ecosystem tile counts — and the component's INK map is one line per
+   class with nothing to translate. */
+
+.ontrack {
   color: var(--ok);
   font-weight: 600;
   font-size: 0.75rem;
 }
 
 /* Buffer left, but under the 50% reserve: still weeks IN HAND, so the text is the same
-   as .ok — the ink is what says one ordinary overrun spends the rest of it. */
-.thin {
+   as .ontrack — the ink is what says one ordinary overrun spends the rest of it. */
+.atrisk {
   color: var(--warn);
   font-weight: 600;
   font-size: 0.75rem;
@@ -26,13 +30,15 @@
 
 /* The SOP date is already behind us. Not a forecast any more, and the only state here
    that has stopped being a prediction — the one place this cell spends --bad. */
-.missed {
+.blown {
   color: var(--bad);
   font-weight: 600;
   font-size: 0.75rem;
 }
 
-/* No SOP date: absence of a reading, not a verdict — muted, never the ok/warn ink. */
+/* No SOP date: absence of a reading, not a verdict — muted, never the ok/warn ink.
+   Not a SopBufferClass: the four above answer "how is the buffer", this one answers
+   "is there a buffer to read at all" (lib/sop's `nosop`). */
 .unknown {
   color: var(--muted);
   font-size: 0.75rem;
