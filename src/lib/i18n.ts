@@ -446,12 +446,15 @@ const STRINGS = {
   // Ecosystem strip tile 2 — SOP buffer exhaustion (lib/sop.sopBufferRisk).
   statsSopAtRisk: { en: 'SOP at risk', de: 'SOP gefährdet', ja: 'SOP遅延リスク', ko: 'SOP 위험' },
   statsSopAtRiskTitle: {
-    en: 'Active programs whose remaining critical-chain work no longer fits before their target SOP — the buffer is exhausted.',
-    de: 'Aktive Programme, deren verbleibende Arbeit auf der kritischen Kette nicht mehr vor den SOP-Termin passt — der Puffer ist aufgebraucht.',
-    ja: '残りのクリティカルチェーン作業が目標SOPに収まらなくなったアクティブなプログラム — バッファが尽きています。',
-    ko: '남은 크리티컬 체인 작업이 목표 SOP 안에 들어가지 않는 활성 프로그램 — 버퍼가 소진되었습니다.',
+    en: 'Active programs whose SOP is already missed, whose remaining critical-chain work no longer fits before the target, or whose buffer has fallen under half the work still ahead.',
+    de: 'Aktive Programme, deren SOP bereits verpasst ist, deren verbleibende Arbeit auf der kritischen Kette nicht mehr vor den Termin passt oder deren Puffer unter die Hälfte der verbleibenden Arbeit gefallen ist.',
+    ja: 'SOPを既に過ぎている、残りのクリティカルチェーン作業が目標に収まらない、またはバッファが残作業の半分を下回ったアクティブなプログラム。',
+    ko: 'SOP가 이미 지났거나, 남은 크리티컬 체인 작업이 목표 안에 들어가지 않거나, 버퍼가 남은 작업의 절반 미만으로 떨어진 활성 프로그램.',
   },
   statsSopOfDated: { en: 'of {n} with a target SOP', de: 'von {n} mit SOP-Ziel', ja: '目標SOPあり{n}件中', ko: '목표 SOP 보유 {n}개 중' },
+  // A SOP already in the past is the sharpest fact in the tile and gets said out loud —
+  // it is a missed date, not a forecast, and it reads in --bad ink beside the rest.
+  statsSopMissed: { en: '{n} past SOP', de: '{n} SOP überschritten', ja: 'SOP超過{n}件', ko: 'SOP 경과 {n}개' },
   statsSopUndated: { en: '{n} without one', de: '{n} ohne', ja: '未設定{n}件', ko: '미설정 {n}개' },
   // Ecosystem strip tile 3 — partner relationship mix (lib/relationship.relationshipMix).
   statsRelationshipMix: { en: 'Partner relationships', de: 'Partnerbeziehungen', ja: 'パートナー関係', ko: '파트너 관계' },
@@ -1254,9 +1257,14 @@ const STRINGS = {
   targetSopHeader: { en: 'Target SOP', de: 'SOP-Ziel', ja: '目標SOP', ko: '목표 SOP' },
   // /programs "SOP outlook" column — the deterministic critical-chain buffer vs the
   // target SOP (lib/sop.sopBufferCategory). The ecosystem "SOP at risk" tile deep-links
-  // to ?sopOutlook=late.
+  // to the three bad classes at once (SOP_FLAGGED_CLASSES).
+  // Each label states a DIFFERENT claim, which is the point of splitting them: a date
+  // nobody hit, a chain that overruns a date still ahead, and a reserve under Goldratt's
+  // 50% line are three conversations, and "At risk" used to be all three at once.
   sopOutlookHeader: { en: 'SOP outlook', de: 'SOP-Aussicht', ja: 'SOP見通し', ko: 'SOP 전망' },
-  sopOutlookLate: { en: 'At risk', de: 'Gefährdet', ja: '遅延リスク', ko: '위험' },
+  sopOutlookBlown: { en: 'SOP missed', de: 'SOP verpasst', ja: 'SOP超過', ko: 'SOP 경과' },
+  sopOutlookLate: { en: 'Forecast late', de: 'Prognose zu spät', ja: '遅延見込み', ko: '지연 예상' },
+  sopOutlookAtRisk: { en: 'Buffer low', de: 'Wenig Puffer', ja: 'バッファ不足', ko: '버퍼 부족' },
   sopOutlookOnTrack: { en: 'On track', de: 'Im Plan', ja: '順調', ko: '정상' },
   sopOutlookNoSop: { en: 'No target', de: 'Kein Ziel', ja: '目標なし', ko: '목표 없음' },
   sopOutlookNa: { en: '—', de: '—', ja: '—', ko: '—' },

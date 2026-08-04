@@ -1,0 +1,6 @@
+/* The missed-SOP fragment of the tile's sub-line. Semantic colour is text-only
+   (design.md §6) and comes from a token, never a literal (§8b) — the rest of the
+   sub-line keeps StatTile's muted ink. */
+.blown {
+  color: var(--bad);
+}

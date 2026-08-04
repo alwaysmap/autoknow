@@ -107,13 +107,17 @@ test.describe('Ecosystem dashboard (/ecosystem)', () => {
     await expect(page.getByRole('link', { name: 'Strong Partner Co' })).toHaveCount(0);
   });
 
-  // The SOP-at-risk tile deep-links to /programs?sopOutlook=late — the same coupling as
-  // above, and the same drift risk: the tile's token must equal the SOP-outlook column's
-  // filterValue token, and both are driven by the DETERMINISTIC critical-chain buffer
-  // (lib/sop.sopBufferCategory), not the Monte Carlo forecast. Seeds one program whose
-  // buffer is exhausted and one with runway to spare, and asserts the click lands on
-  // exactly the exhausted one.
-  test('the SOP-at-risk tile opens the programs list filtered to the buffer-exhausted programs', async ({ page }) => {
+  // The SOP-at-risk tile deep-links to the three bad SOP classes at once — the same
+  // coupling as above, and the same drift risk: the tile's tokens must equal the
+  // SOP-outlook column's filterValue tokens, and both are driven by the DETERMINISTIC
+  // critical-chain buffer (lib/sop.sopBufferCategory), not the Monte Carlo forecast.
+  //
+  // One program per class, because the classes are what the split is FOR: a date already
+  // missed, a chain overrunning a date still ahead, and a buffer under the 50%-rule
+  // reserve are three different briefings. The third is the regression that matters —
+  // under the old `buffer < 0` rule it was counted On Track here while its own program
+  // header painted it --warn.
+  test('the SOP-at-risk tile opens the programs list filtered to every at-risk class', async ({ page }) => {
     await wipeAll();
     const DAY = 86_400_000;
 
@@ -122,27 +126,47 @@ test.describe('Ecosystem dashboard (/ecosystem)', () => {
       const project = await prisma.project.create({
         data: { name, partnerId: partner.id, hillChartProgress: 30, volumeFirstYear: 1000, sopDate },
       });
-      // One in-flight phase → ~48 remaining chain days (60 × 80%).
+      // One in-flight phase → ~48 remaining chain days (60 × 80%), so the 50%-rule
+      // reserve every SOP below is chosen against is 24 days.
       const phase = await prisma.phase.create({ data: { name: 'Integration', projectId: project.id, forecastedDuration: 60 } });
       await prisma.phaseState.create({
         data: { phaseId: phase.id, status: 'In Progress', theNeedle: 'On Track', hillChartProgress: 20, notes: 'wip', source: 'testbot' },
       });
     };
 
-    // Active + SOP already in the past → the remaining chain work can't fit: buffer gone.
-    await mkProgramWithSop('Late Bring-up', 'Late Partner Co', new Date(Date.now() - 10 * DAY));
-    // Active + SOP far in the future → buffer intact.
+    // SOP already in the past → blown: a date nobody hit, not a forecast.
+    await mkProgramWithSop('Missed Bring-up', 'Missed Partner Co', new Date(Date.now() - 10 * DAY));
+    // SOP ahead, but 48 days of work can't fit in 20 → late.
+    await mkProgramWithSop('Late Bring-up', 'Late Partner Co', new Date(Date.now() + 20 * DAY));
+    // 12 days of buffer against a 24-day reserve → atrisk (positive, and still trouble).
+    await mkProgramWithSop('Thin Bring-up', 'Thin Partner Co', new Date(Date.now() + 60 * DAY));
+    // Runway to spare → ontrack, and must NOT appear behind the door.
     await mkProgramWithSop('On-Track Bring-up', 'OnTrack Partner Co', new Date(Date.now() + 800 * DAY));
 
     await page.goto('/ecosystem');
-    const tile = page.getByTestId('sop-risk-stat').getByRole('link');
+    const tile = page.getByTestId('sop-risk-stat');
+    // The figure is the count of exactly the rows the link reveals.
+    await expect(tile.getByRole('link')).toHaveText('3');
 
     await expect(async () => {
-      await tile.click({ timeout: 2000 });
-      await expect(page).toHaveURL(/\/programs\?sopOutlook=late\b/, { timeout: 2000 });
+      await tile.getByRole('link').click({ timeout: 2000 });
+      await expect(page).toHaveURL(/\/programs\?sopOutlook=blown&sopOutlook=late&sopOutlook=atrisk\b/, { timeout: 2000 });
     }).toPass({ timeout: 20000 });
 
+    await expect(page.getByRole('link', { name: 'Missed Bring-up' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Late Bring-up' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Thin Bring-up' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'On-Track Bring-up' })).toHaveCount(0);
+
+    // Each class says its own thing in the column — the split is visible, not just
+    // internal. Scoped to the ROW: the same labels are also the column funnel's
+    // checklist options, so an unscoped getByText matches twice.
+    for (const [program, label] of [
+      ['Missed Bring-up', 'SOP missed'],
+      ['Late Bring-up', 'Forecast late'],
+      ['Thin Bring-up', 'Buffer low'],
+    ] as const) {
+      await expect(page.getByRole('row', { name: new RegExp(program) }).getByText(label)).toBeVisible();
+    }
   });
 });
