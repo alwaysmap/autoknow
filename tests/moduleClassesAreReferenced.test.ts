@@ -10,13 +10,22 @@
 // — a rule enforced in software needs no memory, and the next one cannot accumulate
 // quietly.
 //
-// WHY DELETING IS SAFE, which is also why this ratchet can be strict: a module class only
-// ever reaches the DOM through its import binding. There is no `composes:` in this repo,
-// no computed `styles[expr]`, and no MODULE class ever named as a literal string (the one
-// literal className in `src` is a GLOBAL class, `dark-theme`). So a class no component
-// names is applied to no element, and a rule for it can never match. globals.css's
-// blanket `[class*="card"]` selectors do not change that: they style elements that
-// already carry the class, and nothing carries these.
+// WHY DELETING IS SAFE, which is also why this ratchet can be strict: a module class
+// reaches the DOM through its import binding, or through another class in the same module
+// that `composes:` it. Both are counted below. There is no computed `styles[expr]`, no
+// MODULE class ever named as a literal string (the one literal className in `src` is a
+// GLOBAL class, `dark-theme`), and no cross-module `composes: x from './other.css'` — that
+// last one is latched at `composedClasses` rather than counted, so if one ever appears it
+// costs a name a false death report, never a silent survival. So a class no component
+// names and nothing composes is applied to no element, and a rule for it can never match.
+// globals.css's blanket `[class*="card"]` selectors do not change that: they style
+// elements that already carry the class, and nothing carries these.
+//
+// `composes:` was read as nothing for a while and got away with it, because the two rules
+// using it were ALSO named directly by their components — so the blind spot only opened
+// when a class existed purely to be composed (`SopOutlookCell`'s `.reading`, which holds
+// the type every verdict class shares). A composed-only class is REFERENCED, from CSS
+// rather than from TS, and reporting it dead would have deleted a live rule.
 //
 // THE TRAP THIS SCAN EXISTS TO AVOID. The obvious implementation greps for `styles.foo`
 // — and it is WRONG, because the local name is the importing file's choice. This repo has
@@ -48,6 +57,22 @@ export function definedClasses(css: string): Set<string> {
     // `@media`, keyframe stops and the like are not selectors.
     if (!selector || selector.startsWith('@') || /^(from|to)$/.test(selector) || /^\d/.test(selector)) continue;
     for (const cls of selector.matchAll(/\.([A-Za-z][A-Za-z0-9_-]*)/g)) out.add(cls[1]);
+  }
+  return out;
+}
+
+/** Class names a module composes from ITSELF — `composes: reading;`, the CSS-side
+ *  reference. The `composes: x from './other.css'` form is deliberately excluded: those
+ *  names belong to the other module, and counting them here would keep a local class of
+ *  the same name alive by coincidence. */
+export function composedClasses(css: string): Set<string> {
+  const out = new Set<string>();
+  // Terminated by `;` OR by the block's closing brace — a last declaration needs no
+  // semicolon, and requiring one would report the class it keeps alive as dead, which is
+  // the exact failure this whole file exists to prevent.
+  for (const decl of blankComments(css).matchAll(/composes\s*:\s*([^;{}]+)[;}]/g)) {
+    if (/\bfrom\b/.test(decl[1])) continue;
+    for (const name of decl[1].trim().split(/\s+/)) out.add(name);
   }
   return out;
 }
@@ -96,8 +121,10 @@ describe('every CSS-module class is referenced by a component', () => {
     for (const file of cssFiles(SRC).filter((f) => f.endsWith('.module.css'))) {
       const entry = used.get(resolve(file));
       if (entry?.opaque) continue;
-      for (const name of definedClasses(readFileSync(file, 'utf8'))) {
-        if (!entry?.names.has(name)) offenders.push(`${file} → .${name}`);
+      const css = readFileSync(file, 'utf8');
+      const composed = composedClasses(css);
+      for (const name of definedClasses(css)) {
+        if (!entry?.names.has(name) && !composed.has(name)) offenders.push(`${file} → .${name}`);
       }
     }
     expect(offenders).toEqual([]);
@@ -134,5 +161,18 @@ describe('every CSS-module class is referenced by a component', () => {
     const spread = usedClasses("import s from './x.module.css';\nconst o = {...s};", '/app').get('/app/x.module.css')!;
     const prop = usedClasses("import s from './x.module.css';\n<Foo styles={s} />", '/app').get('/app/x.module.css')!;
     expect([spread.opaque, prop.opaque]).toEqual([true, true]);
+  });
+
+  // Anti-vacuity 5: `composes:` is a reference, and only the LOCAL form is one. Four ways
+  // this rots, one case each — without the first a composed-only base class reads as dead;
+  // without the second a name imported from another module keeps an unrelated local class
+  // of that name alive; without the third a last declaration written without its optional
+  // semicolon stops counting; and the fourth is anti-vacuity 3's rule, which every reader
+  // of this file has to obey too — a comment ABOUT composing is not composing.
+  it('counts local composes — multi-name, semicolon-less, not imported, not commented', () => {
+    expect([...composedClasses('.a { composes: base tight; }')]).toEqual(['base', 'tight']);
+    expect([...composedClasses(".a { composes: base from './other.module.css'; }")]).toEqual([]);
+    expect([...composedClasses('.a { composes: base }')]).toEqual(['base']);
+    expect([...composedClasses('/* composes: ghost; */ .a { color: red }')]).toEqual([]);
   });
 });

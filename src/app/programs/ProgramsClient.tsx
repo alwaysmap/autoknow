@@ -17,17 +17,23 @@ import type { SopBufferCategory } from '../../lib/sop';
 import { t, type StringKey } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 
-// SOP-outlook column vocabulary: canonical token → localized label + ink. Only 'late'
-// is colored (warn) — it's the bad news; the rest stay quiet so the column doesn't
-// read as a field of warnings.
+// SOP-outlook column vocabulary: canonical token → localized label + ink. Only the bad
+// classes are colored; the rest stay quiet so the column doesn't read as a field of
+// warnings. The ink follows severity, the LABEL carries the distinction: 'late' and
+// 'atrisk' share --warn (the same fold `lib/sop.sopForecastTone` makes), while 'blown'
+// takes --bad, because a date already missed is not the same news as one forecast to be.
 const SOP_OUTLOOK_KEY: Record<SopBufferCategory, StringKey> = {
+  blown: 'sopOutlookBlown',
   late: 'sopOutlookLate',
+  atrisk: 'sopOutlookAtRisk',
   ontrack: 'sopOutlookOnTrack',
   nosop: 'sopOutlookNoSop',
   na: 'sopOutlookNa',
 };
 const SOP_OUTLOOK_COLOR: Record<SopBufferCategory, string> = {
+  blown: 'var(--bad)',
   late: 'var(--warn)',
+  atrisk: 'var(--warn)',
   ontrack: 'var(--muted)',
   nosop: 'var(--muted)',
   na: 'var(--muted)',

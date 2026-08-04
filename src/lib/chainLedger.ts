@@ -12,7 +12,7 @@
 // nothing can hallucinate.
 
 import { computeCriticalChain } from './criticalChain';
-import { DAY_MS } from './sop';
+import { DAY_MS, guidelineFor } from './sop';
 
 export interface LedgerPhaseInput {
   id: number;
@@ -119,7 +119,7 @@ export interface ChainLedgerResult {
   bufferDays: number | null;
   startBufferDays: number | null; // B₀: buffer implied at the program's first start
   usedDays: number | null; // B₀ − buffer
-  guidelineDays: number; // 50%-rule reserve for the remaining chain work
+  guidelineDays: number; // 50%-rule reserve for the remaining chain work (sop.guidelineFor)
   fourWeekDeltaDays: number | null;
   trend: { atMs: number; bufferDays: number }[];
   waterfall: WaterfallRow[];
@@ -343,7 +343,7 @@ export function computeChainLedger(input: ChainLedgerInput): ChainLedgerResult {
   const usedDays = bufferDays != null && startBufferDays != null ? startBufferDays - bufferDays : null;
 
   const remainingTotal = schedule.reduce((sum, r) => sum + r.remainingDays, 0);
-  const guidelineDays = round(remainingTotal / 2);
+  const guidelineDays = guidelineFor(remainingTotal);
 
   // ---- waterfall: where the buffer went (books balance or say so) ----
   const waterfall: WaterfallRow[] = [];

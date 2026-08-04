@@ -14,7 +14,7 @@ import {
   programStatusUpdateHref, relationshipUpdateHref, summaryScopeHref,
 } from './entityHref';
 import { linkify, type EntityLink, type Segment } from './summaryLinkify';
-import { sopOutlook } from './sop';
+import { sopBufferReading } from './sop';
 import { localDate } from './dates';
 import { profilesAsOf } from './profiles';
 
@@ -602,12 +602,23 @@ async function gatherEcosystemEvidence(windowStart: Date, ev: EvidenceList, reg:
         parentIds: ph.dependencies.map((d) => d.dependsOnPhaseId),
       })),
     );
+    // The SOP clause the model reasons from uses the SAME four classes the UI labels,
+    // or the brief contradicts the page it is written about: a thin-buffer program read
+    // "reachable" here while the tile counted it at risk and the header painted it
+    // --warn, because this was the fifth surface with its own definition of the word
+    // ([ADR](../../docs/adr/2026-08-03-a-summary-count-uses-the-threshold-of-the-detail-it-summarizes.md)).
     let sopClause = 'no SOP target set (required)';
     if (proj.sopDate) {
-      const o = sopOutlook(chain.remainingDays, proj.sopDate, Date.now());
-      sopClause = o.onTrack
-        ? `SOP ${proseMonth(proj.sopDate)} reachable (≈${o.bufferDays}d buffer)`
-        : `SOP ${proseMonth(proj.sopDate)} AT RISK (≈${-o.bufferDays}d overshoot)`;
+      const { cls, bufferDays } = sopBufferReading(chain.remainingDays, proj.sopDate, Date.now());
+      const month = proseMonth(proj.sopDate);
+      // The thin-buffer arm gives the model both numbers rather than the word, because
+      // "at risk with 40 days of buffer" is only judgeable against the work still ahead.
+      const thinBufferClause = `only ≈${bufferDays}d buffer against ${chain.remainingDays}d of remaining chain work (under the 50% reserve)`;
+      sopClause =
+        cls === 'blown' ? `SOP ${month} ALREADY MISSED (≈${-bufferDays}d past it)`
+        : cls === 'late' ? `SOP ${month} AT RISK (≈${-bufferDays}d overshoot)`
+        : cls === 'atrisk' ? `SOP ${month} AT RISK: ${thinBufferClause}`
+        : `SOP ${month} reachable (≈${bufferDays}d buffer)`;
     }
     const products = [proj.hasGas && 'GAS', proj.hasGbi && 'GBI', proj.hasDigitalKey && 'Digital Key']
       .filter(Boolean)

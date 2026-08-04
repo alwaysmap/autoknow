@@ -3,19 +3,21 @@
 import React from 'react';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
-import { sopBufferRisk, type SopBufferProgram } from '../lib/sop';
+import { sopBufferRisk, SOP_FLAGGED_CLASSES, type SopBufferProgram } from '../lib/sop';
 import StatTile from './StatTile';
+import styles from './SopRiskStat.module.css';
 
-// The Big Number, second seat: how many active programs are projected to blow their
-// SOP date because the buffer is gone — now + remaining critical-chain work already
-// lands past the target. Same per-row signal the at-risk table's Forecast column
-// renders, counted across the ecosystem, so a leader sees the size of the slip
-// problem before reading which programs it is.
+// The Big Number, second seat: how many active programs are in trouble against their
+// SOP — the date already missed, the chain overrunning a date still ahead, or the
+// buffer fallen under the 50%-rule reserve (lib/sop.SOP_FLAGGED_CLASSES). Same per-row
+// signal the /programs "SOP outlook" column renders, counted across the ecosystem, so a
+// leader sees the size of the slip problem before reading which programs it is. Why all
+// three and not only the first:
+// [ADR](../../docs/adr/2026-08-03-a-summary-count-uses-the-threshold-of-the-detail-it-summarizes.md).
 //
-// The figure is a door to exactly those programs: /programs?sopOutlook=late preselects
-// the SOP-outlook column funnel on the deterministic-buffer "At risk" class, so the
-// count here and the list it opens are the same set by construction (both are
-// lib/sop.sopBufferCategory === 'late').
+// The figure is a door to exactly those programs: the deep link preselects that
+// column's funnel on the same classes (selections are OR-ed within a column,
+// design.md §6), built from the same constant the count is.
 
 interface SopRiskStatProps {
   programs: SopBufferProgram[];
@@ -23,22 +25,35 @@ interface SopRiskStatProps {
   now: number;
 }
 
+const FLAGGED_HREF = `/programs?${SOP_FLAGGED_CLASSES.map((c) => `sopOutlook=${c}`).join('&')}`;
+
 export default function SopRiskStat({ programs, now }: SopRiskStatProps) {
   const locale = useLocale();
-  const { late, assessable, undated } = sopBufferRisk(programs, now);
+  const { flagged, blown, assessable, undated } = sopBufferRisk(programs, now);
 
   return (
     <StatTile
       testId="sop-risk-stat"
       label={t(locale, 'statsSopAtRisk')}
-      value={late.toLocaleString(locale)}
-      href="/programs?sopOutlook=late"
+      value={flagged.toLocaleString(locale)}
+      href={FLAGGED_HREF}
       title={t(locale, 'statsSopAtRiskTitle')}
       // A zero is good news and stays in plain ink — coloring it would cry wolf.
-      tone={late > 0 ? 'warn' : 'default'}
+      tone={flagged > 0 ? 'warn' : 'default'}
       sub={
         <>
           {t(locale, 'statsSopOfDated', { n: assessable.toLocaleString(locale) })}
+          {/* A SOP already in the past is not a forecast and does not read as one: it
+              is broken out here, in --bad, because "3 at risk" and "3 at risk, 1 of
+              them already past its date" are different briefings. */}
+          {blown > 0 && (
+            <>
+              {' · '}
+              <span className={styles.blown}>
+                {t(locale, 'statsSopMissed', { n: blown.toLocaleString(locale) })}
+              </span>
+            </>
+          )}
           {/* An SOP-less active program can't be assessed at all. Owning up to that
               beats quietly shrinking the denominator. */}
           {undated > 0 && ` · ${t(locale, 'statsSopUndated', { n: undated.toLocaleString(locale) })}`}

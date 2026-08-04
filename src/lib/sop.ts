@@ -1,7 +1,8 @@
 // SOP-target math — pure and client-safe. Every program must carry a target SOP
 // (month + year minimum; we assume the LAST DAY of that month). Combined with the
-// notional remaining phase weeks (the critical chain), this is THE on-track signal,
-// and it drives the ecosystem capacity chart: when units come online, with/without GAS.
+// notional remaining phase weeks (the critical chain), this is THE will-we-make-it
+// signal — four-way, never a boolean, see `sopBufferClass` — and it drives the
+// ecosystem capacity chart: when units come online, with/without GAS.
 
 import { deriveProgramStatus } from './lifecycle';
 
@@ -29,41 +30,90 @@ export function parseSopInput(value: string): Date | null {
   return isNaN(+d) ? null : d;
 }
 
-export interface SopOutlook {
-  forecastFinishMs: number; // now + remaining chain work
-  bufferDays: number; // positive = finishes before SOP, negative = late
-  onTrack: boolean;
-}
-
-/** The health tone of a program's forecast finish against its SOP (#21), from the
- *  ledger's own numbers so the header and the Critical chain section never disagree.
- *  A MISSED SOP is worse than a forecast miss, which is what the two bad tones say:
- *    - overshoot (buffer < 0) and the SOP date has already passed → 'blown'  (Concerned)
- *    - overshoot and the SOP is still ahead                        → 'atRisk' (Some Risk)
- *    - a POSITIVE buffer below the 50%-rule reserve                → 'atRisk' (near the line)
- *    - otherwise                                                   → 'onTrack'
+/**
+ * THE four-way reading of a forecast finish against a target SOP, and the ONE place
+ * those four questions are asked. Every SOP-health surface derives from it — the
+ * program header's ink, the /programs column, the ecosystem tile, the at-risk tables —
+ * because they had drifted into two branch sets that disagreed: the header said "Some
+ * Risk" for a thin buffer while the tile counted the same program on track, its only
+ * test being `buffer < 0`
+ * ([ADR](../../docs/adr/2026-08-03-a-summary-count-uses-the-threshold-of-the-detail-it-summarizes.md),
+ * AGENTS lesson 7).
+ *
+ *   blown   — the buffer is gone AND the SOP date has already passed. Not a forecast
+ *             any more: a fact about a date nobody hit.
+ *   late    — the buffer is gone but the SOP is still ahead: the chain overruns the
+ *             target on today's numbers. A claim about the future, hence a separate
+ *             class — a missed date and a forecast miss are different conversations.
+ *   atrisk  — a POSITIVE buffer, but under the 50%-rule reserve (`guidelineFor`).
+ *             Goldratt's line: a program holding less than half the remaining chain in
+ *             buffer is one ordinary overrun from `late`.
+ *   ontrack — everything else, INCLUDING no buffer data at all. Where there is nothing
+ *             to compute we never guess a worse answer — the same rule the deleted
+ *             Monte Carlo broke, one level down
+ *             ([ADR](../../docs/adr/2026-07-24-forecasts-derive-from-the-real-chain-never-a-synthetic-model.md)).
+ *
+ * Severity runs blown > late > atrisk > ontrack, and the order is load-bearing: the
+ * first two branches must be tested before the guideline, or a deeply overshot program
+ * with a large notional guideline would read as merely thin.
  */
-export type SopForecastTone = 'onTrack' | 'atRisk' | 'blown';
-export function sopForecastTone(args: {
+export type SopBufferClass = 'blown' | 'late' | 'atrisk' | 'ontrack';
+
+export interface SopBufferInputs {
   bufferDays: number | null;
   guidelineDays: number | null;
   sopMs: number | null;
   now: number;
-}): SopForecastTone {
-  const { bufferDays, guidelineDays, sopMs, now } = args;
-  if (bufferDays != null && bufferDays < 0) {
-    return sopMs != null && Number.isFinite(sopMs) && sopMs < now ? 'blown' : 'atRisk';
-  }
-  if (bufferDays != null && guidelineDays != null && bufferDays < guidelineDays) return 'atRisk';
-  return 'onTrack';
 }
 
-/** The on-track signal: does now + remaining chain weeks land on or before the SOP? */
-export function sopOutlook(remainingChainDays: number, sopDate: Date | string, now: number): SopOutlook {
+export function sopBufferClass({ bufferDays, guidelineDays, sopMs, now }: SopBufferInputs): SopBufferClass {
+  if (bufferDays == null) return 'ontrack'; // no chain to read — never a guess
+  if (bufferDays < 0) {
+    return sopMs != null && Number.isFinite(sopMs) && sopMs < now ? 'blown' : 'late';
+  }
+  if (guidelineDays != null && bufferDays < guidelineDays) return 'atrisk';
+  return 'ontrack';
+}
+
+/** The 50%-rule reserve for a stretch of remaining chain work — Goldratt's guideline,
+ *  and the one place the "50%" lives. `chainLedger` takes it over the planned schedule's
+ *  remaining sum and `sopBufferCategory` over the live chain's; both mean this rule, so
+ *  changing it should be one edit rather than a grep for `/ 2`. */
+export const guidelineFor = (remainingDays: number): number => Math.round(remainingDays / 2);
+
+/**
+ * The health TONE of that reading (#21), for surfaces that paint rather than label —
+ * three tones over four classes, because a surface with no room for a NAME can only
+ * spend its ink on severity. Callers that show a label use the class instead.
+ * A mapping rather than a second branch set, so the two can never disagree about which
+ * programs are bad news.
+ */
+export type SopForecastTone = 'onTrack' | 'atRisk' | 'blown';
+const SOP_TONE_BY_CLASS: Record<SopBufferClass, SopForecastTone> = {
+  blown: 'blown',
+  late: 'atRisk',
+  atrisk: 'atRisk',
+  ontrack: 'onTrack',
+};
+export function sopForecastTone(args: SopBufferInputs): SopForecastTone {
+  return SOP_TONE_BY_CLASS[sopBufferClass(args)];
+}
+
+/**
+ * The buffer: days between `now + remaining chain work` and the SOP. Positive = room in
+ * hand, negative = the chain overruns the target.
+ *
+ * It used to return an `onTrack: bufferDays >= 0` alongside, and that boolean was the
+ * whole defect — five surfaces read it and each called a thin buffer healthy. It is gone
+ * rather than deprecated, because a superseded variant left in reach is how the last one
+ * reached a second page and a third file
+ * ([ADR](../../docs/adr/2026-07-24-forecasts-derive-from-the-real-chain-never-a-synthetic-model.md)).
+ * The question it answered is `sopBufferClass`'s now, with three ways to be unhealthy
+ * instead of one.
+ */
+export function sopBufferDays(remainingChainDays: number, sopDate: Date | string, now: number): number {
   const sop = typeof sopDate === 'string' ? new Date(sopDate) : sopDate;
-  const forecastFinishMs = now + remainingChainDays * DAY_MS;
-  const bufferDays = Math.round((+sop - forecastFinishMs) / DAY_MS);
-  return { forecastFinishMs, bufferDays, onTrack: bufferDays >= 0 };
+  return Math.round((+sop - (now + remainingChainDays * DAY_MS)) / DAY_MS);
 }
 
 // ---- capacity over time ----
@@ -165,63 +215,101 @@ export interface SopBufferProgram {
   chainRemainingDays: number;
 }
 
-export interface SopBufferRisk {
-  /** Programs whose remaining chain work no longer fits before the SOP target. */
-  late: number;
-  /** Active programs carrying a target SOP — the denominator `late` is drawn from. */
+/** The SOP-outlook class of ONE program, from the deterministic critical-chain buffer
+ *  (never the Monte Carlo forecast). These tokens are what the /programs "SOP outlook"
+ *  column filters on, so they are URL vocabulary and outlive a rename (AGENTS lesson 15). */
+export type SopBufferCategory = SopBufferClass | 'nosop' | 'na';
+
+/** The classes the "SOP at risk" tile counts and its deep link selects. Reading ONE
+ *  constant is what makes the tile's figure and the list it opens the same set by
+ *  construction, rather than two literals somebody keeps in sync. Severity order, so
+ *  the link reads worst-first. */
+export type SopFlaggedClass = Exclude<SopBufferClass, 'ontrack'>;
+export const SOP_FLAGGED_CLASSES: readonly SopFlaggedClass[] = ['blown', 'late', 'atrisk'];
+export const isSopFlagged = (c: SopBufferCategory): c is SopFlaggedClass =>
+  (SOP_FLAGGED_CLASSES as readonly string[]).includes(c);
+
+/** One counter per flagged class, keyed by the class token itself, plus the headline
+ *  total and the two denominators. */
+export interface SopBufferRisk extends Record<SopFlaggedClass, number> {
+  /** blown + late + atrisk — the headline figure. */
+  flagged: number;
+  /** Active programs carrying a target SOP — the denominator `flagged` is drawn from. */
   assessable: number;
   /** Active programs with no target SOP: not assessable, which is its own problem. */
   undated: number;
 }
 
-/** The SOP-outlook class of ONE program, from the deterministic critical-chain buffer
- *  (never the Monte Carlo forecast). These tokens are what the /programs "SOP outlook"
- *  column filters on. */
-export type SopBufferCategory = 'late' | 'ontrack' | 'nosop' | 'na';
-
 /**
  * A program's SOP outlook. The buffer is the room between the SOP target and
- * `now + remaining critical-chain work`; when it goes negative the buffer is exhausted
- * and the date slips.
- *   late    — active, buffer gone: the forecast finish overruns the target SOP.
- *   ontrack — active, buffer intact.
- *   nosop   — active but no target SOP (can't be assessed; SOP is required, so its
- *             absence is its own problem — never silently "safe").
- *   na      — not active (Done / Cancelled / Archived): the SOP outlook is moot.
+ * `now + remaining critical-chain work`; `sopBufferClass` reads it, and the two
+ * non-class answers are about whether there is a reading to be had at all:
+ *   nosop — active but no target SOP (can't be assessed; SOP is required, so its
+ *           absence is its own problem — never silently "safe").
+ *   na    — not active (Done / Cancelled / Archived): the SOP outlook is moot.
  * Only Active programs get a real reading — lib/lifecycle is the visibility boundary.
  */
 export function sopBufferCategory(p: SopBufferProgram, now: number): SopBufferCategory {
   if (deriveProgramStatus(p) !== 'Active') return 'na';
   if (!p.sopDate) return 'nosop';
-  return sopOutlook(p.chainRemainingDays, p.sopDate, now).onTrack ? 'ontrack' : 'late';
+  return sopBufferReading(p.chainRemainingDays, p.sopDate, now).cls;
 }
 
 /**
- * How many active programs are projected to blow their SOP date — the per-ecosystem
- * tally of sopBufferCategory, so the leadership tile's count and the /programs
- * ?sopOutlook=late filter can never drift apart. Same signal the at-risk table's
- * "SOP outlook" column renders per row, via SopOutlookCell (sopOutlook).
+ * The reading for a program that HAS a chain and a SOP — the composition every portfolio
+ * surface needs, in one place. `sopBufferClass` takes a buffer and a reserve; deriving
+ * both from a program is four lines that were being written per call site, which is how
+ * a `/ 2` and a `sopMs` drift apart. Callers that also have to decide "is this assessable
+ * at all" want `sopBufferCategory`; callers that already know it is (a table cell, a
+ * brief clause) want this.
+ *
+ * It returns the buffer ALONGSIDE the class because the surfaces that show a verdict
+ * almost all show the quantity behind it too, and computing that quantity a second time
+ * at the call site is the same duplication one variable over.
+ *
+ * The reserve is taken against the SAME remaining-chain quantity the buffer is measured
+ * from, so the two halves of the comparison agree. Note this is the LIVE
+ * longest-remaining path, while `chainLedger.guidelineDays` applies the same rule to the
+ * PLANNED chain's schedule — near-identical in practice, not identical by construction,
+ * and the deeper split (two answers to "when does this finish") is autoknow-9jd, not this
+ * function's to resolve.
+ */
+export function sopBufferReading(
+  chainRemainingDays: number,
+  sopDate: Date | string, // a row's Date, or the serialized ISO string a client gets
+  now: number,
+): { cls: SopBufferClass; bufferDays: number } {
+  const bufferDays = sopBufferDays(chainRemainingDays, sopDate, now);
+  const cls = sopBufferClass({
+    bufferDays,
+    guidelineDays: guidelineFor(chainRemainingDays),
+    sopMs: +new Date(sopDate),
+    now,
+  });
+  return { cls, bufferDays };
+}
+
+/**
+ * The per-ecosystem tally of sopBufferCategory, so the leadership tile's count and the
+ * /programs SOP-outlook filter can never drift apart — and, since `SopOutlookCell` inks
+ * the same class, so the at-risk tables agree with both.
  */
 export function sopBufferRisk(programs: SopBufferProgram[], now: number): SopBufferRisk {
-  let late = 0;
-  let assessable = 0;
-  let undated = 0;
+  const risk: SopBufferRisk = { blown: 0, late: 0, atrisk: 0, flagged: 0, assessable: 0, undated: 0 };
   for (const p of programs) {
-    switch (sopBufferCategory(p, now)) {
-      case 'late':
-        late += 1;
-        assessable += 1;
-        break;
-      case 'ontrack':
-        assessable += 1;
-        break;
-      case 'nosop':
-        undated += 1;
-        break;
-      // 'na' — not active, not counted
+    const c = sopBufferCategory(p, now);
+    if (c === 'na') continue;
+    if (c === 'nosop') {
+      risk.undated += 1;
+      continue;
+    }
+    risk.assessable += 1;
+    if (isSopFlagged(c)) {
+      risk[c] += 1;
+      risk.flagged += 1;
     }
   }
-  return { late, assessable, undated };
+  return risk;
 }
 
 // ---- risk ranking ----

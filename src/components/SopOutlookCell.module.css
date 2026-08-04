@@ -1,20 +1,56 @@
-/* Three states, three names — the classes these replace were one `.finishedText`
-   carrying "Finished", "≈9w buffer" AND "TBD", so a reader could not tell from the
-   class which one a row was showing, and "no SOP set" is not a good-news state. */
+/* One class per SOP-buffer reading, NAMED FOR THE READING — the classes these replace
+   were one `.finishedText` carrying "Finished", "≈9w buffer" AND "TBD", so a reader
+   could not tell from the class which one a row was showing, and "no SOP set" is not a
+   good-news state.
 
-.ok {
+   The four verdicts below are `lib/sop.SopBufferClass`'s own tokens, spelled
+   identically, so the ink a reader sees in this cell is traceably the same reading the
+   program header paints and the ecosystem tile counts — and the component's
+   INK_BY_CLASS map is one line per class with nothing to translate. Type and weight are
+   the READING's, not each verdict's, so the four share `.reading` and contribute ONLY a
+   colour; `.unknown` is not a reading and keeps its own type (see the foot). */
+
+.reading {
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+/* Buffer intact and comfortably clear of the reserve. Also the FINISHED row: a program
+   past 100% has no buffer to report, and the one thing worth saying about it is that it
+   is not a problem — the good-news ink is that sentence, not a buffer reading. */
+.ontrack {
+  composes: reading;
   color: var(--ok);
-  font-weight: 600;
-  font-size: 0.75rem;
 }
 
-.late {
+/* Buffer left, but under the 50% reserve: still weeks IN HAND, so the text is the same
+   as .ontrack — the ink is what says one ordinary overrun spends the rest of it. */
+.atrisk {
+  composes: reading;
   color: var(--warn);
-  font-weight: 600;
-  font-size: 0.75rem;
 }
 
-/* No SOP date: absence of a reading, not a verdict — muted, never the ok/warn ink. */
+/* Buffer gone: the chain overruns a SOP that is still ahead. Same --warn as .atrisk —
+   both are predictions, and this cell has no room for a word to separate them, so the
+   quantity it prints ("≈2w late" vs "≈8w buffer") is what does. */
+.late {
+  composes: reading;
+  color: var(--warn);
+}
+
+/* The SOP date is already behind us. Not a forecast any more, and the only state here
+   that has stopped being a prediction — the one place this cell spends --bad. */
+.blown {
+  composes: reading;
+  color: var(--bad);
+}
+
+/* No SOP date: absence of a reading, not a verdict — muted, never the ok/warn ink, and
+   not bold, because it is not reporting anything. Not a SopBufferClass: the four above
+   answer "how is the buffer", this one answers "is there a buffer to read at all"
+   (lib/sop's `nosop`). It stands OUTSIDE `.reading` for that reason and so restates the
+   size — sharing the base to save one line would put it in the set it is defined
+   against, and the next editor would give it the weight too. */
 .unknown {
   color: var(--muted);
   font-size: 0.75rem;
