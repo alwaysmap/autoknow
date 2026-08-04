@@ -172,7 +172,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
         <section className={styles.dashboardSection}>
           <AnchorHeading
             id="timeline"
-            linkLabel={t(locale, 'anchorLink')}
             actions={
               <KebabMenu ariaLabel={t(locale, 'moreActions')}>
                 <Link href="/ecosystem?pop=timeline">{t(locale, 'timelinePop')}</Link>
