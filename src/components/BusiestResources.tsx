@@ -210,7 +210,6 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
           {t(locale, showQuiet ? 'clBusiestQuietHide' : 'clBusiestQuietShow', { n: quiet.length })}
         </button>
       )}
-      <p className={styles.legend}>{t(locale, 'clBusiestLegend')}</p>
     </section>
   );
 }

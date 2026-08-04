@@ -1218,6 +1218,48 @@ const STRINGS = {
     ko: '아직 완료된 단계가 {n}개뿐이라 백분위수를 산출하기에 부족하여 표시하지 않습니다.',
   },
   cyclePointTitle: { en: '{name}: {n} days', de: '{name}: {n} Tage', ja: '{name}: {n}日', ko: '{name}: {n}일' },
+  // ---- portfolio timeline (#159) ----
+  // No per-mark labels by design — forty program names on a shared axis is a collision
+  // problem with no good answer — so everything a reader needs per program lives in the
+  // readout below the plot and in each mark's accessible name, which these compose.
+  timelineTitle: { en: 'Programs in flight', de: 'Laufende Programme', ja: '進行中のプログラム', ko: '진행 중인 프로그램' },
+  timelineSub: {
+    en: 'One mark per program on a shared timeline: when it started, its target SOP inked by health, and where the critical chain forecasts it finishing.',
+    de: 'Eine Markierung je Programm auf gemeinsamer Zeitachse: Start, SOP-Ziel (nach Health eingefärbt) und das Ende laut kritischer Kette.',
+    ja: 'プログラムごとに 1 つのマークを共通の時間軸に配置 — 開始時期、健全性で色分けした目標 SOP、クリティカルチェーンによる完了予測。',
+    ko: '공통 시간축에 프로그램마다 마크 하나 — 시작 시점, 헬스로 색을 입힌 목표 SOP, 크리티컬 체인이 예측한 완료 시점.',
+  },
+  timelinePop: { en: 'Open this chart alone', de: 'Diagramm allein öffnen', ja: 'このチャートだけを開く', ko: '이 차트만 열기' },
+  timelineFilterLabel: { en: 'Filter by health', de: 'Nach Health filtern', ja: '健全性で絞り込み', ko: '헬스로 필터' },
+  timelineHint: { en: 'Point at a program for its dates.', de: 'Auf ein Programm zeigen für seine Termine.', ja: 'プログラムにカーソルを合わせると日付が表示されます。', ko: '프로그램을 가리키면 날짜가 표시됩니다.' },
+  timelineAllHidden: { en: 'Every health band is hidden — nothing to plot.', de: 'Alle Health-Stufen ausgeblendet — nichts darzustellen.', ja: 'すべての健全性区分が非表示です。', ko: '모든 헬스 구간이 숨겨져 표시할 것이 없습니다.' },
+  // The legend. The forecast mark earns its own SHAPE because it is the only estimate among
+  // the marks — the others are dates someone recorded or committed to.
+  timelineLegend: { en: 'What the marks mean', de: 'Was die Markierungen bedeuten', ja: 'マークの意味', ko: '마크의 의미' },
+  timelineLegendStart: { en: 'Start — the earliest phase that began', de: 'Start — früheste begonnene Phase', ja: '開始 — 最初に着手したフェーズ', ko: '시작 — 가장 먼저 착수한 단계' },
+  timelineLegendSop: { en: 'Target SOP, coloured by health', de: 'SOP-Ziel, nach Health eingefärbt', ja: '目標 SOP（健全性で色分け）', ko: '목표 SOP (헬스로 색 구분)' },
+  timelineLegendForecast: { en: 'Estimated finish from the critical chain', de: 'Geschätztes Ende laut kritischer Kette', ja: 'クリティカルチェーンによる完了予測', ko: '크리티컬 체인 기반 완료 예측' },
+  timelineLegendOvershoot: { en: 'Estimate lands after the target SOP', de: 'Schätzung liegt nach dem SOP-Ziel', ja: '予測が目標 SOP を超過', ko: '예측이 목표 SOP를 초과' },
+  timelineLegendToday: { en: 'Today', de: 'Heute', ja: '本日', ko: '오늘' },
+  timelineEmpty: { en: 'No programs to plot yet.', de: 'Noch keine Programme darstellbar.', ja: '表示できるプログラムはまだありません。', ko: '아직 표시할 프로그램이 없습니다.' },
+  timelineStarted: { en: 'started {d}', de: 'Start {d}', ja: '開始 {d}', ko: '시작 {d}' },
+  timelineSop: { en: 'SOP {d}', de: 'SOP {d}', ja: 'SOP {d}', ko: 'SOP {d}' },
+  timelineNoSop: { en: 'no target SOP', de: 'kein SOP-Ziel', ja: 'SOP 目標なし', ko: '목표 SOP 없음' },
+  timelineForecast: { en: 'forecast {d}', de: 'Prognose {d}', ja: '予測 {d}', ko: '예측 {d}' },
+  // Two different absences, said separately because they mean different things: one is
+  // "this program has no time on it at all", the other is "this page only plots some".
+  timelineNoDates: {
+    en: '{n} program(s) not shown — no start, target SOP or forecast to place them on the axis.',
+    de: '{n} Programm(e) nicht dargestellt — weder Start noch SOP-Ziel noch Prognose zur Platzierung.',
+    ja: '{n} 件のプログラムは非表示 — 軸に配置できる開始・SOP 目標・予測がありません。',
+    ko: '{n}개 프로그램 미표시 — 축에 배치할 시작·목표 SOP·예측이 없습니다.',
+  },
+  timelineFilteredOut: {
+    en: '{n} not in flight.',
+    de: '{n} nicht laufend.',
+    ja: '{n} 件は進行中ではありません。',
+    ko: '{n}개는 진행 중이 아닙니다.',
+  },
   // ---- SOP chart ----
   sopChartEmpty: {
     en: 'No active programs with target SOP dates found. Edit programs to set SOP target dates.',
@@ -2265,12 +2307,6 @@ const STRINGS = {
     de: 'Erwägen: Ein Unternehmen ist in {n} Programmen aktiv — {name} nach dem Besetzungsplan fragen. {program} ist der einzige SOP, den sie derzeit bestimmen; ein benanntes Team dort schließt das größte Risiko.',
     ja: '検討: 一社で{n}件のプログラムに関与 — {name}に体制計画を確認しましょう。現在SOPを左右しているのは{program}のみで、そこへの専任チームが最大のリスクを解消します。',
     ko: '고려: 한 회사가 {n}개 프로그램에 관여 중 — {name}에 인력 계획을 요청하세요. 현재 SOP를 좌우하는 곳은 {program}뿐이며, 그곳의 전담 팀이 가장 큰 위험을 해소합니다.',
-  },
-  clBusiestLegend: {
-    en: 'The top row is the person or company whose calendar is currently delaying the most units across the portfolio. Every name links to its detail page.',
-    de: 'Die oberste Zeile ist die Person oder Firma, deren Kalender derzeit portfolioweit die meisten Einheiten verzögert. Jeder Name verlinkt auf seine Detailseite.',
-    ja: '最上段は、ポートフォリオ全体で最も多くの台数を遅らせているカレンダーの持ち主です。各名前は詳細ページへリンクします。',
-    ko: '맨 윗줄은 포트폴리오 전체에서 가장 많은 물량을 지연시키고 있는 일정의 주인입니다. 모든 이름은 상세 페이지로 연결됩니다.',
   },
 
   // ---- escalations (#245) ---------------------------------------------------------

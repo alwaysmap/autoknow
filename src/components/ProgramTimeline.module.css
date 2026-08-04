@@ -1,0 +1,353 @@
+/* The portfolio whisker chart (#159). DOM marks on a percentage time scale, NOT an SVG
+   viewBox — see the component header for why that choice is load-bearing rather than
+   stylistic. No root margin (§9b): the host section owns outer spacing. */
+
+.wrap {
+  width: 100%;
+}
+
+/* The scrollport. Above ~24 programs the rows scroll VERTICALLY inside this box while the
+   axis stays stuck to its bottom edge; the page never scrolls horizontally (§9). */
+.plot {
+  position: relative;
+  width: 100%;
+  max-height: 32rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* The rows. Height is author-set from the lane count by the component (§9b: a chart owns its
+   own height; `aspect-ratio` height is rejected), and it is THIS box — not the scrollport —
+   that the marks and the today rule position against, so both span every row rather than
+   only the first screenful. */
+.track {
+  position: relative;
+  width: 100%;
+}
+
+/* Today. One dashed rule across every lane — every lane, not every VISIBLE lane, which is
+   why it hangs off `.track` and not off the scrollport: `top: 0; bottom: 0` inside a scroll
+   container resolves against the padding box, so a rule parented there would cover one
+   screenful and then scroll away, leaving the rows below it with no anchor. Labelled in the
+   axis strip rather than here — it is the only thing that would put text inside the plot,
+   where it would cross marks. */
+.today {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px dashed var(--border);
+}
+
+/* One program. A real link, so focus and activation come from the platform. */
+.mark {
+  position: absolute;
+  height: 1.25rem;
+  display: block;
+  text-decoration: none;
+  /* A mark whose three dates fall on one day computes to zero width. The floor is one SOP
+     dot, so the pointer and the focus ring still have something to land on, and it widens
+     only the box — the dots inside position independently, so no ink moves. */
+  min-width: 0.4375rem;
+}
+
+.mark:hover .sop,
+.mark:focus-visible .sop {
+  transform: translate(-50%, -50%) scale(1.35);
+}
+
+/* The connector. Subordinate by construction: 1px, muted, vertically centred in the lane. */
+.hairline {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  /* A BORDER, not a 1px height: §9's sanctioned px exception is border/outline widths —
+     the things that must stay one device pixel however the page scales — and a hairline
+     drawn as a height would be a length that fails to scale with the root. */
+  height: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* The SOP → forecast-finish stretch when the finish is LATER — the overshoot, which is the
+   news. Heavier and inked `--bad`; both the extent and the direction come from the data,
+   never from authoring order (AGENTS lesson 18). */
+.overshoot {
+  position: absolute;
+  top: 50%;
+  height: 0.125rem;
+  transform: translateY(-50%);
+  background: var(--bad);
+}
+
+/* Start and forecast finish. Hollow and small — they qualify the SOP, they do not compete
+   with it. */
+.minor {
+  position: absolute;
+  top: 50%;
+  width: 0.25rem;
+  height: 0.25rem;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+  background: var(--paper);
+}
+
+/* The target SOP, inked by the program's HEALTH (the component passes the colour, so the
+   health→colour rule keeps one home in lib/health). Absent when the program has no target
+   date, which is itself the reading. */
+.sop {
+  position: absolute;
+  top: 50%;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  transition: transform 120ms ease-out;
+}
+
+/* The axis strip. The chart's ONLY text — there are no per-mark labels, see the component
+   header — and it sits below the rows where nothing can cross it, which is why this
+   component needs no label-placement pass and carries no `<text>` halo.
+
+   STICKY inside the scrollport, so it stays put while rows scroll behind it, and so it can
+   never be a different width from the rows it labels. Opaque, because rows do scroll behind
+   it; `z-index` because a mark is positioned and would otherwise paint over it. */
+.axis {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  height: 1.25rem;
+  margin-top: 0.25rem;
+  background: var(--paper);
+  border-top: 1px solid var(--border);
+}
+
+/* The label's pull-back is set inline by the component, from the tick's POSITION — a tick
+   near an edge would otherwise hang outside the box. It is not keyed on DOM order; see
+   `tickShift` for the thinning bug that made `:last-child` wrong. */
+.tick {
+  position: absolute;
+  top: 0.25rem;
+  transform: translateX(-50%);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Phone: drop every other tick. `monthTicks` thins to 8, which fits from 560px up but
+   collides below it — eight ~40px labels do not fit 328px of plot, and chart text that
+   overlaps anything is a blocking defect, not polish (AGENTS lesson 19). Thinning in CSS
+   rather than by measuring the axis keeps §9b's no-measurement rule: the surviving ticks
+   still sit exactly over the dates they name, there are simply fewer of them.
+
+   Hiding the EVEN children keeps the first tick, which is the one whose label would hang off
+   the left edge if it went. Every surviving tick keeps the inline pull-back `tickShift` gave
+   it from its own position, so thinning cannot displace a label from the date it names. */
+@media (max-width: 560px) {
+  .tick:nth-child(even) {
+    display: none;
+  }
+}
+
+/* What is NOT drawn, and why — stated rather than left to be noticed as an absence. */
+.note {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  color: var(--muted);
+}
+
+/* The exclusion count, made actionable. Underlined rather than coloured: it sits inside a
+   muted footnote, and re-inking it as a link would give a caption more weight than the
+   chart's own data (§1's data-ink rule). */
+.noteLink {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.125rem;
+}
+
+.noteLink:hover {
+  color: var(--fg);
+}
+
+.empty {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--muted);
+}
+
+/* The forecast finish: the ONE mark that is an estimate rather than a recorded or committed
+   date. Shape carries that — a rotated square reads as "not a circle" at 4px, where a fill
+   or hue difference does not — and it is solid `--fg`, which flips with the theme so it
+   stays the strongest neutral in either. */
+.forecast {
+  position: absolute;
+  top: 50%;
+  width: 0.3125rem;
+  height: 0.3125rem;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: var(--fg);
+}
+
+/* Health filter — also the legend for the SOP dot's colour, which is why the swatches are
+   the dots' own colours rather than a control's. */
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.625rem;
+}
+
+.filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.1875rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  font-family: inherit;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+
+/* Off is stated by more than colour — the swatch hollows out too, so the control does not
+   depend on a reader distinguishing two greys (design.md §6: never colour alone). */
+.filterOff {
+  color: var(--muted);
+}
+
+/* `!important` because the swatch's colour is an INLINE style — the component paints each
+   one with `healthColor(h)`, which no class can outrank. Removing either half silently
+   breaks the off state, so they are commented as a pair. */
+.filterOff .swatch {
+  background: transparent !important;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.swatch {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+}
+
+.count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.legendBtn {
+  padding: 0.1875rem 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-family: inherit;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+
+.legendPanel {
+  width: 17rem;
+  padding: 0.625rem 0.75rem;
+}
+
+.legendList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  color: var(--fg);
+}
+
+.legendList li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* The legend's marks are the plot's marks at the same sizes — a legend drawn differently
+   from the thing it explains is a second grammar to keep in step. */
+.legendStart {
+  flex: none;
+  width: 0.25rem;
+  height: 0.25rem;
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+  background: var(--paper);
+}
+
+.legendSop {
+  flex: none;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.legendForecast {
+  flex: none;
+  width: 0.3125rem;
+  height: 0.3125rem;
+  transform: rotate(45deg);
+  background: var(--fg);
+}
+
+.legendOvershoot {
+  flex: none;
+  width: 0.75rem;
+  height: 0.125rem;
+  background: var(--bad);
+}
+
+.legendToday {
+  flex: none;
+  width: 0;
+  height: 0.75rem;
+  border-left: 1px dashed var(--border);
+}
+
+/* The immediate readout, set apart from the axis above it rather than reading as one more
+   line of chart furniture — it is the only place a program is named, so it earns a surface
+   of its own. Height reserved so the chart does not jump as the pointer sweeps. */
+.readout {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin: 0.625rem 0 0;
+  padding: 0.375rem 0.625rem;
+  min-height: 2rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+}
+
+/* The name carries the program's HEALTH colour — the same encoding as its SOP dot, so the
+   readout and the mark agree without the reader having to look back and forth. */
+.readoutName {
+  font-weight: 600;
+}
+
+/* One date and its glyph, kept together so a wrap never separates a mark from its meaning. */
+.readoutFact {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.hint {
+  color: var(--muted);
+}
