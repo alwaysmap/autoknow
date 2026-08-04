@@ -505,7 +505,7 @@ const STRINGS = {
     ko: '현재 고위험 항목이 없습니다.',
   },
   lateByWeeks: { en: '≈{n}w late', de: '≈{n} Wo. Verzug', ja: '約{n}週遅れ', ko: '약 {n}주 지연' },
-  // Same quantity as the chain's buffer (sopOutlook's days before SOP), so it takes
+  // Same quantity as the chain's buffer (sopBufferDays' days before SOP), so it takes
   // the same word. The German already said "Puffer" while EN said "slack" — one
   // concept was wearing two names, and a reader cannot know they are the same.
   slackWeeks: { en: '≈{n}w buffer', de: '≈{n} Wo. Puffer', ja: '約{n}週のバッファ', ko: '약 {n}주 버퍼' },

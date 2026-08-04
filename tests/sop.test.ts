@@ -1,7 +1,8 @@
 import { monthEndDate, parseSopInput, sopBufferDays, buildProductCapacitySeries, unitsAt, riskScore, sopBufferRisk, sopBufferCategory, sopBufferClass, isSopFlagged, guidelineFor, DAY_MS } from '../src/lib/sop';
 
-// SOP-target math: month-end assumption, the on-track signal (remaining chain weeks
-// vs the SOP date), the quarterly capacity series (with/without GAS), and risk ranking.
+// SOP-target math: month-end assumption, the buffer (remaining chain weeks vs the SOP
+// date) and the four-way reading over it, the quarterly capacity series (with/without
+// GAS), and risk ranking.
 
 describe('monthEndDate / parseSopInput', () => {
   it('assumes the LAST day of the month', () => {

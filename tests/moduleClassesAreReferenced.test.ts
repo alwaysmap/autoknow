@@ -18,9 +18,8 @@
 // last one is latched at `composedClasses` rather than counted, so if one ever appears it
 // costs a name a false death report, never a silent survival. So a class no component
 // names and nothing composes is applied to no element, and a rule for it can never match.
-// globals.css's blanket
-// `[class*="card"]` selectors do not change that: they style elements that already carry
-// the class, and nothing carries these.
+// globals.css's blanket `[class*="card"]` selectors do not change that: they style
+// elements that already carry the class, and nothing carries these.
 //
 // `composes:` was read as nothing for a while and got away with it, because the two rules
 // using it were ALSO named directly by their components — so the blind spot only opened
@@ -170,7 +169,7 @@ describe('every CSS-module class is referenced by a component', () => {
   // of that name alive; without the third a last declaration written without its optional
   // semicolon stops counting; and the fourth is anti-vacuity 3's rule, which every reader
   // of this file has to obey too — a comment ABOUT composing is not composing.
-  it('counts a locally composed class as referenced, and an imported one as not', () => {
+  it('counts local composes — multi-name, semicolon-less, not imported, not commented', () => {
     expect([...composedClasses('.a { composes: base tight; }')]).toEqual(['base', 'tight']);
     expect([...composedClasses(".a { composes: base from './other.module.css'; }")]).toEqual([]);
     expect([...composedClasses('.a { composes: base }')]).toEqual(['base']);

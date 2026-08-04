@@ -1,7 +1,8 @@
 // SOP-target math — pure and client-safe. Every program must carry a target SOP
 // (month + year minimum; we assume the LAST DAY of that month). Combined with the
-// notional remaining phase weeks (the critical chain), this is THE on-track signal,
-// and it drives the ecosystem capacity chart: when units come online, with/without GAS.
+// notional remaining phase weeks (the critical chain), this is THE will-we-make-it
+// signal — four-way, never a boolean, see `sopBufferClass` — and it drives the
+// ecosystem capacity chart: when units come online, with/without GAS.
 
 import { deriveProgramStatus } from './lifecycle';
 
