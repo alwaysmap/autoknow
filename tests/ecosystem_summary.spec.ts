@@ -93,8 +93,17 @@ test.describe('Ecosystem Summary Page (Deterministic + AI)', () => {
     // health-floor slider became in-header funnels, and the progress band was retired.
     // Two things worth asserting — that a funnel WRITES the URL, and that the URL is
     // read back on a cold load, which is the half most likely to rot (design.md §2).
-    await page.getByRole('button', { name: /^filter owner$/i }).click();
-    await page.getByRole('checkbox', { name: 'Dylan' }).check();
+    // Hydration-guarded first interaction (the repo's #1 e2e flake source otherwise —
+    // qa skill): an unguarded click can land before React attaches the popover handler,
+    // and the .check() below then waits forever for a panel that never opened. This is
+    // exactly how this spec failed in CI (gh-288's chromium run).
+    const ownerFunnel = page.getByRole('button', { name: /^filter owner$/i });
+    const ownerCheckbox = page.getByRole('checkbox', { name: 'Dylan' });
+    await expect(async () => {
+      if (!(await ownerCheckbox.isVisible())) await ownerFunnel.click({ timeout: 2000 });
+      await expect(ownerCheckbox).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 20000 });
+    await ownerCheckbox.check();
     // The funnel's VALUE is the owner's person id, not their address (#127 E7,
     // design.md §6): the id is the canonical key, and an address is a property of a job
     // that one human can hold several of. The LABEL stays their name, which is what the
