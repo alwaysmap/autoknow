@@ -12,17 +12,21 @@ import { getTemplateWithPhases } from './programTemplates';
 import { validateTemplateDag } from './templateDag';
 import { hillStatus } from './phase';
 import { indexEntity } from './search';
-import type { OwnerFields } from './owner';
+import type { OwnerFieldsOrNone } from './owner';
 
 export interface CreateProgramInput {
   name: string;
   partnerId: number;
   templateId: number;
-  // The pair from requireOwner — spread straight into `data:` (lib/owner's contract:
-  // no seam yields the email alone, so no path can write one column and forget the other).
-  owner: OwnerFields;
+  // A pair from lib/owner — spread straight into `data:` (its contract: no seam yields
+  // the email alone, so no path can write one column and forget the other). NO_OWNER is
+  // legal (gh-286 part c): an initiative copy starts unowned — the honest state until a
+  // human assigns one — while /programs/new keeps requiring a real owner as its policy.
+  owner: OwnerFieldsOrNone;
   // Nullable HERE because requiredness is caller policy, not instantiation mechanics.
   sopDate: Date | null;
+  // Set when this program is an initiative's per-partner copy (gh-286).
+  initiativeId?: number;
   products: { hasGas: boolean; hasGbi: boolean; hasDigitalKey: boolean; hasAap: boolean };
   // Attributed as the ProjectState source so creation appears in the activity feed
   // under whoever (or whatever flow) did it.
@@ -33,7 +37,7 @@ export interface CreateProgramInput {
  *  index for search. Returns the created project's id. Throws on an unknown/empty
  *  template or one whose DAG no longer validates — callers surface the message. */
 export async function createProgramFromTemplate(input: CreateProgramInput): Promise<{ id: number }> {
-  const { name, partnerId, templateId, owner, sopDate, products, createdBy } = input;
+  const { name, partnerId, templateId, owner, sopDate, initiativeId, products, createdBy } = input;
 
   // Templates live in the database (PHASE_TEMPLATES_PLAN §7). Validate up front so an
   // unexpected value can't silently create a project with zero phases.
@@ -63,7 +67,7 @@ export async function createProgramFromTemplate(input: CreateProgramInput): Prom
   // through must not leave a half-built project.
   const project = await prisma.$transaction(async (tx) => {
     const created = await tx.project.create({
-      data: { name, partnerId, ...owner, sopDate, ...products }
+      data: { name, partnerId, ...owner, sopDate, initiativeId, ...products }
     });
 
     // Log program creation so it appears in the activity feed.

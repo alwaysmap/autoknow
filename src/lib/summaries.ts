@@ -575,7 +575,9 @@ async function gatherPartnerEvidence(partnerId: number, windowStart: Date, ev: E
  *  cross-program updates and digests, newest first, capped. */
 async function gatherEcosystemEvidence(windowStart: Date, ev: EvidenceList, reg: EntityRegistry) {
   const projects = await prisma.project.findMany({
-    where: { isArchived: false },
+    // Ecosystem evidence enumerates PROGRAMS; initiative copies are excluded here
+    // (gh-286 decision 5) while keeping their own program-scope briefs below.
+    where: { isArchived: false, initiativeId: null },
     orderBy: { id: 'asc' },
     include: {
       partner: { select: { name: true } },

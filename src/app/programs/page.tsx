@@ -29,6 +29,9 @@ export default async function ProgramsPage(props: {
   const initialTableSort = sp.sort === 'risk' ? null : parseSortParams(sp);
   const initialQ = typeof sp.q === 'string' ? sp.q : '';
   const projects = await prisma.project.findMany({
+    // Initiative copies are not programs to this surface (gh-286 decision 5) — they
+    // live on initiative and partner pages, and at their own /programs/[id] detail.
+    where: { initiativeId: null },
     include: {
       ownerPerson: { select: { id: true, name: true } }, // the owner by REFERENCE (#127 E7)
       partner: {

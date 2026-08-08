@@ -4,7 +4,7 @@ date: 2026-08-08
 supersedes: ""
 superseded-by: ""
 extends: ""
-extended-by: ""
+extended-by: "an-initiative-copy-starts-unowned"
 tags: [schema, initiatives, programs]
 ---
 
