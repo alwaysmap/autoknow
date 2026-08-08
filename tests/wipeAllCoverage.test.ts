@@ -132,6 +132,21 @@ describe('fixtures.wipeAll leaves an empty database', () => {
     await prisma.escalation.create({
       data: { title: 'The same slip, raised twice', status: 'duplicate', duplicateOfId: escalation.id },
     });
+    // Initiatives (gh-286). These rows carry every reference the pair of models can:
+    // the template (unique 1:1), a member partner, and a Project copy on the RESTRICT
+    // initiativeId FK. So the wipe is proved to order the join before Partner and the
+    // Initiative after Project, not merely to delete unattached rows.
+    const initiativeTemplate = await prisma.programTemplate.findFirstOrThrow();
+    const initiative = await prisma.initiative.create({
+      data: { name: 'Fleet telemetry rollout', templateId: initiativeTemplate.id },
+    });
+    await prisma.initiativePartner.create({
+      data: { initiativeId: initiative.id, partnerId: seeded.oemId },
+    });
+    await prisma.project.update({
+      where: { id: seeded.projectId },
+      data: { initiativeId: initiative.id },
+    });
 
     // Vacuous-pass guard: assert the setup above really did fill EVERY table, so
     // "all zero afterwards" is evidence about the wipe and not about an empty database.

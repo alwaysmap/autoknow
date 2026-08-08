@@ -22,27 +22,28 @@ datasource db {
 // pure index scan — split the lexical and semantic branches if latency shows up.
 
 model Partner {
-  id                 Int                 @id @default(autoincrement())
-  name               String
-  typeId             Int?
-  type               PartnerType?        @relation(fields: [typeId], references: [id])
-  projects           Project[]
-  currentEmployees   Person[]            @relation("CurrentPartner")
-  personAffiliations PersonAffiliation[]
-  escalations        Escalation[]
-  states             PartnerState[]
-  contextUrls        ContextUrl[]
-  phaseInvolvements  PhasePartner[]
-  leadPhases         Phase[]             @relation("PhaseLeadPartner")
-  embedding          Unsupported("vector(768)")?
-  website            String?
-  internalDetailsUrl String?
-  summary            String?
-  phone              String?
+  id                    Int                 @id @default(autoincrement())
+  name                  String
+  typeId                Int?
+  type                  PartnerType?        @relation(fields: [typeId], references: [id])
+  projects              Project[]
+  currentEmployees      Person[]            @relation("CurrentPartner")
+  personAffiliations    PersonAffiliation[]
+  escalations           Escalation[]
+  states                PartnerState[]
+  contextUrls           ContextUrl[]
+  phaseInvolvements     PhasePartner[]
+  initiativeMemberships InitiativePartner[]
+  leadPhases            Phase[]             @relation("PhaseLeadPartner")
+  embedding             Unsupported("vector(768)")?
+  website               String?
+  internalDetailsUrl    String?
+  summary               String?
+  phone                 String?
   // Region is part of a partner's identity — required (the header renders it as a
   // classification link; a region-less partner is a data bug).
-  regionId           Int
-  region             Region              @relation(fields: [regionId], references: [id])
+  regionId              Int
+  region                Region              @relation(fields: [regionId], references: [id])
 }
 
 enum ProjectLifecycle {
@@ -118,6 +119,17 @@ model Project {
   states            ProjectState[]
   escalations       Escalation[]
   embedding         Unsupported("vector(768)")?
+  // Set when this program is a per-partner COPY of an initiative's workflow (gh-286).
+  // Copies are excluded from program surfaces (/programs, ecosystem counts, SOP-risk,
+  // capacity, timeline) and surface on initiative/partner pages instead — every
+  // program-enumerating query states its stance on this column explicitly.
+  //
+  // Restrict, NOT the nullable-FK house default of SET NULL: detaching is honest for
+  // an owner (program reads unowned) or an escalation referent, but here it would
+  // silently promote copies into regular programs and surface them in /programs.
+  // Deleting an initiative must first decide what its copies become.
+  initiativeId      Int?
+  initiative        Initiative?    @relation(fields: [initiativeId], references: [id], onDelete: Restrict)
 
   // The dominant read behind the FK is "programs owned by this person" (the person
   // page), and Postgres does not auto-index FK columns.
@@ -130,6 +142,9 @@ model Project {
   // lib/search's partner-scoped program reads use. Postgres also scans this to ENFORCE
   // the RESTRICT on every partner delete, so the write path pays for its absence too.
   @@index([partnerId, name])
+  // The initiative page reads "this initiative's copies"; also scanned to enforce the
+  // RESTRICT when an initiative is deleted. FKs are not auto-indexed (see above).
+  @@index([initiativeId])
 }
 
 // Leadership summary for one scope (ecosystem / partner / program): risks, progress,
@@ -490,6 +505,10 @@ model ProgramTemplate {
   createdBy   String?
   createdAt   DateTime        @default(now())
   phases      PhaseTemplate[]
+  // Set when this template is an initiative's private snapshot clone (gh-286) —
+  // template lists/pickers hide those by filtering `initiative: null` on this
+  // back-relation rather than carrying a flag column that could drift from the FK.
+  initiative  Initiative?
 
   // Backstop for the concurrent built-in seeding race in lib/programTemplates —
   // and duplicate template names within a tier are a data bug anyway.
@@ -520,6 +539,60 @@ model PhaseTemplateDep {
   dependsOn       PhaseTemplate @relation("PT_to", fields: [dependsOnId], references: [id], onDelete: Cascade)
 
   @@unique([phaseTemplateId, dependsOnId])
+}
+
+enum InitiativeMemberStatus {
+  active
+  removed
+}
+
+// A cross-partner initiative (gh-286): ONE workflow definition applied to 1+ partners,
+// where a Program (Project) is exactly one partner by construction. The definition is a
+// PRIVATE ProgramTemplate snapshot (cloned at creation, 1:1) so template edits never
+// silently redefine what in-flight members signed up for — every member instantiates
+// the same DAG. Adding a partner instantiates the snapshot as a Project copy
+// (Project.initiativeId); membership itself is an explicit fact (InitiativePartner),
+// never inferred from copies, because "removed from the initiative" must stay
+// distinguishable from "copy cancelled for some other reason".
+model Initiative {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String? // markdown
+  // Optional default target for member copies, applied at ADD TIME only — the
+  // per-partner date lives on the copy (Project.sopDate, relabeled "Target date" on
+  // initiative surfaces). Editing this later touches no existing member.
+  targetDate  DateTime?
+  // The private snapshot clone. Unique = 1:1; template lists/pickers hide snapshots by
+  // filtering on this back-relation (initiative == null), not on a flag column.
+  templateId  Int             @unique
+  template    ProgramTemplate @relation(fields: [templateId], references: [id])
+  isArchived  Boolean         @default(false)
+  createdBy   String?
+  createdAt   DateTime        @default(now())
+  members     InitiativePartner[]
+  // Named for what the rows ARE on this side of the relation: per-partner COPIES of
+  // the workflow. `projects` would false-parallel Partner.projects, which holds real
+  // programs — the exact confusion the exclusion rule exists to prevent.
+  copies      Project[]
+}
+
+model InitiativePartner {
+  id           Int        @id @default(autoincrement())
+  initiativeId Int
+  initiative   Initiative @relation(fields: [initiativeId], references: [id])
+  partnerId    Int
+  partner      Partner    @relation(fields: [partnerId], references: [id])
+  // Explicit membership fact. One row per (initiative, partner) forever: re-adding a
+  // removed partner flips this row back to active (fresh joinedAt); the multi-cycle
+  // history lives in the cancelled Project copies, not in extra join rows.
+  status       InitiativeMemberStatus @default(active)
+  joinedAt     DateTime   @default(now())
+  removedAt    DateTime?
+
+  @@unique([initiativeId, partnerId])
+  // The partner page asks "which initiatives include this partner" — and Postgres does
+  // not auto-index FK columns (same reasoning as Project's ownerPersonId index).
+  @@index([partnerId])
 }
 
 model PersonAffiliation {

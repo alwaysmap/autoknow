@@ -55,6 +55,9 @@ export async function wipeAllData() {
   await prisma.contextRevision.deleteMany();
   await prisma.syncCursor.deleteMany();
   await prisma.contextUrl.deleteMany();
+  // InitiativePartner references Partner and Initiative, so it clears with the other
+  // join tables, ahead of both.
+  await prisma.initiativePartner.deleteMany();
   await prisma.phasePartner.deleteMany();
   await prisma.phasePerson.deleteMany();
   await prisma.phaseState.deleteMany();
@@ -65,6 +68,16 @@ export async function wipeAllData() {
   await prisma.summaryPrompt.deleteMany();
   await prisma.partnerState.deleteMany();
   await prisma.project.deleteMany();
+  // Initiatives go after projects (copies reference their initiative). Templates are
+  // deliberately NOT wiped — except each initiative's PRIVATE snapshot clone, which
+  // would otherwise outlive its initiative and resurface in template lists (the lists
+  // hide snapshots by the back-relation, which deleting the initiative nulls out). So:
+  // record the snapshot ids, delete the initiatives, then delete exactly those clones.
+  const initiativeSnapshotIds = (
+    await prisma.initiative.findMany({ select: { templateId: true } })
+  ).map((i) => i.templateId);
+  await prisma.initiative.deleteMany();
+  await prisma.programTemplate.deleteMany({ where: { id: { in: initiativeSnapshotIds } } });
   await prisma.personAffiliation.deleteMany();
   await prisma.person.deleteMany();
   await prisma.partner.deleteMany();
