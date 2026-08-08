@@ -210,6 +210,11 @@ const MAY_NAME_THE_OWNER_TEXT = [
   "src/lib/owner.ts", // DEFINES the pair — requireOwner is the only source of it
   "src/lib/ownerBackfill.ts", // reads the text to fill the FK from it (#127 E6)
   "src/lib/ownerRemediation.ts", // repoints the rows whose text names nobody
+  // Reads it back off requireOwner's returned pair to fill the ActionItem assignee
+  // columns (both halves — the dual-write). Holds the exemption /programs/new/page.tsx
+  // held before gh-286 part b moved the transaction here; the page now passes the pair
+  // through opaquely and needs none.
+  "src/lib/createProgramFromTemplate.ts",
   "src/app/api/projects/route.ts", // destructures the request field of that name
   // Same, for the program-settings form action. The brackets are ESCAPED: a `files`
   // entry is a glob, so the literal `[id]` of a Next dynamic segment otherwise reads as
@@ -217,7 +222,6 @@ const MAY_NAME_THE_OWNER_TEXT = [
   // exemption silently does nothing. It fails loudly here (the file trips the rule), but
   // an exemption that quietly widens a rule instead would not.
   "src/app/programs/\\[id\\]/actions.ts",
-  "src/app/programs/new/page.tsx", // reads it back off requireOwner's returned pair
   // DEAD CODE, exempted only so `npm run lint` is not red while it awaits deletion:
   // referenced by nothing since the initial commit, and its Partner trigger still reads
   // `NEW.type`/`NEW.region`, columns the schema replaced with `typeId`/`regionId`.

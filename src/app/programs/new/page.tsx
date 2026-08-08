@@ -2,13 +2,11 @@ import { redirect } from 'next/navigation';
 import Combobox from '../../../components/Combobox';
 import { toComboboxOptions } from '../../../lib/comboboxOptions';
 import { prisma } from '../../../lib/db';
-import { listTemplates, getTemplateWithPhases } from '../../../lib/programTemplates';
-import { validateTemplateDag } from '../../../lib/templateDag';
+import { listTemplates } from '../../../lib/programTemplates';
+import { createProgramFromTemplate } from '../../../lib/createProgramFromTemplate';
 import { parseSopInput } from '../../../lib/sop';
 import { requireOwner } from '../../../lib/owner';
 import { getCurrentUser } from '../../../lib/session';
-import { indexEntity } from '../../../lib/search';
-import { hillStatus } from '../../../lib/phase';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
@@ -38,116 +36,32 @@ async function createProject(formData: FormData) {
     throw new Error('Missing fields');
   }
 
-  // Templates live in the database (PHASE_TEMPLATES_PLAN §7). Validate up front so an
-  // unexpected value can't silently create a project with zero phases.
   const templateId = parseInt(templateIdStr, 10);
-  const template = isNaN(templateId) ? null : await getTemplateWithPhases(templateId);
-  if (!template || template.phases.length === 0) {
-    throw new Error(`Unknown project template: ${templateIdStr}`);
+  if (isNaN(templateId)) {
+    throw new Error('Invalid template');
   }
-
-  // The template must still be a valid converging DAG at instantiation time.
-  const validation = validateTemplateDag(
-    template.phases.map((p) => ({ id: p.id, isEndPhase: p.isEndPhase, name: p.name })),
-    template.phases.flatMap((p) => p.dependsOn.map((d) => ({ nodeId: p.id, dependsOnId: d.dependsOnId }))),
-  );
-  if (!validation.ok) {
-    throw new Error(`Template “${template.name}” is invalid: ${validation.errors.map((e) => e.message).join(' ')}`);
-  }
-
   const partnerId = parseInt(partnerIdStr, 10);
   if (isNaN(partnerId)) {
     throw new Error('Invalid partner');
   }
 
-  // leadRole → concrete partner, only where unambiguous: "OEM" maps to the program's
-  // partner when that partner IS an OEM; anything else is left for the user.
-  const programPartner = await prisma.partner.findUnique({ where: { id: partnerId }, include: { type: true } });
-  const leadPartnerFor = (leadRole: string | null) =>
-    leadRole === 'OEM' && programPartner?.type?.name === 'OEM' ? programPartner.id : null;
-
-  const firstPhaseName = template.phases[0]?.name;
-
-  // Create the project and its full phase graph atomically — a failure partway
-  // through must not leave a half-built project.
+  // This form's POLICY ends here (owner and SOP required, ints parsed); the mechanics —
+  // template/DAG validation, role resolution, the atomic phase-graph write, search
+  // indexing — live in lib/createProgramFromTemplate, so a second caller can set its
+  // own policy (gh-286).
   const createdBy = (await getCurrentUser()).handle;
-
-  const project = await prisma.$transaction(async (tx) => {
-    const created = await tx.project.create({
-      data: { name, partnerId, ...owner, sopDate, hasGas, hasGbi, hasDigitalKey, hasAap }
-    });
-
-    // Log program creation so it appears in the activity feed.
-    await tx.projectState.create({
-      data: { projectId: created.id, theNeedle: 'On Track', hillChartProgress: 0, notes: 'Program created', source: createdBy },
-    });
-
-    const phasesMap: Record<number, { id: number }> = {};
-
-    for (const p of template.phases) {
-      const phase = await tx.phase.create({
-        data: {
-          name: p.name,
-          projectId: created.id,
-          forecastedDuration: p.durationWeeks * 7, // templates store weeks; runtime stays days
-          description: p.description,
-          googleFocus: p.googleFocus,
-          isEndPhase: p.isEndPhase,
-          leadPartnerId: leadPartnerFor(p.leadRole),
-        }
-      });
-      phasesMap[p.id] = phase;
-
-      // Status is derived from the dot's position on the hill — never chosen directly.
-      const initialProgress = p.name === firstPhaseName ? 10 : 0;
-      await tx.phaseState.create({
-        data: {
-          phaseId: phase.id,
-          status: hillStatus(initialProgress),
-          hillChartProgress: initialProgress,
-          theNeedle: 'On Track'
-        }
-      });
-
-      // No `owner &&` guard: it was already dead — an empty input is rejected above and
-      // requireOwner throws rather than returning nothing.
-      if (p.name === firstPhaseName) {
-        await tx.actionItem.create({
-          data: {
-            phaseId: phase.id,
-            description: `Initial bring-up action for ${p.name}`,
-            // The assignee columns are the same pair as the owner's, so fill BOTH —
-            // this path had been writing the text alone, which is the defect #127 E6
-            // is closing one model over (AGENTS lesson 7).
-            assignedTo: owner.ownerName,
-            assignedToPersonId: owner.ownerPersonId,
-            status: 'Pending'
-          }
-        });
-      }
-    }
-
-    for (const p of template.phases) {
-      const phase = phasesMap[p.id];
-      for (const dep of p.dependsOn) {
-        const depPhase = phasesMap[dep.dependsOnId];
-        if (depPhase) {
-          await tx.phaseDependency.create({
-            data: {
-              phaseId: phase.id,
-              dependsOnPhaseId: depPhase.id
-            }
-          });
-        }
-      }
-    }
-
-    return created;
+  const project = await createProgramFromTemplate({
+    name,
+    partnerId,
+    templateId,
+    owner,
+    sopDate,
+    products: { hasGas, hasGbi, hasDigitalKey, hasAap },
+    createdBy,
   });
 
-  await indexEntity('program', project.id);
-
-  // Redirect to project details page (outside the transaction).
+  // Redirect after createProgramFromTemplate's transaction has committed — redirect
+  // throws, so it must never run inside one.
   redirect(`/programs/${project.id}`);
 }
 
