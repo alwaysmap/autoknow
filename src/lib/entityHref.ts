@@ -21,6 +21,16 @@ export const programHref = (id: number): string => `/programs/${id}`;
  *  moving it later means migrating rows, not grepping `src/**` (AGENTS lesson 15). */
 export const escalationHref = (id: number): string => `/escalations/${id}`;
 
+export const initiativeHref = (id: number): string => `/initiatives/${id}`;
+
+/** The USER-VISIBLE home of an initiative's per-partner copy (gh-286, owner call
+ *  2026-08-08): copies present under their initiative, not as free-standing programs.
+ *  `/programs/[id]` REDIRECTS copies here, so `programHref` callers and every persisted
+ *  citation to the old shape keep resolving (AGENTS lesson 15) — new surfaces that KNOW
+ *  the pair should link here directly. */
+export const initiativeProjectHref = (initiativeId: number, projectId: number): string =>
+  `/initiatives/${initiativeId}/${projectId}`;
+
 /** Where a leadership brief LIVES, for the citation on the previous-brief evidence record
  *  (#236). There is no per-brief URL — a scope's panel always shows its newest — so this
  *  addresses the page that rendered it, the honest target for "the claim you already

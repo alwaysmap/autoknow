@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '../../../lib/db';
 import styles from './page.module.css';
@@ -21,6 +21,7 @@ import { findPartnerInText, findPartnersInText } from '../../../lib/associations
 import { personDirectorySelect } from '../../../lib/people';
 import { profilesAsOf } from '../../../lib/profiles';
 import { effectiveStartedAt, phaseHref, statusProgress } from '../../../lib/phase';
+import { initiativeProjectHref } from '../../../lib/entityHref';
 import PhaseHillChart from '../../../components/PhaseHillChart';
 import { tNodes } from '../../../components/tNodes';
 import ChainLedger from '../../../components/ChainLedger';
@@ -89,6 +90,13 @@ export default async function ProjectDetailsPage(props: {
 
   if (!project) {
     return notFound();
+  }
+
+  // An initiative copy's user-visible home is under its initiative (gh-286, owner call
+  // 2026-08-08). Redirect rather than 404: programHref callers and persisted citations
+  // to this shape keep resolving (AGENTS lesson 15).
+  if (project.initiativeId != null) {
+    redirect(initiativeProjectHref(project.initiativeId, project.id));
   }
 
   // Anticipated-vs-actual timing per phase, aggregated in SQL — never by loading

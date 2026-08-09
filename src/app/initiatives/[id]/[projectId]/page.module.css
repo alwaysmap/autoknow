@@ -1,0 +1,86 @@
+/* Initiative copy page (gh-286 part e) — the program page's frame minus the chain
+   section: same container/topGrid/contentCol grammar so the shared components sit in
+   familiar geometry. All rem (design.md §9). */
+
+.container {
+  min-height: 100vh;
+  color: var(--fg);
+  padding: 0 var(--page-gutter);
+  font-family: var(--body-font);
+}
+
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 1.25rem 0 0.9rem;
+}
+
+.title {
+  font-family: var(--head-font);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 0.3rem;
+}
+
+.archivedTag {
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 400;
+}
+
+.facts {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.factLabel {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  letter-spacing: 0.06em;
+}
+.factSep {
+  margin: 0 0.6rem;
+  color: var(--muted);
+}
+
+.main {
+  padding: 1.5rem 0 3rem;
+}
+
+.topGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 960px) {
+  .topGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.briefingHeading {
+  margin-top: 0;
+}
+
+.contentCol {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.historySection {
+  min-width: 0;
+}
+
+/* Why there is no edit affordance on the rail — the rule, stated where the reader
+   would look for the button (owner call 2026-08-08). */
+.stepsLockedNote {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  margin: 0.5rem 0 0;
+}

@@ -62,7 +62,13 @@ export async function createInitiative(formData: FormData): Promise<ActionResult
         },
       });
     });
-    revalidateInitiative(initiative.id);
+    // Initial membership, if the form assigned any (owner call 2026-08-08). After the
+    // creation transaction — a copy instantiation failure must not unwind the
+    // initiative itself; the page shows whoever landed.
+    if (fields.partnerIds && fields.partnerIds.length > 0) {
+      await addMembers(initiative, fields.partnerIds, fields.targetMonth, createdBy);
+    }
+    revalidateInitiative(initiative.id, fields.partnerIds ?? []);
     redirect(`/initiatives/${initiative.id}`);
   });
 }
@@ -93,51 +99,60 @@ export async function archiveInitiative(formData: FormData): Promise<ActionResul
 }
 
 /**
- * Add 1+ partners: per partner, upsert the join row to active and instantiate a fresh
- * copy of the snapshot. A partner that is already an active member is skipped — the
- * filters that FIND partners never mutate membership, so a batch may legitimately
+ * The membership-add core, shared by `addPartners` and creation-time assignment
+ * (owner call 2026-08-08): per partner, upsert the join row to active and instantiate
+ * a fresh copy of the snapshot. A partner that is already an active member is skipped —
+ * the filters that FIND partners never mutate membership, so a batch may legitimately
  * include existing members and must not double-instantiate (gh-286 decision 2).
+ * Rejects the whole batch when any id names nobody (AGENTS lesson 3) — a partial apply
+ * would leave the caller guessing which of their picks stuck.
  */
+async function addMembers(
+  initiative: { id: number; name: string; templateId: number; targetDate: Date | null },
+  partnerIds: number[],
+  targetMonth: string | null,
+  createdBy: string,
+): Promise<void> {
+  const partners = await prisma.partner.findMany({ where: { id: { in: partnerIds } } });
+  const found = new Set(partners.map((p) => p.id));
+  const missing = partnerIds.filter((id) => !found.has(id));
+  if (missing.length > 0) throw new Error(`Unknown partner id(s) — refresh and re-select: ${missing.join(', ')}`);
+
+  const effectiveDate = parseSopInput(targetMonth ?? '') ?? initiative.targetDate;
+
+  for (const partner of partners) {
+    const existing = await prisma.initiativePartner.findUnique({
+      where: { initiativeId_partnerId: { initiativeId: initiative.id, partnerId: partner.id } },
+    });
+    if (existing?.status === 'active') continue;
+    await prisma.initiativePartner.upsert({
+      where: { initiativeId_partnerId: { initiativeId: initiative.id, partnerId: partner.id } },
+      create: { initiativeId: initiative.id, partnerId: partner.id },
+      update: { status: 'active', joinedAt: new Date(), removedAt: null },
+    });
+    // The copy starts unowned — assigning a Googler is a later, per-copy act on the
+    // program page; auto-assigning the adder would fabricate an ownership fact.
+    await createProgramFromTemplate({
+      name: `${initiative.name} — ${partner.name}`,
+      partnerId: partner.id,
+      templateId: initiative.templateId,
+      owner: NO_OWNER,
+      sopDate: effectiveDate,
+      initiativeId: initiative.id,
+      products: { hasGas: false, hasGbi: false, hasDigitalKey: false, hasAap: false },
+      createdBy,
+    });
+  }
+}
+
 export async function addPartners(formData: FormData): Promise<ActionResult> {
   return guarded(async () => {
     const fields = parseForm(initiativeAddPartnersSchema, formData);
     const initiative = await prisma.initiative.findUnique({ where: { id: fields.initiativeId } });
     if (!initiative) throw new Error('Unknown initiative — it may have been deleted');
     if (initiative.isArchived) throw new Error('Initiative is archived — unarchive it to change membership');
-
-    // Reject the whole batch when any id names nobody (AGENTS lesson 3) — a partial
-    // apply would leave the caller guessing which of their picks stuck.
-    const partners = await prisma.partner.findMany({ where: { id: { in: fields.partnerIds } } });
-    const found = new Set(partners.map((p) => p.id));
-    const missing = fields.partnerIds.filter((id) => !found.has(id));
-    if (missing.length > 0) throw new Error(`Unknown partner id(s) — refresh and re-select: ${missing.join(', ')}`);
-
     const createdBy = (await getCurrentUser()).handle;
-    const effectiveDate = parseSopInput(fields.targetMonth ?? '') ?? initiative.targetDate;
-
-    for (const partner of partners) {
-      const existing = await prisma.initiativePartner.findUnique({
-        where: { initiativeId_partnerId: { initiativeId: initiative.id, partnerId: partner.id } },
-      });
-      if (existing?.status === 'active') continue;
-      await prisma.initiativePartner.upsert({
-        where: { initiativeId_partnerId: { initiativeId: initiative.id, partnerId: partner.id } },
-        create: { initiativeId: initiative.id, partnerId: partner.id },
-        update: { status: 'active', joinedAt: new Date(), removedAt: null },
-      });
-      // The copy starts unowned — assigning a Googler is a later, per-copy act on the
-      // program page; auto-assigning the adder would fabricate an ownership fact.
-      await createProgramFromTemplate({
-        name: `${initiative.name} — ${partner.name}`,
-        partnerId: partner.id,
-        templateId: initiative.templateId,
-        owner: NO_OWNER,
-        sopDate: effectiveDate,
-        initiativeId: initiative.id,
-        products: { hasGas: false, hasGbi: false, hasDigitalKey: false, hasAap: false },
-        createdBy,
-      });
-    }
+    await addMembers(initiative, fields.partnerIds, fields.targetMonth, createdBy);
     revalidateInitiative(initiative.id, fields.partnerIds);
   });
 }

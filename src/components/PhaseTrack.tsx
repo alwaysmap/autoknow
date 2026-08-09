@@ -142,6 +142,9 @@ interface PhaseTrackProps {
   projectId: number;
   phases: PhaseTrackRow[];
   locale: Locale;
+  /** Initiative copies (gh-286): the STRUCTURE is the initiative's template and cannot
+   *  deviate per copy, so every edit-phases doorway hides. Progress updates stay. */
+  structureLocked?: boolean;
 }
 
 // The open PROGRESS view IS a URL — the same rule the needle's log follows (design.md
@@ -275,15 +278,17 @@ function MiniHill({ progress, previousProgress }: { progress: number; previousPr
 // the popover retired (autoknow-crw.4), so it is down to one. It stays a component
 // anyway, and stays HERE rather than becoming a file of its own, because it is markup
 // over `PhaseTrackRow`: the same reason Station, StationGlyph and MiniHill live here.
-function PhaseGoal({ phase, projectId, locale }: { phase: PhaseTrackRow; projectId: number; locale: Locale }) {
+function PhaseGoal({ phase, projectId, locale, structureLocked }: { phase: PhaseTrackRow; projectId: number; locale: Locale; structureLocked?: boolean }) {
   return (
     <>
       {phase.description ? (
         <div className={styles.templateDoc}><Markdown>{phase.description}</Markdown></div>
       ) : (
         <p className={styles.noGoal}>
-          {t(locale, 'noGoalYet')}{' '}
-          <Link href={phasesEditHref(projectId, phase.id)}>{t(locale, 'editPhases')}</Link>
+          {t(locale, 'noGoalYet')}
+          {!structureLocked && (
+            <>{' '}<Link href={phasesEditHref(projectId, phase.id)}>{t(locale, 'editPhases')}</Link></>
+          )}
         </p>
       )}
       {phase.googleFocus && (
@@ -296,7 +301,7 @@ function PhaseGoal({ phase, projectId, locale }: { phase: PhaseTrackRow; project
   );
 }
 
-export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProps) {
+export default function PhaseTrack({ projectId, phases, locale, structureLocked = false }: PhaseTrackProps) {
   const byId = new Map(phases.map((p) => [p.id, p]));
   const scrollPageTo = useSteadyPageScroll();
 
@@ -1259,9 +1264,11 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
                     {t(locale, tracksHidden ? 'showTracksAction' : 'hideTracks')}
                   </button>
                   {/* No onClick={close}: AnchoredPopover dismisses navigating links itself. */}
-                  <Link href={phasesEditHref(projectId)} role="menuitem" className={styles.menuItem}>
-                    {t(locale, 'editPhases')}
-                  </Link>
+                  {!structureLocked && (
+                    <Link href={phasesEditHref(projectId)} role="menuitem" className={styles.menuItem}>
+                      {t(locale, 'editPhases')}
+                    </Link>
+                  )}
                 </>
               )}
             </AnchoredPopover>
@@ -1492,7 +1499,7 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
                   {/* LEFT — what this phase is FOR. It was reachable only by opening
                       something until autoknow-crw.2 gave it a column here. */}
                   <div className={styles.goalCol}>
-                    <PhaseGoal phase={p} projectId={projectId} locale={locale} />
+                    <PhaseGoal phase={p} projectId={projectId} locale={locale} structureLocked={structureLocked} />
                   </div>
 
                   {/* RIGHT — the most recent update, WHOLE: the graphic, the words,
@@ -1559,9 +1566,11 @@ export default function PhaseTrack({ projectId, phases, locale }: PhaseTrackProp
                       #168): a phase's editor, a phase's log and — for the one that is a
                       form — a disclosure that stays put. */}
                   <div className={`${styles.rowFoot} ${styles.actionRow}`}>
-                    <Link href={phasesEditHref(projectId, p.id)} className={styles.actionLink}>
-                      {t(locale, 'editPhase')}
-                    </Link>
+                    {!structureLocked && (
+                      <Link href={phasesEditHref(projectId, p.id)} className={styles.actionLink}>
+                        {t(locale, 'editPhase')}
+                      </Link>
+                    )}
                     {/* UPDATE + HISTORY, named for both jobs. An affordance labelled only
                         "History" would hide this app's most frequent WRITE behind a word
                         that means looking backwards — the popover's update form lives in

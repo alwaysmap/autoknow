@@ -64,6 +64,14 @@ export const getPartnerEscalations = (partnerId: number): Promise<EscalationRow[
 export const getProgramEscalations = (projectId: number): Promise<EscalationRow[]> =>
   escalationsWhere({ projectId });
 
+/** An initiative's escalations: those raised about any member's copy (gh-286). The
+ *  context filter lives HERE — every surface but /escalations reuses the one condensed
+ *  component over the one row shape, and only the model-layer scope differs (owner
+ *  rule, 2026-08-08). An escalation's home stays the program-shaped record it was
+ *  raised on; this is a view, not a new link kind. */
+export const getInitiativeEscalations = (initiativeId: number): Promise<EscalationRow[]> =>
+  escalationsWhere({ project: { initiativeId } });
+
 /** The count the ecosystem strip's tile reads — cheap enough to be its own query rather
  *  than `getEcosystemEscalations(...).length`, which would fetch and sort full rows just
  *  to throw away everything but a number. */

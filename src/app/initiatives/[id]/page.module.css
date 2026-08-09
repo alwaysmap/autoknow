@@ -1,0 +1,158 @@
+/* Initiative detail (gh-286 part e). Members render on the shared DataTable; this
+   module only styles the cells' instruments and the page's facts line. All rem
+   (design.md §9); colors come from the shared tokens in globals. */
+
+.description {
+  color: var(--muted);
+  max-width: 52rem;
+  margin: 0 0 0.5rem;
+}
+
+.facts {
+  margin: 0 0 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.factLabel {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  letter-spacing: 0.06em;
+}
+.factSep {
+  margin: 0 0.6rem;
+  color: var(--muted);
+}
+
+.section {
+  margin-bottom: 2rem;
+}
+
+.memberWho {
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.memberWho small {
+  display: block;
+  font-weight: 400;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.regionLink {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+/* The two instruments, sized for a table cell: the needle small, the hill wide enough
+   for its dots to separate. Both are SVGs that fill their container's width. */
+.gaugeCell {
+  display: block;
+  width: 3.5rem;
+}
+.hillCell {
+  display: block;
+  width: 10rem;
+}
+
+.mutedCell {
+  color: var(--muted);
+}
+
+.pct {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.removeForm {
+  display: inline;
+}
+.removeBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+}
+.removeBtn:hover {
+  color: var(--fg);
+  border-color: var(--muted);
+}
+
+.addForm {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+.addBtn {
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  background: none;
+  color: var(--fg);
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+}
+.addBtn:hover {
+  border-color: var(--muted);
+}
+
+.formError {
+  color: var(--bad);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  margin: 0;
+  flex-basis: 100%;
+}
+
+/* The edit dialog's form — OverlayDialog owns the frame; this is just the fields. */
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.editForm label {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-top: 0.6rem;
+}
+.editForm input,
+.editForm textarea {
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  background: var(--white);
+  color: var(--fg);
+  font-family: inherit;
+}
+.editActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+.editActions button {
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  background: none;
+  color: var(--fg);
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+.editActions button[type='submit'] {
+  background: var(--p-500);
+  border-color: var(--p-600);
+  color: var(--white);
+}

@@ -1,0 +1,29 @@
+/* Add-to-initiative, partner side (gh-286 part g). */
+
+.form {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn {
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  background: none;
+  color: var(--fg);
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+}
+.btn:hover {
+  border-color: var(--muted);
+}
+
+.formError {
+  color: var(--bad);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  margin: 0;
+  flex-basis: 100%;
+}
