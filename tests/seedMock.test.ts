@@ -42,8 +42,9 @@ describe('seedMockData through the API', () => {
     // program) + 8 enrichment. FIFTEEN, not sixteen: the 'Alice PM' persona is retired,
     // and there is now exactly one Alice.
     expect(await prisma.person.count()).toBe(15);
-    // 4 classic + 7 enrichment + 4 showcase + 3 Alice-era programs.
-    expect(await prisma.project.count()).toBe(18);
+    // 4 classic + 7 enrichment + 4 showcase + 3 Alice-era programs + 6 initiative
+    // member copies (4 Gemini incl. the removed member's cancelled copy, 2 EV).
+    expect(await prisma.project.count()).toBe(24);
     expect(await prisma.phaseDependency.count()).toBeGreaterThan(0);
     expect(await prisma.phasePartner.count()).toBeGreaterThan(0);
     expect(await prisma.phasePerson.count()).toBeGreaterThan(0);
@@ -105,7 +106,12 @@ describe('seedMockData through the API', () => {
     expect((await byName('Honda Accord AAOS Bring-up')).ownerName).toBe('marcusw@google.com');
 
     // Every seeded owner resolves to a person on file — none is freeform text.
+    // Initiative member copies are excluded here and asserted UNOWNED below:
+    // starting without an owner is their honest state
+    // (docs/adr/2026-08-08-an-initiative-copy-starts-unowned.md), not a
+    // resolution gap.
     const owners = await prisma.project.findMany({
+      where: { initiativeId: null },
       select: { ownerName: true, ownerPersonId: true },
     });
     const people = await prisma.person.findMany({ select: { id: true, email: true } });
@@ -120,6 +126,19 @@ describe('seedMockData through the API', () => {
     // supposed to make writing one column without the other impossible has a hole.
     for (const { ownerName, ownerPersonId } of owners) {
       expect(ownerPersonId).toBe(idByEmail.get(ownerName as string));
+    }
+
+    // The copies themselves: BOTH columns null, from the same NO_OWNER pair — a
+    // copy with text in one column and null in the other would mean a mutation
+    // path split the dual write.
+    const copies = await prisma.project.findMany({
+      where: { initiativeId: { not: null } },
+      select: { ownerName: true, ownerPersonId: true },
+    });
+    expect(copies.length).toBeGreaterThan(0);
+    for (const copy of copies) {
+      expect(copy.ownerName).toBeNull();
+      expect(copy.ownerPersonId).toBeNull();
     }
   });
 
@@ -259,8 +278,13 @@ describe('seedMockData through the API', () => {
     //
     // Asserted as an empty LIST, not a count of zero: when this regresses, the failure
     // names the address that stopped resolving, which is the whole diagnosis.
+    //
+    // Scoped to items that NAME someone: an initiative copy starts unowned
+    // (docs/adr/2026-08-08-an-initiative-copy-starts-unowned.md), so its
+    // instantiation-time bring-up item carries no assignee at all — that is not
+    // stranding. Stranding is TEXT that resolved to nobody.
     const unlinked = await prisma.actionItem.findMany({
-      where: { assignedToPersonId: null },
+      where: { assignedToPersonId: null, assignedTo: { not: null } },
       select: { assignedTo: true },
     });
     expect(unlinked.map((a) => a.assignedTo)).toEqual([]);
@@ -361,6 +385,101 @@ describe('seedMockData through the API', () => {
     expect(states[1].relationshipScore).toBe(3);
     expect(states[1].theNeedle).toBe('Some Risk'); // scoreToHealth(3)
     expect(states[0].notes).toBeTruthy(); // the journal requires a written note
+  });
+
+  // Initiatives ride the REAL actions (gh-286 part i) — createInitiative,
+  // addPartners, removePartner — so what these assert is that the demo carries every
+  // membership shape the initiative surfaces render: default-dated members, a
+  // per-batch override, date-less members, and a removed member whose cancelled
+  // copy is kept as history.
+  it('the dated initiative carries a derived default, a batch override, and a removed member', async () => {
+    const gemini = await prisma.initiative.findFirstOrThrow({
+      where: { name: 'Gemini built-in across the fleet' },
+      include: { members: { include: { partner: true } }, template: { include: { phases: true } } },
+    });
+
+    // The workflow definition is a PRIVATE snapshot of the GAS built-in — a copy,
+    // never a pointer at the shared template.
+    const gasBuiltin = BUILTIN_TEMPLATES.find((t) => t.name === 'GAS')!;
+    const gasSource = await prisma.programTemplate.findFirstOrThrow({
+      where: { name: 'GAS', isBuiltIn: true },
+    });
+    expect(gemini.templateId).not.toBe(gasSource.id);
+    expect(gemini.template.phases).toHaveLength(gasBuiltin.phases.length);
+
+    // The default target is DERIVED from seed time, never a literal
+    // (docs/knowledge/a-literal-future-date-in-a-fixture-expires.md) — asserted by
+    // its properties: genuinely ahead by more than a year on every re-seed.
+    expect(gemini.targetDate).not.toBeNull();
+    expect(gemini.targetDate!.getTime()).toBeGreaterThan(Date.now() + 365 * 86_400_000);
+
+    const memberByPartner = new Map(gemini.members.map((m) => [m.partner.name, m]));
+    expect(memberByPartner.get('Honda')?.status).toBe('active');
+    expect(memberByPartner.get('Hyundai')?.status).toBe('active');
+    expect(memberByPartner.get('Stellantis')?.status).toBe('active');
+    // The removed member: the join row flipped, dated, and stays the one row per pair.
+    expect(memberByPartner.get('Volvo Cars')?.status).toBe('removed');
+    expect(memberByPartner.get('Volvo Cars')?.removedAt).not.toBeNull();
+
+    const copies = await prisma.project.findMany({
+      where: { initiativeId: gemini.id },
+      include: { partner: true, phases: true },
+    });
+    expect(copies).toHaveLength(4);
+    const copyByPartner = new Map(copies.map((c) => [c.partner.name, c]));
+    for (const copy of copies) {
+      // Every copy carries the snapshot's FULL phase graph.
+      expect(copy.phases).toHaveLength(gasBuiltin.phases.length);
+    }
+    // Default-dated members carry the initiative's own target on their copies…
+    expect(copyByPartner.get('Honda')!.sopDate?.toISOString()).toBe(gemini.targetDate!.toISOString());
+    expect(copyByPartner.get('Hyundai')!.sopDate?.toISOString()).toBe(gemini.targetDate!.toISOString());
+    // …the override batch lands LATER than the default…
+    expect(copyByPartner.get('Stellantis')!.sopDate!.getTime()).toBeGreaterThan(gemini.targetDate!.getTime());
+    // …and the removed member's copy is cancelled and KEPT (history, not deletion).
+    expect(copyByPartner.get('Volvo Cars')!.lifecycle).toBe('cancelled');
+
+    // The full graph includes the EDGES: Honda's copy carries the template's
+    // dependency count, instantiated per copy.
+    const hondaEdges = await prisma.phaseDependency.count({
+      where: { phaseId: { in: copyByPartner.get('Honda')!.phases.map((p) => p.id) } },
+    });
+    expect(hondaEdges).toBe(gasBuiltin.phases.reduce((n, p) => n + p.dependsOn.length, 0));
+  });
+
+  it('the date-less initiative seeds no-date members end to end', async () => {
+    const ev = await prisma.initiative.findFirstOrThrow({
+      where: { name: 'EV routing & battery state APIs' },
+    });
+    expect(ev.targetDate).toBeNull();
+
+    const aaosBuiltin = BUILTIN_TEMPLATES.find((t) => t.name.startsWith('AAOS'))!;
+    const copies = await prisma.project.findMany({
+      where: { initiativeId: ev.id },
+      include: { phases: true },
+    });
+    expect(copies).toHaveLength(2);
+    for (const copy of copies) {
+      expect(copy.lifecycle).toBe('active');
+      // No initiative default and no batch month = NO date on the copy — the
+      // `no-date` member-status case, never a defaulted value.
+      expect(copy.sopDate).toBeNull();
+      expect(copy.phases).toHaveLength(aaosBuiltin.phases.length);
+    }
+  });
+
+  it('advanced copy phases carry posted progress that beats the creation-time initial state', async () => {
+    const honda = await prisma.partner.findFirstOrThrow({ where: { name: 'Honda' } });
+    const copy = await prisma.project.findFirstOrThrow({
+      where: { initiative: { name: 'Gemini built-in across the fleet' }, partnerId: honda.id, lifecycle: 'active' },
+      include: { phases: { include: { states: { orderBy: { timestamp: 'desc' }, take: 1 } } } },
+    });
+    const progressByName = new Map(copy.phases.map((p) => [p.name, p.states[0]?.hillChartProgress]));
+    // Posted through the phase-state route AFTER instantiation, so newest-wins
+    // lands on the seeded progress, not the initial 10/0 rows.
+    expect(progressByName.get('GMS Core Integration')).toBe(100);
+    expect(progressByName.get('Play Store configuration')).toBe(45);
+    expect(progressByName.get('GAS Compliance')).toBe(0);
   });
 
   // Faulty-mock-data guard. A phase must not be seeded as started (current progress
