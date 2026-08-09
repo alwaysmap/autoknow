@@ -12,11 +12,13 @@ import { chainFingerprint, chainDrifted, parseChainFingerprint, type ChainFinger
 import {
   personHref, partnerHref, programHref, phaseHref, phaseUpdateHref,
   programStatusUpdateHref, relationshipUpdateHref, summaryScopeHref,
+  initiativeHref, initiativeProjectHref,
 } from './entityHref';
 import { linkify, type EntityLink, type Segment } from './summaryLinkify';
 import { sopBufferReading } from './sop';
 import { localDate } from './dates';
 import { profilesAsOf } from './profiles';
+import { getInitiativeDetail } from './initiativeQueries';
 
 // The leadership-summary engine, one machine for three scopes (ecosystem / partner /
 // program): gather what AutoKnow already stores — needle updates, hill updates,
@@ -571,6 +573,46 @@ async function gatherPartnerEvidence(partnerId: number, windowStart: Date, ev: E
   return partner;
 }
 
+/** Initiative-scope evidence: the shared goal, each member's reading against it, then
+ *  full program evidence for each member's copy (capped). The reading lines come from
+ *  the SAME derivations the initiative page renders (lib/initiativeQueries), so the
+ *  brief can never disagree with the table it sits above. */
+async function gatherInitiativeEvidence(initiativeId: number, windowStart: Date, ev: EvidenceList, reg: EntityRegistry) {
+  const detail = await getInitiativeDetail(initiativeId, Date.now());
+  if (!detail) return null;
+  reg.add(detail.name, initiativeHref(initiativeId));
+
+  ev.push(
+    'portfolio',
+    `CURRENT initiative: "${detail.name}" — ${detail.rollup.total} member partner(s); ${detail.rollup.complete} complete, ${detail.rollup.onTrack} on track, ${detail.rollup.atRisk} at risk, ${detail.rollup.noDate} without a target date${detail.targetDate ? `; shared target ${proseMonth(new Date(detail.targetDate))}` : '; no shared target date'}${detail.description ? `. Goal: ${detail.description}` : ''}`,
+    { label: 'Initiative', href: initiativeHref(initiativeId), external: false },
+  );
+
+  for (const m of detail.members) {
+    reg.add(m.partnerName, partnerHref(m.partnerId));
+    ev.push(
+      'portfolio',
+      `CURRENT member reading: ${m.partnerName} — ${m.completion}% through the shared steps, ${m.status === 'no-date' ? 'no target date (no schedule reading)' : m.status}${m.targetDate ? ` against ${proseMonth(new Date(m.targetDate))}` : ''}`,
+      {
+        label: `${m.partnerName} · member`,
+        href: m.projectId ? initiativeProjectHref(initiativeId, m.projectId) : partnerHref(m.partnerId),
+        external: false,
+      },
+    );
+  }
+
+  // Each member copy's own evidence — the ledgers in ONE call, the loop capped, the
+  // same shape gatherPartnerEvidence uses for a partner's portfolio.
+  const copyIds = detail.members.flatMap((m) => (m.projectId ? [m.projectId] : []));
+  const bundles = new Map((await getProgramLedgers(Date.now(), copyIds)).map((b) => [b.programId, b]));
+  for (const id of copyIds) {
+    if (ev.isFull) break;
+    await gatherProgramEvidence(id, windowStart, ev, reg, bundles.get(id));
+  }
+
+  return detail;
+}
+
 /** Ecosystem-scope evidence: every active program's chain/current state + recent
  *  cross-program updates and digests, newest first, capped. */
 async function gatherEcosystemEvidence(windowStart: Date, ev: EvidenceList, reg: EntityRegistry) {
@@ -805,6 +847,10 @@ export async function createSummary(
     const partner = await gatherPartnerEvidence(targetId, windowStart, ev, reg);
     if (!partner) return none;
     subject = `"${partner.name}"`;
+  } else if (scope === 'initiative') {
+    const initiative = await gatherInitiativeEvidence(targetId, windowStart, ev, reg);
+    if (!initiative) return none;
+    subject = `"${initiative.name}" (${initiative.rollup.total} partners)`;
   } else {
     const count = await gatherEcosystemEvidence(windowStart, ev, reg);
     subject = `the AutoKnow ecosystem (${count} active programs)`;
@@ -1055,6 +1101,14 @@ export async function getSummary(scope: SummaryScope, targetId: number): Promise
       prisma.phaseState.findFirst({ where: { phase: { project: { partnerId: targetId } }, timestamp: { gt: after } }, select: { id: true } }),
     ]);
     stale = !!(a || b || c || d);
+  } else if (scope === 'initiative') {
+    const [a, b, c] = await Promise.all([
+      prisma.projectState.findFirst({ where: { project: { initiativeId: targetId }, timestamp: { gt: after } }, select: { id: true } }),
+      prisma.phaseState.findFirst({ where: { phase: { project: { initiativeId: targetId } }, timestamp: { gt: after } }, select: { id: true } }),
+      // Membership changes are content too: a join or removal after the brief dates it.
+      prisma.initiativePartner.findFirst({ where: { initiativeId: targetId, OR: [{ joinedAt: { gt: after } }, { removedAt: { gt: after } }] }, select: { id: true } }),
+    ]);
+    stale = !!(a || b || c);
   } else {
     const [a, b, c] = await Promise.all([
       prisma.projectState.findFirst({ where: { timestamp: { gt: after } }, select: { id: true } }),
@@ -1142,12 +1196,14 @@ export async function runSummaryCycle(opts?: { maxRequests?: number }): Promise<
   // nothing to decide when nothing can be afforded.
   if (requestCap <= 0) return { ...report, hitCap: true };
 
-  const [partners, programs] = await Promise.all([
+  const [partners, programs, initiatives] = await Promise.all([
     prisma.partner.findMany({ select: { id: true } }),
-    prisma.project.findMany({ where: { isArchived: false }, select: { id: true, partnerId: true } }),
+    prisma.project.findMany({ where: { isArchived: false }, select: { id: true, partnerId: true, initiativeId: true } }),
+    prisma.initiative.findMany({ where: { isArchived: false }, select: { id: true } }),
   ]);
   const targets: Array<{ scope: SummaryScope; id: number }> = [
     { scope: 'ecosystem' as SummaryScope, id: 0 },
+    ...initiatives.map((i) => ({ scope: 'initiative' as SummaryScope, id: i.id })),
     ...partners.map((p) => ({ scope: 'partner' as SummaryScope, id: p.id })),
     ...programs.map((p) => ({ scope: 'program' as SummaryScope, id: p.id })),
   ];
@@ -1189,6 +1245,13 @@ export async function runSummaryCycle(opts?: { maxRequests?: number }): Promise<
         ctxPartnerBy.get(id),
         ...programs.filter((p) => p.partnerId === id).map((p) => programActivity(p.id)),
       );
+    }
+    if (scope === 'initiative') {
+      // Copies' own activity. A membership ADD registers here (the fresh copy's
+      // creation state is program activity); a REMOVAL registers only via the read-side
+      // probe (getSummary checks removedAt) — the hourly cycle may lag a bare removal
+      // by one tick, which the read path corrects on first view.
+      return maxDate(...programs.filter((p) => p.initiativeId === id).map((p) => programActivity(p.id)));
     }
     return maxDate(...programs.map((p) => programActivity(p.id)), ctxGlobalMax._max.createdAt);
   };

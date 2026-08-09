@@ -3,6 +3,11 @@ import PageShell from '../../../components/PageShell';
 import AnchorHeading from '../../../components/AnchorHeading';
 import DateCell from '../../../components/DateCell';
 import EscalationRows from '../../../components/EscalationRows';
+import SummaryPanel from '../../../components/SummaryPanel';
+import { prisma } from '../../../lib/db';
+import { getSummary } from '../../../lib/summaries';
+import { geminiConfigured } from '../../../lib/gemini';
+import { untrackedContext } from '../../../lib/untrackedContext';
 import { getInitiativeDetail, getAddablePartners } from '../../../lib/initiativeQueries';
 import { getInitiativeEscalations } from '../../../lib/escalationQueries';
 import { removePartner } from '../../actions/initiatives';
@@ -17,10 +22,9 @@ export const dynamic = 'force-dynamic';
 
 // One initiative's page (gh-286 part e; owner calls 2026-08-08): the members as the
 // shared DataTable — needle + little hill per partner, the same instruments every other
-// surface uses — plus the edit kebab, add/remove membership, and the escalations raised
-// about any member's copy (scoped in the model layer, rendered by the one condensed
-// component). The initiative-scope AI summary is a named follow-up (autoknow-hcz.10);
-// no placeholder pretends otherwise (lesson 5's honesty rule).
+// surface uses — plus the briefing (the 'initiative' summary scope, hcz.10), the edit
+// kebab, add/remove membership, and the escalations raised about any member's copy
+// (scoped in the model layer, rendered by the one condensed component).
 export default async function InitiativePage(props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
   const initiativeId = parseInt(id, 10);
@@ -43,8 +47,12 @@ export default async function InitiativePage(props: { params: Promise<{ id: stri
   // with type/region and the derived Products union (canonical rows — AGENTS lesson 3;
   // the action re-validates ids at the boundary).
   const addable = await getAddablePartners(initiative.id);
+  // The full directory, for the briefing panel's untracked-context affordance.
+  const allPartners = await prisma.partner.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } });
 
   const escalations = await getInitiativeEscalations(initiative.id);
+  const summary = await getSummary('initiative', initiative.id);
+  const untracked = await untrackedContext();
 
   // The month-input shape for the edit dialog, from the stored date.
   const targetMonth = initiative.targetDate ? initiative.targetDate.slice(0, 7) : '';
@@ -73,6 +81,13 @@ export default async function InitiativePage(props: { params: Promise<{ id: stri
         <span className={styles.factLabel}>{t(locale, 'initiativeColPartners')}</span>{' '}
         {initiative.rollup.total}
       </p>
+
+      <section className={styles.section}>
+        <AnchorHeading id="briefing">{t(locale, 'briefingHeading')}</AnchorHeading>
+        <SummaryPanel scope="initiative" targetId={initiative.id} path={`/initiatives/${initiative.id}`}
+          untracked={{ ctx: untracked, partners: allPartners }}
+          summary={summary} configured={geminiConfigured} />
+      </section>
 
       <section className={styles.section}>
         <AnchorHeading id="partners">{t(locale, 'initiativeMembersHeading')}</AnchorHeading>

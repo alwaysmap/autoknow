@@ -39,6 +39,7 @@ export const initiativeProjectHref = (initiativeId: number, projectId: number): 
 export const summaryScopeHref = (scope: SummaryScope, targetId: number): string => {
   if (scope === 'program') return programHref(targetId);
   if (scope === 'partner') return partnerHref(targetId);
+  if (scope === 'initiative') return initiativeHref(targetId);
   return '/ecosystem';
 };
 

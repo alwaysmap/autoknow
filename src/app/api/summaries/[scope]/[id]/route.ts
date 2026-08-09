@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSummary, createSummary } from '../../../../../lib/summaries';
 import { geminiConfigured } from '../../../../../lib/gemini';
 import { declineIfQuotaBlocked } from '../../../../../lib/geminiQuota';
-import { isSummaryScope, BRIEFING_SURVIVED } from '../../../../../lib/summaryPrompts';
+import { isSummaryScope, BRIEFING_SURVIVED, type SummaryScope } from '../../../../../lib/summaryPrompts';
 import { serverError, jsonError } from '../../../../../lib/api';
 import { requireRouteAuth } from '../../../../../lib/routeAuth';
 
@@ -14,7 +14,7 @@ import { requireRouteAuth } from '../../../../../lib/routeAuth';
 // Body shape: { configured, summary: { tldr, body: { sections: [{ key, bullets:
 // [{ text, citations: [{ label, href, external }] }] }] }, generatedAt, stale, … } }
 
-function parseParams(scope: string, id: string): { scope: 'ecosystem' | 'partner' | 'program'; targetId: number } | null {
+function parseParams(scope: string, id: string): { scope: SummaryScope; targetId: number } | null {
   if (!isSummaryScope(scope)) return null;
   const targetId = parseInt(id, 10);
   if (isNaN(targetId) || targetId < 0) return null;
