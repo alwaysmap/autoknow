@@ -4,7 +4,7 @@ date: 2026-08-09
 supersedes: ""
 superseded-by: ""
 extends: "an-initiative-copys-home-is-under-its-initiative"
-extended-by: ""
+extended-by: "an-initiative-links-devices-from-the-membership-to-real-programs"
 tags: [initiatives, templates, schema]
 ---
 

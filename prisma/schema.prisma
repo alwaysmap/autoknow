@@ -130,6 +130,10 @@ model Project {
   // Deleting an initiative must first decide what its copies become.
   initiativeId      Int?
   initiative        Initiative?    @relation(fields: [initiativeId], references: [id], onDelete: Restrict)
+  // Back-relation: InitiativeDevice.project — memberships of initiatives that land on
+  // this REAL program as a device (autoknow-hcz.14). Named here because a grep for the
+  // forward field is not the set of readers (see ownerPerson above).
+  initiativeDeviceLinks InitiativeDevice[]
 
   // The dominant read behind the FK is "programs owned by this person" (the person
   // page), and Postgres does not auto-index FK columns.
@@ -602,11 +606,32 @@ model InitiativePartner {
   status       InitiativeMemberStatus @default(active)
   joinedAt     DateTime   @default(now())
   removedAt    DateTime?
+  devices      InitiativeDevice[]
 
   @@unique([initiativeId, partnerId])
   // The partner page asks "which initiatives include this partner" — and Postgres does
   // not auto-index FK columns (same reasoning as Project's ownerPersonId index).
   @@index([partnerId])
+}
+
+// Which of a member's real device Programs (head units) an initiative lands on
+// (autoknow-hcz.14). A join from the MEMBERSHIP, not the partner, in the PhasePartner
+// house style: own id, two FKs. The referenced Project must be a REAL program
+// (`initiativeId: null`) belonging to the SAME partner as the membership — enforced at
+// the mutation boundary (actions/initiatives linkDevice), deliberately not by DB
+// constraint: the ADR records why —
+// docs/adr/2026-08-09-an-initiative-links-devices-from-the-membership-to-real-programs.md
+model InitiativeDevice {
+  id                  Int               @id @default(autoincrement())
+  initiativePartnerId Int
+  membership          InitiativePartner @relation(fields: [initiativePartnerId], references: [id])
+  projectId           Int
+  project             Project           @relation(fields: [projectId], references: [id])
+
+  @@unique([initiativePartnerId, projectId])
+  // The program page asks "which initiatives land on this device" — the unique above
+  // only serves membership-leading lookups (same reasoning as PhasePartner).
+  @@index([projectId])
 }
 
 model PersonAffiliation {

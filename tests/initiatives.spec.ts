@@ -1,4 +1,4 @@
-import { test, expect, pickCombobox } from './helpers/e2e';
+import { test, expect, pickCombobox, clickUntilNavigated } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -135,5 +135,51 @@ test.describe('Initiatives', () => {
       expect(copy.name).toBe(`${initiative.name} — ${partner.name}`);
       expect(copy.sopDate).not.toBeNull();
     }
+  });
+
+  test('link a device program from the member row — it renders, reaches the copy page facts, and navigates', async ({ page }) => {
+    // Toyota is a member (previous test) and owns the real program 'Corolla' — the one
+    // legal Devices pick for its row (autoknow-hcz.14).
+    const initiative = await prisma.initiative.findFirstOrThrow();
+    const corolla = await prisma.project.findFirstOrThrow({ where: { name: 'Corolla' } });
+    await page.goto(`/initiatives/${initiative.id}`);
+
+    const membersSection = page.locator('section', { has: page.locator('#partners') });
+    const toyotaRow = membersSection.locator('tr', { has: page.getByRole('link', { name: 'Toyota', exact: true }) });
+
+    // Reveal the picker — hydration-guarded first interaction (the suite's #1 flake
+    // source otherwise). The reveal button and the revealed combobox share their
+    // accessible name; the role tells them apart.
+    const picker = toyotaRow.getByRole('combobox', { name: 'Link a device program for Toyota' });
+    await expect(async () => {
+      const reveal = toyotaRow.getByRole('button', { name: 'Link a device program for Toyota' });
+      if (!(await picker.isVisible()) && (await reveal.isVisible())) await reveal.click({ timeout: 2000 });
+      await expect(picker).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20000 });
+    await pickCombobox(toyotaRow, 'Link a device program for Toyota', 'Corolla');
+    await toyotaRow.getByRole('button', { name: 'Link', exact: true }).click();
+
+    // The linked device renders in the row as a link, and the join row has the shape
+    // the boundary promised: this membership, that real program.
+    const deviceLink = toyotaRow.getByRole('link', { name: 'Corolla', exact: true });
+    await expect(deviceLink).toBeVisible({ timeout: 15000 });
+    const membership = await prisma.initiativePartner.findFirstOrThrow({ where: { initiativeId: initiative.id, partner: { name: 'Toyota' } } });
+    const link = await prisma.initiativeDevice.findFirstOrThrow();
+    expect(link.initiativePartnerId).toBe(membership.id);
+    expect(link.projectId).toBe(corolla.id);
+
+    // The copy page's facts line carries the same device.
+    const copy = await prisma.project.findFirstOrThrow({ where: { initiativeId: initiative.id, partnerId: membership.partnerId, lifecycle: 'active' } });
+    await page.goto(`/initiatives/${initiative.id}/${copy.id}`);
+    await expect(page.getByRole('link', { name: 'Corolla', exact: true })).toBeVisible();
+
+    // And the device link navigates to the program's own page (a REAL program keeps
+    // its /programs home — only copies redirect). First interaction after a load AND
+    // a navigation, so the guard is clickUntilNavigated, never a bare toPass.
+    await page.goto(`/initiatives/${initiative.id}`);
+    await clickUntilNavigated(page, new RegExp(`/programs/${corolla.id}$`), async () => {
+      await toyotaRow.getByRole('link', { name: 'Corolla', exact: true }).click({ timeout: 2000 });
+    });
+    await expect(page.locator('h1')).toContainText('Corolla');
   });
 });

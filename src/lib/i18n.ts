@@ -2357,6 +2357,14 @@ const STRINGS = {
   archiveInitiativeAction: { en: 'Archive', de: 'Archivieren', ja: 'アーカイブ', ko: '보관' },
   addToInitiative: { en: 'Add to initiative', de: 'Zur Initiative hinzufügen', ja: 'イニシアチブに追加', ko: '이니셔티브에 추가' },
   initiativeColHealth: { en: 'Health', de: 'Status', ja: 'ヘルス', ko: '상태' },
+  // ---- device links (autoknow-hcz.14): a member's real head-unit programs ----
+  // The members-table column AND the copy page's facts label — one key, the same word.
+  initiativeColDevices: { en: 'Devices', de: 'Geräte', ja: 'デバイス', ko: '기기' },
+  initiativeAddDevice: { en: 'Add device', de: 'Gerät hinzufügen', ja: 'デバイスを追加', ko: '기기 추가' },
+  initiativeLinkDeviceButton: { en: 'Link', de: 'Verknüpfen', ja: 'リンク', ko: '연결' },
+  // The accessible name that tells one row's picker (and one device's unlink) from the next.
+  initiativeLinkDeviceAria: { en: 'Link a device program for {p}', de: 'Ein Geräteprogramm für {p} verknüpfen', ja: '{p}のデバイスプログラムをリンク', ko: '{p}의 기기 프로그램 연결' },
+  initiativeUnlinkDeviceAria: { en: 'Unlink {p}', de: '{p} trennen', ja: '{p}のリンクを解除', ko: '{p} 연결 해제' },
   initiativeInitialPartners: { en: 'Partners (optional)', de: 'Partner (optional)', ja: 'パートナー（任意）', ko: '파트너 (선택)' },
   initiativesEmpty: { en: 'No initiatives yet — create one.', de: 'Noch keine Initiativen — eine erstellen.', ja: 'イニシアチブはまだありません。作成してください。', ko: '아직 이니셔티브가 없습니다. 하나 만들어 보세요.' },
   // The ecosystem strip tile (gh-286 part h). "Active" here means not archived — the

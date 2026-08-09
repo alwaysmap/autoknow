@@ -46,6 +46,8 @@ export async function wipeAll() {
   await prisma.ignoredAddress.deleteMany();
   // Program graph, child → parent.
   await prisma.actionItem.deleteMany();
+  // Device links reference the membership and a Project, so they clear ahead of both.
+  await prisma.initiativeDevice.deleteMany();
   // Initiative membership references Partner and Initiative; the Initiative itself is
   // referenced by Project copies (RESTRICT) and references ProgramTemplate — so the
   // join clears here, and Initiative clears after Project, before the templates.
