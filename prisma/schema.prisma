@@ -154,8 +154,8 @@ model Project {
 // summary is stale when scope-relevant content is newer than generatedAt.
 model Summary {
   id           Int      @id @default(autoincrement())
-  scope        String // "ecosystem" | "partner" | "program"
-  targetId     Int      @default(0) // partner/project id; 0 for ecosystem
+  scope        String // "ecosystem" | "initiative" | "partner" | "program"
+  targetId     Int      @default(0) // partner/project/initiative id; 0 for ecosystem
   generatedAt  DateTime @default(now())
   trigger      String // "auto" | "manual"
   model        String // e.g. "gemini-flash-latest"
@@ -179,7 +179,7 @@ model Summary {
 // The generation prompts, DB-resident so leadership language can be tuned without a
 // deploy. Defaults live (readably) in src/lib/summaryPrompts.ts; a row here overrides.
 model SummaryPrompt {
-  scope     String   @id // "ecosystem" | "partner" | "program"
+  scope     String   @id // "ecosystem" | "initiative" | "partner" | "program"
   prompt    String
   updatedAt DateTime @updatedAt
 }

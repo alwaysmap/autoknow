@@ -9,9 +9,9 @@
 // after `CONTRACT` had been narrowed to hill positions, and still listed `themes` as
 // unconditional after `scopeHasThemes` made it scope-dependent.
 
-export type SummaryScope = 'ecosystem' | 'partner' | 'program';
+export type SummaryScope = 'ecosystem' | 'initiative' | 'partner' | 'program';
 
-export const SUMMARY_SCOPES: SummaryScope[] = ['ecosystem', 'partner', 'program'];
+export const SUMMARY_SCOPES: SummaryScope[] = ['ecosystem', 'initiative', 'partner', 'program'];
 
 /**
  * What a refused or failed regeneration leaves standing, for the decline sentence
@@ -104,6 +104,14 @@ The evidence names two different phases and calls neither of them by a word you 
     `Audience: leaders who own this partner relationship. Assume domain fluency. Be honest about where the relationship stands and whether the partner is delivering or dragging across their programs; do not flatter.
 
 Relationship health is a WORD, never a number. The evidence names it — Critical, Strained, Steady, Strong, Exemplary, or Not rated — so write that word. Never render it as a score, a fraction or a rating ("3/5", "3 out of 5", "rated 3", "a 3"): those are the internal coordinates of a scale the reader has never seen, and they say less than the word does.`,
+  ),
+
+  initiative: build(
+    'initiative',
+    `You are writing the leadership brief at the top of the {SUBJECT} initiative page — one shared goal pursued by several partners at once, each with their own copy of the same steps.`,
+    `Audience: the leaders who own this initiative. Assume domain fluency. What they need: which partners are ahead, which are behind or stalled against the shared steps, and where one intervention moves the whole initiative.
+
+Completion of the steps is the criterion. A partner with a target date reads on-track or at-risk against it; a partner WITHOUT one has no schedule reading — say so plainly rather than inventing one. Compare partners honestly; do not average away a laggard.`,
   ),
 
   ecosystem: build(
