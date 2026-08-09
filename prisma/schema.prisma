@@ -588,6 +588,7 @@ model Initiative {
   // the workflow. `projects` would false-parallel Partner.projects, which holds real
   // programs — the exact confusion the exclusion rule exists to prevent.
   copies      Project[]
+  embedding   Unsupported("vector(768)")?
 }
 
 model InitiativePartner {

@@ -17,6 +17,7 @@ const KIND_KEY: Record<FeedKind, StringKey> = {
   program: 'programLabel',
   person: 'personLabel',
   context: 'contextLabel',
+  initiative: 'initiativeLabel',
   status: 'statusLabel',
   phase: 'phaseLabel',
   relationship: 'partnerLabel',

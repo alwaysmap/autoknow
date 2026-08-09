@@ -17,6 +17,7 @@ import { parseSopInput } from '../../lib/sop';
 import { NO_OWNER } from '../../lib/owner';
 import { getTemplateWithPhases, cloneTemplateGraph, type NameSeries } from '../../lib/programTemplates';
 import { createProgramFromTemplate } from '../../lib/createProgramFromTemplate';
+import { indexEntity } from '../../lib/search';
 
 // Initiative mutations (gh-286 part c). Mirrors `app/actions/escalations.ts`: `guarded`
 // + `parseForm` + `revalidatePath`, zod (lib/schemas) as the single gate for shape.
@@ -68,6 +69,9 @@ export async function createInitiative(formData: FormData): Promise<ActionResult
     if (fields.partnerIds && fields.partnerIds.length > 0) {
       await addMembers(initiative, fields.partnerIds, fields.targetMonth, createdBy);
     }
+    // After membership lands: the index text carries the members' names, and a
+    // failed embedding never fails the write (indexEntity swallows).
+    await indexEntity('initiative', initiative.id);
     revalidateInitiative(initiative.id, fields.partnerIds ?? []);
     redirect(`/initiatives/${initiative.id}`);
   });
@@ -86,6 +90,7 @@ export async function updateInitiative(formData: FormData): Promise<ActionResult
         targetDate: parseSopInput(fields.targetMonth ?? ''),
       },
     });
+    await indexEntity('initiative', fields.initiativeId);
     revalidateInitiative(fields.initiativeId);
   });
 }
@@ -153,6 +158,9 @@ export async function addPartners(formData: FormData): Promise<ActionResult> {
     if (initiative.isArchived) throw new Error('Initiative is archived — unarchive it to change membership');
     const createdBy = (await getCurrentUser()).handle;
     await addMembers(initiative, fields.partnerIds, fields.targetMonth, createdBy);
+    // Membership is part of the index text (initiativeIndexText), so it reindexes here
+    // and on removal — not only on create/update of the initiative's own fields.
+    await indexEntity('initiative', initiative.id);
     revalidateInitiative(initiative.id, fields.partnerIds);
   });
 }
@@ -179,6 +187,8 @@ export async function removePartner(formData: FormData): Promise<ActionResult> {
         await tx.project.update({ where: { id: copy.id }, data: { lifecycle: 'cancelled' } });
       }
     });
+    // The removed partner's name leaves the index text with them (see addPartners).
+    await indexEntity('initiative', initiativeId);
     revalidateInitiative(initiativeId, [partnerId]);
   });
 }

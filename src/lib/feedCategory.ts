@@ -34,6 +34,7 @@ export function feedCategory(kind: FeedKind): FeedCategory {
     case 'partner':
     case 'program':
     case 'person':
+    case 'initiative':
       return 'entity'; // search hits
   }
 }

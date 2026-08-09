@@ -141,6 +141,10 @@
      health, and an escalation is urgent but this ink must not read as a verdict.
      6.98:1 against --bg (measured). */
   --kind-escalation: #125e57;
+  /* Berry — a hue no other kind ink or health token occupies (green, blue, purple,
+     orange, teal, amber and red are all taken), so an initiative reads as its own
+     class of thing at a glance. 7.23:1 on --bg, 7.87:1 on --paper (measured). */
+  --kind-initiative: #96205f;
 
   /* Links are BLUE, not the brand green: green is the app's "good/early/saved"
      signal, and using it for navigation made every link read as a status.
@@ -267,6 +271,9 @@
   --kind-context: #e0a95c;
   /* 9.77:1 against dark --bg (measured) — see the light-theme token's note. */
   --kind-escalation: #5eead4;
+  /* Lifted berry — 7.10:1 on dark --bg, 6.14:1 on dark --paper (measured); see the
+     light-theme token's note for the hue choice. */
+  --kind-initiative: #e8a0c8;
   --ok-ring: rgba(126, 216, 161, 0.35);
   --bad-ring: rgba(255, 143, 137, 0.35);
 

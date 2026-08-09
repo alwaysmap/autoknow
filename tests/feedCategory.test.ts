@@ -21,6 +21,7 @@ describe('feedCategory', () => {
       partner: 'entity',
       program: 'entity',
       person: 'entity',
+      initiative: 'entity',
     };
     for (const [kind, category] of Object.entries(expected)) {
       expect(feedCategory(kind as FeedKind)).toBe(category);
@@ -28,7 +29,7 @@ describe('feedCategory', () => {
   });
 
   it('never puts a system-of-record event kind in the search-hit bucket', () => {
-    // 'entity' is the correct answer ONLY for the four searchable types — a bug that
+    // 'entity' is the correct answer ONLY for the searchable entity types — a bug that
     // widened the switch's fallthrough would land a new event kind here silently, which
     // is exactly the drift this file exists to catch.
     for (const kind of ['status', 'relationship', 'phase', 'program-created', 'escalation'] as const) {

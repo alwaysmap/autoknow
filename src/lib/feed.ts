@@ -18,8 +18,8 @@ export type FeedScope =
   | { kind: 'person'; id: number };
 
 /** Entity/context types that search can filter by. */
-export type FeedType = 'partner' | 'program' | 'person' | 'context';
-export const FEED_TYPES: FeedType[] = ['partner', 'program', 'person', 'context'];
+export type FeedType = 'partner' | 'program' | 'person' | 'context' | 'initiative';
+export const FEED_TYPES: FeedType[] = ['partner', 'program', 'person', 'context', 'initiative'];
 
 /** All item kinds: the searchable types plus system-of-record event kinds. */
 export type FeedKind = FeedType | 'status' | 'phase' | 'relationship' | 'program-created' | 'escalation';
