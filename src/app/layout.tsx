@@ -82,6 +82,7 @@ export default async function RootLayout({
             moreLabel={t(locale, 'navMore')}
             items={[
               { href: '/ecosystem', label: t(locale, 'navEcosystem') },
+              { href: '/initiatives', label: t(locale, 'navInitiatives') },
               { href: '/programs', label: t(locale, 'navPrograms') },
               { href: '/partners', label: t(locale, 'navPartners') },
               { href: '/escalations', label: t(locale, 'navEscalations') },

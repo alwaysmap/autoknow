@@ -2324,6 +2324,42 @@ const STRINGS = {
   // each entry rather than being concatenated in code, so a translator controls the order
   // and the punctuation — ja/ko put the qualifier first and use no dash at all.
   navEscalations: { en: 'Escalations', de: 'Eskalationen', ja: 'エスカレーション', ko: '에스컬레이션' },
+  // ---- initiatives (gh-286 parts d/e) ----
+  navInitiatives: { en: 'Initiatives', de: 'Initiativen', ja: 'イニシアチブ', ko: '이니셔티브' },
+  newInitiativeTitle: { en: 'Create New Initiative', de: 'Neue Initiative erstellen', ja: '新規イニシアチブ作成', ko: '새 이니셔티브 만들기' },
+  initiativeNameLabel: { en: 'Initiative name', de: 'Name der Initiative', ja: 'イニシアチブ名', ko: '이니셔티브 이름' },
+  initiativeNamePlaceholder: { en: 'e.g., EV routing & battery state APIs', de: 'z. B. EV-Routing & Batterie-APIs', ja: '例：EVルーティング＆バッテリーAPI', ko: '예: EV 라우팅 및 배터리 API' },
+  initiativeDescriptionLabel: { en: 'Description', de: 'Beschreibung', ja: '説明', ko: '설명' },
+  // "Target date", NEVER "SOP" — an initiative's calendar goal is optional and its own
+  // vocabulary (gh-286 decision, user call 2026-08-08).
+  initiativeTargetLabel: { en: 'Target date', de: 'Zieldatum', ja: '目標期日', ko: '목표일' },
+  initiativeTargetMonthLabel: { en: 'Target month (optional)', de: 'Zielmonat (optional)', ja: '目標月（任意）', ko: '목표 월 (선택)' },
+  createInitiativeButton: { en: 'Create initiative', de: 'Initiative erstellen', ja: 'イニシアチブを作成', ko: '이니셔티브 만들기' },
+  initiativeMembersHeading: { en: 'Partners', de: 'Partner', ja: 'パートナー', ko: '파트너' },
+  initiativeNoMembers: { en: 'No partners yet — add one below.', de: 'Noch keine Partner — unten hinzufügen.', ja: 'パートナーはまだいません。下から追加してください。', ko: '아직 파트너가 없습니다. 아래에서 추가하세요.' },
+  addPartnerToInitiative: { en: 'Add partner', de: 'Partner hinzufügen', ja: 'パートナーを追加', ko: '파트너 추가' },
+  removeFromInitiative: { en: 'Remove', de: 'Entfernen', ja: '除外', ko: '제거' },
+  memberStatusComplete: { en: 'Complete', de: 'Abgeschlossen', ja: '完了', ko: '완료' },
+  memberStatusOnTrack: { en: 'On track', de: 'Im Plan', ja: '順調', ko: '정상 진행' },
+  memberStatusAtRisk: { en: 'At risk', de: 'Gefährdet', ja: 'リスクあり', ko: '위험' },
+  memberStatusNoDate: { en: 'No date', de: 'Kein Datum', ja: '期日なし', ko: '날짜 없음' },
+  initiativeColPartners: { en: 'Partners', de: 'Partner', ja: 'パートナー', ko: '파트너' },
+  initiativeColProgress: { en: 'Progress', de: 'Fortschritt', ja: '進捗', ko: '진행률' },
+  initiativeLabel: { en: 'Initiative', de: 'Initiative', ja: 'イニシアチブ', ko: '이니셔티브' },
+  // The copy page's context line and the locked-steps rule (owner call 2026-08-08:
+  // copies cannot deviate; only the initiative-level edit changes the template).
+  initiativeStepsLocked: { en: 'Steps are defined by the initiative and cannot be changed here.', de: 'Die Schritte sind durch die Initiative festgelegt und können hier nicht geändert werden.', ja: 'ステップはイニシアチブで定義されており、ここでは変更できません。', ko: '단계는 이니셔티브에서 정의되며 여기서 변경할 수 없습니다.' },
+  editInitiative: { en: 'Edit initiative', de: 'Initiative bearbeiten', ja: 'イニシアチブを編集', ko: '이니셔티브 편집' },
+  archiveInitiativeAction: { en: 'Archive', de: 'Archivieren', ja: 'アーカイブ', ko: '보관' },
+  addToInitiative: { en: 'Add to initiative', de: 'Zur Initiative hinzufügen', ja: 'イニシアチブに追加', ko: '이니셔티브에 추가' },
+  initiativeColHealth: { en: 'Health', de: 'Status', ja: 'ヘルス', ko: '상태' },
+  initiativeInitialPartners: { en: 'Partners (optional)', de: 'Partner (optional)', ja: 'パートナー（任意）', ko: '파트너 (선택)' },
+  initiativesEmpty: { en: 'No initiatives yet — create one.', de: 'Noch keine Initiativen — eine erstellen.', ja: 'イニシアチブはまだありません。作成してください。', ko: '아직 이니셔티브가 없습니다. 하나 만들어 보세요.' },
+  selectAnInitiative: { en: 'Select an initiative...', de: 'Initiative wählen…', ja: 'イニシアチブを選択...', ko: '이니셔티브 선택...' },
+  // The one-line explainers that keep the two list pages from being confused for each
+  // other (owner copy, 2026-08-08).
+  initiativesExplainer: { en: 'Initiatives are a single goal involving one or more partners.', de: 'Initiativen sind ein einzelnes Ziel, an dem ein oder mehrere Partner beteiligt sind.', ja: 'イニシアチブは、1つ以上のパートナーが関わる単一の目標です。', ko: '이니셔티브는 하나 이상의 파트너가 참여하는 단일 목표입니다.' },
+  programsExplainer: { en: 'Programs are device launches or upgrades for a single primary partner, typically an OEM.', de: 'Programme sind Geräteeinführungen oder -upgrades für einen einzelnen Hauptpartner, typischerweise einen OEM.', ja: 'プログラムは、単一の主要パートナー（通常はOEM）向けのデバイスの立ち上げまたはアップグレードです。', ko: '프로그램은 단일 주요 파트너(일반적으로 OEM)를 위한 기기 출시 또는 업그레이드입니다.' },
   escalationsLabel: { en: 'Escalations', de: 'Eskalationen', ja: 'エスカレーション', ko: '에스컬레이션' },
 
   escStatusOpen: { en: 'Open', de: 'Offen', ja: '未解決', ko: '진행 중' },

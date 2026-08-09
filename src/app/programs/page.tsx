@@ -115,6 +115,7 @@ export default async function ProgramsPage(props: {
 
   return (
     <PageShell
+      subtitle={t(locale, 'programsExplainer')}
       title={t(locale, 'navPrograms')}
       actions={
         // The list had no create affordance: a ⋯ menu beside the title, matching

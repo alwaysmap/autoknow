@@ -556,6 +556,19 @@ export const escalationApiSchema = z
 
 // ---- initiatives (gh-286) ---------------------------------------------------------
 
+const zPartnerIdsCsv = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((s, ctx) => {
+    const ids = s.split(',').map((t) => Number(t.trim()));
+    if (ids.some((n) => !Number.isInteger(n) || n <= 0)) {
+      ctx.addIssue({ code: 'custom', message: 'partnerIds must be comma-separated positive integers' });
+      return z.NEVER;
+    }
+    return ids;
+  });
+
 /** Create carries the SOURCE template id — the action snapshot-clones it; nothing ever
  *  binds an initiative to a shared template. `targetMonth` is a `<input type="month">`
  *  value ('YYYY-MM', blank = no target); the action converts it month-end via
@@ -565,6 +578,9 @@ export const initiativeFieldsSchema = z.object({
   description: zTextOrNull,
   targetMonth: zTextOrNull,
   templateId: zId,
+  // Optional initial membership (owner call 2026-08-08): same CSV wire shape and the
+  // same boundary rule as the add action; a blank field means none.
+  partnerIds: z.preprocess((v) => (v === '' || v == null ? undefined : v), zPartnerIdsCsv.optional()),
 });
 
 /** Same editable fields plus the id — the template is NOT here: an initiative's
@@ -585,18 +601,7 @@ export const initiativeArchiveSchema = z.object({ initiativeId: zId });
  *  initiative's default target for THIS batch. */
 export const initiativeAddPartnersSchema = z.object({
   initiativeId: zId,
-  partnerIds: z
-    .string()
-    .trim()
-    .min(1)
-    .transform((s, ctx) => {
-      const ids = s.split(',').map((t) => Number(t.trim()));
-      if (ids.some((n) => !Number.isInteger(n) || n <= 0)) {
-        ctx.addIssue({ code: 'custom', message: 'partnerIds must be comma-separated positive integers' });
-        return z.NEVER;
-      }
-      return ids;
-    }),
+  partnerIds: zPartnerIdsCsv,
   targetMonth: zTextOrNull,
 });
 

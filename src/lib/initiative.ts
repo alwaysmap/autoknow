@@ -7,6 +7,7 @@
 
 import { deriveProgramStatus } from './lifecycle';
 import { sopBufferCategory, isSopFlagged, type SopBufferProgram } from './sop';
+import type { StringKey } from './i18n';
 
 /**
  * One member's reading. `complete`/`on-track`/`at-risk`/`no-date` are the four states
@@ -37,6 +38,27 @@ export function memberStatus(copy: SopBufferProgram, now: number): MemberStatus 
   // The SAME constant the SOP tile and /programs filter read: flagged = at risk.
   return isSopFlagged(category) ? 'at-risk' : 'on-track';
 }
+
+/** The label each displayable status wears — with the model, like escalation.ts's
+ *  STATUS_KEY, so three surfaces cannot drift apart on the same word. */
+export const MEMBER_STATUS_KEY: Record<Exclude<MemberStatus, 'inactive'>, StringKey> = {
+  'complete': 'memberStatusComplete',
+  'on-track': 'memberStatusOnTrack',
+  'at-risk': 'memberStatusAtRisk',
+  'no-date': 'memberStatusNoDate',
+};
+
+/** What a membership SURFACE shows for a status. Active-membership rows are the only
+ *  thing those surfaces render, so `inactive` can reach them solely through the
+ *  degenerate no-copy/archived-copy case — displayed as the honest "no reading",
+ *  which is what `no-date` already means on screen. Rollups still refuse `inactive`
+ *  (initiativeRollup throws): counting is a stricter contract than labeling. */
+export const displayStatus = (s: MemberStatus): Exclude<MemberStatus, 'inactive'> =>
+  s === 'inactive' ? 'no-date' : s;
+
+/** The statuses a rollup counts — names the filter both loaders were inlining. */
+export const activeStatuses = (statuses: MemberStatus[]): Exclude<MemberStatus, 'inactive'>[] =>
+  statuses.filter((s): s is Exclude<MemberStatus, 'inactive'> => s !== 'inactive');
 
 export interface InitiativeRollup {
   complete: number;

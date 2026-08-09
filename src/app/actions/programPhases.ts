@@ -29,6 +29,15 @@ export async function saveProgramPhases(formData: FormData): Promise<SaveResult>
   const projectId = parseInt(formData.get('projectId') as string, 10);
   if (isNaN(projectId)) return { error: 'Invalid project' };
 
+  // Fail closed for initiative copies (owner call 2026-08-08, gh-286): every member's
+  // copy carries the SAME steps, and only the initiative-level edit may change them.
+  // The editor page already redirects copies away — this is the guard that holds when
+  // the UI is bypassed (AGENTS lesson 2: rules live in software, not prose).
+  const target = await prisma.project.findUnique({ where: { id: projectId }, select: { initiativeId: true } });
+  if (target?.initiativeId != null) {
+    return { error: 'Steps are defined by the initiative and cannot be changed per partner' };
+  }
+
   let draft: DraftPhasePayload[];
   try {
     draft = JSON.parse(formData.get('payload') as string);

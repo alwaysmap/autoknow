@@ -10,6 +10,9 @@ import SummaryPanel from '../../../components/SummaryPanel';
 import ActivityFeed from '../../../components/ActivityFeed';
 import QuickIngest from '../../../components/QuickIngest';
 import PartnerProgramRows from '../../../components/PartnerProgramRows';
+import PartnerInitiativeRows from '../../../components/PartnerInitiativeRows';
+import AddToInitiativeForm from '../../../components/AddToInitiativeForm';
+import { getPartnerInitiatives } from '../../../lib/initiativeQueries';
 import { getPartnerPrograms } from '../../../lib/partnerPrograms';
 import { getPartnerEscalations } from '../../../lib/escalationQueries';
 import EscalationRows from '../../../components/EscalationRows';
@@ -151,6 +154,15 @@ export default async function PartnerDetailPage(props: PageProps) {
   const allPrograms = await getPartnerPrograms(partner.id);
   const programs = activeOnly ? allPrograms.filter((p) => !p.isArchived) : allPrograms;
 
+  // This partner's initiative memberships + the initiatives it could still join
+  // (canonical rows for the picker — lesson 3; the action re-validates).
+  // eslint-disable-next-line react-hooks/purity -- server request time, page.tsx pattern
+  const partnerInitiatives = await getPartnerInitiatives(partner.id, Date.now());
+  const memberOf = new Set(partnerInitiatives.map((r) => r.initiativeId));
+  const joinableInitiatives = (
+    await prisma.initiative.findMany({ where: { isArchived: false }, select: { id: true, name: true }, orderBy: { name: 'asc' } })
+  ).filter((i) => !memberOf.has(i.id));
+
   // What has been escalated about this partner (#245) — open first, newest first.
   const escalations = await getPartnerEscalations(partner.id);
 
@@ -258,6 +270,21 @@ export default async function PartnerDetailPage(props: PageProps) {
               {t(locale, 'navPrograms')}
             </AnchorHeading>
             <PartnerProgramRows programs={programs} locale={locale} />
+          </section>
+
+          <section className={styles.projectsSection}>
+            {/* This partner's initiatives (gh-286 part g): memberships with the same
+                needle instrument the program rows carry, plus the add form — the same
+                addPartners boundary as the initiative page, from the partner side. */}
+            <AnchorHeading id="initiatives">
+              {t(locale, 'navInitiatives')}
+            </AnchorHeading>
+            <PartnerInitiativeRows rows={partnerInitiatives} locale={locale} />
+            <AddToInitiativeForm
+              partnerId={partner.id}
+              initiatives={joinableInitiatives}
+              locale={locale}
+            />
           </section>
 
           <section className={styles.projectsSection}>

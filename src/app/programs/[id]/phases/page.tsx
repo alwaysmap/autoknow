@@ -1,6 +1,7 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { prisma } from '../../../../lib/db';
 import ProgramPhaseEditor from '../../../../components/ProgramPhaseEditor';
+import { initiativeProjectHref } from '../../../../lib/entityHref';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,12 @@ export default async function ProgramPhasesPage(props: { params: Promise<{ id: s
     },
   });
   if (!project) return notFound();
+
+  // Copies cannot deviate from their initiative's steps (owner call 2026-08-08) — the
+  // editor never opens for one; saveProgramPhases refuses them besides (lesson 2).
+  if (project.initiativeId != null) {
+    redirect(initiativeProjectHref(project.initiativeId, project.id));
+  }
 
   const [allPartners, allPeople] = await Promise.all([
     prisma.partner.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
