@@ -8,6 +8,7 @@ import {
   STYLE,
   LOCALE,
   ROWS_PER_TABLE,
+  COLLAPSED_SECTIONS,
   ALL_PREFERENCES,
   appearanceBootScript,
 } from '../src/lib/preferences';
@@ -29,6 +30,16 @@ describe('#31 preferences registry', () => {
     expect(ROWS_PER_TABLE.parse('50')).toBe(50);
     expect(ROWS_PER_TABLE.parse('7')).toBe(25);
     expect(ROWS_PER_TABLE.parse(null)).toBe(25);
+    expect(COLLAPSED_SECTIONS.parse(null)).toEqual([]);
+    expect(COLLAPSED_SECTIONS.parse('')).toBe(COLLAPSED_SECTIONS.default);
+    // The stored form is `String(array)` (comma-joined) — writeLocalPref's encoding —
+    // so a round-trip must give back the same ids in order.
+    expect(COLLAPSED_SECTIONS.parse('programs:chain,partners:activity')).toEqual(['programs:chain', 'partners:activity']);
+    expect(COLLAPSED_SECTIONS.parse(String(['programs:chain', 'partners:activity']))).toEqual(['programs:chain', 'partners:activity']);
+    // Garbage entries are dropped, not kept: only members of SECTION_IDS survive, so a
+    // stored stray (a retired section, an injected string) can never fork the pref.
+    expect(COLLAPSED_SECTIONS.parse('programs:chain,<script>,UPPER:case,')).toEqual(['programs:chain']);
+    expect(COLLAPSED_SECTIONS.parse('total nonsense')).toBe(COLLAPSED_SECTIONS.default);
   });
 
   test('each default is itself a valid value', () => {
@@ -43,6 +54,7 @@ describe('#31 preferences registry', () => {
     expect(THEME.storage).toBe('local');
     expect(STYLE.storage).toBe('local');
     expect(ROWS_PER_TABLE.storage).toBe('local');
+    expect(COLLAPSED_SECTIONS.storage).toBe('local');
   });
 
   test('the boot script is built from the registry keys + style default (§8c: no drift)', () => {

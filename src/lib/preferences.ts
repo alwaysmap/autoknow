@@ -81,8 +81,46 @@ export const ROWS_PER_TABLE: Preference<number> = {
   },
 };
 
+// ---- Collapsed detail sections: client-only view state (autoknow-hcz.15). --------------
+// ONE list of section ids, not a key per section: the registry (and reset-all) stays a
+// finite catalog, and "collapse Critical Chain" is a claim about the SECTION, not about
+// one program — the id is `programs:chain`, never `programs:17:chain`, so a reader who
+// tucks a section away sees it tucked away on every program-shaped page.
+// Stored comma-separated (ids never contain a comma), so `String(value)` on an array —
+// which is what writeLocalPref stores — round-trips through parse unchanged.
+
+/** THE catalog of collapsible sections — membership, not just shape, so a typo'd id at a
+ *  call site is a type error and a stored stray is dropped on read. `programs:*` covers
+ *  every program-shaped page (the initiative copy page reuses them on purpose — see the
+ *  ADR a-collapsed-section-is-a-claim-about-the-section-not-the-entity). */
+export const SECTION_IDS = [
+  'programs:hill',
+  'programs:chain',
+  'programs:phases',
+  'programs:escalations',
+  'programs:activity',
+  'partners:programs',
+  'partners:initiatives',
+  'partners:people',
+  'partners:escalations',
+  'partners:activity',
+] as const;
+export type SectionId = (typeof SECTION_IDS)[number];
+
+export const COLLAPSED_SECTIONS: Preference<readonly SectionId[]> = {
+  key: 'autoknow-collapsed-sections',
+  storage: 'local',
+  storageReason: 'client-only view state; the server always renders sections open (neutral snapshot) and never reads it',
+  default: [],
+  parse: (r) => {
+    if (!r) return COLLAPSED_SECTIONS.default; // '' (the default, stringified) and null both mean "none"
+    const ids = r.split(',').filter((x): x is SectionId => (SECTION_IDS as readonly string[]).includes(x));
+    return ids.length === 0 ? COLLAPSED_SECTIONS.default : ids;
+  },
+};
+
 /** Every registered preference — drives reset-all and the registry tests. */
-export const ALL_PREFERENCES: ReadonlyArray<Preference<unknown>> = [THEME, STYLE, LOCALE, ROWS_PER_TABLE];
+export const ALL_PREFERENCES: ReadonlyArray<Preference<unknown>> = [THEME, STYLE, LOCALE, ROWS_PER_TABLE, COLLAPSED_SECTIONS];
 
 // ---- The pre-paint boot script (§8c) ----------------------------------------------------
 

@@ -94,6 +94,11 @@ test.describe('Chain schedule separates the day strip (tap body) from jump (tap 
     await page.goto(`/programs/${projectId}`);
     const label = page.locator('[class*="rowLabel"]').first();
     await expect(label).toBeVisible({ timeout: 20000 });
+    // The probe is about STACKING at the label's centre, not about where the page
+    // happens to be scrolled — elementFromPoint answers null for any point outside
+    // the viewport, and the chart's y-position moves whenever sections above it grow
+    // (it did when the hill chart gained its heading, autoknow-hcz.15).
+    await label.scrollIntoViewIfNeeded();
 
     const cls = await label.evaluate((el) => {
       const b = el.getBoundingClientRect();

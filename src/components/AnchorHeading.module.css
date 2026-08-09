@@ -51,6 +51,38 @@
 /* There is deliberately no `.anchor` rule: the hover-revealed “#” is gone, and
    the row is measured without it — see the ADR, a-section-heading-carries-its-id. */
 
+/* The section disclosure chevron (only rendered inside a CollapsibleSection).
+   Quiet like the ⋯ trigger (KebabMenu): muted at rest, fg on hover — visible in
+   both themes because both inks are theme tokens. Whole-pixel box: 0.25rem
+   padding + 14px SVG = 22px, matching the heading's 1.75rem line. */
+.disclosure {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.25rem;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+.disclosure:hover {
+  color: var(--fg);
+  background: var(--surface);
+}
+
+/* Instrument only, and only when the chevron is the LAST affordance (no actions after
+   it — a plain heading, or a collapsed one whose actions are unmounted): its empty right
+   box (0.25rem padding + ~3px of SVG canvas past the ink) otherwise pushes the graticule
+   ~7px past the declared lead — measured 19.1px ink→tick against the ~12px contract.
+   Pull it ink-tight so --graticule-lead reads from the chevron's ink (#25, box≠ink —
+   the same move as KebabMenu's ⋯ and ChainLedger's ⓘ). Mid-cluster the pull must NOT
+   apply: the trailing affordance carries its own, and this one would eat the row gap. */
+:global(:root[data-style='instrument']) .disclosure:last-child {
+  margin-right: -0.4375rem; /* 0.25rem padding + ~0.1875rem canvas, whole px */
+}
+
 /* Instrument: the rule trailing every section heading is a graticule, not a
    line. AnchorHeading wraps every <h2> in the app (design.md §2), so this one
    selector is what makes the style read on every page rather than only in the

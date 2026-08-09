@@ -1,0 +1,16 @@
+/* The collapse wrapper's ONE rule (see CollapsibleSection.tsx for the contract): when
+   the section is collapsed, everything off the heading row's path folds away. A
+   descendant survives only by being the heading row, containing it (the chain of
+   wrappers a host like ChainLedger or PhaseTrack nests its heading inside), or living
+   inside it (the title, the chevron) — so the rule needs no assumption about WHERE in
+   the host's markup the heading sits, and a footnote that is the heading's cousin
+   rather than its sibling (the initiative page's steps-locked note) folds all the same.
+
+   `!important` is deliberate state CSS, not a specificity fight (the trap in
+   docs/knowledge/css-module-loses-display-to-global-attribute-rule.md is a MODULE losing
+   to a global — this is the reverse: collapsed means not painted, whatever display the
+   body's own module rules declare, today's or a future one's). */
+
+.section[data-collapsed] :not([data-collapse-heading]):not(:has([data-collapse-heading])):not([data-collapse-heading] *) {
+  display: none !important;
+}
