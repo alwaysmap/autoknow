@@ -46,6 +46,10 @@ export async function wipeAll() {
   await prisma.ignoredAddress.deleteMany();
   // Program graph, child → parent.
   await prisma.actionItem.deleteMany();
+  // Initiative membership references Partner and Initiative; the Initiative itself is
+  // referenced by Project copies (RESTRICT) and references ProgramTemplate — so the
+  // join clears here, and Initiative clears after Project, before the templates.
+  await prisma.initiativePartner.deleteMany();
   // Escalations (#245) precede every table they reference — ContextUrl, Project, Partner
   // and Person, all of which are deleted below. The self-FK needs no ordering: one
   // `DELETE FROM` clears the table in a single statement.
@@ -60,6 +64,7 @@ export async function wipeAll() {
   await prisma.projectState.deleteMany();
   await prisma.partnerState.deleteMany();
   await prisma.project.deleteMany();
+  await prisma.initiative.deleteMany();
   await prisma.personAffiliation.deleteMany();
   await prisma.person.deleteMany();
   await prisma.partner.deleteMany();
