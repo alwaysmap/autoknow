@@ -6,6 +6,7 @@
 import { prisma } from './db';
 import { computeCriticalChain } from './criticalChain';
 import { copyCompletion, memberStatus, initiativeRollup, activeStatuses, type MemberStatus, type InitiativeRollup } from './initiative';
+import { productUnion, type PartnerProductKey } from './partnerProducts';
 
 export interface InitiativeListRow {
   id: number;
@@ -175,6 +176,45 @@ export async function getPartnerInitiatives(partnerId: number, now: number): Pro
       targetDate: copy.sopDate ? copy.sopDate.toISOString() : null,
     };
   });
+}
+
+export interface AddablePartnerRow {
+  id: number;
+  name: string;
+  typeName: string; // '' when the partner has no type (typeId is optional)
+  regionName: string;
+  /** Union of the product booleans across this partner's REAL device programs. */
+  products: PartnerProductKey[];
+}
+
+/**
+ * Candidates for the bulk-add table (gh-286 part f): every partner that is NOT an
+ * active member of this initiative — a removed member reappears here, since re-adding
+ * is a legal move (the action flips the one join row back). Products come from the
+ * partner's own programs only, `initiativeId: null`: an initiative copy is created
+ * with every product false and describes workflow standing, not devices, so counting
+ * copies would let this initiative's own adds mutate the column that filters them.
+ */
+export async function getAddablePartners(initiativeId: number): Promise<AddablePartnerRow[]> {
+  const partners = await prisma.partner.findMany({
+    where: { NOT: { initiativeMemberships: { some: { initiativeId, status: 'active' } } } },
+    include: {
+      type: true,
+      region: true,
+      projects: {
+        where: { initiativeId: null },
+        select: { hasGas: true, hasGbi: true, hasDigitalKey: true, hasAap: true },
+      },
+    },
+    orderBy: { name: 'asc' },
+  });
+  return partners.map((p) => ({
+    id: p.id,
+    name: p.name,
+    typeName: p.type?.name ?? '',
+    regionName: p.region.name,
+    products: productUnion(p.projects),
+  }));
 }
 
 export async function getInitiativeDetail(id: number, now: number): Promise<InitiativeDetail | null> {

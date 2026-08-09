@@ -85,13 +85,58 @@
   border-color: var(--muted);
 }
 
-.addForm {
+/* ---- Bulk-add table (gh-286 part f) ---- */
+
+/* The batch form, hosted in DataTable's filter bar beside the text box. */
+.bulkAddForm {
   display: flex;
   gap: 0.6rem;
   align-items: center;
-  margin-top: 1rem;
   flex-wrap: wrap;
 }
+
+/* Partner-list cell grammar, restated rather than composed from /partners'
+   page.module.css — route CSS stays self-contained here, and the two tables'
+   look is anchored by the shared components (DataTable, ClassBox), not by
+   these few cell classes. */
+.tableLink {
+  color: var(--fg);
+  text-decoration: none;
+  font-weight: 400;
+}
+.tableLink:hover {
+  text-decoration: underline;
+}
+.classFilterBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.2s ease;
+}
+.classFilterBtn:hover {
+  opacity: 0.8;
+}
+.classInk {
+  color: var(--muted);
+}
+.productList {
+  display: inline-flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.rowAddForm {
+  display: inline;
+}
+/* The per-row Add wears the members table's row-action look — one quiet bordered
+   button grammar for both tables' row actions. */
+.rowAddBtn {
+  composes: removeBtn;
+}
+
 .addBtn {
   border: 1px solid var(--border);
   border-radius: 0.25rem;
@@ -102,6 +147,10 @@
 }
 .addBtn:hover {
   border-color: var(--muted);
+}
+.addBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .formError {
