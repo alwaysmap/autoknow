@@ -1,13 +1,15 @@
 import EcosystemStats from './EcosystemStats';
+import InitiativesStat from './InitiativesStat';
 import SopRiskStat from './SopRiskStat';
 import RelationshipMix from './RelationshipMix';
 import EscalationsStat from './EscalationsStat';
 import type { DashboardProject } from '../lib/dashboardData';
 import styles from './EcosystemStatStrip.module.css';
 
-// The leadership strip, in reading order: how much work is in flight, how much of it
-// is slipping its SOP, how healthy the partner book carrying it is, and — since #245
-// section C — how many escalations are open.
+// The leadership strip, in reading order: how much work is in flight (programs, then —
+// gh-286 part h — the cross-partner initiatives beside them), how much of it is slipping
+// its SOP, how healthy the partner book carrying it is, and — since #245 section C —
+// how many escalations are open.
 //
 // A COMPONENT rather than a copied block (#133): it renders on `/` and `/ecosystem`,
 // and the tiles have to agree about what "active" and "at risk" mean. Two hand-rolled
@@ -16,6 +18,9 @@ import styles from './EcosystemStatStrip.module.css';
 // `activeCount` is — an escalation is not a property of any program in this list (it
 // may be partner-only), so there is nothing in `programs` to derive it from; the caller
 // fetches it from `lib/escalationQueries.getOpenEscalationsCount` alongside the rest.
+// The initiative count is a prop for the same reason again: initiative copies are
+// excluded from `programs` by construction (gh-286 decision 5), so the caller fetches
+// `lib/initiativeQueries.countActiveInitiatives` alongside the rest.
 //
 // It derives `activeCount` itself for the same reason: `!isArchived && progress < 100`
 // IS the definition of the number EcosystemStats renders, so it belongs with the tile
@@ -26,18 +31,21 @@ export default function EcosystemStatStrip({
   relationshipScores,
   now,
   openEscalationCount,
+  activeInitiativeCount,
 }: {
   programs: DashboardProject[];
   relationshipScores: (number | null)[];
   /** Snapshotted by the caller's Server Component so SSR and hydration agree. */
   now: number;
   openEscalationCount: number;
+  activeInitiativeCount: number;
 }) {
   const activeCount = programs.filter((p) => !p.isArchived && p.hillChartProgress < 100).length;
 
   return (
     <section className={styles.strip}>
       <EcosystemStats activeCount={activeCount} allTimeCount={programs.length} />
+      <InitiativesStat count={activeInitiativeCount} />
       <SopRiskStat now={now} programs={programs} />
       <RelationshipMix scores={relationshipScores} />
       <EscalationsStat count={openEscalationCount} />

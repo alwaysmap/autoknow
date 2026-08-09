@@ -5,7 +5,7 @@ import PageShell from '../../components/PageShell';
 import KebabMenu from '../../components/KebabMenu';
 import DataTable from '../../components/DataTable';
 import DateCell from '../../components/DateCell';
-import MemberStatusDot from '../../components/MemberStatusDot';
+import InitiativeDistribution from '../../components/InitiativeDistribution';
 import { initiativeHref } from '../../lib/entityHref';
 import type { InitiativeListRow } from '../../lib/initiativeQueries';
 import { t, type Locale } from '../../lib/i18n';
@@ -17,25 +17,6 @@ import styles from './page.module.css';
 // funnels on a short table are a call-site judgement (#125), not a default.
 
 export default function InitiativesClient({ rows, locale }: { rows: InitiativeListRow[]; locale: Locale }) {
-  // Compact distribution, zeros omitted — every count equals the member list the
-  // detail page shows (the summary-count ADR), so this renders rollup fields verbatim.
-  const distribution = (r: InitiativeListRow) => {
-    const parts = [
-      { status: 'complete' as const, n: r.rollup.complete },
-      { status: 'on-track' as const, n: r.rollup.onTrack },
-      { status: 'at-risk' as const, n: r.rollup.atRisk },
-      { status: 'no-date' as const, n: r.rollup.noDate },
-    ].filter((p) => p.n > 0);
-    if (parts.length === 0) return <span className={styles.mutedCell}>—</span>;
-    return (
-      <span className={styles.distribution}>
-        {parts.map((p) => (
-          <MemberStatusDot key={p.status} status={p.status} count={p.n} locale={locale} />
-        ))}
-      </span>
-    );
-  };
-
   return (
     <PageShell
       title={t(locale, 'navInitiatives')}
@@ -71,7 +52,9 @@ export default function InitiativesClient({ rows, locale }: { rows: InitiativeLi
               <Link href={initiativeHref(r.id)}>{r.name}</Link>
             </td>
             <td>{r.memberCount}</td>
-            <td>{distribution(r)}</td>
+            {/* Zeros-omitted status distribution — the shared rendering, so this cell and
+                the /ecosystem section cannot disagree (InitiativeDistribution). */}
+            <td><InitiativeDistribution rollup={r.rollup} locale={locale} /></td>
             <td><DateCell value={r.targetDate} /></td>
           </tr>
         )}

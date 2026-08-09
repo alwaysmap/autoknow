@@ -97,9 +97,24 @@ function readCopy(copy: CopyWithPhases, now: number) {
   return { phases, completion, status };
 }
 
+/** "Active initiative" = not archived. ONE spelling, shared by the count and the list,
+ *  so the strip tile's figure and the rows behind its link cannot drift apart. */
+const ACTIVE_INITIATIVE_WHERE = { isArchived: false } as const;
+
+/**
+ * The ecosystem strip's tile figure (gh-286 part h): how many initiatives are live
+ * right now. A count query of its own, deliberately NOT folded into
+ * `getEcosystemDashboardData`: `/` renders the strip too and must not pay for the
+ * full list's per-copy chain pass (the same boundary `getPartnerRelationshipScores`
+ * keeps, lib/dashboardData.ts).
+ */
+export async function countActiveInitiatives(): Promise<number> {
+  return prisma.initiative.count({ where: ACTIVE_INITIATIVE_WHERE });
+}
+
 export async function getInitiativesList(now: number): Promise<InitiativeListRow[]> {
   const initiatives = await prisma.initiative.findMany({
-    where: { isArchived: false },
+    where: ACTIVE_INITIATIVE_WHERE,
     orderBy: { name: 'asc' },
     include: {
       members: { where: { status: 'active' } },

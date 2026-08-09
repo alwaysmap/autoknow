@@ -10,6 +10,9 @@ import { getProgramStartMs } from '../../lib/programTimelineData';
 import { buildTimelineMarks } from '../../lib/programTimeline';
 import { deriveProgramStatus } from '../../lib/lifecycle';
 import { getEcosystemEscalations, getOpenEscalationsCount } from '../../lib/escalationQueries';
+import { countActiveInitiatives, getInitiativesList } from '../../lib/initiativeQueries';
+import { initiativeHref } from '../../lib/entityHref';
+import InitiativeDistribution from '../../components/InitiativeDistribution';
 import { getLocale } from '../../lib/locale';
 import { t } from '../../lib/i18n';
 import EcosystemDashboardClient from './EcosystemDashboardClient';
@@ -32,22 +35,26 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
   const locale = await getLocale();
   const summary = await getSummary('ecosystem', 0);
 
+  // Snapshot "now" server-side so SSR and hydration agree. This is an async Server
+  // Component — Date.now() runs once per request on the server, not on every client
+  // render, so the react-hooks purity rule (which assumes client re-render) is a
+  // false positive here. Taken BEFORE the loads because getInitiativesList reads
+  // member statuses against it.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
+
   // 2. Load the shared dashboard data (projects, forecasts, cycle times, briefings,
   //    the ecosystem chain busiest-resources roll-up) plus the partner relationship
-  //    scores the mix tile reads.
-  const [{ serializedProjects, busiest }, relationshipScores, openEscalationCount, escalations] = await Promise.all([
+  //    scores the mix tile reads, the escalation and initiative counts for the strip,
+  //    and the initiative rows for the section below the timeline.
+  const [{ serializedProjects, busiest }, relationshipScores, openEscalationCount, escalations, activeInitiativeCount, initiatives] = await Promise.all([
     getEcosystemDashboardData(),
     getPartnerRelationshipScores(),
     getOpenEscalationsCount(),
     getEcosystemEscalations(),
+    countActiveInitiatives(),
+    getInitiativesList(now),
   ]);
-
-  // Snapshot "now" server-side so SSR and hydration agree. This is an async Server
-  // Component — Date.now() runs once per request on the server, not on every client
-  // render, so the react-hooks purity rule (which assumes client re-render) is a
-  // false positive here.
-  // eslint-disable-next-line react-hooks/purity
-  const now = Date.now();
 
   // The portfolio timeline (#159). Active programs only — this page is the leadership view
   // of what is IN FLIGHT — and what that leaves out is counted rather than silently
@@ -114,6 +121,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
           relationshipScores={relationshipScores}
           now={now}
           openEscalationCount={openEscalationCount}
+          activeInitiativeCount={activeInitiativeCount}
         />
 
         {/* Escalations sit SECOND, directly under the strip (2026-08-03, user call).
@@ -186,6 +194,45 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
             filteredOut={notInFlightCount}
             filteredOutHref={notInFlightHref}
           />
+        </section>
+
+        {/* Initiatives (gh-286 part h): the cross-partner goals the program views above
+            deliberately exclude (decision 5), one row per active initiative. Each row
+            reads through getInitiativesList — the SAME loader /initiatives renders — so
+            this section and that page cannot disagree about a member's status (the
+            summary-count ADR: a summary uses the threshold of the detail it summarizes).
+            Zero initiatives is a real state and says so; the section never hides. */}
+        <section className={styles.dashboardSection}>
+          <AnchorHeading
+            id="initiatives"
+            actions={
+              <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+                <Link href="/initiatives">{t(locale, 'navInitiatives')}</Link>
+              </KebabMenu>
+            }
+          >
+            {t(locale, 'navInitiatives')}
+          </AnchorHeading>
+          {initiatives.length === 0 ? (
+            <p className={styles.initiativesEmpty}>{t(locale, 'initiativesEmpty')}</p>
+          ) : (
+            <ul className={styles.initiativeList}>
+              {initiatives.map((i) => (
+                <li key={i.id} className={styles.initiativeRow}>
+                  <Link href={initiativeHref(i.id)}>{i.name}</Link>
+                  <span className={styles.initiativeFacts}>
+                    <span>
+                      {t(locale, i.memberCount === 1 ? 'initiativePartnersOne' : 'initiativePartnersMany', {
+                        n: i.memberCount.toLocaleString(locale),
+                      })}
+                    </span>
+                    <span className={styles.initiativeSep}>·</span>
+                    <InitiativeDistribution rollup={i.rollup} locale={locale} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         {/* the ecosystem leadership summary — risks/actions first, fully cited */}

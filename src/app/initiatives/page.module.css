@@ -13,16 +13,3 @@
 .newLink:hover {
   border-color: var(--muted);
 }
-
-.mutedCell {
-  color: var(--muted);
-}
-
-.distribution {
-  display: inline-flex;
-  gap: 0.8rem;
-  flex-wrap: wrap;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-}
-

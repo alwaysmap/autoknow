@@ -6,6 +6,7 @@ import EcosystemStatStrip from '../components/EcosystemStatStrip';
 import { getActivity } from '../lib/activity';
 import { getEcosystemDashboardData, getPartnerRelationshipScores } from '../lib/dashboardData';
 import { getOpenEscalationsCount } from '../lib/escalationQueries';
+import { countActiveInitiatives } from '../lib/initiativeQueries';
 import { getLocale } from '../lib/locale';
 import { t } from '../lib/i18n';
 import { tNodes } from '../components/tNodes';
@@ -29,11 +30,12 @@ const TEASER_COUNT = 5;
 export default async function Landing(props: { searchParams: Promise<{ q?: string; lang?: string }> }) {
   const { q, lang } = await props.searchParams;
   const locale = await getLocale(lang);
-  const [latest, { serializedProjects }, relationshipScores, openEscalationCount] = await Promise.all([
+  const [latest, { serializedProjects }, relationshipScores, openEscalationCount, activeInitiativeCount] = await Promise.all([
     getActivity({ kind: 'ecosystem' }, TEASER_COUNT),
     getEcosystemDashboardData(),
     getPartnerRelationshipScores(),
     getOpenEscalationsCount(),
+    countActiveInitiatives(),
   ]);
 
   // Snapshot "now" server-side so SSR and hydration agree — same rule as /ecosystem.
@@ -50,6 +52,7 @@ export default async function Landing(props: { searchParams: Promise<{ q?: strin
         relationshipScores={relationshipScores}
         now={now}
         openEscalationCount={openEscalationCount}
+        activeInitiativeCount={activeInitiativeCount}
       />
 
       <main className={styles.hero}>
