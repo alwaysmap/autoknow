@@ -1,7 +1,7 @@
 ---
 title: The preview browser tab is shared across worktrees and can move to another one's dev server mid-session
 status: current
-updated: 2026-07-25
+updated: 2026-08-09
 applies_to:
   - .claude/launch.json
   - scripts/dev/demo.ts
@@ -40,6 +40,13 @@ job was to remove them.
    server's `cwd`; `"reused": true` on a server whose `cwd` is not your worktree means
    you got someone else's app, not yours. Never `preview_stop` it — it belongs to a live
    session.
+4. **An agent in an isolated worktree cannot use a named launch config at all.**
+   `preview_start` resolves `.claude/launch.json` against the SESSION's root checkout,
+   not the caller's cwd — writing your own launch.json in the isolated worktree changes
+   nothing, and the tool boots the parent's server with the parent's config (gh-286
+   part f verification, 2026-08-09: it launched `next dev -p 3793` from the root
+   worktree while the agent's config said 3854). Run the dev server yourself (a
+   backgrounded shell with the env inline) and `navigate` a fresh tab to that port.
 
 **How we found out.** During #153 the tab was verified on the right port across several
 screenshots, then moved to another worktree's demo server between one `javascript_tool`

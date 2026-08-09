@@ -27,6 +27,12 @@ interface Header {
   filterable?: boolean;
   /** Filter on this derived value instead of row[key] (e.g. canonical health). */
   filterValue?: (row: unknown) => string;
+  /** Set-valued twin of `filterValue`, for a column whose cell holds several class
+   *  tokens at once (a partner's Products, gh-286 part f). The funnel lists the UNION
+   *  of every row's values, and a row passes when ANY selected value is among its own
+   *  — membership, never combination, so "GAS" means "carries GAS", not "carries
+   *  exactly GAS". Takes precedence over `filterValue` if both are set. */
+  filterValues?: (row: unknown) => string[];
   /** Sort on this derived value instead of row[key] — `filterValue`'s twin, and needed
    *  for the same reason: a column whose key holds a non-scalar. Sorting stringifies
    *  what it finds, so an object under the key compares as '[object Object]' and the
@@ -229,8 +235,13 @@ export default function DataTable<T>({
   const filterValueOf = (h: Header, row: T): string =>
     h.filterValue ? h.filterValue(row) : String(valueAt(row, h.key) ?? '');
 
+  /** A row's filter tokens for a column — one for a scalar column, several for a
+   *  set-valued one (`filterValues`). */
+  const filterValuesOf = (h: Header, row: T): string[] =>
+    h.filterValues ? h.filterValues(row) : [filterValueOf(h, row)];
+
   const optionsFor = (h: Header): string[] =>
-    [...new Set(data.map((row) => filterValueOf(h, row)))].sort((a, b) => a.localeCompare(b));
+    [...new Set(data.flatMap((row) => filterValuesOf(h, row)))].sort((a, b) => a.localeCompare(b));
 
   // The value the free-text filter matches against: the KEY (first) column's cell.
   const keyColumnText = (row: T): string => String(valueAt(row, headers[0]?.key) ?? '');
@@ -241,7 +252,7 @@ export default function DataTable<T>({
     if (active.length === 0 && !q) return data;
     return data.filter(
       (row) =>
-        active.every((h) => filters[h.key].includes(filterValueOf(h, row))) &&
+        active.every((h) => filterValuesOf(h, row).some((v) => filters[h.key].includes(v))) &&
         (!q || keyColumnText(row).toLowerCase().includes(q)),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps

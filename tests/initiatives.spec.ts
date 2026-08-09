@@ -47,12 +47,16 @@ test.describe('Initiatives', () => {
     const source = await prisma.programTemplate.findFirstOrThrow({ where: { name: 'AAOS feature rollout' } });
     expect(initiative.templateId).not.toBe(source.id);
 
-    // Add BMW from the initiative page (single-pick complement of part f's bulk add).
-    await pickCombobox(page.locator('form', { has: page.getByRole('button', { name: /add partner/i }) }), 'Add partner', 'BMW');
-    await page.getByRole('button', { name: /add partner/i }).click();
+    // Add BMW from the initiative page via the bulk-add table's per-row Add (part f
+    // replaced the single-pick combobox). Retry-safe: the action skips active members.
+    const membersSection = page.locator('section', { has: page.locator('#partners') });
+    await expect(async () => {
+      const rowAdd = page.getByRole('button', { name: 'Add BMW to this initiative' });
+      if (await rowAdd.isVisible()) await rowAdd.click({ timeout: 2000 });
+      await expect(membersSection.getByRole('link', { name: 'BMW', exact: true })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20000 });
 
     // The member row appears with completion + status, and the copy exists.
-    await expect(page.getByRole('link', { name: 'BMW', exact: true })).toBeVisible({ timeout: 15000 });
     await expect(page.locator('body')).toContainText('On track');
     const copy = await prisma.project.findFirstOrThrow({ where: { initiativeId: initiative.id } });
     expect(copy.partnerId).toBe(bmwId);
@@ -82,5 +86,51 @@ test.describe('Initiatives', () => {
     expect(membership.status).toBe('removed');
     const kept = await prisma.project.findUniqueOrThrow({ where: { id: copy.id } });
     expect(kept.lifecycle).toBe('cancelled');
+  });
+
+  test('funnel-filter the add table, bulk-add the filtered set — members and copies exist', async ({ page }) => {
+    // Two APAC partners (one with product-carrying device programs) beside the EMEA
+    // rows the first test left behind, so the region funnel has something to exclude.
+    const oem = { connectOrCreate: { where: { name: 'OEM' }, create: { name: 'OEM' } } };
+    const apac = { connectOrCreate: { where: { name: 'APAC' }, create: { name: 'APAC' } } };
+    const toyota = await prisma.partner.create({ data: { name: 'Toyota', type: oem, region: apac } });
+    await prisma.project.create({ data: { name: 'Corolla', partnerId: toyota.id, hasGas: true, hasDigitalKey: true } });
+    const honda = await prisma.partner.create({ data: { name: 'Honda', type: oem, region: apac } });
+    const initiative = await prisma.initiative.findFirstOrThrow();
+
+    await page.goto(`/initiatives/${initiative.id}`);
+
+    // The Products column derives from Toyota's real programs (GAS + Digital Key).
+    const toyotaRow = page.locator('tr', { has: page.getByRole('link', { name: 'Toyota', exact: true }) });
+    await expect(toyotaRow).toContainText('GAS');
+    await expect(toyotaRow).toContainText('Digital Key');
+
+    // Open the region funnel and pick APAC — hydration-guarded first interaction.
+    const apacOption = page.getByRole('checkbox', { name: 'APAC' });
+    await expect(async () => {
+      if (!(await apacOption.isVisible())) await page.getByTestId('filter-regionName').click({ timeout: 2000 });
+      await expect(apacOption).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20000 });
+    await apacOption.check();
+
+    // The batch button counts exactly the visible (filtered) rows: Toyota + Honda.
+    const bulkButton = page.getByRole('button', { name: 'Add 2 filtered partners' });
+    await expect(bulkButton).toBeVisible();
+
+    // Bulk-add them; both land in the members table. Retry-safe: adds skip members.
+    const membersSection = page.locator('section', { has: page.locator('#partners') });
+    await expect(async () => {
+      if (await bulkButton.isVisible()) await bulkButton.click({ timeout: 2000 });
+      await expect(membersSection.getByRole('link', { name: 'Toyota', exact: true })).toBeVisible({ timeout: 2000 });
+      await expect(membersSection.getByRole('link', { name: 'Honda', exact: true })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20000 });
+
+    // The memberships are active and each got a fresh copy of the snapshot.
+    for (const partnerId of [toyota.id, honda.id]) {
+      const membership = await prisma.initiativePartner.findFirstOrThrow({ where: { initiativeId: initiative.id, partnerId } });
+      expect(membership.status).toBe('active');
+      const copy = await prisma.project.findFirstOrThrow({ where: { initiativeId: initiative.id, partnerId, lifecycle: 'active' } });
+      expect(copy.initiativeId).toBe(initiative.id);
+    }
   });
 });

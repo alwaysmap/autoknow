@@ -1,15 +1,14 @@
 import { notFound } from 'next/navigation';
-import { prisma } from '../../../lib/db';
 import PageShell from '../../../components/PageShell';
 import AnchorHeading from '../../../components/AnchorHeading';
 import DateCell from '../../../components/DateCell';
 import EscalationRows from '../../../components/EscalationRows';
-import { getInitiativeDetail } from '../../../lib/initiativeQueries';
+import { getInitiativeDetail, getAddablePartners } from '../../../lib/initiativeQueries';
 import { getInitiativeEscalations } from '../../../lib/escalationQueries';
 import { removePartner } from '../../actions/initiatives';
 import InitiativeMembersTable from './InitiativeMembersTable';
 import InitiativeAdminControls from './InitiativeAdminControls';
-import AddPartnerForm from './AddPartnerForm';
+import AddPartnersTable from './AddPartnersTable';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
@@ -40,12 +39,10 @@ export default async function InitiativePage(props: { params: Promise<{ id: stri
     await removePartner(formData);
   }
 
-  // Candidates for the add picker: partners not already active members (canonical
-  // rows — AGENTS lesson 3; the action re-validates ids at the boundary).
-  const memberIds = new Set(initiative.members.map((m) => m.partnerId));
-  const candidates = (
-    await prisma.partner.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } })
-  ).filter((p) => !memberIds.has(p.id));
+  // Candidates for the bulk-add table (part f): partners not already active members,
+  // with type/region and the derived Products union (canonical rows — AGENTS lesson 3;
+  // the action re-validates ids at the boundary).
+  const addable = await getAddablePartners(initiative.id);
 
   const escalations = await getInitiativeEscalations(initiative.id);
 
@@ -84,8 +81,16 @@ export default async function InitiativePage(props: { params: Promise<{ id: stri
           locale={locale}
           removeAction={removePartnerAction}
         />
-        <AddPartnerForm initiativeId={initiative.id} candidates={candidates} locale={locale} />
       </section>
+
+      {/* Bulk add via filters (part f). The section only exists while there is
+          somebody left to add — a heading over an empty table is noise (§7). */}
+      {addable.length > 0 && (
+        <section className={styles.section}>
+          <AnchorHeading id="add-partners">{t(locale, 'initiativeAddPartnersHeading')}</AnchorHeading>
+          <AddPartnersTable initiativeId={initiative.id} partners={addable} locale={locale} />
+        </section>
+      )}
 
       <section className={styles.section}>
         <AnchorHeading id="escalations">{t(locale, 'escalationsLabel')}</AnchorHeading>
