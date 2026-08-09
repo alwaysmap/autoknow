@@ -35,6 +35,8 @@ import { revisePerson } from '../app/actions/people';
 import { addPhasePartner } from '../app/actions/phasePartners';
 import { addPhasePerson } from '../app/actions/phasePeople';
 import { setPhaseStarted } from '../app/actions/hill';
+import { createInitiative, addPartners, removePartner } from '../app/actions/initiatives';
+import { isNextRedirect, type ActionResult } from './actionResult';
 
 // Phase progress is no longer hand-authored per program: the template-based programs
 // derive it from their plan position (seedPhasesFromBuiltin), which keeps it
@@ -1611,6 +1613,147 @@ export async function seedMockData(): Promise<MockSeedReport> {
       timestamp: new Date('2026-07-01'),
     });
   }
+
+  // ---------------------------------------------------------------------------
+  // Initiatives (gh-286 part i): cross-partner initiatives seeded THROUGH the
+  // initiative actions — the same mutation boundary the UI submits to — so the
+  // demo data inherits every invariant those actions own (private snapshot clone,
+  // one active copy per member, remove-cancels-and-keeps). Two shapes:
+  //   1. A DATED initiative whose default target derives from seed time — a
+  //      literal would age into the past and the "target ahead" demo would
+  //      silently invert (docs/knowledge/a-literal-future-date-in-a-fixture-
+  //      expires.md) — with two members on the default, one on a per-batch month
+  //      override, and one REMOVED member whose cancelled copy stays as history.
+  //   2. A DATE-LESS initiative: its members' copies carry no target at all,
+  //      which is the `no-date` member-status case the rollup must render.
+  // ---------------------------------------------------------------------------
+  console.log('Seeding initiatives through the initiative actions...');
+
+  /** `<input type="month">` value `months` ahead of seed time — the wire shape the
+   *  initiative actions take; `parseSopInput` month-ends it server-side. */
+  const monthInputAhead = (months: number) => aheadMonthStart(months).toISOString().slice(0, 7);
+
+  /** Create through `createInitiative`, which redirects to the new page on success —
+   *  the seed has no navigation, so the redirect is swallowed and the row looked up.
+   *  The two exits: redirect thrown = created; `{ error }` returned = rejected. */
+  const seedInitiative = async (fields: Record<string, string | number>): Promise<number> => {
+    let result: ActionResult = {};
+    try {
+      result = await createInitiative(fd(fields));
+    } catch (e) {
+      if (!isNextRedirect(e)) throw e;
+    }
+    if (result.error) throw new Error(`Seed initiative "${fields.name}" rejected: ${result.error}`);
+    const row = await prisma.initiative.findFirstOrThrow({
+      where: { name: String(fields.name) }, select: { id: true },
+    });
+    return row.id;
+  };
+
+  const addInitiativeMembers = async (
+    initiativeId: number, partnerIds: number[], targetMonth?: string,
+  ): Promise<void> => {
+    const result = await addPartners(fd({
+      initiativeId,
+      partnerIds: partnerIds.join(','),
+      ...(targetMonth != null ? { targetMonth } : {}),
+    }));
+    if (result.error) throw new Error(`Seed initiative member add failed: ${result.error}`);
+  };
+
+  /** A member's one ACTIVE copy — the invariant the actions enforce, so the lookup
+   *  can be this blunt. Both helpers below start here. */
+  const activeCopyId = async (initiativeId: number, partnerId: number): Promise<number> => {
+    const copy = await prisma.project.findFirstOrThrow({
+      where: { initiativeId, partnerId, lifecycle: 'active' }, select: { id: true },
+    });
+    return copy.id;
+  };
+
+  /** Post a program-level status for a member copy, via the needle route like every
+   *  other seeded program — the route is the seam that syncs the Project columns with
+   *  the newest state, which instantiation alone does not do. */
+  const postCopyStatus = async (
+    initiativeId: number, partnerId: number,
+    status: { needle: string; hill: number; note: string },
+  ): Promise<void> => {
+    await postProjectState(await activeCopyId(initiativeId, partnerId), {
+      theNeedle: status.needle, hillChartProgress: status.hill, notes: status.note, source: 'seed',
+    });
+  };
+
+  /** Advance one phase of a member copy exactly the way the rest of the seed advances
+   *  phases: a progress row through the phase-state route. No timestamp override —
+   *  "now" is already newer than the copy's creation-time initial states, so
+   *  newest-wins lands on the posted progress. Always 'On Track': phase-level risk
+   *  belongs to `postCopyStatus`; these rows exist for the progress spread. */
+  const advanceCopyPhase = async (
+    initiativeId: number, partnerId: number, phaseName: string, progress: number, notes: string | null,
+  ): Promise<void> => {
+    const copyId = await activeCopyId(initiativeId, partnerId);
+    const phase = await prisma.phase.findFirstOrThrow({
+      where: { projectId: copyId, name: phaseName }, select: { id: true },
+    });
+    await postPhaseState(copyId, phase.id, {
+      theNeedle: 'On Track', hillChartProgress: progress, notes, source: 'seed',
+    });
+  };
+
+  // Sources to snapshot: the GAS built-in for the Gemini rollout, the AAOS bring-up
+  // for the EV APIs. Each create clones a PRIVATE snapshot, so the template pickers
+  // keep listing only these originals.
+  const gasTemplate = await prisma.programTemplate.findFirstOrThrow({
+    where: { name: 'GAS', isBuiltIn: true }, select: { id: true },
+  });
+  const aaosTemplate = await prisma.programTemplate.findFirstOrThrow({
+    where: { name: AAOS_T, isBuiltIn: true }, select: { id: true },
+  });
+
+  // Default target ~16 months out: far enough that fresh copies read as planned
+  // work, near enough that the SOP-buffer math has a real horizon to score against.
+  const geminiInitiativeId = await seedInitiative({
+    name: 'Gemini built-in across the fleet',
+    description:
+      'One rollout of the Gemini assistant as a cockpit built-in across every member OEM: GMS core, Play configuration and GAS certification per partner.',
+    templateId: gasTemplate.id,
+    targetMonth: monthInputAhead(16),
+  });
+  // Honda and Hyundai inherit the initiative's default target (no batch month).
+  await addInitiativeMembers(geminiInitiativeId, [hondaId, hyundaiId]);
+  // Stellantis joins on a LATER per-batch override — the brand matrix lands last.
+  await addInitiativeMembers(geminiInitiativeId, [stellantisId], monthInputAhead(20));
+  // Volvo Cars joins now and is removed below, once its copy has a status row to keep.
+  await addInitiativeMembers(geminiInitiativeId, [volvoCarsId]);
+
+  // No target date anywhere: the initiative has none and no batch supplies one, so
+  // every member here is the `no-date` case end to end.
+  const evInitiativeId = await seedInitiative({
+    name: 'EV routing & battery state APIs',
+    description:
+      'Expose battery state, charge planning and routing APIs from each member EV platform. No committed fleet date yet.',
+    templateId: aaosTemplate.id,
+  });
+  await addInitiativeMembers(evInitiativeId, [toyotaId, gmId]);
+
+  await postCopyStatus(geminiInitiativeId, hondaId, { needle: 'On Track', hill: 45, note: 'GMS core landed; Play configuration under way toward the fleet target.' });
+  await postCopyStatus(geminiInitiativeId, hyundaiId, { needle: 'On Track', hill: 10, note: 'Kickoff complete; GMS core integration scheduled.' });
+  await postCopyStatus(geminiInitiativeId, stellantisId, { needle: 'Some Risk', hill: 5, note: 'Joined on the late wave; brand-matrix scoping still open.' });
+  await postCopyStatus(geminiInitiativeId, volvoCarsId, { needle: 'On Track', hill: 10, note: 'Kickoff complete on the EX90 line.' });
+  await postCopyStatus(evInitiativeId, toyotaId, { needle: 'On Track', hill: 30, note: 'Architecture locked; battery-state HAL scoping in flight.' });
+  await postCopyStatus(evInitiativeId, gmId, { needle: 'On Track', hill: 5, note: 'Joined; architecture review scheduled with the Ultifi team.' });
+
+  // Two copies move onto their plans, so the member rollup shows real spread. Each
+  // advanced phase's dependencies are complete first — the DAG-coherence guard in
+  // tests/seedMock applies to these copies like every other seeded program.
+  await advanceCopyPhase(geminiInitiativeId, hondaId, 'GMS Core Integration', 100, null);
+  await advanceCopyPhase(geminiInitiativeId, hondaId, 'Play Store configuration', 45, 'Fingerprint registered; store configuration in review.');
+  await advanceCopyPhase(evInitiativeId, toyotaId, 'Architecture lock', 100, null);
+  await advanceCopyPhase(evInitiativeId, toyotaId, 'Silicon & dev environment', 40, 'Dev boards in hand; battery-state HAL interfaces drafting.');
+
+  // The removal, LAST: the join row flips to `removed` and the copy is cancelled and
+  // KEPT — the demo's membership history (add → remove → copy stays visible).
+  const volvoRemoval = await removePartner(fd({ initiativeId: geminiInitiativeId, partnerId: volvoCarsId }));
+  if (volvoRemoval.error) throw new Error(`Seed initiative member removal failed: ${volvoRemoval.error}`);
 
   // The ingested corpus goes in last: its entries anchor to programs created in all
   // three blocks above, and to their phases by name.

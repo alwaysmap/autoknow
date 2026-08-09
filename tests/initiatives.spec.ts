@@ -58,9 +58,18 @@ test.describe('Initiatives', () => {
 
     // The member row appears with completion + status, and the copy exists.
     await expect(page.locator('body')).toContainText('On track');
-    const copy = await prisma.project.findFirstOrThrow({ where: { initiativeId: initiative.id } });
+    const copy = await prisma.project.findFirstOrThrow({
+      where: { initiativeId: initiative.id },
+      include: { phases: true },
+    });
     expect(copy.partnerId).toBe(bmwId);
     expect(copy.sopDate).not.toBeNull(); // inherited the initiative default
+    // The FULL phase graph came with it (gh-286 part i): both snapshot phases and
+    // the Design → Ship dependency edge, instantiated per copy.
+    expect(copy.phases.map((p) => p.name).sort()).toEqual(['Design', 'Ship']);
+    expect(
+      await prisma.phaseDependency.count({ where: { phaseId: { in: copy.phases.map((p) => p.id) } } }),
+    ).toBe(1);
 
     // The copy's user-visible home: under the initiative, chainless, structure locked.
     await page.goto(`/initiatives/${initiative.id}/${copy.id}`);
