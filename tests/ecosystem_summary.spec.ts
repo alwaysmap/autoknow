@@ -1,4 +1,4 @@
-import { test, expect } from './helpers/e2e';
+import { test, expect, clickUntilNavigated, openMenu } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -52,6 +52,31 @@ test.describe('Ecosystem Summary Page (Deterministic + AI)', () => {
         theNeedle: 'High',
         hillChartProgress: 35
       }
+    });
+
+    // An initiative with one active member for the #initiatives section
+    // (autoknow-hcz.12) — same shape as tests/home.spec.ts's part-h fixture. The
+    // member's copy carries no sopDate, so the rollup reads it "No date". The copy has
+    // initiativeId set, which keeps it OUT of the launches table and the constraint
+    // diagnosis (gh-286 decision 5), so the assertions above stay untouched.
+    const snapshot = await prisma.programTemplate.create({ data: { name: 'Fleet rollout snapshot' } });
+    const initiative = await prisma.initiative.create({
+      data: { name: 'Gemini across the fleet', templateId: snapshot.id },
+    });
+    await prisma.initiativePartner.create({ data: { initiativeId: initiative.id, partnerId: partner.id } });
+    await prisma.project.create({
+      data: {
+        name: 'Gemini across the fleet — Waymo',
+        partnerId: partner.id,
+        initiativeId: initiative.id,
+        hillChartProgress: 30,
+        volumeFirstYear: 1000,
+      },
+    });
+    // Archived: must reach neither this page's section nor /initiatives.
+    const retiredSnapshot = await prisma.programTemplate.create({ data: { name: 'Retired snapshot' } });
+    await prisma.initiative.create({
+      data: { name: 'Retired Fleet Push', templateId: retiredSnapshot.id, isArchived: true },
     });
   });
 
@@ -148,5 +173,52 @@ test.describe('Ecosystem Summary Page (Deterministic + AI)', () => {
     // 7. The program table names the program; the ingested digest itself lives in
     // the feeds now (the pseudo-synthesis block is retired).
     await expect(page.locator('body')).toContainText('Waymo Generation 6 AAOS');
+  });
+
+  // The #initiatives section (autoknow-hcz.12): rows through getInitiativesList — the
+  // SAME loader /initiatives renders — so the two surfaces agree by construction (the
+  // summary-count ADR). What this asserts is that this page actually wires the section
+  // in, that its counts equal /initiatives' row for the same initiative, and that an
+  // archived initiative reaches neither surface.
+  test('the initiatives section lists active initiatives with the counts /initiatives shows', async ({ page }) => {
+    await page.goto('/ecosystem-summary');
+
+    const section = page.getByRole('heading', { name: 'Initiatives', exact: true })
+      .locator('xpath=ancestor::section[1]');
+    const summaryRow = section.getByRole('row', { name: /Gemini across the fleet/ });
+    await expect(summaryRow.getByRole('link', { name: 'Gemini across the fleet' })).toBeVisible();
+    // One active member, read "No date" (the copy has no sopDate) — the same counts
+    // asserted against /initiatives below. The count targets its CELL, exact: a row-wide
+    // toContainText('1') would still pass on a 10 or a date containing a 1.
+    await expect(summaryRow.getByRole('cell', { name: '1', exact: true })).toBeVisible();
+    await expect(summaryRow).toContainText('No date');
+    await expect(section).not.toContainText('Retired Fleet Push');
+
+    // The section's kebab is a door to the full listing. First interaction after the
+    // goto, and it navigates — clickUntilNavigated, with the WHOLE menu walk inside
+    // open(): a link activation inside AnchoredPopover DISMISSES the panel (the
+    // navigation-dismiss ADR) whether or not the client navigation lands, so a retry
+    // that only re-clicks the item finds it hidden after a slow first activation and
+    // strands — openMenu inside the loop re-opens instead.
+    //
+    // The item is role=MENUITEM, never 'link': the open panel enhances its items
+    // (AnchoredPopover variant='menu'), so a 'link' lookup matches only in the sliver
+    // before the toggle handler runs — it passed on fast runs and failed under the
+    // 3-file load, which is how the trace caught it.
+    const kebab = section.getByRole('button', { name: 'More actions' });
+    const doorItem = page.getByRole('menuitem', { name: 'Initiatives', exact: true });
+    await clickUntilNavigated(page, /\/initiatives$/, async () => {
+      await openMenu(kebab, doorItem);
+      // Not clickMenuItem: its unbounded item.click() would spend the loop's whole
+      // 20s budget if the panel dismisses between the open and the click, where this
+      // 2s bound hands the failure back to clickUntilNavigated to retry.
+      await doorItem.click({ timeout: 2000 });
+    });
+
+    // /initiatives shows the SAME row: same member count, same distribution reading.
+    const listRow = page.getByRole('row', { name: /Gemini across the fleet/ });
+    await expect(listRow.getByRole('cell', { name: '1', exact: true })).toBeVisible();
+    await expect(listRow).toContainText('No date');
+    await expect(page.locator('body')).not.toContainText('Retired Fleet Push');
   });
 });

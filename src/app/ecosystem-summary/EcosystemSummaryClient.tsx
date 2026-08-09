@@ -8,6 +8,9 @@ import styles from './EcosystemSummaryClient.module.css';
 import { formatNeedleValue } from '../../lib/needle';
 import SopOutlookCell from '../../components/SopOutlookCell';
 import type { LiveConstraint } from '../../lib/dashboardData';
+import type { InitiativeListRow } from '../../lib/initiativeQueries';
+import InitiativesTable from '../../components/InitiativesTable';
+import KebabMenu from '../../components/KebabMenu';
 import { healthKey, healthColor, healthOrder } from '../../lib/health';
 import PersonCell, { personRefFunnel, type PersonRef } from '../../components/PersonCell';
 import { t } from '../../lib/i18n';
@@ -47,6 +50,8 @@ interface Project {
 
 interface EcosystemSummaryClientProps {
   liveConstraints: LiveConstraint[];
+  /** Active initiatives via getInitiativesList — the same rows /initiatives shows. */
+  initiatives: InitiativeListRow[];
   /** Funnel selections restored from the query string (design.md §2). */
   initialFilters?: Record<string, string[]>;
   initialTableSort?: TableSort | null;
@@ -58,6 +63,7 @@ interface EcosystemSummaryClientProps {
 export default function EcosystemSummaryClient({
   initialProjects,
   liveConstraints,
+  initiatives,
   now,
   initialFilters,
   initialTableSort = null
@@ -239,6 +245,26 @@ export default function EcosystemSummaryClient({
           defaultSortKey="name"
           emptyStateMessage={t(locale, 'noProgramsMatchFilters')}
         />
+      </section>
+
+      {/* Initiatives (autoknow-hcz.12): the cross-partner goals the launches table above
+          deliberately excludes. The rows arrive through getInitiativesList — the SAME
+          loader /initiatives and /ecosystem's section render — and the table is the
+          shared InitiativesTable, so this section equals /initiatives cell for cell by
+          construction (the summary-count ADR). Zero initiatives is a real state and the
+          table's empty message says so; the section never hides. */}
+      <section className={styles.tableSection}>
+        <AnchorHeading
+          id="initiatives"
+          actions={
+            <KebabMenu ariaLabel={t(locale, 'moreActions')}>
+              <Link href="/initiatives">{t(locale, 'navInitiatives')}</Link>
+            </KebabMenu>
+          }
+        >
+          {t(locale, 'navInitiatives')}
+        </AnchorHeading>
+        <InitiativesTable rows={initiatives} locale={locale} />
       </section>
 
       </div>
