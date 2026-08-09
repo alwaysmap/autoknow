@@ -607,6 +607,19 @@ export const initiativeAddPartnersSchema = z.object({
 
 export const initiativeRemovePartnerSchema = z.object({ initiativeId: zId, partnerId: zId });
 
+/** Device links (autoknow-hcz.14): the membership named the way `removePartner` names
+ *  it — initiative + partner — plus the program to link. Shape only; the action owns
+ *  resolution (same partner, real program) at the boundary (AGENTS lesson 3). */
+export const initiativeLinkDeviceSchema = z.object({
+  initiativeId: zId,
+  partnerId: zId,
+  projectId: zId,
+});
+
+/** Unlink names the link row itself — the affordance sits beside a rendered link, so
+ *  the row id is the canonical key; the action derives the pages to revalidate from it. */
+export const initiativeUnlinkDeviceSchema = z.object({ deviceId: zId });
+
 // ---- helpers --------------------------------------------------------------------
 
 function formatIssues(error: z.ZodError): string {

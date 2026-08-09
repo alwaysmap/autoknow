@@ -140,8 +140,15 @@ describe('fixtures.wipeAll leaves an empty database', () => {
     const initiative = await prisma.initiative.create({
       data: { name: 'Fleet telemetry rollout', templateId: initiativeTemplate.id },
     });
-    await prisma.initiativePartner.create({
+    const membership = await prisma.initiativePartner.create({
       data: { initiativeId: initiative.id, partnerId: seeded.oemId },
+    });
+    // The device link (autoknow-hcz.14) with both its references — the membership and a
+    // Project — so the wipe is proved to order InitiativeDevice ahead of both parents.
+    // (The action layer would insist the project is a REAL program; the wipe's ordering
+    // proof does not care which kind the FK lands on.)
+    await prisma.initiativeDevice.create({
+      data: { initiativePartnerId: membership.id, projectId: seeded.projectId },
     });
     await prisma.project.update({
       where: { id: seeded.projectId },

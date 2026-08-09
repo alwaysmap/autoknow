@@ -85,6 +85,53 @@
   border-color: var(--muted);
 }
 
+/* ---- Devices column (autoknow-hcz.14) ---- */
+
+/* One linked device per line: the program link with its quiet unlink beside it. */
+.deviceItem {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.deviceUnlinkBtn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  padding: 0 0.25rem;
+}
+.deviceUnlinkBtn:hover {
+  color: var(--fg);
+}
+
+.deviceAddBtn {
+  composes: removeBtn;
+}
+/* The revealed form's submit, same quiet row-action grammar — its own name because
+   "removeBtn" at a link-creating call site reads backwards. */
+.deviceLinkBtn {
+  composes: removeBtn;
+}
+
+.deviceAddForm {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+/* Two classes on purpose, PhaseInvolvementEditor's pattern: the Combobox input already
+   carries the shared dash.textInput class, and a single-class override would tie on
+   specificity and win only by bundle order. */
+.deviceAddForm .devicePicker {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding: 0.25rem 0.5rem;
+  max-width: 11rem;
+}
+
 /* ---- Bulk-add table (gh-286 part f) ---- */
 
 /* The batch form, hosted in DataTable's filter bar beside the text box. */

@@ -24,6 +24,20 @@ export interface MemberPhaseReading {
   progress: number; // latest hill position 0–100
 }
 
+/** A real device Program linked to a membership (autoknow-hcz.14). `deviceId` is the
+ *  link row's own id — what the unlink action names. */
+export interface MemberDeviceRow {
+  deviceId: number;
+  projectId: number;
+  name: string;
+}
+
+/** A candidate row for the Devices combobox — one of the partner's own real programs. */
+export interface LinkableProgram {
+  id: number;
+  name: string;
+}
+
 export interface InitiativeMemberRow {
   partnerId: number;
   partnerName: string;
@@ -36,6 +50,34 @@ export interface InitiativeMemberRow {
   targetDate: string | null; // the copy's own date (ISO)
   phases: MemberPhaseReading[]; // template order — every member shares the same steps
   joinedAt: string; // ISO
+  devices: MemberDeviceRow[]; // linked head-unit programs, name order
+  /** The partner's own real, unarchived programs not yet linked — the Devices
+   *  combobox's canonical rows (AGENTS lesson 3). Empty = nothing to link. */
+  linkablePrograms: LinkableProgram[];
+}
+
+/** The devices read both surfaces use verbatim — the members table (via
+ *  `getInitiativeDetail`) and the copy page's facts line (via
+ *  `getMembershipDevices`) — so the two cannot drift on shape or order. */
+const devicesInclude = {
+  include: { project: { select: { id: true, name: true } } },
+  orderBy: { project: { name: 'asc' as const } },
+} as const;
+
+const toMemberDeviceRows = (
+  devices: { id: number; projectId: number; project: { name: string } }[],
+): MemberDeviceRow[] =>
+  devices.map((d) => ({ deviceId: d.id, projectId: d.projectId, name: d.project.name }));
+
+/** The copy page's facts-line read (autoknow-hcz.14): the membership's linked device
+ *  programs. Empty when the membership does not exist — a copy predating it renders
+ *  no Devices fact rather than an error. */
+export async function getMembershipDevices(initiativeId: number, partnerId: number): Promise<MemberDeviceRow[]> {
+  const membership = await prisma.initiativePartner.findUnique({
+    where: { initiativeId_partnerId: { initiativeId, partnerId } },
+    include: { devices: devicesInclude },
+  });
+  return membership ? toMemberDeviceRows(membership.devices) : [];
 }
 
 export interface InitiativeDetail {
@@ -238,7 +280,22 @@ export async function getInitiativeDetail(id: number, now: number): Promise<Init
     include: {
       members: {
         where: { status: 'active' },
-        include: { partner: { include: { region: true } } },
+        include: {
+          partner: {
+            include: {
+              region: true,
+              // The Devices picker's candidate rows: the partner's own REAL programs
+              // (`initiativeId: null` — a copy is workflow standing, not a device),
+              // unarchived. The mutation boundary re-checks both rules.
+              projects: {
+                where: { initiativeId: null, isArchived: false },
+                select: { id: true, name: true },
+                orderBy: { name: 'asc' },
+              },
+            },
+          },
+          devices: devicesInclude,
+        },
         orderBy: { partner: { name: 'asc' } },
       },
       copies: {
@@ -252,6 +309,10 @@ export async function getInitiativeDetail(id: number, now: number): Promise<Init
   const copyByPartner = new Map(initiative.copies.map((c) => [c.partnerId, c]));
   const members: InitiativeMemberRow[] = initiative.members.map((m) => {
     const copy = copyByPartner.get(m.partnerId);
+    const devices = toMemberDeviceRows(m.devices);
+    // A linked program stays out of the picker — the one legal move left is unlink.
+    const linkedIds = new Set(devices.map((d) => d.projectId));
+    const linkablePrograms = m.partner.projects.filter((p) => !linkedIds.has(p.id));
     if (!copy) {
       // Data predating the add-creates-a-copy invariant (or a hand-edited row): shown
       // honestly as a member with no reading rather than hidden or defaulted (#129).
@@ -266,6 +327,8 @@ export async function getInitiativeDetail(id: number, now: number): Promise<Init
         targetDate: null,
         phases: [],
         joinedAt: m.joinedAt.toISOString(),
+        devices,
+        linkablePrograms,
       };
     }
     const { phases, completion, status } = readCopy(copy, now);
@@ -280,6 +343,8 @@ export async function getInitiativeDetail(id: number, now: number): Promise<Init
       targetDate: copy.sopDate ? copy.sopDate.toISOString() : null,
       phases,
       joinedAt: m.joinedAt.toISOString(),
+      devices,
+      linkablePrograms,
     };
   });
 

@@ -19,9 +19,10 @@ import { getNeedleHistory } from '../../../../lib/history';
 import { getSummary } from '../../../../lib/summaries';
 import { geminiConfigured } from '../../../../lib/gemini';
 import { getProgramEscalations } from '../../../../lib/escalationQueries';
+import { getMembershipDevices } from '../../../../lib/initiativeQueries';
 import { profilesAsOf } from '../../../../lib/profiles';
 import { effectiveStartedAt, statusProgress } from '../../../../lib/phase';
-import { initiativeHref, initiativeProjectHref, partnerHref } from '../../../../lib/entityHref';
+import { initiativeHref, initiativeProjectHref, partnerHref, programHref } from '../../../../lib/entityHref';
 import { getLocale } from '../../../../lib/locale';
 import { t } from '../../../../lib/i18n';
 
@@ -62,6 +63,11 @@ export default async function InitiativeProjectPage(props: {
   });
   // The pair must MATCH — a copy is addressable only under its own initiative.
   if (!project || project.initiativeId !== initiativeId || !project.initiative) return notFound();
+
+  // The membership's linked device programs (autoknow-hcz.14) — the head units this
+  // initiative lands on for THIS partner, read for the facts line below through the
+  // same query the members table uses, so the two surfaces cannot drift.
+  const devices = await getMembershipDevices(initiativeId, project.partnerId);
 
   // Anticipated-vs-actual timing per phase, aggregated in SQL (the program page's
   // pattern — never each phase's full history).
@@ -158,6 +164,19 @@ export default async function InitiativeProjectPage(props: {
           <span className={styles.factSep} aria-hidden>·</span>
           <span className={styles.factLabel}>{t(locale, 'initiativeTargetLabel')}</span>{' '}
           <DateCell value={project.sopDate} />
+          {/* Only when links exist — a label over nothing is noise (§7). */}
+          {devices.length > 0 && (
+            <>
+              <span className={styles.factSep} aria-hidden>·</span>
+              <span className={styles.factLabel}>{t(locale, 'initiativeColDevices')}</span>{' '}
+              {devices.map((d, i) => (
+                <span key={d.deviceId}>
+                  {i > 0 && ', '}
+                  <Link href={programHref(d.projectId)}>{d.name}</Link>
+                </span>
+              ))}
+            </>
+          )}
         </p>
       </header>
 

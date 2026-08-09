@@ -10,6 +10,8 @@ import {
   initiativeArchiveSchema,
   initiativeAddPartnersSchema,
   initiativeRemovePartnerSchema,
+  initiativeLinkDeviceSchema,
+  initiativeUnlinkDeviceSchema,
 } from '../../lib/schemas';
 import { guarded, type ActionResult } from '../../lib/actionResult';
 import { getCurrentUser } from '../../lib/session';
@@ -190,5 +192,57 @@ export async function removePartner(formData: FormData): Promise<ActionResult> {
     // The removed partner's name leaves the index text with them (see addPartners).
     await indexEntity('initiative', initiativeId);
     revalidateInitiative(initiativeId, [partnerId]);
+  });
+}
+
+/**
+ * Link one of the member's real device Programs (head units) to their membership
+ * (autoknow-hcz.14). The schema checks shape; the resolution rules live HERE, because
+ * the DB deliberately cannot express them (ADR
+ * `an-initiative-links-devices-from-the-membership-to-real-programs`):
+ *  - the (initiative, partner) pair must be an ACTIVE membership;
+ *  - the program must be REAL (`initiativeId: null`) — an initiative copy is workflow
+ *    standing, not a device — and belong to the SAME partner as the membership.
+ * A program failing either rule is rejected whole (AGENTS lesson 3). Linking an
+ * already-linked program is a no-op, the same retry-safe stance as `addMembers`.
+ */
+export async function linkDevice(formData: FormData): Promise<ActionResult> {
+  return guarded(async () => {
+    const { initiativeId, partnerId, projectId } = parseForm(initiativeLinkDeviceSchema, formData);
+    const membership = await prisma.initiativePartner.findUnique({
+      where: { initiativeId_partnerId: { initiativeId, partnerId } },
+    });
+    if (!membership || membership.status !== 'active') {
+      throw new Error('Not an active member — add the partner to the initiative first');
+    }
+    const program = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!program) throw new Error('Unknown program — refresh and re-select');
+    if (program.initiativeId !== null) {
+      throw new Error("That is an initiative copy — link one of the partner's real device programs");
+    }
+    if (program.partnerId !== partnerId) {
+      throw new Error("Program belongs to a different partner — link one of this member's own programs");
+    }
+    await prisma.initiativeDevice.upsert({
+      where: { initiativePartnerId_projectId: { initiativePartnerId: membership.id, projectId } },
+      create: { initiativePartnerId: membership.id, projectId },
+      update: {},
+    });
+    revalidateInitiative(initiativeId, [partnerId]);
+  });
+}
+
+/** Remove a device link. The link row id is the canonical key — the affordance sits
+ *  beside the rendered link. The program itself is untouched; only the join goes. */
+export async function unlinkDevice(formData: FormData): Promise<ActionResult> {
+  return guarded(async () => {
+    const { deviceId } = parseForm(initiativeUnlinkDeviceSchema, formData);
+    const device = await prisma.initiativeDevice.findUnique({
+      where: { id: deviceId },
+      include: { membership: { select: { initiativeId: true, partnerId: true } } },
+    });
+    if (!device) throw new Error('Not linked — nothing to unlink');
+    await prisma.initiativeDevice.delete({ where: { id: deviceId } });
+    revalidateInitiative(device.membership.initiativeId, [device.membership.partnerId]);
   });
 }

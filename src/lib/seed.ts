@@ -57,8 +57,10 @@ export async function wipeAllData() {
   await prisma.contextRevision.deleteMany();
   await prisma.syncCursor.deleteMany();
   await prisma.contextUrl.deleteMany();
-  // InitiativePartner references Partner and Initiative, so it clears with the other
-  // join tables, ahead of both.
+  // InitiativeDevice references InitiativePartner and Project, so it clears ahead of
+  // both; InitiativePartner references Partner and Initiative, so it clears with the
+  // other join tables, ahead of both.
+  await prisma.initiativeDevice.deleteMany();
   await prisma.initiativePartner.deleteMany();
   await prisma.phasePartner.deleteMany();
   await prisma.phasePerson.deleteMany();

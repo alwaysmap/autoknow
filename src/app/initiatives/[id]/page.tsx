@@ -10,7 +10,7 @@ import { geminiConfigured } from '../../../lib/gemini';
 import { untrackedContext } from '../../../lib/untrackedContext';
 import { getInitiativeDetail, getAddablePartners } from '../../../lib/initiativeQueries';
 import { getInitiativeEscalations } from '../../../lib/escalationQueries';
-import { removePartner } from '../../actions/initiatives';
+import { removePartner, linkDevice, unlinkDevice } from '../../actions/initiatives';
 import InitiativeMembersTable from './InitiativeMembersTable';
 import InitiativeAdminControls from './InitiativeAdminControls';
 import AddPartnersTable from './AddPartnersTable';
@@ -41,6 +41,17 @@ export default async function InitiativePage(props: { params: Promise<{ id: stri
   async function removePartnerAction(formData: FormData): Promise<void> {
     'use server';
     await removePartner(formData);
+  }
+
+  // Same void-wrapper shape for the Devices column's two forms (autoknow-hcz.14): a
+  // refusal is logged by `guarded`, and the cell simply re-renders unchanged.
+  async function linkDeviceAction(formData: FormData): Promise<void> {
+    'use server';
+    await linkDevice(formData);
+  }
+  async function unlinkDeviceAction(formData: FormData): Promise<void> {
+    'use server';
+    await unlinkDevice(formData);
   }
 
   // Candidates for the bulk-add table (part f): partners not already active members,
@@ -96,6 +107,8 @@ export default async function InitiativePage(props: { params: Promise<{ id: stri
           members={initiative.members}
           locale={locale}
           removeAction={removePartnerAction}
+          linkAction={linkDeviceAction}
+          unlinkAction={unlinkDeviceAction}
         />
       </section>
 
