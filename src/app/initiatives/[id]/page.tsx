@@ -59,6 +59,7 @@ export default async function InitiativePage(props: { params: Promise<{ id: stri
       actions={
         <InitiativeAdminControls
           initiativeId={initiative.id}
+          templateId={initiative.templateId}
           name={initiative.name}
           description={initiative.description}
           targetMonth={targetMonth}
