@@ -26,7 +26,10 @@ export default function QuickIngest({
   phaseId,
   path,
 }: {
-  /** Omit both anchor props for an UNSCOPED paste — the global classifier places it. */
+  /** Omit both anchor props for an UNSCOPED paste — the global classifier places it.
+   *  Deliberately narrower than FeedType: a source anchors where ContextUrl has a
+   *  column to record it (partnerId/projectId/phaseId), and there is no
+   *  ContextUrl.initiativeId — an initiative page has no source rail to feed. */
   anchorKind?: 'program' | 'partner';
   anchorId?: number;
   phaseId?: number;

@@ -7,7 +7,8 @@ import { addressesOnFile, type AddressesOnFile } from './people';
 import { FEED_TYPES, type FeedType, type FeedScope, type FeedItem } from './feed';
 
 // Unified search over everything in AutoKnow. Every searchable thing is tagged with
-// a type (partner | program | person | context) in its table's own vector(768) column.
+// a type (partner | program | person | context | initiative) in its table's own
+// vector(768) column.
 // One UNION query searches across the requested types, filtered by scope (ecosystem /
 // a partner / a project). Returns the shared FeedItem shape.
 //
@@ -20,11 +21,9 @@ import { FEED_TYPES, type FeedType, type FeedScope, type FeedItem } from './feed
 
 // ---------- Indexing ("tagging" core entities) ----------
 
-async function setEmbedding(
-  table: 'Partner' | 'Project' | 'Person' | 'ContextUrl',
-  id: number,
-  text: string,
-) {
+type EmbeddingTable = 'Partner' | 'Project' | 'Person' | 'ContextUrl' | 'Initiative';
+
+async function setEmbedding(table: EmbeddingTable, id: number, text: string) {
   if (!text.trim()) return;
   // Storage: throws rather than substituting the pedestal (see embedForStorage).
   const vec = `[${(await embedForStorage(text)).join(',')}]`;
@@ -52,7 +51,26 @@ function personIndexText(p: AddressesOnFile & { name: string; notes: string | nu
   return [p.name, ...addressesOnFile(p), p.notes].filter(Boolean).join('. ');
 }
 
-async function entityIndexText(kind: FeedType, id: number): Promise<{ table: 'Partner' | 'Project' | 'Person' | 'ContextUrl'; text: string } | null> {
+/**
+ * What an Initiative is EMBEDDED as — same select-rides-with-composer reasoning as
+ * `personIndexSelect` above. Member partner NAMES ride along for the same reason a
+ * program carries its owner's (#127 E7): "the EV-routing thing with Rivian" is how
+ * people ask for an initiative. Active members only — a removed partner is history,
+ * and their name still matching would surface the initiative for a partner it no
+ * longer spans. Membership mutations therefore reindex too (app/actions/initiatives).
+ */
+const initiativeIndexSelect = {
+  id: true, name: true, description: true,
+  members: { where: { status: 'active' as const }, select: { partner: { select: { name: true } } } },
+} as const;
+
+function initiativeIndexText(i: { name: string; description: string | null; members: { partner: { name: string } }[] }): string {
+  return [i.name, i.description, ...i.members.map((m) => m.partner.name)].filter(Boolean).join('. ');
+}
+
+/** Exported for the DB test that pins each kind's composed text — the composition
+ *  IS the search contract (what a record is findable by), so it is asserted directly. */
+export async function entityIndexText(kind: FeedType, id: number): Promise<{ table: EmbeddingTable; text: string } | null> {
   switch (kind) {
     case 'partner': {
       const p = await prisma.partner.findUnique({
@@ -84,6 +102,12 @@ async function entityIndexText(kind: FeedType, id: number): Promise<{ table: 'Pa
       const c = await prisma.contextUrl.findUnique({ where: { id }, select: { title: true, ingestedText: true } });
       return c && { table: 'ContextUrl', text: [c.title, c.ingestedText].filter(Boolean).join('. ') };
     }
+    case 'initiative': {
+      // Selected and composed by `initiativeIndexText` above, which carries the
+      // argument for member names and the active-only filter.
+      const i = await prisma.initiative.findUnique({ where: { id }, select: initiativeIndexSelect });
+      return i && { table: 'Initiative', text: initiativeIndexText(i) };
+    }
   }
 }
 
@@ -107,18 +131,19 @@ export async function indexEntity(kind: FeedType, id: number): Promise<void> {
  * embed-concurrency pool: the serial version was a 5+ minute request at ~1.5k
  * records; unbounded parallelism would trip Gemini rate limits instead.
  */
-export async function reindexAll(): Promise<{ partners: number; programs: number; people: number; context: number }> {
-  const [partners, projects, people, context] = await Promise.all([
+export async function reindexAll(): Promise<{ partners: number; programs: number; people: number; context: number; initiatives: number }> {
+  const [partners, projects, people, context, initiatives] = await Promise.all([
     prisma.partner.findMany({ select: { id: true, name: true, summary: true, type: { select: { name: true } } } }),
     prisma.project.findMany({
       select: { id: true, name: true, ownerPerson: { select: { name: true, email: true } } },
     }),
     prisma.person.findMany({ select: personIndexSelect }),
     prisma.contextUrl.findMany({ select: { id: true, title: true, ingestedText: true } }),
+    prisma.initiative.findMany({ select: initiativeIndexSelect }),
   ]);
 
   const joined = (parts: (string | null | undefined)[]) => parts.filter(Boolean).join('. ');
-  const jobs: { table: 'Partner' | 'Project' | 'Person' | 'ContextUrl'; id: number; text: string }[] = [
+  const jobs: { table: EmbeddingTable; id: number; text: string }[] = [
     ...partners.map((p) => ({ table: 'Partner' as const, id: p.id, text: joined([p.name, p.type?.name, p.summary]) })),
     ...projects.map((p) => ({
       table: 'Project' as const,
@@ -127,6 +152,7 @@ export async function reindexAll(): Promise<{ partners: number; programs: number
     })),
     ...people.map((p) => ({ table: 'Person' as const, id: p.id, text: personIndexText(p) })),
     ...context.map((c) => ({ table: 'ContextUrl' as const, id: c.id, text: joined([c.title, c.ingestedText]) })),
+    ...initiatives.map((i) => ({ table: 'Initiative' as const, id: i.id, text: initiativeIndexText(i) })),
   ];
 
   const CONCURRENCY = 4;
@@ -149,6 +175,7 @@ export async function reindexAll(): Promise<{ partners: number; programs: number
     programs: projects.length,
     people: people.length,
     context: context.length,
+    initiatives: initiatives.length,
   };
 }
 
@@ -313,6 +340,38 @@ function branchSql(type: FeedType, q: string, vec: string, scope: FeedScope, sem
         SELECT 'person' AS type, pe.id, pe.name AS title, pe.email AS subtitle,
                ('/people/' || pe.id) AS url, FALSE AS external, ${score} AS score, (${lex} > 0) AS "lexHit"
         FROM "Person" pe
+        WHERE ${eligible} AND ${where}`;
+    }
+    case 'initiative': {
+      // A partner scope has a defined answer here — the initiatives this partner is an
+      // ACTIVE member of; a project scope resolves to the one initiative the project is
+      // a copy of (its `initiativeId`, NULL for a standalone program). Active-only
+      // matches the index text's stance: a removed partner is history, not a span.
+      const where =
+        partnerId != null
+          ? Prisma.sql`i.id IN (SELECT "initiativeId" FROM "InitiativePartner"
+                                WHERE "partnerId" = ${partnerId} AND status = 'active')`
+          : projectId != null
+            ? Prisma.sql`i.id = (SELECT "initiativeId" FROM "Project" WHERE id = ${projectId})`
+            : personId != null
+              ? MATCHES_NOTHING
+              : Prisma.sql`TRUE`;
+      // Secondary text spans the active members' names — the same correlated-aggregate
+      // shape as the person branch's held addresses, and for the same reason: an
+      // initiative with five members stays ONE row, its score not multiplied by size.
+      const memberNames = Prisma.sql`COALESCE(
+        (SELECT string_agg(pa.name, ' ') FROM "InitiativePartner" ip
+          JOIN "Partner" pa ON pa.id = ip."partnerId"
+          WHERE ip."initiativeId" = i.id AND ip.status = 'active'), '')`;
+      const lex = lexSql(q, Prisma.sql`i.name`, [Prisma.sql`i.description`, memberNames]);
+      const { score, eligible } = blend(lex, Prisma.sql`i.embedding`, v, semantic);
+      // NULL subtitle: the meaningful secondary fact (member count) is a number that
+      // would need a locale to phrase, and SQL has none — the KindBox already names
+      // what the row is.
+      return Prisma.sql`
+        SELECT 'initiative' AS type, i.id, i.name AS title, NULL::text AS subtitle,
+               ('/initiatives/' || i.id) AS url, FALSE AS external, ${score} AS score, (${lex} > 0) AS "lexHit"
+        FROM "Initiative" i
         WHERE ${eligible} AND ${where}`;
     }
     case 'context': {

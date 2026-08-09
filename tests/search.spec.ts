@@ -5,6 +5,7 @@ import { wipeAll } from './helpers/fixtures';
 test.describe('Search Results Page (Text + pgvector)', () => {
   let fordId: number;
   let boschId: number;
+  let initiativeId: number;
 
   test.beforeAll(async () => {
     // Clear and seed a couple of partners + a project to search. Deliberately NOT
@@ -51,6 +52,15 @@ test.describe('Search Results Page (Text + pgvector)', () => {
           startDate: new Date('2024-01-01T00:00:00Z'), email: 'ingrid@waymo.example' },
       ],
     });
+
+    // An initiative with Bosch as its one active member: findable by its own name AND
+    // by the member's name (initiativeIndexText / the branch's member-names aggregate).
+    const template = await prisma.programTemplate.create({ data: { name: 'Charging workflow snapshot' } });
+    const initiative = await prisma.initiative.create({
+      data: { name: 'Evos Charging Initiative', templateId: template.id },
+    });
+    initiativeId = initiative.id;
+    await prisma.initiativePartner.create({ data: { initiativeId: initiative.id, partnerId: bosch.id } });
   });
 
   test.afterAll(async () => {
@@ -95,6 +105,37 @@ test.describe('Search Results Page (Text + pgvector)', () => {
       expect(it.score).toBeGreaterThanOrEqual(0);
       expect(it.score).toBeLessThanOrEqual(1);
     }
+  });
+
+  test('API: an initiative is findable by its own name and links to its page', async ({ request }) => {
+    const res = await request.get('/api/search?q=charging');
+    expect(res.ok()).toBeTruthy();
+    const { items } = await res.json();
+    // Rank 0 is guaranteed: the only other 'charging' text in the fixture is the
+    // ProgramTemplate's name, and templates are not a searchable type.
+    expect(items[0]).toMatchObject({
+      kind: 'initiative',
+      title: 'Evos Charging Initiative',
+      href: `/initiatives/${initiativeId}`,
+    });
+  });
+
+  test('API: an initiative surfaces under an ACTIVE member partner name', async ({ request }) => {
+    const res = await request.get('/api/search?q=bosch&types=initiative');
+    expect(res.ok()).toBeTruthy();
+    const { items } = await res.json();
+    // A member-name match is secondary evidence (0.6), not a title hit — the row is
+    // present, its title untouched by the query.
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ kind: 'initiative', title: 'Evos Charging Initiative' });
+  });
+
+  test('UI: an initiative hit renders in the full results and links to its page', async ({ page }) => {
+    await page.goto('/?q=charging');
+
+    const hit = page.getByRole('link', { name: 'Evos Charging Initiative', exact: true });
+    await expect(hit).toBeVisible();
+    await expect(hit).toHaveAttribute('href', `/initiatives/${initiativeId}`);
   });
 
   test('UI: the landing page searches from ?q= and links the partner it finds', async ({ page }) => {

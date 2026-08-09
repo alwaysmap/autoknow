@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { adminOperationsAllowed, jsonError, serverError } from '../../../../lib/api';
 import { reindexAll } from '../../../../lib/search';
 
-// Rebuild the search index: (re)embed every partner, program, person, and context
-// record. Guarded like the other admin/dev operations.
+// Rebuild the search index: (re)embed every partner, program, person, context, and
+// initiative record. Guarded like the other admin/dev operations.
 export async function POST(req: Request) {
   if (!adminOperationsAllowed(req)) {
     return jsonError('Unauthorized: admin operations are disabled in this environment', 403);

@@ -31,6 +31,7 @@ describe('KindBox', () => {
     ['program', 'Program'],
     ['person', 'Person'],
     ['context', 'Context'],
+    ['initiative', 'Initiative'],
   ];
 
   it.each(cases)('labels a %s result "%s"', (kind, label) => {

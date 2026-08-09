@@ -66,6 +66,7 @@ const TEXT_INKS: Record<string, ('bg' | 'paper')[]> = {
   '--kind-program': ['bg', 'paper'],
   '--kind-person': ['bg', 'paper'],
   '--kind-context': ['bg', 'paper'],
+  '--kind-initiative': ['bg', 'paper'],
   '--googler': ['bg'],
   '--googler-hover': ['bg'],
 };

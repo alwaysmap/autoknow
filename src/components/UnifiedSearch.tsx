@@ -12,15 +12,19 @@ import styles from './UnifiedSearch.module.css';
 
 // One search component for every surface, backed by the standalone /api/search endpoint.
 // `scope` keeps results inside the current partner/program (omit for ecosystem-wide).
-// Type chips filter results in/out (partners, programs, people, context).
+// Type chips filter results in/out — one chip per searchable FeedType.
 
 const TYPE_KEY: Record<FeedType, StringKey> = {
   partner: 'partnersLabel',
   program: 'navPrograms',
   person: 'peopleLabel',
   context: 'contextLabel',
+  initiative: 'navInitiatives',
 };
-const ALL: FeedType[] = ['partner', 'program', 'person', 'context'];
+// Derived from TYPE_KEY rather than importing FEED_TYPES: lib/feed is server-only
+// (the same constraint lib/feedCategory documents), and the Record above already
+// forces an entry — and so a chip — for every FeedType member.
+const ALL = Object.keys(TYPE_KEY) as FeedType[];
 
 /** Suggestions name the kind, which is wider than the filterable FeedType set. */
 const KIND_LABEL: Record<FeedKind, StringKey> = {
@@ -28,6 +32,7 @@ const KIND_LABEL: Record<FeedKind, StringKey> = {
   program: 'programLabel',
   person: 'personLabel',
   context: 'contextLabel',
+  initiative: 'initiativeLabel',
   status: 'statusLabel',
   phase: 'phaseLabel',
   relationship: 'partnerLabel',
