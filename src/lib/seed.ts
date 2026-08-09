@@ -36,6 +36,7 @@ import { addPhasePartner } from '../app/actions/phasePartners';
 import { addPhasePerson } from '../app/actions/phasePeople';
 import { setPhaseStarted } from '../app/actions/hill';
 import { createInitiative, addPartners, removePartner } from '../app/actions/initiatives';
+import { isNextRedirect, type ActionResult } from './actionResult';
 
 // Phase progress is no longer hand-authored per program: the template-based programs
 // derive it from their plan position (seedPhasesFromBuiltin), which keeps it
@@ -1628,23 +1629,21 @@ export async function seedMockData(): Promise<MockSeedReport> {
   // ---------------------------------------------------------------------------
   console.log('Seeding initiatives through the initiative actions...');
 
-  const isNextRedirect = (e: unknown): boolean =>
-    typeof (e as { digest?: string })?.digest === 'string' &&
-    (e as { digest: string }).digest.startsWith('NEXT_REDIRECT');
-
   /** `<input type="month">` value `months` ahead of seed time — the wire shape the
    *  initiative actions take; `parseSopInput` month-ends it server-side. */
   const monthInputAhead = (months: number) => aheadMonthStart(months).toISOString().slice(0, 7);
 
   /** Create through `createInitiative`, which redirects to the new page on success —
-   *  the seed has no navigation, so the redirect is swallowed and the row looked up. */
+   *  the seed has no navigation, so the redirect is swallowed and the row looked up.
+   *  The two exits: redirect thrown = created; `{ error }` returned = rejected. */
   const seedInitiative = async (fields: Record<string, string | number>): Promise<number> => {
+    let result: ActionResult = {};
     try {
-      const result = await createInitiative(fd(fields));
-      if (result?.error) throw new Error(`Seed initiative "${fields.name}" rejected: ${result.error}`);
+      result = await createInitiative(fd(fields));
     } catch (e) {
       if (!isNextRedirect(e)) throw e;
     }
+    if (result.error) throw new Error(`Seed initiative "${fields.name}" rejected: ${result.error}`);
     const row = await prisma.initiative.findFirstOrThrow({
       where: { name: String(fields.name) }, select: { id: true },
     });
@@ -1662,17 +1661,23 @@ export async function seedMockData(): Promise<MockSeedReport> {
     if (result.error) throw new Error(`Seed initiative member add failed: ${result.error}`);
   };
 
-  /** Program-level status for a member copy, via the needle route like every other
-   *  seeded program — the route is the seam that syncs the Project columns with the
-   *  newest state, which instantiation alone does not do. */
-  const copyStatus = async (
-    initiativeId: number, partnerId: number,
-    status: { needle: string; hill: number; note: string },
-  ): Promise<void> => {
+  /** A member's one ACTIVE copy — the invariant the actions enforce, so the lookup
+   *  can be this blunt. Both helpers below start here. */
+  const activeCopyId = async (initiativeId: number, partnerId: number): Promise<number> => {
     const copy = await prisma.project.findFirstOrThrow({
       where: { initiativeId, partnerId, lifecycle: 'active' }, select: { id: true },
     });
-    await postProjectState(copy.id, {
+    return copy.id;
+  };
+
+  /** Post a program-level status for a member copy, via the needle route like every
+   *  other seeded program — the route is the seam that syncs the Project columns with
+   *  the newest state, which instantiation alone does not do. */
+  const postCopyStatus = async (
+    initiativeId: number, partnerId: number,
+    status: { needle: string; hill: number; note: string },
+  ): Promise<void> => {
+    await postProjectState(await activeCopyId(initiativeId, partnerId), {
       theNeedle: status.needle, hillChartProgress: status.hill, notes: status.note, source: 'seed',
     });
   };
@@ -1680,17 +1685,16 @@ export async function seedMockData(): Promise<MockSeedReport> {
   /** Advance one phase of a member copy exactly the way the rest of the seed advances
    *  phases: a progress row through the phase-state route. No timestamp override —
    *  "now" is already newer than the copy's creation-time initial states, so
-   *  newest-wins lands on the posted progress. */
+   *  newest-wins lands on the posted progress. Always 'On Track': phase-level risk
+   *  belongs to `postCopyStatus`; these rows exist for the progress spread. */
   const advanceCopyPhase = async (
     initiativeId: number, partnerId: number, phaseName: string, progress: number, notes: string | null,
   ): Promise<void> => {
-    const copy = await prisma.project.findFirstOrThrow({
-      where: { initiativeId, partnerId, lifecycle: 'active' }, select: { id: true },
-    });
+    const copyId = await activeCopyId(initiativeId, partnerId);
     const phase = await prisma.phase.findFirstOrThrow({
-      where: { projectId: copy.id, name: phaseName }, select: { id: true },
+      where: { projectId: copyId, name: phaseName }, select: { id: true },
     });
-    await postPhaseState(copy.id, phase.id, {
+    await postPhaseState(copyId, phase.id, {
       theNeedle: 'On Track', hillChartProgress: progress, notes, source: 'seed',
     });
   };
@@ -1731,12 +1735,12 @@ export async function seedMockData(): Promise<MockSeedReport> {
   });
   await addInitiativeMembers(evInitiativeId, [toyotaId, gmId]);
 
-  await copyStatus(geminiInitiativeId, hondaId, { needle: 'On Track', hill: 45, note: 'GMS core landed; Play configuration under way toward the fleet target.' });
-  await copyStatus(geminiInitiativeId, hyundaiId, { needle: 'On Track', hill: 10, note: 'Kickoff complete; GMS core integration scheduled.' });
-  await copyStatus(geminiInitiativeId, stellantisId, { needle: 'Some Risk', hill: 5, note: 'Joined on the late wave; brand-matrix scoping still open.' });
-  await copyStatus(geminiInitiativeId, volvoCarsId, { needle: 'On Track', hill: 10, note: 'Kickoff complete on the EX90 line.' });
-  await copyStatus(evInitiativeId, toyotaId, { needle: 'On Track', hill: 30, note: 'Architecture locked; battery-state HAL scoping in flight.' });
-  await copyStatus(evInitiativeId, gmId, { needle: 'On Track', hill: 5, note: 'Joined; architecture review scheduled with the Ultifi team.' });
+  await postCopyStatus(geminiInitiativeId, hondaId, { needle: 'On Track', hill: 45, note: 'GMS core landed; Play configuration under way toward the fleet target.' });
+  await postCopyStatus(geminiInitiativeId, hyundaiId, { needle: 'On Track', hill: 10, note: 'Kickoff complete; GMS core integration scheduled.' });
+  await postCopyStatus(geminiInitiativeId, stellantisId, { needle: 'Some Risk', hill: 5, note: 'Joined on the late wave; brand-matrix scoping still open.' });
+  await postCopyStatus(geminiInitiativeId, volvoCarsId, { needle: 'On Track', hill: 10, note: 'Kickoff complete on the EX90 line.' });
+  await postCopyStatus(evInitiativeId, toyotaId, { needle: 'On Track', hill: 30, note: 'Architecture locked; battery-state HAL scoping in flight.' });
+  await postCopyStatus(evInitiativeId, gmId, { needle: 'On Track', hill: 5, note: 'Joined; architecture review scheduled with the Ultifi team.' });
 
   // Two copies move onto their plans, so the member rollup shows real spread. Each
   // advanced phase's dependencies are complete first — the DAG-coherence guard in

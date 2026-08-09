@@ -289,6 +289,19 @@ describe('seedMockData through the API', () => {
     });
     expect(unlinked.map((a) => a.assignedTo)).toEqual([]);
 
+    // The mirror of that scoping: the excluded population exists and is EXACTLY the
+    // initiative copies' bring-up items. If some other path started seeding
+    // assignee-less items, or a copy's item started carrying text, one of these
+    // two assertions goes red and names the population that moved.
+    const unassigned = await prisma.actionItem.findMany({
+      where: { assignedToPersonId: null, assignedTo: null },
+      select: { phase: { select: { project: { select: { initiativeId: true } } } } },
+    });
+    expect(unassigned.length).toBeGreaterThan(0);
+    for (const item of unassigned) {
+      expect(item.phase.project.initiativeId).not.toBeNull();
+    }
+
     // And it resolves to HER, not to some near-miss the local-part tier reached for.
     const qualcommEraItem = await prisma.actionItem.findFirstOrThrow({
       where: { assignedTo: 'awaters@qualcomm.com' },
@@ -402,7 +415,7 @@ describe('seedMockData through the API', () => {
     // never a pointer at the shared template.
     const gasBuiltin = BUILTIN_TEMPLATES.find((t) => t.name === 'GAS')!;
     const gasSource = await prisma.programTemplate.findFirstOrThrow({
-      where: { name: 'GAS', isBuiltIn: true },
+      where: { name: 'GAS', isBuiltIn: true }, select: { id: true },
     });
     expect(gemini.templateId).not.toBe(gasSource.id);
     expect(gemini.template.phases).toHaveLength(gasBuiltin.phases.length);

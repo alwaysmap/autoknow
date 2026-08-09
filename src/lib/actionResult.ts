@@ -7,7 +7,10 @@ export interface ActionResult {
   error?: string;
 }
 
-function isNextRedirect(e: unknown): boolean {
+/** Exported for callers that invoke a redirecting action OUTSIDE a request (the
+ *  seed, tests): they must treat the redirect throw as success, and this is the
+ *  one spelling of that check — hand-rolled copies had started to accumulate. */
+export function isNextRedirect(e: unknown): boolean {
   const digest = (e as { digest?: unknown } | null)?.digest;
   return typeof digest === 'string' && digest.startsWith('NEXT_REDIRECT');
 }

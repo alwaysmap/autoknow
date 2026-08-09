@@ -8,6 +8,7 @@ process.env.DATABASE_URL = testDatabaseUrl(); // bind lib/db to the *_test datab
 
 import { prisma, disconnectTestDb } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
+import { isNextRedirect } from '../src/lib/actionResult';
 
 jest.mock('server-only', () => ({}));
 jest.mock('../src/auth', () => ({ authConfigured: false, auth: jest.fn(async () => null) }));
@@ -32,8 +33,6 @@ const form = (fields: Record<string, string>) => {
   return fd;
 };
 
-const isNextRedirect = (e: unknown) =>
-  typeof (e as { digest?: string })?.digest === 'string' && (e as { digest: string }).digest.startsWith('NEXT_REDIRECT');
 
 let sourceTemplateId: number;
 let oemId: number;
