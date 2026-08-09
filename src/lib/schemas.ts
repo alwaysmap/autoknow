@@ -554,6 +554,54 @@ export const escalationApiSchema = z
   .refine(ABOUT_SOMETHING.check, ABOUT_SOMETHING.opts)
   .refine(DUPLICATE_NEEDS_TARGET.check, DUPLICATE_NEEDS_TARGET.opts);
 
+// ---- initiatives (gh-286) ---------------------------------------------------------
+
+/** Create carries the SOURCE template id — the action snapshot-clones it; nothing ever
+ *  binds an initiative to a shared template. `targetMonth` is a `<input type="month">`
+ *  value ('YYYY-MM', blank = no target); the action converts it month-end via
+ *  `parseSopInput`, the same convention the program SOP field uses. */
+export const initiativeFieldsSchema = z.object({
+  name: zText.max(200),
+  description: zTextOrNull,
+  targetMonth: zTextOrNull,
+  templateId: zId,
+});
+
+/** Same editable fields plus the id — the template is NOT here: an initiative's
+ *  workflow definition is fixed at creation (the snapshot), never re-pointed. */
+export const initiativeUpdateSchema = z.object({
+  initiativeId: zId,
+  name: zText.max(200),
+  description: zTextOrNull,
+  targetMonth: zTextOrNull,
+});
+
+export const initiativeArchiveSchema = z.object({ initiativeId: zId });
+
+/** Membership adds: canonical partner ids as one comma-separated field, because
+ *  `parseForm` flattens FormData to single string values. Every id must parse — a
+ *  batch that names an unknown shape is rejected whole at this boundary (AGENTS
+ *  lesson 3), not partially applied. `targetMonth` optionally overrides the
+ *  initiative's default target for THIS batch. */
+export const initiativeAddPartnersSchema = z.object({
+  initiativeId: zId,
+  partnerIds: z
+    .string()
+    .trim()
+    .min(1)
+    .transform((s, ctx) => {
+      const ids = s.split(',').map((t) => Number(t.trim()));
+      if (ids.some((n) => !Number.isInteger(n) || n <= 0)) {
+        ctx.addIssue({ code: 'custom', message: 'partnerIds must be comma-separated positive integers' });
+        return z.NEVER;
+      }
+      return ids;
+    }),
+  targetMonth: zTextOrNull,
+});
+
+export const initiativeRemovePartnerSchema = z.object({ initiativeId: zId, partnerId: zId });
+
 // ---- helpers --------------------------------------------------------------------
 
 function formatIssues(error: z.ZodError): string {

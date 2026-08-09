@@ -66,6 +66,10 @@ export async function POST(request: Request) {
 
       // Fetch all projects to match via classification agent confidence
       const projects = await prisma.project.findMany({
+        // Chat matching enumerates programs; initiative copies stay out (gh-286
+        // decision 5) — asking Chat about an initiative is the 'initiative' summary
+        // scope follow-up's job, not a per-copy fuzzy match.
+        where: { initiativeId: null },
         include: { partner: true }
       });
 

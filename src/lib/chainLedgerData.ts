@@ -53,7 +53,10 @@ export async function getProgramLedgers(now: number, programIds?: number[]): Pro
   const projects = await prisma.project.findMany({
     where: programIds
       ? { id: { in: programIds } }
-      : { isArchived: false, lifecycle: 'active' },
+      // The enumerate-everything branch feeds portfolio surfaces (capacity, busiest),
+      // so initiative copies stay out (gh-286 decision 5); a caller that NAMES ids —
+      // a copy's own page — still gets them.
+      : { isArchived: false, lifecycle: 'active', initiativeId: null },
     include: {
       phases: {
         include: {

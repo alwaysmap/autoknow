@@ -87,6 +87,9 @@ export async function getPartnerRelationshipScores(): Promise<(number | null)[]>
 
 export async function getEcosystemDashboardData(): Promise<EcosystemDashboardData> {
   const projects = await prisma.project.findMany({
+    // Initiative copies are excluded from every ecosystem program count, tally and
+    // chart this loader feeds (gh-286 decision 5).
+    where: { initiativeId: null },
     include: {
       partner: true,
       ownerPerson: { select: { id: true, name: true } }, // the owner by REFERENCE (#127 E7)
@@ -189,6 +192,7 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
     JOIN "Project" proj ON proj.id = p."projectId"
     LEFT JOIN "PhaseState" s ON s."phaseId" = p.id
     WHERE proj."isArchived" = false
+      AND proj."initiativeId" IS NULL -- initiative copies excluded (gh-286 decision 5)
     GROUP BY p.id, p.name, proj.id, proj.name`;
 
   // FINISHED phases only. Cycle time is a completed-work measure: an in-flight phase has
