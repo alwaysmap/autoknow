@@ -26,6 +26,7 @@ import PhaseHillChart from '../../../components/PhaseHillChart';
 import { tNodes } from '../../../components/tNodes';
 import ChainLedger from '../../../components/ChainLedger';
 import AnchorHeading from '../../../components/AnchorHeading';
+import CollapsibleSection from '../../../components/CollapsibleSection';
 import KebabMenu from '../../../components/KebabMenu';
 import EscalationRows from '../../../components/EscalationRows';
 import { getProgramEscalations } from '../../../lib/escalationQueries';
@@ -451,8 +452,11 @@ export default async function ProjectDetailsPage(props: {
                 read straight after the needle and the briefing and BEFORE the chain
                 (#154). Full content width — a `topGrid` cell would halve it, and this
                 chart's apparent size is a pure function of its container's width.
-                No heading: the axis captions name it, and a title here would only
-                restate the picture (design.md §7, "few titles").
+                The heading earns its place as the section's collapse handle
+                (autoknow-hcz.15): a foldable section needs a labelled row to fold
+                against — §8c puts affordances inside a heading, and a collapsed
+                section with no title is unfindable. (It ran headingless before,
+                per §7 "few titles", when the axis captions alone named it.)
 
                 statusProgress, not raw progress — a phase explicitly marked Active
                 before its hill has moved is In Progress, and the rail below says so.
@@ -460,28 +464,31 @@ export default async function ProjectDetailsPage(props: {
                 contradicting each other about the same phase on one screen. The rail
                 calls the same function; neither re-derives it. */}
             {railMounted && graphRows.length > 0 && (
-              <section className={styles.historySection}>
+              <CollapsibleSection sectionId="programs:hill" className={styles.historySection}>
+                <AnchorHeading id="hill">
+                  {t(locale, 'hillChartHeader')}
+                </AnchorHeading>
                 <PhaseHillChart wide phases={graphRows.map((p) => ({
                   id: p.id, name: p.name, progress: statusProgress(p.progress, p.startedAt),
                 }))} />
-              </section>
+              </CollapsibleSection>
             )}
 
             {/* Critical Chain ledger: buffer vs SOP, where it went, who is
                 oversubscribed — "how are we doing" before the rail's structure. */}
             {/* the anchor lives on ChainLedger's own heading, not here — two
                 elements sharing an id is invalid and the jump hits the wrong one */}
-            <section className={styles.historySection}>
+            <CollapsibleSection sectionId="programs:chain" className={styles.historySection}>
               <ChainLedger projectId={projectId} locale={locale} now={now} ledger={ledger}
                 sopDate={project.sopDate ? project.sopDate.toISOString() : null}
                 volumeFirstYear={project.volumeFirstYear}
                 ownerPerson={ownerPerson}
                 ownerOtherActive={otherActive} />
-            </section>
+            </CollapsibleSection>
 
             {/* Phases as a vertical rail (spec §2.13): node per phase, latest hill +
                 update + partners per row, Done rows collapsed, add/remove inline. */}
-            <section className={styles.historySection}>
+            <CollapsibleSection sectionId="programs:phases" className={styles.historySection}>
               {railMounted ? (
                 // PhaseTrack owns its title row — the ⋯ menu (expand/hide/edit) rides
                 // beside it and needs the component's collapse state.
@@ -497,12 +504,12 @@ export default async function ProjectDetailsPage(props: {
                   <PhaseGraph projectId={projectId} phases={graphRows} allPartners={allPartners} />
                 </>
               )}
-            </section>
+            </CollapsibleSection>
 
             {/* Escalations raised about this program (#245) — the same condensed panel
                 the partner page carries; the full listing at /escalations is where
                 filtering lives. */}
-            <section className={styles.historySection}>
+            <CollapsibleSection sectionId="programs:escalations" className={styles.historySection}>
               <AnchorHeading
                 id="escalations"
                 actions={
@@ -516,11 +523,11 @@ export default async function ProjectDetailsPage(props: {
                 {t(locale, 'escalationsLabel')}
               </AnchorHeading>
               <EscalationRows escalations={escalations} locale={locale} />
-            </section>
+            </CollapsibleSection>
 
             {/* Activity: scoped search riding on top of the feed — one section, one
                 chip row (the feed's), no duplicated heading or intro */}
-            <section className={styles.historySection}>
+            <CollapsibleSection sectionId="programs:activity" className={styles.historySection}>
               <AnchorHeading id="activity">
                 {t(locale, 'navActivity')}
               </AnchorHeading>
@@ -532,7 +539,7 @@ export default async function ProjectDetailsPage(props: {
                 <QuickIngest anchorKind="program" anchorId={projectId} path={`/programs/${projectId}`} />
               </div>
               <ActivityFeed items={activity} deletable revalidate={`/programs/${projectId}`} untracked={{ ctx: untracked, partners: allPartners }} />
-            </section>
+            </CollapsibleSection>
         </div>
       </main>
     </div>

@@ -81,8 +81,30 @@ export const ROWS_PER_TABLE: Preference<number> = {
   },
 };
 
+// ---- Collapsed detail sections: client-only view state (autoknow-hcz.15). --------------
+// ONE list of section ids, not a key per section: the registry (and reset-all) stays a
+// finite catalog, and "collapse Critical Chain" is a claim about the SECTION, not about
+// one program — the id is `programs:chain`, never `programs:17:chain`, so a reader who
+// tucks a section away sees it tucked away on every program-shaped page.
+// Stored comma-separated (ids never contain a comma), so `String(value)` on an array —
+// which is what writeLocalPref stores — round-trips through parse unchanged.
+
+const SECTION_ID = /^[a-z]+:[a-z]+$/;
+
+export const COLLAPSED_SECTIONS: Preference<readonly string[]> = {
+  key: 'autoknow-collapsed-sections',
+  storage: 'local',
+  storageReason: 'client-only view state; the server always renders sections open (neutral snapshot) and never reads it',
+  default: [],
+  parse: (r) => {
+    if (!r) return COLLAPSED_SECTIONS.default; // '' (the default, stringified) and null both mean "none"
+    const ids = r.split(',').filter((x) => SECTION_ID.test(x));
+    return ids.length === 0 ? COLLAPSED_SECTIONS.default : ids;
+  },
+};
+
 /** Every registered preference — drives reset-all and the registry tests. */
-export const ALL_PREFERENCES: ReadonlyArray<Preference<unknown>> = [THEME, STYLE, LOCALE, ROWS_PER_TABLE];
+export const ALL_PREFERENCES: ReadonlyArray<Preference<unknown>> = [THEME, STYLE, LOCALE, ROWS_PER_TABLE, COLLAPSED_SECTIONS];
 
 // ---- The pre-paint boot script (§8c) ----------------------------------------------------
 

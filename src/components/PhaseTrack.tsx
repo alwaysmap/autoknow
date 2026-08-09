@@ -3,7 +3,7 @@
 import { subscribeLocationChange } from '../lib/locationHash';
 import { addressedAttrs } from '../lib/useScrollToAddressed';
 import ChartLabel from './ChartLabel';
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Markdown from './Markdown';
 import MarkdownNoteEditor from './MarkdownNoteEditor';
@@ -22,6 +22,7 @@ import {
   parseLegacyPhaseDetailHash, phasesEditHref,
 } from '../lib/phase';
 import AnchorHeading from './AnchorHeading';
+import { SectionCollapseContext } from './CollapsibleSection';
 import AnchoredPopover from './AnchoredPopover';
 import OverlayDialog from './OverlayDialog';
 import ConstraintRing from './ConstraintRing';
@@ -593,17 +594,29 @@ export default function PhaseTrack({ projectId, phases, locale, structureLocked 
   // Jump-and-flash (station clicks, chain links, dependency chips).
   const [flashId, setFlashId] = useState<number | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The rail may sit inside a folded CollapsibleSection (autoknow-hcz.15): a jump
+  // whose target is CSS-hidden would measure a zero box and scroll nowhere, so the
+  // section un-folds first and the scroll waits for the unfolded layout.
+  const sectionCollapse = useContext(SectionCollapseContext);
   const jumpTo = useCallback((id: number) => {
     closeProgress();
     setCollapsed((s) => ({ ...s, [id]: false }));
     // Align the phase head to the TOP of the scrollport (it clears the sticky nav via
     // html { scroll-padding-top }), matching the row's `#phase-N` anchor so the two
     // scrolls this click fires agree instead of fighting (one to top, one to centre).
-    scrollPageTo(headRefs.current.get(id), { behavior: 'smooth', block: 'start' });
+    const go = () => scrollPageTo(headRefs.current.get(id), { behavior: 'smooth', block: 'start' });
+    if (sectionCollapse?.collapsed) {
+      sectionCollapse.expand();
+      // One frame for React to commit the unfolded section, one for layout to size it
+      // (the same two-frame reasoning as activateCard below).
+      requestAnimationFrame(() => requestAnimationFrame(go));
+    } else {
+      go();
+    }
     setFlashId(id);
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlashId(null), 1400);
-  }, [closeProgress, scrollPageTo]);
+  }, [closeProgress, scrollPageTo, sectionCollapse]);
   useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
 
   // Deeplinks from the summary hill chart: a dot click jump-and-flashes here.

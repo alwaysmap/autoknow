@@ -1005,6 +1005,9 @@ const STRINGS = {
   filterPeoplePlaceholder: { en: 'Filter people…', de: 'Personen filtern…', ja: '人物を絞り込み…', ko: '사람 필터…' },
   filterSourcesPlaceholder: { en: 'Filter sources…', de: 'Quellen filtern…', ja: 'ソースを絞り込み…', ko: '소스 필터…' },
   moreActions: { en: 'More actions', de: 'Weitere Aktionen', ja: 'その他の操作', ko: '추가 작업' },
+  // The section disclosure chevron (CollapsibleSection / AnchorHeading, autoknow-hcz.15).
+  sectionCollapse: { en: 'Collapse section', de: 'Bereich einklappen', ja: 'セクションを折りたたむ', ko: '섹션 접기' },
+  sectionExpand: { en: 'Expand section', de: 'Bereich ausklappen', ja: 'セクションを展開する', ko: '섹션 펼치기' },
   leadPartnerLabel: { en: 'Lead partner (OEM)', de: 'Lead-Partner (OEM)', ja: 'リードパートナー（OEM）', ko: '리드 파트너 (OEM)' },
   // ---- partner CRUD ----
   newPartner: { en: 'New partner', de: 'Neuer Partner', ja: '新規パートナー', ko: '새 파트너' },

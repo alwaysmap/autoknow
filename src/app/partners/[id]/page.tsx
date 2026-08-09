@@ -25,6 +25,7 @@ import { getNeedleHistory } from '../../../lib/history';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import AnchorHeading from '../../../components/AnchorHeading';
+import CollapsibleSection from '../../../components/CollapsibleSection';
 import KebabMenu from '../../../components/KebabMenu';
 import { NewPersonButton } from '../../../components/PersonEditor';
 import PartnerPeopleTable, { type PartnerPersonRow } from './PartnerPeopleTable';
@@ -252,7 +253,7 @@ export default async function PartnerDetailPage(props: PageProps) {
               summary={summary} configured={geminiConfigured} />
           </section>
 
-          <section className={styles.projectsSection}>
+          <CollapsibleSection sectionId="partners:programs" className={styles.projectsSection}>
             {/* The create affordance rides INSIDE the heading via `actions` (§8c: a
                 sibling would land past the graticule) — a ⋯ menu linking to the
                 shared /programs/new flow, pre-selecting THIS partner. Mirrors the
@@ -270,9 +271,9 @@ export default async function PartnerDetailPage(props: PageProps) {
               {t(locale, 'navPrograms')}
             </AnchorHeading>
             <PartnerProgramRows programs={programs} locale={locale} />
-          </section>
+          </CollapsibleSection>
 
-          <section className={styles.projectsSection}>
+          <CollapsibleSection sectionId="partners:initiatives" className={styles.projectsSection}>
             {/* This partner's initiatives (gh-286 part g): memberships with the same
                 needle instrument the program rows carry, plus the add form — the same
                 addPartners boundary as the initiative page, from the partner side. */}
@@ -285,9 +286,9 @@ export default async function PartnerDetailPage(props: PageProps) {
               initiatives={joinableInitiatives}
               locale={locale}
             />
-          </section>
+          </CollapsibleSection>
 
-          <section className={styles.projectsSection}>
+          <CollapsibleSection sectionId="partners:people" className={styles.projectsSection}>
             {/* The create affordance rides INSIDE the heading (§8c), the same shape the
                 Programs section above uses — `NewPersonButton` IS a KebabMenu, so it
                 drops in unchanged from the rail card it used to sit in. */}
@@ -298,9 +299,9 @@ export default async function PartnerDetailPage(props: PageProps) {
               {t(locale, 'peopleLabel')}
             </AnchorHeading>
             <PartnerPeopleTable rows={rosterRows} locale={locale} />
-          </section>
+          </CollapsibleSection>
 
-          <section className={styles.projectsSection}>
+          <CollapsibleSection sectionId="partners:escalations" className={styles.projectsSection}>
             {/* Escalations about this partner (#245). The heading's ⋯ links to the full
                 listing pre-filtered to this partner — filtering belongs to the browsable
                 list, not to a fixed panel about one entity (EscalationRows says why). */}
@@ -317,9 +318,9 @@ export default async function PartnerDetailPage(props: PageProps) {
               {t(locale, 'escalationsLabel')}
             </AnchorHeading>
             <EscalationRows escalations={escalations} locale={locale} />
-          </section>
+          </CollapsibleSection>
 
-          <section className={styles.projectsSection}>
+          <CollapsibleSection sectionId="partners:activity" className={styles.projectsSection}>
             <AnchorHeading id="activity">
               {t(locale, 'navActivity')}
             </AnchorHeading>
@@ -331,7 +332,7 @@ export default async function PartnerDetailPage(props: PageProps) {
               <QuickIngest anchorKind="partner" anchorId={partner.id} path={`/partners/${partner.id}`} />
             </div>
             <ActivityFeed items={activity} deletable revalidate={`/partners/${partner.id}`} untracked={{ ctx: untracked, partners: allPartners }} />
-          </section>
+          </CollapsibleSection>
         </div>
 
         {/* The persistent rail: health → narrative → facts (people proper moved to the

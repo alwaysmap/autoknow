@@ -9,6 +9,7 @@ import SummaryPanel from '../../../../components/SummaryPanel';
 import ActivityFeed from '../../../../components/ActivityFeed';
 import QuickIngest from '../../../../components/QuickIngest';
 import AnchorHeading from '../../../../components/AnchorHeading';
+import CollapsibleSection from '../../../../components/CollapsibleSection';
 import KebabMenu from '../../../../components/KebabMenu';
 import EscalationRows from '../../../../components/EscalationRows';
 import DateCell from '../../../../components/DateCell';
@@ -184,23 +185,30 @@ export default async function InitiativeProjectPage(props: {
         </div>
 
         <div className={styles.contentCol}>
+          {/* Collapsible sections share the program page's section ids (autoknow-hcz.15):
+              this page is program-shaped, and "I tucked the hill away" is a claim about
+              the SECTION, not about which route renders it. The hill's heading is its
+              collapse handle, same as there. */}
           {graphRows.length > 0 && (
-            <section className={styles.historySection}>
+            <CollapsibleSection sectionId="programs:hill" className={styles.historySection}>
+              <AnchorHeading id="hill">
+                {t(locale, 'hillChartHeader')}
+              </AnchorHeading>
               <PhaseHillChart wide phases={graphRows.map((p) => ({
                 id: p.id, name: p.name, progress: statusProgress(p.progress, p.startedAt),
               }))} />
-            </section>
+            </CollapsibleSection>
           )}
 
           {/* The step rail: per-step progress updates stay per-copy; STRUCTURE is the
               initiative's and locked (owner call 2026-08-08) — structureLocked hides
               every edit-phases affordance and the mutation refuses copies besides. */}
-          <section className={styles.historySection}>
+          <CollapsibleSection sectionId="programs:phases" className={styles.historySection}>
             <PhaseTrack projectId={projectId} phases={graphRows} locale={locale} structureLocked />
             <p className={styles.stepsLockedNote}>{t(locale, 'initiativeStepsLocked')}</p>
-          </section>
+          </CollapsibleSection>
 
-          <section className={styles.historySection}>
+          <CollapsibleSection sectionId="programs:escalations" className={styles.historySection}>
             <AnchorHeading
               id="escalations"
               actions={
@@ -214,9 +222,9 @@ export default async function InitiativeProjectPage(props: {
               {t(locale, 'escalationsLabel')}
             </AnchorHeading>
             <EscalationRows escalations={escalations} locale={locale} />
-          </section>
+          </CollapsibleSection>
 
-          <section className={styles.historySection}>
+          <CollapsibleSection sectionId="programs:activity" className={styles.historySection}>
             <AnchorHeading id="activity">
               {t(locale, 'navActivity')}
             </AnchorHeading>
@@ -224,7 +232,7 @@ export default async function InitiativeProjectPage(props: {
               <QuickIngest anchorKind="program" anchorId={projectId} path={path} />
             </div>
             <ActivityFeed items={activity} deletable revalidate={path} untracked={{ ctx: untracked, partners: allPartners }} />
-          </section>
+          </CollapsibleSection>
         </div>
       </main>
     </div>
