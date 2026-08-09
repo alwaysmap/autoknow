@@ -95,8 +95,10 @@
   flex-wrap: wrap;
 }
 
-/* Partner-list cell grammar, restated here because CSS modules cannot share a class
-   across files (the /partners table carries the originals). */
+/* Partner-list cell grammar, restated rather than composed from /partners'
+   page.module.css — route CSS stays self-contained here, and the two tables'
+   look is anchored by the shared components (DataTable, ClassBox), not by
+   these few cell classes. */
 .tableLink {
   color: var(--fg);
   text-decoration: none;

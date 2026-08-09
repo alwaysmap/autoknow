@@ -2,10 +2,13 @@
 // its programs (gh-286 part f: the bulk-add table's Products column). Pure and
 // client-safe; the prisma loader that feeds it lives in lib/initiativeQueries.
 //
-// Deliberately NOT lib/sop's PRODUCT_KEYS: that list opens with 'aaos', the base
-// platform every program carries, which as a per-partner class token would decorate
-// every row identically and distinguish nothing. The four keys here are that list
-// minus 'aaos', spelled the same so the two vocabularies stay one.
+// Deliberately NOT lib/sop's PRODUCT_KEYS: that list carries 'aaos', the base
+// platform every program has, which as a per-partner class token would decorate
+// every row identically and distinguish nothing. The four keys here are sop's
+// spellings (so the two vocabularies stay one), in this module's own canonical
+// order; sop's `productCarried` predicates are likewise restated below rather
+// than reused, because they take `CapacityProgram` — sopDate and volume are
+// required there, and a bare flags row has neither.
 
 import { t, type Locale, type StringKey } from './i18n';
 

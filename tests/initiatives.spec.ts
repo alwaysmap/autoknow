@@ -125,12 +125,15 @@ test.describe('Initiatives', () => {
       await expect(membersSection.getByRole('link', { name: 'Honda', exact: true })).toBeVisible({ timeout: 2000 });
     }).toPass({ timeout: 20000 });
 
-    // The memberships are active and each got a fresh copy of the snapshot.
-    for (const partnerId of [toyota.id, honda.id]) {
-      const membership = await prisma.initiativePartner.findFirstOrThrow({ where: { initiativeId: initiative.id, partnerId } });
+    // The memberships are active and each got a fresh copy of the snapshot, named
+    // for the pair and carrying the initiative's default target (no month override
+    // was set on the batch).
+    for (const partner of [toyota, honda]) {
+      const membership = await prisma.initiativePartner.findFirstOrThrow({ where: { initiativeId: initiative.id, partnerId: partner.id } });
       expect(membership.status).toBe('active');
-      const copy = await prisma.project.findFirstOrThrow({ where: { initiativeId: initiative.id, partnerId, lifecycle: 'active' } });
-      expect(copy.initiativeId).toBe(initiative.id);
+      const copy = await prisma.project.findFirstOrThrow({ where: { initiativeId: initiative.id, partnerId: partner.id, lifecycle: 'active' } });
+      expect(copy.name).toBe(`${initiative.name} — ${partner.name}`);
+      expect(copy.sopDate).not.toBeNull();
     }
   });
 });

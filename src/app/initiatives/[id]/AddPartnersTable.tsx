@@ -24,10 +24,14 @@ import styles from './page.module.css';
 // re-validates ids and skips existing members at the boundary (AGENTS lesson 3), so
 // a stale row set degrades to a refusal or a no-op, never a double add.
 
-/** A row's Products funnel tokens: its product keys, or 'none' so product-less
- *  partners stay addressable from the funnel rather than only by unselecting. */
+// A row's funnel tokens per column, defined ONCE so the headers' filterValue/
+// filterValues and the `visible` memo below can never disagree on a sentinel.
+/** Products: the product keys, or 'none' so product-less partners stay
+ *  addressable from the funnel rather than only by unselecting. */
 const productTokens = (p: AddablePartnerRow): string[] =>
   p.products.length > 0 ? p.products : ['none'];
+const typeToken = (p: AddablePartnerRow): string => p.typeName || '—';
+const regionToken = (p: AddablePartnerRow): string => p.regionName || '—';
 
 export default function AddPartnersTable({
   initiativeId,
@@ -60,8 +64,8 @@ export default function AddPartnersTable({
       selected(key).length === 0 || values.some((v) => selected(key).includes(v));
     return partners.filter(
       (p) =>
-        pass('typeName', [p.typeName || '—']) &&
-        pass('regionName', [p.regionName || '—']) &&
+        pass('typeName', [typeToken(p)]) &&
+        pass('regionName', [regionToken(p)]) &&
         pass('products', productTokens(p)) &&
         (!q || p.name.toLowerCase().includes(q)),
     );
@@ -72,8 +76,8 @@ export default function AddPartnersTable({
       <DataTable
         headers={[
           { key: 'name', label: t(locale, 'partnerName'), width: '14rem' },
-          { key: 'typeName', label: t(locale, 'partnerType'), filterable: true, filterValue: (row) => (row as AddablePartnerRow).typeName || '—' },
-          { key: 'regionName', label: t(locale, 'regionLabel'), filterable: true, filterValue: (row) => (row as AddablePartnerRow).regionName || '—' },
+          { key: 'typeName', label: t(locale, 'partnerType'), filterable: true, filterValue: (row) => typeToken(row as AddablePartnerRow) },
+          { key: 'regionName', label: t(locale, 'regionLabel'), filterable: true, filterValue: (row) => regionToken(row as AddablePartnerRow) },
           {
             key: 'products',
             label: t(locale, 'productsColumn'),
