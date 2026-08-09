@@ -1,4 +1,4 @@
-import { test, expect } from './helpers/e2e';
+import { test, expect, clickUntilNavigated } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 import type { Health } from '../src/lib/health';
@@ -168,5 +168,56 @@ test.describe('Ecosystem dashboard (/ecosystem)', () => {
     ] as const) {
       await expect(page.getByRole('row', { name: new RegExp(program) }).getByText(label)).toBeVisible();
     }
+  });
+
+  // The initiatives tile and section (gh-286 part h). The tile's figure counts
+  // non-archived initiatives and is a door to /initiatives; the section renders one row
+  // per active initiative through the SAME loader the /initiatives page uses, so the
+  // two surfaces agree by construction — what this asserts is that /ecosystem actually
+  // wires them in, and that archived initiatives reach neither.
+  test('the initiatives tile counts active initiatives, links to /initiatives, and the section lists them', async ({ page }) => {
+    await wipeAll();
+
+    const partner = await prisma.partner.create({ data: { name: 'Fleet Partner Co', region } });
+    // An initiative owns its template snapshot 1:1 (schema: Initiative.templateId is
+    // unique) — same shape tests/initiatives.spec.ts drives through the UI.
+    const snapshot = await prisma.programTemplate.create({ data: { name: 'Fleet rollout snapshot' } });
+    const initiative = await prisma.initiative.create({
+      data: { name: 'Gemini across the fleet', templateId: snapshot.id },
+    });
+    await prisma.initiativePartner.create({ data: { initiativeId: initiative.id, partnerId: partner.id } });
+    // The member's copy: no sopDate, so the rollup reads this member "No date".
+    await prisma.project.create({
+      data: {
+        name: 'Gemini across the fleet — Fleet Partner Co',
+        partnerId: partner.id,
+        initiativeId: initiative.id,
+        hillChartProgress: 30,
+        volumeFirstYear: 1000,
+      },
+    });
+    // Archived: must count in neither the tile nor the section.
+    const retiredSnapshot = await prisma.programTemplate.create({ data: { name: 'Retired snapshot' } });
+    await prisma.initiative.create({
+      data: { name: 'Retired Fleet Push', templateId: retiredSnapshot.id, isArchived: true },
+    });
+
+    await page.goto('/ecosystem');
+    const tile = page.getByTestId('initiatives-stat');
+    await expect(tile.getByRole('link')).toHaveText('1');
+
+    // The section shows the row — name linked, member count, status distribution — and
+    // not the archived initiative.
+    const section = page.getByRole('heading', { name: 'Initiatives', exact: true })
+      .locator('xpath=ancestor::section[1]');
+    await expect(section.getByRole('link', { name: 'Gemini across the fleet' })).toBeVisible();
+    await expect(section).toContainText('1 partner');
+    await expect(section).toContainText('No date');
+    await expect(section).not.toContainText('Retired Fleet Push');
+
+    // The tile is a door. First interaction after the goto, and it navigates — so the
+    // hydration guard is clickUntilNavigated, never a bare toPass (qa skill).
+    await clickUntilNavigated(page, /\/initiatives$/, () => tile.getByRole('link').click({ timeout: 2000 }));
+    await expect(page.getByRole('link', { name: 'Gemini across the fleet' })).toBeVisible();
   });
 });

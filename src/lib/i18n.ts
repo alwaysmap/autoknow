@@ -2356,6 +2356,16 @@ const STRINGS = {
   initiativeColHealth: { en: 'Health', de: 'Status', ja: 'ヘルス', ko: '상태' },
   initiativeInitialPartners: { en: 'Partners (optional)', de: 'Partner (optional)', ja: 'パートナー（任意）', ko: '파트너 (선택)' },
   initiativesEmpty: { en: 'No initiatives yet — create one.', de: 'Noch keine Initiativen — eine erstellen.', ja: 'イニシアチブはまだありません。作成してください。', ko: '아직 이니셔티브가 없습니다. 하나 만들어 보세요.' },
+  // The ecosystem strip tile (gh-286 part h). "Active" here means not archived — the
+  // same WHERE the /initiatives list applies, so the figure equals that page's rows.
+  statsActiveInitiatives: { en: 'Active initiatives', de: 'Aktive Initiativen', ja: 'アクティブなイニシアチブ', ko: '활성 이니셔티브' },
+  statsViewInitiatives: { en: 'View initiatives', de: 'Initiativen anzeigen', ja: 'イニシアチブを表示', ko: '이니셔티브 보기' },
+  // A row's member count on the /ecosystem initiatives section. Split singular/plural
+  // because EN inflects the noun (same rule as activeProgramsAria*); DE's plural of
+  // "Partner" is "Partner", and JA/KO counters do not inflect, so those pairs are
+  // intentionally identical.
+  initiativePartnersOne: { en: '{n} partner', de: '{n} Partner', ja: 'パートナー{n}社', ko: '파트너 {n}개사' },
+  initiativePartnersMany: { en: '{n} partners', de: '{n} Partner', ja: 'パートナー{n}社', ko: '파트너 {n}개사' },
   selectAnInitiative: { en: 'Select an initiative...', de: 'Initiative wählen…', ja: 'イニシアチブを選択...', ko: '이니셔티브 선택...' },
   // The one-line explainers that keep the two list pages from being confused for each
   // other (owner copy, 2026-08-08).

@@ -40,13 +40,15 @@ job was to remove them.
    server's `cwd`; `"reused": true` on a server whose `cwd` is not your worktree means
    you got someone else's app, not yours. Never `preview_stop` it — it belongs to a live
    session.
-4. **An agent in an isolated worktree cannot use a named launch config at all.**
-   `preview_start` resolves `.claude/launch.json` against the SESSION's root checkout,
-   not the caller's cwd — writing your own launch.json in the isolated worktree changes
-   nothing, and the tool boots the parent's server with the parent's config (gh-286
-   part f verification, 2026-08-09: it launched `next dev -p 3793` from the root
-   worktree while the agent's config said 3854). Run the dev server yourself (a
-   backgrounded shell with the env inline) and `navigate` a fresh tab to that port.
+4. **An isolated agent worktree cannot use a named launch config — and `"reused":
+   false` is not the all-clear.** `preview_start` resolves `.claude/launch.json`
+   against the SESSION's root checkout, not the caller's cwd: the agent's own
+   launch.json is never read, and the tool boots a FRESH server for the parent
+   checkout (gh-286 parts f and h verification, 2026-08-09 — twice, independently).
+   The returned port, derived from the serving checkout's path, is the giveaway.
+   Run the dev server from your own worktree yourself (`npm run demo`, or a
+   backgrounded shell with the env inline), `navigate` a fresh tab to that port,
+   and apply rule 1 as usual.
 
 **How we found out.** During #153 the tab was verified on the right port across several
 screenshots, then moved to another worktree's demo server between one `javascript_tool`

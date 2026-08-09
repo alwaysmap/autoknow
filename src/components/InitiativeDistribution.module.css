@@ -1,0 +1,16 @@
+/* The compact member-status distribution, shared by the /initiatives list cells and the
+   /ecosystem initiatives section rows. */
+
+/* Type matches MemberStatusDot's own .wrap, so the em-dash fallback and the dots keep
+   one scale wherever the distribution lands. */
+.distribution {
+  display: inline-flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+.none {
+  color: var(--muted);
+}
