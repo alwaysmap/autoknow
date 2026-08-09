@@ -189,6 +189,13 @@ model Phase {
   projectId          Int
   project            Project           @relation(fields: [projectId], references: [id])
   name               String
+  // Which template step this phase was instantiated from (gh-286) — set on initiative
+  // copies so the initiative-level template edit can re-sync them: a rename finds its
+  // phase (and keeps its progress) by THIS id, never by the name it just changed.
+  // SetNull, not Restrict: the template editor deletes removed steps, and the sync that
+  // runs in the same transaction deletes the matching copy phases itself.
+  sourcePhaseTemplateId Int?
+  sourcePhaseTemplate   PhaseTemplate? @relation(fields: [sourcePhaseTemplateId], references: [id], onDelete: SetNull)
 
   // Self-referential relationship for the DAG
   dependencies       PhaseDependency[] @relation("PhaseDependencies")
@@ -214,6 +221,9 @@ model Phase {
   startedAt          DateTime?
 
   @@index([projectId])
+  // The sync reads "which copy phases came from this template step" per edit, and
+  // Postgres does not auto-index FK columns (the Project indexes' reasoning).
+  @@index([sourcePhaseTemplateId])
 }
 
 // Real per-phase partner attribution: which partners are involved in a phase's work.
@@ -519,6 +529,10 @@ model PhaseTemplate {
   id            Int                @id @default(autoincrement())
   templateId    Int
   template      ProgramTemplate    @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  // Copies instantiated from this step (gh-286): the provenance that lets an
+  // initiative-level template edit find each member copy's matching phase — a RENAME
+  // stays the same step and keeps its progress, which name-matching cannot promise.
+  instantiatedPhases Phase[]
   name          String
   description   String? // markdown — exit outcome + typical activities
   googleFocus   String? // markdown — what Googlers/TSC focus on

@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '../../lib/db';
 import { getCurrentUser } from '../../lib/session';
 import { firstFreeTemplateName, cloneTemplateGraph, type NameSeries } from '../../lib/programTemplates';
+import { syncInitiativeCopies } from '../../lib/initiativeSync';
 
 // CRUD for program templates and their phase-templates (PHASE_TEMPLATES_PLAN §6).
 // Built-ins are clone-only: every mutation refuses them. The DAG may pass through
@@ -136,7 +137,7 @@ export async function saveTemplatePhases(formData: FormData): Promise<{ error?: 
   if (keptIds.some((id) => !existingIds.has(id))) return { error: 'Phase does not belong to this template' };
   const removedIds = [...existingIds].filter((id) => !keptIds.includes(id));
 
-  await prisma.$transaction(async (tx) => {
+  const owner = await prisma.$transaction(async (tx) => {
     if (removedIds.length > 0) {
       await tx.phaseTemplate.deleteMany({ where: { id: { in: removedIds } } }); // deps cascade
     }
@@ -167,9 +168,21 @@ export async function saveTemplatePhases(formData: FormData): Promise<{ error?: 
         });
       }
     }
+
+    // An initiative's snapshot propagates to every ACTIVE member copy in the same
+    // transaction (gh-286 hcz.13): the copies either all carry the new steps or the
+    // save didn't happen — a half-propagated initiative would violate the one rule
+    // this feature exists for (all members share the same steps).
+    const initiative = await tx.initiative.findUnique({ where: { templateId }, select: { id: true } });
+    if (initiative) await syncInitiativeCopies(tx, initiative.id);
+    return initiative;
   });
 
   revalidatePath('/templates');
   revalidatePath(`/templates/${templateId}/edit`);
+  if (owner) {
+    revalidatePath('/initiatives');
+    revalidatePath(`/initiatives/${owner.id}`);
+  }
   return {};
 }

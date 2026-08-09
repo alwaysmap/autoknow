@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '../../lib/db';
+import { deletePhasesWithRecords } from '../../lib/phaseDeletion';
 import { validateTemplateDag } from '../../lib/templateDag';
 import { deriveEndPhase } from '../../lib/programDag';
 
@@ -69,19 +70,9 @@ export async function saveProgramPhases(formData: FormData): Promise<SaveResult>
   const removedIds = [...existingIds].filter((id) => !keptIds.includes(id));
 
   await prisma.$transaction(async (tx) => {
-    // 1. Remove deleted phases and everything that references them (context is
-    //    detached, not deleted — the digest may matter to the project/partner).
-    if (removedIds.length > 0) {
-      await tx.actionItem.deleteMany({ where: { phaseId: { in: removedIds } } });
-      await tx.phaseState.deleteMany({ where: { phaseId: { in: removedIds } } });
-      await tx.phasePartner.deleteMany({ where: { phaseId: { in: removedIds } } });
-      await tx.phasePerson.deleteMany({ where: { phaseId: { in: removedIds } } });
-      await tx.contextUrl.updateMany({ where: { phaseId: { in: removedIds } }, data: { phaseId: null } });
-      await tx.phaseDependency.deleteMany({
-        where: { OR: [{ phaseId: { in: removedIds } }, { dependsOnPhaseId: { in: removedIds } }] },
-      });
-      await tx.phase.deleteMany({ where: { id: { in: removedIds } } });
-    }
+    // 1. Remove deleted phases and everything that references them — the ONE recipe,
+    //    shared with the initiative sync (lib/phaseDeletion).
+    await deletePhasesWithRecords(tx, removedIds);
 
     // 2. Update kept phases; create new ones (negative draft ids) with a fresh state.
     const realId = new Map<number, number>();

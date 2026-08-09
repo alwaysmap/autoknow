@@ -14,6 +14,14 @@ import { hillStatus } from './phase';
 import { indexEntity } from './search';
 import type { OwnerFieldsOrNone } from './owner';
 
+/** leadRole → concrete partner, only where unambiguous: "OEM" maps to the program's
+ *  own partner when that partner IS an OEM; anything else is left for the user. Shared
+ *  with the initiative sync (lib/initiativeSync) so the rule cannot fork. */
+export const leadPartnerForRole = (
+  leadRole: string | null,
+  partner: { id: number; type: { name: string } | null },
+): number | null => (leadRole === 'OEM' && partner.type?.name === 'OEM' ? partner.id : null);
+
 export interface CreateProgramInput {
   name: string;
   partnerId: number;
@@ -55,11 +63,7 @@ export async function createProgramFromTemplate(input: CreateProgramInput): Prom
     throw new Error(`Template “${template.name}” is invalid: ${validation.errors.map((e) => e.message).join(' ')}`);
   }
 
-  // leadRole → concrete partner, only where unambiguous: "OEM" maps to the program's
-  // partner when that partner IS an OEM; anything else is left for the user.
   const programPartner = await prisma.partner.findUnique({ where: { id: partnerId }, include: { type: true } });
-  const leadPartnerFor = (leadRole: string | null) =>
-    leadRole === 'OEM' && programPartner?.type?.name === 'OEM' ? programPartner.id : null;
 
   const firstPhaseName = template.phases[0]?.name;
 
@@ -86,7 +90,11 @@ export async function createProgramFromTemplate(input: CreateProgramInput): Prom
           description: p.description,
           googleFocus: p.googleFocus,
           isEndPhase: p.isEndPhase,
-          leadPartnerId: leadPartnerFor(p.leadRole),
+          leadPartnerId: programPartner ? leadPartnerForRole(p.leadRole, programPartner) : null,
+          // Provenance (gh-286 hcz.13): which template step this phase came from, so an
+          // initiative-level template edit can re-sync copies by id — a rename keeps
+          // its progress because it is matched by THIS, never by the changed name.
+          sourcePhaseTemplateId: p.id,
         }
       });
       phasesMap[p.id] = phase;

@@ -4,7 +4,7 @@ date: 2026-08-08
 supersedes: ""
 superseded-by: ""
 extends: "an-initiative-is-a-template-snapshot-instantiated-as-excluded-project-copies"
-extended-by: ""
+extended-by: "an-initiative-template-edit-propagates-by-provenance"
 tags: [initiatives, routing, urls]
 ---
 

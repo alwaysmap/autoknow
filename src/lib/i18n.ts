@@ -2350,6 +2350,8 @@ const STRINGS = {
   // copies cannot deviate; only the initiative-level edit changes the template).
   initiativeStepsLocked: { en: 'Steps are defined by the initiative and cannot be changed here.', de: 'Die Schritte sind durch die Initiative festgelegt und können hier nicht geändert werden.', ja: 'ステップはイニシアチブで定義されており、ここでは変更できません。', ko: '단계는 이니셔티브에서 정의되며 여기서 변경할 수 없습니다.' },
   editInitiative: { en: 'Edit initiative', de: 'Initiative bearbeiten', ja: 'イニシアチブを編集', ko: '이니셔티브 편집' },
+  editInitiativeSteps: { en: 'Edit steps', de: 'Schritte bearbeiten', ja: 'ステップを編集', ko: '단계 편집' },
+  templateBelongsToInitiative: { en: 'These steps belong to the initiative {name} — saving applies them to all {n} partner copies.', de: 'Diese Schritte gehören zur Initiative {name} — beim Speichern gelten sie für alle {n} Partnerkopien.', ja: 'これらのステップはイニシアチブ {name} のものです。保存するとすべての {n} 件のパートナーコピーに適用されます。', ko: '이 단계는 이니셔티브 {name}의 것입니다. 저장하면 {n}개의 모든 파트너 사본에 적용됩니다.' },
   archiveInitiativeAction: { en: 'Archive', de: 'Archivieren', ja: 'アーカイブ', ko: '보관' },
   addToInitiative: { en: 'Add to initiative', de: 'Zur Initiative hinzufügen', ja: 'イニシアチブに追加', ko: '이니셔티브에 추가' },
   initiativeColHealth: { en: 'Health', de: 'Status', ja: 'ヘルス', ko: '상태' },

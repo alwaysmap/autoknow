@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useActionState } from 'react';
+import Link from 'next/link';
 import KebabMenu from '../../../components/KebabMenu';
 import OverlayDialog from '../../../components/OverlayDialog';
 import { updateInitiative, archiveInitiative } from '../../actions/initiatives';
@@ -10,17 +11,18 @@ import styles from './page.module.css';
 
 // The initiative's own edit affordance (owner call 2026-08-08): a kebab in the title
 // row (PageShell actions — §8c, affordances ride INSIDE the heading), opening the one
-// modal grammar (OverlayDialog). Editing the TEMPLATE is deliberately absent until the
-// propagation mechanism ships (autoknow-hcz.13) — an edit that only affected future
-// members would silently violate "all members share the same steps".
+// modal grammar (OverlayDialog). "Edit steps" links to the snapshot's template editor —
+// saving there propagates to every active member copy in one transaction (hcz.13).
 export default function InitiativeAdminControls({
   initiativeId,
+  templateId,
   name,
   description,
   targetMonth,
   locale,
 }: {
   initiativeId: number;
+  templateId: number;
   name: string;
   description: string | null;
   /** 'YYYY-MM' or '' — the form's month-input shape, derived server-side. */
@@ -43,6 +45,8 @@ export default function InitiativeAdminControls({
         <button type="button" onClick={() => setEditOpen(true)}>
           {t(locale, 'editInitiative')}
         </button>
+        {/* No onClick={close}: AnchoredPopover dismisses navigating links itself. */}
+        <Link href={`/templates/${templateId}/edit`}>{t(locale, 'editInitiativeSteps')}</Link>
         <form
           action={async (formData: FormData) => {
             await archiveInitiative(formData);
