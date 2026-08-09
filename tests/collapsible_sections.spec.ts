@@ -34,7 +34,9 @@ test.describe('Collapsible detail sections', () => {
 
   // Every section's disclosure carries the same testid; scope by the section's own
   // heading anchor. The collapsed state is read off aria-expanded rather than the
-  // accessible name because the name flips with the state.
+  // accessible name because the name flips with the state. `.last()` is load-bearing:
+  // hosts like ChainLedger nest their OWN <section> inside the wrapper, so two sections
+  // match the :has() — last = innermost, the one holding the heading row.
   const toggleFor = (page: Page, anchor: string) =>
     page.locator(`section:has(h2#${anchor})`).last().getByTestId('section-toggle');
 

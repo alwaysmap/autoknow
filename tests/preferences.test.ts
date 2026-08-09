@@ -36,7 +36,8 @@ describe('#31 preferences registry', () => {
     // so a round-trip must give back the same ids in order.
     expect(COLLAPSED_SECTIONS.parse('programs:chain,partners:activity')).toEqual(['programs:chain', 'partners:activity']);
     expect(COLLAPSED_SECTIONS.parse(String(['programs:chain', 'partners:activity']))).toEqual(['programs:chain', 'partners:activity']);
-    // Garbage entries are dropped, not kept: ids follow the `page:section` grammar.
+    // Garbage entries are dropped, not kept: only members of SECTION_IDS survive, so a
+    // stored stray (a retired section, an injected string) can never fork the pref.
     expect(COLLAPSED_SECTIONS.parse('programs:chain,<script>,UPPER:case,')).toEqual(['programs:chain']);
     expect(COLLAPSED_SECTIONS.parse('total nonsense')).toBe(COLLAPSED_SECTIONS.default);
   });

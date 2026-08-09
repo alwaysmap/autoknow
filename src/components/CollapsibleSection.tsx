@@ -1,9 +1,10 @@
 'use client';
 
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
-import { COLLAPSED_SECTIONS, readLocalPref, subscribePrefChange, writeLocalPref } from '../lib/preferences';
+import { COLLAPSED_SECTIONS, readLocalPref, subscribePrefChange, writeLocalPref, type SectionId } from '../lib/preferences';
 import { subscribeLocationChange } from '../lib/locationHash';
 import { useSteadyPageScroll } from '../lib/useSteadyPageScroll';
+import { afterLayoutSettles } from '../lib/afterLayoutSettles';
 import styles from './CollapsibleSection.module.css';
 
 // THE collapse wrapper for a detail-page section (autoknow-hcz.15) — one primitive, not a
@@ -51,11 +52,11 @@ export interface SectionCollapse {
 
 export const SectionCollapseContext = createContext<SectionCollapse | null>(null);
 
-function readCollapsed(sectionId: string): boolean {
+function readCollapsed(sectionId: SectionId): boolean {
   return readLocalPref(COLLAPSED_SECTIONS).includes(sectionId);
 }
 
-function writeCollapsed(sectionId: string, collapsed: boolean): void {
+function writeCollapsed(sectionId: SectionId, collapsed: boolean): void {
   const current = readLocalPref(COLLAPSED_SECTIONS);
   const next = collapsed
     ? [...current.filter((x) => x !== sectionId), sectionId]
@@ -68,9 +69,10 @@ export default function CollapsibleSection({
   className,
   children,
 }: {
-  /** Stable per-SECTION id from the registry's grammar (`programs:chain`) — never a
-   *  per-entity key: collapsing "Critical chain" means on every program. */
-  sectionId: string;
+  /** Stable per-SECTION id from the registry's catalog (`programs:chain`) — never a
+   *  per-entity key: collapsing "Critical chain" means on every program. Typed against
+   *  SECTION_IDS so a typo forks nothing: it does not compile. */
+  sectionId: SectionId;
   /** The page's own section class (spacing stays the page's business). */
   className?: string;
   children: React.ReactNode;
@@ -92,6 +94,20 @@ export default function CollapsibleSection({
     if (readCollapsed(sectionId)) writeCollapsed(sectionId, false);
   }, [sectionId]);
 
+  // Fail-closed guard for the one-heading contract above (AGENTS lesson 2): a second
+  // AnchorHeading under this wrapper anchors a second fold path and holds its wrapper
+  // chain open — a partial fold that would otherwise fail silently. Loud in dev only;
+  // production renders whatever it has.
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') return;
+    const headings = ref.current?.querySelectorAll('[data-collapse-heading]').length ?? 0;
+    if (headings > 1) {
+      console.error(
+        `CollapsibleSection "${sectionId}" contains ${headings} AnchorHeadings — the fold needs exactly one (see the component header).`,
+      );
+    }
+  }, [sectionId]);
+
   useEffect(() => {
     const expandIfAddressed = () => {
       const raw = window.location.hash.slice(1);
@@ -108,9 +124,7 @@ export default function CollapsibleSection({
       // The heading is visible even collapsed, so a heading anchor already scrolled and
       // this re-scroll lands where the page already is; a body target had no box until
       // now, so re-issue it — top-aligned, agreeing with the fragment's own jump.
-      // Double-rAF: one frame for React to commit the expanded state, one for layout.
-      requestAnimationFrame(() => requestAnimationFrame(() =>
-        scrollPageTo(target, { behavior: 'smooth', block: 'start' })));
+      afterLayoutSettles(() => scrollPageTo(target, { behavior: 'smooth', block: 'start' }));
     };
     expandIfAddressed();
     // pushState (Next <Link>) does not fire `hashchange` — this covers both (#40).

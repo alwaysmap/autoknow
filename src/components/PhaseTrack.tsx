@@ -29,6 +29,7 @@ import ConstraintRing from './ConstraintRing';
 import PersonCell from './PersonCell';
 import { partnerHref } from '../lib/entityHref';
 import { useSteadyPageScroll } from '../lib/useSteadyPageScroll';
+import { afterLayoutSettles } from '../lib/afterLayoutSettles';
 import QuickIngest from './QuickIngest';
 import HillHistoryList from './HillHistoryList';
 import type { HillChange } from '../lib/history';
@@ -607,9 +608,7 @@ export default function PhaseTrack({ projectId, phases, locale, structureLocked 
     const go = () => scrollPageTo(headRefs.current.get(id), { behavior: 'smooth', block: 'start' });
     if (sectionCollapse?.collapsed) {
       sectionCollapse.expand();
-      // One frame for React to commit the unfolded section, one for layout to size it
-      // (the same two-frame reasoning as activateCard below).
-      requestAnimationFrame(() => requestAnimationFrame(go));
+      afterLayoutSettles(go); // scroll only once the unfolded section has real geometry
     } else {
       go();
     }
@@ -747,16 +746,15 @@ export default function PhaseTrack({ projectId, phases, locale, structureLocked 
   const activateCard = (p: PhaseTrackRow) => {
     setFocusId(p.id);
     setCollapsed((s) => ({ ...s, [p.id]: !isCollapsed(p) }));
-    // AFTER the commit: expanding changes the card's height, and measuring first
-    // would scroll to the box it used to have. Two frames — one for React to paint
-    // the new size, one for layout to settle on it.
+    // AFTER the commit (lib/afterLayoutSettles): expanding changes the card's height,
+    // and measuring first would scroll to the box it used to have.
     //
-    // Those two frames are the whole reason this scroll needs the guard in
-    // lib/useSteadyPageScroll: a starved animation clock can hold them for a couple of hundred
-    // milliseconds, long enough to land INSIDE the next card's press and move the page
-    // between its down and its up — which retargets that click to a common ancestor and
+    // That deferral is the whole reason this scroll needs the guard in
+    // lib/useSteadyPageScroll: a starved animation clock can hold those frames for a couple
+    // of hundred milliseconds, long enough to land INSIDE the next card's press and move the
+    // page between its down and its up — which retargets that click to a common ancestor and
     // loses it silently (autoknow-e1h).
-    requestAnimationFrame(() => requestAnimationFrame(() => {
+    afterLayoutSettles(() => {
       const node = rowRefs.current.get(p.id);
       if (!node) return;
       // Move the page ONLY when the card is not already whole on screen. Scrolling
@@ -784,7 +782,7 @@ export default function PhaseTrack({ projectId, phases, locale, structureLocked 
       // with the `#phase-N` anchor the same click addressed; here there is no anchor to
       // agree with, only a card to keep on screen.
       scrollPageTo(node, { behavior: 'smooth', block: 'nearest' });
-    }));
+    });
   };
 
   // Everything interactive inside the card keeps its own job — pills navigate, and each
