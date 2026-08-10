@@ -18,36 +18,97 @@ import { useCallback, useEffect } from 'react';
 // to hold still first does not help, because at the moment you look the pending scroll
 // has not moved anything yet.
 //
-// The cure is not a longer wait, it is a rule: a press STOPS page motion, and a scroll
-// never STARTS while a pointer is down. Both halves are needed — the first covers a
-// scroll already under way, the second covers one whose starved frame would otherwise
-// fire mid-gesture. Read as behaviour rather than as plumbing, it is also the honest
-// reading of the gesture: a new press supersedes the placement the last one asked for.
+// The cure is not a longer wait, it is a rule: THE PAGE HOLDS STILL WHILE A POINTER IS
+// DOWN. Read as behaviour rather than as plumbing, that is also the honest reading of
+// the gesture: a new press supersedes the placement the last one asked for.
+//
+// The rule is enforced twice over, and both halves are needed:
+//
+//   * a scroll of OURS never starts while a pointer is down (the `pressed` gate at the
+//     bottom), which covers the placement scroll a card click queues behind two frames;
+//   * and the scroll position is PINNED for the press (`pin` below), which covers
+//     motion already under way — including motion nothing here started, like the
+//     browser's own smooth jump to a `#phase-N` fragment.
+//
+// The pin is not belt-and-braces, and this is the part that a single `scrollTo` gets
+// wrong. Blink applies an instant scroll AT ONCE but still lets the animation it was
+// meant to cancel commit one more step afterwards: measured in Chromium 141, halting a
+// smooth scroll that had already begun left between 8px and 102px of motion still to
+// come, arriving one animation frame later, at every CPU-throttling rate tried. One
+// frame is all it takes — 10px is enough to move a title out from under a pointer — so
+// halting once is not halting (autoknow-dxa). Re-asserting the offset each frame is.
 
 let pressed = false;
 let armed = false;
 
-/** Stop page motion dead, wherever it has got to. */
-const halt = () => {
-  // The object form is required: `scrollTo(x, y)` resolves its behaviour from CSS and
-  // would therefore start a fresh SMOOTH scroll to the position we are trying to freeze.
-  window.scrollTo({ top: window.scrollY, left: window.scrollX, behavior: 'instant' });
+/** Where the page is pinned, and until when. Read only while `pinning`. */
+let pinTop = 0;
+let pinLeft = 0;
+let pinX = 0;
+let pinY = 0;
+let pinUntil = 0;
+let pinning = false;
+
+/**
+ * How long a press may hold the page, and how far the pointer may wander before it stops
+ * being a click. Both are escape hatches, not timings anything depends on: the pin's real
+ * end is the release, and these only bound the damage if a release never arrives. A press
+ * long enough to outlive `PIN_MS`, or a pointer that has travelled past `SLOP`, is a drag
+ * — and a drag wants the page back (a text selection dragged to the edge autoscrolls, and
+ * that must still work).
+ */
+const PIN_MS = 500;
+const SLOP = 4;
+
+const freeze = () => window.scrollTo({ top: pinTop, left: pinLeft, behavior: 'instant' });
+
+const pinFrame = () => {
+  if (!pinning) return;
+  if (!pressed || performance.now() > pinUntil) {
+    pinning = false;
+    return;
+  }
+  freeze();
+  requestAnimationFrame(pinFrame);
 };
 
-const onDown = () => {
+const onDown = (e: PointerEvent) => {
   pressed = true;
-  halt();
+  pinTop = window.scrollY;
+  pinLeft = window.scrollX;
+  pinX = e.clientX;
+  pinY = e.clientY;
+  pinUntil = performance.now() + PIN_MS;
+  freeze();
+  // A second pointer landing mid-press re-aims the running loop rather than starting a
+  // second one, which would leave two frames fighting over two different offsets.
+  if (!pinning) {
+    pinning = true;
+    requestAnimationFrame(pinFrame);
+  }
 };
+
+/** The pointer has travelled: this is a drag, and the page belongs to the reader again. */
+const onMove = (e: PointerEvent) => {
+  if (pinning && (Math.abs(e.clientX - pinX) > SLOP || Math.abs(e.clientY - pinY) > SLOP)) pinning = false;
+};
+
+/** The reader is scrolling on purpose. Nothing about a click is worth fighting that. */
+const onWheel = () => {
+  pinning = false;
+};
+
 // Release on anything that can end a press, including the ones that never deliver a
 // `pointerup` (the pointer leaving the window, a drag captured elsewhere). A `pressed`
 // that got stuck on would silently disable placement scrolling for the rest of the page's
 // life, so it is cleared generously rather than exactly.
 const onRelease = () => {
   pressed = false;
+  pinning = false;
 };
 
 // Armed once per page and never torn down: the rule is a property of the SCROLL ROOT,
-// not of whichever component happens to be mounted, and three idle listeners cost
+// not of whichever component happens to be mounted, and a handful of idle listeners cost
 // nothing. Unsubscribing on unmount would instead leave the next component to mount
 // racing its own first click.
 const arm = () => {
@@ -55,9 +116,14 @@ const arm = () => {
   armed = true;
   // Capture phase: this must run before any handler that might itself scroll.
   window.addEventListener('pointerdown', onDown, true);
+  window.addEventListener('pointermove', onMove, true);
   window.addEventListener('pointerup', onRelease, true);
   window.addEventListener('pointercancel', onRelease, true);
-  // NOT capture, unlike the three above: element `blur` bubbles nowhere but rides a
+  // Touch panning never delivers `pointerup` — the browser claims the gesture and fires
+  // `pointercancel` above — so the pin cannot fight a swipe. `wheel` is the mouse's
+  // equivalent tell and is passive, so it never delays a scroll.
+  window.addEventListener('wheel', onWheel, { capture: true, passive: true });
+  // NOT capture, unlike the others: element `blur` bubbles nowhere but rides a
   // capturing window listener, so capturing here would release a live press the moment
   // focus left any field. This one wants the WINDOW losing focus and nothing else.
   window.addEventListener('blur', onRelease);

@@ -145,29 +145,95 @@ test.describe('PhaseTrack rail', () => {
   // their common ancestor, so the card's handler never runs and NOTHING reports an error:
   // the gesture just does nothing (autoknow-e1h, webkit under full-suite load).
   //
-  // Reproduced deterministically rather than by loading the box: the scroll is started
-  // from the `mousemove` that precedes the press — after every actionability check has
-  // passed, which is exactly what a starved animation frame achieves by accident — and
-  // `delay` holds the button down long enough for a frame to land in between.
+  // TWO tests, because the danger has two shapes and one gesture cannot pin both down
+  // without a coin toss. The single test these replace induced its scroll from the
+  // `mousemove` that precedes the press, which made the whole thing a race against the
+  // runner: the press had to arrive within about two animation frames of that mousemove,
+  // or the card had scrolled clean out from under the point Playwright had computed and
+  // the press missed it. On an idle box that gap is ~2ms and it passed; on a loaded one
+  // it stretched past 60ms and it did not (autoknow-dxa, chromium, twice in CI). Neither
+  // test below has a wall-clock precondition, so neither can lose that toss.
   //
-  // The one place in this suite where the hydration-guarded retry is deliberately NOT
-  // used, and it has to be: the `once` listener is spent by the first attempt, so a
-  // retry would re-click a settled page and pass without reproducing anything — a guard
-  // that reports green whatever the code does. `toBeVisible()` below is the guard
-  // instead: it waits out the render, and hydration cannot be the variable here because
-  // the assertion is about what the click DID, not whether it landed at all.
+  // FIRST: motion ALREADY UNDER WAY when the press lands — the autoknow-e1h shape. What
+  // is asserted is the guard's own contract, that the page does not move between a press
+  // and its release, so nothing here depends on WHERE the press landed and a scroll long
+  // enough to still be animating whenever it arrives costs nothing. That contract is the
+  // thing with a real hole in it: a single `scrollTo` at press time does not stop a Blink
+  // scroll animation, it lets one more step commit a frame later (src/lib/useSteadyPageScroll).
+  test('a press pins the page, so it cannot move between the press and its release', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}`);
+    const audio = row(page, 'Audio');
+    await expect(audio).toBeVisible();
+    const title = audio.locator('a[data-card-title]');
+    await title.scrollIntoViewIfNeeded();
+    const box = (await title.boundingBox())!;
+
+    type Probe = { moved: boolean; movedBeforePress: boolean; downY: number | null; upY: number | null; sameTarget: boolean | null };
+    await page.evaluate(() => {
+      const probe: Probe = { moved: false, movedBeforePress: false, downY: null, upY: null, sameTarget: null };
+      (window as unknown as { __steady: Probe }).__steady = probe;
+      let downTarget: EventTarget | null = null;
+      // The press must not NAVIGATE — this test is about page motion, not about what the
+      // click does, and it deliberately does not care which element it landed on.
+      window.addEventListener('click', (e) => e.preventDefault(), true);
+      window.addEventListener('scroll', () => {
+        probe.moved = true;
+      });
+      // Bubble phase, so these read the page AFTER the guard's capture-phase handlers.
+      // The two TARGETS are the mechanism itself: when they differ, the browser delivers
+      // `click` to their common ancestor and the pressed thing never hears about it. The
+      // two offsets are the cause, and are read here rather than inside a `scroll`
+      // listener because scroll events are dispatched BEFORE animation-frame callbacks —
+      // a listener there sees a step the guard has not been given its frame to undo yet,
+      // and would report drift that never reaches the screen or a hit test.
+      window.addEventListener('pointerdown', (e) => {
+        probe.movedBeforePress = probe.moved;
+        probe.downY = Math.round(window.scrollY);
+        downTarget = e.target;
+      });
+      window.addEventListener('pointerup', (e) => {
+        probe.upY = Math.round(window.scrollY);
+        probe.sameTarget = e.target === downTarget;
+      });
+      window.scrollBy({ top: 4000, behavior: 'smooth' });
+    });
+    // The precondition is WAITED FOR and then ASSERTED, never assumed: a run where the
+    // page never moved would prove nothing, and must say so rather than report green.
+    await page.waitForFunction(() => (window as unknown as { __steady: Probe }).__steady.moved);
+
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(150);
+    await page.mouse.up();
+
+    const probe = await page.evaluate(() => (window as unknown as { __steady: Probe }).__steady);
+    expect(probe.movedBeforePress).toBe(true);
+    expect(probe.upY).toBe(probe.downY);
+    expect(probe.sameTarget).toBe(true);
+  });
+
+  // SECOND: the user-visible consequence, end to end — the card is actually selected.
+  // The motion is started from `mousedown`, which fires after the guard's capture-phase
+  // `pointerdown`, so it is page motion the press has already failed to pre-empt. Timing
+  // it to the press rather than to the pointer's ARRIVAL is what makes the aim exact: the
+  // page is still where Playwright measured it when the button goes down, so however
+  // loaded the runner is, the press lands on the card and the only question left is the
+  // one being asked — does the click survive the motion that follows it.
   test('a card click is not swallowed by page motion still under way', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}`);
     const audio = row(page, 'Audio');
     await expect(audio).toBeVisible();
+    const title = audio.locator('a[data-card-title]');
+    await title.scrollIntoViewIfNeeded();
+    const box = (await title.boundingBox())!;
 
     await page.evaluate(() => {
-      window.addEventListener('mousemove', () => window.scrollBy({ top: 400, behavior: 'smooth' }), {
-        once: true,
-        capture: true,
-      });
+      window.addEventListener('mousedown', () => window.scrollBy({ top: 4000, behavior: 'smooth' }), { once: true });
     });
-    await audio.locator('a[data-card-title]').click({ delay: 150 });
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(150); // long enough for several animation frames to land
+    await page.mouse.up();
 
     await expect(audio).toHaveAttribute('data-rel', 'self');
   });
