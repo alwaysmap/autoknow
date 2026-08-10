@@ -10,8 +10,12 @@ test.describe('Program template authoring', () => {
   test.describe.configure({ mode: 'serial' });
 
   test.beforeAll(async () => {
-    // Built-ins seed on demand; user templates start clean.
-    await prisma.programTemplate.deleteMany({ where: { isBuiltIn: false } });
+    // Built-ins seed on demand; user templates start clean. Initiative snapshot clones
+    // are excluded the same way every template list excludes them (`initiative: null`,
+    // gh-286): they are not user templates, /templates never shows them, and deleting
+    // one out from under its Initiative is an FK violation — which is exactly what
+    // happened whenever an initiative spec had already run on this worker's database.
+    await prisma.programTemplate.deleteMany({ where: { isBuiltIn: false, initiative: null } });
   });
 
   test.afterAll(async () => {

@@ -1236,6 +1236,16 @@ const STRINGS = {
     ko: '공통 시간축에 프로그램마다 마크 하나 — 시작 시점, 헬스로 색을 입힌 목표 SOP, 크리티컬 체인이 예측한 완료 시점.',
   },
   timelinePop: { en: 'Open this chart alone', de: 'Diagramm allein öffnen', ja: 'このチャートだけを開く', ko: '이 차트만 열기' },
+  // /programs' copy of the chart is NOT "in flight": it plots whatever the table's
+  // filters currently keep, so its title and sub state that coupling instead
+  // (autoknow-ws1).
+  programsTimelineTitle: { en: 'Program timeline', de: 'Programm-Zeitachse', ja: 'プログラムタイムライン', ko: '프로그램 타임라인' },
+  programsTimelineSub: {
+    en: 'The rows the table below is showing, on one time axis — narrow the table and the chart follows.',
+    de: 'Die aktuell angezeigten Zeilen der Tabelle auf einer Zeitachse — wird die Tabelle gefiltert, folgt das Diagramm.',
+    ja: '下の表に表示中の行を 1 つの時間軸に配置 — 表を絞り込むとチャートも追従します。',
+    ko: '아래 표에 표시된 행을 하나의 시간축에 배치 — 표를 좁히면 차트도 따라갑니다.',
+  },
   timelineFilterLabel: { en: 'Filter by health', de: 'Nach Health filtern', ja: '健全性で絞り込み', ko: '헬스로 필터' },
   timelineHint: { en: 'Point at a program for its dates.', de: 'Auf ein Programm zeigen für seine Termine.', ja: 'プログラムにカーソルを合わせると日付が表示されます。', ko: '프로그램을 가리키면 날짜가 표시됩니다.' },
   timelineAllHidden: { en: 'Every health band is hidden — nothing to plot.', de: 'Alle Health-Stufen ausgeblendet — nichts darzustellen.', ja: 'すべての健全性区分が非表示です。', ko: '모든 헬스 구간이 숨겨져 표시할 것이 없습니다.' },

@@ -8,6 +8,7 @@ import ProgramsClient from './ProgramsClient';
 import PageShell from '../../components/PageShell';
 import KebabMenu from '../../components/KebabMenu';
 import { parseFilterParams, parseSortParams } from '../../lib/tableUrlState';
+import { getProgramStartMs } from '../../lib/programTimelineData';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,6 +91,10 @@ export default async function ProgramsPage(props: {
       hillChartProgress: proj.hillChartProgress,
       sopDate: proj.sopDate ? proj.sopDate.toISOString() : null,
       sopOutlook,
+      // The timeline chart's forecast input (autoknow-ws1): the same remaining-chain
+      // figure sopBufferCategory above just read, kept instead of dropped so the chart
+      // and the SOP-outlook column derive from ONE computation.
+      chainRemainingDays: chain.remainingDays,
       owner: proj.ownerPerson,
       volumeFirstYear: proj.volumeFirstYear,
       partner: {
@@ -113,6 +118,14 @@ export default async function ProgramsPage(props: {
   const regions = await prisma.region.findMany({ select: { name: true } });
   const partnerTypes = await prisma.partnerType.findMany({ select: { name: true } });
 
+  // Earliest real start per program, for the timeline above the table — through the
+  // shared assembly (#159, docs/adr/2026-07-22-poppable-charts…). One extra sequential
+  // round trip on this page: unlike /ecosystem it cannot join a Promise.all, because
+  // the ids come from the project query itself. Measured (demo data, 18 programs /
+  // 97 Phase / 250 PhaseState): 0.9–2.2ms per call against a ~100–200ms page render —
+  // the trip is noise, matching the 2.2ms the assembly's own header records.
+  const startMs = await getProgramStartMs(projects.map((p) => p.id));
+
   return (
     <PageShell
       subtitle={t(locale, 'programsExplainer')}
@@ -135,6 +148,8 @@ export default async function ProgramsPage(props: {
         initialTableSort={initialTableSort}
         initialQ={initialQ}
         initialProjects={serializedProjects}
+        now={now}
+        startEntries={[...startMs]}
         regions={regions.map(r => r.name)}
         partnerTypes={partnerTypes.map(t => t.name)}
         initialMinRisk={initialMinRisk}

@@ -297,7 +297,11 @@ describe('ensureBuiltinTemplates', () => {
   it('concurrent seeding never duplicates a built-in', async () => {
     await prisma.phaseTemplateDep.deleteMany();
     await prisma.phaseTemplate.deleteMany();
-    await prisma.programTemplate.deleteMany();
+    // `initiative: null`, the exclusion every template list applies (gh-286): an
+    // initiative's snapshot clone is FK-pinned by its Initiative row, so a blanket
+    // delete throws whenever an initiative test has already run on this worker's DB
+    // (templates_ui.spec.ts hit exactly that, order-dependently).
+    await prisma.programTemplate.deleteMany({ where: { initiative: null } });
     await Promise.all([templates.ensureBuiltinTemplates(), templates.ensureBuiltinTemplates()]);
     const rows = await prisma.programTemplate.findMany({ where: { isBuiltIn: true } });
     const names = rows.map((r) => r.name);
