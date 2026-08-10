@@ -2,6 +2,15 @@
 /* The free-text filter box and "× Clear filters" reset live in DataTable's own bar
    now (#86); the categorical filters live in the column headers. */
 
+/* The one-line read under the timeline heading — the ecosystem page's .sectionSub
+   voice (design.md §7): muted and small so it explains the chart without competing. */
+.sectionSub {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--muted);
+}
+
 /* Grouping columns carry no identity colour — the BOX is the signal. */
 .classInk {
   color: var(--muted);

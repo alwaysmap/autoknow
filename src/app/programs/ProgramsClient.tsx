@@ -5,9 +5,13 @@ import { useTableUrlSync } from '../../lib/useTableUrlSync';
 import type { TableSort } from '../../lib/tableUrlState';
 import Link from 'next/link';
 import DateCell from '../../components/DateCell';
-import DataTable from '../../components/DataTable';
+import DataTable, { type Header } from '../../components/DataTable';
 import ClassBox from '../../components/ClassBox';
+import AnchorHeading from '../../components/AnchorHeading';
+import ProgramTimeline from '../../components/ProgramTimeline';
 import PersonCell, { personRefFunnel, type PersonRef } from '../../components/PersonCell';
+import { applyTableFilter } from '../../lib/tableFilter';
+import { buildTimelineMarks } from '../../lib/programTimeline';
 import styles from '../ecosystem-summary/EcosystemSummaryClient.module.css';
 import local from './page.module.css';
 import { formatNeedleValue } from '../../lib/needle';
@@ -52,6 +56,9 @@ interface Project {
    *  (#127 E7). Was the stored `ownerName` email, re-matched against a directory
    *  shipped alongside — which lost any owner who had changed address (#124 Class 4). */
   owner: PersonRef | null;
+  /** Remaining critical-chain days — the timeline's forecast input, the same figure the
+   *  page's sopOutlook column was derived from (lib/programTimeline.TimelineProgram). */
+  chainRemainingDays: number;
   volumeFirstYear: number;
   partner: {
     id: number;
@@ -72,6 +79,12 @@ interface Project {
 
 interface ProgramsClientProps {
   initialProjects: Project[];
+  /** The server's per-request "now" — the timeline's forecast anchor, taken once so SSR
+   *  and hydration agree (the ecosystem page's rule). */
+  now: number;
+  /** Program id → earliest phase-start ms, from `getProgramStartMs` — as entries,
+   *  because a `Map` does not cross the RSC serialization boundary. */
+  startEntries: [number, number][];
   regions?: string[];
   partnerTypes?: string[];
   /** Deep-link support (legacy ?minRisk / ?filter=active). */
@@ -86,7 +99,7 @@ interface ProgramsClientProps {
 
 const SHOW_SCORECARDS = false;
 
-export default function ProgramsClient({ initialProjects, initialMinRisk = 0, initialSort = null, initialActiveOnly = false, initialFilters, initialTableSort = null, initialQ = '' }: ProgramsClientProps) {
+export default function ProgramsClient({ initialProjects, now, startEntries, initialMinRisk = 0, initialSort = null, initialActiveOnly = false, initialFilters, initialTableSort = null, initialQ = '' }: ProgramsClientProps) {
   const locale = useLocale();
   // Column filters live in the table headers (design.md: table filtering pattern).
   // The ?minRisk deep-link becomes a Health-column preselection.
@@ -136,6 +149,53 @@ export default function ProgramsClient({ initialProjects, initialMinRisk = 0, in
     );
   }
 
+  // The table's rows with the derived Status column attached once — the ONE array both
+  // DataTable and the timeline's filter pass below read, and the ONE site that calls
+  // statusOf: the status funnel and the cell both read `row.status` from here.
+  const rows: (Project & { status: string })[] = projects.map((p) => ({ ...p, status: statusOf(p) }));
+
+  // The column set, extracted from the JSX so the timeline can apply the SAME funnels
+  // DataTable renders — one predicate, two consumers (autoknow-ws1; lib/tableFilter).
+  const headers: Header[] = [
+    { key: 'name', label: t(locale, 'programName') },
+    { key: 'partner.name', label: t(locale, 'partnerLabel'), filterable: true },
+    {
+      key: 'partner.region', label: t(locale, 'googleRegion'), filterable: true,
+      filterValue: (row) => (row as Project).partner.region || t(locale, 'otherLabel'),
+    },
+    {
+      // Keyed on the owner's id via the FK, not on the stored email (#127 E7).
+      key: 'owner', label: t(locale, 'programOwner'), filterable: true,
+      ...personRefFunnel(initialProjects, (p) => p.owner),
+    },
+    { key: 'sopDate', label: t(locale, 'targetSopHeader') },
+    {
+      key: 'sopOutlook', label: t(locale, 'sopOutlookHeader'), filterable: true,
+      filterValue: (row) => (row as Project).sopOutlook,
+      filterLabel: (v) => t(locale, SOP_OUTLOOK_KEY[v as SopBufferCategory]),
+    },
+    {
+      key: 'theNeedle', label: t(locale, 'healthLabel'), filterable: true,
+      // Canonicalize legacy values so "Low"/"On Track" collapse to one option.
+      filterValue: (row) => formatNeedleValue((row as Project).theNeedle),
+      filterLabel: (v) => t(locale, healthKey(v)),
+    },
+    { key: 'hillChartProgress', label: t(locale, 'progressLabel') },
+    {
+      // No filterValue: the default row['status'] lookup reads the token the `rows`
+      // mapping attached, so the derivation stays single-sited there.
+      key: 'status', label: t(locale, 'statusLabel'), filterable: true,
+      filterLabel: (v) => t(locale, statusKeyOf(v)),
+    },
+  ];
+
+  // The chart plots exactly the rows the table is showing: same rows, same columns, same
+  // predicate, so the two surfaces cannot disagree under any filter combination — the
+  // point of extracting lib/tableFilter. Pagination deliberately does NOT narrow it: a
+  // page is a viewport over the filtered set, not a filter.
+  const visible = applyTableFilter(rows, headers, filters, text);
+  const timelineLayout = buildTimelineMarks(visible, new Map(startEntries), now);
+
   // Aggregations for dynamic scorecards
   const totalMatching = projects.length;
   const activeMatching = projects.filter(p => p.hillChartProgress < 100).length;
@@ -176,47 +236,25 @@ export default function ProgramsClient({ initialProjects, initialMinRisk = 0, in
         </section>
       )}
 
+      {/* The portfolio whisker chart, tracking the table (#159's second surface). Above
+          the table so the reading order is the summary, then the records it summarizes. */}
+      <section>
+        <AnchorHeading id="timeline">{t(locale, 'programsTimelineTitle')}</AnchorHeading>
+        <p className={local.sectionSub}>{t(locale, 'programsTimelineSub')}</p>
+        <ProgramTimeline layout={timelineLayout} />
+      </section>
+
       {/* Main Database Table */}
       <section className={styles.tableSection}>
         <DataTable
-          headers={[
-            { key: 'name', label: t(locale, 'programName') },
-            { key: 'partner.name', label: t(locale, 'partnerLabel'), filterable: true },
-            {
-              key: 'partner.region', label: t(locale, 'googleRegion'), filterable: true,
-              filterValue: (row) => (row as Project).partner.region || t(locale, 'otherLabel'),
-            },
-            {
-              // Keyed on the owner's id via the FK, not on the stored email (#127 E7).
-              key: 'owner', label: t(locale, 'programOwner'), filterable: true,
-              ...personRefFunnel(initialProjects, (p) => p.owner),
-            },
-            { key: 'sopDate', label: t(locale, 'targetSopHeader') },
-            {
-              key: 'sopOutlook', label: t(locale, 'sopOutlookHeader'), filterable: true,
-              filterValue: (row) => (row as Project).sopOutlook,
-              filterLabel: (v) => t(locale, SOP_OUTLOOK_KEY[v as SopBufferCategory]),
-            },
-            {
-              key: 'theNeedle', label: t(locale, 'healthLabel'), filterable: true,
-              // Canonicalize legacy values so "Low"/"On Track" collapse to one option.
-              filterValue: (row) => formatNeedleValue((row as Project).theNeedle),
-              filterLabel: (v) => t(locale, healthKey(v)),
-            },
-            { key: 'hillChartProgress', label: t(locale, 'progressLabel') },
-            {
-              key: 'status', label: t(locale, 'statusLabel'), filterable: true,
-              filterValue: (row) => statusOf(row as Project),
-              filterLabel: (v) => t(locale, statusKeyOf(v)),
-            }
-          ]}
-          data={projects.map((p) => ({ ...p, status: statusOf(p) }))}
+          headers={headers}
+          data={rows}
           filters={filters}
           onFiltersChange={setFilters}
           textFilter={text}
           onTextFilterChange={setText}
           textFilterPlaceholder={t(locale, 'filterProgramsPlaceholder')}
-          renderRow={(p: Project) => {
+          renderRow={(p: Project & { status: string }) => {
             return (
               <tr key={p.id}>
                 <th scope="row">
@@ -296,12 +334,12 @@ export default function ProgramsClient({ initialProjects, initialMinRisk = 0, in
                 <td>
                   <button
                     type="button"
-                    onClick={() => setFilters((f) => ({ ...f, status: [statusOf(p)] }))}
+                    onClick={() => setFilters((f) => ({ ...f, status: [p.status] }))}
                     className={styles.badgeFilterBtn}
                     title={t(locale, 'filterColumn', { c: t(locale, 'statusLabel') })}
                   >
                     <span className={styles.typeText ?? ''} style={{ color: 'var(--muted)', fontSize: '0.75rem', fontWeight: 600 }}>
-                      {t(locale, statusKeyOf(statusOf(p)))}
+                      {t(locale, statusKeyOf(p.status))}
                     </span>
                   </button>
                 </td>

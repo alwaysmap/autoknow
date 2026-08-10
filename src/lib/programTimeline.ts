@@ -91,7 +91,7 @@ const monthCeil = (ms: number): number => {
  *   program missing from the map simply has no start dot.
  */
 export function buildTimelineMarks(
-  programs: TimelineProgram[],
+  programs: readonly TimelineProgram[],
   startById: Map<number, number>,
   now: number,
 ): TimelineLayout {

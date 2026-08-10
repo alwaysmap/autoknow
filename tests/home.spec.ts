@@ -153,10 +153,13 @@ test.describe('Ecosystem dashboard (/ecosystem)', () => {
       await expect(page).toHaveURL(/\/programs\?sopOutlook=blown&sopOutlook=late&sopOutlook=atrisk\b/, { timeout: 2000 });
     }).toPass({ timeout: 20000 });
 
-    await expect(page.getByRole('link', { name: 'Missed Bring-up' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Late Bring-up' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Thin Bring-up' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'On-Track Bring-up' })).toHaveCount(0);
+    // Scoped to the TABLE: the timeline above it plots the same filtered set
+    // (autoknow-ws1), so an unscoped link-by-name matches the program's mark too.
+    const list = page.locator('tbody');
+    await expect(list.getByRole('link', { name: 'Missed Bring-up' })).toBeVisible();
+    await expect(list.getByRole('link', { name: 'Late Bring-up' })).toBeVisible();
+    await expect(list.getByRole('link', { name: 'Thin Bring-up' })).toBeVisible();
+    await expect(list.getByRole('link', { name: 'On-Track Bring-up' })).toHaveCount(0);
 
     // Each class says its own thing in the column — the split is visible, not just
     // internal. Scoped to the ROW: the same labels are also the column funnel's

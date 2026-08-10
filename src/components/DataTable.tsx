@@ -11,10 +11,13 @@ import {
   subscribePrefChange,
   writeLocalPref,
 } from '../lib/preferences';
+import { applyTableFilter, filterTokensOf, valueAt, type FilterColumn } from '../lib/tableFilter';
 import styles from './DataTable.module.css';
 
-interface Header {
-  key: string;
+/** A column: `FilterColumn` carries the filter contract (`filterable`, `filterValue`,
+ *  `filterValues` — semantics documented there, where the predicate lives); everything
+ *  presentational stacks on top here. */
+export interface Header extends FilterColumn {
   label: string;
   sortable?: boolean;
   /** Comparison type for this column. Omitted → inferred (number/Date as-is, then
@@ -22,17 +25,6 @@ interface Header {
    *  auto-sniff treated any Date.parse-able string with a '-' as a date, mis-sorting
    *  columns like IDs or ranges ("3-2") and varying by engine. */
   sortType?: 'date' | 'number' | 'string';
-  /** Discrete per-column filter (funnel in the header): options are the unique
-   *  values in the data; multi-select is OR within the column, columns AND. */
-  filterable?: boolean;
-  /** Filter on this derived value instead of row[key] (e.g. canonical health). */
-  filterValue?: (row: unknown) => string;
-  /** Set-valued twin of `filterValue`, for a column whose cell holds several class
-   *  tokens at once (a partner's Products, gh-286 part f). The funnel lists the UNION
-   *  of every row's values, and a row passes when ANY selected value is among its own
-   *  — membership, never combination, so "GAS" means "carries GAS", not "carries
-   *  exactly GAS". Takes precedence over `filterValue` if both are set. */
-  filterValues?: (row: unknown) => string[];
   /** Sort on this derived value instead of row[key] — `filterValue`'s twin, and needed
    *  for the same reason: a column whose key holds a non-scalar. Sorting stringifies
    *  what it finds, so an object under the key compares as '[object Object]' and the
@@ -114,10 +106,6 @@ interface DataTableProps<T> {
   extrasActive?: boolean;
   onClearExtras?: () => void;
 }
-
-// Sort accessor: resolves "partner.name"-style dotted keys against a row object.
-const valueAt = (item: unknown, key: string): unknown =>
-  key.split('.').reduce<unknown>((obj, part) => (obj as Record<string, unknown> | null | undefined)?.[part], item);
 
 export default function DataTable<T>({
   headers,
@@ -232,31 +220,15 @@ export default function DataTable<T>({
   // old hand-rolled flip only half-fixed), light-dismiss, and — via `popover="auto"` —
   // one-open-at-a-time for free, so the single-open `openFilterKey` state is gone.
 
-  const filterValueOf = (h: Header, row: T): string =>
-    h.filterValue ? h.filterValue(row) : String(valueAt(row, h.key) ?? '');
-
-  /** A row's filter tokens for a column — one for a scalar column, several for a
-   *  set-valued one (`filterValues`). */
-  const filterValuesOf = (h: Header, row: T): string[] =>
-    h.filterValues ? h.filterValues(row) : [filterValueOf(h, row)];
-
   const optionsFor = (h: Header): string[] =>
-    [...new Set(data.flatMap((row) => filterValuesOf(h, row)))].sort((a, b) => a.localeCompare(b));
+    [...new Set(data.flatMap((row) => filterTokensOf(h, row)))].sort((a, b) => a.localeCompare(b));
 
-  // The value the free-text filter matches against: the KEY (first) column's cell.
-  const keyColumnText = (row: T): string => String(valueAt(row, headers[0]?.key) ?? '');
-
-  const filteredData = useMemo(() => {
-    const active = headers.filter((h) => h.filterable && (filters[h.key]?.length ?? 0) > 0);
-    const q = (textFilter ?? '').trim().toLowerCase();
-    if (active.length === 0 && !q) return data;
-    return data.filter(
-      (row) =>
-        active.every((h) => filterValuesOf(h, row).some((v) => filters[h.key].includes(v))) &&
-        (!q || keyColumnText(row).toLowerCase().includes(q)),
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, headers, filters, textFilter]);
+  // The predicate itself lives in lib/tableFilter — the ONE home for what the funnels
+  // and the text box mean, shared with hosts that need the filtered set (autoknow-ws1).
+  const filteredData = useMemo(
+    () => applyTableFilter(data, headers, filters, textFilter),
+    [data, headers, filters, textFilter],
+  );
 
   // 1. Sort the data client-side
   const sortHeader = headers.find((h) => h.key === sortKey);
