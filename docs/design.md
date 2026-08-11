@@ -397,6 +397,54 @@ stopping on empty space? Rules:
 * **Prose is the exception**: summaries and notes get comfortable line-height and
   width; facts get density.
 
+## 7b. Type scale & ink hierarchy
+
+(2026-08-10, user call — the Refactoring UI pass. The audit that motivated it
+found the section `<h2>` rendering LARGER AND BOLDER than the page `<h1>` on four
+pages, 17 distinct font-sizes carrying no information, and ~30 sites inventing a
+third text colour with ad-hoc `opacity`.)
+
+* **Sizes are named for ROLES, defined once** — the `--fs-*`/`--lh-*` pairs in
+  `globals.css` (theme-independent; sizes pair with their integer line boxes so
+  §8d holds by construction):
+
+  | Pair | px | Role |
+  |---|---|---|
+  | `--fs-micro` / `--lh-micro` | 11/16 | eyebrows, chart labels |
+  | `--fs-caption` / `--lh-caption` | 12/18 | `th`, stat sub-lines, stamps |
+  | `--fs-detail` / `--lh-detail` | 13/20 | table cells, fact lines (§6's floor) |
+  | `--fs-ui` / `--lh-ui` | 14/20 | subtitles, controls (§6's ceiling) |
+  | `--fs-body` | 16/24 | prose (the body ratio) |
+  | `--fs-section` / `--lh-heading` | 18/28 | the `<h2>` |
+  | `--fs-title` / `--lh-heading` | 24/28 | the page `<h1>` — one per page |
+  | `--fs-stat` | 56 | display figures (steps down on phones, below) |
+
+  Picking a size is picking a role; a `font-size` outside the scale is a defect.
+  `tests/vertical-rhythm.test.ts` enforces it as a ratchet (the allowlist of
+  pre-scale stragglers may only shrink) and resolves the `var()`s so the
+  whole-pixel checks keep biting on converted rules.
+* **Three inks: `--fg` speaks, `--muted` supports, `--faint` whispers.**
+  De-emphasize with a **softer ink, never a smaller size** — small type is for
+  DENSITY (tables, captions), not for de-emphasis. `opacity` is never a text ink:
+  it invents a new grey per site, fades borders and children along with the text,
+  and dodges the theme blocks (ratcheted by the same test). `--faint` clears 3:1
+  but not 4.5:1, so it may only carry redundant or decorative text — a repeated
+  unit, a parenthetical, a divider glyph — never the sole statement of a fact.
+* **Weight is binary: 400 content, 600 structure.** Rubik ships 400 and 600 only;
+  a `--head-font` + `700` pairing renders browser-synthesized faux bold, and 700
+  must not be introduced as a third hierarchy channel — hierarchy travels in size
+  and ink.
+* **A label is a last resort.** Format first (`Jun 1, 2026` needs no "Target:";
+  an email address announces itself), position and context second (a line under a
+  person's name reads as their role), a label only when the value is ambiguous
+  without one. A label that survives is the ONE `[data-eyebrow]` grammar
+  (`globals.css`) — sites keep their own element and layout class; the attribute
+  carries the type. A table `th` is a column label, not an eyebrow, and keeps its
+  §6 grammar.
+* **Display type states its narrow step.** Any size ≥ 2rem declares a ≤560px
+  override alongside its resting size; the scale roles below that are fixed at
+  every width.
+
 ## 8. Machine vs. human provenance
 
 Readers must never wonder whether a model or a person wrote what they're reading.
