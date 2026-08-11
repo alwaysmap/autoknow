@@ -95,7 +95,7 @@ function Stat({ label, value, footer }: {
   const locale = useLocale();
   return (
     <div className={styles.stat}>
-      <div className={styles.statLabel}>{label}</div>
+      <div data-eyebrow className={styles.statLabel}>{label}</div>
       <div className={styles.statValue}>
         {value ?? <span className={styles.statMuted}>{t(locale, 'notSet')}</span>}
       </div>
@@ -199,7 +199,7 @@ export default function ProjectMetaHeader({
         )}
         {products.length > 0 && (
           <span className={styles.fact}>
-            <span className={styles.factLabel}>{t(locale, 'productsLabel')}</span>
+            <span data-eyebrow className={styles.factLabel}>{t(locale, 'productsLabel')}</span>
             {products.map((p) => (
               <ClassBox key={p} className={styles.productBox}>{p}</ClassBox>
             ))}
@@ -244,7 +244,7 @@ export default function ProjectMetaHeader({
 
           {(partnerOptions?.length ?? 0) > 0 && (
             <div className={dash.textInputGroup}>
-              <label htmlFor="editLeadPartner" className={dash.formLabel}>{t(locale, 'leadPartnerLabel')}</label>
+              <label htmlFor="editLeadPartner" data-eyebrow>{t(locale, 'leadPartnerLabel')}</label>
               {/* Mapped inline rather than through `toComboboxOptions`: the label is
                   composed (the OEM marker), and OEMs sort ahead of suppliers regardless
                   of name — an order the reader relies on and a plain id/name map loses. */}
@@ -261,7 +261,7 @@ export default function ProjectMetaHeader({
             </div>
           )}
           <div className={dash.textInputGroup}>
-            <label htmlFor="editOwner" className={dash.formLabel}>{t(locale, 'googlerOwner')}</label>
+            <label htmlFor="editOwner" data-eyebrow>{t(locale, 'googlerOwner')}</label>
             {/* Picked from existing people only, and both the field NAME and the committed
                 VALUE are addresses — that is this field's write contract, not a lapse from
                 AGENTS lesson 3: `requireOwner` turns the submitted address back into the
@@ -280,11 +280,11 @@ export default function ProjectMetaHeader({
             />
           </div>
           <div className={dash.textInputGroup}>
-            <label htmlFor="editSop" className={dash.formLabel}>{t(locale, 'sopMonthLabel')}</label>
+            <label htmlFor="editSop" data-eyebrow>{t(locale, 'sopMonthLabel')}</label>
             <input id="editSop" type="month" name="sopDate" defaultValue={sopMonthValue} required className={dash.textInput} />
           </div>
           <div className={dash.textInputGroup}>
-            <span className={dash.formLabel}>{t(locale, 'productsLabel')}</span>
+            <span data-eyebrow>{t(locale, 'productsLabel')}</span>
             <label style={{ display: 'block', fontSize: '0.8125rem' }}>
               <input type="checkbox" name="hasGas" defaultChecked={hasGas} /> {t(locale, 'productGas')}
             </label>
@@ -299,11 +299,11 @@ export default function ProjectMetaHeader({
             </label>
           </div>
           <div className={dash.textInputGroup}>
-            <label htmlFor="editVolume" className={dash.formLabel}>{t(locale, 'targetVolume')}</label>
+            <label htmlFor="editVolume" data-eyebrow>{t(locale, 'targetVolume')}</label>
             <input id="editVolume" type="number" name="volumeFirstYear" defaultValue={volumeFirstYear} min="0" placeholder="e.g. 50000" className={dash.textInput} />
           </div>
           <div className={dash.textInputGroup}>
-            <label htmlFor="settingsNotes" className={dash.formLabel}>{t(locale, 'updateNoteOptional')}</label>
+            <label htmlFor="settingsNotes" data-eyebrow>{t(locale, 'updateNoteOptional')}</label>
             <input id="settingsNotes" type="text" name="notes" placeholder={t(locale, 'metadataNotesPlaceholder')} className={dash.textInput} />
           </div>
 

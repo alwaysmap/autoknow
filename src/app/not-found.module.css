@@ -20,7 +20,7 @@
 .errorCode {
   font-family: var(--head-font);
   font-size: 6rem;
-  font-weight: 700;
+  font-weight: 600; /* Rubik's heaviest real face (§7b) — 700 was faux bold */
   color: var(--p-600);
   line-height: 1;
   margin-bottom: 1rem;

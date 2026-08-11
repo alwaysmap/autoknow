@@ -294,7 +294,7 @@ export default function PhaseHillGauge({
           </div>
 
           <div className={styles.formGroup}>
-            <span className={styles.formLabel}>{strings.noteFieldLabel}</span>
+            <span data-eyebrow>{strings.noteFieldLabel}</span>
             <MarkdownNoteEditor name="notes" ariaLabel={strings.noteFieldLabel}
               placeholder={strings.notePlaceholder} />
             {noteError && <div style={{ color: 'var(--bad)', fontSize: '0.75rem' }}>{t(locale, 'noteRequired')}</div>}

@@ -161,13 +161,6 @@
   text-align: left;
 }
 
-.formLabel {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
-}
-
 .actionRow {
   display: flex;
   justify-content: flex-end;
@@ -215,10 +208,5 @@
 }
 
 .previewLabel {
-  font-size: 0.6875rem;
-  line-height: 1rem;
-  font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
   margin-bottom: 0.25rem;
 }

@@ -95,8 +95,12 @@ export default function EcosystemSummaryClient({
       )}
       {/* Ecosystem flow constraints diagnosis */}
       <section className={styles.constraintDiagnosis}>
+        {/* A real section peer of #lifecycle-launches and #initiatives, so it takes
+            the same AnchorHeading grammar (deep link + graticule) rather than the
+            bare h3-with-sub it used to hand-roll — the page had three heading
+            systems and this was the odd one out. */}
         <div className={styles.diagnosisHeader}>
-          <h3>{t(locale, 'flowConstraintDiagnosis')}</h3>
+          <AnchorHeading id="constraint-diagnosis">{t(locale, 'flowConstraintDiagnosis')}</AnchorHeading>
           <span className={styles.diagnosisSub}>{t(locale, 'flowConstraintSub')}</span>
         </div>
         {liveConstraints.length === 0 ? (

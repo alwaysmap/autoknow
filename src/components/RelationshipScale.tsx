@@ -223,7 +223,7 @@ export default function RelationshipScale({
             </div>
 
             <div className={styles.formGroup}>
-              <span className={styles.formLabel}>{t(locale, 'updateWhatWhy')}</span>
+              <span data-eyebrow>{t(locale, 'updateWhatWhy')}</span>
               <MarkdownNoteEditor name="notes" ariaLabel={t(locale, 'updateWhatWhy')}
                 placeholder={t(locale, 'relNotePlaceholder')} onChange={setNoteText} />
               {noteError && <div className={styles.noteError}>{t(locale, 'updateNeedsNote')}</div>}

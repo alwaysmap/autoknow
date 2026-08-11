@@ -101,15 +101,15 @@ export default function UserMenu({
           live here rather than in the nav or Manage. */}
       <div className={styles.prefs}>
         <div className={styles.prefRow}>
-          <span className={styles.prefLabel}>{t(locale, 'styleLabel')}</span>
+          <span data-eyebrow>{t(locale, 'styleLabel')}</span>
           <StyleToggle />
         </div>
         <div className={styles.prefRow}>
-          <span className={styles.prefLabel}>{t(locale, 'themeLabel')}</span>
+          <span data-eyebrow>{t(locale, 'themeLabel')}</span>
           <ThemeToggle />
         </div>
         <div className={styles.prefRow}>
-          <span className={styles.prefLabel}>{t(locale, 'settingsLanguage')}</span>
+          <span data-eyebrow>{t(locale, 'settingsLanguage')}</span>
           <LocaleSwitcher locale={locale} />
         </div>
         {/* Reset every preference to its app default (#31). A full reload is the simplest

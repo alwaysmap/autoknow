@@ -171,8 +171,10 @@
 }
 
 .zoomBtn:disabled {
-  opacity: 0.4;
-  cursor: default;
+  /* The one disabled grammar (#45): the shared dim + not-allowed, never a
+     hand-rolled opacity with a cursor that says nothing. */
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
 }
 
 .rowLabel {

@@ -19,13 +19,6 @@
   padding: 0.875rem 0 0.75rem;
 }
 
-.header h1 {
-  font-family: var(--head-font);
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0;
-}
-
 /* The title LINE: name + its kebab admin menu, then the graticule to the end of
    the line (§8c). width:100% so the tick-rule spans the column; baseline so it
    rests on the h1's text baseline whatever the kebab's height. */
@@ -39,12 +32,6 @@
 }
 
 .partnerType {
-  font-size: 0.6875rem;
-  line-height: 1rem;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   margin-top: 0.125rem;
 }
 
@@ -84,13 +71,6 @@
    padding-top are merged into one gap so no padding orphans the removed rule. */
 .colMain > .projectsSection + .projectsSection {
   margin-top: 2.75rem;
-}
-
-.projectsSection h2 {
-  font-family: var(--head-font);
-  font-size: 1.375rem;
-  font-weight: 600;
-  margin: 0 0 0.75rem;
 }
 
 /* The Status cell's ClassBox is a BUTTON: a class filters its own column and never
@@ -149,16 +129,6 @@
    It used to be head-font 0.875rem/0.08em in `--p-600`, which is the BRAND GREEN:
    design.md §6 reserves the green ramp for semantic positives (on track, early,
    saved), so spending it on a heading paints a status onto a label that has none. */
-.sidebarCard h3 {
-  font-size: 0.6875rem;
-  line-height: 1rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-  margin: 0 0 0.625rem 0;
-}
-
 /* The human-written one-liner about the partner (edit dialog), NOT the AI briefing. */
 .summaryText {
   font-size: 0.8125rem;

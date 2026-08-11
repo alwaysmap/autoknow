@@ -16,8 +16,9 @@
 
 .title {
   font-family: var(--head-font);
-  font-size: 1.5rem;
+  font-size: var(--fs-title);
   font-weight: 600;
+  line-height: var(--lh-heading);
   margin: 0 0 0.3rem;
 }
 
@@ -32,13 +33,6 @@
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.25rem;
-}
-.factLabel {
-  color: var(--muted);
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  line-height: 1rem;
-  letter-spacing: 0.06em;
 }
 .factSep {
   margin: 0 0.6rem;
@@ -60,10 +54,6 @@
   .topGrid {
     grid-template-columns: 1fr;
   }
-}
-
-.briefingHeading {
-  margin-top: 0;
 }
 
 .contentCol {

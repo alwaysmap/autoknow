@@ -17,18 +17,12 @@
 }
 
 .card h3 {
-  font-family: var(--head-font);
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--muted);
   margin: 0 0 0.75rem 0;
-  letter-spacing: 0.05em;
 }
 
 .metric {
   font-size: 2rem;
-  font-weight: 700;
+  font-weight: 600; /* §7b binary weight */
   color: var(--fg);
   line-height: 1;
   margin-bottom: 0.375rem;
@@ -55,13 +49,6 @@
   background-color: transparent;
   padding: 0;
   overflow-x: auto;
-}
-
-.tableSection h2 {
-  font-family: var(--head-font);
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin: 0 0 1.25rem 0;
 }
 
 .link {
@@ -131,13 +118,6 @@
 
 .diagnosisHeader {
   margin-bottom: 1.25rem;
-}
-
-.diagnosisHeader h3 {
-  font-family: var(--head-font);
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin: 0 0 0.25rem 0;
 }
 
 .diagnosisSub {

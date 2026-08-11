@@ -33,7 +33,7 @@ export default function ProjectStatusDashboard({
       <div className={styles.summaryTopRow}>
         {/* Program Needle: progress (position) + health (color) */}
         <div className={styles.summaryCard}>
-          <div className={styles.summaryCardLabel}>{t(locale, 'progressHealth')}</div>
+          <div data-eyebrow className={styles.summaryCardLabel}>{t(locale, 'progressHealth')}</div>
           <NeedleGauge
             progress={currentHillChartProgress}
             health={currentNeedle}

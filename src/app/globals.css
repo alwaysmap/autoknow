@@ -101,6 +101,16 @@
   --border:  hsl(35, 8%, 84%);
   --fg:      hsl(30, 10%, 14%); /* warm bark rather than neutral black */
   --muted:   hsl(30, 6%, 41%); /* AA on --bg for body text; warmed with the rest */
+  /* The THIRD ink (design.md §7b): --fg speaks, --muted supports, --faint whispers.
+     No call site was converted onto it — the autoknow-c43 audit found every
+     existing fractional opacity to be a state or a mark, not a resting text ink —
+     so this is the sanctioned ink FUTURE de-emphasis reaches for, and the opacity
+     ratchet (tests/vertical-rhythm.test.ts) is what points here. Opacity is never
+     a text ink: it fades a rule's borders and children along with its text and
+     dodges the theme blocks. --faint clears 3:1 (AA-large) but NOT 4.5:1, so it
+     may only carry redundant/decorative text — a repeated unit, a parenthetical,
+     a divider glyph — never the sole statement of a fact. */
+  --faint:   hsl(30, 5%, 52%);
 
   --white: hsl(45, 8%, 96%);
   --black: #111111;
@@ -178,6 +188,28 @@
   --body-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono-font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
+  /* THE type scale — sizes named for ROLES, not steps (design.md §7b). Picking a
+     size is picking a role; a font-size outside this menu is a defect the
+     vertical-rhythm test flags. Every pair resolves to a whole pixel at the 16px
+     root and pins an integer line box (§8d rules 2–3): the odd sizes (11/13px)
+     carry their explicit boxes here so no call site re-derives one from a ratio.
+     Theme-independent — stated once, never restated per theme (like the fonts
+     above and --disabled-opacity). */
+  --fs-micro: 0.6875rem;   --lh-micro: 1rem;      /* 11/16 — eyebrows, chart labels */
+  --fs-caption: 0.75rem;   --lh-caption: 1.125rem; /* 12/18 — th, stat subs, stamps */
+  --fs-detail: 0.8125rem;  --lh-detail: 1.25rem;  /* 13/20 — table cells, fact lines */
+  --fs-ui: 0.875rem;       --lh-ui: 1.25rem;      /* 14/20 — subtitles, controls */
+  --fs-body: 1rem;                                 /* 16/24 — prose (body's 1.5 ratio) */
+  --fs-section: 1.125rem;                          /* 18 — the h2; box is --lh-heading */
+  --fs-title: 1.5rem;                              /* 24 — the page h1, one per page */
+  /* One shared heading box: AnchorHeading and PageShell already pin 1.75rem, and
+     the instrument graticule's baseline geometry hangs off it — this token is an
+     alias of that agreement, not a new value. */
+  --lh-heading: 1.75rem;
+  /* Display figures (StatTile). ≥2rem display type must state its ≤560px step
+     (§7b) — the step lives with the component, the resting size lives here. */
+  --fs-stat: 3.5rem;
+
   color-scheme: light;
 }
 
@@ -243,6 +275,7 @@
   --border:  hsl(32, 8%, 35%);
   --fg:      hsl(35, 16%, 92%);
   --muted:   hsl(33, 9%, 71%);
+  --faint:   hsl(33, 7%, 58%); /* the whisper ink, dropped for a dark ground — see the light token's note */
 
   --white: hsl(30, 8%, 16%); /* page background token — tracks --bg */
   --black: hsl(35, 16%, 94%); /* "strong ink" token — flips with the theme */
@@ -323,6 +356,7 @@
   --border:  hsl(36, 14%, 78%);
   --fg:      hsl(30, 12%, 12%);
   --muted:   hsl(32, 9%, 42%);
+  --faint:   hsl(32, 7%, 53%); /* the whisper ink on the instrument ground — see the standard token's note */
 
   --white: hsl(38, 22%, 96%);
   --black: hsl(30, 12%, 10%);
@@ -384,6 +418,7 @@
   --border:  hsl(32, 9%, 33%);
   --fg:      hsl(38, 18%, 92%);
   --muted:   hsl(34, 10%, 70%);
+  --faint:   hsl(34, 8%, 57%); /* the whisper ink, instrument dark — see the standard token's note */
 
   --white: hsl(32, 10%, 13%);
   --black: hsl(38, 18%, 94%);
@@ -503,6 +538,33 @@ textarea {
   margin: 0;
 }
 
+/* Element-default heading type (§7b) — the 0,0,1 safety net under PageShell and
+   AnchorHeading. Any class beats it, which is the point: it exists so a BARE
+   heading (an inline-styled admin h1, a future page that forgets) lands on the
+   scale instead of on the UA's 2em/700 — the exact failure that had section h2s
+   out-shouting page titles. The odd-ball h1 sizes it replaces: login's 2rem,
+   me/manage's inline 1.5rem sans-Rubik. */
+h1 {
+  font-family: var(--head-font);
+  font-size: var(--fs-title);
+  font-weight: 600;
+  line-height: var(--lh-heading);
+}
+
+h2 {
+  font-family: var(--head-font);
+  font-size: var(--fs-section);
+  font-weight: 600;
+  line-height: var(--lh-heading);
+}
+
+h3 {
+  font-family: var(--head-font);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: 1.5rem;
+}
+
 a {
   color: inherit;
   /* Links are regular-weight app-wide (design.md §6): color/underline carry the
@@ -515,6 +577,24 @@ a {
 
 a:hover {
   text-decoration-color: var(--muted);
+}
+
+/* THE eyebrow — the one grammar for a small uppercase label over or beside a value
+   (design.md §7b). An ATTRIBUTE, not a class, for the same reason [data-inst-only]
+   is: CSS modules cannot share a class across files, and this exact five-line
+   cluster had been restated ~45 times across 26 modules, drifting between 0.625
+   and 0.75rem and mostly at weight 700 — which Rubik does not ship, and which §7b
+   reserves against anyway (400 content / 600 structure). A site keeps its own
+   element (an h3 stays an h3, a span a span) and its module class for LAYOUT;
+   this attribute carries only the type. Table th is NOT an eyebrow — it keeps its
+   own §6 column-label grammar below. */
+[data-eyebrow] {
+  font-size: var(--fs-micro);
+  line-height: var(--lh-micro);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
 }
 
 /* Edward Tufte Minimalist Data-Ink & Breathable Table styling globally */

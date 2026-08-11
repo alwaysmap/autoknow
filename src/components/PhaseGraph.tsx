@@ -205,7 +205,7 @@ export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGrap
     <div className={styles.wrapper}>
       {chain.path.length > 1 && (
         <p className={styles.chainSummary}>
-          <span className={styles.chainLabel}>Critical chain</span>
+          <span data-eyebrow className={styles.chainLabel}>Critical chain</span>
           {chain.path.map((id, i) => (
             <span key={id}>
               {i > 0 && <span className={styles.chainArrow}> → </span>}
@@ -354,7 +354,7 @@ export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGrap
 
                         {/* dependencies: upstream editable, downstream removable, chips jump */}
                         <div className={styles.depsRow}>
-                          <span className={styles.depsLabel}>After</span>
+                          <span data-eyebrow className={styles.depsLabel}>After</span>
                           {upstream.map((par) => (
                             <span key={par.linkId} className={styles.depChip}>
                               <button type="button" className={styles.depJump} onClick={() => jumpTo(par.id)}>
@@ -398,7 +398,7 @@ export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGrap
                         </div>
                         {downstream.length > 0 && (
                           <div className={styles.depsRow}>
-                            <span className={styles.depsLabel}>Enables</span>
+                            <span data-eyebrow className={styles.depsLabel}>Enables</span>
                             {downstream.map((d) => (
                               <span key={d.linkId} className={styles.depChip}>
                                 <button type="button" className={styles.depJump} onClick={() => jumpTo(d.id)}>

@@ -38,11 +38,6 @@
 }
 
 .title {
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.625rem;
-  color: var(--muted);
   margin-bottom: 0.375rem;
 }
 

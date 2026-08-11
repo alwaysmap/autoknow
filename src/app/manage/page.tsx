@@ -19,7 +19,7 @@ export default async function ManagePage() {
   return (
     <div style={{ padding: '2rem var(--page-gutter)', maxWidth: '45rem' }}>
       <header style={{ marginBottom: '1.25rem' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{t(locale, 'navManage')}</h1>
+        <h1>{t(locale, 'navManage')}</h1>
         <p style={{ color: 'var(--muted, #666)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
           {t(locale, 'manageIntro')}
         </p>

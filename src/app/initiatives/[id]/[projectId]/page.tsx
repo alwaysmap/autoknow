@@ -156,19 +156,19 @@ export default async function InitiativeProjectPage(props: {
         {/* One-line facts (design.md §7): the context this copy lives in. The
             initiative fact IS the way back up; the partner fact is the way sideways. */}
         <p className={styles.facts}>
-          <span className={styles.factLabel}>{t(locale, 'initiativeLabel')}</span>{' '}
+          <span data-eyebrow>{t(locale, 'initiativeLabel')}</span>{' '}
           <Link href={initiativeHref(project.initiative.id)}>{project.initiative.name}</Link>
           <span className={styles.factSep} aria-hidden>·</span>
-          <span className={styles.factLabel}>{t(locale, 'partnerOemSupplier')}</span>{' '}
+          <span data-eyebrow>{t(locale, 'partnerOemSupplier')}</span>{' '}
           <Link href={partnerHref(project.partner.id)}>{project.partner.name}</Link>
           <span className={styles.factSep} aria-hidden>·</span>
-          <span className={styles.factLabel}>{t(locale, 'initiativeTargetLabel')}</span>{' '}
+          <span data-eyebrow>{t(locale, 'initiativeDueLabel')}</span>{' '}
           <DateCell value={project.sopDate} />
           {/* Only when links exist — a label over nothing is noise (§7). */}
           {devices.length > 0 && (
             <>
               <span className={styles.factSep} aria-hidden>·</span>
-              <span className={styles.factLabel}>{t(locale, 'initiativeColDevices')}</span>{' '}
+              <span data-eyebrow>{t(locale, 'initiativeColDevices')}</span>{' '}
               {devices.map((d, i) => (
                 <span key={d.deviceId}>
                   {i > 0 && ', '}
@@ -194,7 +194,7 @@ export default async function InitiativeProjectPage(props: {
             />
           </div>
           <section>
-            <AnchorHeading id="briefing" className={styles.briefingHeading}>
+            <AnchorHeading id="briefing">
               {t(locale, 'briefingHeading')}
             </AnchorHeading>
             <SummaryPanel scope="program" targetId={projectId} path={path}

@@ -403,7 +403,7 @@ export default async function ProjectDetailsPage(props: {
             One line, no box: label · fact · reaction (design.md §1, §7). */}
         {focus && (
           <p className={styles.focus} data-testid="program-focus">
-            <span className={styles.focusLabel}>{t(locale, 'clFocusLabel')}</span>
+            <span data-eyebrow className={styles.focusLabel}>{t(locale, 'clFocusLabel')}</span>
             {tNodes(locale, 'clFocusPhase', {
               phase: <Link href={phaseHref(projectId, focus.phaseId)}>{focus.phaseName}</Link>,
               pct: focus.overPct,
@@ -438,7 +438,7 @@ export default async function ProjectDetailsPage(props: {
             />
           </div>
           <section>
-            <AnchorHeading id="briefing" className={styles.briefingHeading}>
+            <AnchorHeading id="briefing">
               {t(locale, 'briefingHeading')}
             </AnchorHeading>
             <SummaryPanel scope="program" targetId={projectId} path={`/programs/${projectId}`}

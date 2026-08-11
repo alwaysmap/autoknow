@@ -223,13 +223,13 @@ export default function ProgramsClient({ initialProjects, now, startEntries, ini
       {SHOW_SCORECARDS && (
         <section className={styles.scorecards}>
           <div className={styles.card}>
-            <h3>{t(locale, 'programsInFlightAllTime')}</h3>
+            <h3 data-eyebrow>{t(locale, 'programsInFlightAllTime')}</h3>
             <div className={styles.metric}>{scorecardRatio}</div>
             <div className={styles.subtext}>{t(locale, 'activeVsTotal')}</div>
           </div>
 
           <div className={styles.card}>
-            <h3>{t(locale, 'someRiskConcerned')}</h3>
+            <h3 data-eyebrow>{t(locale, 'someRiskConcerned')}</h3>
             <div className={styles.metric}>{highRiskCount}</div>
             <div className={styles.subtext}>{t(locale, 'atElevatedRisk')}</div>
           </div>

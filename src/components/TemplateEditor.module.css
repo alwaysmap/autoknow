@@ -38,7 +38,9 @@
 
 .title {
   font-family: var(--head-font);
-  font-size: 1.5rem;
+  font-size: var(--fs-title);
+  font-weight: 600; /* was unset → UA 700, faux bold in Rubik (§7b) */
+  line-height: var(--lh-heading);
   margin: 0;
 }
 
@@ -82,7 +84,7 @@
 .nameInput {
   font-family: var(--head-font);
   font-size: 1.25rem;
-  font-weight: 700;
+  font-weight: 600; /* Rubik's heaviest real face (§7b) — 700 was faux bold */
   padding: 0.25rem 0.5rem;
   border: 1px solid transparent;
   border-radius: 0.375rem;
@@ -193,8 +195,9 @@
   opacity: 0.85;
 }
 .primaryBtn:disabled {
-  opacity: 0.35;
-  cursor: default;
+  /* The one disabled grammar (#45): shared dim + not-allowed. */
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
 }
 
 .miniBtn {

@@ -23,15 +23,6 @@
   align-items: center;
 }
 
-/* §7: a small-caps label over the control it names. */
-.label {
-  font-size: 0.6875rem;
-  line-height: 1rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
 /* Layout only. `flex`/`min-width` mean something for the close-as `<select>` and nothing for
    the duplicate-of `Combobox`, whose flex item is its own wrapper div rather than the input
    this class lands on — harmless there, and not worth a second class to say so. The LOOK is
@@ -72,8 +63,9 @@
 }
 
 .primaryBtn:disabled {
-  opacity: 0.6;
-  cursor: default;
+  /* The one disabled grammar (#45): shared dim + not-allowed. */
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
 }
 
 /* Edit is secondary: a quiet outline, so the close control is the one that reads first. */

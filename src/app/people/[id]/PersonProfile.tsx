@@ -10,6 +10,7 @@ import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import styles from './page.module.css';
 import AnchorHeading from '../../../components/AnchorHeading';
+import InfoPopover from '../../../components/InfoPopover';
 import PersonHistoryTable from './PersonHistoryTable';
 import PersonProgramsTable from './PersonProgramsTable';
 import { personProgramRows } from '../../../lib/personPrograms';
@@ -190,10 +191,19 @@ export default async function PersonProfile({ personId }: { personId: number }) 
 
         <div className={styles.colMain}>
           <section className={styles.section}>
-            <AnchorHeading id="programs">
+            {/* The ~65-word membership rules live one click away (§7 scanning /
+                §7b): in the flow they pushed the table a viewport down on a phone,
+                and they are read once, not every visit. */}
+            <AnchorHeading
+              id="programs"
+              actions={
+                <InfoPopover label={t(locale, 'aboutSection', { s: t(locale, 'navPrograms') })}>
+                  <p>{t(locale, 'personProgramsIntro')}</p>
+                </InfoPopover>
+              }
+            >
               {t(locale, 'navPrograms')}
             </AnchorHeading>
-            <p className={styles.sectionIntro}>{t(locale, 'personProgramsIntro')}</p>
             {programRows.length === 0 ? (
               <p className={styles.empty}>{t(locale, 'noPartnerPrograms')}</p>
             ) : (
@@ -254,12 +264,19 @@ export default async function PersonProfile({ personId }: { personId: number }) 
           </section>
 
           <section className={styles.section}>
-            <AnchorHeading id="activity">
+            {/* The intro states the feed's limit rather than absorbing it — see
+                `personActivityIntro` in lib/i18n for why it has to. It rides in the
+                ⓘ (§7/§7b): a caveat read once must not push the feed down forever. */}
+            <AnchorHeading
+              id="activity"
+              actions={
+                <InfoPopover label={t(locale, 'aboutSection', { s: t(locale, 'navActivity') })}>
+                  <p>{t(locale, 'personActivityIntro')}</p>
+                </InfoPopover>
+              }
+            >
               {t(locale, 'navActivity')}
             </AnchorHeading>
-            {/* The intro states the feed's limit rather than absorbing it — see
-                `personActivityIntro` in lib/i18n for why it has to. */}
-            <p className={styles.sectionIntro}>{t(locale, 'personActivityIntro')}</p>
             {/* #127 E15: the person feed is the densest prose surface in the app, so it
                 is where an untracked colleague is most likely to be named. */}
             <ActivityFeed items={activity} untracked={{ ctx: untracked, partners }} />

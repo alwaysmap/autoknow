@@ -5,3 +5,18 @@
   align-items: start;
   margin-bottom: 1.875rem;
 }
+
+/* Phone (user call, 2026-08-10): THREE numbers per row, not two giants — the
+   auto-fit minmax above can only manage 2-up at 360px. An explicit 3-column
+   grid with the tiles' own 2.5rem step (StatTile) fits the row; the
+   relationship-mix chart tile — ordered last — takes the spare width of the
+   second row, since its bar wants more than a third of 360px. */
+@media (max-width: 560px) {
+  .strip {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem 1rem;
+  }
+  .strip > :last-child {
+    grid-column: span 2;
+  }
+}

@@ -20,7 +20,7 @@ export default function PartnersPicker({ options, locale }: { options: ComboboxO
 
   return (
     <div className={styles.field}>
-      <label htmlFor="initial-partners">{t(locale, 'initiativeInitialPartners')}</label>
+      <label data-eyebrow htmlFor="initial-partners">{t(locale, 'initiativeInitialPartners')}</label>
       <input type="hidden" name="partnerIds" value={picked.map((p) => p.value).join(',')} />
       {picked.length > 0 && (
         <ul className={styles.chips}>

@@ -37,7 +37,9 @@
   align-items: center;
   gap: 0.5rem;
   font-family: var(--head-font);
-  font-weight: 700;
+  /* 600, not 700: Rubik loads 400/600 only, so 700 rendered browser-synthesized
+     faux bold — on the wordmark of all places (§7b: weight is binary). */
+  font-weight: 600;
   font-size: 1.125rem;
   color: var(--fg);
   text-decoration: none;

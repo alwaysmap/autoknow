@@ -20,13 +20,39 @@ function toPx(value: string, unit: string): number {
   return parseFloat(value) * (unit === 'rem' ? PX_PER_REM : 1);
 }
 
+/** The type-scale tokens (design.md §7b) as defined in globals.css: `--fs-detail`
+ *  → `0.8125rem`. Parsed from the source, not restated here, so the test can never
+ *  agree with a stale copy of the scale. Computed once and cached —
+ *  `resolveTypeVars` runs per rule block, and re-reading globals.css hundreds of
+ *  times per test run is pure waste. */
+let TYPE_TOKENS: Record<string, string> | undefined;
+function typeTokens(): Record<string, string> {
+  if (TYPE_TOKENS) return TYPE_TOKENS;
+  const globals = readFileSync('src/app/globals.css', 'utf8');
+  const out: Record<string, string> = {};
+  for (const m of globals.matchAll(/(--(?:fs|lh)-[a-z]+):\s*([0-9.]+rem)/g)) {
+    out[m[1]] = m[2];
+  }
+  TYPE_TOKENS = out;
+  return out;
+}
+
+/** Substitute `var(--fs-*)` / `var(--lh-*)` with their literal values, so the
+ *  whole-pixel checks below keep biting on a rule written against the scale.
+ *  Without this, converting `font-size: 0.8125rem` to `font-size: var(--fs-detail)`
+ *  would silently move the rule out of the tests' sight. */
+function resolveTypeVars(text: string): string {
+  const tokens = typeTokens();
+  return text.replace(/var\((--(?:fs|lh)-[a-z]+)\)/g, (whole, name: string) => tokens[name] ?? whole);
+}
+
 /** Each `{ … }` rule block, with the file and 1-based line it starts on. */
 function blocks(): Array<{ file: string; line: number; body: string }> {
   const out: Array<{ file: string; line: number; body: string }> = [];
   for (const file of CSS) {
     const text = readFileSync(file, 'utf8');
     for (const m of text.matchAll(/\{[^{}]*\}/g)) {
-      out.push({ file, line: text.slice(0, m.index).split('\n').length, body: m[0] });
+      out.push({ file, line: text.slice(0, m.index).split('\n').length, body: resolveTypeVars(m[0]) });
     }
   }
   return out;
@@ -61,7 +87,7 @@ describe('vertical rhythm', () => {
   test('every font-size resolves to a whole pixel', () => {
     const offenders: string[] = [];
     for (const file of CSS) {
-      readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+      resolveTypeVars(readFileSync(file, 'utf8')).split('\n').forEach((line, i) => {
         const m = /font-size:\s*([0-9.]+)(px|rem)/.exec(line);
         if (!m) return;
         const px = toPx(m[1], m[2]);
@@ -131,6 +157,20 @@ describe('vertical rhythm', () => {
     expect(offenders).toEqual([]);
   });
 
+  test('the type-scale tokens are whole-pixel sizes with whole-pixel boxes', () => {
+    const tokens = typeTokens();
+    // The scale exists (a rename or deletion should fail loudly, not silently
+    // un-check every rule written against it) …
+    for (const name of ['--fs-micro', '--fs-caption', '--fs-detail', '--fs-ui', '--fs-body', '--fs-section', '--fs-title', '--fs-stat', '--lh-heading']) {
+      expect(tokens[name]).toBeDefined();
+    }
+    // … and every member lands on a whole pixel (§8d).
+    for (const [name, value] of Object.entries(tokens)) {
+      const px = parseFloat(value) * PX_PER_REM;
+      expect({ name, px, whole: px % 1 === 0 }).toEqual({ name, px, whole: true });
+    }
+  });
+
   test('the body line box is a whole number of pixels', () => {
     const globals = readFileSync('src/app/globals.css', 'utf8');
     // Anchored: `:root[data-style="instrument"] body { … }` also ends in "body {"
@@ -143,5 +183,133 @@ describe('vertical rhythm', () => {
     const px = toPx(size![1], size![2]);
     const box = ratio![2] ? toPx(ratio![1], ratio![2]) : parseFloat(ratio![1]) * px;
     expect(box % 1).toBe(0);
+  });
+});
+
+// ── §7b ratchets ─────────────────────────────────────────────────────────────
+// Two RATCHETS in the componentRootMargins mold: each allowlist names the state
+// of the codebase when the rule landed (2026-08-10) and may ONLY SHRINK — a new
+// offender fails the first test, a fixed one left on the list fails the second.
+
+/** Every literal font-size that is NOT a scale value, as `file :: <rem>` combos
+ *  (per-file+value, not per-line, so unrelated edits don't churn the list). */
+function offScaleSizes(): string[] {
+  // SIZES only — the --lh-* boxes are not font-sizes, and letting them into the
+  // set would bless 1.25rem/1.75rem type that the scale deliberately omits.
+  const scale = new Set(
+    Object.entries(typeTokens())
+      .filter(([name]) => name.startsWith('--fs-'))
+      .map(([, v]) => parseFloat(v)),
+  );
+  const found = new Set<string>();
+  for (const file of CSS) {
+    const text = stripComments(readFileSync(file, 'utf8'));
+    for (const m of text.matchAll(/font-size:\s*([0-9.]+)rem/g)) {
+      if (!scale.has(parseFloat(m[1]))) found.add(`${file} :: ${m[1]}rem`);
+    }
+  }
+  return [...found].sort();
+}
+
+/** Every fractional opacity in a CSS module, as `file :: value` combos. `0` and
+ *  `1` are state toggles (hover reveals, animation endpoints), not inks; the two
+ *  sanctioned tokens (--disabled-opacity / --busy-opacity) are var() at their
+ *  USAGE sites and never match the numeric pattern. Modules only — globals.css
+ *  is exempt BECAUSE it holds those tokens' DEFINITIONS (`--disabled-opacity:
+ *  0.5`), whose text the regex would match; the trade is that a fractional
+ *  opacity added directly to globals.css escapes this ratchet. */
+function fractionalOpacities(): string[] {
+  const found = new Set<string>();
+  for (const file of CSS.filter((f) => f.endsWith('.module.css'))) {
+    const text = stripComments(readFileSync(file, 'utf8'));
+    for (const m of text.matchAll(/opacity:\s*(0?\.[0-9]+)/g)) {
+      found.add(`${file} :: ${m[1]}`);
+    }
+  }
+  return [...found].sort();
+}
+
+// Off-scale literal sizes at the time the scale landed. Converting a file to the
+// scale tokens removes its entries; adding a NEW off-scale size anywhere fails.
+const OFF_SCALE_ALLOWLIST: readonly string[] = [
+  'src/app/admin/page.module.css :: 1.25rem',
+  'src/app/ecosystem-summary/EcosystemSummaryClient.module.css :: 0.625rem',
+  'src/app/ecosystem-summary/EcosystemSummaryClient.module.css :: 2rem',
+  'src/app/ecosystem/page.module.css :: 1.25rem',
+  'src/app/escalations/[id]/page.module.css :: 0.9375rem',
+  'src/app/not-found.module.css :: 0.9375rem',
+  'src/app/not-found.module.css :: 1.75rem',
+  'src/app/not-found.module.css :: 6rem',
+  'src/app/programs/new/page.module.css :: 1.25rem',
+  'src/app/templates/page.module.css :: 0.625rem',
+  'src/components/AiBadge.module.css :: 0.625rem',
+  'src/components/ChainLedger.module.css :: 0.9375rem',
+  'src/components/ClassBox.module.css :: 0.625rem',
+  'src/components/CycleTimeScatterPlot.module.css :: 0.625rem',
+  'src/components/DataTable.module.css :: 0.5625rem',
+  'src/components/IngestionHealthCard.module.css :: 1.25rem',
+  'src/components/LatestTeasers.module.css :: 0.9375rem',
+  'src/components/PartnerProgramRows.module.css :: 0.625rem',
+  'src/components/PhaseGraph.module.css :: 0.625rem',
+  'src/components/PhaseTrack.module.css :: 0.625rem',
+  'src/components/PhaseTrack.module.css :: 0.9375rem',
+  'src/components/SummaryPanel.module.css :: 0.625rem',
+  'src/components/SummaryPanel.module.css :: 0.9375rem',
+  'src/components/TemplateEditor.module.css :: 0.625rem',
+  'src/components/TemplateEditor.module.css :: 1.25rem',
+];
+
+// Fractional opacities on file when --faint landed, AUDITED one by one (pass 3/6,
+// autoknow-c43): every entry turned out to be a STATE or a MARK, not a resting
+// text ink — the seven verbatim `:hover { opacity: 0.8 }` are filter-chip hover
+// feedback, the 0.85s are solid-button hovers, and the rest dim geometry (chart
+// dots, band fills, drag ghosts, an animation keyframe, SVG fill-opacity) or one
+// whole retired ROW (EscalationRows .rowClosed — glyph and text fade as a unit,
+// which per-child --faint could not do). They stay listed so a NEW opacity-as-ink
+// cannot ride in beside them; the four hand-rolled `:disabled` dims that were
+// here are gone onto var(--disabled-opacity), which never matches the pattern.
+const OPACITY_ALLOWLIST: readonly string[] = [
+  'src/app/ecosystem-summary/EcosystemSummaryClient.module.css :: 0.8',
+  'src/app/escalations/page.module.css :: 0.8',
+  'src/app/initiatives/[id]/page.module.css :: 0.8',
+  'src/app/partners/[id]/page.module.css :: 0.8',
+  'src/app/partners/page.module.css :: 0.8',
+  'src/app/people/[id]/page.module.css :: 0.8',
+  'src/app/programs/page.module.css :: 0.8',
+  'src/app/templates/page.module.css :: 0.85',
+  'src/components/ChainLedger.module.css :: 0.55',
+  'src/components/CycleTimeScatterPlot.module.css :: 0.6',
+  'src/components/EscalationRows.module.css :: 0.65',
+  'src/components/IngestionHealthCard.module.css :: 0.5',
+  'src/components/IngestionHealthCard.module.css :: 0.85',
+  'src/components/InstrumentGauge.module.css :: 0.45',
+  'src/components/InstrumentGauge.module.css :: 0.55',
+  'src/components/PhaseTrack.module.css :: 0.06',
+  'src/components/PhaseTrack.module.css :: 0.18',
+  'src/components/PhaseTrack.module.css :: 0.8',
+  'src/components/PhaseTrack.module.css :: 0.85',
+  'src/components/PhaseTrack.module.css :: 0.92',
+  'src/components/ProgramPhaseEditor.module.css :: 0.75',
+  'src/components/SummaryPanel.module.css :: 0.35',
+  'src/components/TemplateEditor.module.css :: 0.85',
+];
+
+describe('§7b type scale & ink ratchets', () => {
+  it('every literal font-size is a scale value — a NEW off-scale size fails CI', () => {
+    expect(offScaleSizes().filter((v) => !OFF_SCALE_ALLOWLIST.includes(v))).toEqual([]);
+  });
+
+  it('keeps the off-scale allowlist honest — a fixed entry must be removed', () => {
+    const found = new Set(offScaleSizes());
+    expect(OFF_SCALE_ALLOWLIST.filter((v) => !found.has(v))).toEqual([]);
+  });
+
+  it('no new fractional opacity in a module — de-emphasis is an ink (--faint), not a fade', () => {
+    expect(fractionalOpacities().filter((v) => !OPACITY_ALLOWLIST.includes(v))).toEqual([]);
+  });
+
+  it('keeps the opacity allowlist honest — a fixed entry must be removed', () => {
+    const found = new Set(fractionalOpacities());
+    expect(OPACITY_ALLOWLIST.filter((v) => !found.has(v))).toEqual([]);
   });
 });

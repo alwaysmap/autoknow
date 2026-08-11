@@ -2,6 +2,7 @@ import { getEcosystemDashboardData } from '../../../lib/dashboardData';
 import { getLocale } from '../../../lib/locale';
 import { t } from '../../../lib/i18n';
 import PageShell from '../../../components/PageShell';
+import InfoPopover from '../../../components/InfoPopover';
 import CycleTimeScatterPlot from '../../../components/CycleTimeScatterPlot';
 
 // The phase cycle-time view (autoknow-7ii).
@@ -28,6 +29,13 @@ export default async function CycleTimePage() {
       title={t(locale, 'cycleTimeTitle')}
       subtitle={t(locale, 'cycleTimeSub')}
       maxWidth="68.75rem"
+      actions={
+        /* The subtitle keeps ONE sentence (§7b: the chart leads); the reference-line
+           and in-flight caveats sit a click away, read once, not every visit. */
+        <InfoPopover label={t(locale, 'aboutSection', { s: t(locale, 'cycleTimeTitle') })}>
+          <p>{t(locale, 'cycleTimeMethod')}</p>
+        </InfoPopover>
+      }
     >
       <CycleTimeScatterPlot data={cycleTimeData} stats={cycleTimeStats} />
     </PageShell>

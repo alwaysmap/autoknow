@@ -42,10 +42,18 @@
    (globals.css), so it is NOT repeated here — two offsets would stack. */
 .row .heading {
   margin: 0;
-  /* An integer box at the heading sizes this app uses (18px and 22px): the 1.2
-     ratio it replaces computed 21.6px and 26.4px, which put every rule BELOW a
-     heading on a fractional pixel. */
-  line-height: 1.75rem;
+  /* AnchorHeading OWNS the section heading's type (§7b): before this, 30 of 37
+     call sites passed no class and fell to the UA's 1.5rem/700 — larger and
+     BOLDER than the 1.5rem/600 page title. --fs-section (18px) puts every
+     section a clear level below the title; weight per §7b's binary. */
+  font-family: var(--head-font);
+  font-size: var(--fs-section);
+  font-weight: 600;
+  /* An integer box at the heading sizes this app uses (the 1.2 ratio it replaces
+     computed fractional boxes that put every rule below a heading on a fractional
+     pixel). The graticule's baseline geometry hangs off this box — hence the
+     shared token, which PageShell's title reads too. */
+  line-height: var(--lh-heading);
 }
 
 /* There is deliberately no `.anchor` rule: the hover-revealed “#” is gone, and

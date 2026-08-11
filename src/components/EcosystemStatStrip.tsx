@@ -8,8 +8,10 @@ import styles from './EcosystemStatStrip.module.css';
 
 // The leadership strip, in reading order: how much work is in flight (programs, then —
 // gh-286 part h — the cross-partner initiatives beside them), how much of it is slipping
-// its SOP, how healthy the partner book carrying it is, and — since #245 section C —
-// how many escalations are open.
+// its SOP, how many escalations are open (#245 section C), and last — always last, a
+// user call (2026-08-10) — how healthy the partner book carrying it is. The counts lead;
+// the relationship chart is the one non-numeral tile, and trailing it also lets the
+// phone layout give it the wide slot (see the module CSS).
 //
 // A COMPONENT rather than a copied block (#133): it renders on `/` and `/ecosystem`,
 // and the tiles have to agree about what "active" and "at risk" mean. Two hand-rolled
@@ -47,8 +49,8 @@ export default function EcosystemStatStrip({
       <EcosystemStats activeCount={activeCount} allTimeCount={programs.length} />
       <InitiativesStat count={activeInitiativeCount} />
       <SopRiskStat now={now} programs={programs} />
-      <RelationshipMix scores={relationshipScores} />
       <EscalationsStat count={openEscalationCount} />
+      <RelationshipMix scores={relationshipScores} />
     </section>
   );
 }

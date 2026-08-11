@@ -66,7 +66,7 @@ export default function BudgetSlider({
     <form action={onSubmit}>
       <p className={styles.help}>{labels.help}</p>
 
-      <label className={styles.statLabel} htmlFor="ingest-budget">
+      <label data-eyebrow htmlFor="ingest-budget">
         {labels.sliderLabel}
       </label>
       <input

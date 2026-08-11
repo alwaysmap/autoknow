@@ -78,14 +78,6 @@
   margin-top: 3.5rem;
 }
 
-.helpSection h2 {
-  font-family: var(--head-font);
-  font-size: 1.375rem;
-  font-weight: 600;
-  color: var(--fg);
-  margin: 0 0 0.75rem 0;
-}
-
 .helpIntro {
   color: var(--muted);
   font-size: 0.875rem;

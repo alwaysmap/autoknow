@@ -295,7 +295,7 @@ function PhaseGoal({ phase, projectId, locale, structureLocked }: { phase: Phase
       )}
       {phase.googleFocus && (
         <div className={styles.metaLine}>
-          <span className={styles.metaLabel}>{t(locale, 'googleFocusLabel')}</span>
+          <span data-eyebrow className={styles.metaLabel}>{t(locale, 'googleFocusLabel')}</span>
           <span className={styles.templateFocus}><Markdown>{phase.googleFocus}</Markdown></span>
         </div>
       )}
@@ -1186,7 +1186,7 @@ export default function PhaseTrack({ projectId, phases, locale, structureLocked 
               )}
               {log.length > 1 && (
                 <div className={styles.historyList}>
-                  <span className={styles.metaLabel}>{t(locale, 'history')}</span>
+                  <span data-eyebrow className={styles.metaLabel}>{t(locale, 'history')}</span>
                   <HillHistoryList
                     compact
                     locale={locale}
@@ -1306,7 +1306,7 @@ export default function PhaseTrack({ projectId, phases, locale, structureLocked 
         <ul className={styles.notices}>
           {structureIssues.map((msg, i) => (
             <li key={`st${i}`} className={styles.resourceLine}>
-              <span className={styles.resourceLabel}>{t(locale, 'structureLabel')}</span>
+              <span data-eyebrow className={styles.resourceLabel}>{t(locale, 'structureLabel')}</span>
               {msg}
             </li>
           ))}
@@ -1317,7 +1317,7 @@ export default function PhaseTrack({ projectId, phases, locale, structureLocked 
           the way out. A selection you cannot see the edge of is a trap. */}
       {focus && focused && (
         <div className={styles.tracing} role="status">
-          <span className={styles.tracingLabel}>{t(locale, 'tracingLabel')}</span>
+          <span data-eyebrow>{t(locale, 'tracingLabel')}</span>
           <span className={styles.tracingName}>{focused.name}</span>
           <span className={styles.tracingCounts}>
             {t(locale, 'tracingCounts', { u: focus.upstream.size, d: focus.downstream.size })}
@@ -1333,7 +1333,7 @@ export default function PhaseTrack({ projectId, phases, locale, structureLocked 
           on the same line: absent ink is only honest while it is labelled absent. */}
       {tracksHidden && (
         <div className={styles.tracing} role="status">
-          <span className={styles.tracingLabel}>{t(locale, 'tracksHidden')}</span>
+          <span data-eyebrow>{t(locale, 'tracksHidden')}</span>
           <button type="button" className={styles.tracingClear} onClick={() => setTracksHidden(false)}>
             {t(locale, 'showTracks')}
           </button>

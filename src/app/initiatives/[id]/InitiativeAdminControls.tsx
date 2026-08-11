@@ -66,11 +66,11 @@ export default function InitiativeAdminControls({
       >
         <form action={formAction} className={styles.editForm}>
           <input type="hidden" name="initiativeId" value={initiativeId} />
-          <label htmlFor="edit-name">{t(locale, 'initiativeNameLabel')}</label>
+          <label data-eyebrow htmlFor="edit-name">{t(locale, 'initiativeNameLabel')}</label>
           <input id="edit-name" type="text" name="name" defaultValue={name} required />
-          <label htmlFor="edit-description">{t(locale, 'initiativeDescriptionLabel')}</label>
+          <label data-eyebrow htmlFor="edit-description">{t(locale, 'initiativeDescriptionLabel')}</label>
           <textarea id="edit-description" name="description" rows={3} defaultValue={description ?? ''} />
-          <label htmlFor="edit-target">{t(locale, 'initiativeTargetMonthLabel')}</label>
+          <label data-eyebrow htmlFor="edit-target">{t(locale, 'initiativeTargetMonthLabel')}</label>
           <input id="edit-target" type="month" name="targetMonth" defaultValue={targetMonth} />
           {state.error && <p role="alert" className={styles.formError}>{state.error}</p>}
           <div className={styles.editActions}>

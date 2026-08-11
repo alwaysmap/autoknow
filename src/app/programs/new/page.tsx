@@ -102,7 +102,7 @@ export default async function NewProjectPage(props: {
       <main className={styles.main}>
         <form action={createProject} className={styles.form}>
           <div className={styles.field}>
-            <label htmlFor="name">{t(locale, 'projectNameHeader')}</label>
+            <label data-eyebrow htmlFor="name">{t(locale, 'projectNameHeader')}</label>
             <input
               type="text"
               id="name"
@@ -113,7 +113,7 @@ export default async function NewProjectPage(props: {
           </div>
 
           <div className={styles.field}>
-            <label htmlFor="partnerId">{t(locale, 'partnerOemSupplier')}</label>
+            <label data-eyebrow htmlFor="partnerId">{t(locale, 'partnerOemSupplier')}</label>
             {/* Mapped inline rather than through `toComboboxOptions`: the label carries the
                 partner's TYPE, which is how a reader tells two similarly named OEMs and
                 suppliers apart when typing. */}
@@ -128,7 +128,7 @@ export default async function NewProjectPage(props: {
           </div>
 
           <div className={styles.field}>
-            <label htmlFor="template">{t(locale, 'projectTemplateDag')}</label>
+            <label data-eyebrow htmlFor="template">{t(locale, 'projectTemplateDag')}</label>
             {/* Templates are user-authored and grow with the business, so they meet the
                 same unbounded-by-construction test as the entity pickers, and that rule is
                 about growth rather than today's count (docs/adr/2026-08-02-a-type-to-filter-
@@ -144,7 +144,7 @@ export default async function NewProjectPage(props: {
           </div>
 
           <div className={styles.field}>
-            <label htmlFor="owner">{t(locale, 'googlerOwner')}</label>
+            <label data-eyebrow htmlFor="owner">{t(locale, 'googlerOwner')}</label>
             {/* The committed value is the ADDRESS, not the row id — the same write contract
                 as `ProjectMetaHeader`'s owner picker (`requireOwner` resolves the address),
                 which is why this maps inline instead of through `toComboboxOptions`. */}
@@ -160,22 +160,25 @@ export default async function NewProjectPage(props: {
           {/* the SOP target is REQUIRED — it is the on-track yardstick and places the
               program on the ecosystem capacity timeline (month-end assumed) */}
           <div className={styles.field}>
-            <label htmlFor="sopMonth">{t(locale, 'sopMonthLabel')}</label>
+            <label data-eyebrow htmlFor="sopMonth">{t(locale, 'sopMonthLabel')}</label>
             <input type="month" id="sopMonth" name="sopMonth" required />
           </div>
 
           <div className={styles.field}>
-            <label>{t(locale, 'productsLabel')}</label>
-            <label style={{ display: 'block', fontWeight: 400 }}>
+            {/* The GROUP label is the eyebrow; option wording is CONTENT (§7b), so the
+                option rows take the same plain treatment as this control's twin in
+                ProjectMetaHeader's edit dialog — keep the two in step. */}
+            <span data-eyebrow>{t(locale, 'productsLabel')}</span>
+            <label style={{ display: 'block', fontSize: '0.8125rem' }}>
               <input type="checkbox" name="hasGas" /> {t(locale, 'productGas')}
             </label>
-            <label style={{ display: 'block', fontWeight: 400 }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem' }}>
               <input type="checkbox" name="hasGbi" /> {t(locale, 'productGbi')}
             </label>
-            <label style={{ display: 'block', fontWeight: 400 }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem' }}>
               <input type="checkbox" name="hasDigitalKey" /> {t(locale, 'productDigitalKey')}
             </label>
-            <label style={{ display: 'block', fontWeight: 400 }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem' }}>
               <input type="checkbox" name="hasAap" /> {t(locale, 'productAap')}
             </label>
           </div>
