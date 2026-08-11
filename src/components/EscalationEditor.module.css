@@ -72,8 +72,9 @@
 }
 
 .primaryBtn:disabled {
-  opacity: 0.6;
-  cursor: default;
+  /* The one disabled grammar (#45): shared dim + not-allowed. */
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
 }
 
 /* Edit is secondary: a quiet outline, so the close control is the one that reads first. */

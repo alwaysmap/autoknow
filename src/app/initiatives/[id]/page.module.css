@@ -196,8 +196,9 @@
   border-color: var(--muted);
 }
 .addBtn:disabled {
-  opacity: 0.5;
-  cursor: default;
+  /* The one disabled grammar (#45): shared dim + not-allowed. */
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
 }
 
 .formError {

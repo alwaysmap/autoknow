@@ -195,8 +195,9 @@
   opacity: 0.85;
 }
 .primaryBtn:disabled {
-  opacity: 0.35;
-  cursor: default;
+  /* The one disabled grammar (#45): shared dim + not-allowed. */
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
 }
 
 .miniBtn {

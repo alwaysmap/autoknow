@@ -254,24 +254,26 @@ const OFF_SCALE_ALLOWLIST: readonly string[] = [
   'src/components/TemplateEditor.module.css :: 1.25rem',
 ];
 
-// Fractional opacities at the time --faint landed. The text-de-emphasis ones
-// convert to `color: var(--faint)` (hierarchy pass 3/6); the rest are marks
-// (chart dots, bands, scrims) that dim GEOMETRY, not ink, and stay — but stay
-// LISTED, so a new opacity-as-ink cannot ride in beside them.
+// Fractional opacities on file when --faint landed, AUDITED one by one (pass 3/6,
+// autoknow-c43): every entry turned out to be a STATE or a MARK, not a resting
+// text ink — the seven verbatim `:hover { opacity: 0.8 }` are filter-chip hover
+// feedback, the 0.85s are solid-button hovers, and the rest dim geometry (chart
+// dots, band fills, drag ghosts, an animation keyframe, SVG fill-opacity) or one
+// whole retired ROW (EscalationRows .rowClosed — glyph and text fade as a unit,
+// which per-child --faint could not do). They stay listed so a NEW opacity-as-ink
+// cannot ride in beside them; the four hand-rolled `:disabled` dims that were
+// here are gone onto var(--disabled-opacity), which never matches the pattern.
 const OPACITY_ALLOWLIST: readonly string[] = [
   'src/app/ecosystem-summary/EcosystemSummaryClient.module.css :: 0.8',
   'src/app/escalations/page.module.css :: 0.8',
-  'src/app/initiatives/[id]/page.module.css :: 0.5',
   'src/app/initiatives/[id]/page.module.css :: 0.8',
   'src/app/partners/[id]/page.module.css :: 0.8',
   'src/app/partners/page.module.css :: 0.8',
   'src/app/people/[id]/page.module.css :: 0.8',
   'src/app/programs/page.module.css :: 0.8',
   'src/app/templates/page.module.css :: 0.85',
-  'src/components/ChainLedger.module.css :: 0.4',
   'src/components/ChainLedger.module.css :: 0.55',
   'src/components/CycleTimeScatterPlot.module.css :: 0.6',
-  'src/components/EscalationEditor.module.css :: 0.6',
   'src/components/EscalationRows.module.css :: 0.65',
   'src/components/IngestionHealthCard.module.css :: 0.5',
   'src/components/IngestionHealthCard.module.css :: 0.85',
@@ -284,7 +286,6 @@ const OPACITY_ALLOWLIST: readonly string[] = [
   'src/components/PhaseTrack.module.css :: 0.92',
   'src/components/ProgramPhaseEditor.module.css :: 0.75',
   'src/components/SummaryPanel.module.css :: 0.35',
-  'src/components/TemplateEditor.module.css :: 0.35',
   'src/components/TemplateEditor.module.css :: 0.85',
 ];
 
