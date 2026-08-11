@@ -82,7 +82,7 @@ function EscalationFormFields({
   // types "vol" and narrows to it.
   const personPicker = (id: string, name: string, label: string, value: number | null) => (
     <div className={dash.textInputGroup}>
-      <label htmlFor={id} className={dash.formLabel}>{label}</label>
+      <label htmlFor={id} data-eyebrow>{label}</label>
       <Combobox
         id={id} name={name}
         options={toComboboxOptions(people)}
@@ -96,7 +96,7 @@ function EscalationFormFields({
   return (
     <>
       <div className={dash.textInputGroup}>
-        <label htmlFor="efTitle" className={dash.formLabel}>{t(locale, 'escStatement')}</label>
+        <label htmlFor="efTitle" data-eyebrow>{t(locale, 'escStatement')}</label>
         <input
           id="efTitle" type="text" name="title" required
           placeholder={t(locale, 'escTitlePlaceholder')}
@@ -104,7 +104,7 @@ function EscalationFormFields({
         />
       </div>
       <div className={dash.textInputGroup}>
-        <label htmlFor="efSummary" className={dash.formLabel}>{t(locale, 'escSummaryLabel')}</label>
+        <label htmlFor="efSummary" data-eyebrow>{t(locale, 'escSummaryLabel')}</label>
         <textarea id="efSummary" name="summary" rows={4} defaultValue={defaults?.summary ?? ''} className={dash.textArea} />
       </div>
 
@@ -112,7 +112,7 @@ function EscalationFormFields({
           marked `required` in the markup, because the requirement is on the PAIR and a
           browser can only express it per field: marking both would demand both. */}
       <div className={dash.textInputGroup}>
-        <label htmlFor="efPartner" className={dash.formLabel}>{t(locale, 'partnerLabel')}</label>
+        <label htmlFor="efPartner" data-eyebrow>{t(locale, 'partnerLabel')}</label>
         <Combobox
           id="efPartner" name="partnerId"
           options={toComboboxOptions(partners)}
@@ -122,7 +122,7 @@ function EscalationFormFields({
         />
       </div>
       <div className={dash.textInputGroup}>
-        <label htmlFor="efProject" className={dash.formLabel}>{t(locale, 'programLabel')}</label>
+        <label htmlFor="efProject" data-eyebrow>{t(locale, 'programLabel')}</label>
         <Combobox
           id="efProject" name="projectId"
           options={toComboboxOptions(projects)}
@@ -135,14 +135,14 @@ function EscalationFormFields({
       {/* Triage. Blank is a real answer — "not yet triaged" — so both keep an empty
           option rather than defaulting to a middle value nobody chose. */}
       <div className={dash.textInputGroup}>
-        <label htmlFor="efSeverity" className={dash.formLabel}>{t(locale, 'escSeverityLabel')}</label>
+        <label htmlFor="efSeverity" data-eyebrow>{t(locale, 'escSeverityLabel')}</label>
         <select id="efSeverity" name="severity" defaultValue={defaults?.severity ?? ''} className={dash.textInput}>
           <option value="">{t(locale, 'escUntriaged')}</option>
           {SEVERITIES.map((s) => <option key={s} value={s}>{t(locale, SEVERITY_KEY[s])}</option>)}
         </select>
       </div>
       <div className={dash.textInputGroup}>
-        <label htmlFor="efOrgLevel" className={dash.formLabel}>{t(locale, 'escOrgLevelLabel')}</label>
+        <label htmlFor="efOrgLevel" data-eyebrow>{t(locale, 'escOrgLevelLabel')}</label>
         <select id="efOrgLevel" name="orgLevel" defaultValue={defaults?.orgLevel ?? ''} className={dash.textInput}>
           <option value="">{t(locale, 'escUntriaged')}</option>
           {ORG_LEVELS.map((o) => <option key={o} value={o}>{t(locale, ORG_LEVEL_KEY[o])}</option>)}
@@ -150,7 +150,7 @@ function EscalationFormFields({
       </div>
 
       <div className={dash.textInputGroup}>
-        <label htmlFor="efTarget" className={dash.formLabel}>{t(locale, 'escTargetDate')}</label>
+        <label htmlFor="efTarget" data-eyebrow>{t(locale, 'escTargetDate')}</label>
         {/* Blank is a real answer and stays blank — no default. `toISOString().slice(0,10)`
             is the value shape `type="date"` requires. */}
         <input
@@ -271,7 +271,7 @@ export default function EscalationAdminControls({
           className={styles.statusForm}
         >
           <input type="hidden" name="escalationId" value={escalation.id} />
-          <label htmlFor="escCloseAs" className={styles.label}>{t(locale, 'escCloseAs')}</label>
+          <label htmlFor="escCloseAs" data-eyebrow>{t(locale, 'escCloseAs')}</label>
           <div className={styles.statusRow}>
             <select
               id="escCloseAs" name="status" className={styles.select}

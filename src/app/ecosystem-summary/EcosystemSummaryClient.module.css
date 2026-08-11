@@ -17,13 +17,7 @@
 }
 
 .card h3 {
-  font-family: var(--head-font);
-  font-size: 0.75rem;
-  font-weight: 600; /* §7b binary weight — 700 was faux bold in Rubik */
-  text-transform: uppercase;
-  color: var(--muted);
   margin: 0 0 0.75rem 0;
-  letter-spacing: 0.05em;
 }
 
 .metric {

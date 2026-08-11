@@ -26,7 +26,7 @@ function Stat({ label, value, warn }: { label: string; value: number; warn?: boo
   return (
     <div className={styles.stat}>
       <span className={`${styles.statValue} ${warn && value > 0 ? styles.warnValue : ''}`}>{value}</span>
-      <span className={styles.statLabel}>{label}</span>
+      <span data-eyebrow>{label}</span>
     </div>
   );
 }

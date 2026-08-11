@@ -86,10 +86,10 @@ export default async function InitiativePage(props: { params: Promise<{ id: stri
       {initiative.description && <p className={styles.description}>{initiative.description}</p>}
       {/* One-line facts (design.md §7): label · value. */}
       <p className={styles.facts}>
-        <span className={styles.factLabel}>{t(locale, 'initiativeTargetLabel')}</span>{' '}
+        <span data-eyebrow>{t(locale, 'initiativeTargetLabel')}</span>{' '}
         <DateCell value={initiative.targetDate} />
         <span className={styles.factSep} aria-hidden>·</span>
-        <span className={styles.factLabel}>{t(locale, 'initiativeColPartners')}</span>{' '}
+        <span data-eyebrow>{t(locale, 'initiativeColPartners')}</span>{' '}
         {initiative.rollup.total}
       </p>
 

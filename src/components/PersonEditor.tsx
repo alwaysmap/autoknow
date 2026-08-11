@@ -136,17 +136,17 @@ function EditPersonDialog({ open, onClose, personId, partners, seed }: {
         <input type="hidden" name="personId" value={personId} />
         {error && <p role="alert" className={admin.warningText}>{error}</p>}
         <div className={dash.textInputGroup}>
-          <label htmlFor={`${uid}-personName`} className={dash.formLabel}>{t(locale, 'nameLabel')}</label>
+          <label htmlFor={`${uid}-personName`} data-eyebrow>{t(locale, 'nameLabel')}</label>
           <input id={`${uid}-personName`} type="text" name="name" required defaultValue={seed.name}
             className={dash.textInput} />
         </div>
         <div className={dash.textInputGroup}>
-          <label htmlFor={`${uid}-personEmail`} className={dash.formLabel}>{t(locale, 'emailHeader')}</label>
+          <label htmlFor={`${uid}-personEmail`} data-eyebrow>{t(locale, 'emailHeader')}</label>
           <input id={`${uid}-personEmail`} type="email" name="email" required defaultValue={seed.email}
             className={dash.textInput} />
         </div>
         <div className={dash.textInputGroup}>
-          <label htmlFor={`${uid}-personPartner`} className={dash.formLabel}>{t(locale, 'organizationLabel')}</label>
+          <label htmlFor={`${uid}-personPartner`} data-eyebrow>{t(locale, 'organizationLabel')}</label>
           {/* `partnerId` is tracked here, not just posted: naming an organization is what
               makes the role field below required. */}
           <Combobox
@@ -159,20 +159,20 @@ function EditPersonDialog({ open, onClose, personId, partners, seed }: {
           />
         </div>
         <div className={dash.textInputGroup}>
-          <label htmlFor={`${uid}-personRole`} className={dash.formLabel}>{t(locale, 'roleTitle')}</label>
+          <label htmlFor={`${uid}-personRole`} data-eyebrow>{t(locale, 'roleTitle')}</label>
           <input id={`${uid}-personRole`} type="text" name="role" required={partnerId !== ''}
             defaultValue={seed.role ?? ''} placeholder={t(locale, 'roleTitlePlaceholder')}
             className={dash.textInput} />
         </div>
         <div className={dash.textInputGroup}>
-          <label htmlFor={`${uid}-effectiveDate`} className={dash.formLabel}>{t(locale, 'effectiveDate')}</label>
+          <label htmlFor={`${uid}-effectiveDate`} data-eyebrow>{t(locale, 'effectiveDate')}</label>
           <input id={`${uid}-effectiveDate`} type="date" name="effectiveDate" value={date}
             onChange={(e) => setDate(e.target.value)} className={dash.textInput} />
           {/* aria-live: the readout ANSWERS the date field as it changes. */}
           <p className={dash.formHint} aria-live="polite">{readout}</p>
         </div>
         <div className={dash.textInputGroup}>
-          <label htmlFor={`${uid}-personNotes`} className={dash.formLabel}>{t(locale, 'personNotesLabel')}</label>
+          <label htmlFor={`${uid}-personNotes`} data-eyebrow>{t(locale, 'personNotesLabel')}</label>
           <textarea id={`${uid}-personNotes`} name="notes" rows={3} defaultValue={seed.notes ?? ''}
             placeholder={t(locale, 'personNotesPlaceholder')} className={dash.textArea} />
         </div>
@@ -281,7 +281,7 @@ export default function PersonAdminControls({
           <input type="hidden" name="personId" value={personId} />
           {errorLine}
           <div className={dash.textInputGroup}>
-            <label htmlFor="assignProgram" className={dash.formLabel}>{t(locale, 'programLabel')}</label>
+            <label htmlFor="assignProgram" data-eyebrow>{t(locale, 'programLabel')}</label>
             {/* Posts `projectId` itself. The `<select>` this replaced could not — it had no
                 `name`, because its value also has to drive the phase list below, so a
                 separate hidden input carried the same number to the server. One control
@@ -305,14 +305,14 @@ export default function PersonAdminControls({
             />
           </div>
           <div className={dash.textInputGroup}>
-            <label htmlFor="assignPhase" className={dash.formLabel}>{t(locale, 'phaseLabel')}</label>
+            <label htmlFor="assignPhase" data-eyebrow>{t(locale, 'phaseLabel')}</label>
             <select id="assignPhase" name="phaseId" required className={dash.textInput} disabled={!pickedProgram} defaultValue="">
               <option value="">{t(locale, 'selectPhase')}</option>
               {programPhases.map((ph) => <option key={ph.id} value={ph.id}>{ph.name}</option>)}
             </select>
           </div>
           <div className={dash.textInputGroup}>
-            <label htmlFor="assignRole" className={dash.formLabel}>{t(locale, 'roleTitle')}</label>
+            <label htmlFor="assignRole" data-eyebrow>{t(locale, 'roleTitle')}</label>
             <input id="assignRole" type="text" name="role" placeholder={t(locale, 'roleTitlePlaceholder')} className={dash.textInput} />
           </div>
           <div className={dash.actionRow}>
@@ -386,15 +386,15 @@ export function NewPersonButton({ partners, defaultPartnerId }: {
           className={dash.dialogForm}
         >
           <div className={dash.textInputGroup}>
-            <label htmlFor="npName" className={dash.formLabel}>{t(locale, 'nameLabel')}</label>
+            <label htmlFor="npName" data-eyebrow>{t(locale, 'nameLabel')}</label>
             <input id="npName" type="text" name="name" required className={dash.textInput} />
           </div>
           <div className={dash.textInputGroup}>
-            <label htmlFor="npEmail" className={dash.formLabel}>{t(locale, 'emailHeader')}</label>
+            <label htmlFor="npEmail" data-eyebrow>{t(locale, 'emailHeader')}</label>
             <input id="npEmail" type="email" name="email" required className={dash.textInput} />
           </div>
           <div className={dash.textInputGroup}>
-            <label htmlFor="npPartner" className={dash.formLabel}>{t(locale, 'newOrganization')}</label>
+            <label htmlFor="npPartner" data-eyebrow>{t(locale, 'newOrganization')}</label>
             <Combobox
               id="npPartner" name="partnerId"
               options={toComboboxOptions(partners)}
@@ -405,7 +405,7 @@ export function NewPersonButton({ partners, defaultPartnerId }: {
             />
           </div>
           <div className={dash.textInputGroup}>
-            <label htmlFor="npRole" className={dash.formLabel}>{t(locale, 'roleTitle')}</label>
+            <label htmlFor="npRole" data-eyebrow>{t(locale, 'roleTitle')}</label>
             <input id="npRole" type="text" name="role" placeholder={t(locale, 'roleTitlePlaceholder')} className={dash.textInput} />
           </div>
           <div className={dash.actionRow}>

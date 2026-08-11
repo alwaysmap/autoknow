@@ -301,7 +301,7 @@ export default function CapacityChart({ programs, now }: { programs: CapacityCha
   if (points.length === 0) {
     return (
       <div data-testid="capacity-chart">
-        <div className={styles.title}>{t(locale, 'capacityTitle')}</div>
+        <div data-eyebrow className={styles.title}>{t(locale, 'capacityTitle')}</div>
         <p className={styles.empty}>{t(locale, 'capacityEmpty')}</p>
       </div>
     );
@@ -342,7 +342,7 @@ export default function CapacityChart({ programs, now }: { programs: CapacityCha
   return (
     <div data-testid="capacity-chart">
       <div className={styles.headRow}>
-        <div className={styles.title}>{t(locale, 'capacityTitle')}</div>
+        <div data-eyebrow className={styles.title}>{t(locale, 'capacityTitle')}</div>
         <button type="button" className={styles.expandBtn} title={t(locale, 'capacityExpand')}
           aria-label={t(locale, 'capacityExpand')}
           onClick={() => setExpandOpen(true)}>

@@ -34,14 +34,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.statLabel {
-  font-size: 0.6875rem;
-  line-height: 1rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
 .warnValue { color: var(--warn); }
 
 .ranAt {

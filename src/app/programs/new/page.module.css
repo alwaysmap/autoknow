@@ -41,12 +41,6 @@
 }
 
 .field label {
-  font-family: var(--head-font);
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
   margin-bottom: 0.5rem;
 }
 

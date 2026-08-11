@@ -164,7 +164,7 @@ export default function NeedleGauge({
       </div>
 
       <div className={styles.formGroup}>
-        <span className={styles.formLabel}>{t(locale, 'updateWhatWhy')}</span>
+        <span data-eyebrow>{t(locale, 'updateWhatWhy')}</span>
         <MarkdownNoteEditor name="notes" ariaLabel={t(locale, 'updateWhatWhy')}
           placeholder={t(locale, 'needleNotePlaceholder')} onChange={setNoteText} />
         {noteError && <div style={{ color: 'var(--bad)', fontSize: '0.75rem' }}>{t(locale, 'updateNeedsNote')}</div>}

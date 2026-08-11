@@ -20,17 +20,17 @@ export default function CreateInitiativeForm({ templates, partners, locale }: { 
   return (
     <form action={formAction} className={styles.form}>
       <div className={styles.field}>
-        <label htmlFor="name">{t(locale, 'initiativeNameLabel')}</label>
+        <label data-eyebrow htmlFor="name">{t(locale, 'initiativeNameLabel')}</label>
         <input type="text" id="name" name="name" required placeholder={t(locale, 'initiativeNamePlaceholder')} />
       </div>
 
       <div className={styles.field}>
-        <label htmlFor="description">{t(locale, 'initiativeDescriptionLabel')}</label>
+        <label data-eyebrow htmlFor="description">{t(locale, 'initiativeDescriptionLabel')}</label>
         <textarea id="description" name="description" rows={3} />
       </div>
 
       <div className={styles.field}>
-        <label htmlFor="templateId">{t(locale, 'projectTemplateDag')}</label>
+        <label data-eyebrow htmlFor="templateId">{t(locale, 'projectTemplateDag')}</label>
         {/* Templates grow with the business — the same unbounded-by-construction call
             as /programs/new (ADR 2026-08-02). The picked template is the SOURCE the
             action snapshot-clones; nothing binds to a shared template. */}
@@ -44,7 +44,7 @@ export default function CreateInitiativeForm({ templates, partners, locale }: { 
       </div>
 
       <div className={styles.field}>
-        <label htmlFor="targetMonth">{t(locale, 'initiativeTargetMonthLabel')}</label>
+        <label data-eyebrow htmlFor="targetMonth">{t(locale, 'initiativeTargetMonthLabel')}</label>
         <input type="month" id="targetMonth" name="targetMonth" />
       </div>
 

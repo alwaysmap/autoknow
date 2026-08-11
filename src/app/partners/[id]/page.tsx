@@ -223,7 +223,7 @@ export default async function PartnerDetailPage(props: PageProps) {
         </div>
         {/* Classification is navigation (design.md §2/§6): type and region jump to
             the partner list pre-filtered to that slice. */}
-        <div className={styles.partnerType}>
+        <div data-eyebrow className={styles.partnerType}>
           <Link
             href={`/partners?type=${encodeURIComponent(partner.type?.name ?? '')}`}
             className={styles.identLink}

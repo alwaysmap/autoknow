@@ -15,10 +15,6 @@
 }
 
 .chainLabel {
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.625rem;
   color: var(--chain);
   margin-right: 0.5rem;
 }
@@ -253,11 +249,6 @@
 }
 
 .depsLabel {
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
   min-width: 3rem;
 }
 

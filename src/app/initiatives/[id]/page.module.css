@@ -13,13 +13,6 @@
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
-.factLabel {
-  color: var(--muted);
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  line-height: 1rem;
-  letter-spacing: 0.06em;
-}
 .factSep {
   margin: 0 0.6rem;
   color: var(--muted);
@@ -216,12 +209,6 @@
   gap: 0.4rem;
 }
 .editForm label {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
   margin-top: 0.6rem;
 }
 .editForm input,

@@ -405,7 +405,7 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
             <button type="button" className={styles.panelClose} aria-label={t(locale, 'closeEdit')}
               onClick={() => openPanel(null)}>✕</button>
 
-            <label className={styles.panelLabel}>{t(locale, 'phaseNameLabel')}
+            <label data-eyebrow className={styles.panelLabel}>{t(locale, 'phaseNameLabel')}
               <input
                 className={chrome.textInput}
                 value={selected.name}
@@ -415,7 +415,7 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
               />
             </label>
 
-            <label className={styles.panelLabel}>{t(locale, 'forecastWeeks')}
+            <label data-eyebrow className={styles.panelLabel}>{t(locale, 'forecastWeeks')}
               <input
                 className={chrome.numInput}
                 type="number"
@@ -429,7 +429,7 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
 
             {(templateFields || descriptionField) && (
               /* rich markdown, keyed by node so switching selection reloads content */
-              <div className={styles.panelLabel}>{t(locale, 'descriptionLabel')}
+              <div data-eyebrow className={styles.panelLabel}>{t(locale, 'descriptionLabel')}
                 <MarkdownNoteEditor key={`d${selected.id}`} name="description" ariaLabel={t(locale, 'descriptionLabel')}
                   placeholder={t(locale, 'goalDodPlaceholder')}
                   initialMarkdown={selected.description ?? ''}
@@ -438,7 +438,7 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
             )}
             {templateFields && (
               <>
-                <label className={styles.panelLabel}>{t(locale, 'leadRoleLabel')}
+                <label data-eyebrow className={styles.panelLabel}>{t(locale, 'leadRoleLabel')}
                   <select
                     className={chrome.selectInput}
                     value={selected.leadRole ?? ''}
@@ -449,7 +449,7 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
                     {(leadRoles ?? []).map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </label>
-                <div className={styles.panelLabel}>{t(locale, 'googleFocusLabel')}
+                <div data-eyebrow className={styles.panelLabel}>{t(locale, 'googleFocusLabel')}
                   <MarkdownNoteEditor key={`g${selected.id}`} name="googleFocus" ariaLabel={t(locale, 'googleFocusLabel')}
                     initialMarkdown={selected.googleFocus ?? ''}
                     onChange={(md) => patch(selected.id, { googleFocus: md || null })} />
@@ -465,7 +465,7 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
               selected.id > 0 ? (
                 (Object.keys(INVOLVEMENT_KINDS) as InvolvementKind[]).map((kind) => (
                   <div key={kind} className={styles.panelSection} data-testid={`panel-${kind}s`}>
-                    <span className={styles.panelHead}>
+                    <span data-eyebrow className={styles.panelHead}>
                       {t(locale, INVOLVEMENT_KINDS[kind].sectionLabel)}
                     </span>
                     <PhaseInvolvementEditor kind={kind} phaseId={selected.id}
@@ -476,14 +476,14 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
                 ))
               ) : (
                 <div className={styles.panelSection}>
-                  <span className={styles.panelHead}>{t(locale, 'involvementLabel')}</span>
+                  <span data-eyebrow className={styles.panelHead}>{t(locale, 'involvementLabel')}</span>
                   <span className={styles.panelMuted}>{t(locale, 'involvementAfterSave')}</span>
                 </div>
               )
             )}
 
             <div className={styles.panelSection}>
-              <span className={styles.panelHead}>{t(locale, 'after')}</span>
+              <span data-eyebrow className={styles.panelHead}>{t(locale, 'after')}</span>
               {selected.dependsOn.length === 0 && <span className={styles.panelMuted}>{t(locale, 'startingPhase')}</span>}
               {selected.dependsOn.map((up) => (
                 <span key={up} className={styles.depChip}>
@@ -498,7 +498,7 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
             {/* downstream mirror of After: what this node enables, disconnectable */}
             {draft.some((d) => d.dependsOn.includes(selected.id)) && (
               <div className={styles.panelSection}>
-                <span className={styles.panelHead}>{t(locale, 'enables')}</span>
+                <span data-eyebrow className={styles.panelHead}>{t(locale, 'enables')}</span>
                 {draft.filter((d) => d.dependsOn.includes(selected.id)).map((down) => (
                   <span key={down.id} className={styles.depChip}>
                     {down.name || t(locale, 'unnamed')}
@@ -514,7 +514,7 @@ export default function PhaseDagEditor({ initial, onSave, templateFields, descri
                 choose whether this one comes after it (downstream) or before it
                 (upstream) — a new phase slots in ahead of existing work either way */}
             <div className={styles.panelSection}>
-              <span className={styles.panelHead}>{t(locale, 'connectLabel')}</span>
+              <span data-eyebrow className={styles.panelHead}>{t(locale, 'connectLabel')}</span>
               {otherId == null ? (
                 <span className={styles.panelMuted}>{t(locale, 'connectHint')}</span>
               ) : (

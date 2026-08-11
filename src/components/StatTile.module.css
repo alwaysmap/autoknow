@@ -8,14 +8,6 @@
   min-width: 9.375rem;
 }
 
-.label {
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.625rem;
-  color: var(--muted);
-}
-
 .big {
   font-size: 3.5rem;
   font-weight: 600;

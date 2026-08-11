@@ -99,11 +99,11 @@ function TrackPersonDialog({ open, onClose, address, config, onResolved }: {
         <p className={dash.formHint}>{t(locale, 'trackPersonIntro', { a: address })}</p>
         <input type="hidden" name="email" value={address} />
         <div className={dash.textInputGroup}>
-          <label htmlFor="tpName" className={dash.formLabel}>{t(locale, 'nameLabel')}</label>
+          <label htmlFor="tpName" data-eyebrow>{t(locale, 'nameLabel')}</label>
           <input id="tpName" type="text" name="name" required autoFocus className={dash.textInput} />
         </div>
         <div className={dash.textInputGroup}>
-          <label htmlFor="tpPartner" className={dash.formLabel}>{t(locale, 'organizationLabel')}</label>
+          <label htmlFor="tpPartner" data-eyebrow>{t(locale, 'organizationLabel')}</label>
           <Combobox
             id="tpPartner" name="partnerId"
             options={toComboboxOptions(config.partners)}
@@ -117,12 +117,12 @@ function TrackPersonDialog({ open, onClose, address, config, onResolved }: {
           />
         </div>
         <div className={dash.textInputGroup}>
-          <label htmlFor="tpRole" className={dash.formLabel}>{t(locale, 'roleTitle')}</label>
+          <label htmlFor="tpRole" data-eyebrow>{t(locale, 'roleTitle')}</label>
           <input id="tpRole" type="text" name="role" placeholder={t(locale, 'roleTitlePlaceholder')}
             className={dash.textInput} />
         </div>
         <div className={dash.textInputGroup}>
-          <label htmlFor="tpStart" className={dash.formLabel}>{t(locale, 'fromLabel')}</label>
+          <label htmlFor="tpStart" data-eyebrow>{t(locale, 'fromLabel')}</label>
           <input id="tpStart" type="date" name="startDate" required className={dash.textInput}
             defaultValue={config.mentionDate ?? new Date().toISOString().slice(0, 10)} />
           <p className={dash.formHint}>

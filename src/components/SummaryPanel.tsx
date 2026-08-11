@@ -215,7 +215,7 @@ export default function SummaryPanel({
       <div className={styles.grid}>
         {ordered.map((section) => (
           <section key={section.key} className={`${styles.section} ${section.key === 'risks' ? styles.riskSection : ''}`}>
-            <h3 className={styles.sectionTitle}>{t(locale, SECTION_LABEL[section.key])}</h3>
+            <h3 data-eyebrow className={styles.sectionTitle}>{t(locale, SECTION_LABEL[section.key])}</h3>
             <ul className={styles.bullets}>
               {section.bullets.map((b, i) => (
                 <li key={i} className={styles.bullet}>

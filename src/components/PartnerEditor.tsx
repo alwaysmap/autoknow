@@ -41,33 +41,33 @@ function PartnerFormFields({ defaults, types, regions }: { defaults?: PartnerRec
   return (
     <>
       <div className={dash.textInputGroup}>
-        <label htmlFor="pfName" className={dash.formLabel}>{t(locale, 'partnerName')}</label>
+        <label htmlFor="pfName" data-eyebrow>{t(locale, 'partnerName')}</label>
         <input id="pfName" type="text" name="name" required defaultValue={defaults?.name ?? ''} className={dash.textInput} />
       </div>
       <div className={dash.textInputGroup}>
-        <label htmlFor="pfType" className={dash.formLabel}>{t(locale, 'partnerType')}</label>
+        <label htmlFor="pfType" data-eyebrow>{t(locale, 'partnerType')}</label>
         <select id="pfType" name="typeId" defaultValue={defaults?.typeId ?? ''} className={dash.textInput}>
           <option value="">—</option>
           {types.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
       </div>
       <div className={dash.textInputGroup}>
-        <label htmlFor="pfRegion" className={dash.formLabel}>{t(locale, 'googleRegion')}</label>
+        <label htmlFor="pfRegion" data-eyebrow>{t(locale, 'googleRegion')}</label>
         <select id="pfRegion" name="regionId" defaultValue={defaults?.regionId ?? ''} className={dash.textInput} required>
           <option value="">—</option>
           {regions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
       </div>
       <div className={dash.textInputGroup}>
-        <label htmlFor="pfWebsite" className={dash.formLabel}>{t(locale, 'website')}</label>
+        <label htmlFor="pfWebsite" data-eyebrow>{t(locale, 'website')}</label>
         <input id="pfWebsite" type="url" name="website" placeholder="https://…" defaultValue={defaults?.website ?? ''} className={dash.textInput} />
       </div>
       <div className={dash.textInputGroup}>
-        <label htmlFor="pfInternal" className={dash.formLabel}>{t(locale, 'internalDocumentation')}</label>
+        <label htmlFor="pfInternal" data-eyebrow>{t(locale, 'internalDocumentation')}</label>
         <input id="pfInternal" type="url" name="internalDetailsUrl" placeholder="https://…" defaultValue={defaults?.internalDetailsUrl ?? ''} className={dash.textInput} />
       </div>
       <div className={dash.textInputGroup}>
-        <label htmlFor="pfSummary" className={dash.formLabel}>{t(locale, 'relationshipSummary')}</label>
+        <label htmlFor="pfSummary" data-eyebrow>{t(locale, 'relationshipSummary')}</label>
         <textarea id="pfSummary" name="summary" rows={4} defaultValue={defaults?.summary ?? ''} className={dash.textArea} />
       </div>
     </>

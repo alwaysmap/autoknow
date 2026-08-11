@@ -48,11 +48,6 @@
   color: var(--muted);
 }
 .resourceLabel {
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.625rem;
-  color: var(--muted);
   margin-right: 0.5rem;
 }
 
@@ -212,13 +207,6 @@
   margin: 0 0 0.5rem;
   font-size: 0.75rem;
   line-height: 1.25rem;
-}
-.tracingLabel {
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.625rem;
-  color: var(--muted);
 }
 .tracingName {
   font-weight: 600;
@@ -512,11 +500,6 @@
   color: var(--fg);
 }
 .metaLabel {
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.625rem;
-  color: var(--muted);
   margin-right: 0.5rem;
 }
 

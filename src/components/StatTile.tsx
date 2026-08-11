@@ -39,7 +39,7 @@ export default function StatTile({
   const bigClass = tone === 'warn' ? `${styles.big} ${styles.warn}` : styles.big;
   return (
     <div className={styles.tile} data-testid={testId}>
-      <div className={styles.label}>{label}</div>
+      <div data-eyebrow>{label}</div>
       {children ? (
         <div className={styles.body}>{children}</div>
       ) : href ? (

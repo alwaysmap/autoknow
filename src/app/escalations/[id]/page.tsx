@@ -44,7 +44,7 @@ interface PageProps {
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className={styles.factRow}>
-      <span className={styles.factLabel}>{label}</span>
+      <span data-eyebrow className={styles.factLabel}>{label}</span>
       <span className={styles.factValue}>{children}</span>
     </div>
   );
