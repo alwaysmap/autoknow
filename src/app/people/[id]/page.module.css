@@ -27,7 +27,7 @@
   align-items: center;
   justify-content: center;
   font-family: var(--head-font);
-  font-weight: 700;
+  font-weight: 600; /* Rubik's heaviest real face (§7b) — 700 was faux bold */
   font-size: 1rem;
   letter-spacing: 0.02em;
   flex-shrink: 0;
@@ -38,13 +38,6 @@
 .profileInfo {
   flex: 1;
   min-width: 0;
-}
-
-.header h1 {
-  font-family: var(--head-font);
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0;
 }
 
 /* The title LINE: name + its kebab admin menu, then the graticule to the end of
@@ -131,13 +124,6 @@
    rule 3). The old margin-top + padding-top are merged into one gap. */
 .colMain > .section + .section {
   margin-top: 2.75rem;
-}
-
-.section h2 {
-  font-family: var(--head-font);
-  font-size: 1.375rem;
-  font-weight: 600;
-  margin: 0 0 0.75rem;
 }
 
 /* One line under a section heading saying what the table below actually contains —

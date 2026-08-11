@@ -8,7 +8,7 @@ export default async function LoginPage() {
   const locale = await getLocale();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', gap: '1.25rem', textAlign: 'center' }}>
-      <h1 style={{ fontSize: '2rem' }}>AutoKnow</h1>
+      <h1>AutoKnow</h1>
       <p style={{ color: 'var(--muted, #666)', maxWidth: '26.25rem' }}>
         {t(locale, 'loginIntro')}
       </p>

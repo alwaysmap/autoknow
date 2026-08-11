@@ -19,16 +19,9 @@
   gap: 0;
 }
 
-/* The page owns the H1's type. ProjectMetaHeader renders the title as its own
-   `.title`, but this descendant rule (specificity 0,1,1) intentionally wins over
-   that class (0,1,0) — so it is live despite no `styles.*` reference. */
-.header h1 {
-  font-family: var(--head-font);
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0 0 0.75rem 0;
-  color: var(--fg);
-}
+/* ProjectMetaHeader's own `.title` styles the H1 from the §7b scale — the page
+   rule that used to out-specific it is gone (the h1 margin it carried sat INSIDE
+   the title flex row, the exact trap AnchorHeading.module.css documents). */
 
 /* Program-level immediate focus: ONE line of --bad ink under the metadata strip.
    No box, no background, no icon — the ink is the alarm (design.md §1), the same
@@ -69,11 +62,6 @@
   padding: 1.375rem 0 2rem;
 }
 
-/* The briefing's own heading — quiet, since the AI provenance row sits under it. */
-.briefingHeading {
-  font-size: 1.125rem;
-}
-
 /* Program-page arrangement (2026-07-20, user call): the needle and the AI
    briefing sit side by side, then every content-column section spans the full
    width of both. */
@@ -109,13 +97,5 @@
   margin-top: 2.75rem;
 }
 
-/* Section headings are AnchorHeading's H2, rendered inside a `.historySection`.
-   This descendant rule (0,1,1) intentionally wins over AnchorHeading's own
-   `.heading` class — live despite no `styles` reference, same as `.header h1`. */
-.historySection h2 {
-  font-family: var(--head-font);
-  font-size: 1.375rem;
-  font-weight: 600;
-  color: var(--fg);
-  margin: 0 0 0.5rem 0;
-}
+/* Section headings are AnchorHeading's H2 and take their type from it (§7b) —
+   the 1.375rem descendant override that lived here is gone with the scale. */

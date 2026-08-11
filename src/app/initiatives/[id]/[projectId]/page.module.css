@@ -16,8 +16,9 @@
 
 .title {
   font-family: var(--head-font);
-  font-size: 1.5rem;
+  font-size: var(--fs-title);
   font-weight: 600;
+  line-height: var(--lh-heading);
   margin: 0 0 0.3rem;
 }
 
@@ -60,10 +61,6 @@
   .topGrid {
     grid-template-columns: 1fr;
   }
-}
-
-.briefingHeading {
-  margin-top: 0;
 }
 
 .contentCol {

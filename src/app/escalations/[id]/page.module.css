@@ -16,13 +16,6 @@
   padding: 0.875rem 0 0.75rem;
 }
 
-.header h1 {
-  font-family: var(--head-font);
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0;
-}
-
 /* Title + its ⋯ menu on one line, graticule trailing (§8c). Affordances ride INSIDE the
    row; a sibling would land past the rule and be flung to the far right. */
 .titleRow {
@@ -77,13 +70,6 @@
 /* A headed block is separated by its heading, never by a rule as well (§7 rule 3). */
 .colMain > .section + .section {
   margin-top: 2.75rem;
-}
-
-.section h2 {
-  font-family: var(--head-font);
-  font-size: 1.375rem;
-  font-weight: 600;
-  margin: 0 0 0.75rem;
 }
 
 /* Prose is the density exception (§7): comfortable measure and line-height. */

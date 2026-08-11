@@ -536,6 +536,33 @@ textarea {
   margin: 0;
 }
 
+/* Element-default heading type (§7b) — the 0,0,1 safety net under PageShell and
+   AnchorHeading. Any class beats it, which is the point: it exists so a BARE
+   heading (an inline-styled admin h1, a future page that forgets) lands on the
+   scale instead of on the UA's 2em/700 — the exact failure that had section h2s
+   out-shouting page titles. The odd-ball h1 sizes it replaces: login's 2rem,
+   me/manage's inline 1.5rem sans-Rubik. */
+h1 {
+  font-family: var(--head-font);
+  font-size: var(--fs-title);
+  font-weight: 600;
+  line-height: var(--lh-heading);
+}
+
+h2 {
+  font-family: var(--head-font);
+  font-size: var(--fs-section);
+  font-weight: 600;
+  line-height: var(--lh-heading);
+}
+
+h3 {
+  font-family: var(--head-font);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: 1.5rem;
+}
+
 a {
   color: inherit;
   /* Links are regular-weight app-wide (design.md §6): color/underline carry the

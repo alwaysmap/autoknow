@@ -438,7 +438,7 @@ export default async function ProjectDetailsPage(props: {
             />
           </div>
           <section>
-            <AnchorHeading id="briefing" className={styles.briefingHeading}>
+            <AnchorHeading id="briefing">
               {t(locale, 'briefingHeading')}
             </AnchorHeading>
             <SummaryPanel scope="program" targetId={projectId} path={`/programs/${projectId}`}

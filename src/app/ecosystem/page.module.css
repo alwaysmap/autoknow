@@ -92,14 +92,6 @@
 /* The standard section heading; it used to be 1.125rem uppercase in `--p-600`.
    Why a page rule can re-tint a shared heading at all, and what the standard is:
    docs/knowledge/no-component-owns-heading-typography.md. */
-.sectionHeader h2 {
-  font-family: var(--head-font);
-  font-size: 1.375rem;
-  font-weight: 600;
-  color: var(--fg);
-  margin: 0;
-}
-
 .onboardingBox {
   background-color: var(--white);
   border: 1px solid var(--border);

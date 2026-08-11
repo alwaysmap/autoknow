@@ -34,16 +34,16 @@
 .title {
   margin: 0;
   font-family: var(--head-font);
-  font-size: 1.5rem;
+  font-size: var(--fs-title);
   font-weight: 600;
-  line-height: 1.75rem; /* whole-pixel line box (§8d): 28px, not 24×1.2=28.8 */
+  line-height: var(--lh-heading); /* whole-pixel line box (§8d): 28px, not 24×1.2=28.8 */
   color: var(--fg);
 }
 
 .subtitle {
   margin: 0.375rem 0 0;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: var(--fs-ui);
+  line-height: var(--lh-ui);
   color: var(--muted);
 }
 

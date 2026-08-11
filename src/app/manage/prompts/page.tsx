@@ -22,7 +22,7 @@ export default async function SummaryPromptsPage() {
         <div style={{ marginBottom: '0.5rem', fontSize: '0.8125rem' }}>
           <Link href="/manage" style={{ color: 'var(--muted, #666)' }}>← {t(locale, 'navManage')}</Link>
         </div>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{t(locale, 'promptsTitle')}</h1>
+        <h1>{t(locale, 'promptsTitle')}</h1>
         <p style={{ color: 'var(--muted, #666)', fontSize: '0.875rem', marginTop: '0.25rem', maxWidth: '45rem' }}>
           {t(locale, 'promptsIntro')}
         </p>

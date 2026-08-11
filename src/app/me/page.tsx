@@ -62,7 +62,7 @@ export default async function MePage(props: { searchParams: Promise<SearchParams
 
   return (
     <div style={{ padding: '2.5rem var(--page-gutter)', fontFamily: 'var(--body-font)' }}>
-      <h1 style={{ fontFamily: 'var(--head-font)', fontSize: '1.5rem', margin: '0 0 0.625rem' }}>{t(locale, 'navMe')}</h1>
+      <h1 style={{ margin: '0 0 0.625rem' }}>{t(locale, 'navMe')}</h1>
       <p style={{ fontSize: '0.875rem', color: 'var(--muted)', maxWidth: '60ch', margin: '0 0 0.875rem' }}>
         {t(locale, 'noProfileForUser', { u: user })}{' '}
         <Link href="/people" style={{ color: 'var(--link)' }}>{t(locale, 'peopleLabel')} →</Link>

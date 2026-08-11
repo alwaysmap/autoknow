@@ -42,10 +42,13 @@ function headingContents(): { file: string; line: number; inner: string }[] {
   return found;
 }
 
-/** Every `*.module.css` rule whose selector targets an `<h1>`–`<h6>`, with its body. */
+/** Every CSS rule whose selector targets an `<h1>`–`<h6>`, with its body. ALL
+ *  stylesheets, not just modules: since §7b heading type lives in globals.css
+ *  (element defaults) and AnchorHeading's class — the per-page `.section h2`
+ *  blocks this scan used to feed on were deleted with the scale. */
 function headingRules(): { file: string; line: number; selector: string; body: string }[] {
   const found: { file: string; line: number; selector: string; body: string }[] = [];
-  for (const file of cssFiles(SRC).filter((f) => f.endsWith('.module.css'))) {
+  for (const file of cssFiles(SRC)) {
     // Comments BLANKED, not stripped: this repo's stylesheets discuss declarations at
     // length (several paragraphs name `--p-600`), and a scan must not fire on a sentence
     // about a declaration — while every offset still points at the real source line.
@@ -93,12 +96,13 @@ describe('headings', () => {
     expect(offenders).toEqual([]);
   });
 
-  // A heading's ink, not its words. `AnchorHeading` owns the markup but NOT the
-  // typography — every page module declares its own `.section h2 { … }` — so a page can
-  // re-tint a shared heading and nothing says otherwise. Two had: `/ecosystem`'s
-  // `.sectionHeader h2` and `/partners/:id`'s `.sidebarCard h3` both painted themselves
-  // `--p-600`, the BRAND GREEN that design.md §6 reserves for semantic positives (on
-  // track, early, saved). A green heading reads as a status on a label that has none.
+  // A heading's ink, not its words. Since §7b, AnchorHeading and the globals
+  // element defaults own heading typography, but any page can still RE-TINT a
+  // heading with a descendant rule, and nothing says otherwise. Two once had:
+  // `/ecosystem`'s `.sectionHeader h2` and `/partners/:id`'s `.sidebarCard h3`
+  // both painted themselves `--p-600`, the BRAND GREEN that design.md §6 reserves
+  // for semantic positives (on track, early, saved). A green heading reads as a
+  // status on a label that has none.
   //
   // Scoped to the green ramp on purpose: `--fg` (section headings) and `--muted` (the
   // uppercase micro-heading) are both legitimate and this must not adjudicate between
@@ -106,7 +110,10 @@ describe('headings', () => {
   it('finds heading RULES to check (the CSS scan itself has not silently broken)', () => {
     // Same canary as the markup scan above: a brace matcher or an `h[1-6]` filter that
     // stopped matching would make the assertion below vacuous and permanently green.
-    expect(headingRules().length).toBeGreaterThan(10);
+    // The floor is lower than the markup scan's: §7b consolidated the per-page
+    // heading blocks into a handful of owners (globals h1/h2/h3 + the few module
+    // rules with a real layout reason), so "a few" is the healthy count now.
+    expect(headingRules().length).toBeGreaterThan(5);
   });
 
   it('no heading paints itself from the brand-green ramp', () => {
