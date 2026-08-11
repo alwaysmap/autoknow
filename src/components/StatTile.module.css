@@ -6,10 +6,25 @@
   flex-direction: column;
   gap: 0.125rem;
   min-width: 9.375rem;
+  /* The figure size, hoisted so the phone step below changes ONE value and the
+     chart tiles' baseline lock (.body min-height) moves with it (§7b: display
+     type ≥2rem states its narrow step). */
+  --stat-size: var(--fs-stat);
+}
+
+/* Phone: three tiles share a 360px row (user call, 2026-08-10 — the resting
+   3.5rem figures forced a 2-up wrap of giant numerals). 2.5rem keeps the strip
+   unmistakably the page's primary read; the min-width yields to the strip's
+   own 3-column grid. */
+@media (max-width: 560px) {
+  .tile {
+    --stat-size: 2.5rem;
+    min-width: 0;
+  }
 }
 
 .big {
-  font-size: 3.5rem;
+  font-size: var(--stat-size);
   font-weight: 600;
   line-height: 1;
   color: var(--fg);
@@ -31,13 +46,14 @@ a.big:hover {
 }
 
 /* Chart tiles put their visual where the big number would be. Matching .big's height
-   (3.5rem font, line-height 1) keeps every tile's sub-line on one baseline, so the
-   strip reads as one row instead of three loose stacks. */
+   (--stat-size font, line-height 1) keeps every tile's sub-line on one baseline, so
+   the strip reads as one row instead of three loose stacks — at every width, because
+   both read the same hoisted size. */
 .body {
   align-self: stretch;
   display: flex;
   align-items: center;
-  min-height: 3.5rem;
+  min-height: var(--stat-size);
 }
 
 .sub {
