@@ -84,13 +84,14 @@ export default async function InitiativePage(props: { params: Promise<{ id: stri
       }
     >
       {initiative.description && <p className={styles.description}>{initiative.description}</p>}
-      {/* One-line facts (design.md §7): label · value. */}
+      {/* One-line facts (design.md §7), format-first (§7b): the date keeps a one-word
+          "Due" because a bare date is ambiguous; the partner count needs no label —
+          the noun carries it. */}
       <p className={styles.facts}>
-        <span data-eyebrow>{t(locale, 'initiativeTargetLabel')}</span>{' '}
+        <span data-eyebrow>{t(locale, 'initiativeDueLabel')}</span>{' '}
         <DateCell value={initiative.targetDate} />
         <span className={styles.factSep} aria-hidden>·</span>
-        <span data-eyebrow>{t(locale, 'initiativeColPartners')}</span>{' '}
-        {initiative.rollup.total}
+        {t(locale, 'initiativePartnersFact', { n: String(initiative.rollup.total) })}
       </p>
 
       <section className={styles.section}>

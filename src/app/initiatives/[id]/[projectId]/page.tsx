@@ -162,7 +162,7 @@ export default async function InitiativeProjectPage(props: {
           <span data-eyebrow>{t(locale, 'partnerOemSupplier')}</span>{' '}
           <Link href={partnerHref(project.partner.id)}>{project.partner.name}</Link>
           <span className={styles.factSep} aria-hidden>·</span>
-          <span data-eyebrow>{t(locale, 'initiativeTargetLabel')}</span>{' '}
+          <span data-eyebrow>{t(locale, 'initiativeDueLabel')}</span>{' '}
           <DateCell value={project.sopDate} />
           {/* Only when links exist — a label over nothing is noise (§7). */}
           {devices.length > 0 && (

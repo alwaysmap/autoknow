@@ -1197,11 +1197,19 @@ const STRINGS = {
   // reference lines are percentiles over ONE population (not per phase name), and in-flight
   // work is absent BY DESIGN rather than missing (lib/dashboardData says why).
   cycleTimeTitle: { en: 'Phase cycle time', de: 'Phasen-Zykluszeit', ja: 'フェーズのサイクルタイム', ko: '단계 사이클 타임' },
+  // One short sentence under the title (§7b: the data surface leads); the
+  // methodology caveats moved to `cycleTimeMethod`, one click away in the ⓘ.
   cycleTimeSub: {
-    en: 'One point per completed phase: when it landed, against how long it took. Any reference lines are percentiles across all of them. Work still in flight is not here — that is Aging WIP.',
-    de: 'Ein Punkt je abgeschlossener Phase: wann sie fertig wurde, gegen ihre Dauer. Referenzlinien, sofern vorhanden, sind Perzentile über alle. Laufende Arbeit steht hier nicht — dafür gibt es Aging WIP.',
-    ja: '完了したフェーズごとに 1 点 — 完了時期を横軸、所要日数を縦軸に取ります。基準線がある場合はその全体の分位点です。進行中の作業はここには含まれません（Aging WIP を参照）。',
-    ko: '완료된 단계마다 점 하나 — 가로축은 완료 시점, 세로축은 소요 기간입니다. 기준선이 있다면 전체의 백분위수입니다. 진행 중인 작업은 여기 없으며 Aging WIP에서 다룹니다.',
+    en: 'One point per completed phase: when it landed, against how long it took.',
+    de: 'Ein Punkt je abgeschlossener Phase: wann sie fertig wurde, gegen ihre Dauer.',
+    ja: '完了したフェーズごとに 1 点 — 完了時期を横軸、所要日数を縦軸に取ります。',
+    ko: '완료된 단계마다 점 하나 — 가로축은 완료 시점, 세로축은 소요 기간입니다.',
+  },
+  cycleTimeMethod: {
+    en: 'Any reference lines are percentiles across all of them. Work still in flight is not here — that is Aging WIP.',
+    de: 'Referenzlinien, sofern vorhanden, sind Perzentile über alle. Laufende Arbeit steht hier nicht — dafür gibt es Aging WIP.',
+    ja: '基準線がある場合はその全体の分位点です。進行中の作業はここには含まれません（Aging WIP を参照）。',
+    ko: '기준선이 있다면 전체의 백분위수입니다. 진행 중인 작업은 여기 없으며 Aging WIP에서 다룹니다.',
   },
   // The ZERO state — nothing has finished yet. Distinct from `cycleTimeThinSample`, which is
   // "some have, but too few to draw percentiles from"; naming both "not enough" is how the
@@ -1545,6 +1553,8 @@ const STRINGS = {
     ko: '이 사람이 기록한 내용이며, 각 항목에는 그날 재직한 회사와 역할이 표시됩니다. 시드, API 클라이언트 또는 자동 재확인으로 작성된 항목은 작성자가 없어 여기에 표시될 수 없습니다.',
   },
   filterByType: { en: 'Filter by {t}', de: 'Nach {t} filtern', ja: '{t}で絞り込み', ko: '{t}(으)로 필터링' },
+  // The ⓘ popover's accessible name, parameterized so every "About …" label is one key.
+  aboutSection: { en: 'About {s}', de: 'Über {s}', ja: '{s}について', ko: '{s} 정보' },
   // Accessible names for the Partners table count cells (design.md §6, one measure
   // per cell): the visible cell is the bare number, the noun it counts lives here.
   // Split singular/plural because EN/DE inflect the noun; JA/KO use counters that do
@@ -2346,6 +2356,11 @@ const STRINGS = {
   // "Target date", NEVER "SOP" — an initiative's calendar goal is optional and its own
   // vocabulary (gh-286 decision, user call 2026-08-08).
   initiativeTargetLabel: { en: 'Target date', de: 'Zieldatum', ja: '目標期日', ko: '목표일' },
+  // The fact-line forms (§7b: a label is a last resort — the date keeps a one-word
+  // "Due" because a bare date is ambiguous; the partner count needs no label at all,
+  // the noun carries it).
+  initiativeDueLabel: { en: 'Due', de: 'Fällig', ja: '期日', ko: '기한' },
+  initiativePartnersFact: { en: '{n} partners', de: '{n} Partner', ja: 'パートナー{n}社', ko: '파트너 {n}곳' },
   initiativeTargetMonthLabel: { en: 'Target month (optional)', de: 'Zielmonat (optional)', ja: '目標月（任意）', ko: '목표 월 (선택)' },
   createInitiativeButton: { en: 'Create initiative', de: 'Initiative erstellen', ja: 'イニシアチブを作成', ko: '이니셔티브 만들기' },
   initiativeMembersHeading: { en: 'Partners', de: 'Partner', ja: 'パートナー', ko: '파트너' },
