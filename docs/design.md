@@ -401,8 +401,11 @@ stopping on empty space? Rules:
 
 (2026-08-10, user call — the Refactoring UI pass. The audit that motivated it
 found the section `<h2>` rendering LARGER AND BOLDER than the page `<h1>` on four
-pages, 17 distinct font-sizes carrying no information, and ~30 sites inventing a
-third text colour with ad-hoc `opacity`.)
+pages and 17 distinct font-sizes carrying no information. A suspected third
+finding — sites faking a tertiary text colour with `opacity` — did NOT survive
+its own audit: every fractional opacity turned out to be a state or a mark
+(autoknow-c43), so `--faint` below ships as the sanctioned ink for FUTURE
+de-emphasis, not as a conversion target.)
 
 * **Sizes are named for ROLES, defined once** — the `--fs-*`/`--lh-*` pairs in
   `globals.css` (theme-independent; sizes pair with their integer line boxes so
@@ -433,7 +436,9 @@ third text colour with ad-hoc `opacity`.)
 * **Weight is binary: 400 content, 600 structure.** Rubik ships 400 and 600 only;
   a `--head-font` + `700` pairing renders browser-synthesized faux bold, and 700
   must not be introduced as a third hierarchy channel — hierarchy travels in size
-  and ink.
+  and ink. Exemption: bordered/filled BADGES and TAGS on the body font (ClassBox,
+  status badges, [ARCHIVED]-style tags) keep their 700 — chip text at 10–11px
+  wants the real bold face for legibility, and a chip is a readout, not a level.
 * **A label is a last resort.** Format first (`Jun 1, 2026` needs no "Target:";
   an email address announces itself), position and context second (a line under a
   person's name reads as their role), a label only when the value is ambiguous

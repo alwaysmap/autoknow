@@ -2356,9 +2356,8 @@ const STRINGS = {
   // "Target date", NEVER "SOP" — an initiative's calendar goal is optional and its own
   // vocabulary (gh-286 decision, user call 2026-08-08).
   initiativeTargetLabel: { en: 'Target date', de: 'Zieldatum', ja: '目標期日', ko: '목표일' },
-  // The fact-line forms (§7b: a label is a last resort — the date keeps a one-word
-  // "Due" because a bare date is ambiguous; the partner count needs no label at all,
-  // the noun carries it).
+  // The fact-line forms — see the facts line in app/initiatives/[id]/page.tsx for
+  // why the date keeps a label and the partner count carries none (§7b).
   initiativeDueLabel: { en: 'Due', de: 'Fällig', ja: '期日', ko: '기한' },
   initiativePartnersFact: { en: '{n} partners', de: '{n} Partner', ja: 'パートナー{n}社', ko: '파트너 {n}곳' },
   initiativeTargetMonthLabel: { en: 'Target month (optional)', de: 'Zielmonat (optional)', ja: '目標月（任意）', ko: '목표 월 (선택)' },

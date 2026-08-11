@@ -49,10 +49,10 @@
   font-family: var(--head-font);
   font-size: var(--fs-section);
   font-weight: 600;
-  /* An integer box at the heading sizes this app uses (18px and 22px): the 1.2
-     ratio it replaces computed 21.6px and 26.4px, which put every rule BELOW a
-     heading on a fractional pixel. The graticule's baseline geometry hangs off
-     this value — it must stay in lockstep with --lh-heading. */
+  /* An integer box at the heading sizes this app uses (the 1.2 ratio it replaces
+     computed fractional boxes that put every rule below a heading on a fractional
+     pixel). The graticule's baseline geometry hangs off this box — hence the
+     shared token, which PageShell's title reads too. */
   line-height: var(--lh-heading);
 }
 

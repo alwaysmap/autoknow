@@ -102,12 +102,14 @@
   --fg:      hsl(30, 10%, 14%); /* warm bark rather than neutral black */
   --muted:   hsl(30, 6%, 41%); /* AA on --bg for body text; warmed with the rest */
   /* The THIRD ink (design.md §7b): --fg speaks, --muted supports, --faint whispers.
-     Names the value ~30 call sites were compositing by hand with `opacity: 0.8`
-     over --muted — opacity fades a rule's borders and children along with its text
-     and dodges the theme blocks, so it is never a text ink. --faint clears 3:1
-     (AA-large) but NOT 4.5:1, so it may only carry redundant/decorative text —
-     a repeated unit, a parenthetical, a divider glyph — never the sole statement
-     of a fact. */
+     No call site was converted onto it — the autoknow-c43 audit found every
+     existing fractional opacity to be a state or a mark, not a resting text ink —
+     so this is the sanctioned ink FUTURE de-emphasis reaches for, and the opacity
+     ratchet (tests/vertical-rhythm.test.ts) is what points here. Opacity is never
+     a text ink: it fades a rule's borders and children along with its text and
+     dodges the theme blocks. --faint clears 3:1 (AA-large) but NOT 4.5:1, so it
+     may only carry redundant/decorative text — a repeated unit, a parenthetical,
+     a divider glyph — never the sole statement of a fact. */
   --faint:   hsl(30, 5%, 52%);
 
   --white: hsl(45, 8%, 96%);

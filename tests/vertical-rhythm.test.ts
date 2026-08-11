@@ -22,13 +22,18 @@ function toPx(value: string, unit: string): number {
 
 /** The type-scale tokens (design.md §7b) as defined in globals.css: `--fs-detail`
  *  → `0.8125rem`. Parsed from the source, not restated here, so the test can never
- *  agree with a stale copy of the scale. */
+ *  agree with a stale copy of the scale. Computed once and cached —
+ *  `resolveTypeVars` runs per rule block, and re-reading globals.css hundreds of
+ *  times per test run is pure waste. */
+let TYPE_TOKENS: Record<string, string> | undefined;
 function typeTokens(): Record<string, string> {
+  if (TYPE_TOKENS) return TYPE_TOKENS;
   const globals = readFileSync('src/app/globals.css', 'utf8');
   const out: Record<string, string> = {};
   for (const m of globals.matchAll(/(--(?:fs|lh)-[a-z]+):\s*([0-9.]+rem)/g)) {
     out[m[1]] = m[2];
   }
+  TYPE_TOKENS = out;
   return out;
 }
 
@@ -208,8 +213,11 @@ function offScaleSizes(): string[] {
 
 /** Every fractional opacity in a CSS module, as `file :: value` combos. `0` and
  *  `1` are state toggles (hover reveals, animation endpoints), not inks; the two
- *  sanctioned tokens (--disabled-opacity / --busy-opacity) are var() and never
- *  match the numeric pattern. */
+ *  sanctioned tokens (--disabled-opacity / --busy-opacity) are var() at their
+ *  USAGE sites and never match the numeric pattern. Modules only — globals.css
+ *  is exempt BECAUSE it holds those tokens' DEFINITIONS (`--disabled-opacity:
+ *  0.5`), whose text the regex would match; the trade is that a fractional
+ *  opacity added directly to globals.css escapes this ratchet. */
 function fractionalOpacities(): string[] {
   const found = new Set<string>();
   for (const file of CSS.filter((f) => f.endsWith('.module.css'))) {

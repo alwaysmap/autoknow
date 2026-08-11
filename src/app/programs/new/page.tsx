@@ -165,17 +165,20 @@ export default async function NewProjectPage(props: {
           </div>
 
           <div className={styles.field}>
-            <label data-eyebrow>{t(locale, 'productsLabel')}</label>
-            <label data-eyebrow style={{ display: 'block', fontWeight: 400 }}>
+            {/* The GROUP label is the eyebrow; option wording is CONTENT (§7b), so the
+                option rows take the same plain treatment as this control's twin in
+                ProjectMetaHeader's edit dialog — keep the two in step. */}
+            <span data-eyebrow>{t(locale, 'productsLabel')}</span>
+            <label style={{ display: 'block', fontSize: '0.8125rem' }}>
               <input type="checkbox" name="hasGas" /> {t(locale, 'productGas')}
             </label>
-            <label data-eyebrow style={{ display: 'block', fontWeight: 400 }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem' }}>
               <input type="checkbox" name="hasGbi" /> {t(locale, 'productGbi')}
             </label>
-            <label data-eyebrow style={{ display: 'block', fontWeight: 400 }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem' }}>
               <input type="checkbox" name="hasDigitalKey" /> {t(locale, 'productDigitalKey')}
             </label>
-            <label data-eyebrow style={{ display: 'block', fontWeight: 400 }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem' }}>
               <input type="checkbox" name="hasAap" /> {t(locale, 'productAap')}
             </label>
           </div>
