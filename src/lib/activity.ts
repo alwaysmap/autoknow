@@ -4,7 +4,7 @@ import { formatNeedleValue } from './needle';
 import { deriveScore } from './relationship';
 import { hillStatus, phaseColor } from './phase';
 import { escalationHref, phaseUpdateHref, programHref, programStatusUpdateHref, relationshipUpdateHref } from './entityHref';
-import { coversDay, jobLabel, personAliases } from './people';
+import { coversDay, jobLabel, personAliases, type MatchBasis } from './people';
 import type { FeedItem, FeedScope, FeedKind } from './feed';
 
 // The unified activity stream as FeedItem[]: ingested context AND core system-of-record
@@ -172,6 +172,11 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
       mode: true, frozenReason: true, lastCheckedAt: true,
       project: { select: { name: true } },
       partner: { select: { name: true } },
+      // #177: the inferred identity tier — read as stored, never re-resolved at render.
+      mentions: {
+        select: { rawName: true, basis: true, person: { select: { id: true, name: true } } },
+        orderBy: { id: 'asc' },
+      },
     },
     orderBy: { createdAt: 'desc' },
     take,
@@ -199,6 +204,12 @@ export async function getActivity(scope: FeedScope, take = ACTIVITY_PAGE_SIZE): 
       external: true,
       timestamp: c.createdAt.toISOString(),
       checkedAt,
+      mentions: c.mentions.map((m) => ({
+        rawName: m.rawName,
+        person: m.person,
+        // Safe narrowing: only lib/mentions' deriveMentions ever writes this column.
+        basis: m.basis as MatchBasis | null,
+      })),
     });
   }
 

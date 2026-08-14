@@ -362,7 +362,13 @@ model ContextUrl {
   lastChangedAt DateTime?
   frozenAt      DateTime?
   frozenReason  String?   // resolved | access-revoked | deleted | auth-required | user-paused
+  // A REAL model ran entity extraction over this row's current digest (#177). A keyless
+  // deployment's ingest leaves it null — its entities are the empty fallback, not an
+  // extraction — which is what keeps those rows eligible for db:backfill:context-mentions
+  // and lets "extracted, found nobody" and "never extracted" stay different facts.
+  mentionsExtractedAt DateTime?
   revisions     ContextRevision[]
+  mentions      ContextMention[]
   escalations   Escalation[]
 
   // The cron's due-source query: filter on (mode, frozenAt), order by lastCheckedAt,
@@ -389,6 +395,28 @@ model ContextRevision {
   delta         String? // "what's new vs. previous digest" bullets; null for initial ingest
 
   @@index([contextUrlId, checkedAt])
+}
+
+// One row per person the model extracted from a source's digest (#177). Every row is
+// the INFERRED identity tier: `rawName` is the model's string verbatim, and `personId`
+// is written only when `resolvePersonMatch`'s winning tier held exactly ONE candidate
+// (lib/mentions — the ownerBackfill floor). `basis` records the tier that matched
+// ('email' | 'handle' | 'name'); null personId + null basis is an unresolved mention,
+// kept visible and re-resolvable rather than silently dropped. Mentions track the
+// LATEST digest, exactly as ContextUrl.ingestedText does — a real re-distillation
+// rewrites them.
+model ContextMention {
+  id           Int        @id @default(autoincrement())
+  contextUrlId Int
+  contextUrl   ContextUrl @relation(fields: [contextUrlId], references: [id], onDelete: Cascade)
+  rawName      String
+  personId     Int?
+  person       Person?    @relation(fields: [personId], references: [id], onDelete: SetNull)
+  basis        String?    // email | handle | name — how the link was inferred; null = unresolved
+  createdAt    DateTime   @default(now())
+
+  @@unique([contextUrlId, rawName])
+  @@index([personId])
 }
 
 // One row per external delta feed (e.g. Drive changes pageToken).
@@ -493,6 +521,7 @@ model Person {
   ownedEscalations     Escalation[] @relation("EscalationOwner")
   decidedEscalations   Escalation[] @relation("EscalationDecisionMaker")
   requestedEscalations Escalation[] @relation("EscalationRequestedOf")
+  contextMentions      ContextMention[] // #177 — inferred mentions resolved to this person
   embedding        Unsupported("vector(768)")?
 
   // E9 dropped `Person_email_key` when it dropped `@unique` — correctly, since the

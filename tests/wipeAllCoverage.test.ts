@@ -101,6 +101,11 @@ describe('fixtures.wipeAll leaves an empty database', () => {
     await prisma.contextRevision.create({
       data: { contextUrlId: url.id, contentHash: 'abc', digest: 'x' },
     });
+    // #177. Carries both references a mention can hold — the source and a person — so
+    // the wipe is proved against the linked shape, not just an orphan row.
+    await prisma.contextMention.create({
+      data: { contextUrlId: url.id, rawName: 'Kenji Sato', personId: seeded.personId, basis: 'name' },
+    });
     await prisma.actionItem.create({
       data: { phaseId: seeded.phases.integration, description: 'x', status: 'Pending', source: 'testbot' },
     });

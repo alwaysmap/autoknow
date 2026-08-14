@@ -1819,6 +1819,32 @@ const STRINGS = {
     ja: 'AI生成 — Geminiが保存済みソースから合成。マークのないテキストは人が書いたものです。',
     ko: 'AI 생성 — Gemini가 저장된 소스에서 합성. 표시가 없는 텍스트는 사람이 작성한 것입니다.',
   },
+  // ---- inferred people mentions (#177, design.md §8) ----
+  mentionsLabel: { en: 'People', de: 'Personen', ja: '人物', ko: '인물' },
+  mentionEmailTitle: {
+    en: 'AI-extracted mention, matched by exact email address — a guess from the document, not a recorded action.',
+    de: 'KI-extrahierte Erwähnung, über die exakte E-Mail-Adresse zugeordnet — eine Vermutung aus dem Dokument, keine erfasste Aktion.',
+    ja: 'AIが抽出した言及。メールアドレスの完全一致で照合 — 文書からの推定であり、記録された操作ではありません。',
+    ko: 'AI가 추출한 언급으로, 이메일 주소 정확 일치로 매칭됨 — 문서에서 추정한 것이며 기록된 작업이 아닙니다.',
+  },
+  mentionHandleTitle: {
+    en: 'AI-extracted mention, matched by email handle — a guess from the document, not a recorded action.',
+    de: 'KI-extrahierte Erwähnung, über das E-Mail-Kürzel zugeordnet — eine Vermutung aus dem Dokument, keine erfasste Aktion.',
+    ja: 'AIが抽出した言及。メールのハンドル名で照合 — 文書からの推定であり、記録された操作ではありません。',
+    ko: 'AI가 추출한 언급으로, 이메일 핸들로 매칭됨 — 문서에서 추정한 것이며 기록된 작업이 아닙니다.',
+  },
+  mentionNameTitle: {
+    en: 'AI-extracted mention, matched by name — a guess from the document, not a recorded action.',
+    de: 'KI-extrahierte Erwähnung, über den Namen zugeordnet — eine Vermutung aus dem Dokument, keine erfasste Aktion.',
+    ja: 'AIが抽出した言及。氏名で照合 — 文書からの推定であり、記録された操作ではありません。',
+    ko: 'AI가 추출한 언급으로, 이름으로 매칭됨 — 문서에서 추정한 것이며 기록된 작업이 아닙니다.',
+  },
+  mentionUnresolvedTitle: {
+    en: 'AI-extracted mention — no confident match in the people directory.',
+    de: 'KI-extrahierte Erwähnung — keine eindeutige Übereinstimmung im Personenverzeichnis.',
+    ja: 'AIが抽出した言及 — 人物ディレクトリに確実な一致はありません。',
+    ko: 'AI가 추출한 언급 — 인물 디렉터리에서 확실한 일치 항목이 없습니다.',
+  },
   // ---- needle history popup ----
   close: { en: 'Close', de: 'Schließen', ja: '閉じる', ko: '닫기' },
   detail: { en: 'Detail', de: 'Details', ja: '詳細', ko: '상세' },

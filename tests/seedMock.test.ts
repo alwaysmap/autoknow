@@ -39,9 +39,10 @@ describe('seedMockData through the API', () => {
     // 1 Google + 4 classic + 10 enrichment partners.
     expect(await prisma.partner.count()).toBe(15);
     // 6 classic-era people + Alice Waters (created with them because she owns a classic
-    // program) + 8 enrichment. FIFTEEN, not sixteen: the 'Alice PM' persona is retired,
-    // and there is now exactly one Alice.
-    expect(await prisma.person.count()).toBe(15);
+    // program) + 8 enrichment + the two same-named Jonas Webers (#177's ambiguity
+    // fixture — the collision is deliberate). SEVENTEEN, and still exactly one Alice:
+    // the 'Alice PM' persona stays retired.
+    expect(await prisma.person.count()).toBe(17);
     // 4 classic + 7 enrichment + 4 showcase + 3 Alice-era programs + 6 initiative
     // member copies (4 Gemini incl. the removed member's cancelled copy, 2 EV).
     expect(await prisma.project.count()).toBe(24);
@@ -80,6 +81,15 @@ describe('seedMockData through the API', () => {
     }
     // Every source starts its history with an initial revision (delta null).
     expect(await prisma.contextRevision.count()).toBe(MOCK_CORPUS.length);
+  });
+
+  it('a keyless seed leaves mentions unextracted rather than fabricating them (#177)', async () => {
+    // This suite seeds with no GEMINI_API_KEY (tests/no-live-gemini), so entities are
+    // the empty fallback — NOT an extraction. The marker must stay null (keeping every
+    // row eligible for db:backfill:context-mentions) and no mention rows may exist:
+    // "extracted, found nobody" and "never extracted" are different facts.
+    expect(await prisma.contextMention.count()).toBe(0);
+    expect(await prisma.contextUrl.count({ where: { mentionsExtractedAt: null } })).toBe(MOCK_CORPUS.length);
   });
 
   it('anchors every source to something — a corpus entry attached to nothing is invisible', async () => {
@@ -392,12 +402,14 @@ describe('seedMockData through the API', () => {
       where: { partnerId: honda.id },
       orderBy: { timestamp: 'desc' },
     });
-    expect(states).toHaveLength(2);
+    // THREE dated entries (#177 widened the journal with a Q1 entry): the newest two
+    // are still the ghost-ring pair the surfaces read, the third is history depth.
+    expect(states).toHaveLength(3);
     expect(states[0].relationshipScore).toBe(4);
     expect(states[0].theNeedle).toBe('On Track'); // scoreToHealth(4)
     expect(states[1].relationshipScore).toBe(3);
     expect(states[1].theNeedle).toBe('Some Risk'); // scoreToHealth(3)
-    expect(states[0].notes).toBeTruthy(); // the journal requires a written note
+    for (const s of states) expect(s.notes).toBeTruthy(); // the journal requires a written note
   });
 
   // Initiatives ride the REAL actions (gh-286 part i) — createInitiative,

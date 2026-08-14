@@ -55,6 +55,7 @@ export async function wipeAllData() {
   // own — one `DELETE FROM` clears the whole table in a single statement.
   await prisma.escalation.deleteMany();
   await prisma.contextRevision.deleteMany();
+  await prisma.contextMention.deleteMany();
   await prisma.syncCursor.deleteMany();
   await prisma.contextUrl.deleteMany();
   // InitiativeDevice references InitiativePartner and Project, so it clears ahead of
@@ -927,6 +928,21 @@ export async function seedMockData(): Promise<MockSeedReport> {
     name: 'Toyota Highlander Digital Key', partnerId: toyotaId, owner: aliceWaters,
     sopDate: await sopForPlan(DK_T, TOYOTA_THROUGH, 4), volumeFirstYear: 250000,
   });
+  // Backdated status-update history (#177 seeding depth): EARLIER than the newest
+  // entry below, so the program's current needle/hill stay exactly what they were —
+  // newest wins — while the status journal gains real depth for the feed surfaces.
+  await postProjectState(toyotaProjectId, {
+    theNeedle: 'Low', hillChartProgress: 5,
+    notes: 'Program spun up; Kenji Sato confirmed the Toyota-side security reviewers.',
+    source: 'Google Chat', sourceUrl: 'https://chat.google.com/room/toyota-dk-kickoff',
+    timestamp: '2026-05-04',
+  });
+  await postProjectState(toyotaProjectId, {
+    theNeedle: 'Low', hillChartProgress: 10,
+    notes: 'TSM vendor shortlist agreed; applet versioning question parked for threat modeling.',
+    source: 'Google Doc', sourceUrl: 'https://docs.google.com/document/d/toyota-dk-tsm-shortlist',
+    timestamp: '2026-05-18',
+  });
   await postProjectState(toyotaProjectId, {
     theNeedle: 'Low', hillChartProgress: 15,
     notes: 'Kickoff and initial threat modeling drafted.',
@@ -978,6 +994,12 @@ export async function seedMockData(): Promise<MockSeedReport> {
   const qualcommProjectId = await createProject({
     name: 'Qualcomm Snapdragon Cockpit Support', partnerId: qualcommId, owner: mePerson,
     sopDate: await sopForPlan(AAOS_T, QUALCOMM_THROUGH, 10), volumeFirstYear: 500000,
+  });
+  await postProjectState(qualcommProjectId, {
+    theNeedle: 'Medium', hillChartProgress: 60,
+    notes: 'BSP drop 4 landed; Sarah Jenkins triaging the display bring-up deltas.',
+    source: 'Gerrit', sourceUrl: 'https://android-review.googlesource.com/c/platform/hardware/qcom/+/99544',
+    timestamp: '2026-05-12',
   });
   await postProjectState(qualcommProjectId, {
     theNeedle: 'Medium', hillChartProgress: 75,
@@ -1069,6 +1091,13 @@ export async function seedMockData(): Promise<MockSeedReport> {
   const minji = await mkPerson('Min-ji Park', 'minji@lge.example', lgeId, 'Head-unit Delivery Manager', '2024-08-01', 'LGE head-unit delivery manager.');
   const sven = await mkPerson('Sven Larsson', 'sven@volvocars.example', volvoCarsId, 'Digital Key Security Lead', '2021-11-01', 'Volvo Digital Key security lead.');
   const deepak = await mkPerson('Deepak Rao', 'deepak@mediatek.example', mediatekId, 'Automotive FAE', '2022-01-01', 'MediaTek automotive FAE.');
+  // #177 — the ambiguity fixture: TWO people share this exact name, at different
+  // partners, so a corpus document that says 'Jonas Weber' exercises the mention
+  // floor — a name-tier match with two candidates resolves to NOTHING rather than a
+  // marked guess. Deliberately a name no other fixture uses; do not "fix" one of
+  // them to a distinct name, the collision is the point.
+  await mkPerson('Jonas Weber', 'jonas.weber@bosch.com', boschId, 'Camera Systems Engineer', '2022-06-01', 'Bosch camera & driver-monitoring systems engineer.');
+  await mkPerson('Jonas Weber', 'jweber@denso.example', densoId, 'Cockpit Validation Engineer', '2023-02-01', 'Denso cockpit validation engineer.');
 
   // PRIOR periods only — each ends exactly where the NEXT period in that career begins,
   // so every career is contiguous and half-open with no day covered twice.
@@ -1581,6 +1610,11 @@ export async function seedMockData(): Promise<MockSeedReport> {
   // These are BACKDATED journal entries and PartnerState has no API route, so they
   // are the documented direct-write residue (see recordRelationship above).
   await recordRelationship(fordId, {
+    score: 3, hillChartProgress: 15,
+    notes: 'New Ford program office still forming; single-threaded on their side.',
+    timestamp: new Date('2026-03-05'),
+  });
+  await recordRelationship(fordId, {
     score: 4, hillChartProgress: 25,
     notes: 'Executive alignment calls are positive.',
     timestamp: new Date('2026-05-10'),
@@ -1601,7 +1635,24 @@ export async function seedMockData(): Promise<MockSeedReport> {
     { partnerId: continentalId, score: 3, note: 'Delivery fine, but Volvo slip strained the three-way relationship.' },
     { partnerId: lgeId, score: 4, note: 'Strong delivery track record across GM and Hyundai lines.' },
   ];
+  // A Q1 journal entry for the partners with a `prev`, so their relationship history
+  // reads as a JOURNAL (three dated entries) rather than a before/after pair — #177
+  // seeding depth. Dated before every entry below, so nothing current changes.
+  const q1Notes = new Map<number, string>([
+    [hondaId, 'Accord bring-up kickoff went smoothly; weekly cadence agreed.'],
+    [gmId, 'Ultifi teams reorganized; new leads met, roadmap session booked.'],
+    [volvoCarsId, 'Cert plan reviewed; dates looked tight but credible then.'],
+    [stellantisId, 'Sponsor engaged at kickoff; brand-matrix scope still unsettled.'],
+  ]);
   for (const r of relStates) {
+    const q1 = q1Notes.get(r.partnerId);
+    if (q1 != null) {
+      await recordRelationship(r.partnerId, {
+        score: r.prev ?? r.score,
+        notes: q1,
+        timestamp: new Date('2026-02-18'),
+      });
+    }
     if (r.prev != null) {
       await recordRelationship(r.partnerId, {
         score: r.prev,

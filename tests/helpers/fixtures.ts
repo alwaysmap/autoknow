@@ -57,6 +57,7 @@ export async function wipeAll() {
   // `DELETE FROM` clears the table in a single statement.
   await prisma.escalation.deleteMany();
   await prisma.contextRevision.deleteMany();
+  await prisma.contextMention.deleteMany();
   await prisma.contextUrl.deleteMany();
   await prisma.phasePartner.deleteMany();
   await prisma.phasePerson.deleteMany();

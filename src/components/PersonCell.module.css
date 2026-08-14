@@ -24,6 +24,23 @@
   color: var(--muted);
 }
 
+/* #177 — an INFERRED mention: a model extracted this string from a document. The mark
+   is typographic and hueless (design.md §8: every hue already means something, and a
+   per-mention glyph would carpet the page): a dotted underline at rest, in whatever
+   ink the cell already has — link blue when resolved, row ink when not. A certain
+   name keeps the bare quiet link, exactly as unmarked prose means a human wrote it. */
+.inferred {
+  text-decoration: underline dotted;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.inferred:hover {
+  /* Keep the dotted style under the link's hover underline — a switch to solid on
+     hover would read as the mark disappearing exactly when the reader inspects it. */
+  text-decoration: underline dotted;
+}
+
 /* Several people in one cell. Quiet comma-separated links, NOT pills: a pill per
    person turns a 3-person cell into three loud objects, and design.md §6 says the
    pill rule names which decoration to use when you decorate, not that every name
