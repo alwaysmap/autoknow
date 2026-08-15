@@ -1,7 +1,7 @@
 ---
 title: A shared function whose default reads process.env silently uses the FALLBACK inside a client component
 status: current
-updated: 2026-07-26
+updated: 2026-08-15
 applies_to:
   - src/lib/** functions with a `= readSomethingFromEnv()` default parameter
   - src/components/** files carrying 'use client' that import math from src/lib
@@ -9,7 +9,8 @@ applies_to:
 symptoms:
   - the figure the UI plots disagrees with the ceiling the server enforces, with no error anywhere
   - a value is correct in an API route and stale/default on the page that renders the same thing
-verified_by: 'tests/ingestionHealthCadence.test.tsx "plots the REAL cadence, and names it" — mutated by pinning IngestionHealthCard to a literal 24, which turns it red; PR for autoknow-wbe'
+  - a filter/match built from config selects the wrong rows on one page and the right ones everywhere else
+verified_by: 'tests/ingestionHealthCadence.test.tsx "plots the REAL cadence, and names it" — mutated by pinning IngestionHealthCard to a literal 24, which turns it red; PR for autoknow-wbe. Second instance: tests/identity.test.ts + PartnersClient''s required `emailDomain` prop (autoknow-cvp / gh-255)'
 ---
 
 # A shared function whose default reads process.env silently uses the FALLBACK inside a client component
@@ -37,6 +38,15 @@ prop reintroduces the same silent fallback the first time someone forgets it. Wh
 value also appears in COPY, carry the honest `null` separately — the math needs a number
 it can always divide by, but a sentence must be able to say "we were not told"
 ([ADR: A fact owned by infrastructure is supplied at runtime or declared unknown](../adr/2026-07-26-infra-owned-facts-are-supplied-or-unknown.md)).
+
+**It is not only about numbers.** `orgEmailDomain()` (`src/lib/auth.ts`) reads
+`AUTH_ALLOWED_DOMAIN` to decide what a bare `@handle` expands to. `PartnersClient` calls
+`deriveEmail` in the browser to decide which roster members are *you* — so the default
+would have matched people at the dev fallback domain on any non-Google tenant, filtering
+the "My partners" scope against addresses nobody has. Hence the required `emailDomain`
+prop rather than a defaulted call (`autoknow-cvp`). Where the server can resolve the value
+and hand it down as DATA it already computes — `untrackedContext`'s `defaultDomain` — that
+is the same fix wearing different clothes, and it was already right.
 
 **How we found out.** Deriving `CYCLES_PER_DAY` from the exported
 `REFRESH_CRON_SCHEDULE` fixed the cron's per-cycle cap immediately — and would have left

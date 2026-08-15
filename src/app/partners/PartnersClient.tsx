@@ -60,6 +60,13 @@ interface PartnersClientProps {
    *  its owner had left dropped out of the scope entirely (#124 Class 4). Null when the
    *  signed-in user (or the `?user=` view-as override) matches no Person. */
   currentUserPersonId: number | null;
+  /** The org's own email domain, resolved on the server (`orgEmailDomain()`). REQUIRED,
+   *  and passed rather than read: `AUTH_ALLOWED_DOMAIN` is not inlined into the browser
+   *  bundle, so `deriveEmail`'s default would expand every handle at the dev fallback
+   *  here and quietly match the wrong people on any non-Google tenant (gh-255,
+   *  docs/knowledge/an-env-derived-default-is-the-fallback-inside-a-client-component.md).
+   *  Optional-with-a-default would reintroduce that the first time somebody forgot it. */
+  emailDomain: string;
   people: PersonLike[];
   /** partnerId → latest score + oldest→newest history (see lib/relationship). */
   relationship: Record<number, { score: number | null; history: number[] }>;
@@ -73,7 +80,7 @@ interface PartnersClientProps {
   initialQ?: string;
 }
 
-export default function PartnersClient({ partners, currentUser, currentUserPersonId, people, relationship, types, regions, initialFilters, initialSort, initialMine = false, initialQ = '' }: PartnersClientProps) {
+export default function PartnersClient({ partners, currentUser, currentUserPersonId, emailDomain, people, relationship, types, regions, initialFilters, initialSort, initialMine = false, initialQ = '' }: PartnersClientProps) {
   const locale = useLocale();
   // Column filters are controlled here so type/region cell clicks can set them.
   const [filters, setFilters] = useState<Record<string, string[]>>(initialFilters ?? {});
@@ -85,7 +92,7 @@ export default function PartnersClient({ partners, currentUser, currentUserPerso
   useTableUrlSync(filters, sort, { mine: myPartnersOnly ? '1' : null, q: text || null });
 
   // Derive the current user's canonical email/handle once for filtering.
-  const userEmail = useMemo(() => deriveEmail(currentUser), [currentUser]);
+  const userEmail = useMemo(() => deriveEmail(currentUser, emailDomain), [currentUser, emailDomain]);
   const userHandle = useMemo(() => normalizeHandle(currentUser), [currentUser]);
 
   // Whether a ROSTER MEMBER's address refers to the current user. Base predicate only;
@@ -96,14 +103,14 @@ export default function PartnersClient({ partners, currentUser, currentUserPerso
   // comes through here at all: it is an id comparison against the FK (#127 E7).
   const filteredPartners = useMemo(() => {
     const isCurrentUser = (value: string | null | undefined) =>
-      !!value && (deriveEmail(value) === userEmail || normalizeHandle(value) === userHandle);
+      !!value && (deriveEmail(value, emailDomain) === userEmail || normalizeHandle(value) === userHandle);
     const isMyPartner = (partner: Partner) =>
       // Ownership by REFERENCE (#127 E7); membership still by address, because a roster
       // member IS an address on this surface and has no such reference to key on.
       partner.projects.some((p) => p.owner != null && p.owner.id === currentUserPersonId) ||
       partner.team.some((member) => isCurrentUser(member.email));
     return partners.filter((partner) => !myPartnersOnly || isMyPartner(partner));
-  }, [partners, myPartnersOnly, userEmail, userHandle, currentUserPersonId]);
+  }, [partners, myPartnersOnly, userEmail, userHandle, emailDomain, currentUserPersonId]);
 
   // Map partners to displayable data structure
   const displayData = useMemo(() => {

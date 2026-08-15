@@ -1,6 +1,6 @@
 import 'server-only';
 import { prisma } from './db';
-import { EMAIL_DOMAIN } from './auth';
+import { orgEmailDomain } from './auth';
 import { addressesOnFile, personDirectorySelect } from './people';
 import type { UntrackedContext } from './untrackedPeople';
 
@@ -36,6 +36,8 @@ export async function untrackedContext(): Promise<UntrackedContext> {
   return {
     tracked: new Set(people.flatMap(addressesOnFile)),
     dismissed: new Set(ignored.map((i) => i.address)),
-    defaultDomain: EMAIL_DOMAIN,
+    // Resolved HERE, in a `server-only` module, and carried to the browser as data —
+    // which is what makes the pure detector's `defaultDomain` honest on both sides.
+    defaultDomain: orgEmailDomain(),
   };
 }

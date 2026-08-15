@@ -2,6 +2,7 @@ import { prisma } from '../../lib/db';
 import { personDirectorySelect, resolvePerson } from '../../lib/people';
 import { getAllPartners } from '../../lib/partnerQueries';
 import { getCurrentUser } from '../../lib/session';
+import { orgEmailDomain } from '../../lib/auth';
 import { deriveScore } from '../../lib/relationship';
 import PartnersClient from './PartnersClient';
 
@@ -71,6 +72,7 @@ export default async function PartnersPage(props: { searchParams: Promise<Search
       initialMine={initialMine}
       initialQ={initialQ}
       currentUser={user}
+      emailDomain={orgEmailDomain()}
       currentUserPersonId={currentUserPersonId}
       people={people}
       relationship={relationship}
