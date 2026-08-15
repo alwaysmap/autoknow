@@ -4,14 +4,20 @@ import { phaseColor, phaseHref } from '../lib/phase';
 import { t, statusKey, type Locale } from '../lib/i18n';
 import type { PartnerProgram } from '../lib/partnerPrograms';
 import styles from './PartnerProgramRows.module.css';
-import { localDate } from '../lib/dates';
+import { dayLabel, type DateLabelMode } from '../lib/dates';
 
 // Condensed program list for the Briefing layout: one scannable row per program
 // (name, ownership, gauge, updated date), phases behind a native <details>
 // disclosure. Same data as the PartnerPrograms cards, a fraction of the ink —
 // whitespace separates rows, no borders (design.md §7 / Refactoring UI).
 
-export default function PartnerProgramRows({ programs, locale = 'en' }: { programs: PartnerProgram[]; locale?: Locale }) {
+// A server component, so `dateLabels` is a prop — see `LatestTeasers` for why. Defaulted
+// for the same reason `locale` is: a caller that has not resolved one still renders
+// today's behaviour.
+export default function PartnerProgramRows(
+  { programs, locale = 'en', dateLabels = 'date' }:
+  { programs: PartnerProgram[]; locale?: Locale; dateLabels?: DateLabelMode },
+) {
   if (programs.length === 0) {
     return <p className={styles.empty}>{t(locale, 'noPartnerPrograms')}</p>;
   }
@@ -53,7 +59,7 @@ export default function PartnerProgramRows({ programs, locale = 'en' }: { progra
             <span className={styles.spacer} />
             {prog.updatedAt && (
               <span className={styles.updated}>
-                {localDate(prog.updatedAt, locale, { month: 'short', day: 'numeric' })}
+                {dayLabel(prog.updatedAt, locale, dateLabels)}
               </span>
             )}
           </summary>

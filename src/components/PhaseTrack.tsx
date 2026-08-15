@@ -36,7 +36,8 @@ import type { HillChange } from '../lib/history';
 import { updatePhaseHill, setPhaseStarted, getPhaseLog, type PhaseLogEntry } from '../app/actions/hill';
 import type { PhaseGraphRow } from './PhaseGraph';
 import styles from './PhaseTrack.module.css';
-import { localDate } from '../lib/dates';
+import { dayLabel } from '../lib/dates';
+import { useDateLabels } from './DateLabelsProvider';
 
 // The phase surface as a single train line. The CRITICAL CHAIN is the main line —
 // its stations come first, in chain order, so the chain renders as one contiguous
@@ -305,6 +306,7 @@ function PhaseGoal({ phase, projectId, locale, structureLocked }: { phase: Phase
 
 export default function PhaseTrack({ projectId, phases, locale, structureLocked = false }: PhaseTrackProps) {
   const byId = new Map(phases.map((p) => [p.id, p]));
+  const dateLabels = useDateLabels();
   const scrollPageTo = useSteadyPageScroll();
 
   const chain = computeCriticalChain(
@@ -812,8 +814,7 @@ export default function PhaseTrack({ projectId, phases, locale, structureLocked 
   };
 
 
-  const fmtDate = (iso: string) =>
-    localDate(iso, locale, { month: 'short', day: 'numeric' });
+  const fmtDate = (iso: string) => dayLabel(iso, locale, dateLabels);
 
   // Structural DAG problems (cycles, dead-ending branches, unknown deps) join the
   // notices list — the same validator the phase editor runs, so the rail and the

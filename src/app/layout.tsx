@@ -6,9 +6,11 @@ import { Geist, Geist_Mono, Rubik } from "next/font/google";
 import Link from 'next/link';
 import SwCleanup from '../components/SwCleanup';
 import { LocaleProvider } from '../components/LocaleProvider';
+import { DateLabelsProvider } from '../components/DateLabelsProvider';
 import { getCurrentUser } from '../lib/session';
 import { allowedAvatarUrl } from '../lib/avatar';
 import { getLocale } from '../lib/locale';
+import { getDateLabelMode } from '../lib/dateLabels';
 import { appearanceBootScript } from '../lib/preferences';
 import { t } from '../lib/i18n';
 import { auth, signIn, signOut, authConfigured } from '../auth';
@@ -54,6 +56,7 @@ export default async function RootLayout({
   const user = await getCurrentUser();
   const session = authConfigured ? await auth() : null;
   const locale = await getLocale();
+  const dateLabels = await getDateLabelMode();
   return (
     // data-scroll-behavior: globals.css sets `scroll-behavior: smooth` so in-page
     // jumps ease into place. Next asks for this attribute so its router knows the
@@ -70,6 +73,7 @@ export default async function RootLayout({
       </head>
       <body>
         <LocaleProvider locale={locale}>
+        <DateLabelsProvider mode={dateLabels}>
         <nav className={styles.navBar}>
           <Link href="/" className={styles.logo}>
             <NavMark className={styles.mark} />
@@ -120,6 +124,7 @@ export default async function RootLayout({
           </div>
         </nav>
         {children}
+        </DateLabelsProvider>
         </LocaleProvider>
       </body>
     </html>

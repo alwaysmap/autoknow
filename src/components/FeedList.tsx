@@ -17,7 +17,8 @@ import KindBox from './KindBox';
 import PersonCell from './PersonCell';
 import RelativeTime from './RelativeTime';
 import styles from './FeedList.module.css';
-import { localDate } from '../lib/dates';
+import { dayLabel, type DateLabelMode } from '../lib/dates';
+import { useDateLabels } from './DateLabelsProvider';
 
 // One presentational list for both search results and the activity feed. Renders a
 // relevance "% match" when the item carries a score, otherwise a date when it carries
@@ -25,11 +26,11 @@ import { localDate } from '../lib/dates';
 // from context wherever it's mounted (activity pages, UnifiedSearch).
 
 
-function aside(it: FeedItem, locale: Locale): string {
+function aside(it: FeedItem, locale: Locale, dateLabels: DateLabelMode): string {
   // Search results are already ordered by relevance — never surface the numeric score.
   if (typeof it.score === 'number') return '';
   if (it.timestamp) {
-    return localDate(it.timestamp, locale, { month: 'short', day: 'numeric', year: 'numeric' });
+    return dayLabel(it.timestamp, locale, dateLabels, { year: true });
   }
   return '';
 }
@@ -51,6 +52,7 @@ export default function FeedList({
   revalidate?: string; // path to revalidate after a delete
 }) {
   const locale = useLocale();
+  const dateLabels = useDateLabels();
   if (items.length === 0) return <p className={styles.empty}>{emptyLabel ?? t(locale, 'nothingHereYet')}</p>;
 
   return (
@@ -122,7 +124,7 @@ export default function FeedList({
                 <Link className={styles.title} href={it.href} title={it.title}
                   scroll={it.href.includes('#') ? false : undefined}>{it.title}</Link>
               )}
-              <span className={styles.aside}>{aside(it, locale)}</span>
+              <span className={styles.aside}>{aside(it, locale, dateLabels)}</span>
               {deletable && (
                 <form action={deleteFeedItem} className={styles.deleteForm}>
                   <input type="hidden" name="id" value={it.id} />

@@ -245,8 +245,19 @@ tables) so nothing has to be relearned page to page.
   cells"). Via the shared `DateCell`, one `<time>` element holds both: `dateTime` stays
   ISO (`2018-06-01`) for assistive tech, copy-paste and anything parsing the DOM, while
   the VISIBLE text is locale-short — **`Jun 1, 2018`**, `day: 'numeric'` and never
-  `'2-digit'`, so it reads `Jun 1`, not `Jun 01`. Hover still reveals the ISO calendar
-  week ("W22").
+  `'2-digit'`, so it reads `Jun 1`, not `Jun 01`.
+
+  **The visible half is now the reader's call, and the hover is its complement**
+  (2026-08-15, autoknow-dn8 — automotive plans run on ISO calendar weeks). The
+  `DATE_LABELS` preference (the #31 registry, a cookie because the server renders every
+  date) writes a DAY as `Jun 1, 2018`, `Jun 1, 2018 · W22`, or `W22 2018`, and `title`
+  carries whatever the visible text dropped. **`dateTime` stays ISO in all three** — a
+  display preference may not reach the value assistive tech announces. `dayLabel`
+  (`lib/dates.ts`) is the ONE function that decides, and it governs a DAY only: a
+  month-granular label (the SOP target, a month axis) and generated prose keep their own
+  shape. A week-gridded chart axis gains a WEEK TIER instead, which changes that chart's
+  geometry — see §8c and
+  [the ADR](adr/2026-08-15-a-date-label-preference-governs-days-and-a-week-gridded-axis-gains-a-tier.md).
 
   The old rule forbade this for two reasons; **exactly one of them survived**, and it is
   worth stating which, so the next person does not re-derive the wrong one:
@@ -692,6 +703,13 @@ combination must work:
   time it compresses** — an unmarked break would be a false statement about duration.
   Collapse keys on emptiness, never on band kind, so the overshoot case (where the
   interesting span is the loss, not the buffer) collapses the right side.
+  **The axis grows a WEEK-NUMBER TIER for a reader whose `DATE_LABELS` preference carries
+  weeks** (2026-08-15, §6): the columns already ARE ISO weeks, so the tier labels what is
+  drawn. It takes the line nearest the plot — finest unit first — and pushes the month
+  letters down, so the chart is genuinely 16 units taller in those modes. This is the one
+  preference in the app that changes chart GEOMETRY, which is why it cannot be a
+  CSS-revealed second copy of the text the way style-conditional graphics are: the label
+  pass measures the string in JS, and it must measure the one on screen.
 * **Lines never cross unexplained.** A subway map and a circuit diagram both owe
   the reader an account of every intersection, and the phase rail owes the same:
   where a branch line must pass over track it is not joining, it draws a HOP — a

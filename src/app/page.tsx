@@ -8,6 +8,7 @@ import { getEcosystemDashboardData, getPartnerRelationshipScores } from '../lib/
 import { getOpenEscalationsCount } from '../lib/escalationQueries';
 import { countActiveInitiatives } from '../lib/initiativeQueries';
 import { getLocale } from '../lib/locale';
+import { getDateLabelMode } from '../lib/dateLabels';
 import { t } from '../lib/i18n';
 import { tNodes } from '../components/tNodes';
 import styles from './page.module.css';
@@ -30,6 +31,7 @@ const TEASER_COUNT = 5;
 export default async function Landing(props: { searchParams: Promise<{ q?: string; lang?: string }> }) {
   const { q, lang } = await props.searchParams;
   const locale = await getLocale(lang);
+  const dateLabels = await getDateLabelMode();
   const [latest, { serializedProjects }, relationshipScores, openEscalationCount, activeInitiativeCount] = await Promise.all([
     getActivity({ kind: 'ecosystem' }, TEASER_COUNT),
     getEcosystemDashboardData(),
@@ -78,7 +80,7 @@ export default async function Landing(props: { searchParams: Promise<{ q?: strin
         <AnchorHeading id="latest-updates">
           {t(locale, 'landingLatest')}
         </AnchorHeading>
-        <LatestTeasers items={latest} locale={locale} />
+        <LatestTeasers items={latest} locale={locale} dateLabels={dateLabels} />
       </section>
     </div>
   );

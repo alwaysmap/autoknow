@@ -5,7 +5,8 @@ import React, { useMemo, useState } from 'react';
 import { baselineToCentreY, centreToBaselineY, dodgeLabels, estimateTextWidth, halfHFor } from '../lib/labelPlacement';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
-import { localDate } from '../lib/dates';
+import { dayLabel } from '../lib/dates';
+import { useDateLabels } from './DateLabelsProvider';
 import Link from 'next/link';
 import { phaseHref } from '../lib/phase';
 import styles from './CycleTimeScatterPlot.module.css';
@@ -73,6 +74,7 @@ const marginBottom = 44;
 
 export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPlotProps) {
   const locale = useLocale();
+  const dateLabels = useDateLabels();
   // `active`, not `selected`: a hover overwrites it and leaving clears it, so it tracks what
   // the reader is pointing at rather than a choice they made. Released on leave/blur so the
   // readout is never stranded describing a point nobody is looking at any more.
@@ -166,7 +168,7 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
           <g key={`x-${i}`}>
             <line x1={xScale(ms)} y1={height - marginBottom} x2={xScale(ms)} y2={height - marginBottom + 4} className={styles.axisLine} />
             <ChartLabel x={xScale(ms)} y={height - marginBottom + 18} textAnchor="middle" className={styles.axisLabel}>
-              {localDate(new Date(ms), locale, { month: 'short', day: 'numeric' })}
+              {dayLabel(new Date(ms), locale, dateLabels)}
             </ChartLabel>
           </g>
         ))}
@@ -221,7 +223,7 @@ export default function CycleTimeScatterPlot({ data, stats }: CycleTimeScatterPl
             </Link>
             {' · '}{active.programName}
             {' · '}{t(locale, 'daysShort', { n: active.cycleTimeDays })}
-            {' · '}{localDate(active.finishedAt, locale, { year: 'numeric', month: 'short', day: 'numeric' })}
+            {' · '}{dayLabel(active.finishedAt, locale, dateLabels, { year: true })}
           </p>
         ) : (
           <p className={styles.detailHint}>{t(locale, 'cycleTimeHint')}</p>

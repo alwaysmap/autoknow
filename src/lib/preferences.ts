@@ -1,3 +1,4 @@
+import type { DateLabelMode } from './dates';
 import { isLocale, LOCALES, type Locale } from './i18n';
 
 // THE preferences registry (#31). Every user preference is declared ONCE here — its
@@ -30,6 +31,12 @@ export interface Preference<T> {
   readonly values?: readonly T[];
 }
 
+/** A preference that CAN be a `<select>` — its values are enumerated, not merely usually
+ *  present. `PrefSelect` takes this rather than a bare `Preference<T>`, so "this control
+ *  needs something to list" is a type error at the call site instead of an empty dropdown
+ *  at runtime. Declare a preference as this when a picker renders it. */
+export type SelectablePreference<T> = Preference<T> & { readonly values: readonly T[] };
+
 // ---- Appearance: client-only, resolved in the pre-paint boot script (§8c) ---------------
 
 export type ThemePref = 'system' | 'light' | 'dark';
@@ -54,7 +61,7 @@ export const STYLE: Preference<StylePref> = {
 
 // ---- Locale: a COOKIE, because the server must read it to render localized SSR ----------
 
-export const LOCALE: Preference<Locale> = {
+export const LOCALE: SelectablePreference<Locale> = {
   key: 'autoknow-lang',
   storage: 'cookie',
   storageReason: 'the server reads it during SSR to render localized content, so it cannot be client-only localStorage',
@@ -65,6 +72,27 @@ export const LOCALE: Preference<Locale> = {
 /** The pre-namespace cookie name, still read as a fallback so a returning user keeps their
  *  language across the rename (they never lose it; the next switch writes the new key). */
 export const LOCALE_LEGACY_KEY = 'lang';
+
+// ---- Date labels: a COOKIE for LOCALE's reason above, plus one of its own -------------
+// Automotive programs are planned in ISO calendar weeks, so a reader may want every DAY
+// written as its week — alongside the date, or instead of it.
+//
+// The reason it cannot follow theme and style into localStorage is NOT the pre-paint flash
+// those two solve with a boot script: it is that those two resolve to an attribute on
+// <html> that CSS can act on, and this one cannot. Chart labels are laid out in JS —
+// `estimateTextWidth` on the FORMATTED string is what thins an axis — so the layout pass
+// has to know the mode, and a CSS-revealed second copy of the text would be measured by
+// nobody.
+
+export const DATE_LABELS: SelectablePreference<DateLabelMode> = {
+  key: 'autoknow-date-labels',
+  storage: 'cookie',
+  storageReason:
+    'the server renders every date, and chart geometry is computed in JS from the formatted string — a client-only read would both repaint every date after hydration and leave label placement measuring the wrong text',
+  default: 'date',
+  values: ['date', 'date-week', 'week'],
+  parse: (r) => (r === 'date-week' || r === 'week' ? r : 'date'),
+};
 
 // ---- Rows per table: client-only view density (DataTable paginates client-side). --------
 // Declared here so #29 CONSUMES the registry rather than re-inventing a per-call-site prop.
@@ -120,7 +148,7 @@ export const COLLAPSED_SECTIONS: Preference<readonly SectionId[]> = {
 };
 
 /** Every registered preference — drives reset-all and the registry tests. */
-export const ALL_PREFERENCES: ReadonlyArray<Preference<unknown>> = [THEME, STYLE, LOCALE, ROWS_PER_TABLE, COLLAPSED_SECTIONS];
+export const ALL_PREFERENCES: ReadonlyArray<Preference<unknown>> = [THEME, STYLE, LOCALE, DATE_LABELS, ROWS_PER_TABLE, COLLAPSED_SECTIONS];
 
 // ---- The pre-paint boot script (§8c) ----------------------------------------------------
 

@@ -23,6 +23,7 @@ import { geminiConfigured } from '../../../lib/gemini';
 import { deriveScore } from '../../../lib/relationship';
 import { getNeedleHistory } from '../../../lib/history';
 import { getLocale } from '../../../lib/locale';
+import { getDateLabelMode } from '../../../lib/dateLabels';
 import { t } from '../../../lib/i18n';
 import AnchorHeading from '../../../components/AnchorHeading';
 import CollapsibleSection from '../../../components/CollapsibleSection';
@@ -105,6 +106,7 @@ export default async function PartnerDetailPage(props: PageProps) {
   const partnerId = parseInt(params.id, 10);
   const activeOnly = searchParams.filter === 'active';
   const locale = await getLocale();
+  const dateLabels = await getDateLabelMode();
 
   if (isNaN(partnerId)) {
     return notFound();
@@ -270,7 +272,7 @@ export default async function PartnerDetailPage(props: PageProps) {
             >
               {t(locale, 'navPrograms')}
             </AnchorHeading>
-            <PartnerProgramRows programs={programs} locale={locale} />
+            <PartnerProgramRows programs={programs} locale={locale} dateLabels={dateLabels} />
           </CollapsibleSection>
 
           <CollapsibleSection sectionId="partners:initiatives" className={styles.projectsSection}>

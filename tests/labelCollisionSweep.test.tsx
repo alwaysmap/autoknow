@@ -24,6 +24,8 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { LocaleProvider } from '../src/components/LocaleProvider';
+import { DateLabelsProvider } from '../src/components/DateLabelsProvider';
+import type { DateLabelMode } from '../src/lib/dates';
 import CapacityChart, { type CapacityChartProgram } from '../src/components/CapacityChart';
 import CycleTimeScatterPlot, { type CycleTimeData, type CycleTimeStats } from '../src/components/CycleTimeScatterPlot';
 import { ChainSchedule, W as CHAIN_W } from '../src/components/ChainSchedule';
@@ -107,7 +109,12 @@ function expectOffTheRules(boxes: (Box & { text: string })[], scope: Element) {
     .toEqual([]);
 }
 
-const wrap = (ui: React.ReactNode) => render(<LocaleProvider locale="en">{ui}</LocaleProvider>);
+const wrap = (ui: React.ReactNode, dateLabels: DateLabelMode = 'date') =>
+  render(
+    <LocaleProvider locale="en">
+      <DateLabelsProvider mode={dateLabels}>{ui}</DateLabelsProvider>
+    </LocaleProvider>,
+  );
 
 // ---- 0. the detector itself ------------------------------------------------------
 
@@ -375,7 +382,7 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
     now: day(60),
   });
 
-  const drawChain = (input: ChainLedgerInput) => wrap(
+  const drawChain = (input: ChainLedgerInput, dateLabels: DateLabelMode = 'date') => wrap(
     <ChainSchedule
       ledger={computeChainLedger(input)}
       sopMs={input.sopDate ? +new Date(input.sopDate) : null}
@@ -384,6 +391,7 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
       onDay={() => {}}
       onJump={() => {}}
     />,
+    dateLabels,
   ).container;
 
   /** Two phases hand days BACK and the live one is on time, so the program carries MORE
@@ -738,6 +746,90 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
       const covered = Math.max(0,
         Math.min(idle.x + idle.halfW, rule.x + rule.halfW) - Math.max(idle.x - idle.halfW, rule.x - rule.halfW));
       expect(covered).toBeLessThan(rule.halfW); // less than half the rule knocked out
+    });
+  });
+
+  // ---- 6. the axis under every DATE_LABELS mode -------------------------------------
+  //
+  // The calendar-week preference is the only thing in this app that changes chart
+  // GEOMETRY from a user setting: the week tier adds a second axis line, which moves the
+  // buffer flow, the crosshair caption and the viewBox height below it. So the crowding
+  // fixtures above are re-run in all three modes rather than only the default — the point
+  // being that "no labels collide" was asserted for a layout no reader may ever see.
+  //
+  // The crowding case is the WIDE chain: ~29 weeks of columns a few px apart, where the
+  // week numbers cannot all fit and the pass has to thin them. A narrow chain fits nearly
+  // all of them and would prove nothing (AGENTS lesson 19 — the healthy dataset is the
+  // one that crowds).
+  describe('the week tier — one axis, three modes, no collisions in any of them', () => {
+    const MODES: DateLabelMode[] = ['date', 'date-week', 'week'];
+
+    /** Every <text> the AXIS band draws: week numbers, month letters, break durations.
+     *  Identified by y rather than by a testid so a label added to the band later is
+     *  swept in automatically instead of being invisible to this check. */
+    const axisBoxes = (container: HTMLElement) => {
+      const all = Array.from(container.querySelectorAll<SVGTextElement>('svg text'))
+        .filter((el) => !el.closest('[data-testid="chain-buffer-flow"]'))
+        .map((el) => boxOf(el, 11));
+      const weekLike = all.filter((b) => /^W\d+$/.test(b.text));
+      // The band runs from the topmost axis label down; anchor it on the axis rule's own
+      // labels rather than a literal y, which would drift with ROW_H or the row count.
+      const bandTop = Math.min(...all.filter((b) => /^W\d+$|^\d+ days$/.test(b.text)).map((b) => b.y), Infinity);
+      return {
+        weeks: weekLike,
+        band: Number.isFinite(bandTop) ? all.filter((b) => b.y >= bandTop - 2) : [],
+      };
+    };
+
+    const wide = chain(200); // 29 weeks of columns — the axis is genuinely crowded
+
+    it.each(MODES)('places every axis label clear of every other one (%s)', (mode) => {
+      const { band } = axisBoxes(drawChain(wide, mode));
+      expect(band.length).toBeGreaterThan(0);
+      expect(collidingPairs(band)).toEqual([]);
+    });
+
+    it('draws the tier only for the modes that asked for weeks', () => {
+      expect(axisBoxes(drawChain(wide, 'date')).weeks).toEqual([]);
+      // Both week-bearing modes get the SAME tier: it labels COLUMNS, not days, so
+      // "date and week" has nothing extra to add here — the modes diverge on the labels
+      // that name a DAY, which the next test covers.
+      const dw = axisBoxes(drawChain(wide, 'date-week')).weeks.map((b) => b.text);
+      const wk = axisBoxes(drawChain(wide, 'week')).weeks.map((b) => b.text);
+      expect(dw.length).toBeGreaterThan(2);
+      expect(wk).toEqual(dw);
+    });
+
+    it("keeps the week numbers ASCENDING left to right — the thinning drops labels, never reorders columns", () => {
+      const kept = axisBoxes(drawChain(wide, 'week')).weeks
+        .slice()
+        .sort((a, b) => a.x - b.x)
+        .map((b) => Number(b.text.slice(1)));
+      // A chain inside one year: strictly increasing. (Across a year boundary the numbers
+      // restart, which is what `isoWeekYearLabel` exists for elsewhere — not on this axis,
+      // where the month letters below carry the frame.)
+      for (let i = 1; i < kept.length; i++) expect(kept[i]).toBeGreaterThan(kept[i - 1]);
+    });
+
+    it('writes the DAY markers in the mode the reader chose', () => {
+      const marker = (mode: DateLabelMode) =>
+        Array.from(drawChain(wide, mode).querySelectorAll<SVGTextElement>('svg text'))
+          .map((el) => el.textContent ?? '')
+          .find((s) => s.startsWith('today ·'))!;
+      expect(marker('date')).toMatch(/^today · \w+ \d+$/);        // today · Mar 2
+      expect(marker('date-week')).toMatch(/^today · \w+ \d+ · W\d+$/); // today · Mar 2 · W10
+      expect(marker('week')).toMatch(/^today · W\d+$/);            // today · W10
+    });
+
+    it('grows the drawing rather than overprinting it — the tier costs real height', () => {
+      const heightOf = (mode: DateLabelMode) => {
+        const svg = drawChain(wide, mode).querySelector('svg')!;
+        return Number(svg.getAttribute('viewBox')!.split(' ')[3]);
+      };
+      // The flow, the crosshair caption and the viewBox all derive from the axis height,
+      // so a tier that did NOT change this would be a tier drawn on top of the months.
+      expect(heightOf('week')).toBeGreaterThan(heightOf('date'));
+      expect(heightOf('week')).toBe(heightOf('date-week'));
     });
   });
 });

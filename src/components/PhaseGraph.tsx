@@ -11,7 +11,8 @@ import { addPhase, deletePhase } from '../app/programs/[id]/actions';
 import PhaseInvolvementEditor from './PhaseInvolvementEditor';
 import { addPhaseDependency, removePhaseDependency } from '../app/actions/dependencies';
 import styles from './PhaseGraph.module.css';
-import { localDate } from '../lib/dates';
+import { dayLabel } from '../lib/dates';
+import { useDateLabels } from './DateLabelsProvider';
 import { useLocale } from './LocaleProvider';
 import { useSteadyPageScroll } from '../lib/useSteadyPageScroll';
 import { type NamedRow } from '../lib/comboboxOptions';
@@ -119,6 +120,7 @@ const LANE_W = 16, RAIL_PAD = 14, NODE_R = 5.5;
 
 export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGraphProps) {
   const locale = useLocale();
+  const dateLabels = useDateLabels();
   const scrollPageTo = useSteadyPageScroll();
   const { ordered, lane, maxLane } = layout(phases);
   const gutterW = RAIL_PAD * 2 + maxLane * LANE_W;
@@ -291,7 +293,7 @@ export default function PhaseGraph({ projectId, phases, allPartners }: PhaseGrap
                 {isConstraint && <span className={styles.constraintTag}>Constraint</span>}
                 {p.updatedAt && (
                   <span className={styles.when}>
-                    {localDate(p.updatedAt, locale, { month: 'short', day: 'numeric' })}
+                    {dayLabel(p.updatedAt, locale, dateLabels)}
                     {p.updatedBy ? ` · ${p.updatedBy}` : ''}
                   </span>
                 )}

@@ -7,6 +7,7 @@ import {
   THEME,
   STYLE,
   LOCALE,
+  DATE_LABELS,
   ROWS_PER_TABLE,
   COLLAPSED_SECTIONS,
   ALL_PREFERENCES,
@@ -27,6 +28,10 @@ describe('#31 preferences registry', () => {
     expect(STYLE.parse('x')).toBe('instrument');
     expect(LOCALE.parse('de')).toBe('de');
     expect(LOCALE.parse('zz')).toBe('en');
+    expect(DATE_LABELS.parse('week')).toBe('week');
+    expect(DATE_LABELS.parse('date-week')).toBe('date-week');
+    expect(DATE_LABELS.parse('weekly')).toBe('date'); // a near-miss is not a match
+    expect(DATE_LABELS.parse(null)).toBe('date');
     expect(ROWS_PER_TABLE.parse('50')).toBe(50);
     expect(ROWS_PER_TABLE.parse('7')).toBe(25);
     expect(ROWS_PER_TABLE.parse(null)).toBe(25);
@@ -49,8 +54,13 @@ describe('#31 preferences registry', () => {
     }
   });
 
-  test('only locale is a cookie (the server reads it for SSR); the rest are client-only', () => {
+  test('the cookies are exactly the two the SERVER renders from; the rest are client-only', () => {
+    // Locale and date labels are cookies for the same reason: the server has to know them
+    // to produce the markup. Date labels has a second reason of its own — chart label
+    // placement measures the FORMATTED string in JS, so a client-only read would leave the
+    // layout pass sizing text the page is not going to show (see the registry entry).
     expect(LOCALE.storage).toBe('cookie');
+    expect(DATE_LABELS.storage).toBe('cookie');
     expect(THEME.storage).toBe('local');
     expect(STYLE.storage).toBe('local');
     expect(ROWS_PER_TABLE.storage).toBe('local');

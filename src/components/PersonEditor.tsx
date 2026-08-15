@@ -5,6 +5,8 @@ import { cancelScheduledChange, createPerson, deletePerson, revisePerson } from 
 import { addPhasePerson } from '../app/actions/phasePeople';
 import { t, type Locale } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
+import { useDateLabels } from './DateLabelsProvider';
+import { dayLabel, type DateLabelMode } from '../lib/dates';
 import dash from './ProjectStatusDashboard.module.css';
 import meta from './ProjectMetaHeader.module.css';
 import admin from './ProjectAdminControls.module.css';
@@ -43,11 +45,13 @@ interface ReviseSeed {
   effectiveDate: string | null;
 }
 
-/** Readable day for the readout — prose side of the date boundary (design.md §6). */
-const readoutDay = (locale: Locale, iso: string) =>
-  new Date(`${iso}T00:00:00Z`).toLocaleDateString(locale, {
-    year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC',
-  });
+/** Readable day for the readout — prose side of the date boundary (design.md §6), and
+ *  through `dayLabel` like every other day in the app rather than a fourth hand-rolled
+ *  `toLocaleDateString` (which is what this was, TZ pin and all). A reader who works in
+ *  calendar weeks sees the week here too: the `<input type="date">` two lines above still
+ *  holds the exact day they picked, so the confirmation loses nothing. */
+const readoutDay = (locale: Locale, mode: DateLabelMode, iso: string) =>
+  dayLabel(`${iso}T00:00:00Z`, locale, mode, { year: true });
 
 /**
  * The submit wrapper every dialog in this file shares: run a server action, keep its
@@ -109,6 +113,7 @@ function EditPersonDialog({ open, onClose, personId, partners, seed }: {
   // second instance would point at the first one's input. Same fix OverlayDialog uses
   // for its own title id.
   const uid = useId();
+  const dateLabels = useDateLabels();
   const [partnerId, setPartnerId] = useState<string>(seed.partnerId != null ? String(seed.partnerId) : '');
 
   // ISO compare — string order IS date order for YYYY-MM-DD. UTC like every date
@@ -118,8 +123,8 @@ function EditPersonDialog({ open, onClose, personId, partners, seed }: {
     date === ''
       ? t(locale, 'reviseCorrects', { n: seed.name })
       : date > todayIso
-        ? t(locale, 'reviseSchedules', { d: readoutDay(locale, date) })
-        : t(locale, 'reviseRecordsChange', { d: readoutDay(locale, date) });
+        ? t(locale, 'reviseSchedules', { d: readoutDay(locale, dateLabels, date) })
+        : t(locale, 'reviseRecordsChange', { d: readoutDay(locale, dateLabels, date) });
 
   return (
     <OverlayDialog open={open} onClose={onClose} width="30rem"
@@ -196,13 +201,14 @@ export function ScheduledChange({ personId, affiliationId, partnerName, dateIso,
   seed: ReviseSeed;
 }) {
   const locale = useLocale();
+  const dateLabels = useDateLabels();
   const [editOpen, setEditOpen] = useState(false);
   const { busy: cancelling, error, run } = useAction();
 
   return (
     <>
       <span>
-        {t(locale, 'scheduledMovesTo', { c: partnerName, d: readoutDay(locale, dateIso) })}
+        {t(locale, 'scheduledMovesTo', { c: partnerName, d: readoutDay(locale, dateLabels, dateIso) })}
       </span>
       <button type="button" className={admin.inlineAction} onClick={() => setEditOpen(true)}>
         {t(locale, 'editDetails')}

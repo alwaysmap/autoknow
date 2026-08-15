@@ -1,7 +1,8 @@
 'use client';
 
-import { isoDate, isoWeekLabel, localDate } from '../lib/dates';
+import { dayLabel, dayLabelTitle, isoDate } from '../lib/dates';
 import { useLocale } from './LocaleProvider';
+import { useDateLabels } from './DateLabelsProvider';
 
 // The one way tables render dates (issue #153).
 //
@@ -10,7 +11,10 @@ import { useLocale } from './LocaleProvider';
 //     of the element yields, and what `<time>` is for.
 //   • the VISIBLE text is locale-short — "Jun 1, 2018", not "2018-06-01". `day:'numeric'`,
 //     never '2-digit': "Jun 1", not "Jun 01".
-//   • hover still reveals the ISO calendar week ("W22").
+//   • hover reveals whatever the visible text does not say. That used to be a fixed pair —
+//     date visible, calendar week on hover — and is now a swap: under the week-only
+//     DATE_LABELS mode the cell reads "W22 2018" and the TITLE carries the ISO date, so a
+//     reader can always recover the other half. `dayLabelTitle` owns which way round it is.
 //
 // §6 used to forbid this outright ("locale-formatted dates misalign and mis-sort"). The
 // mis-sort half no longer holds: DataTable sorts the ROW VALUE, not the rendered node,
@@ -30,16 +34,17 @@ export default function DateCell({
   fallback?: string;
 }) {
   const locale = useLocale();
+  const mode = useDateLabels();
   if (!value) return <span style={{ color: 'var(--muted, #888)' }}>{fallback}</span>;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return <span style={{ color: 'var(--muted, #888)' }}>{fallback}</span>;
   return (
     <time
       dateTime={isoDate(d)}
-      title={isoWeekLabel(d)}
+      title={dayLabelTitle(d, mode)}
       style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
     >
-      {localDate(d, locale, { year: 'numeric', month: 'short', day: 'numeric' })}
+      {dayLabel(d, locale, mode, { year: true })}
     </time>
   );
 }

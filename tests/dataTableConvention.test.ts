@@ -43,7 +43,7 @@ const DATE_CELL = 'src/components/DateCell.tsx';
 const ENTITY_HREF = 'src/lib/entityHref.ts';
 
 /** A `<time>` element, or a call that turns a date into display text. */
-const DATE_RENDER = /<time[\s>]|toLocaleDateString|\blocalDate\(|\bisoDate\(|\bisoDateTime\(|\bisoWeekLabel\(/;
+const DATE_RENDER = /<time[\s>]|toLocaleDateString|\blocalDate\(|\bisoDate\(|\bisoDateTime\(|\bisoWeek(Label|YearLabel|Parts)\(|\bdayLabel\(/;
 
 /** A person's route, written out rather than taken from `personHref`. */
 const PERSON_ROUTE = /['"`]\/people\//;
@@ -131,11 +131,13 @@ describe('the shared-table convention (#125)', () => {
     // The partner test the rule above is worthless without: DateCell is the ONE
     // legitimate date render in the app, so a pattern that cannot find it there would
     // pass every host vacuously. Both tells must fire — the <time> element AND the
-    // formatting call — or half the rule is asleep.
+    // formatting call — or half the rule is asleep. The formatting call is `dayLabel`
+    // now, not `localDate`: the cell renders whichever of date/week/both the reader's
+    // DATE_LABELS preference asks for, and `dayLabel` is the one function that decides.
     const src = code(DATE_CELL);
     expect(DATE_RENDER.test(src)).toBe(true);
     expect(/<time[\s>]/.test(src)).toBe(true);
-    expect(/\blocalDate\(/.test(src)).toBe(true);
+    expect(/\bdayLabel\(/.test(src)).toBe(true);
   });
 
   it('finds no hand-built person route in a DataTable host (#153)', () => {

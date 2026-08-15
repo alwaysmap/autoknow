@@ -3,7 +3,8 @@
 import { useRef, useState, type SVGProps } from 'react';
 import ChartLabel from './ChartLabel';
 import { t, Locale } from '../lib/i18n';
-import { localDate } from '../lib/dates';
+import { dayLabel, isoWeekLabel, localDate } from '../lib/dates';
+import { useDateLabels } from './DateLabelsProvider';
 import { DAY_MS, dayFloor } from '../lib/sop';
 import ConstraintRing from './ConstraintRing';
 import { hasIdleGapBefore, isForecastOver, isRealizedOverrun, isRealizedUnderrun } from '../lib/chainLedger';
@@ -63,7 +64,14 @@ const GUIDELINE_STUB_W = 20, BLOWN_TICK_H = 6;
 // STROKE widths, shared between what is DRAWN and the ink boxes the label pass must clear
 // (`inkBox`) — a rule whose two sites disagree is one the pass thinks it dodged.
 const BOUNDARY_W = 1.75, GRIDLINE_W = 1, GUIDELINE_W = 1.5, BLOWN_TICK_W = 2;
-const AXIS_H = 24; // week/month ticks under the grid
+const AXIS_H = 24; // the month-letter / break-duration row under the grid
+// A SECOND axis line, present only when the reader's DATE_LABELS mode carries weeks.
+// It sits between the axis rule and the month letters — nearest the plot goes the
+// FINEST unit, the nesting every Gantt header uses — and it is the one place in this app
+// where the preference changes GEOMETRY rather than a string: the chart's whole vertical
+// extent (flow position, crosshair caption, viewBox height) is derived from the axis
+// height, so growing it here moves everything below it without a second edit.
+const WEEK_TIER_H = 16;
 const RING_PAD = 24, TEXT_PAD = 10, CHAR_W = 6.5, WIDE_CHAR_W = 12;
 // Type sizes (viewBox units — the SVG scales to the column, so these read a touch
 // larger overall than the old 8–11 range that was hard to read, issue #83). FS_ROW
@@ -85,7 +93,8 @@ const textWidth = (s: string) =>
  *  glyph that says so should not be the one that also means "range". */
 const pctText = (v: number) => `${v < 0 ? '−' : ''}${Math.abs(Math.round(v))}`;
 
-const dayShort = (ms: number, locale: Locale) => localDate(new Date(ms), locale, { month: 'short', day: 'numeric' });
+/** The SOP, which is a MONTH target — so it stays a month, in every DATE_LABELS mode: a
+ *  week number here would be a finer claim than the stored value makes (see `dayLabel`). */
 const monthLong = (ms: number, locale: Locale) => localDate(new Date(ms), locale, { month: 'long', year: 'numeric' });
 
 /** Monday 00:00 UTC on or before `ms` (ISO week start, matching the old graticule). */
@@ -206,6 +215,9 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
   // read one date down both at once (#75). Hooks stay above the early return.
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverMs, setHoverMs] = useState<number | null>(null);
+  const dateLabels = useDateLabels();
+  /** Every DAY this chart names in words, in the reader's DATE_LABELS mode. */
+  const dayShort = (ms: number) => dayLabel(new Date(ms), locale, dateLabels);
   // Focus window (#75): null = Fit (the whole chain). When set, the x-axis narrows to this
   // date range so day-level detail is legible; the user sizes it (Fit / 2-week / zoom ±) and
   // drags to slide it. Held here because it drives the same x() the whole instrument reads.
@@ -240,7 +252,15 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
 
   const gridBot = TOP + rows.length * ROW_H;
   const axisY = gridBot + 6;
-  const flowTop = axisY + AXIS_H + FLOW_GAP;
+  // The reader asked for calendar weeks, and this axis's columns ARE ISO weeks — so it
+  // gains a tier that names them. Both week-bearing modes get it and they get the same
+  // one: the tier labels COLUMNS, not days, so "date and week" has no second thing to add
+  // here. Where the two modes diverge is every label that names a DAY (today, the blown
+  // tick, the hover readout), which `dayShort` handles.
+  const showWeekTier = dateLabels !== 'date';
+  const weekTierH = showWeekTier ? WEEK_TIER_H : 0;
+  const axisBandH = AXIS_H + weekTierH;
+  const flowTop = axisY + axisBandH + FLOW_GAP;
   const flowBot = flowTop + FLOW_H;
   // The flow is a share of B₀, so it needs a B₀ to be a share OF: no SOP, or a program
   // that started with no buffer at all, and there is no percentage story to tell.
@@ -248,14 +268,14 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
   // drawing a frame it invented (AGENTS lesson 5).
   const series = sopMs != null ? bufferSeries(ledger, now) : null;
   const noteY = flowTop + 4; // where the honest "no buffer to divide" line sits instead
-  const H = (series ? flowBot : sopMs != null ? noteY : gridBot + AXIS_H) + 26;
+  const H = (series ? flowBot : sopMs != null ? noteY : gridBot + axisBandH) + 26;
   // How far a full-height vertical (today, a break seam, the crosshair) runs: to the
   // flow's floor when the flow is drawn, else just past the grid.
   const vExtentBot = series ? flowBot : gridBot + 2;
   // The crosshair's date caption sits below the line — but with no flow the line stops
   // ABOVE the month-letter axis, so drop the caption clear of that axis rather than 15px
   // under the line (where it would land in the same band as the month letters).
-  const crosshairDateY = series ? flowBot + 15 : axisY + AXIS_H + 12;
+  const crosshairDateY = series ? flowBot + 15 : axisY + axisBandH + 12;
 
   // The flow's CAPTION sits in the gutter between the two panels — and every full-height
   // vertical (today, the SOP, a break seam, the crosshair) runs straight through that
@@ -402,7 +422,14 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
         return { ms: m.ms, letter: monthNarrow.format(new Date(m.ms)), cx: (x(from) + x(to)) / 2, span: x(to) - x(from) };
       }).filter((o) => o.span >= 12)
     : [];
-  const axisLabelY = axisY + 16, axisHalfH = halfHFor(FS_AXIS);
+  const axisHalfH = halfHFor(FS_AXIS);
+  // The month letters (and the break durations sharing their line) are PUSHED DOWN by the
+  // tier's own height rather than landing under it, and the tier then takes the line the
+  // months vacated — so the two are always exactly a tier apart, whatever WEEK_TIER_H is
+  // set to, and the separation is a fact of the arithmetic rather than of two literals
+  // that happen to differ today.
+  const axisLabelY = axisY + 16 + weekTierH;
+  const weekLabelY = axisLabelY - weekTierH - 2;
   // Break durations (priority 2) and month letters (priority 1) share the axis line, so
   // de-collide them together, then split back per-series so each render site indexes its own.
   const axisKeep = keepNonOverlapping([
@@ -411,11 +438,29 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
   ]);
   const keepBreak = axisKeep.slice(0, breaks.length);
   const keepMonth = axisKeep.slice(breaks.length);
+
+  // ---- the week tier: one candidate per REAL week column, thinned to what fits ----
+  // A collapsed run is excluded rather than labelled: its column is the break glyph, which
+  // stands for six or more weeks, so a single week number over it would name one of them
+  // and silently misattribute the rest.
+  //
+  // `keepNonOverlapping` and not `dodgeLabels`, and that is the semantic call §8c asks for:
+  // an unlabelled column is still recoverable — its week is one more than the labelled
+  // column to its left, which is what a regular grid buys you — whereas a nudged week
+  // number would sit between two columns claiming neither. At Fit on a two-year chain the
+  // columns are ~5px wide and this keeps roughly every fifth; zoomed in, every one.
+  const axisWeeks = showWeekTier
+    ? weeks.map((w0, k) => ({ k, ms: w0, text: isoWeekLabel(new Date(w0)), cx: (weekX0[k] + weekX1[k]) / 2 }))
+        .filter((o) => !collapsed[o.k])
+    : [];
+  const keepWeek = keepNonOverlapping(axisWeeks.map((o) => ({
+    x: o.cx, y: weekLabelY, halfW: textWidth(o.text) / 2 + 3, halfH: axisHalfH, priority: 0,
+  })));
   // today vs SOP share the top line; if they'd collide, drop `today` a line below SOP.
   // These two REFLOW (both stay, on different lines) rather than going through
   // keepNonOverlapping, which HIDES a loser — both markers are always worth showing.
   // The SOP label is END-anchored and clamped to W-8, so its box is measured from there.
-  const todayHalfW = textWidth(t(locale, 'clTodayLabel', { date: dayShort(now, locale) })) / 2;
+  const todayHalfW = textWidth(t(locale, 'clTodayLabel', { date: dayShort(now) })) / 2;
   const sopLabelRight = sopMs != null ? Math.min(x(sopMs), W - 8) : 0;
   const sopLabelW = sopMs != null ? textWidth(t(locale, 'clSopLabel', { month: monthLong(sopMs, locale) })) : 0;
   const topClash = sopMs != null && x(now) + todayHalfW + 4 > sopLabelRight - sopLabelW && x(now) - todayHalfW < sopLabelRight;
@@ -689,7 +734,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
     // plot is one you cannot read, and its date is the point of it.
     const blownLabel = blown && inView(blown.ms)
       ? (() => {
-          const b = box(t(locale, 'clFlowBlown', { date: dayShort(blown.ms, locale) }), x(blown.ms), yOf(0) - 13, 2);
+          const b = box(t(locale, 'clFlowBlown', { date: dayShort(blown.ms) }), x(blown.ms), yOf(0) - 13, 2);
           return { ...b, x: Math.max(labelW + b.halfW, Math.min(W - PAD_R - b.halfW, b.x)) };
         })()
       : null;
@@ -796,7 +841,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
             {/* the duration label wins its axis slot over month letters (kept-flag); clamped
                 so a break near the right edge can't clip it off-canvas */}
             {keepBreak[i] && (
-              <ChartLabel x={axisBreakLabelX[i]} y={axisY + 16} textAnchor="middle" fontSize={FS_AXIS} fill="var(--muted)">
+              <ChartLabel x={axisBreakLabelX[i]} y={axisLabelY} textAnchor="middle" fontSize={FS_AXIS} fill="var(--muted)">
                 {t(locale, 'clAxisBreak', { d: b.days })}
               </ChartLabel>
             )}
@@ -810,7 +855,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
             <VRule cx={x(now)} y0={TOP - 12} y1={vExtentBot} cut={captionCut}
               stroke="var(--muted)" strokeWidth={1} strokeDasharray="3 3" />
             <ChartLabel x={x(now)} y={todayLabelY} textAnchor="middle" fontSize={FS_EMPH} fill="var(--muted)">
-              {t(locale, 'clTodayLabel', { date: dayShort(now, locale) })}
+              {t(locale, 'clTodayLabel', { date: dayShort(now) })}
             </ChartLabel>
           </>
         )}
@@ -823,10 +868,16 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
           </>
         )}
 
-        {/* month letters under the grid — only those that clear the break labels above */}
+        {/* the axis: its rule, then the ISO week tier (when the reader works in weeks),
+            then month letters — only those that clear the break labels sharing their line */}
         <line x1={labelW} y1={axisY} x2={W - PAD_R} y2={axisY} stroke="var(--border)" strokeWidth={1} />
+        {axisWeeks.map((o, i) => (keepWeek[i] ? (
+          <ChartLabel key={`wl${o.ms}`} x={o.cx} y={weekLabelY} textAnchor="middle" fontSize={FS_AXIS} fill="var(--muted)">
+            {o.text}
+          </ChartLabel>
+        ) : null))}
         {axisMonths.map((o, i) => (keepMonth[i] ? (
-          <ChartLabel key={`ml${o.ms}`} x={o.cx} y={axisY + 16} textAnchor="middle" fontSize={FS_AXIS} fill="var(--muted)">
+          <ChartLabel key={`ml${o.ms}`} x={o.cx} y={axisLabelY} textAnchor="middle" fontSize={FS_AXIS} fill="var(--muted)">
             {o.letter}
           </ChartLabel>
         ) : null))}
@@ -1054,7 +1105,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
               stroke="var(--chain)" strokeWidth={1.25} opacity={0.85} />
             <ChartLabel x={crosshairX} y={crosshairDateY} textAnchor="middle"
               fontSize={FS_SMALL} fill="var(--chain-ink)">
-              {dayShort(hoverMs!, locale)}
+              {dayShort(hoverMs!)}
             </ChartLabel>
           </g>
         )}
