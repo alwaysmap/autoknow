@@ -1,4 +1,5 @@
 import { test, expect, clickUntilNavigated, pickCombobox } from './helpers/e2e';
+import { orgEmailDomain } from '../src/lib/auth';
 import { prisma } from './helpers/db';
 import { wipeAll } from './helpers/fixtures';
 
@@ -110,8 +111,11 @@ test.describe('Me Landing Page', () => {
     // is about the /me ROUTE throwing its address away, not about where a create lands
     // (autoknow-p90 holds the question of coming back to /me instead).
     // Identity came from the login: the directory records a human NAME ('Casey'), not
-    // the raw handle, which stays the lookup key.
-    await expect(page.locator('body')).toContainText('casey@google.com');
+    // the raw handle, which stays the lookup key. The DOMAIN is read from config rather
+    // than written down — a bare handle expands at `AUTH_ALLOWED_DOMAIN` since gh-255, so
+    // a literal here passes only on a checkout that has not set it, which is exactly the
+    // agrees-with-itself trap that bead removed everywhere else.
+    await expect(page.locator('body')).toContainText(`casey@${orgEmailDomain()}`);
     await expect(page.locator('body')).toContainText('Google LLC');
 
     // …and /me now shows that same person, at /me. This is the assertion the redirect

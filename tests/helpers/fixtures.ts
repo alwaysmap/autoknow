@@ -145,9 +145,13 @@ export async function seedProgram(): Promise<SeededProgram> {
   const bringUp = await mkPhase('Bring-up', 20, 100, 'Board is stable.');
   // One phase carries a Goal so the rail's goal excerpt is exercised — it is what
   // separates the one-line MIN card from the standard one.
+  // The Goal excerpt the rail renders, PLUS a `- ` bullet list. The bullets are not
+  // decoration: MDXEditor re-serialises what it is given and returns `* ` for them, so a
+  // description without a list cannot show whether merely opening the phase panel rewrites
+  // stored markdown (autoknow-6v9). This is the fixture that makes that visible.
   const integration = await mkPhase(
     'Integration', 40, 40, 'Codec drops blocking the DSP path.',
-    '**Goal:** The codec path is stable on the target board.',
+    '**Goal:** The codec path is stable on the target board.\n\n**Done when:**\n- the codec enumerates\n- the DSP path survives a soak',
   );
   const certification = await mkPhase('Certification', 50, 0);
   const audio = await mkPhase('Audio', 25, 30);

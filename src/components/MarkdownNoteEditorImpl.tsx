@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   MDXEditor,
   headingsPlugin,
@@ -35,13 +35,36 @@ export default function MarkdownNoteEditorImpl({ name, placeholder, initialMarkd
   // near-black selection on our dark paper: unreadable, and it stayed that way
   // because CSS alone cannot add a class. Hence the one theme read in the app.
   const theme = useResolvedTheme();
-  const handleChange = (md: string) => { setMarkdown(md); onChange?.(md); };
+  // AN EMISSION BEFORE THE USER HAS TOUCHED THE EDITOR IS NOT AN EDIT.
+  //
+  // MDXEditor parses the markdown it is given and re-serialises it, then announces the
+  // result through `onChange` while React is still mounting this component — reporting an
+  // edit nobody made, rewriting stored markdown on the next Save, and setting the dirty
+  // flag the unsaved-work guards read. The full account, and why the gate is an
+  // INTERACTION rather than a mount ref (ordering that holds until a dependency bump) or
+  // a string comparison (the re-serialisation legitimately differs), is
+  // docs/knowledge/a-rich-editor-reports-its-own-load-as-an-edit.md — autoknow-6v9.
+  //
+  // Focus covers toolbar commands, which need a selection in the editor first;
+  // `beforeinput` covers typing and paste. Neither fires while a value is merely loading.
+  const userEngaged = useRef(false);
+  const handleChange = (md: string) => {
+    if (!userEngaged.current) return; // the editor's own load-time re-serialisation
+    // Plain dedupe, AFTER the gate above and not a substitute for it: the editor re-emits
+    // identical text on some commands, and a change that changes nothing is not an edit.
+    if (md === markdown) return;
+    setMarkdown(md);
+    onChange?.(md);
+  };
+
   return (
     <div
       className={`${styles.frame}${theme === 'dark' ? ' dark-theme' : ''}`}
       data-testid="note-editor"
       aria-label={ariaLabel}
       ref={setFrame}
+      onFocusCapture={() => { userEngaged.current = true; }}
+      onBeforeInputCapture={() => { userEngaged.current = true; }}
     >
       <MDXEditor
         markdown={markdown}

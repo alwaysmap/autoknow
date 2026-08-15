@@ -347,6 +347,35 @@ test.describe('Program phase editor', () => {
   const railRow = (page: Page, name: string) =>
     page.getByTestId('phase-row').filter({ has: page.locator(`a:text-is("${name}")`) });
 
+  // autoknow-6v9. Opening a phase whose description has content used to be reported as an
+  // EDIT: MDXEditor parses the markdown it is handed and re-serialises it (`- ` bullets
+  // come back as `* `), announcing the result through `onChange` during its own mount. The
+  // React warning that produced was the reported symptom, and it is dev-only — so the
+  // thing this test can actually see is the consequence that reaches DATA: a description
+  // rewritten into the editor's own dialect by merely opening the panel.
+  //
+  // Placed FIRST in this block on purpose: every later test opens the panel and saves.
+  test('opening a phase panel is not an edit — the description survives byte-identical', async ({ page }) => {
+    await page.goto(`/programs/${seeded.projectId}/phases`);
+    // The description is the whole assertion. Save is deliberately NOT checked: the
+    // seeded graph is invalid until "click downstream…" repairs it, so Save is disabled
+    // here for a reason that has nothing to do with dirtiness and would prove nothing.
+    await openPanel(page, 'Integration');
+
+    const description = panel(page).getByTestId('note-editor').locator('input[type=hidden]');
+    // What the form would submit is still what the database holds — `- `, not `* `.
+    await expect(description).toHaveValue(/\n- the codec enumerates/);
+    await expect(description).not.toHaveValue(/\n\* /);
+
+    // And a real edit still gets through: the guard keys on the user engaging with the
+    // editor, so a test that only proved silence could be passing on a dead editor.
+    const body = panel(page).getByTestId('note-editor').locator('[contenteditable="true"]');
+    await body.click();
+    await body.press('End');
+    await page.keyboard.type(' — checked');
+    await expect(description).toHaveValue(/ — checked/);
+  });
+
   test('flags the seeded dead-end branch and disables Save', async ({ page }) => {
     await page.goto(`/programs/${seeded.projectId}/phases`);
 
