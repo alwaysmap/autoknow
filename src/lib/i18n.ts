@@ -1534,6 +1534,10 @@ const STRINGS = {
   // statement about the PERSON's connection to it, not about the program.
   connectionLive: { en: 'Current', de: 'Aktuell', ja: '現在', ko: '현재' },
   connectionEnded: { en: 'Ended', de: 'Beendet', ja: '終了', ko: '종료' },
+  // The strict subset of Current where a phase is actually RUNNING (#167) — what
+  // `?filter=active` selects, and what the Critical Chain's owner-load bullet counts
+  // when it links here instead of printing thirteen phase names.
+  connectionActive: { en: 'Active', de: 'Aktiv', ja: '進行中', ko: '진행 중' },
   // WHY a row is on the Programs table when neither the TEL badge nor a phase role says
   // so: the person holds an action item on one of its phases and nothing else (#144).
   viaActionItem: { en: 'action item', de: 'Aufgabe', ja: 'アクションアイテム', ko: '액션 아이템' },
@@ -1542,10 +1546,10 @@ const STRINGS = {
   // involvement, not the job held now (#127 E11, the same per-row rule the Activity
   // intro below states for its own rows).
   personProgramsIntro: {
-    en: 'Programs this person is named on — as Technical Engagement Lead, on a phase, or holding an action item there. Each row shows the company and role held at the time, and whether the connection is current or has ended. A connection reads current until every phase behind it is finished, so a phase nobody has updated counts as current.',
-    de: 'Programme, in denen diese Person genannt ist — als Technical Engagement Lead, in einer Phase oder mit einer Aufgabe darin. Jede Zeile zeigt Unternehmen und Rolle zum Zeitpunkt der Beteiligung sowie ob die Verbindung aktuell oder beendet ist. Eine Verbindung gilt als aktuell, solange nicht jede zugehörige Phase abgeschlossen ist — eine nie aktualisierte Phase zählt also als aktuell.',
-    ja: 'この担当者が名前を連ねているプログラム — TEL として、フェーズ上、またはアクションアイテムの担当として。各行には関与当時の会社と役割、および接続が現在有効か終了済みかが表示されます。関連するすべてのフェーズが完了するまで「現在」と表示されるため、未更新のフェーズは「現在」として扱われます。',
-    ko: '이 사람이 이름을 올린 프로그램 — TEL로서, 단계에서, 또는 액션 아이템 보유. 각 행에는 참여 당시의 회사와 역할, 그리고 연결이 현재인지 종료되었는지가 표시됩니다. 관련된 모든 단계가 끝나야 종료로 바뀌므로, 갱신되지 않은 단계는 현재로 간주됩니다.',
+    en: 'Programs this person is named on — as Technical Engagement Lead, on a phase, or holding an action item there. Each row shows the company and role held at the time, and whether the connection is active, current or ended. Active means a phase is running right now: every phase of a program they lead, and the phases they are named on elsewhere. Current means still attached with nothing in flight — a connection reads current until every phase behind it is finished, so a phase nobody has updated counts as current.',
+    de: 'Programme, in denen diese Person genannt ist — als Technical Engagement Lead, in einer Phase oder mit einer Aufgabe darin. Jede Zeile zeigt Unternehmen und Rolle zum Zeitpunkt der Beteiligung sowie ob die Verbindung aktiv, aktuell oder beendet ist. Aktiv heißt: gerade läuft eine Phase — jede Phase eines von ihnen geleiteten Programms sowie die Phasen, in denen sie anderswo genannt sind. Aktuell heißt: weiterhin verbunden, aber nichts in Arbeit — eine Verbindung gilt als aktuell, solange nicht jede zugehörige Phase abgeschlossen ist, eine nie aktualisierte Phase zählt also als aktuell.',
+    ja: 'この担当者が名前を連ねているプログラム — TEL として、フェーズ上、またはアクションアイテムの担当として。各行には関与当時の会社と役割、および接続が進行中・現在・終了済みのいずれかが表示されます。「進行中」は今まさにフェーズが動いていることを指し、担当者が率いるプログラムの全フェーズと、他所で名前を連ねているフェーズが対象です。「現在」は接続は続いているが動いている作業がない状態で、関連するすべてのフェーズが完了するまで「現在」と表示されるため、未更新のフェーズは「現在」として扱われます。',
+    ko: '이 사람이 이름을 올린 프로그램 — TEL로서, 단계에서, 또는 액션 아이템 보유. 각 행에는 참여 당시의 회사와 역할, 그리고 연결이 진행 중인지 현재인지 종료되었는지가 표시됩니다. "진행 중"은 지금 단계가 돌아가고 있다는 뜻으로, 이 사람이 이끄는 프로그램의 모든 단계와 다른 곳에서 이름을 올린 단계가 해당합니다. "현재"는 연결은 남아 있지만 진행 중인 작업이 없는 상태이며, 관련된 모든 단계가 끝나야 종료로 바뀌므로 갱신되지 않은 단계는 현재로 간주됩니다.',
   },
   // Two sentences, both load-bearing. The first says what the company beside each entry
   // MEANS — the job held then, not the job held now (#127 E10). The second states the
@@ -1967,36 +1971,30 @@ const STRINGS = {
   clOverrunSunkItem: {
     en: '{phase} (+{pct}%)', de: '{phase} (+{pct} %)', ja: '{phase}（+{pct}%）', ko: '{phase}(+{pct}%)',
   },
-  // The same fact raised to PROGRAM level — the header line, above the fold, where
-  // it is read before anyone scrolls into the chain section. Label + one-line fact
-  // + the reaction (design.md §7), so the sentence still reads if the label is
-  // scanned past.
+  // The header line that raises the constraint to PROGRAM level — read before anyone
+  // scrolls into the chain section (2026-07-24 user call, kept).
+  //
+  // It NAMES the phase and then STOPS (#167). It used to restate the whole finding —
+  // percentage over, days of work left, how many other phases are over, and the
+  // "Exploit the constraint" reaction — all of which the first Next-steps bullet already
+  // says more fully, off the very same sorted `forecastOverrun` list. Two phrasings of
+  // one fact is a thing this repo has deleted twice before; the fuller form wins again.
+  // What survives here is the part that is genuinely lost by scrolling — WHICH phase —
+  // plus a LINK to where the recommendation lives, rather than a copy of it.
   clFocusLabel: {
     en: 'Immediate focus', de: 'Sofortiger Fokus', ja: '最優先事項', ko: '즉시 집중',
   },
-  clFocusPhase: {
-    en: '{phase} is {pct}% past its estimate with {r} days of work still left.',
-    de: '{phase} liegt {pct} % über der Schätzung, bei {r} Tagen Restarbeit.',
-    ja: '{phase}は見積もりを{pct}%超過し、残作業は{r}日です。',
-    ko: '{phase}은(는) 견적을 {pct}% 초과했고 남은 작업은 {r}일입니다.',
+  clFocusPointer: {
+    en: '{phase} is the constraint today.',
+    de: '{phase} ist heute der Engpass.',
+    ja: '本日の制約は{phase}です。',
+    ko: '오늘의 제약은 {phase}입니다.',
   },
-  clFocusAlsoOne: {
-    en: '1 other phase is past its estimate too.',
-    de: '1 weitere Phase liegt ebenfalls über ihrer Schätzung.',
-    ja: '他に1件のフェーズも見積もりを超過しています。',
-    ko: '다른 단계 1개도 견적을 초과했습니다.',
-  },
-  clFocusAlso: {
-    en: '{n} other phases are past their estimates too.',
-    de: '{n} weitere Phasen liegen ebenfalls über ihren Schätzungen.',
-    ja: '他に{n}件のフェーズも見積もりを超過しています。',
-    ko: '다른 단계 {n}개도 견적을 초과했습니다.',
-  },
-  clFocusExploit: {
-    en: 'Exploit the constraint: clear what is holding it up before starting anything new.',
-    de: 'Den Engpass ausschöpfen: die Blockade beseitigen, bevor Neues begonnen wird.',
-    ja: '制約を徹底活用しましょう — 新しい作業を始める前に、滞りを解消してください。',
-    ko: '제약을 최대한 활용하세요 — 새 작업을 시작하기 전에 막고 있는 것을 해결하세요.',
+  clFocusSeeSteps: {
+    en: 'What to do about it',
+    de: 'Was jetzt zu tun ist',
+    ja: '対処方法を見る',
+    ko: '대응 방법 보기',
   },
   clLeverDeclare: {
     en: 'Declare the program Concerned and propose moving SOP to {month}',
@@ -2250,6 +2248,24 @@ const STRINGS = {
     de: '{owner} verantwortet dieses Programm und ist zusätzlich in {n} aktiven Phasen anderswo tätig: {items}. Nicht nachweislich kettenbestimmend, aber gut zu wissen, bevor mehr Zeit angefragt wird.',
     ja: '{owner}は本プログラムのオーナーであり、他にも{n}件の進行中フェーズを担当しています: {items}。本チェーンを律速している証拠はありませんが、追加の時間を依頼する前に把握しておく価値があります。',
     ko: '{owner}은(는) 이 프로그램의 오너이며 다른 곳에서도 진행 중인 단계 {n}개를 맡고 있습니다: {items}. 이 체인을 좌우한다는 증거는 없지만, 시간을 더 요청하기 전에 알아둘 만합니다.',
+  },
+  // TWO OR MORE other programs (#167): the enumeration collapses to ONE link to that
+  // person's active work. `clOwnerLoad` above keeps its `{items}` list for the
+  // single-program case, where naming it inline is cheaper than a click.
+  clOwnerLoadMany: {
+    en: '{owner} owns this program and is also on {n} active phases across {programs}. Not proven to gate this chain, but worth knowing before asking for more of their time.',
+    de: '{owner} verantwortet dieses Programm und ist zusätzlich in {n} aktiven Phasen in {programs} tätig. Nicht nachweislich kettenbestimmend, aber gut zu wissen, bevor mehr Zeit angefragt wird.',
+    ja: '{owner}は本プログラムのオーナーであり、{programs}にまたがる{n}件の進行中フェーズを担当しています。本チェーンを律速している証拠はありませんが、追加の時間を依頼する前に把握しておく価値があります。',
+    ko: '{owner}은(는) 이 프로그램의 오너이며 {programs}에 걸쳐 진행 중인 단계 {n}개를 맡고 있습니다. 이 체인을 좌우한다는 증거는 없지만, 시간을 더 요청하기 전에 알아둘 만합니다.',
+  },
+  // The link's own text — a COUNT, which is what links to a pre-filtered list
+  // (design.md §2). Always 2+; there is no one-program spelling because that case
+  // renders inline instead.
+  clOwnerLoadPrograms: {
+    en: '{m} other programs',
+    de: '{m} weiteren Programmen',
+    ja: '他{m}件のプログラム',
+    ko: '다른 프로그램 {m}개',
   },
   clOwnerLoadOne: {
     en: '{owner} owns this program and is also on 1 active phase elsewhere: {items}. Not proven to gate this chain, but worth knowing before asking for more of their time.',

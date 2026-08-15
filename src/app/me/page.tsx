@@ -22,6 +22,9 @@ export const dynamic = 'force-dynamic';
 
 interface SearchParams {
   user?: string;
+  /** `?filter=active` — the same Programs-table deep link `/people/:id` takes (#167).
+   *  /me renders the same body, so it must accept the same address. */
+  filter?: string;
 }
 
 export default async function MePage(props: { searchParams: Promise<SearchParams> }) {
@@ -49,7 +52,8 @@ export default async function MePage(props: { searchParams: Promise<SearchParams
   });
 
   if (person) {
-    return <PersonProfile personId={person.id} />;
+    return <PersonProfile personId={person.id}
+      programsFilter={searchParams.filter === 'active' ? 'active' : undefined} />;
   }
 
   // No Person yet for this login — offer self-provisioning: the session supplies

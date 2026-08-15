@@ -20,7 +20,8 @@ import { geminiConfigured } from '../../../lib/gemini';
 import { findPartnerInText, findPartnersInText } from '../../../lib/associations';
 import { personDirectorySelect } from '../../../lib/people';
 import { profilesAsOf } from '../../../lib/profiles';
-import { effectiveStartedAt, phaseHref, statusProgress } from '../../../lib/phase';
+import { effectiveStartedAt, isPhaseActive, phaseHref, statusProgress } from '../../../lib/phase';
+import { personActivePhases } from '../../../lib/activeWork';
 import { initiativeProjectHref } from '../../../lib/entityHref';
 import PhaseHillChart from '../../../components/PhaseHillChart';
 import { tNodes } from '../../../components/tNodes';
@@ -143,15 +144,19 @@ export default async function ProjectDetailsPage(props: {
 
   // Resource contention (CCPM's resource dimension, approximated with the signals we
   // have): for every partner/person involved in THIS program's phases, count the
-  // ACTIVE phases (0 < progress < 100) they're simultaneously involved in across
-  // OTHER live programs. The counts ride on the involvement rows so the track can
-  // mark contended pills and explain the constraint.
+  // ACTIVE phases they're simultaneously involved in across OTHER live programs. The
+  // counts ride on the involvement rows so the track can mark contended pills and
+  // explain the constraint.
+  //
+  // "Active" is `isPhaseActive` (lib/phase), the same predicate the rail and the hill
+  // chart derive their status from — #167's one-definition rule. This file used to spell
+  // it `p > 0 && p < 100` in two places, which silently dropped a phase somebody had
+  // marked Active before its hill moved: the rail called it In Progress and the
+  // contention count did not.
   const involvedPartnerIds = [...new Set(project.phases.flatMap((ph) => ph.partners.map((pp) => pp.partnerId)))];
   const involvedPersonIds = [...new Set(project.phases.flatMap((ph) => ph.people.map((pp) => pp.personId)))];
-  const isActive = (states: { hillChartProgress: number | null }[]) => {
-    const p = states[0]?.hillChartProgress ?? 0;
-    return p > 0 && p < 100;
-  };
+  const isActive = (phase: { startedAt: Date | null; states: { hillChartProgress: number | null }[] }) =>
+    isPhaseActive(phase.states[0]?.hillChartProgress ?? 0, phase.startedAt ? phase.startedAt.toISOString() : null);
   const partnerElsewhere = involvedPartnerIds.length === 0 ? [] : await prisma.phasePartner.findMany({
     where: { partnerId: { in: involvedPartnerIds }, phase: { projectId: { not: projectId }, project: { isArchived: false } } },
     include: { phase: { include: { states: { orderBy: { timestamp: 'desc' }, take: 1 }, project: { select: { id: true, name: true } } } } },
@@ -162,11 +167,11 @@ export default async function ProjectDetailsPage(props: {
   });
   const partnerLoad = new Map<number, number>();
   for (const pp of partnerElsewhere) {
-    if (isActive(pp.phase.states)) partnerLoad.set(pp.partnerId, (partnerLoad.get(pp.partnerId) ?? 0) + 1);
+    if (isActive(pp.phase)) partnerLoad.set(pp.partnerId, (partnerLoad.get(pp.partnerId) ?? 0) + 1);
   }
   const personLoad = new Map<number, number>();
   for (const pp of personElsewhere) {
-    if (isActive(pp.phase.states)) personLoad.set(pp.personId, (personLoad.get(pp.personId) ?? 0) + 1);
+    if (isActive(pp.phase)) personLoad.set(pp.personId, (personLoad.get(pp.personId) ?? 0) + 1);
   }
   // Which company each phase participant is at TODAY, in one query for the whole page —
   // it drives the OEM/supplier colour of their pill on the track. As-of, not the
@@ -248,8 +253,8 @@ export default async function ProjectDetailsPage(props: {
   // OTHER program where this program's contended partners/people are active.
   const otherProgramIds = [
     ...new Set([
-      ...partnerElsewhere.filter((pp) => isActive(pp.phase.states)).map((pp) => pp.phase.project.id),
-      ...personElsewhere.filter((pp) => isActive(pp.phase.states)).map((pp) => pp.phase.project.id),
+      ...partnerElsewhere.filter((pp) => isActive(pp.phase)).map((pp) => pp.phase.project.id),
+      ...personElsewhere.filter((pp) => isActive(pp.phase)).map((pp) => pp.phase.project.id),
     ]),
   ];
   const otherLedgers = await getProgramLedgers(now, otherProgramIds);
@@ -258,7 +263,7 @@ export default async function ProjectDetailsPage(props: {
   const ledgerResources: LedgerResourceInput[] = [];
   for (const phase of project.phases) {
     for (const pp of phase.partners) {
-      const others = partnerElsewhere.filter((x) => x.partnerId === pp.partnerId && isActive(x.phase.states));
+      const others = partnerElsewhere.filter((x) => x.partnerId === pp.partnerId && isActive(x.phase));
       if (others.length === 0) continue;
       const programs = [...new Map(others.map((x) => [x.phase.project.id, x.phase.project])).values()];
       ledgerResources.push({
@@ -267,7 +272,7 @@ export default async function ProjectDetailsPage(props: {
       });
     }
     for (const pp of phase.people) {
-      const others = personElsewhere.filter((x) => x.personId === pp.personId && isActive(x.phase.states));
+      const others = personElsewhere.filter((x) => x.personId === pp.personId && isActive(x.phase));
       if (others.length === 0) continue;
       const programs = [...new Map(others.map((x) => [x.phase.project.id, x.phase.project])).values()];
       ledgerResources.push({
@@ -297,33 +302,25 @@ export default async function ProjectDetailsPage(props: {
   // CCPM resource dimension: the owner's ACTIVE phases in other (non-archived)
   // programs — the cross-program contention on the one Googler. Surfaced in the
   // Critical Chain next-steps list (it used to sit on the phase rail).
-  let otherActive: { projectId: number; projectName: string; phaseName: string }[] = [];
-  if (project.ownerPersonId) {
-    const others = await prisma.project.findMany({
-      // Joined on the owner REFERENCE, not on a string equality against the stored
-      // email — which silently excluded the owner's programs recorded under any other
-      // address they have held (#127 E7).
-      where: { ownerPersonId: project.ownerPersonId, isArchived: false, id: { not: projectId } },
-      include: { phases: { include: { states: { orderBy: { timestamp: 'desc' }, take: 1 } } } },
-    });
-    otherActive = others.flatMap((o) =>
-      o.phases
-        .filter((ph) => {
-          const p = ph.states[0]?.hillChartProgress ?? 0;
-          return p > 0 && p < 100;
-        })
-        .map((ph) => ({ projectId: o.id, projectName: o.name, phaseName: ph.name })),
-    );
-  }
+  //
+  // Through lib/activeWork since #167, which is the whole point of that module: this
+  // bullet no longer enumerates the phases, it LINKS to the person page filtered to
+  // them, so the count in the sentence and the rows behind the link have to be answers
+  // to the same question. It also widens the old query, correctly — that one asked only
+  // about programs the owner OWNS, while "before asking for more of their time" is a
+  // claim about all of their work, phases they are merely named on included.
+  const otherActive = project.ownerPersonId
+    ? await personActivePhases(project.ownerPersonId, { excludeProjectId: projectId })
+    : [];
   // The owner Person, off the FK relation rather than matched out of the people
   // directory (#127 E7) — named here because the header and the ledger both take it.
   const ownerPerson = project.ownerPerson;
 
-  // The program-level overrun flag (rendered in the header below). `count` includes
-  // the named phase, so the copy's subject — how many OTHERS are also over — is
-  // named once here rather than re-derived at each of its three uses.
+  // The program-level overrun flag (rendered in the header below). `focus.count` — how
+  // many phases are over in total — is no longer read here: the header stopped restating
+  // it (#167), and the Next-steps list already emits one bullet per overrunning phase,
+  // which is the same number said by enumeration instead of by arithmetic.
   const focus = ledger.immediateFocus;
-  const otherOverruns = focus ? focus.count - 1 : 0;
 
   // Identify the OEM for the project (heuristic name match; see lib/associations).
   const matchedOem = findPartnerInText(oems, project.name);
@@ -395,24 +392,30 @@ export default async function ProjectDetailsPage(props: {
           suppliersList={supplierList.map((sp) => ({ id: sp.id, name: sp.name }))}
         />
 
-        {/* Immediate focus (2026-07-24, user call). A phase far enough past its OWN
-            estimate is the constraint TODAY, whatever the buffer says, so the fact
-            is raised to program level: it is read before the needle, the briefing
-            and every chart, rather than after scrolling into the chain section —
-            where it previously appeared only as history in "Where the buffer went".
-            One line, no box: label · fact · reaction (design.md §1, §7). */}
+        {/* Immediate focus (2026-07-24, user call — the GOAL is unchanged, the mechanism
+            is not; #167). A phase far enough past its OWN estimate is the constraint
+            TODAY, whatever the buffer says, and that is worth knowing before the needle,
+            the briefing and every chart rather than after scrolling into the chain
+            section.
+
+            What changed: this line used to restate the entire finding — percentage over,
+            days of work left, how many other phases are also over, and the "Exploit the
+            constraint" reaction. Every one of those is already in the first Next-steps
+            bullet, built from the SAME sorted `forecastOverrun` list, in a strictly
+            fuller form (it adds the planned days and the re-estimate branch). So the
+            terser copy above the fuller one is deleted — the pattern this repo has now
+            removed three times — and what is left is the one thing scrolling actually
+            costs you: WHICH phase, and a link to where the recommendation lives.
+
+            The link is a plain anchor. It only changes WHERE you are (design.md §6), and
+            the scroll offset for every in-page jump lives once on `scroll-padding-top`. */}
         {focus && (
           <p className={styles.focus} data-testid="program-focus">
             <span data-eyebrow className={styles.focusLabel}>{t(locale, 'clFocusLabel')}</span>
-            {tNodes(locale, 'clFocusPhase', {
+            {tNodes(locale, 'clFocusPointer', {
               phase: <Link href={phaseHref(projectId, focus.phaseId)}>{focus.phaseName}</Link>,
-              pct: focus.overPct,
-              r: focus.remainingDays,
             })}{' '}
-            {otherOverruns > 0 && (
-              <>{t(locale, otherOverruns === 1 ? 'clFocusAlsoOne' : 'clFocusAlso', { n: otherOverruns })}{' '}</>
-            )}
-            {t(locale, 'clFocusExploit')}
+            <a href="#critical-chain">{t(locale, 'clFocusSeeSteps')} →</a>
           </p>
         )}
       </header>

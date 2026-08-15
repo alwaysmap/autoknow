@@ -15,7 +15,7 @@ import { useSteadyPageScroll } from '../lib/useSteadyPageScroll';
 import { summaryAt } from '../lib/chainDay';
 import { isForecastOver, isRealizedOverrun, isRealizedUnderrun, isSevereOverrun } from '../lib/chainLedger';
 import { phasesEditHref } from '../lib/phase';
-import { partnerHref, programHref } from '../lib/entityHref';
+import { partnerHref, personActiveWorkHref, programHref } from '../lib/entityHref';
 import type { ChainLedgerResult, ResourceRef, Situation, WaterfallRow } from '../lib/chainLedger';
 import styles from './ChainLedger.module.css';
 
@@ -25,7 +25,9 @@ import styles from './ChainLedger.module.css';
 // sentence via lib/i18n; every number arrives precomputed in the ledger — this
 // component ONLY renders structured facts (the deterministic layer is the product).
 
-/** An active phase the program's owner is running in ANOTHER program. */
+/** An active phase the program's owner is running in ANOTHER program. Structurally the
+ *  `ActivePhaseRef` lib/activeWork returns — restated rather than imported because that
+ *  module is `server-only` and this is a client component. */
 export interface OwnerOtherActive {
   projectId: number;
   projectName: string;
@@ -227,24 +229,35 @@ export default function ChainLedger({
       g.phases.push(o.phaseName);
       byProgram.set(o.projectId, g);
     }
-    const items = joinNodes(
-      [...byProgram.entries()].map(([pid, g]) => (
-        <>
-          {progLink(pid, g.name)}
-          {` (${g.phases.join(', ')})`}
-        </>
-      )),
-      '; ',
-    );
-    nextSteps.push(tNodes(locale, ownerOtherActive.length === 1 ? 'clOwnerLoadOne' : 'clOwnerLoad', {
-      // A person inside a SENTENCE, so the name matters more here than anywhere: an
-      // LDAP address mid-prose is design.md §6's "reads as a machine wrote it". Same
-      // PersonCell the tables use — the sentence and the cells cannot disagree about
-      // what this person is called, or about where clicking them goes.
-      owner: <PersonCell person={ownerPerson} className={styles.entityLink} />,
-      n: ownerOtherActive.length,
-      items,
-    }));
+    // A person inside a SENTENCE, so the name matters more here than anywhere: an
+    // LDAP address mid-prose is design.md §6's "reads as a machine wrote it". Same
+    // PersonCell the tables use — the sentence and the cells cannot disagree about
+    // what this person is called, or about where clicking them goes.
+    const owner = <PersonCell person={ownerPerson} className={styles.entityLink} />;
+    if (byProgram.size === 1) {
+      // ONE other program: keep it inline. A single program name is cheaper to read than
+      // a click, and the phases beside it fit — this is the case the enumeration was
+      // written for.
+      const [pid, g] = [...byProgram.entries()][0];
+      nextSteps.push(tNodes(locale, ownerOtherActive.length === 1 ? 'clOwnerLoadOne' : 'clOwnerLoad', {
+        owner, n: ownerOtherActive.length,
+        items: <>{progLink(pid, g.name)}{` (${g.phases.join(', ')})`}</>,
+      }));
+    } else {
+      // TWO OR MORE: the enumeration becomes ONE link (#167). It used to print every
+      // program AND every phase name inside it as uncapped plain text — with thirteen
+      // active phases elsewhere, thirteen phase names in one sentence, none of them
+      // clickable. The count is what the reader needs, and a count links to the
+      // pre-filtered list it counts (design.md §2), which is why `?filter=active` exists.
+      nextSteps.push(tNodes(locale, 'clOwnerLoadMany', {
+        owner, n: ownerOtherActive.length,
+        programs: (
+          <Link href={personActiveWorkHref(ownerPerson.id)} className={styles.entityLink}>
+            {t(locale, 'clOwnerLoadPrograms', { m: byProgram.size })}
+          </Link>
+        ),
+      }));
+    }
   }
 
   // the escalation, when the SOP is already overshot

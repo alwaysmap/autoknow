@@ -45,16 +45,23 @@ export interface PersonProgramRow {
   /** What the Affiliation column SORTS on — same reason as `roleSummary`. */
   heldThenSummary: string;
   /**
-   * Is this connection still live (#144)? Before this, a program someone led in 2023 and
-   * one they lead now rendered identically, which is the defect the bead opens with.
+   * Is this connection still live (#144), and is there work in flight on it (#167)?
+   * Before #144, a program someone led in 2023 and one they lead now rendered
+   * identically, which is the defect that bead opens with.
    *
-   * ENDED means every route into this program is finished; LIVE means at least one is
-   * not. A phase with no state history at all reads LIVE and that is deliberate rather
-   * than a gap papered over: nothing recorded means nothing FINISHED, and "named on it"
-   * is what the row claims. The intro copy says so, because a reader cannot tell that
-   * from the badge.
+   * ENDED means every route into this program is finished; the other two mean at least
+   * one is not. A phase with no state history at all reads current and that is deliberate
+   * rather than a gap papered over: nothing recorded means nothing FINISHED, and "named
+   * on it" is what the row claims. The intro copy says so, because a reader cannot tell
+   * that from the badge.
+   *
+   * ACTIVE is the strict subset of current where `personActivePhases` (lib/activeWork)
+   * finds a phase actually running — the state `?filter=active` selects, and the one the
+   * Critical Chain's owner-load bullet counts. It splits a column that used to lump "I am
+   * running a phase there this week" together with "I am named on a phase nobody has
+   * started"; the same two rows still read as attached, they no longer read as equal.
    */
-  status: 'live' | 'ended';
+  status: 'active' | 'live' | 'ended';
   /** ISO timestamp of when the LAST route finished — the reading "until"; `DateCell`
    *  renders the day. Null while live. */
   endedOn: string | null;
@@ -156,8 +163,14 @@ export async function personProgramRows(input: {
   actionItems: { phase: InvolvedPhase }[];
   /** Newest start first — see `CareerPeriod`. */
   career: CareerPeriod[];
+  /** Programs where `personActivePhases` (lib/activeWork) found work in flight — the
+   *  ACTIVE status below. Passed in rather than queried here because the caller needs the
+   *  PHASES too, and asking the same question twice is how the count and the rows come to
+   *  disagree (#167). Omitted in tests that are not about this column. */
+  activeProjectIds?: Set<number>;
 }): Promise<PersonProgramRow[]> {
   const { owned, phaseInvolvements, actionItems, career } = input;
+  const active = input.activeProjectIds ?? new Set<number>();
 
   type Draft =
     Omit<PersonProgramRow, 'heldThen' | 'heldThenSummary' | 'status' | 'endedOn' | 'via' | 'connectionKinds' | 'connectionSummary'>
@@ -241,7 +254,10 @@ export async function personProgramRows(input: {
     return {
       ...row,
       via: [...row.via],
-      status: endedOn ? ('ended' as const) : ('live' as const),
+      // Active is checked only on a connection that has NOT ended: the two answers come
+      // from different queries (this one's phase-finish aggregate, activeWork's live
+      // progress), and an ended row that somehow matched would be a row claiming both.
+      status: endedOn ? ('ended' as const) : active.has(row.id) ? ('active' as const) : ('live' as const),
       endedOn: endedOn ? endedOn.toISOString() : null,
       roleSummary: row.roles.join(', '),
       connectionKinds,

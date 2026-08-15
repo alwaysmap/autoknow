@@ -14,6 +14,7 @@ import InfoPopover from '../../../components/InfoPopover';
 import PersonHistoryTable from './PersonHistoryTable';
 import PersonProgramsTable from './PersonProgramsTable';
 import { personProgramRows } from '../../../lib/personPrograms';
+import { activeProjectIds, personActivePhases } from '../../../lib/activeWork';
 import { untrackedContext } from '../../../lib/untrackedContext';
 import { getPersonEscalations } from '../../../lib/escalationQueries';
 import EscalationRows from '../../../components/EscalationRows';
@@ -36,7 +37,17 @@ import EscalationRows from '../../../components/EscalationRows';
 // programs they've worked on (owned as TEL, phase involvement, assigned actions).
 // Maintenance lives behind the title kebab (PersonEditor), not a form farm.
 
-export default async function PersonProfile({ personId }: { personId: number }) {
+export default async function PersonProfile({
+  personId, programsFilter,
+}: {
+  personId: number;
+  /** `?filter=active` — open the Programs table already narrowed to work in flight
+   *  (#167). A page-level deep link INITIALIZES table state rather than adding a widget
+   *  (design.md §6), which is what lets the Critical Chain's owner-load bullet link here
+   *  instead of enumerating a person's other phases. Both routes that render this body
+   *  read it, so `/me?filter=active` works too. */
+  programsFilter?: 'active';
+}) {
   const locale = await getLocale();
 
   const person = await prisma.person.findUnique({
@@ -118,11 +129,16 @@ export default async function PersonProfile({ personId }: { personId: number }) 
   // assembly moved there: the dating is a rule with tests, not a rendering choice.
   // Unsorted: PersonProgramsTable owns the order (defaultSortKey="name"), and it sorts
   // during render, so the server HTML is already in that order.
+  // What this person is working on RIGHT NOW (#167), from the ONE definition of that
+  // (lib/activeWork) — the same call the program page's owner-load bullet makes. The
+  // bullet states a count and links here; two definitions of "active" is how that count
+  // and these rows would start disagreeing.
   const programRows = await personProgramRows({
     owned,
     phaseInvolvements: person.phaseInvolvements,
     actionItems: person.actionItems,
     career: person.affiliations,
+    activeProjectIds: activeProjectIds(await personActivePhases(person.id)),
   });
 
   return (
@@ -207,7 +223,7 @@ export default async function PersonProfile({ personId }: { personId: number }) 
             {programRows.length === 0 ? (
               <p className={styles.empty}>{t(locale, 'noPartnerPrograms')}</p>
             ) : (
-              <PersonProgramsTable locale={locale} rows={programRows} />
+              <PersonProgramsTable locale={locale} rows={programRows} initialStatus={programsFilter ?? null} />
             )}
           </section>
 
