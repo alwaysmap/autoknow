@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { anchoredPosition, rovingIndex } from '../lib/anchoredPosition';
+import { rovingIndex } from '../lib/anchoredPosition';
+import { useAnchoredPosition } from '../lib/useAnchoredPosition';
 import dash from './ProjectStatusDashboard.module.css';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
@@ -21,8 +22,10 @@ import type { ComboboxOption } from '../lib/comboboxOptions';
 // native Popover API's BUTTON invoker (`popovertarget`), which the HTML spec does not
 // support on a text `<input>` — a combobox's whole interaction model is input-driven
 // (type to filter, arrow to navigate), not button-driven, so the two do not fit
-// together. This reuses the one genuinely shared piece — `anchoredPosition`, the pure,
-// unit-tested placement math — without forcing the mismatched invoker mechanism on it.
+// together. This reuses the genuinely shared pieces — `anchoredPosition`, the pure,
+// unit-tested placement math, and `useAnchoredPosition`, the effect that keeps a panel on
+// its trigger — without forcing the mismatched invoker mechanism on it. The separation is
+// about DISMISS, never about geometry (autoknow-9yx).
 // (`UnifiedSearch` also hand-rolls a roving-index listbox for its own suggestions list —
 // a different use case, navigational search rather than a form field with a committed
 // value, so not folded in here; worth a follow-up look if a third variant ever appears.)
@@ -180,37 +183,18 @@ export default function Combobox({
   };
 
   // Position the list while open, and keep it anchored as the trigger scrolls/resizes —
-  // the same responsibilities `AnchoredPopover` carries for its own panel, done here with
-  // the same pure `anchoredPosition` math since this is not that component (see header).
-  // `query` is a dependency too, not just `open`: filtering changes how many rows render,
-  // which changes `panel.offsetHeight` — without recomputing here, a filtered-down list
-  // would keep the taller unfiltered list's placement.
-  useEffect(() => {
-    if (!open) return;
-    const position = () => {
-      const trigger = inputRef.current;
-      const panel = listRef.current;
-      if (!trigger || !panel) return;
-      const t = trigger.getBoundingClientRect();
-      const { left, top } = anchoredPosition({
-        trigger: { top: t.top, right: t.right, bottom: t.bottom, left: t.left },
-        panel: { width: Math.max(panel.offsetWidth, t.right - t.left), height: panel.offsetHeight },
-        viewport: { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight },
-        align: 'start',
-        margin: 8,
-      });
-      panel.style.left = `${left}px`;
-      panel.style.top = `${top}px`;
-      panel.style.minWidth = `${t.right - t.left}px`;
-    };
-    position();
-    window.addEventListener('resize', position);
-    window.addEventListener('scroll', position, true);
-    return () => {
-      window.removeEventListener('resize', position);
-      window.removeEventListener('scroll', position, true);
-    };
-  }, [open, query]);
+  // the same responsibilities `AnchoredPopover` carries for its own panel, through the
+  // same hook — this is not that component (see header), but the geometry is identical.
+  useAnchoredPosition(inputRef, listRef, {
+    active: open,
+    // The listbox is never narrower than the input it drops from, and the hook feeds that
+    // width to the positioner as well as to the style — see its comment for why both.
+    matchTriggerWidth: true,
+    // `query` re-places, not just `open`: filtering changes how many rows render, which
+    // changes the panel's height, and a filtered-down list would otherwise keep the taller
+    // unfiltered list's placement.
+    deps: [query],
+  });
 
   // Outside-click dismiss: this is NOT a native top-layer popover (see the file header),
   // so it manages its own light-dismiss rather than getting it from the browser.
