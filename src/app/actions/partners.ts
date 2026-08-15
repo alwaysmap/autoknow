@@ -60,6 +60,13 @@ export async function deletePartner(formData: FormData): Promise<ActionResult> {
       prisma.contextUrl.deleteMany({ where: { partnerId } }),
       prisma.phasePartner.deleteMany({ where: { partnerId } }),
       prisma.phase.updateMany({ where: { leadPartnerId: partnerId }, data: { leadPartnerId: null } }),
+      // Escalations that name this partner AND a program keep the program and lose the
+      // partner attribution. The FK is SET NULL and would do this unasked; the line is
+      // here so the choice is on the page, exactly as `leadPartnerId` above is. The
+      // partner-ONLY ones never reach this transaction — they are a delete blocker
+      // (`lib/partnerDeletion`), because for them the same SET NULL produces a row that
+      // belongs to nothing (autoknow-40f).
+      prisma.escalation.updateMany({ where: { partnerId }, data: { partnerId: null } }),
       prisma.summary.deleteMany({ where: { scope: 'partner', targetId: partnerId } }),
       prisma.partner.delete({ where: { id: partnerId } }),
     ]);

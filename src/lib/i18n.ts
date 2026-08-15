@@ -1055,6 +1055,15 @@ const STRINGS = {
     ja: '{n} 件の担当者レコードがこのパートナーを勤務先として参照しています（異動が未登録の担当者を含む）。先に所属を変更してください。',
     ko: '{n}명의 인물 레코드가 아직 이 파트너를 소속사로 지정하고 있습니다(이동이 기록되지 않은 사람 포함). 먼저 재배정하세요.',
   },
+  // Counts escalations whose ONLY subject is this partner. Deleting it would leave them
+  // about nothing at all, which the mutation boundary forbids and the FK does not
+  // (autoknow-40f) — so the sentence says "only subject", not just "escalations".
+  partnerHasEscalations: {
+    en: 'This partner is the only subject of {n} escalation(s) — close or reassign them first.',
+    de: 'Dieser Partner ist der einzige Gegenstand von {n} Eskalation(en) — zuerst schließen oder neu zuordnen.',
+    ja: 'このパートナーのみを対象とするエスカレーションが {n} 件あります。先に完了または対象を変更してください。',
+    ko: '이 파트너만을 대상으로 하는 에스컬레이션이 {n}건 있습니다. 먼저 종료하거나 대상을 변경하세요.',
+  },
   statusPending: { en: 'Pending', de: 'Offen', ja: '未処理', ko: '대기 중' },
   statusCompleted: { en: 'Completed', de: 'Erledigt', ja: '完了済み', ko: '완료됨' },
 

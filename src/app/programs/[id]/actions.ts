@@ -94,6 +94,21 @@ export async function deleteProject(formData: FormData) {
     // Delete the whole object graph atomically so a mid-sequence failure can't
     // leave a half-deleted project behind.
     await prisma.$transaction([
+      // Escalations first, and DELIBERATELY, because `Escalation.projectId` is an
+      // OPTIONAL relation whose unstated FK is SET NULL: left alone, a program-only
+      // escalation would survive this delete with `projectId=null, partnerId=null` — a
+      // row `schemas.ts`'s ABOUT_SOMETHING refinement rejects on every create and update,
+      // belonging to nothing and rendering on no scoped page (autoknow-40f's shape, second
+      // instance; the mechanism is
+      // docs/knowledge/an-unstated-prisma-ondelete-crashes-or-orphans-depending-only-on-optionality.md).
+      // The ANSWER differs from the partner one, because these two
+      // deletes mean different things: deleting a partner is REFUSED while things point
+      // at it, deleting a program removes the program's world — its phases, its context,
+      // its summaries. An escalation about only this program is part of that world.
+      prisma.escalation.deleteMany({ where: { projectId, partnerId: null } }),
+      // One that also names a partner still belongs to somebody, so it keeps the partner
+      // and loses the program.
+      prisma.escalation.updateMany({ where: { projectId }, data: { projectId: null } }),
       prisma.actionItem.deleteMany({ where: { phaseId: { in: phaseIds } } }),
       prisma.phaseState.deleteMany({ where: { phaseId: { in: phaseIds } } }),
       prisma.phasePartner.deleteMany({ where: { phaseId: { in: phaseIds } } }),
