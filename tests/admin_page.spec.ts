@@ -11,6 +11,19 @@ test.describe('Onboarding and Seeding Controls', () => {
     await wipeAll();
   });
 
+  // gh-255: the copy-pasteable curl examples used to open with a literal
+  // `ORIGIN=https://autoknow.alwaysmap.com`, which is wrong on every other deployment —
+  // including the one the reader is looking at right now. Asserted against the SERVER'S
+  // OWN origin rather than a second literal, because a test that writes the host down is
+  // the same bug agreeing with itself.
+  test('the curl examples name the origin the reader is actually on', async ({ page }) => {
+    await page.goto('/admin');
+    const origin = new URL(page.url()).origin;
+    const blocks = page.locator('pre');
+    await expect(blocks.first()).toContainText(`ORIGIN=${origin}`);
+    await expect(page.locator('body')).not.toContainText('autoknow.alwaysmap.com');
+  });
+
   test('should support seeding defaults only and show clean onboarding empty states', async ({ page }) => {
     // This is the only spec whose CLICKS run a whole seed: both buttons are `<form
     // action={serverAction}>`, and the second one ingests the entire mock corpus (18

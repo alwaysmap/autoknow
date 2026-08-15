@@ -6,10 +6,32 @@
 // there is one seam to replace with a real session/auth lookup.
 
 const DEFAULT_HANDLE = 'dylan';
-/** The org's own domain — what a bare `@handle` means. Exported since #127 E15, whose
- *  untracked-mention detector has to resolve a handle to an address but is PURE and must
- *  not reach for config itself; the caller hands it in. */
-export const EMAIL_DOMAIN = 'google.com';
+
+/** What a bare `@handle` means when NOTHING has told us the tenant — an unconfigured
+ *  checkout, CI, the e2e stub identity. A deployment states its domain in
+ *  `AUTH_ALLOWED_DOMAIN`; this is the dev fallback, not the answer. */
+export const DEFAULT_EMAIL_DOMAIN = 'google.com';
+
+/**
+ * The org's own domain — what a bare `@handle` expands to.
+ *
+ * Reads `AUTH_ALLOWED_DOMAIN`, the single source of truth for "who may sign in", because
+ * a deployment whose sign-in gate says `alwaysmap.com` and whose handle expansion says
+ * `google.com` is manufacturing addresses for a tenant it does not serve (gh-255). It
+ * used to be a second constant, and the divergence had already caused a real bug —
+ * `/me?user=` re-derived the signed-in user's address at `@google.com` and landed on a
+ * different person, worked around locally in `app/me/page.tsx` rather than fixed here.
+ *
+ * SERVER-SIDE READ. Only `NEXT_PUBLIC_*` is inlined into the browser bundle, so a
+ * `'use client'` component calling this gets the FALLBACK silently and forever
+ * (docs/knowledge/an-env-derived-default-is-the-fallback-inside-a-client-component.md).
+ * That is why `deriveEmail`'s domain is a real parameter: a client caller is handed the
+ * value as a required prop, resolved by the server component that renders it.
+ */
+export function orgEmailDomain(): string {
+  return process.env.AUTH_ALLOWED_DOMAIN?.trim() || DEFAULT_EMAIL_DOMAIN;
+}
+
 export interface CurrentUser {
   handle: string; // bare handle, e.g. 'dylan'
   display: string; // '@'-prefixed handle, e.g. '@dylan'
@@ -57,13 +79,20 @@ export function normalizeHandle(input: string | null | undefined): string {
 /**
  * Derive a full email from a handle or email.
  * - 'jdoe@acme.com'  -> 'jdoe@acme.com' (already an email; preserved)
- * - '@jdoe' / 'jdoe' -> 'jdoe@google.com' (org default domain)
+ * - '@jdoe' / 'jdoe' -> 'jdoe@<org domain>'
+ *
+ * `domain` defaults to `orgEmailDomain()`, which is a SERVER read — see its comment. A
+ * client component must pass the domain explicitly rather than take the default, or it
+ * silently expands every handle at the fallback domain.
  */
-export function deriveEmail(input: string | null | undefined): string {
+export function deriveEmail(
+  input: string | null | undefined,
+  domain: string = orgEmailDomain(),
+): string {
   const raw = (input || '').trim().toLowerCase();
   if (raw.includes('@') && !raw.startsWith('@')) return raw;
   const handle = normalizeHandle(raw) || DEFAULT_HANDLE;
-  return `${handle}@${EMAIL_DOMAIN}`;
+  return `${handle}@${domain}`;
 }
 
 /** Build a CurrentUser from any handle/email-ish string, plus what the identity

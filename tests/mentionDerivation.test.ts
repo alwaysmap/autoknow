@@ -4,6 +4,14 @@
 // exactly one candidate. Pure functions, no database.
 import { resolvePersonMatch, resolvePersonCandidates, resolvePerson } from '../src/lib/people';
 import { deriveMentions } from '../src/lib/mentions';
+import { orgEmailDomain } from '../src/lib/auth';
+
+// The org's OWN domain, read the way the code reads it rather than written down — this
+// suite used to spell 'google.com' into the fixture, so it passed only on a checkout
+// whose AUTH_ALLOWED_DOMAIN happened to be unset and quietly asserted the tenant literal
+// the rest of gh-255 removed. Two addresses below are deliberately AT it, because "a bare
+// handle at our own domain outranks another company's handle" is the property under test.
+const ORG_DOMAIN = orgEmailDomain();
 
 const P = (id: number, name: string, email: string, held: string[] = []) => ({
   id,
@@ -15,12 +23,12 @@ const P = (id: number, name: string, email: string, held: string[] = []) => ({
 const directory = [
   P(1, 'Kenji Sato', 'kenji.sato@toyota.com'),
   P(2, 'Sarah Jenkins', 'sjenkins@qualcomm.com'),
-  P(3, 'Marcus Webb', 'marcusw@google.com'),
+  P(3, 'Marcus Webb', `marcusw@${ORG_DOMAIN}`),
   // The deliberate collision: two humans, one exact name (the seed carries the same
   // pair — the corpus's 'Jonas Weber' mentions must resolve to NOTHING).
   P(4, 'Jonas Weber', 'jonas.weber@bosch.com'),
   P(5, 'Jonas Weber', 'jweber@denso.example'),
-  P(6, 'Alice Waters', 'alice@google.com', ['alice.waters@bosch.com']),
+  P(6, 'Alice Waters', `alice@${ORG_DOMAIN}`, ['alice.waters@bosch.com']),
 ];
 
 describe('resolvePersonMatch — the tier is kept, the candidates stay intact', () => {
@@ -36,17 +44,17 @@ describe('resolvePersonMatch — the tier is kept, the candidates stay intact', 
     expect(match?.candidates.map((c) => c.id)).toEqual([6]);
   });
 
-  it('a bare non-google handle falls through to the handle tier', () => {
-    // deriveEmail('sjenkins') manufactures sjenkins@google.com, which matches nobody —
+  it("a bare handle at another company's domain falls through to the handle tier", () => {
+    // deriveEmail('sjenkins') manufactures sjenkins@<our domain>, which matches nobody —
     // so the email tier passes and the local-part tier is what fires.
     const match = resolvePersonMatch(directory, 'sjenkins');
     expect(match?.basis).toBe('handle');
     expect(match?.candidates.map((c) => c.id)).toEqual([2]);
   });
 
-  it('a bare handle at the org default domain resolves at the EMAIL tier', () => {
-    // 'marcusw' derives marcusw@google.com, which IS the stored address — the default
-    // domain makes google handles a stronger claim than other companies' handles.
+  it('a bare handle at OUR OWN domain resolves at the EMAIL tier', () => {
+    // 'marcusw' derives marcusw@<our domain>, which IS the stored address — being at OUR
+    // domain makes a handle a stronger claim than another company's handle.
     expect(resolvePersonMatch(directory, 'marcusw')?.basis).toBe('email');
   });
 
