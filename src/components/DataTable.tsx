@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import AnchoredPopover from './AnchoredPopover';
@@ -13,6 +13,7 @@ import {
 } from '../lib/preferences';
 import { applyTableFilter, filterTokensOf, valueAt, type FilterColumn } from '../lib/tableFilter';
 import styles from './DataTable.module.css';
+import { useHorizontalScrollCues } from '../lib/useHorizontalScrollCues';
 
 /** A column: `FilterColumn` carries the filter contract (`filterable`, `filterValue`,
  *  `filterValues` — semantics documented there, where the predicate lives); everything
@@ -138,57 +139,14 @@ export default function DataTable<T>({
   // usual clipped-mid-glyph cue absent at the left. A pure-CSS scroll-shadow was tried
   // first and reverted (see the GitHub issue) — it painted BEHIND the table's own opaque
   // cell backgrounds and was invisible in a screenshot. This reads real scroll state
-  // instead (the NavLinks/ThemeToggle pattern: useSyncExternalStore, refs unattached
-  // pre-mount → both `false`, matching a table that fits, so hydration never mismatches),
-  // and renders the cue as its own stacked DOM element (see `.scrollCue` in the module
-  // CSS) — a real element painting above the table settles the "which paints on top"
-  // question the background-trick version left to chance. ----
+  // instead — the reading and its two subtleties (the 1px subpixel slack, and why it is
+  // two stores rather than one object) live in `lib/useHorizontalScrollCues` — and renders
+  // the cue as its own stacked DOM element (see `.scrollCue` in the module CSS): a real
+  // element painting above the table settles the "which paints on top" question the
+  // background-trick version left to chance. ----
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const subscribeScroll = useCallback((onChange: () => void) => {
-    const el = scrollRef.current;
-    if (!el) return () => {};
-    el.addEventListener('scroll', onChange, { passive: true });
-    window.addEventListener('resize', onChange);
-    let ro: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== 'undefined') {
-      // Content width can change without a resize or a scroll (a column filter narrows
-      // the option list's own width not at all, but sorting/paging can change row text
-      // enough to grow/shrink columns) — observe the table's own box, not just the
-      // window's.
-      ro = new ResizeObserver(onChange);
-      ro.observe(el);
-    }
-    return () => {
-      el.removeEventListener('scroll', onChange);
-      window.removeEventListener('resize', onChange);
-      ro?.disconnect();
-    };
-  }, []);
-  // Two separate hook calls, not one returning `{left, right}`: useSyncExternalStore
-  // compares snapshots by reference, so a composite object would be a NEW reference on
-  // every render regardless of whether either flag actually changed — an infinite
-  // render loop, not just a wasted one. Two booleans avoids the trap entirely; the cost
-  // is `subscribeScroll` running twice (two listeners, two observers on the same
-  // element), which is cheap for a component with one scrollport.
-  //
-  // 1px of slack: a table that exactly fits can report a fractional scrollWidth vs.
-  // clientWidth mismatch from subpixel layout, which would flash a permanent cue on a
-  // table that never actually scrolls.
-  const canScrollLeft = useSyncExternalStore(
-    subscribeScroll,
-    () => (scrollRef.current ? scrollRef.current.scrollLeft > 1 : false),
-    () => false,
-  );
-  const canScrollRight = useSyncExternalStore(
-    subscribeScroll,
-    () => {
-      const el = scrollRef.current;
-      if (!el) return false;
-      return el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
-    },
-    () => false,
-  );
+  const { canScrollLeft, canScrollRight } = useHorizontalScrollCues(scrollRef);
 
   // ---- Page size: the per-user ROWS_PER_TABLE preference (#31), read hydration-safe as an
   // external store (ThemeToggle is the reference; setState-in-effect is a lint error).

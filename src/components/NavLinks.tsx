@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import AnchoredPopover from './AnchoredPopover';
 import { fitCount } from '../lib/navCollapse';
 import styles from './NavLinks.module.css';
+import { useElementObserver } from '../lib/useElementObserver';
 
 // Priority-plus nav links (#28). The nav's flexible middle: brand is pinned left and the
 // controls right by the parent nav's flex layout; this region takes the rest and NEVER
@@ -52,28 +53,13 @@ export default function NavLinks({ items, moreLabel }: { items: NavItem[]; moreL
   // visible count via the pure fitCount; subscribe re-runs it whenever the region resizes
   // (or fonts finish loading, which changes label widths without a resize). No
   // setState-in-effect — the read is hydration-safe and matches ThemeToggle's pattern.
-  const subscribe = useCallback((onChange: () => void) => {
-    // window resize AND a ResizeObserver on the region: the resize event covers viewport
-    // changes even where RO delivery is throttled, and RO covers layout changes that don't
-    // resize the window (a sibling growing). The initial count is read once on mount by
-    // useSyncExternalStore regardless — so even if neither ever fires, the resting state is
-    // the correctly-measured load-width nav, never an empty one (§8c).
-    let disposed = false;
-    window.addEventListener('resize', onChange);
-    const root = rootRef.current;
-    let ro: ResizeObserver | null = null;
-    if (root && typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(onChange);
-      ro.observe(root);
-    }
-    // Late-loading fonts reflow label widths without resizing anything; re-measure once.
-    document.fonts?.ready?.then(() => { if (!disposed) onChange(); }).catch(() => {});
-    return () => {
-      disposed = true;
-      window.removeEventListener('resize', onChange);
-      ro?.disconnect();
-    };
-  }, []);
+  // `fonts` because this measures TEXT: late webfonts reflow label widths without resizing
+  // anything, so a nav measured against fallback metrics would collapse at the wrong point
+  // and never look again. The shared hook carries why both resize AND the observer are
+  // wired. The initial count is read once on mount by useSyncExternalStore regardless — so
+  // even if no signal ever fires, the resting state is the correctly-measured load-width
+  // nav, never an empty one (§8c).
+  const subscribe = useElementObserver(rootRef, { fonts: true });
 
   const getSnapshot = useCallback((): number => {
     const root = rootRef.current;
