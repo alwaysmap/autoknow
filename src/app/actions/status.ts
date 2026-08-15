@@ -26,7 +26,16 @@ export async function deleteFeedItem(formData: FormData) {
       await prisma.partnerState.delete({ where: { id: n } });
       break;
     case 'ctx':
-      await prisma.contextUrl.delete({ where: { id: n } });
+      // Children first, in one transaction — the shape `deletePartner` and
+      // `deleteProject` already use. ContextRevision's FK is RESTRICT and ingest writes
+      // one in the same transaction as the row, so a bare delete here 500'd every
+      // ingested card (autoknow-805). Escalation's SET NULL is left implicit on purpose,
+      // pending autoknow-40f. Why the children differ:
+      // docs/knowledge/an-unstated-prisma-ondelete-crashes-or-orphans-depending-only-on-optionality.md
+      await prisma.$transaction([
+        prisma.contextRevision.deleteMany({ where: { contextUrlId: n } }),
+        prisma.contextUrl.delete({ where: { id: n } }),
+      ]);
       break;
     default:
       return;
