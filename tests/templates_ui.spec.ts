@@ -73,6 +73,36 @@ test.describe('Program template authoring', () => {
     await expect(page.getByLabel('Template name')).toHaveValue('New template 2');
   });
 
+  // The other half of autoknow-qru's decision, and the bead it left open (autoknow-6ls):
+  // a CONSTANT name picks the next free one, a name the USER typed comes back as a
+  // refusal naming the conflict. Runs after the clones above, so two real user templates
+  // exist to collide.
+  test('renaming onto another template\'s name refuses inline, naming the conflict', async ({ page }) => {
+    await page.goto('/templates');
+    // The row's name IS its edit link (TemplatesClient).
+    await page.getByRole('link', { name: 'Digital Key (copy 2)', exact: true }).click();
+    await page.waitForURL(/\/templates\/\d+\/edit/);
+
+    const name = page.getByLabel('Template name');
+    // Hydration-guarded first interaction — an unguarded one is this suite's top flake.
+    await expect(async () => {
+      await name.fill('Digital Key (copy)');
+      await expect(name).toHaveValue('Digital Key (copy)');
+    }).toPass();
+    await page.getByRole('button', { name: 'Save', exact: true }).first().click();
+
+    // Inline beside the field, not the route error boundary — the editor is still here,
+    // and the name the author typed is still in the box for them to correct.
+    await expect(page.getByTestId('meta-error')).toContainText('Digital Key (copy)');
+    await expect(page.getByTestId('meta-error')).toContainText('already exists');
+    await expect(name).toHaveValue('Digital Key (copy)');
+    await expect(page.getByTestId('phase-card')).not.toHaveCount(0);
+
+    // Nothing was silently renumbered: the row it collided with still owns the name.
+    const holders = await prisma.programTemplate.findMany({ where: { name: 'Digital Key (copy)' } });
+    expect(holders).toHaveLength(1);
+  });
+
   test('authors a new template on the card-DAG editor with live validation', async ({ page }) => {
     const card = (name: string) => page.locator(`[data-testid="phase-card"][data-name="${name}"]`);
     const panel = page.getByTestId('phase-panel');

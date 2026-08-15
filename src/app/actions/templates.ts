@@ -2,8 +2,10 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/db';
 import { getCurrentUser } from '../../lib/session';
+import type { ActionResult } from '../../lib/actionResult';
 import { firstFreeTemplateName, cloneTemplateGraph, type NameSeries } from '../../lib/programTemplates';
 import { syncInitiativeCopies } from '../../lib/initiativeSync';
 
@@ -17,6 +19,18 @@ async function requireEditable(templateId: number) {
   if (!t) throw new Error('Unknown template');
   if (t.isBuiltIn) throw new Error('Built-in templates are clone-only');
   return t;
+}
+
+/** `requireEditable` for the two actions that RETURN their refusals: its throw is the
+ *  message, so the only thing to do with it is hand it back. One spelling, because
+ *  there were about to be two identical ones (AGENTS lesson 7). */
+async function editableOrError(templateId: number): Promise<ActionResult | null> {
+  try {
+    await requireEditable(templateId);
+    return null;
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Not editable' };
+  }
 }
 
 // NameSeries + firstFreeTemplateName moved to lib/programTemplates (gh-286 part c)
@@ -71,19 +85,34 @@ export async function deleteTemplate(formData: FormData) {
 }
 
 /** DELIBERATELY does not route through `firstFreeTemplateName` (unlike the two
- *  constant-name writers above): a name the user typed should come back as a validation
- *  message naming the conflict, never be silently renumbered into something they did not
- *  ask to save. That message does not exist yet — a clash still throws a raw P2002 out
- *  of the server action, before its revalidate (autoknow-6ls). */
-export async function updateTemplateMeta(formData: FormData) {
+ *  constant-name writers above): a name the user TYPED comes back as a validation
+ *  message naming the conflict, and is never silently renumbered into something they
+ *  did not ask to save. Which is why every failure here is RETURNED rather than thrown —
+ *  a throw becomes the route error boundary, replacing the editor (and the user's
+ *  unsaved description with it) with a generic page, and in production the message is
+ *  masked anyway. `saveTemplatePhases` below already returns for the same reason. */
+export async function updateTemplateMeta(formData: FormData): Promise<ActionResult> {
   const id = parseInt(formData.get('id') as string, 10);
-  await requireEditable(id);
+  if (isNaN(id)) return { error: 'Invalid template' };
   const name = ((formData.get('name') as string) || '').trim();
   const description = ((formData.get('description') as string) || '').trim() || null;
-  if (!name) throw new Error('Template name is required');
-  await prisma.programTemplate.update({ where: { id }, data: { name, description } });
+  if (!name) return { error: 'Template name is required' };
+  const notEditable = await editableOrError(id);
+  if (notEditable) return notEditable;
+  try {
+    await prisma.programTemplate.update({ where: { id }, data: { name, description } });
+  } catch (e) {
+    // @@unique([name, isBuiltIn]). `requireEditable` above means isBuiltIn is always
+    // false on this path, so the row it collided with is another USER template — one
+    // the author can go and rename. Naming it is the whole point of not renumbering.
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      return { error: `A template called "${name}" already exists — pick another name.` };
+    }
+    throw e;
+  }
   revalidatePath('/templates');
   revalidatePath(`/templates/${id}/edit`);
+  return {};
 }
 
 // ---- Whole-graph save (the shared PhaseDagEditor surface) ----
@@ -102,14 +131,11 @@ export interface TemplatePhaseDraft {
   dependsOn: number[];
 }
 
-export async function saveTemplatePhases(formData: FormData): Promise<{ error?: string }> {
+export async function saveTemplatePhases(formData: FormData): Promise<ActionResult> {
   const templateId = parseInt(formData.get('templateId') as string, 10);
   if (isNaN(templateId)) return { error: 'Invalid template' };
-  try {
-    await requireEditable(templateId);
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Not editable' };
-  }
+  const notEditable = await editableOrError(templateId);
+  if (notEditable) return notEditable;
 
   let draft: TemplatePhaseDraft[];
   try {
