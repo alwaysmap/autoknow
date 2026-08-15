@@ -30,6 +30,7 @@ import { escalationHref, partnerHref, programHref } from '../../lib/entityHref';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 import styles from './page.module.css';
+import { type NamedRow } from '../../lib/comboboxOptions';
 
 // The escalations list (#245 part a). design.md §6 grammar throughout: sortable headers,
 // per-column funnels, shareable URL state, the key-column filter box, `<th scope="row">`
@@ -54,18 +55,13 @@ interface Escalation {
   decisionMaker: PersonRef | null;
 }
 
-interface Option {
-  id: number;
-  name: string;
-}
-
 export default function EscalationsClient({
   escalations, partners, projects, people, initialFilters, initialSort, initialQ = '',
 }: {
   escalations: Escalation[];
-  partners: Option[];
-  projects: Option[];
-  people: Option[];
+  partners: NamedRow[];
+  projects: NamedRow[];
+  people: NamedRow[];
   initialFilters?: Record<string, string[]>;
   initialSort?: TableSort | null;
   initialQ?: string;

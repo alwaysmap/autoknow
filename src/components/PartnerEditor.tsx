@@ -11,6 +11,7 @@ import admin from './ProjectAdminControls.module.css';
 import KebabMenu from './KebabMenu';
 import OverlayDialog from './OverlayDialog';
 import useDialogAction from './useDialogAction';
+import { type NamedRow } from '../lib/comboboxOptions';
 
 // Partner CRUD surfaces. One shared form (create + edit); the partner page gets the
 // small Edit · Delete links beside the name (same quiet grammar as programs), the
@@ -20,11 +21,6 @@ import useDialogAction from './useDialogAction';
 // Those blockers arrive PRE-COUNTED, in a shape only `lib/partnerDeletion` can mint, so
 // this dialog cannot form a second opinion about what the server action will allow — it
 // once did, and offered deletes that were then refused (`autoknow-aa7`).
-
-interface Option {
-  id: number;
-  name: string;
-}
 
 export interface PartnerRecord {
   id: number;
@@ -36,7 +32,7 @@ export interface PartnerRecord {
   summary: string | null;
 }
 
-function PartnerFormFields({ defaults, types, regions }: { defaults?: PartnerRecord | null; types: Option[]; regions: Option[] }) {
+function PartnerFormFields({ defaults, types, regions }: { defaults?: PartnerRecord | null; types: NamedRow[]; regions: NamedRow[] }) {
   const locale = useLocale();
   return (
     <>
@@ -75,7 +71,7 @@ function PartnerFormFields({ defaults, types, regions }: { defaults?: PartnerRec
 }
 
 /** "New partner" button + create dialog, for the /partners list header. */
-export function NewPartnerButton({ types, regions }: { types: Option[]; regions: Option[] }) {
+export function NewPartnerButton({ types, regions }: { types: NamedRow[]; regions: NamedRow[] }) {
   const locale = useLocale();
   const [newOpen, setNewOpen] = useState(false);
   const { saving, errorLine, runAction } = useDialogAction();
@@ -112,8 +108,8 @@ export default function PartnerAdminControls({
   partner, types, regions, blockers,
 }: {
   partner: PartnerRecord;
-  types: Option[];
-  regions: Option[];
+  types: NamedRow[];
+  regions: NamedRow[];
   blockers: PartnerDeleteBlockers;
 }) {
   const locale = useLocale();

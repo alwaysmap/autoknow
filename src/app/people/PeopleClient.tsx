@@ -12,6 +12,7 @@ import { personHref } from '../../lib/entityHref';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 import styles from '../partners/page.module.css';
+import { type NamedRow } from '../../lib/comboboxOptions';
 
 // The people directory — same table grammar as /partners (design.md §6): quiet
 // links, per-column funnels (Company, Role), counts link into the person page.
@@ -37,7 +38,7 @@ interface PersonRow {
 
 export default function PeopleClient({ people, partners, initialFilters, initialSort, initialQ = '' }: {
   people: PersonRow[];
-  partners: { id: number; name: string }[];
+  partners: NamedRow[];
   initialFilters?: Record<string, string[]>;
   initialSort?: TableSort | null;
   /** Deep-linked key-column (name) filter text (?q=). */

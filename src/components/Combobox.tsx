@@ -48,7 +48,11 @@ import type { ComboboxOption } from '../lib/comboboxOptions';
 // design answer before it needs this component (gh-269).
 
 export interface ComboboxProps {
-  id: string;
+  /** OPTIONAL, and falls back to a generated id. Required once, which made every caller
+   *  without a `<label htmlFor>` invent a value nothing referenced — `PhaseInvolvementEditor`
+   *  was passing `involvement-{kind}-{phaseId}` purely to satisfy the type (autoknow-gtz).
+   *  Pass one where a label points at it; otherwise let it generate. */
+  id?: string;
   /** The form field name — this is a drop-in replacement for `<select name=… >`, so a
    *  server action reading `formData.get(name)` sees no difference. */
   name: string;
@@ -94,7 +98,7 @@ function matches(label: string, query: string): boolean {
 }
 
 export default function Combobox({
-  id,
+  id: providedId,
   name,
   options,
   defaultValue = '',
@@ -135,6 +139,8 @@ export default function Combobox({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const generatedId = useId();
+  const id = providedId ?? generatedId;
   const listId = useId();
 
   // The empty choice is a real row in the list, first, filtered by the same rule as

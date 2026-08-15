@@ -15,6 +15,7 @@ import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import chrome from './TemplateEditor.module.css';
 import styles from './ProgramPhaseEditor.module.css';
+import { type NamedRow } from '../lib/comboboxOptions';
 
 // THE phase editor — one surface for building template phase layouts and for changing
 // a live program's phases. Since #crw.1 it owns EVERY field of a phase a human
@@ -63,7 +64,7 @@ export interface PhaseInvolvement {
   /** phase id → its current links, keyed the same way the control is */
   byPhase: Map<number, Record<InvolvementKind, InvolvementLink[]>>;
   /** the picker's canonical option set, per kind */
-  options: Record<InvolvementKind, { id: number; name: string }[]>;
+  options: Record<InvolvementKind, NamedRow[]>;
 }
 
 interface PhaseDagEditorProps {

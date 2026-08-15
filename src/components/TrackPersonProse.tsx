@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState } from 'react';
 import { dismissAddress, trackPerson } from '../app/actions/people';
 import { inferPartnerFromAddress, type UntrackedContext } from '../lib/untrackedPeople';
 import Combobox from './Combobox';
-import { toComboboxOptions } from '../lib/comboboxOptions';
+import { toComboboxOptions, type NamedRow } from '../lib/comboboxOptions';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import dash from './ProjectStatusDashboard.module.css';
@@ -29,8 +29,12 @@ import styles from './TrackPersonProse.module.css';
  * partners its dialog offers. One object because supplying half of it is a page that
  * detects mentions and then cannot create anybody, or a picker with nothing to pick.
  */
-/** A partner as the picker and the domain-inference need it. */
-export type PartnerOption = { id: number; name: string };
+/** The one surviving alias in this sweep, and it earns its second name: `PartnerOption`
+ *  is part of `TrackPersonSurface`, the object a PAGE hands down to switch the affordance
+ *  on, so it is public vocabulary rather than a local shorthand. Structurally it is just
+ *  a picker's option row. (Not to be confused with `ProjectMetaHeader`'s own
+ *  `PartnerOption`, which carries `isOem` and is genuinely a different type.) */
+export type PartnerOption = NamedRow;
 
 export interface TrackPersonSurface {
   ctx: UntrackedContext;

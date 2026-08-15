@@ -14,6 +14,7 @@ import styles from './PhaseGraph.module.css';
 import { localDate } from '../lib/dates';
 import { useLocale } from './LocaleProvider';
 import { useSteadyPageScroll } from '../lib/useSteadyPageScroll';
+import { type NamedRow } from '../lib/comboboxOptions';
 
 // The program's phase surface (spec §2.13): a vertical tube-map of the phase DAG.
 // Rectilinear edges (90° jogs, small corner radii — never curves), one node per phase in
@@ -53,7 +54,7 @@ export interface PhaseGraphRow {
 interface PhaseGraphProps {
   projectId: number;
   phases: PhaseGraphRow[];
-  allPartners: { id: number; name: string }[];
+  allPartners: NamedRow[];
 }
 
 type RowState = 'collapsed' | 'minimal' | 'expanded';
