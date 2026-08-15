@@ -793,6 +793,15 @@ export async function seedMockData(): Promise<MockSeedReport> {
     role: 'VP of Software Engineering', startDate: '2022-06-01',
     notes: 'VP of Software Engineering at Toyota Connected.',
   });
+  // Ford's own side of the flagship program. Ford was the ONE classic partner with no
+  // person on file, so the only human available to own a `nextStep: 'Partner'` action on
+  // Ford Evos was somebody from another OEM — which is how the demo came to show a Toyota
+  // VP owing Ford work, and the brief to faithfully repeat it (autoknow-701).
+  const rachelOkafor = await createPerson({
+    name: 'Rachel Okafor', email: 'rachel.okafor@ford.com', currentPartnerId: fordId,
+    role: 'Connected Vehicle Platform Lead', startDate: '2023-04-03',
+    notes: 'Connected Vehicle Platform Lead at Ford, running the Evos cockpit stack.',
+  });
   await createPerson({
     name: 'Dieter Meyer', email: 'dieter.meyer@bosch.com', currentPartnerId: boschId,
     role: 'Senior ADAS Systems Lead', startDate: '2023-01-10',
@@ -910,15 +919,18 @@ export async function seedMockData(): Promise<MockSeedReport> {
   // and app-platform tracks are in flight; compliance onward hasn't started.
   const fordPhases = await seedPhasesFromBuiltin(fordProjectId, AAOS_T, FORD_THROUGH);
 
+  await involvePerson(fordProjectId, fordPhases['BSP & power-on'], rachelOkafor.id, 'Connected Vehicle Platform Lead');
   await createActionItem(fordProjectId, fordPhases['BSP & power-on'], {
     description: 'Determine cause for VHAL wait time delay',
     assignedTo: me.email, status: 'Pending', nextStep: 'Googler',
     linkUrl: 'https://buganizer.corp.google.com/issues/889218',
     source: 'Buganizer', sourceUrl: 'https://buganizer.corp.google.com/issues/889218',
   });
+  // Ford's own lead, not another OEM's: `nextStep: 'Partner'` means the partner on THIS
+  // program owes the work (autoknow-701).
   await createActionItem(fordProjectId, fordPhases['BSP & power-on'], {
     description: 'Verify cluster instrumentation panel interface specifications',
-    assignedTo: 'Kenji Sato', status: 'Pending', nextStep: 'Partner',
+    assignedTo: 'Rachel Okafor', status: 'Pending', nextStep: 'Partner',
     linkUrl: 'https://docs.google.com/document/d/cluster-specs-evos',
     source: 'Google Doc', sourceUrl: 'https://docs.google.com/document/d/cluster-specs-evos',
   });
