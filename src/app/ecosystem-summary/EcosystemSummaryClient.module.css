@@ -138,6 +138,30 @@
   margin: 0;
 }
 
+/* WHY this phase is the constraint (#148) — the diagnosis, linked to the phase card in
+   the program it is about, so the reader is one click from the evidence. Body ink and a
+   comfortable measure: this cell is a SENTENCE, not a value, and §7 gives prose its
+   line-height back. It stays a quiet blue link like every other name in the grammar
+   (§6) — the severity is carried by the row's own left border, not by recolouring text
+   that also has to be read. */
+.diagnosisWhy {
+  display: block;
+  font-size: var(--fs-detail);
+  line-height: var(--lh-detail);
+  max-width: 44ch;
+}
+
+/* The BASIS beneath it: whether the number above was read off two real dates or computed
+   against a duration somebody typed in. Provenance, not a measure — so it is muted ink on
+   its own line rather than a badge, and never the ✦ mark, which flags authorship of prose
+   (§8) and would launder a derived number as an opinion. */
+.diagnosisBasis {
+  font-size: var(--fs-micro);
+  line-height: var(--lh-micro);
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
 /* The program list sits on its own line under the count, in the same cell. */
 .constraintPrograms {
   font-size: 0.75rem;

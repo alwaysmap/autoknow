@@ -1453,6 +1453,104 @@ const STRINGS = {
   gatingOneProgram: { en: 'gating 1 program', de: 'blockiert 1 Programm', ja: '1件のプログラムを律速', ko: '1개 프로그램을 제약' },
   gatingNPrograms: { en: 'gating {n} programs', de: 'blockiert {n} Programme', ja: '{n}件のプログラムを律速', ko: '{n}개 프로그램을 제약' },
   noLiveConstraints: { en: 'No phase is on a critical chain right now.', de: 'Derzeit liegt keine Phase auf einer kritischen Kette.', ja: '現在クリティカルチェーン上のフェーズはありません。', ko: '현재 크리티컬 체인에 있는 단계가 없습니다.' },
+
+  // ---- Flow Constraint Diagnosis: WHY a phase is the constraint, and since when (#148).
+  // The panel named WHERE and stopped, under a heading promising otherwise. Every sentence
+  // here renders a `lib/chainInsights` symptom — the same Situation packets ChainLedger
+  // renders as recommendations, stated as diagnoses instead. They carry the PROGRAM rather
+  // than the phase, because the row header is already the phase name (#167's rule) and the
+  // diagnosis belongs to one of the programs the row gates.
+  cdWhyHeader: { en: 'Why', de: 'Warum', ja: '理由', ko: '이유' },
+  cdSinceHeader: { en: 'Since', de: 'Seit', ja: '開始', ko: '시작' },
+  cdOverrun: {
+    en: 'In {program}: {pct}% past the {p}-day estimate, with {r} days of work still left.',
+    de: 'In {program}: {pct} % über der {p}-Tage-Schätzung, bei {r} Tagen Restarbeit.',
+    ja: '{program}: {p}日の見積もりを{pct}%超過、残作業{r}日。',
+    ko: '{program}: {p}일 견적을 {pct}% 초과, 남은 작업 {r}일.',
+  },
+  cdOverrunAction: {
+    en: 'Root-cause the overrun, or re-estimate the phase.',
+    de: 'Ursache der Überschreitung finden oder die Phase neu schätzen.',
+    ja: '超過の原因を突き止めるか、フェーズを見積もり直す。',
+    ko: '초과의 근본 원인을 찾거나 단계를 다시 견적한다.',
+  },
+  cdIdle: {
+    en: 'In {program}: the previous phase finished {d} days ago and this one has not started.',
+    de: 'In {program}: die vorherige Phase endete vor {d} Tagen, diese hat nicht begonnen.',
+    ja: '{program}: 前のフェーズが{d}日前に完了しましたが、まだ開始していません。',
+    ko: '{program}: 이전 단계가 {d}일 전에 끝났지만 아직 시작되지 않았습니다.',
+  },
+  cdIdleOne: {
+    en: 'In {program}: the previous phase finished 1 day ago and this one has not started.',
+    de: 'In {program}: die vorherige Phase endete vor 1 Tag, diese hat nicht begonnen.',
+    ja: '{program}: 前のフェーズが1日前に完了しましたが、まだ開始していません。',
+    ko: '{program}: 이전 단계가 1일 전에 끝났지만 아직 시작되지 않았습니다.',
+  },
+  cdIdleAction: {
+    en: 'Start it — the idle is being charged to the buffer every day.',
+    de: 'Starten — der Leerlauf geht täglich zulasten des Puffers.',
+    ja: '開始しましょう — 待機は日々バッファから差し引かれています。',
+    ko: '시작하세요 — 대기는 매일 버퍼에서 차감되고 있습니다.',
+  },
+  cdContended: {
+    en: 'In {program}: {name} is on it and active in {n} other programs.',
+    de: 'In {program}: {name} ist daran beteiligt und in {n} weiteren Programmen aktiv.',
+    ja: '{program}: {name}が担当し、他{n}件のプログラムでも稼働中。',
+    ko: '{program}: {name}이(가) 맡고 있으며 다른 프로그램 {n}개에서도 활동 중.',
+  },
+  cdContendedAction: {
+    en: 'Agree whose claim on their time wins before it slips.',
+    de: 'Klären, wessen Anspruch auf ihre Zeit Vorrang hat, bevor es rutscht.',
+    ja: '遅延する前に、誰の依頼を優先するか合意しましょう。',
+    ko: '늦어지기 전에 누구의 요청이 우선인지 합의하세요.',
+  },
+  cdHandoff: {
+    en: 'In {program}: it has not started, and {n} of the resources it needs are busy elsewhere.',
+    de: 'In {program}: noch nicht begonnen, und {n} der benötigten Ressourcen sind anderweitig gebunden.',
+    ja: '{program}: 未着手で、必要なリソースのうち{n}件が他所で稼働中。',
+    ko: '{program}: 아직 시작되지 않았고, 필요한 리소스 중 {n}개가 다른 곳에 묶여 있습니다.',
+  },
+  cdHandoffAction: {
+    en: 'Confirm the staffing before the baton lands.',
+    de: 'Die Besetzung klären, bevor der Staffelstab ankommt.',
+    ja: 'バトンが渡る前に体制を確認しましょう。',
+    ko: '바통이 넘어가기 전에 인력 배치를 확정하세요.',
+  },
+  // Structural-and-fine has to be SAYABLE, or every row the panel prints reads as trouble
+  // and the panel overstates the portfolio it is meant to explain.
+  // Kept SHORT on purpose. A healthy portfolio prints this row a dozen times, and a
+  // dozen copies of a long sentence is ink saying one thing over and over — but dropping
+  // the row would overstate the portfolio, so the answer is brevity, not omission.
+  cdClear: {
+    en: 'Nothing wrong — just the longest remaining step in {program}.',
+    de: 'Kein Befund — nur der längste verbleibende Schritt in {program}.',
+    ja: '問題なし — {program}で残る最長のステップというだけです。',
+    ko: '문제 없음 — {program}에서 남은 가장 긴 단계일 뿐입니다.',
+  },
+  cdBasisMeasured: {
+    en: 'measured from recorded dates',
+    de: 'aus erfassten Daten gemessen',
+    ja: '記録された日付から実測',
+    ko: '기록된 날짜에서 실측',
+  },
+  cdBasisEstimated: {
+    en: 'against a typed-in estimate',
+    de: 'gegen eine eingegebene Schätzung',
+    ja: '入力された見積もりに対する値',
+    ko: '입력된 견적 대비',
+  },
+  cdWorstOf: {
+    en: 'worst of {n} programs',
+    de: 'schlechteste von {n} Programmen',
+    ja: '{n}件中で最も深刻',
+    ko: '{n}개 프로그램 중 최악',
+  },
+  flowConstraintMethod: {
+    en: 'A phase is listed when it sits on a live critical chain — the longest remaining path to an SOP — in at least one active program. Rows are ordered worst-first, then by how many SOPs the phase gates. "Why" states the worst of the diagnoses across those programs, from the same computation the program page\'s Critical Chain section renders. Durations compared against a phase\'s forecast are compared against a duration somebody typed in, and each row says which of its numbers are measured and which are estimated. Nothing here predicts a date.',
+    de: 'Eine Phase erscheint, wenn sie in mindestens einem aktiven Programm auf einer lebenden kritischen Kette liegt — dem längsten verbleibenden Pfad zu einem SOP. Sortiert nach Schwere, dann danach, wie viele SOPs die Phase blockiert. „Warum“ nennt den schlimmsten Befund über diese Programme hinweg, aus derselben Berechnung, die der Abschnitt „Kritische Kette“ der Programmseite rendert. Dauern, die gegen eine Phasenprognose verglichen werden, werden gegen eine eingegebene Schätzung verglichen; jede Zeile sagt, welche ihrer Zahlen gemessen und welche geschätzt sind. Hier wird kein Datum vorhergesagt.',
+    ja: 'フェーズは、いずれかの進行中プログラムで実際のクリティカルチェーン（SOPまでの最長残存パス）上にあるときに掲載されます。並び順は深刻度が先、次にそのフェーズが律速しているSOPの数です。「理由」は対象プログラム群のうち最も深刻な診断を示し、プログラムページの「クリティカルチェーン」セクションと同じ計算に基づきます。フェーズの予測と比較した日数は、人が入力した見積もりとの比較です。各行はどの数値が実測でどれが見積もりかを明示します。ここで日付の予測は行いません。',
+    ko: '단계는 활성 프로그램 중 하나에서 실제 크리티컬 체인(SOP까지 남은 최장 경로)에 있을 때 표시됩니다. 정렬은 심각도 우선, 그다음 해당 단계가 좌우하는 SOP 수입니다. "이유"는 해당 프로그램들 가운데 가장 심각한 진단을 나타내며, 프로그램 페이지의 크리티컬 체인 섹션과 같은 계산에서 나옵니다. 단계 예측과 비교한 기간은 사람이 입력한 견적과의 비교입니다. 각 행은 어떤 수치가 실측이고 어떤 것이 견적인지 밝힙니다. 여기서 날짜를 예측하지는 않습니다.',
+  },
   programLifecycleLaunches: { en: 'Program Lifecycle & Launches', de: 'Programmlebenszyklus & Starts', ja: 'プログラムのライフサイクルとローンチ', ko: '프로그램 라이프사이클 및 출시' },
   volume12m: { en: '12M Volume', de: '12M-Volumen', ja: '12ヶ月台数', ko: '12개월 물량' },
   hillChartHeader: { en: 'Hill Chart', de: 'Hügeldiagramm', ja: 'ヒルチャート', ko: '힐 차트' },

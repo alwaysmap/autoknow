@@ -102,8 +102,11 @@ export interface Insight {
   href: string;
 }
 
-/** The order `severity` sorts in. */
-const SEVERITY_RANK: Record<InsightSeverity, number> = { act: 0, watch: 1, clear: 2 };
+/** The order `severity` sorts in. Exported because a surface that groups insights by
+ *  something else FIRST (the constraint panel sorts by severity, then by how many SOPs a
+ *  phase gates) still has to agree with `compareInsights` about which severity is worse. */
+export const INSIGHT_SEVERITY_RANK: Record<InsightSeverity, number> = { act: 0, watch: 1, clear: 2 };
+const SEVERITY_RANK = INSIGHT_SEVERITY_RANK;
 
 /**
  * The order sources GROUP in. Derived from `INSIGHT_SOURCES` rather than written

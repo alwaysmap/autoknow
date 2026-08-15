@@ -18,7 +18,9 @@ import { useLocale } from '../../components/LocaleProvider';
 import { useTableUrlSync } from '../../lib/useTableUrlSync';
 import type { TableSort } from '../../lib/tableUrlState';
 import AnchorHeading from '../../components/AnchorHeading';
+import InfoPopover from '../../components/InfoPopover';
 import PageShell from '../../components/PageShell';
+import { programHref } from '../../lib/entityHref';
 
 interface Project {
   id: number;
@@ -100,7 +102,20 @@ export default function EcosystemSummaryClient({
             bare h3-with-sub it used to hand-roll — the page had three heading
             systems and this was the odd one out. */}
         <div className={styles.diagnosisHeader}>
-          <AnchorHeading id="constraint-diagnosis">{t(locale, 'flowConstraintDiagnosis')}</AnchorHeading>
+          <AnchorHeading
+            id="constraint-diagnosis"
+            actions={
+              /* Where the numbers come from, read once rather than hedged into every
+                 row (§7/§7b). The panel's job is to EXPLAIN, so it owes the reader the
+                 basis of what it explains — but a per-sentence disclaimer would drown
+                 the sentences. */
+              <InfoPopover label={t(locale, 'aboutSection', { s: t(locale, 'flowConstraintDiagnosis') })}>
+                <p>{t(locale, 'flowConstraintMethod')}</p>
+              </InfoPopover>
+            }
+          >
+            {t(locale, 'flowConstraintDiagnosis')}
+          </AnchorHeading>
           <span className={styles.diagnosisSub}>{t(locale, 'flowConstraintSub')}</span>
         </div>
         {liveConstraints.length === 0 ? (
@@ -109,22 +124,29 @@ export default function EcosystemSummaryClient({
           <DataTable
             headers={[
               { key: 'phaseName', label: t(locale, 'phaseLabel') },
-              // Neither sorts: both derive from the same count, so two sort controls
-              // would do one job, and the rows already arrive most-blocking first. The
-              // `status` names no field on LiveConstraint: with `sortable: false` and no
-              // funnel the key is React identity only. It becomes a live row path the
-              // moment someone makes this column sortable or filterable — change it then.
+              // None of these sort. Gating and status both derive from the same count, so
+              // two controls would do one job; Why is a sentence, not a measure; and the
+              // rows already arrive worst-first (severity, then gating count). The
+              // `status` key names no field on LiveConstraint — with `sortable: false` and
+              // no funnel it is React identity only, and it becomes a live row path the
+              // moment someone makes this column sortable or filterable.
               { key: 'programs', label: t(locale, 'clGatingSop'), sortable: false },
+              // #148's headline: WHY this phase is the constraint, not just where it is.
+              { key: 'why', label: t(locale, 'cdWhyHeader'), sortable: false },
+              // …and SINCE WHEN. `DateCell` because this column is read DOWN — which of
+              // these has been stuck longest — rather than one stamp against now (§6).
+              { key: 'since', label: t(locale, 'cdSinceHeader'), sortType: 'date' },
               { key: 'status', label: t(locale, 'statusLabel'), sortable: false },
             ]}
             data={liveConstraints}
             paginate={false}
-            // Empty: keep the most-blocking-first order dashboardData already applied.
+            // Empty: keep the worst-first order dashboardData already applied.
             defaultSortKey=""
             renderRow={(c: LiveConstraint) => {
               // Gating more than one live SOP is what makes a phase *primary*; a phase
               // gating one is still genuinely on a chain, just not the leverage point.
               const isPrimary = c.programs.length > 1;
+              const { insight } = c.worst;
               return (
                 <tr key={c.phaseName} className={isPrimary ? styles.constraintHighlight : undefined}>
                   <th scope="row">{c.phaseName}</th>
@@ -136,11 +158,34 @@ export default function EcosystemSummaryClient({
                       {c.programs.map((prog, i) => (
                         <span key={prog.id}>
                           {i > 0 && ', '}
-                          <Link href={`/programs/${prog.id}`}>{prog.name}</Link>
+                          <Link href={programHref(prog.id)}>{prog.name}</Link>
                         </span>
                       ))}
                     </div>
                   </td>
+                  <td>
+                    {/* The diagnosis, from lib/chainInsights — the ledger's own Situation
+                        packets, which until now rendered on exactly one screen. The phase
+                        link goes to the CARD in the program the diagnosis is about, so
+                        "why" is one click from the evidence. */}
+                    <Link href={insight.href} className={styles.diagnosisWhy}>
+                      {t(locale, insight.symptom.key, insight.symptom.values)}
+                    </Link>
+                    {/* Provenance, not a measure (§6 counts measures, and a basis is not
+                        one): whether the number above was read off two real dates or
+                        computed against a duration somebody typed in. Never the ✦ mark —
+                        that flags authorship of PROSE, and reaching for it here would be
+                        laundering a derived number as an opinion (§8). */}
+                    <div className={styles.diagnosisBasis}>
+                      {t(locale, insight.symptom.basis === 'measured' ? 'cdBasisMeasured' : 'cdBasisEstimated')}
+                      {c.diagnoses.length > 1 && (
+                        <> · {t(locale, 'cdWorstOf', { n: c.diagnoses.length })}</>
+                      )}
+                    </div>
+                  </td>
+                  {/* Blank when genuinely unknown — a phase that has not started has no
+                      date to state, and a first-seen timestamp would be invented. */}
+                  <td><DateCell value={insight.since} /></td>
                   <td>
                     <span className={isPrimary ? styles.badgeDanger : styles.badgeWarn}>
                       {t(locale, isPrimary ? 'primaryConstraint' : 'onCriticalChain')}
