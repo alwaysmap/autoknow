@@ -574,40 +574,96 @@ describe('the Next-steps floor', () => {
 });
 
 describe('buildBusiestResources', () => {
+  // Windows, in days from D0. Alice's three programs all want her across an overlapping
+  // stretch; Bosch's two do not meet at all — which is the distinction the section used
+  // to ASSERT ("one calendar driving many SOPs") over a row shape carrying no time data.
+  const win = (from: number, to: number) => ({ startMs: day(from), endMs: day(to) });
   const rows = buildBusiestResources([
     {
       programId: 1, programName: 'Gemini X', bufferDays: 47, fourWeekDeltaDays: -14,
       volumeFirstYear: 120_000, products: ['GAS', 'GBI'],
       resources: [
-        { kind: 'person', id: 5, name: 'Alice Chen', onConstraint: true },
-        { kind: 'partner', id: 9, name: 'Bosch', onConstraint: false },
+        { kind: 'person', id: 5, name: 'Alice Chen', onConstraint: true, ...win(0, 60) },
+        { kind: 'partner', id: 9, name: 'Bosch', onConstraint: false, ...win(0, 20) },
       ],
     },
     {
       programId: 2, programName: 'Polaris EV', bufferDays: 12, fourWeekDeltaDays: -9,
       volumeFirstYear: 60_000, products: ['GBI'],
-      resources: [{ kind: 'person', id: 5, name: 'Alice Chen', onConstraint: true }],
+      resources: [{ kind: 'person', id: 5, name: 'Alice Chen', onConstraint: true, ...win(30, 90) }],
     },
     {
       programId: 3, programName: 'Meridian', bufferDays: 21, fourWeekDeltaDays: -6,
       volumeFirstYear: 45_000, products: [],
       resources: [
-        { kind: 'partner', id: 9, name: 'Bosch', onConstraint: true },
-        { kind: 'person', id: 5, name: 'Alice Chen', onConstraint: false },
+        // Bosch's second window starts long after its first ends: two demands, no collision.
+        { kind: 'partner', id: 9, name: 'Bosch', onConstraint: true, ...win(200, 260) },
+        { kind: 'person', id: 5, name: 'Alice Chen', onConstraint: false, ...win(40, 70) },
       ],
     },
     {
       programId: 4, programName: 'Nova', bufferDays: 34, fourWeekDeltaDays: 0,
       volumeFirstYear: 0, products: [],
-      resources: [{ kind: 'person', id: 6, name: 'Sofia Marin', onConstraint: false }],
+      resources: [{ kind: 'person', id: 6, name: 'Sofia Marin', onConstraint: false, ...win(0, 30) }],
     },
   ]);
 
-  it('aggregates each resource across programs, most exposure first', () => {
+  it('aggregates each resource across programs, over-committed first', () => {
+    // Alice is over-committed (3 at once against a person's threshold of 2); nobody else
+    // is. This replaced the `exposure` order — days × units, never displayed — so the
+    // basis of the ranking is now a number the reader can see in a column.
     expect(rows.map((r) => r.name)).toEqual(['Alice Chen', 'Bosch', 'Sofia Marin']);
     const alice = rows[0];
     expect(alice.constraintIn.map((p) => p.programName)).toEqual(['Gemini X', 'Polaris EV']);
     expect(alice.alsoActiveIn.map((p) => p.programName)).toEqual(['Meridian']);
+  });
+
+  it('COMPUTES the collision instead of asserting it', () => {
+    const alice = rows[0];
+    // Gemini 0–60, Polaris 30–90, Meridian 40–70: all three are live between day 40 and
+    // day 60, which is the peak.
+    expect(alice.peak).toEqual({ startMs: day(40), endMs: day(60), programCount: 3 });
+    expect(alice.concurrent).toBe(3);
+    expect(alice.overCommitted).toBe(true);
+    expect(alice.demands.map((d) => d.programName)).toEqual(['Gemini X', 'Polaris EV', 'Meridian']);
+  });
+
+  it('says so when the windows never actually meet', () => {
+    // Bosch is on two programs — the old row shape called that "at once". Its windows are
+    // 180 days apart, so there is no overlap, and `null` is the answer rather than a
+    // number nobody computed.
+    const bosch = rows.find((r) => r.name === 'Bosch')!;
+    expect(bosch.demands).toHaveLength(2);
+    expect(bosch.peak).toBeNull();
+    // TWO programs, but never two AT ONCE. The old row shape could not tell these apart,
+    // and they are opposite decisions.
+    expect(bosch.concurrent).toBe(1);
+    expect(bosch.overCommitted).toBe(false);
+  });
+
+  it('counts a person and a company against different thresholds', () => {
+    const two = (kind: 'person' | 'partner') => buildBusiestResources([
+      { programId: 1, programName: 'A', bufferDays: 10, fourWeekDeltaDays: 0, volumeFirstYear: 0, products: [],
+        resources: [{ kind, id: 1, name: 'X', onConstraint: true, ...win(0, 50) }] },
+      { programId: 2, programName: 'B', bufferDays: 10, fourWeekDeltaDays: 0, volumeFirstYear: 0, products: [],
+        resources: [{ kind, id: 1, name: 'X', onConstraint: true, ...win(10, 60) }] },
+    ])[0];
+    expect(two('person')).toMatchObject({ concurrent: 2, overCommitted: true });
+    expect(two('partner')).toMatchObject({ concurrent: 2, overCommitted: false });
+  });
+
+  it('treats a handoff as a handoff, not a collision', () => {
+    // One window ends the day the next begins. The schedule dates transitions to the day,
+    // so counting that instant as two-at-once would manufacture an overlap out of a clean
+    // baton pass.
+    const row = buildBusiestResources([
+      { programId: 1, programName: 'A', bufferDays: 10, fourWeekDeltaDays: 0, volumeFirstYear: 0, products: [],
+        resources: [{ kind: 'person', id: 1, name: 'X', onConstraint: true, ...win(0, 30) }] },
+      { programId: 2, programName: 'B', bufferDays: 10, fourWeekDeltaDays: 0, volumeFirstYear: 0, products: [],
+        resources: [{ kind: 'person', id: 1, name: 'X', onConstraint: true, ...win(30, 60) }] },
+    ])[0];
+    expect(row.peak).toBeNull();
+    expect(row.overCommitted).toBe(false);
   });
 
   it('carries the decision facts: deltas, volumes, products, movable slack', () => {

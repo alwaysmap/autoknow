@@ -5,7 +5,10 @@ import Link from 'next/link';
 import { t, Locale } from '../lib/i18n';
 import { tNodes, joinNodes } from './tNodes';
 import AnchorHeading from './AnchorHeading';
+import ClassBox from './ClassBox';
 import DataTable from './DataTable';
+import DateCell from './DateCell';
+import InfoPopover from './InfoPopover';
 import PersonCell from './PersonCell';
 import { partnerHref } from '../lib/entityHref';
 import type { BusiestRow, BusiestProgramRef } from '../lib/chainLedger';
@@ -63,6 +66,9 @@ const losingBuffer = (r: BusiestRow) => r.constraintIn.some((p) => (p.fourWeekDe
 
 export default function BusiestResources({ locale, rows }: BusiestResourcesProps) {
   const [showQuiet, setShowQuiet] = useState(false);
+  // Controlled so a Kind cell CLICK sets its column's filter — design.md §6: a class
+  // filters its own column on click, and an inert ClassBox is a bug.
+  const [filters, setFilters] = useState<Record<string, string[]>>({});
 
   // Everything this section will CONSIDER showing: gating an SOP somewhere, or split
   // across several programs at once, capped and already ranked by exposure. Which of
@@ -117,29 +123,78 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
 
   return (
     <section className={styles.wrapper} data-testid="busiest-resources">
-      <AnchorHeading id="busiest-resources" className={styles.title}>
+      <AnchorHeading
+        id="busiest-resources"
+        className={styles.title}
+        actions={
+          /* WHERE THE NUMBERS COME FROM, said ONCE and structurally rather than hedged
+             into every sentence (#140's open question D). The pattern is the constraint
+             panel's (#148): a section that derives advice from estimate-based inputs owes
+             the reader the basis of what it derives, and a per-row disclaimer would
+             drown the rows. */
+          <InfoPopover label={t(locale, 'aboutSection', { s: t(locale, 'clBusiest') })}>
+            <p>{t(locale, 'clBusiestMethod')}</p>
+          </InfoPopover>
+        }
+      >
         {t(locale, 'clBusiest')}
       </AnchorHeading>
       <p className={styles.intro}>{t(locale, 'clBusiestIntro')}</p>
       <DataTable
         headers={[
           { key: 'name', label: t(locale, 'clWho') },
+          // A CLASS, so it filters its own column and never navigates (design.md §6).
+          // This is #140's "in structure, not only in copy": one calendar and many
+          // calendars are different claims, and the reader can now separate them.
+          {
+            key: 'kind', label: t(locale, 'clKindHeader'), filterable: true,
+            filterLabel: (v) => t(locale, v === 'person' ? 'clKindPerson' : 'clKindPartner'),
+          },
           // Sorting a cell that holds a LIST of programs would order rows by an
-          // arbitrary member of that list; the rows already arrive ranked by exposure.
+          // arbitrary member of that list; the rows already arrive worst-first.
           { key: 'constraintIn', label: t(locale, 'clGatingSop'), sortable: false },
           { key: 'alsoActiveIn', label: t(locale, 'clAlsoActiveIn'), sortable: false },
-          { key: 'exposure', label: t(locale, 'clBufferChange'), sortable: false },
+          // The single most decision-relevant fact on the row, and until now it existed
+          // only as a count of links the reader performed by eye.
+          { key: 'concurrent', label: t(locale, 'clConcurrentHeader') },
+          // WHEN the demands collide — computed, not asserted. The section's intro used
+          // to say "one calendar driving many SOPs" over a row shape carrying no time
+          // data at all.
+          { key: 'peak', label: t(locale, 'clOverlapHeader'), sortable: false },
+          // `bufferChange` names no field on BusiestRow: with `sortable: false` and no
+          // funnel the key is React identity only. It becomes a live row path the moment
+          // someone makes this column sortable or filterable — change it then.
+          { key: 'bufferChange', label: t(locale, 'clBufferChange'), sortable: false },
         ]}
         data={shown}
+        filters={filters}
+        onFiltersChange={setFilters}
         paginate={false}
-        // Empty: keep the exposure order buildBusiestResources already applied.
+        // Empty: keep the worst-first order buildBusiestResources already applied.
         defaultSortKey=""
         renderRow={(r: BusiestRow) => {
-          const consider = considerFor.get(r);
+          const consider = considerFor.get(r) ?? null;
+          // "Flagging this, no recommendation" is said OUT LOUD rather than left as a
+          // blank row (AGENTS lesson 5). A row here earns its space either by carrying
+          // advice or by gating an SOP that is actively slipping; the second kind is the
+          // constraint nobody can rebalance, which is the most important row in the
+          // section and used to be the silent one.
+          const advice: React.ReactNode | null =
+            consider ?? (losingBuffer(r) ? t(locale, 'clNoRecommendation') : null);
           return (
             <React.Fragment key={rowKey(r)}>
               <tr className={consider ? styles.hasConsider : undefined}>
                 <th scope="row"><RowLink row={r} /></th>
+                <td>
+                  <button
+                    type="button"
+                    className={styles.kindFilterBtn}
+                    onClick={() => setFilters({ ...filters, kind: [r.kind] })}
+                    title={t(locale, 'filterColumn', { c: t(locale, 'clKindHeader') })}
+                  >
+                    <ClassBox>{t(locale, r.kind === 'person' ? 'clKindPerson' : 'clKindPartner')}</ClassBox>
+                  </button>
+                </td>
                 <td>
                   {r.constraintIn.length === 0
                     ? <span className={styles.muted}>—</span>
@@ -167,6 +222,35 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
                       </>
                     )}
                 </td>
+                {/* CONCURRENCY, as a number. A person has ONE calendar, so two at once
+                    is already the finding; a company has many people, so the same two is
+                    a question about their staffing plan. Same cell, different threshold
+                    (`CONCURRENCY_THRESHOLD`) and a different claim — the distinction the
+                    copy half-knew and the structure never carried. */}
+                <td className={styles.num}>
+                  <span className={r.overCommitted ? styles.loss : undefined}>{r.concurrent}</span>
+                  <span className={styles.muted}>
+                    {' '}
+                    {t(locale, r.overCommitted
+                      ? (r.kind === 'person' ? 'clConcurrentOverPerson' : 'clConcurrentOverPartner')
+                      : 'clConcurrentOk')}
+                  </span>
+                </td>
+                {/* WHEN they collide — the fact that makes the section actionable, and
+                    the one it used to assert without computing. `null` is a real answer
+                    and says so: two programs wanting somebody in Q1 '27 and Q4 '28 no
+                    longer render like two that both want them next month. */}
+                <td>
+                  {r.peak
+                    ? (
+                      <span className={styles.overlapWindow}>
+                        <DateCell value={new Date(r.peak.startMs).toISOString()} />
+                        {' – '}
+                        <DateCell value={new Date(r.peak.endMs).toISOString()} />
+                      </span>
+                    )
+                    : <span className={styles.muted}>{t(locale, 'clNoOverlap')}</span>}
+                </td>
                 <td className={styles.num}>
                   {r.constraintIn.length === 0
                     ? <span className={styles.muted}>{t(locale, 'clNoChangeCell')}</span>
@@ -186,9 +270,9 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
                     ))}
                 </td>
               </tr>
-              {consider && (
+              {advice && (
                 <tr className={styles.consider}>
-                  <td colSpan={4}>{consider}</td>
+                  <td colSpan={7}>{advice}</td>
                 </tr>
               )}
             </React.Fragment>

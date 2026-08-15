@@ -21,8 +21,17 @@ export interface ProgramLedgerBundle {
   phases: LedgerPhaseInput[];
   states: StateTuple[];
   ledger: ChainLedgerResult;
-  /** Involvement on unfinished planned-chain phases, for the busiest aggregation. */
-  chainResources: { kind: 'partner' | 'person'; id: number; name: string; onConstraint: boolean }[];
+  /** Involvement on unfinished planned-chain phases, for the busiest aggregation. Each
+   *  carries the DEMAND WINDOW this program places on that resource — the hull of the
+   *  schedule rows of the unfinished chain phases they are named on (#140). Without it
+   *  "busy at once" means only "appears in these programs", and two programs wanting the
+   *  same person in Q1 '27 and Q4 '28 look exactly like two that both want her next
+   *  month. The windows cost nothing new: `ledger.schedule` already dates every phase to
+   *  the day, actual or projected. */
+  chainResources: {
+    kind: 'partner' | 'person'; id: number; name: string; onConstraint: boolean;
+    startMs: number; endMs: number;
+  }[];
 }
 
 type PhaseWithLinks = {
@@ -107,30 +116,39 @@ export async function getProgramLedgers(now: number, programIds?: number[]): Pro
       ledger.plannedChain.path.filter((id) => (phases.find((p) => p.id === id)?.progress ?? 0) < 100),
     );
     const chainResources: ProgramLedgerBundle['chainResources'] = [];
-    const seen = new Set<string>();
+    const rowOf = new Map(ledger.schedule.map((r) => [r.id, r]));
     for (const ph of proj.phases as PhaseWithLinks[]) {
       if (!unfinishedChain.has(ph.id)) continue;
       const onConstraint = ledger.liveConstraintId === ph.id;
+      // The phase's own window, actual or projected — the schedule dates every row to
+      // the day. A chain phase always has a row; the guard keeps the claim local.
+      const row = rowOf.get(ph.id);
+      if (!row) continue;
+      const span = { startMs: row.startMs, endMs: row.endMs };
       for (const link of ph.partners) {
-        const key = `partner:${link.partnerId}`;
-        if (seen.has(key) && !onConstraint) continue;
-        seen.add(key);
-        chainResources.push({ kind: 'partner', id: link.partnerId, name: link.partner.name, onConstraint });
+        chainResources.push({ kind: 'partner', id: link.partnerId, name: link.partner.name, onConstraint, ...span });
       }
       for (const link of ph.people) {
-        const key = `person:${link.personId}`;
-        if (seen.has(key) && !onConstraint) continue;
-        seen.add(key);
-        chainResources.push({ kind: 'person', id: link.personId, name: link.person.name, onConstraint });
+        chainResources.push({ kind: 'person', id: link.personId, name: link.person.name, onConstraint, ...span });
       }
     }
-    // A resource can appear twice (constraint + non-constraint phase): keep the
-    // constraint entry only, so the aggregation counts each program once per resource.
+    // A resource can appear on several unfinished chain phases. Keep ONE entry per
+    // resource per program — the aggregation counts a program once per resource — but
+    // take the HULL of their windows, not the first one seen: somebody named on two
+    // phases either side of the chain is wanted for the whole stretch, and reporting
+    // only the first would understate the collision this is being computed for.
+    // `onConstraint` still wins on the flag, as before.
     const deduped = new Map<string, ProgramLedgerBundle['chainResources'][number]>();
     for (const r of chainResources) {
       const key = `${r.kind}:${r.id}`;
       const prev = deduped.get(key);
-      if (!prev || (r.onConstraint && !prev.onConstraint)) deduped.set(key, r);
+      if (!prev) { deduped.set(key, r); continue; }
+      deduped.set(key, {
+        ...prev,
+        onConstraint: prev.onConstraint || r.onConstraint,
+        startMs: Math.min(prev.startMs, r.startMs),
+        endMs: Math.max(prev.endMs, r.endMs),
+      });
     }
 
     return {

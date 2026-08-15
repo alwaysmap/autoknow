@@ -2474,11 +2474,56 @@ const STRINGS = {
   },
   // Ecosystem: busiest people and partners
   clBusiest: { en: 'Possible Resource Constraints', de: 'Mögliche Ressourcenengpässe', ja: 'リソース制約の可能性', ko: '잠재적 리소스 제약' },
+  // "at once" is now COMPUTED (#140), so the intro is allowed to claim it. It used to say
+  // "one calendar driving many SOPs" over a row shape carrying no time data at all — two
+  // programs wanting somebody in Q1 '27 and Q4 '28 rendered exactly like two that both
+  // wanted them next month.
   clBusiestIntro: {
-    en: 'The people and partners several programs depend on at once — one calendar driving many SOPs.',
-    de: 'Personen und Partner, von denen mehrere Programme gleichzeitig abhängen — ein Kalender bestimmt viele SOPs.',
-    ja: '複数のプログラムが同時に依存する人とパートナー — 一つのカレンダーが多くのSOPを左右します。',
-    ko: '여러 프로그램이 동시에 의존하는 사람과 파트너 — 하나의 일정이 여러 SOP를 좌우합니다.',
+    en: 'The people and partners several programs lean on — with how many demands actually overlap in time, and when.',
+    de: 'Personen und Partner, auf die sich mehrere Programme stützen — mit der Anzahl der zeitlich tatsächlich überlappenden Ansprüche und wann.',
+    ja: '複数のプログラムが頼っている人とパートナー — 実際に時期が重なっている依頼の数と、その時期。',
+    ko: '여러 프로그램이 기대고 있는 사람과 파트너 — 실제로 시기가 겹치는 요구의 수와 그 시기.',
+  },
+  clBusiestMethod: {
+    en: 'A row appears when someone is named on an unfinished phase of a program\'s critical chain. "Concurrent" is the largest number of programs whose demand windows are live at the same time — computed from the chain schedule, not from how many programs the name appears in. Those windows come from phase durations somebody typed in, so treat the dates as a shape rather than a commitment; a window that is one week out is not different from one that is two. A person has one calendar, so two at once is already worth asking about; a company has many people, so the same two is a question about their staffing plan rather than evidence of overload — the two kinds are counted against different thresholds. Nothing here models capacity, allocations or FTEs.',
+    de: 'Eine Zeile erscheint, wenn jemand einer unabgeschlossenen Phase der kritischen Kette eines Programms zugeordnet ist. „Gleichzeitig“ ist die größte Anzahl von Programmen, deren Bedarfsfenster zur selben Zeit laufen — berechnet aus dem Kettenplan, nicht daraus, in wie vielen Programmen der Name vorkommt. Diese Fenster stammen aus eingegebenen Phasendauern; die Daten sind also eine Form, keine Zusage — ein Fenster eine Woche daneben unterscheidet sich nicht von einem zwei Wochen daneben. Eine Person hat einen Kalender, zwei gleichzeitig sind daher schon eine Nachfrage wert; ein Unternehmen hat viele Menschen, dieselben zwei sind dort eine Frage zum Besetzungsplan statt ein Beleg für Überlastung — beide Arten werden gegen unterschiedliche Schwellen gezählt. Kapazität, Zuteilungen oder FTE werden hier nicht modelliert.',
+    ja: 'あるプログラムのクリティカルチェーン上の未完了フェーズに名前が挙がっている場合に行が表示されます。「同時」とは、需要期間が同じ時期に重なっているプログラムの最大数で、名前が登場するプログラム数ではなくチェーンのスケジュールから計算しています。これらの期間は人が入力したフェーズ期間に基づくため、日付は約束ではなく傾向として扱ってください（1週間のずれと2週間のずれに本質的な差はありません）。人のカレンダーは一つなので同時2件でも確認の価値がありますが、企業には多くの人がいるため同じ2件は過負荷の証拠ではなく体制計画への問いです — 両者は異なるしきい値で判定しています。ここでキャパシティや要員配分（FTE）をモデル化してはいません。',
+    ko: '어떤 프로그램의 크리티컬 체인에서 끝나지 않은 단계에 이름이 올라 있으면 행이 표시됩니다. "동시"는 수요 기간이 같은 시기에 겹치는 프로그램의 최대 수이며, 이름이 등장하는 프로그램 수가 아니라 체인 일정에서 계산합니다. 이 기간은 사람이 입력한 단계 기간에서 나오므로 날짜는 약속이 아니라 형태로 보세요 — 1주 어긋난 것과 2주 어긋난 것은 본질적으로 다르지 않습니다. 사람은 일정이 하나뿐이라 동시 2건도 물어볼 가치가 있지만, 회사는 사람이 많아 같은 2건은 과부하의 증거가 아니라 인력 계획에 대한 질문입니다 — 두 종류는 서로 다른 기준으로 셉니다. 여기서 용량이나 인력 배분(FTE)을 모델링하지는 않습니다.',
+  },
+  clKindHeader: { en: 'Kind', de: 'Art', ja: '種別', ko: '종류' },
+  clKindPerson: { en: 'Person', de: 'Person', ja: '個人', ko: '개인' },
+  clKindPartner: { en: 'Company', de: 'Unternehmen', ja: '企業', ko: '회사' },
+  clConcurrentHeader: { en: 'Concurrent', de: 'Gleichzeitig', ja: '同時', ko: '동시' },
+  clOverlapHeader: { en: 'They overlap', de: 'Überschneidung', ja: '重なる時期', ko: '겹치는 시기' },
+  // The verdict beside the number, and the whole reason the threshold differs by kind.
+  clConcurrentOverPerson: {
+    en: 'at once — one calendar',
+    de: 'gleichzeitig — ein Kalender',
+    ja: '同時 — カレンダーは一つ',
+    ko: '동시 — 일정은 하나',
+  },
+  clConcurrentOverPartner: {
+    en: 'at once — ask about their staffing',
+    de: 'gleichzeitig — nach der Besetzung fragen',
+    ja: '同時 — 体制を確認',
+    ko: '동시 — 인력 배치 확인',
+  },
+  clConcurrentOk: { en: 'at once', de: 'gleichzeitig', ja: '同時', ko: '동시' },
+  // The honest null. This is the fact the section used to assert without computing.
+  clNoOverlap: {
+    en: 'their windows never meet',
+    de: 'die Fenster treffen nie zusammen',
+    ja: '期間は重なりません',
+    ko: '기간이 겹치지 않습니다',
+  },
+  // A row that earns its space by gating a slipping SOP, with nothing to suggest. Said
+  // out loud rather than left blank: an honest "we do not know, go and ask" is more use
+  // than a confident recommendation the data cannot carry.
+  clNoRecommendation: {
+    en: 'Flagged as an ecosystem risk. Nothing here says what to shift — no other program this resource is on has slack to give, so this one is worth asking about rather than solving from a table.',
+    de: 'Als Ökosystem-Risiko markiert. Hier steht nicht, was zu verschieben wäre — kein anderes Programm dieser Ressource hat Spielraum abzugeben, also lohnt hier eine Rückfrage statt einer Lösung aus der Tabelle.',
+    ja: 'エコシステム上のリスクとして記録しています。何を動かすべきかはここからは言えません — このリソースが関わる他のプログラムに融通できる余裕がないため、表から解決するのではなく確認する価値があります。',
+    ko: '생태계 위험으로 표시했습니다. 무엇을 옮겨야 하는지는 여기서 말할 수 없습니다 — 이 리소스가 관여한 다른 프로그램에 내줄 여유가 없으므로, 표에서 해결하기보다 직접 물어볼 가치가 있습니다.',
   },
   clWho: { en: 'Who', de: 'Wer', ja: '誰', ko: '누구' },
   clGatingSop: { en: 'Currently gating the SOP of', de: 'Bestimmt derzeit den SOP von', ja: '現在SOPを左右', ko: '현재 SOP를 좌우' },
@@ -2513,11 +2558,15 @@ const STRINGS = {
   },
   clUnitsIn: { en: '{units} units in {year}', de: '{units} Einheiten in {year}', ja: '{year}に{units}台', ko: '{year}에 {units}대' },
   clNMore: { en: '{n} more', de: '{n} weitere', ja: '他{n}件', ko: '외 {n}건' },
+  // Phrased as a QUESTION, not a finding (#140 gap 4). Every buffer figure inside it is a
+  // typed-in estimate compounded through the chain, and the previous wording — "shifting
+  // it protects the falling SOPs at the least cost" — stated a heuristic as a conclusion.
+  // The basis is declared once in the section's ⓘ; what changes here is the mood.
   clConsiderPerson: {
-    en: "Consider: {name}'s movable time is in {programs} — shifting it protects the falling SOPs at the least cost.",
-    de: 'Erwägen: Die verlagerbare Zeit von {name} liegt in {programs} — sie zu verschieben schützt die fallenden SOPs mit dem geringsten Aufwand.',
-    ja: '検討: {name}の融通可能な時間は{programs}にあります — そこから移すのが最小コストで悪化中のSOPを守れます。',
-    ko: '고려: {name}의 옮길 수 있는 시간은 {programs}에 있습니다 — 이를 옮기면 최소 비용으로 악화 중인 SOP를 지킬 수 있습니다.',
+    en: "Worth asking: {name}'s movable time is in {programs} — would shifting some of it protect the falling SOPs?",
+    de: 'Wert zu fragen: Die verlagerbare Zeit von {name} liegt in {programs} — würde eine Verschiebung die fallenden SOPs schützen?',
+    ja: '確認する価値: {name}の融通可能な時間は{programs}にあります — 一部を移せば悪化中のSOPを守れるでしょうか。',
+    ko: '물어볼 만한 것: {name}의 옮길 수 있는 시간은 {programs}에 있습니다 — 일부를 옮기면 악화 중인 SOP를 지킬 수 있을까요?',
   },
   clConsiderTiebreak: {
     en: "If all can't be protected, decide which program gets their time: {program} carries the most volume.",
@@ -2526,7 +2575,7 @@ const STRINGS = {
     ko: '모두 지킬 수 없다면 어느 프로그램에 시간을 줄지 정해야 합니다: 물량이 가장 큰 곳은 {program}입니다.',
   },
   clConsiderPartner: {
-    en: 'Consider: one company is active in {n} programs — ask {name} for their staffing plan. {program} is the only SOP they gate today; a named team there closes the biggest exposure.',
+    en: 'Worth asking: one company is active in {n} programs — ask {name} for their staffing plan. {program} is the only SOP they gate today, so a named team there is the obvious thing to ask for.',
     de: 'Erwägen: Ein Unternehmen ist in {n} Programmen aktiv — {name} nach dem Besetzungsplan fragen. {program} ist der einzige SOP, den sie derzeit bestimmen; ein benanntes Team dort schließt das größte Risiko.',
     ja: '検討: 一社で{n}件のプログラムに関与 — {name}に体制計画を確認しましょう。現在SOPを左右しているのは{program}のみで、そこへの専任チームが最大のリスクを解消します。',
     ko: '고려: 한 회사가 {n}개 프로그램에 관여 중 — {name}에 인력 계획을 요청하세요. 현재 SOP를 좌우하는 곳은 {program}뿐이며, 그곳의 전담 팀이 가장 큰 위험을 해소합니다.',

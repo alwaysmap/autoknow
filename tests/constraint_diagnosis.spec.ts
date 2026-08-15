@@ -105,7 +105,7 @@ test.describe('the constraint panel says why, not just where', () => {
     const panel = page.locator('section', { hasText: 'Flow Constraint Diagnosis' }).first();
 
     const clean = panel.locator('tr', { hasText: 'Bring-up' });
-    await expect(clean).toContainText('with nothing wrong');
+    await expect(clean).toContainText('Nothing wrong — just the longest remaining step');
     await expect(clean).toContainText('Nova Compact AAOS');
     // A clean row's basis is the honest other half of the pair: nothing here is being
     // compared against a guess.

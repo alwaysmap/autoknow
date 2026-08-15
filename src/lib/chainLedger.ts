@@ -570,8 +570,12 @@ export interface BusiestProgramInput {
   volumeFirstYear: number;
   products: string[];
   sopDate?: string | null;
-  /** Resources involved in this program's UNFINISHED chain phases. */
-  resources: { kind: 'partner' | 'person'; id: number; name: string; onConstraint: boolean }[];
+  /** Resources involved in this program's UNFINISHED chain phases, each with the DEMAND
+   *  WINDOW this program places on them (#140) — see `ProgramLedgerBundle`. */
+  resources: {
+    kind: 'partner' | 'person'; id: number; name: string; onConstraint: boolean;
+    startMs: number; endMs: number;
+  }[];
 }
 
 export interface BusiestProgramRef {
@@ -584,6 +588,36 @@ export interface BusiestProgramRef {
   sopDate?: string | null;
 }
 
+/** One program's claim on a resource's calendar — what makes "at once" computable. */
+export interface BusiestDemand {
+  programId: number;
+  programName: string;
+  startMs: number;
+  endMs: number;
+}
+
+/** The worst stretch: the window where the most demands are live at the same time. */
+export interface BusiestOverlap {
+  startMs: number;
+  endMs: number;
+  /** How many programs want this resource across that whole window. Always ≥ 2 — a
+   *  single demand is not an overlap, and reporting it as one is the assertion this
+   *  whole computation replaces. */
+  programCount: number;
+}
+
+/**
+ * WHEN a person or partner is genuinely over-committed, by KIND (#140).
+ *
+ * A person has ONE calendar, so two programs wanting them in the same weeks is already
+ * the finding. A company has many people, so N concurrent programs may be entirely
+ * normal — it is a question about their staffing plan, not evidence of overload. The
+ * distinction used to live only in the copy (`clConsiderPerson` vs `clConsiderPartner`)
+ * while the row shape, the threshold and the ranking were identical, so it never reached
+ * the reader as structure. Here it is the structure.
+ */
+export const CONCURRENCY_THRESHOLD: Record<'partner' | 'person', number> = { person: 2, partner: 3 };
+
 export interface BusiestRow {
   kind: 'partner' | 'person';
   id: number;
@@ -592,7 +626,52 @@ export interface BusiestRow {
   alsoActiveIn: BusiestProgramRef[];
   movable: BusiestProgramRef[]; // non-constraint programs with buffer to give, richest first
   gatesSingleSop: boolean;
-  exposure: number; // Σ buffer-loss × volume over constraint programs — the sort key
+  /** Every program's window on this resource — the raw material for `peak`. */
+  demands: BusiestDemand[];
+  /** The peak simultaneous demand, or null when the windows never actually meet. Null is
+   *  a REAL answer and the point of the whole field: two programs that need Priya in
+   *  Q1 '27 and Q4 '28 used to render identically to two that both need her next month. */
+  peak: BusiestOverlap | null;
+  /** How many programs want this resource AT THE SAME TIME — `peak.programCount`, or 1
+   *  when they are all sequential (0 when there is no demand at all). The number the row
+   *  STATES: concurrency is the WIP signal, and it used to exist only as a count of links
+   *  the reader performed by eye — a count that said "three programs" whether or not any
+   *  two of them ever wanted this person in the same week. */
+  concurrent: number;
+  /** `concurrent` against this kind's threshold. The row's verdict, computed rather than
+   *  worded. */
+  overCommitted: boolean;
+}
+
+/**
+ * The maximal-overlap window over a set of intervals, by sweep: every start is +1, every
+ * end is −1, and the widest run at the highest depth wins. Ends are treated as INCLUSIVE
+ * of their day — a phase ending the day another begins is a handoff, not a collision, and
+ * the schedule dates transitions to the day — so a start strictly after an end does not
+ * count as overlapping it.
+ */
+function peakOverlap(demands: BusiestDemand[]): BusiestOverlap | null {
+  if (demands.length < 2) return null;
+  const events = demands
+    .flatMap((d) => [{ at: d.startMs, delta: 1 }, { at: d.endMs, delta: -1 }])
+    // A start and an end at the same instant: process the END first, so back-to-back
+    // work does not read as two things at once.
+    .sort((a, b) => a.at - b.at || a.delta - b.delta);
+
+  let depth = 0;
+  let best: BusiestOverlap | null = null;
+  for (let i = 0; i < events.length; i++) {
+    depth += events[i].delta;
+    const next = events[i + 1];
+    if (!next || depth < 2) continue;
+    const span = { startMs: events[i].at, endMs: next.at, programCount: depth };
+    if (!best
+      || span.programCount > best.programCount
+      || (span.programCount === best.programCount && span.endMs - span.startMs > best.endMs - best.startMs)) {
+      best = span;
+    }
+  }
+  return best;
 }
 
 export function buildBusiestResources(programs: BusiestProgramInput[]): BusiestRow[] {
@@ -607,24 +686,45 @@ export function buildBusiestResources(programs: BusiestProgramInput[]): BusiestR
       const key = `${res.kind}:${res.id}`;
       const row = byKey.get(key) ?? {
         kind: res.kind, id: res.id, name: res.name,
-        constraintIn: [], alsoActiveIn: [], movable: [], gatesSingleSop: false, exposure: 0,
+        constraintIn: [], alsoActiveIn: [], movable: [], gatesSingleSop: false,
+        demands: [], peak: null, concurrent: 0, overCommitted: false,
       };
       (res.onConstraint ? row.constraintIn : row.alsoActiveIn).push(ref);
+      row.demands.push({
+        programId: prog.programId, programName: prog.programName,
+        startMs: res.startMs, endMs: res.endMs,
+      });
       byKey.set(key, row);
     }
   }
   const rows = [...byKey.values()];
   for (const row of rows) {
     row.constraintIn.sort((a, b) => b.volumeFirstYear - a.volumeFirstYear || (a.fourWeekDeltaDays ?? 0) - (b.fourWeekDeltaDays ?? 0));
-    row.exposure = row.constraintIn.reduce(
-      (sum, p) => sum + Math.max(0, -(p.fourWeekDeltaDays ?? 0)) * Math.max(1, p.volumeFirstYear), 0,
-    );
+    row.demands.sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs);
+    row.peak = peakOverlap(row.demands);
+    // No overlap means never more than one at a time — NOT "as many as there are
+    // programs". Collapsing those two is the defect: three sequential demands and three
+    // simultaneous ones are the same row under the old reading and opposite decisions
+    // under this one.
+    row.concurrent = row.peak?.programCount ?? Math.min(1, row.demands.length);
+    row.overCommitted = row.concurrent >= CONCURRENCY_THRESHOLD[row.kind];
     row.movable =
       row.constraintIn.length === 0
         ? []
         : row.alsoActiveIn.filter((p) => (p.bufferDays ?? 0) > 0).sort((a, b) => (b.bufferDays ?? 0) - (a.bufferDays ?? 0));
     row.gatesSingleSop = row.constraintIn.length === 1;
   }
-  rows.sort((a, b) => b.exposure - a.exposure || a.name.localeCompare(b.name));
+  // Ranked by things a reader can SEE, in the order they are shown.
+  //
+  // This replaced `exposure` — `Σ buffer-loss × volume`, a product of two incommensurate
+  // units with no interpretation as a quantity, never displayed, so a reader could not
+  // tell why one row sat above another or by how much. The order was the only signal and
+  // its basis was invisible. Concurrency is a count of real things and it is now a
+  // column; over-commitment is that count against this kind's own threshold.
+  rows.sort((a, b) =>
+    Number(b.overCommitted) - Number(a.overCommitted)
+    || b.concurrent - a.concurrent
+    || b.constraintIn.length - a.constraintIn.length
+    || a.name.localeCompare(b.name));
   return rows;
 }

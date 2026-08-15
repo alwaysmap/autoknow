@@ -4,7 +4,7 @@ date: 2026-08-15
 supersedes: ""
 superseded-by: ""
 extends: an-insight-separates-symptom-from-action
-extended-by: ""
+extended-by: a-flagging-surface-computes-the-relationship-it-claims
 tags: [insights, critical-chain, ui, ecosystem, i18n]
 ---
 
