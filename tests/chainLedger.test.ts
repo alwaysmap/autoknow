@@ -9,6 +9,7 @@ import {
   FORECAST_NOISE_DAYS,
   SEVERE_OVERRUN_PCT,
   isSevereOverrun,
+  yieldsStep,
   type LedgerPhaseInput,
   type ChainLedgerInput,
 } from '../src/lib/chainLedger';
@@ -439,6 +440,136 @@ describe('trend replay and register', () => {
     const r = computeChainLedger({ ...input, states: undefined });
     expect(r.trend).toEqual([]);
     expect(r.fourWeekDeltaDays).toBeNull();
+  });
+});
+
+// #174. The heading over this list comes from `register` (buffer arithmetic alone) and
+// the list itself from five unrelated situation kinds, so both could be true at once and
+// the reader got "Next step" over an empty box. The floor makes `register !== 'none'` ⇒
+// at least one step an INVARIANT rather than a coincidence — which is also what closes
+// the 'act' case, safe today only because `immediateFocus` happens to feed `overrunSteps`.
+describe('the Next-steps floor', () => {
+  const floorOf = (r: ReturnType<typeof computeChainLedger>) =>
+    r.situations.find((s) => s.type === 'floorComplete' || s.type === 'floorStart' || s.type === 'floorAllFinished');
+
+  it('names the phase that could START, and the idle already charged for it', () => {
+    // The reported shape: a thin reserve says "Next step", and none of the five step
+    // conditions fires. A finishes on plan, then nothing starts for 26 days.
+    const r = computeChainLedger({
+      phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 30, 0, [1])],
+      sopDate: iso(120),
+      now: day(56),
+      states: [
+        { phaseId: 1, at: iso(0), progress: 10 },
+        { phaseId: 1, at: iso(15), progress: 50 },
+        { phaseId: 1, at: iso(30), progress: 100 },
+      ],
+    });
+    expect(r.register).toBe('plan');
+    // The phase and the day count both come from the waterfall's idle row — the same
+    // number "Where the buffer went" is printing in the column beside it, rather than a
+    // second notion of "next startable phase" derived here.
+    expect(floorOf(r)).toEqual({ type: 'floorStart', phaseId: 2, idleDays: 26 });
+  });
+
+  it('drops the idle clause when there is no idle to state', () => {
+    // A program that has simply not begun: nothing running, nothing finished, so no gap
+    // row exists. Stating "the idle has already cost 0 days" would be the plausible
+    // sentence the data cannot support (AGENTS lesson 5).
+    const r = computeChainLedger({
+      phases: [phase(1, 30, 0), phase(2, 30, 0, [1])],
+      sopDate: iso(80),
+      now: day(0),
+    });
+    expect(r.register).toBe('plan');
+    expect(floorOf(r)).toEqual({ type: 'floorStart', phaseId: 1, idleDays: 0 });
+  });
+
+  it('asks for the RUNNING phases to be completed when work is in flight', () => {
+    // The active phase is last on the chain, so there is no upcoming handoff to
+    // recommend, and it is on pace, so there is no overrun bullet either.
+    const r = computeChainLedger({
+      phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 40, 50, [1], iso(30))],
+      sopDate: iso(75),
+      now: day(50),
+    });
+    expect(r.register).toBe('plan');
+    expect(floorOf(r)).toEqual({ type: 'floorComplete', phaseIds: [2] });
+  });
+
+  it('says so honestly when there is nothing left to start OR complete', () => {
+    // Both phases finished exactly on plan, so no overrun bullet — but a long idle gap
+    // between them means the reserve was still moving four weeks ago, which is what puts
+    // the register at 'plan'. Nothing to start, nothing to complete: the one shape that
+    // would otherwise leave the invariant false.
+    const r = computeChainLedger({
+      phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 30, 100, [1], iso(85), iso(115))],
+      sopDate: iso(200),
+      now: day(120),
+      states: [
+        { phaseId: 1, at: iso(10), progress: 50 }, { phaseId: 1, at: iso(30), progress: 100 },
+        { phaseId: 2, at: iso(92), progress: 60 }, { phaseId: 2, at: iso(115), progress: 100 },
+      ],
+    });
+    expect(r.register).toBe('plan');
+    expect(r.fourWeekDeltaDays).toBe(-11);
+    expect(floorOf(r)).toEqual({ type: 'floorAllFinished' });
+  });
+
+  it('never fires as a preamble to a real step', () => {
+    // The buffer-rich program with a doubled phase: 'act', and the overrun bullet is a
+    // real step, so the floor must stay out of the way. It is a floor, not a preamble.
+    const r = computeChainLedger({
+      phases: [phase(1, 40, 50, [], iso(-60))],
+      sopDate: iso(700),
+      now: day(0),
+    });
+    expect(r.register).toBe('act');
+    expect(floorOf(r)).toBeUndefined();
+  });
+
+  it('stays out of a quiet program entirely', () => {
+    const r = computeChainLedger({
+      phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 40, 50, [1], iso(30))],
+      sopDate: iso(140),
+      now: day(40),
+    });
+    expect(r.register).toBe('none');
+    expect(r.situations.map((s) => s.type)).toEqual(['allClear']);
+  });
+
+  it('holds the invariant across every shape above: a register that asks for a step gets one', () => {
+    const shapes: ChainLedgerInput[] = [
+      // nothing started
+      { phases: [phase(1, 30, 0), phase(2, 30, 0, [1])], sopDate: iso(80), now: day(0) },
+      // idle before an unstarted phase
+      { phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 30, 0, [1])], sopDate: iso(120), now: day(56),
+        states: [{ phaseId: 1, at: iso(0), progress: 10 }, { phaseId: 1, at: iso(30), progress: 100 }] },
+      // work in flight, on pace, thin reserve
+      { phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 40, 50, [1], iso(30))], sopDate: iso(75), now: day(50) },
+      // a doubled live phase against a huge buffer
+      { phases: [phase(1, 40, 50, [], iso(-60))], sopDate: iso(700), now: day(0) },
+      // the SOP already overshot
+      { phases: [phase(1, 60, 30, [], iso(0))], sopDate: iso(20), now: day(30) },
+      // no SOP at all — nothing to be a reserve against
+      { phases: [phase(1, 30, 50, [], iso(0))], sopDate: null, now: day(10) },
+      // every phase finished, reserve still moving
+      { phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 30, 100, [1], iso(85), iso(115))],
+        sopDate: iso(200), now: day(120),
+        states: [{ phaseId: 1, at: iso(30), progress: 100 },
+                 { phaseId: 2, at: iso(92), progress: 60 }, { phaseId: 2, at: iso(115), progress: 100 }] },
+      // a quiet program, which must stay quiet
+      { phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 40, 50, [1], iso(30))], sopDate: iso(140), now: day(40) },
+    ];
+    for (const input of shapes) {
+      const r = computeChainLedger(input);
+      // `yieldsStep` is the lib's own statement of which packets ChainLedger.tsx turns
+      // into a bullet; the floor is its complement. Asserting through it here is what
+      // keeps the two from drifting silently (AGENTS lesson 7).
+      const steps = r.situations.filter(yieldsStep).length + (floorOf(r) ? 1 : 0);
+      if (r.register === 'none') expect(steps).toBe(0);
+      else expect(steps).toBeGreaterThan(0);
+    }
   });
 });
 

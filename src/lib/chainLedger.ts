@@ -90,7 +90,34 @@ export type Situation =
   | { type: 'upcomingHandoff'; fromId: number; toId: number; resourceNames: string[]; contended: (ResourceRef & { n: number })[] }
   | { type: 'oversubscribed'; kind: 'partner' | 'person'; resourceId: number; name: string; phaseId: number; moves: ResourceProgramRef[]; tight: ResourceProgramRef[] }
   | { type: 'sopOvershoot'; days: number; proposedSopMonth: string; unitsDelayed: number | null }
+  // The three FLOOR packets (#174). Emitted only when the register asks for a step and
+  // none of the five situations above supplies one — see the floor block in
+  // `computeChainLedger`, and `yieldsStep` just below for which those five are.
+  | { type: 'floorComplete'; phaseIds: number[] }
+  | { type: 'floorStart'; phaseId: number; idleDays: number }
+  | { type: 'floorAllFinished' }
   | { type: 'allClear' };
+
+/**
+ * Which situations the Next-steps list turns into a bullet — the predicate the floor is
+ * the complement of (#174).
+ *
+ * It restates ChainLedger.tsx's assembly conditions rather than sharing code with them,
+ * because that component branches per situation TYPE and cannot be iterated generically.
+ * That is a drift risk (AGENTS lesson 7), so it is pinned: `tests/chainLedger.test.ts`
+ * asserts the invariant this exists to hold up — `register !== 'none'` implies a
+ * non-empty list — over both floor branches.
+ *
+ * `upcomingHandoff` counts unconditionally here because the floor only runs when
+ * `register !== 'none'`, and that is exactly the condition under which the component
+ * emits `clLeverHandoff` for a handoff with no contended resource.
+ */
+export const yieldsStep = (s: Situation): boolean =>
+  (s.type === 'forecastOverrun' && s.plannedDays > 0)
+  || (s.type === 'sunkOverrun' && s.plannedDays > 0)
+  || s.type === 'oversubscribed'
+  || s.type === 'upcomingHandoff'
+  || s.type === 'sopOvershoot';
 
 export type Register = 'none' | 'plan' | 'act';
 
@@ -423,8 +450,6 @@ export function computeChainLedger(input: ChainLedgerInput): ChainLedgerResult {
       unitsDelayed: input.volumeFirstYear ? round((input.volumeFirstYear * -bufferDays) / 365) : null,
     });
   }
-  if (situations.length === 0) situations.push({ type: 'allClear' });
-
   // ---- the immediate focus: a RUNNING phase whose estimate no longer describes it ----
   // Only active phases qualify. A finished overrun is history — it earns a re-plan of
   // what is still ahead (a next step), not an all-hands — whereas a phase already
@@ -472,6 +497,49 @@ export function computeChainLedger(input: ChainLedgerInput): ChainLedgerResult {
     : bufferDays < 0 ? 'act'
     : bufferDays < guidelineDays || (fourWeekDeltaDays != null && fourWeekDeltaDays <= -7) ? 'plan'
     : 'none';
+
+  // ---- the FLOOR under the Next-steps list (#174) ----
+  //
+  // The heading and the list had two different sources of truth and nothing made them
+  // agree: the heading comes from `register` (buffer arithmetic alone), the list is
+  // assembled in ChainLedger.tsx from five unrelated situation kinds. Both can be true at
+  // once, and on a program holding 65 days against a 168-day guideline they were — the
+  // reader was promised a next step under a heading and handed an empty box, beside a
+  // column busy explaining that idle time is already costing the program a day.
+  //
+  // So `register !== 'none'` now IMPLIES at least one step, as an invariant rather than a
+  // patch (AGENTS lesson 2). It also closes the 'act' case, which only looks safe today
+  // because `immediateFocus` happens to feed `overrunSteps` as well — a coincidence of
+  // two code paths, not a guarantee.
+  //
+  // The floor is a STEP computed HERE, not a string the component invents when the array
+  // is empty: this file is the deterministic layer, and ChainLedger's own header says it
+  // "ONLY renders structured facts". A sentence invented in the component would also be
+  // untestable where the rest of the ledger is unit-tested.
+  if (register !== 'none' && !situations.some(yieldsStep)) {
+    const running = schedule.filter((r) => r.kind === 'active');
+    if (running.length > 0) {
+      situations.push({ type: 'floorComplete', phaseIds: running.map((r) => r.id) });
+    } else {
+      // WHICH phase could start is already answered by the idle rows in the waterfall —
+      // they name the phase they are idle BEFORE, which is exactly what the column on the
+      // right is already printing. Reading it from there rather than deriving a second,
+      // subtly different notion of "next startable phase" is the point.
+      const gap = waterfall.find((w) => w.kind === 'gap' && w.toId != null
+        && schedule.find((r) => r.id === w.toId)?.kind === 'notStarted');
+      const startId = gap?.toId ?? schedule.find((r) => r.kind === 'notStarted')?.id;
+      if (startId != null) {
+        situations.push({ type: 'floorStart', phaseId: startId, idleDays: gap?.days ?? 0 });
+      } else {
+        // Nothing running and nothing left to start: every phase is finished, and the
+        // register is 'plan' because the reserve moved while the work was wrapping up.
+        // Rare, but it is the one shape that would otherwise leave the invariant false.
+        situations.push({ type: 'floorAllFinished' });
+      }
+    }
+  }
+
+  if (situations.length === 0) situations.push({ type: 'allClear' });
 
   return {
     plannedChain,

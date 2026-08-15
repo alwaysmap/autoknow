@@ -260,6 +260,32 @@ export default function ChainLedger({
     }
   }
 
+  // ---- the FLOOR (#174) ----
+  //
+  // Mutually exclusive with everything above by construction: lib/chainLedger emits these
+  // packets ONLY when the register asks for a step and none of the five situation kinds
+  // supplies one, so this is never a preamble to a real step — it is the thing that used
+  // to be an empty box under a heading promising an instruction.
+  //
+  // Phase names go through `phaseBtn` like every other phase mention in this component,
+  // or the fallback would be the one unclickable phase name on the page (design.md §2).
+  const floor = ledger.situations.find((s): s is Extract<Situation, { type: 'floorComplete' | 'floorStart' | 'floorAllFinished' }> =>
+    s.type === 'floorComplete' || s.type === 'floorStart' || s.type === 'floorAllFinished');
+  if (floor?.type === 'floorComplete') {
+    nextSteps.push(tNodes(locale, floor.phaseIds.length === 1 ? 'clFloorCompleteOne' : 'clFloorComplete', {
+      phases: joinNodes(floor.phaseIds.map(phaseBtn)),
+    }));
+  } else if (floor?.type === 'floorStart') {
+    // The idle clause is EVIDENCE, and it is stated only when there is idle to state:
+    // a program that has simply not begun has nothing idle behind it, and claiming
+    // otherwise would be the kind of plausible sentence AGENTS lesson 5 forbids.
+    nextSteps.push(tNodes(locale,
+      floor.idleDays <= 0 ? 'clFloorStartNoIdle' : floor.idleDays === 1 ? 'clFloorStartOne' : 'clFloorStart',
+      { phase: phaseBtn(floor.phaseId), d: floor.idleDays }));
+  } else if (floor?.type === 'floorAllFinished') {
+    nextSteps.push(t(locale, 'clFloorAllFinished'));
+  }
+
   // the escalation, when the SOP is already overshot
   if (overshoot) {
     nextSteps.push(

@@ -1933,6 +1933,50 @@ const STRINGS = {
     ja: '対応が必要です。影響の小さい順',
     ko: '조치가 필요합니다. 영향이 작은 순서로',
   },
+  // The FLOOR under that list (#174). `clJudgePlan` above promises "Next step" and the
+  // list beside it could be empty, because the heading is decided by buffer arithmetic
+  // and the list by five unrelated situation kinds. These are what the ledger emits when
+  // the register asks for a step and nothing else supplies one — the true, useful thing
+  // rather than a heading over nothing.
+  clFloorCompleteOne: {
+    en: 'Complete {phases} — it is the only phase running, so the chain moves when it does.',
+    de: '{phases} abschließen — es ist die einzige laufende Phase, die Kette bewegt sich also mit ihr.',
+    ja: '{phases}を完了させましょう — 現在動いている唯一のフェーズであり、チェーンはこれに合わせて進みます。',
+    ko: '{phases}을(를) 완료하세요 — 지금 돌아가는 유일한 단계이며, 체인은 이 단계에 맞춰 움직입니다.',
+  },
+  clFloorComplete: {
+    en: 'Complete the active phases {phases} — nothing else moves the chain until they finish.',
+    de: 'Die laufenden Phasen {phases} abschließen — bis dahin bewegt nichts anderes die Kette.',
+    ja: '進行中のフェーズ{phases}を完了させましょう — それまでチェーンを動かすものは他にありません。',
+    ko: '진행 중인 단계 {phases}을(를) 완료하세요 — 끝날 때까지 체인을 움직이는 것은 없습니다.',
+  },
+  clFloorStart: {
+    en: 'Start {phase} — nothing is running, and the idle before it has already cost {d} days.',
+    de: '{phase} starten — nichts läuft, und der Leerlauf davor hat bereits {d} Tage gekostet.',
+    ja: '{phase}を開始しましょう — 何も動いておらず、その手前の待ち時間ですでに{d}日を失っています。',
+    ko: '{phase}을(를) 시작하세요 — 아무것도 진행되지 않고 있으며, 그 앞의 대기로 이미 {d}일을 잃었습니다.',
+  },
+  clFloorStartOne: {
+    en: 'Start {phase} — nothing is running, and the idle before it has already cost 1 day.',
+    de: '{phase} starten — nichts läuft, und der Leerlauf davor hat bereits 1 Tag gekostet.',
+    ja: '{phase}を開始しましょう — 何も動いておらず、その手前の待ち時間ですでに1日を失っています。',
+    ko: '{phase}을(를) 시작하세요 — 아무것도 진행되지 않고 있으며, 그 앞의 대기로 이미 1일을 잃었습니다.',
+  },
+  // A program that has simply not begun has no idle behind it, so the evidence clause is
+  // dropped rather than printed as a zero — a plausible sentence the data cannot support
+  // is the failure mode AGENTS lesson 5 names.
+  clFloorStartNoIdle: {
+    en: 'Start {phase} — nothing is running, and the chain does not move until it does.',
+    de: '{phase} starten — nichts läuft, und die Kette bewegt sich erst, wenn diese Phase beginnt.',
+    ja: '{phase}を開始しましょう — 何も動いておらず、これが始まるまでチェーンは動きません。',
+    ko: '{phase}을(를) 시작하세요 — 아무것도 진행되지 않고 있으며, 이 단계가 시작되어야 체인이 움직입니다.',
+  },
+  clFloorAllFinished: {
+    en: 'Every phase on the chain has finished, and the reserve is still moving — confirm the projected finish and the SOP still line up.',
+    de: 'Alle Phasen der Kette sind abgeschlossen, die Reserve bewegt sich aber weiter — prüfen, ob prognostiziertes Ende und SOP noch zusammenpassen.',
+    ja: 'チェーン上のすべてのフェーズが完了していますが、リザーブはまだ動いています — 予測完了日とSOPが整合しているか確認してください。',
+    ko: '체인의 모든 단계가 끝났지만 예비는 아직 움직이고 있습니다 — 예상 완료일과 SOP가 여전히 맞는지 확인하세요.',
+  },
   clLeverHandoff: {
     en: 'Agree the {from} → {to} handoff now, so the phase starts the day it can.',
     de: 'Die Übergabe {from} → {to} jetzt vereinbaren, damit die Phase am erstmöglichen Tag startet.',
