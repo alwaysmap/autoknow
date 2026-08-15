@@ -1,4 +1,5 @@
-import { test, expect, type Page } from './helpers/e2e';
+import { test, expect } from './helpers/e2e';
+import { resolveTokens } from './helpers/tokens';
 
 // Colour contrast, enforced across ALL FOUR appearance combos (2 styles × 2
 // themes). This exists because the SAME class of bug shipped THREE times this
@@ -29,29 +30,6 @@ function luminance(color: string): number {
 
 const ratio = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 
-/** Resolve a batch of CSS custom properties to their computed colour, under the
- *  given style+theme, by painting each on a throwaway element (so `color:` does
- *  the var → rgb resolution the same way the app does). */
-async function resolveTokens(page: Page, style: string, theme: string, tokens: string[]) {
-  return page.evaluate(
-    ({ style, theme, tokens }) => {
-      document.documentElement.dataset.style = style;
-      document.documentElement.dataset.theme = theme;
-      const probe = document.createElement('span');
-      document.body.appendChild(probe);
-      const out: Record<string, string> = {};
-      for (const t of tokens) {
-        probe.style.color = '';
-        probe.style.color = `var(${t})`;
-        out[t] = getComputedStyle(probe).color;
-      }
-      probe.remove();
-      return out;
-    },
-    { style, theme, tokens },
-  );
-}
-
 // ink → the grounds it must be readable on. `bg` is the page, `paper` the card.
 const TEXT_INKS: Record<string, ('bg' | 'paper')[]> = {
   '--fg': ['bg', 'paper'],
@@ -76,11 +54,11 @@ test.describe('colour contrast holds in every style × theme', () => {
     test(`${style} / ${theme}: every semantic ink is AA on its ground`, async ({ page }) => {
       await page.goto('/');
 
-      const grounds = await resolveTokens(page, style, theme, ['--bg', '--paper']);
+      const grounds = await resolveTokens(page, ['--bg', '--paper'], { style, theme });
       const bgL = luminance(grounds['--bg']);
       const paperL = luminance(grounds['--paper']);
 
-      const inks = await resolveTokens(page, style, theme, Object.keys(TEXT_INKS));
+      const inks = await resolveTokens(page, Object.keys(TEXT_INKS), { style, theme });
 
       const failures: string[] = [];
       for (const [ink, on] of Object.entries(TEXT_INKS)) {
@@ -103,7 +81,7 @@ test.describe('colour contrast holds in every style × theme', () => {
     await page.goto('/');
     const failures: string[] = [];
     for (const { style, theme } of COMBOS) {
-      const t = await resolveTokens(page, style, theme, ['--focus-ring', '--bg', '--paper', '--white', '--surface']);
+      const t = await resolveTokens(page, ['--focus-ring', '--bg', '--paper', '--white', '--surface'], { style, theme });
       const ringL = luminance(t['--focus-ring']);
       for (const g of ['--bg', '--paper', '--white', '--surface']) {
         const r = ratio(ringL, luminance(t[g]));
@@ -125,7 +103,7 @@ test.describe('colour contrast holds in every style × theme', () => {
     await page.goto('/');
     const failures: string[] = [];
     for (const { style, theme } of COMBOS) {
-      const t = await resolveTokens(page, style, theme, ['--fg', '--capacity-aaos']);
+      const t = await resolveTokens(page, ['--fg', '--capacity-aaos'], { style, theme });
       const r = ratio(luminance(t['--fg']), luminance(t['--capacity-aaos']));
       if (r < 3) failures.push(`${style}/${theme}: --fg on --capacity-aaos: ${r.toFixed(2)} (${t['--capacity-aaos']})`);
     }
@@ -144,8 +122,8 @@ test.describe('colour contrast holds in every style × theme', () => {
     const BANDS = ['--capacity-aaos', '--capacity-gbi', '--capacity-gas', '--capacity-dk', '--capacity-aap'];
     const failures: string[] = [];
     for (const { style } of COMBOS.filter((c) => c.theme === 'light')) {
-      const light = await resolveTokens(page, style, 'light', BANDS);
-      const dark = await resolveTokens(page, style, 'dark', BANDS);
+      const light = await resolveTokens(page, BANDS, { style, theme: 'light' });
+      const dark = await resolveTokens(page, BANDS, { style, theme: 'dark' });
       for (const b of BANDS) {
         if (light[b] === dark[b]) failures.push(`${style}: ${b} is ${light[b]} in BOTH themes — no dark value`);
       }
@@ -156,7 +134,7 @@ test.describe('colour contrast holds in every style × theme', () => {
   test('the gauge face stays light in dark themes so the coloured sweep reads', async ({ page }) => {
     await page.goto('/');
     for (const { style } of COMBOS.filter((c) => c.theme === 'dark')) {
-      const { '--gauge-face': face } = await resolveTokens(page, style, 'dark', ['--gauge-face']);
+      const { '--gauge-face': face } = await resolveTokens(page, ['--gauge-face'], { style, theme: 'dark' });
       // "light" = clearly above mid-grey; it must NOT follow the page into the dark.
       expect(luminance(face), `${style}/dark gauge face ${face}`).toBeGreaterThan(0.6);
     }

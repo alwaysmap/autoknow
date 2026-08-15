@@ -143,7 +143,7 @@ export default function ProjectMetaHeader({
       now: now ?? Date.parse(`${sopDateString}T00:00:00Z`), // no clock ⇒ can't be "passed"
     });
     const color = tone === 'blown' ? 'var(--bad)' : tone === 'atRisk' ? 'var(--warn)' : 'var(--muted)';
-    return { date, color };
+    return { date, color, tone };
   })();
 
   return (
@@ -219,7 +219,11 @@ export default function ProjectMetaHeader({
           label={t(locale, 'sopTarget')}
           value={sop}
           footer={forecast && (
-            <div className={styles.statForecast} style={{ color: forecast.color }}>
+            // `data-tone` carries the DECISION beside the ink it produced, so a test can
+            // assert the reading rather than a colour, and a screenshot check still has
+            // the resolved colour to look at (autoknow-bdw).
+            <div className={styles.statForecast} data-testid="sop-forecast"
+              data-tone={forecast.tone} style={{ color: forecast.color }}>
               {t(locale, 'sopForecast', { d: forecast.date })}
             </div>
           )}
