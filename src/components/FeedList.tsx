@@ -10,10 +10,11 @@ import { parseScore } from '../lib/relationship';
 import { PhaseHillSvg } from './PhaseHillGauge';
 import { deleteFeedItem } from '../app/actions/status';
 import { t, type Locale } from '../lib/i18n';
-import { tNodes } from './tNodes';
+import { joinNodes, tNodes } from './tNodes';
 import { useLocale } from './LocaleProvider';
 import AiBadge from './AiBadge';
 import KindBox from './KindBox';
+import PersonCell from './PersonCell';
 import RelativeTime from './RelativeTime';
 import styles from './FeedList.module.css';
 import { localDate } from '../lib/dates';
@@ -156,6 +157,24 @@ export default function FeedList({
                 }}>
                   <Markdown untracked={untracked?.ctx}>{it.detail}</Markdown>
                 </TrackPersonProvider>
+              </div>
+            )}
+            {/* #177: the people the model extracted from this source — the inferred
+                identity tier, read as stored. Same "label: values" grammar as the
+                digest's own "Key topics:" lines; each name carries the dotted
+                inferred mark and its hover explanation via PersonCell. */}
+            {it.mentions && it.mentions.length > 0 && (
+              <div className={styles.mentions}>
+                {t(locale, 'mentionsLabel')}
+                {': '}
+                {joinNodes(it.mentions.map((m) => (
+                  <PersonCell
+                    key={m.rawName}
+                    person={m.person}
+                    value={m.person ? undefined : m.rawName}
+                    mention={{ basis: m.basis, locale }}
+                  />
+                )))}
               </div>
             )}
           </div>

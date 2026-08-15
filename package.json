@@ -32,6 +32,7 @@
     "db:embeddings:audit": "ts-node scripts/db/audit-embeddings.ts",
     "db:backfill:owner-person": "ts-node --compilerOptions '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' scripts/db/backfill-owner-person.ts",
     "db:backfill:affiliation-email": "ts-node --compilerOptions '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' scripts/db/backfill-affiliation-email.ts",
+    "db:backfill:context-mentions": "ts-node --compilerOptions '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' -r ./scripts/db/allow-server-only.cjs scripts/db/backfill-context-mentions.ts",
     "db:check:email-conflicts": "ts-node --compilerOptions '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' scripts/db/check-email-conflicts.ts",
     "db:remediate:unmatched-owners": "ts-node --compilerOptions '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' scripts/db/remediate-unmatched-owners.ts",
     "db:remediate:conflicting-addresses": "ts-node --compilerOptions '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' scripts/db/remediate-conflicting-addresses.ts",

@@ -1,7 +1,8 @@
 import 'server-only';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { summarizeDocument, digestToText, embedForStorage, isQuotaError, providerDeclineMessage, type DocDigest } from './gemini';
+import { summarizeDocument, digestToText, embedForStorage, geminiConfigured, isQuotaError, providerDeclineMessage, type DocDigest } from './gemini';
+import { deriveMentionsFromDb, mentionWriteOps } from './mentions';
 import { fetchWebUrl, hashContent } from './ingest';
 import { isSourceRejected, isTruncated } from './ingestLimits';
 import { parseGoogleDocId, fetchGoogleDocText } from './google-docs';
@@ -168,6 +169,15 @@ export async function refreshSource(
     );
   }
 
+  // #177: mentions track the LATEST digest exactly as ingestedText does, and they are
+  // rewritten on every REAL re-distillation, not only when digestText moved — the
+  // entities are not serialized into that text, so an unchanged digest string can still
+  // carry a changed people list. Keyless refresh (fallback digest) touches neither the
+  // mentions nor the marker: no extraction ran.
+  const mentionWrites: Prisma.PrismaPromise<unknown>[] = geminiConfigured
+    ? mentionWriteOps(prisma, row.id, await deriveMentionsFromDb(prisma, digest.entities.people))
+    : [];
+
   await prisma.$transaction([
     prisma.contextUrl.update({
       where: { id: row.id },
@@ -176,6 +186,7 @@ export async function refreshSource(
         contentHash: hash,
         sourceVersion,
         sourceStatus: digest.sourceStatus,
+        ...(geminiConfigured ? { mentionsExtractedAt: now } : {}),
         // Re-evaluated every revision: a document that grew past the 30K distillation cap
         // becomes lossy, and one that was trimmed back below it stops being lossy (#56).
         truncated: isTruncated(text!),
@@ -197,6 +208,7 @@ export async function refreshSource(
         delta,
       },
     }),
+    ...mentionWrites,
     ...writes,
   ]);
 

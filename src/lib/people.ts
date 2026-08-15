@@ -218,17 +218,35 @@ function matchTier<T extends PersonLike>(people: T[], matches: (address: string)
 }
 
 /**
- * EVERY person a handle or email could mean, taken from the FIRST tier that matches
- * anything: exact email, then email local-part, then exact (case-insensitive) full
- * name. Empty when nothing matches. No substring matching by design.
+ * The tier of `resolvePersonMatch` that matched — the confidence ladder made a value
+ * (#177). 'email' is an exact address (current or held); 'handle' is an email
+ * local-part, unique per domain but a guess across them; 'name' is an exact
+ * case-insensitive full name, which two humans can share. The ladder's ORDER is the
+ * claim's strength, and the strings are what `ContextMention.basis` persists.
+ */
+export type MatchBasis = 'email' | 'handle' | 'name';
+
+/**
+ * THE matcher: which rung of the ladder matched, plus every candidate that rung
+ * produced, ambiguity intact. Null when no tier matched anything. The two older entry
+ * points are thin reads of this — `resolvePersonCandidates` drops the basis,
+ * `resolvePerson` also takes the first candidate — so there is ONE matcher however
+ * the answer is consumed (AGENTS lesson 7). A caller that needs the basis (mention
+ * resolution, lib/mentions) consumes this directly; the owner backfill asks
+ * `resolvePersonCandidates` — either way the floor is applied to
+ * `candidates.length`, never guessed past.
+ *
+ * The tiers, in order: exact email, then email local-part, then exact
+ * (case-insensitive) full name. No substring matching by design.
  *
  * THE FIRST TWO TIERS SEARCH HISTORICAL ADDRESSES (#127 E8, spec #124 §2). An address
  * belongs to a JOB, so the moment someone changes company every artifact that quotes
  * the old one — an action item's `assignedTo`, a Drive file's `addedBy`; a program's
  * `ownerName` until #127 E7 put that one behind an FK — stops naming a human at all.
- * That is #124 Class 4, and it is not a display bug: the row simply strands. Matching `PersonAffiliation.email` as well as
- * `Person.email` is the fix, and it is why the directory must be fetched with
- * `personDirectorySelect` and not a hand-written `{ id, name, email }`.
+ * That is #124 Class 4, and it is not a display bug: the row simply strands. Matching
+ * `PersonAffiliation.email` as well as `Person.email` is the fix, and it is why the
+ * directory must be fetched with `personDirectorySelect` and not a hand-written
+ * `{ id, name, email }`.
  *
  * RESOLUTION TAKES NO DATE, deliberately. What is temporal is a person's PROFILE —
  * which company, which title, which address — and `lib/profiles`' as-of resolvers own
@@ -241,42 +259,56 @@ function matchTier<T extends PersonLike>(people: T[], matches: (address: string)
  * changed at E9: the constraint removed the case that a date would have to arbitrate,
  * not the case that needs ordering.
  *
- * More than one comes back only when a tier is genuinely AMBIGUOUS — two addresses
- * sharing a local part at different domains ('alice@google.com', 'alice@bosch.com'
- * for the input 'alice'), two people with the same name, or (new with E8) one address
- * held by two people at different times. Within a tier, whoever holds the address NOW
- * sorts ahead of whoever merely held it once; see `matchTier`.
+ * More than one candidate comes back only when a tier is genuinely AMBIGUOUS — two
+ * addresses sharing a local part at different domains ('alice@google.com',
+ * 'alice@bosch.com' for the input 'alice'), two people with the same name, or (E8)
+ * one address held by two people at different times. Within a tier, whoever holds the
+ * address NOW sorts ahead of whoever merely held it once; see `matchTier`.
  *
- * Every address on both sides of the comparison goes through `normalizeAddress`, which
- * is the one place the stored form is defined.
- *
- * `resolvePerson` below is this with the ambiguity discarded, which is the right
- * trade for a live form: the pickers only offer real people, so a near-miss is worth
- * guessing at. A ONE-SHOT data migration is the opposite case — it cannot ask, its
- * guess is permanent, and a wrong owner is worse than no owner — so the backfill in
- * lib/ownerBackfill asks HERE and writes only when the answer is unique. One matcher,
- * two questions; a second, subtly-different matcher is what AGENTS lesson 7 forbids.
+ * Every address on both sides of the comparison goes through `normalizeAddress`,
+ * which is the one place the stored form is defined.
  */
-export function resolvePersonCandidates<T extends PersonLike>(
+export function resolvePersonMatch<T extends PersonLike>(
   people: T[],
   handleOrEmail: string | null | undefined,
-): T[] {
-  if (!handleOrEmail) return [];
+): { candidates: T[]; basis: MatchBasis } | null {
+  if (!handleOrEmail) return null;
   const email = deriveEmail(handleOrEmail);
   const handle = normalizeHandle(handleOrEmail);
-  if (!handle) return [];
+  if (!handle) return null;
 
   const byEmail = matchTier(people, (address) => address === email);
-  if (byEmail.length > 0) return byEmail;
+  if (byEmail.length > 0) return { candidates: byEmail, basis: 'email' };
 
   // `normalizeHandle`, not `split('@')[0]` (autoknow-hlx). This tier and `personAliases`
   // below are the two DIRECTIONS of one round trip — that function builds the local-part
   // alias, this one matches it — so a second spelling here would be a rule that can drift
   // on one side only, and the drift is silent: a person simply stops resolving.
   const byLocalPart = matchTier(people, (address) => normalizeHandle(address) === handle);
-  if (byLocalPart.length > 0) return byLocalPart;
+  if (byLocalPart.length > 0) return { candidates: byLocalPart, basis: 'handle' };
 
-  return people.filter((p) => p.name?.toLowerCase() === handle);
+  const byName = people.filter((p) => p.name?.toLowerCase() === handle);
+  if (byName.length > 0) return { candidates: byName, basis: 'name' };
+
+  return null;
+}
+
+/**
+ * EVERY person a handle or email could mean — `resolvePersonMatch` with the basis
+ * dropped. Empty when nothing matches.
+ *
+ * `resolvePerson` below is this with the ambiguity ALSO discarded, which is the right
+ * trade for a live form: the pickers only offer real people, so a near-miss is worth
+ * guessing at. A ONE-SHOT data migration is the opposite case — it cannot ask, its
+ * guess is permanent, and a wrong owner is worse than no owner — so the backfill in
+ * lib/ownerBackfill asks HERE and writes only when the answer is unique. One matcher,
+ * three questions; a second, subtly-different matcher is what AGENTS lesson 7 forbids.
+ */
+export function resolvePersonCandidates<T extends PersonLike>(
+  people: T[],
+  handleOrEmail: string | null | undefined,
+): T[] {
+  return resolvePersonMatch(people, handleOrEmail)?.candidates ?? [];
 }
 
 /**

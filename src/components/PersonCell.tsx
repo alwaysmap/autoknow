@@ -1,7 +1,8 @@
 import React from 'react';
 import Link from 'next/link';
-import { resolvePerson, type PersonLike } from '../lib/people';
+import { resolvePerson, type MatchBasis, type PersonLike } from '../lib/people';
 import { personHref } from '../lib/entityHref';
+import { t, type Locale, type StringKey } from '../lib/i18n';
 import styles from './PersonCell.module.css';
 
 // The one way anything renders A PERSON (#153). Two rules — why, in design.md §2:
@@ -101,6 +102,17 @@ export function personRefFunnel<T>(
   };
 }
 
+/**
+ * The hover sentence for an inferred mention, per tier. Owned HERE, beside the mark, so
+ * a call site cannot render the dotted underline without the explanation it stands for
+ * (#177 — the mark and its meaning are one decision).
+ */
+const MENTION_TITLE_KEY: Record<MatchBasis, StringKey> = {
+  email: 'mentionEmailTitle',
+  handle: 'mentionHandleTitle',
+  name: 'mentionNameTitle',
+};
+
 export default function PersonCell({
   person,
   value,
@@ -109,6 +121,7 @@ export default function PersonCell({
   title,
   fallback = '—',
   children,
+  mention,
 }: {
   /** Already-resolved person. Wins over `value`/`people` when present. */
   person?: PersonRef | null;
@@ -123,11 +136,26 @@ export default function PersonCell({
   fallback?: React.ReactNode;
   /** Extra ink inside the link (the phase rail's "+n active elsewhere" badge). */
   children?: React.ReactNode;
+  /**
+   * #177: this cell renders an INFERRED mention — a model extracted the string from a
+   * document — never a watched fact. Adds the dotted-underline mark (design.md §8) and
+   * the hover sentence naming which tier matched (`basis`; null = nothing resolved
+   * confidently). `locale` rides along because this component stays pure — server and
+   * client callers both already hold one. An unmarked name keeps meaning "the app
+   * watched this happen", which is what keeps the mark meaningful.
+   */
+  mention?: { basis: MatchBasis | null; locale: Locale };
 }) {
   const matched = person ?? (people ? resolvePerson(people, value) : null);
+  // Computed once, above the link/plain split, so the two renderings of the mark (and
+  // of its explanation) cannot diverge.
+  const inferredMark = mention ? ` ${styles.inferred}` : '';
+  const cellTitle = mention
+    ? t(mention.locale, mention.basis ? MENTION_TITLE_KEY[mention.basis] : 'mentionUnresolvedTitle')
+    : title;
   if (matched) {
     return (
-      <Link href={personHref(matched.id)} className={className ?? styles.link} title={title}>
+      <Link href={personHref(matched.id)} className={`${className ?? styles.link}${inferredMark}`} title={cellTitle}>
         {matched.name}
         {children}
       </Link>
@@ -136,7 +164,7 @@ export default function PersonCell({
   const label = personLabel(value);
   if (!label) return <span className={styles.empty}>{fallback}</span>;
   return (
-    <span className={styles.plain} title={title}>
+    <span className={`${styles.plain}${inferredMark}`} title={cellTitle}>
       {label}
       {children}
     </span>

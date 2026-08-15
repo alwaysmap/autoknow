@@ -1,6 +1,7 @@
 import 'server-only';
 import { unifiedSearch } from './search';
 import { getActivity } from './activity';
+import type { MatchBasis } from './people';
 
 // The one shape shared by search results and the activity feed, so a single endpoint
 // and a single component serve both. Search fills `score` (relevance); activity fills
@@ -47,6 +48,16 @@ export interface RelationshipPayload {
   previousScore?: number | null;
 }
 
+/** One person the model extracted from a context item's source (#177). Always the
+ *  INFERRED identity tier: `person` is set only when the stored resolution was
+ *  unambiguous, `basis` says which tier matched, and a null person renders the raw
+ *  string as plain text — visible rather than silently dropped. */
+export interface MentionRef {
+  rawName: string;
+  person: { id: number; name: string } | null;
+  basis: MatchBasis | null;
+}
+
 export interface FeedItem {
   id: string; // unique within a list, e.g. "partner-52" or "ps-9"
   kind: FeedKind;
@@ -66,6 +77,9 @@ export interface FeedItem {
    *  CLIENT (RelativeTime) to be hydration-safe and to stay current on a page left
    *  open. Absent unless the item's source is actively watched (see lib/activity.ts). */
   checkedAt?: string | null;
+  /** #177: people the model extracted from this source, resolved-or-not. Context
+   *  items only; absent elsewhere. */
+  mentions?: MentionRef[] | null;
 }
 
 export interface FeedQuery {

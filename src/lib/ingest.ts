@@ -3,7 +3,8 @@ import { createHash } from 'crypto';
 import { lookup } from 'node:dns/promises';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { embedForStorage, summarizeDocument, classifyContext, classifyWithinAnchor, digestToText, providerDeclineMessage, type Classification, type DocDigest } from './gemini';
+import { embedForStorage, summarizeDocument, classifyContext, classifyWithinAnchor, digestToText, geminiConfigured, providerDeclineMessage, type Classification, type DocDigest } from './gemini';
+import { deriveMentionsFromDb, mentionWriteOps } from './mentions';
 import { parseGoogleDocId, fetchGoogleDocText } from './google-docs';
 import { readCapped, isSourceRejected, REJECTION_KEY, MAX_FETCH_BYTES, isTruncated } from './ingestLimits';
 import type { StringKey } from './i18n';
@@ -162,6 +163,14 @@ export async function ingestContent(opts: IngestContentOptions): Promise<IngestR
   const hash = hashContent(opts.text);
   const now = new Date();
   const legacyType = LEGACY_TYPE_BY_KIND[opts.source.kind];
+
+  // #177: keep the people the model just extracted, resolved under lib/mentions' floor.
+  // Gated on a REAL model: a keyless deployment's `entities` are the empty fallback, not
+  // an extraction, so its rows keep `mentionsExtractedAt: null` and stay eligible for
+  // db:backfill:context-mentions when a key arrives.
+  const mentions = geminiConfigured
+    ? await deriveMentionsFromDb(prisma, digest.entities.people)
+    : [];
   // Flags the row as lossy — see ContextUrl.truncated. Everything past the cap never reached
   // the model and is not searchable. Recorded per row (#56) because a limit the user can
   // SEE on the source they pasted is the difference between a known limit and a bug.
@@ -178,16 +187,20 @@ export async function ingestContent(opts: IngestContentOptions): Promise<IngestR
         INSERT INTO "ContextUrl" (
           "projectId", "partnerId", "phaseId", "url", "type", "title", "ingestedText", "embedding",
           "mode", "modeSource", "sourceRef", "sourceVersion", "contentHash", "sourceStatus",
-          "addedBy", "lastCheckedAt", "lastChangedAt", "truncated"
+          "addedBy", "lastCheckedAt", "lastChangedAt", "truncated", "mentionsExtractedAt"
         )
         VALUES (
           ${projectId}, ${partnerId}, ${phaseId}, ${opts.url}, ${legacyType}, ${title}, ${digestText}, ${vectorStr}::vector,
           ${opts.mode}, ${opts.modeSource}, ${opts.source.sourceRef}, ${opts.sourceVersion ?? null}, ${hash}, ${digest.sourceStatus},
-          ${opts.addedBy ?? null}, ${now}, ${now}, ${truncated}
+          ${opts.addedBy ?? null}, ${now}, ${now}, ${truncated}, ${geminiConfigured ? now : null}
         )
         RETURNING id
       `);
       const id = rows[0]?.id;
+      if (id && geminiConfigured) {
+        // Sequential, not Promise.all: the ops are ordered (see mentionWriteOps).
+        for (const op of mentionWriteOps(tx, id, mentions)) await op;
+      }
       if (id) {
         // The initial revision (delta null) so history starts at ingest.
         await tx.contextRevision.create({

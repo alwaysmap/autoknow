@@ -466,6 +466,17 @@ One treatment, applied app-wide via the `AiBadge` component:
 * Machine-*derived* values that aren't prose (embeddings, inferred anchors,
   derived health) don't get the mark; it flags authorship of words, not
   computation.
+* **Inferred *identity* is the one derived value that IS marked** (#177): a
+  person's name whose link a model inferred — an extracted mention resolved to
+  the directory — is different in kind from an inferred anchor, because getting
+  it wrong makes a false claim about a named human. The mark is typographic and
+  hueless, never a glyph (a per-mention glyph carpets a page): a **dotted
+  underline at rest** in the cell's own ink, rendered only by `PersonCell`'s
+  `mention` prop, whose hover title names the matched tier (address / handle /
+  name) and states it is a guess. Certain names — FK-backed, session-recorded —
+  stay bare: an unmarked name means "the app watched this happen", exactly as
+  unmarked prose means a person wrote it. Marking both tiers would make the
+  mark meaningless.
 
 ## 8b. Color: warm neutrals, and NO literal colors in components
 

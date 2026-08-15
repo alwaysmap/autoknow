@@ -43,6 +43,16 @@ export function parseDocDigest(text: string | undefined): DocDigest & { delta?: 
   return parsed.data;
 }
 
+// Entity extraction alone (#177's backfill re-reads stored digests): degrade to null —
+// the backfill leaves the row's marker unset and a later run retries, the same
+// "best-effort, never fabricate" posture as classification.
+const zEntities = z.object({ partners: zStrArr, programs: zStrArr, people: zStrArr });
+
+export function parseEntities(text: string | undefined): DocDigest['entities'] | null {
+  const parsed = zEntities.safeParse(tryJson(text));
+  return parsed.success ? parsed.data : null;
+}
+
 const NO_CLASSIFICATION: Classification = { kind: 'none', id: null, name: null, confidence: 0 };
 
 const zClassification = z.object({

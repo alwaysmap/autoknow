@@ -77,6 +77,11 @@
 
 .meta { font-size: 0.75rem; color: var(--muted, var(--muted)); margin-top: 0.125rem; }
 
+/* #177 — the extracted-people line under a context digest. Muted like .meta (it is
+   secondary provenance, not the update itself); the names inside keep PersonCell's own
+   link/plain ink so resolved-vs-not stays readable against the muted label. */
+.mentions { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
+
 .aiMark {
   margin: 0.0625rem 0 0.1875rem;
 }

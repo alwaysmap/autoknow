@@ -64,6 +64,7 @@ ROLE_SECRET=runtime-database-url
 ALLOWED=(
   "owner-person=db:backfill:owner-person"                    # #127 E6 — Project.ownerName -> ownerPersonId
   "affiliation-email=db:backfill:affiliation-email"          # #127 E8 — Person.email -> the PersonAffiliation period covering now
+  "context-mentions=db:backfill:context-mentions"            # #177 — extract + resolve people mentions for pre-#177 rows. Pass 2 needs GEMINI_API_KEY in the runner env; without it the run does the free re-resolve pass and reports the skip. No parentheses in these comments — tests/backfillRunner.test.ts parses this block up to the first close-paren.
   "email-conflicts=db:check:email-conflicts"                 # #127 E9 — READ-ONLY: can the unique-at-an-instant constraint be applied here?
   "unmatched-owners=db:remediate:unmatched-owners"           # #127 E7 gate — repoint the ≤2 programs whose ownerName names nobody
   "conflicting-addresses=db:remediate:conflicting-addresses" # autoknow-164 — clear the LOSING period's address on a conflict email-conflicts found

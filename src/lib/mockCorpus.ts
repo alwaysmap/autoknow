@@ -905,12 +905,116 @@ Marcus Webb: agreed. Not a problem, just something to plan around.`,
   },
 ];
 
+// ---------------------------------------------------------------------------------
+// 5. Status + relationship documents authored for #177's mention tiers. Between them
+//    these two sources name a person at EVERY rung of the resolution ladder — full
+//    address (email tier), bare non-google handle (handle tier), exact full name
+//    (name tier), the shared name 'Jonas Weber' (ambiguous -> the floor resolves to
+//    NOTHING), a bare first name and an outsider (unresolved). The weekly-status doc
+//    carries a second revision so a refresh demonstrably REWRITES its mentions
+//    (Aiko Tanaka appears only in W33).
+// ---------------------------------------------------------------------------------
+
+const STATUS_SOURCES: MockSource[] = [
+  {
+    key: 'doc-toyota-dk-weekly-status',
+    url: 'https://docs.google.com/document/d/toyota-dk-weekly-status',
+    kind: 'drive',
+    title: 'Toyota Highlander Digital Key — weekly status',
+    addedBy: 'bob@google.com',
+    anchor: { program: 'Toyota Highlander Digital Key' },
+    mode: 'watched',
+    modeSource: 'user',
+    revisions: [
+      {
+        daysAgo: 9,
+        text: `Toyota Highlander Digital Key — weekly status (W31)
+
+Attendees: kenji.sato@toyota.com, Marcus Webb, sjenkins (Qualcomm RF liaison),
+Jonas Weber, Tomas Novak (Valeo, guest)
+
+Progress
+- Secure Element provisioning flow signed off by kenji.sato@toyota.com after the applet
+  versioning fix landed; TSM sandbox credentials issued for the validation fleet.
+- CCC conformance dry run booked at the Nagoya lab. Marcus Webb owns the slot
+  confirmation and the pre-read.
+- NFC antenna retune results reviewed; sjenkins to mirror the RF fixtures on the
+  SA8295P reference rig so cockpit and key measurements stop diverging.
+
+Risks
+- Jonas Weber flagged that the camera-based presence check and the DK wake path race
+  each other on cold boot; repro is 3/10 on the bench mule.
+- Tomas Novak (Valeo) noted the door-handle harness respin may slip two weeks.
+
+Decisions
+- Ship the W33 build with SE applet v2.4; UWB ranging moves to the refresh wave.`,
+      },
+      {
+        daysAgo: 2,
+        text: `Toyota Highlander Digital Key — weekly status (W33)
+
+Attendees: kenji.sato@toyota.com, Marcus Webb, Aiko Tanaka (Honda DK CCC observer)
+
+Progress
+- CCC conformance dry run passed 41/44 cases on the first pass; Marcus Webb is
+  circulating the failure triage for the remaining three.
+- Door-handle harness respin recovered — Valeo confirmed the original dates.
+- Aiko Tanaka to share Honda's CCC lab checklist ahead of the joint audit.
+
+Risks
+- The cold-boot race between the presence check and the DK wake path (raised W31 by
+  Jonas Weber) is still open; an instrumented build is ready for the bench mule.
+
+Decisions
+- Hold SE applet at v2.4 for launch; no further applet changes before conformance.`,
+      },
+    ],
+  },
+  {
+    key: 'doc-denso-relationship-review',
+    url: 'https://docs.google.com/document/d/denso-h1-relationship-review',
+    kind: 'drive',
+    title: 'Denso partner review — H1 relationship notes',
+    addedBy: 'clara@google.com',
+    anchor: { partner: 'Denso' },
+    mode: 'snapshot',
+    modeSource: 'inferred',
+    revisions: [
+      {
+        daysAgo: 6,
+        text: `Denso partner review — H1 relationship notes
+
+Context
+Quarterly relationship review with the Denso cockpit integration group, held jointly
+with the Honda Accord bring-up leads.
+
+What is working
+- Execution stays reliable: dieter.meyer@bosch.com credited Denso's fixture library
+  for halving the VHAL regression cycle on the shared Ford Explorer rig.
+- Min-ji Park's delivery managers keep the LGE/Denso head-unit handoffs clean; zero
+  slipped handoffs across the last two milestones.
+
+Frictions
+- Strategic alignment is thin. Roadmap sessions keep sliding, and Lena's three-way
+  Continental sync has not restarted since the Volvo cert slip.
+- Jonas Weber raised that validation findings still arrive as PDF attachments rather
+  than tracker links, so half the cockpit issues never get first-class IDs.
+
+Ask
+- Nominate a standing tracker liaison and restart the quarterly roadmap session with
+  an agreed agenda owner.`,
+      },
+    ],
+  },
+];
+
 /** The whole authored corpus, in the order the seed ingests it. */
 export const MOCK_CORPUS: MockSource[] = [
   ...AUDIO_CLUSTER,
   ...RELATIONSHIP_SOURCES,
   ...RISK_SOURCES,
   ...ROUTINE_SOURCES,
+  ...STATUS_SOURCES,
 ];
 
 export const MOCK_REF_PREFIX = 'mock:';
