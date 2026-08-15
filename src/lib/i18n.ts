@@ -1443,7 +1443,6 @@ const STRINGS = {
     ja: '{n}件のプログラムが「ややリスク」または「懸念あり」です。依存関係の早急な確認を推奨します。',
     ko: '{n}개 프로그램이 ‘다소 위험’ 또는 ‘우려’로 표시되었습니다. 의존성의 즉각적인 검토를 권장합니다.',
   },
-  cycleTimePointChart: { en: 'Cycle Time Point Chart', de: 'Zykluszeit-Punktdiagramm', ja: 'サイクルタイム散布図', ko: '사이클 타임 포인트 차트' },
   ecosystemSummary: { en: 'Ecosystem Summary', de: 'Ökosystem-Übersicht', ja: 'エコシステムサマリー', ko: '에코시스템 요약' },
   withinSelectedRange: { en: 'Within selected progress range', de: 'Im gewählten Fortschrittsbereich', ja: '選択した進捗範囲内', ko: '선택한 진행률 범위 내' },
   averagePhaseDuration: { en: 'Average phase duration', de: 'Durchschnittliche Phasendauer', ja: '平均フェーズ期間', ko: '평균 단계 기간' },
