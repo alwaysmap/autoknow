@@ -38,11 +38,13 @@ describe('seedMockData through the API', () => {
   it('lands the full entity graph', async () => {
     // 1 Google + 4 classic + 10 enrichment partners.
     expect(await prisma.partner.count()).toBe(15);
-    // 6 classic-era people + Alice Waters (created with them because she owns a classic
-    // program) + 8 enrichment + the two same-named Jonas Webers (#177's ambiguity
-    // fixture — the collision is deliberate). SEVENTEEN, and still exactly one Alice:
-    // the 'Alice PM' persona stays retired.
-    expect(await prisma.person.count()).toBe(17);
+    // 6 classic-era people + Rachel Okafor (Ford's own lead — added by autoknow-701, so
+    // the flagship program's partner-side action is owed by somebody who works there) +
+    // Alice Waters (created with them because she owns a classic program) + 8 enrichment
+    // + the two same-named Jonas Webers (#177's ambiguity fixture — the collision is
+    // deliberate). EIGHTEEN, and still exactly one Alice: the 'Alice PM' persona stays
+    // retired.
+    expect(await prisma.person.count()).toBe(18);
     // 4 classic + 7 enrichment + 4 showcase + 3 Alice-era programs + 6 initiative
     // member copies (4 Gemini incl. the removed member's cancelled copy, 2 EV).
     expect(await prisma.project.count()).toBe(24);
@@ -263,9 +265,48 @@ describe('seedMockData through the API', () => {
     expect(edges).toBe(aaos.phases.reduce((n, p) => n + p.dependsOn.length, 0));
   });
 
+  // autoknow-701's ratchet. A `nextStep: 'Partner'` item says THE PARTNER owes this, so
+  // its owner has to work for a company that is actually on the program — as the OEM that
+  // owns it, or through a phase involvement. Ford Evos broke that silently for months and
+  // was only noticed because an AI brief repeated it back ("Kenji Sato (Toyota) must
+  // verify …" on a Ford program): the pipeline was telling the truth, and nothing in the
+  // suite could tell a deliberate cross-company case from a fixture mistake.
+  //
+  // This is also the predicate autoknow-297's anomaly flag needs. When that ships and the
+  // seed grows a DELIBERATE cross-company owner to demonstrate it, this test is where the
+  // exemption gets stated out loud rather than the fixture quietly reading as a bug again.
+  it('every partner-owed action is owed by somebody who works on that program', async () => {
+    const items = await prisma.actionItem.findMany({
+      where: { nextStep: 'Partner', assignedToPersonId: { not: null } },
+      select: {
+        description: true,
+        assignedToPerson: { select: { name: true, currentPartnerId: true, currentPartner: { select: { name: true } } } },
+        phase: {
+          select: {
+            project: { select: { name: true, partnerId: true } },
+            partners: { select: { partnerId: true } },
+          },
+        },
+      },
+    });
+    expect(items.length).toBeGreaterThan(0); // the assertion must have something to bite on
+
+    const strangers = items
+      .filter((i) => {
+        const onProgram = new Set<number>();
+        if (i.phase.project.partnerId != null) onProgram.add(i.phase.project.partnerId);
+        for (const p of i.phase.partners) onProgram.add(p.partnerId);
+        const employer = i.assignedToPerson?.currentPartnerId;
+        return employer != null && !onProgram.has(employer);
+      })
+      // Named, not counted: when this regresses the failure IS the diagnosis.
+      .map((i) => `${i.phase.project.name}: "${i.description}" owed by ${i.assignedToPerson?.name} (${i.assignedToPerson?.currentPartner?.name})`);
+    expect(strangers).toEqual([]);
+  });
+
   it('action items resolved their assignees to people (resolvePerson at the route)', async () => {
     const dylan = await prisma.person.findFirstOrThrow({ where: { email: 'dev@google.com' } });
-    const kenji = await prisma.person.findFirstOrThrow({ where: { email: 'kenji.sato@toyota.com' } });
+    const rachel = await prisma.person.findFirstOrThrow({ where: { email: 'rachel.okafor@ford.com' } });
 
     const vhal = await prisma.actionItem.findFirstOrThrow({
       where: { description: 'Determine cause for VHAL wait time delay' },
@@ -274,10 +315,12 @@ describe('seedMockData through the API', () => {
     expect(vhal.source).toBe('Buganizer');
     expect(vhal.sourceUrl).toContain('buganizer');
 
+    // On a FORD program, owed by FORD's own lead — the invariant the ratchet above
+    // enforces (autoknow-701).
     const cluster = await prisma.actionItem.findFirstOrThrow({
       where: { description: 'Verify cluster instrumentation panel interface specifications' },
     });
-    expect(cluster.assignedToPersonId).toBe(kenji.id);
+    expect(cluster.assignedToPersonId).toBe(rachel.id);
 
     // NOTHING seeded strands any more, and that is #127 E8's whole point in data.
     // The case that used to fail is Alice Waters' 2025 item, addressed to
