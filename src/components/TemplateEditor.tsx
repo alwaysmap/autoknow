@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useActionState, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ChartLabel from './ChartLabel';
@@ -9,6 +9,7 @@ import MarkdownNoteEditor from './MarkdownNoteEditor';
 import { LEAD_ROLES } from '../lib/builtinTemplates';
 import { estimateTextWidth } from '../lib/labelPlacement';
 import { updateTemplateMeta, cloneTemplate, saveTemplatePhases } from '../app/actions/templates';
+import type { ActionResult } from '../lib/actionResult';
 import PhaseDagEditor, { DagEditorNode } from './PhaseDagEditor';
 import PhaseTable from './PhaseTable';
 import { t } from '../lib/i18n';
@@ -124,6 +125,17 @@ export function DagPreview({ phases }: { phases: DagPreviewPhase[] }) {
 export default function TemplateEditor({ template, phases }: TemplateEditorProps) {
   const locale = useLocale();
   const router = useRouter();
+  // Both above the built-in early return, because hooks are: the meta form only renders
+  // on the editable branch, but the hooks have to run on both.
+  const [metaState, metaAction] = useActionState<ActionResult, FormData>(
+    async (_prev, formData) => updateTemplateMeta(formData),
+    {},
+  );
+  // CONTROLLED, and that is the point: a returned refusal re-renders the form, and an
+  // uncontrolled input resets to its `defaultValue` — so the rejected name vanished and
+  // the author was told "X already exists" while the box showed their old name back.
+  // Returning the error instead of throwing only helps if what they typed survives it.
+  const [name, setName] = useState(template.name);
   const sorted = [...phases].sort((a, b) => a.sortOrder - b.sortOrder);
   const byId = new Map(phases.map((p) => [p.id, p]));
 
@@ -182,12 +194,22 @@ export default function TemplateEditor({ template, phases }: TemplateEditorProps
     <div className={styles.container}>
       <Link href="/templates" className={styles.backLink}>{t(locale, 'backToTemplates')}</Link>
 
-      {/* template meta */}
-      <form action={updateTemplateMeta} className={styles.metaForm}>
+      {/* template meta. The action RETURNS its refusals (a name already taken, most of
+          all), so they render here beside the field instead of throwing the author into
+          the route error boundary and losing the description they were part-way through. */}
+      <form action={metaAction} className={styles.metaForm}>
         <input type="hidden" name="id" value={template.id} />
         <div className={styles.metaFields}>
-          <input name="name" defaultValue={template.name} className={styles.nameInput}
-            aria-label={t(locale, 'templateName')} required />
+          <input name="name" value={name} onChange={(e) => setName(e.target.value)}
+            className={styles.nameInput}
+            aria-label={t(locale, 'templateName')} required
+            aria-invalid={metaState.error ? true : undefined} />
+          {/* Directly under the name input: every refusal this action returns is about
+              the name, and below the description editor it reads as a note on the
+              description instead. */}
+          {metaState.error && (
+            <p role="alert" data-testid="meta-error" className={styles.metaError}>{metaState.error}</p>
+          )}
           {/* rich markdown editor; the hidden input feeds the form as `description` */}
           <MarkdownNoteEditor name="description" ariaLabel={t(locale, 'templateDescription')}
             initialMarkdown={template.description ?? ''}

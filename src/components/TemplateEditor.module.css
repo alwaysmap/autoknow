@@ -81,6 +81,16 @@
   min-width: 0;
 }
 
+/* Sits between the name input and the description editor. The negative top margin pulls
+   it against the input it is about, out of .metaFields' even 0.5rem rhythm — a refusal
+   spaced equally from both fields belongs to neither. */
+.metaError {
+  color: var(--bad);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  margin: -0.25rem 0 0 0.5rem; /* 0.5rem left aligns it with the input's own text inset */
+}
+
 .nameInput {
   font-family: var(--head-font);
   font-size: 1.25rem;
