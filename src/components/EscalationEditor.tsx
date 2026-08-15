@@ -26,7 +26,7 @@ import OverlayDialog from './OverlayDialog';
 import styles from './EscalationEditor.module.css';
 import useDialogAction from './useDialogAction';
 import Combobox from './Combobox';
-import { toComboboxOptions } from '../lib/comboboxOptions';
+import { toComboboxOptions, type NamedRow } from '../lib/comboboxOptions';
 
 // Escalation write surfaces (#245 part a): one shared form for create and edit, plus the
 // status control. The LIST header gets a New button in a ⋯ menu — creating is incidental
@@ -40,11 +40,6 @@ import { toComboboxOptions } from '../lib/comboboxOptions';
 //
 // `originalRequest` appears in NO form here. It is provenance, and a field that must never
 // be edited must not be rendered as an input that could be.
-
-interface Option {
-  id: number;
-  name: string;
-}
 
 export interface EscalationRecord {
   id: number;
@@ -70,9 +65,9 @@ function EscalationFormFields({
   people,
 }: {
   defaults?: EscalationRecord | null;
-  partners: Option[];
-  projects: Option[];
-  people: Option[];
+  partners: NamedRow[];
+  projects: NamedRow[];
+  people: NamedRow[];
 }) {
   const locale = useLocale();
   // A person picker three times over, so the three roles cannot drift apart in markup the
@@ -171,9 +166,9 @@ function EscalationFormFields({
 export function NewEscalationButton({
   partners, projects, people,
 }: {
-  partners: Option[];
-  projects: Option[];
-  people: Option[];
+  partners: NamedRow[];
+  projects: NamedRow[];
+  people: NamedRow[];
 }) {
   const locale = useLocale();
   const [open, setOpen] = useState(false);
@@ -226,14 +221,14 @@ export default function EscalationAdminControls({
   escalation, partners, projects, people, duplicateCandidates,
 }: {
   escalation: EscalationRecord;
-  partners: Option[];
-  projects: Option[];
-  people: Option[];
+  partners: NamedRow[];
+  projects: NamedRow[];
+  people: NamedRow[];
   /** Candidates for "duplicate of": every OTHER escalation, whatever its status — a
    *  duplicate of a closed one is an ordinary thing to record. Excluding THIS row is the
    *  caller's job (see the detail page), so the option a row could use to become its own
    *  duplicate never reaches the client. */
-  duplicateCandidates: Option[];
+  duplicateCandidates: NamedRow[];
 }) {
   const locale = useLocale();
   const [editOpen, setEditOpen] = useState(false);

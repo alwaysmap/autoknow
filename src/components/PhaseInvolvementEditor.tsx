@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import PersonCell from './PersonCell';
 import Combobox from './Combobox';
-import { toComboboxOptions } from '../lib/comboboxOptions';
+import { toComboboxOptions, type NamedRow } from '../lib/comboboxOptions';
 import { addPhasePartner, removePhasePartner } from '../app/actions/phasePartners';
 import { addPhasePerson, removePhasePerson } from '../app/actions/phasePeople';
 import type { ActionResult } from '../lib/actionResult';
@@ -63,7 +63,7 @@ interface PhaseInvolvementEditorProps {
   projectId: number;
   involved: InvolvementLink[];
   /** Every candidate row. The picker's options are exactly this set, minus the joined. */
-  options: { id: number; name: string }[];
+  options: NamedRow[];
 }
 
 export default function PhaseInvolvementEditor({
@@ -119,7 +119,7 @@ export default function PhaseInvolvementEditor({
           <input type="hidden" name="phaseId" value={phaseId} />
           <input type="hidden" name="projectId" value={projectId} />
           <Combobox
-            id={`involvement-${kind}-${phaseId}`} name={idField}
+            name={idField}
             options={toComboboxOptions(available)}
             emptyLabel={t(locale, addLabel)}
             required autoFocus

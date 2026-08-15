@@ -11,7 +11,7 @@ import admin from './ProjectAdminControls.module.css';
 import KebabMenu from './KebabMenu';
 import OverlayDialog from './OverlayDialog';
 import Combobox from './Combobox';
-import { toComboboxOptions } from '../lib/comboboxOptions';
+import { toComboboxOptions, type NamedRow } from '../lib/comboboxOptions';
 
 // Person maintenance behind the title kebab (the app-wide grammar: quiet ⋯ beside
 // the name, dialogs for the work) — replaces the old full-width "Profile
@@ -23,15 +23,10 @@ import { toComboboxOptions } from '../lib/comboboxOptions';
 // its split from Edit forced a typo'd title and a real transfer through different
 // doors, and the wrong door wrote fake history.
 
-interface Option {
-  id: number;
-  name: string;
-}
-
 export interface ProgramOption {
   id: number;
   name: string;
-  phases: Option[];
+  phases: NamedRow[];
 }
 
 /** What the Edit dialog opens WITH — the record as the page rendered it, plus the
@@ -102,7 +97,7 @@ function EditPersonDialog({ open, onClose, personId, partners, seed }: {
   open: boolean;
   onClose: () => void;
   personId: number;
-  partners: Option[];
+  partners: NamedRow[];
   seed: ReviseSeed;
 }) {
   const locale = useLocale();
@@ -197,7 +192,7 @@ export function ScheduledChange({ personId, affiliationId, partnerName, dateIso,
   affiliationId: number;
   partnerName: string;
   dateIso: string;
-  partners: Option[];
+  partners: NamedRow[];
   seed: ReviseSeed;
 }) {
   const locale = useLocale();
@@ -243,7 +238,7 @@ export default function PersonAdminControls({
   personNotes: string | null;
   personPartnerId: number | null;
   personRole: string | null;
-  partners: Option[];
+  partners: NamedRow[];
   programs: ProgramOption[];
 }) {
   const locale = useLocale();
@@ -359,7 +354,7 @@ export default function PersonAdminControls({
  *  The dialog is a SIBLING of the KebabMenu, never a child (KebabMenu.module.css explains
  *  why a nested dialog gets corrupted by the menu's row rules). */
 export function NewPersonButton({ partners, defaultPartnerId }: {
-  partners: Option[];
+  partners: NamedRow[];
   defaultPartnerId?: number;
 }) {
   const locale = useLocale();

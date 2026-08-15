@@ -16,6 +16,7 @@ import type { PersonLike } from '../../lib/people';
 import { t } from '../../lib/i18n';
 import { useLocale } from '../../components/LocaleProvider';
 import styles from './page.module.css';
+import { type NamedRow } from '../../lib/comboboxOptions';
 
 interface Project {
   id: number;
@@ -46,11 +47,6 @@ interface Partner {
   team: RosterMember[];
 }
 
-interface Option {
-  id: number;
-  name: string;
-}
-
 interface PartnersClientProps {
   partners: Partner[];
   currentUser: string;
@@ -70,8 +66,8 @@ interface PartnersClientProps {
   people: PersonLike[];
   /** partnerId → latest score + oldest→newest history (see lib/relationship). */
   relationship: Record<number, { score: number | null; history: number[] }>;
-  types: Option[];
-  regions: Option[];
+  types: NamedRow[];
+  regions: NamedRow[];
   /** Deep-linked column-filter preselection (?type= / ?region=), design.md §6. */
   initialFilters?: Record<string, string[]>;
   initialSort?: TableSort | null;

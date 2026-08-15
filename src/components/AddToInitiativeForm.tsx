@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 import Combobox from './Combobox';
-import { toComboboxOptions } from '../lib/comboboxOptions';
+import { toComboboxOptions, type NamedRow } from '../lib/comboboxOptions';
 import { addPartners } from '../app/actions/initiatives';
 import type { ActionResult } from '../lib/actionResult';
 import { t, type Locale } from '../lib/i18n';
@@ -17,7 +17,7 @@ export default function AddToInitiativeForm({
   locale,
 }: {
   partnerId: number;
-  initiatives: { id: number; name: string }[];
+  initiatives: NamedRow[];
   locale: Locale;
 }) {
   const [state, formAction] = useActionState<ActionResult, FormData>(

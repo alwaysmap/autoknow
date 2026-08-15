@@ -1,5 +1,6 @@
 import { normalizeAddress } from './auth';
 import type { Segment as LinkSegment } from './summaryLinkify';
+import { type NamedRow } from './comboboxOptions';
 
 // The INVERSE of `linkify` (#126 / #127 E15): that pass wraps mentions of entities we
 // KNOW; this one finds mentions of humans we do NOT, so a reader can track them in
@@ -162,7 +163,7 @@ function splitOne(text: string, ctx: UntrackedContext): Segment[] {
  */
 export function inferPartnerFromAddress(
   address: string,
-  partners: { id: number; name: string }[],
+  partners: NamedRow[],
 ): number | null {
   const domain = normalizeAddress(address).split('@')[1] ?? '';
   const label = domain.split('.')[0];

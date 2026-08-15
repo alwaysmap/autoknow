@@ -9,6 +9,7 @@ import { saveProgramPhases } from '../app/actions/programPhases';
 import { t } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
 import chrome from './TemplateEditor.module.css';
+import { type NamedRow } from '../lib/comboboxOptions';
 
 // Program-instance wrapper around the shared PhaseDagEditor: the same surface that
 // builds template layouts updates a live program's layout. Programs store days;
@@ -33,8 +34,8 @@ interface ProgramPhaseEditorProps {
   projectId: number;
   projectName: string;
   phases: ProgramEditorPhase[];
-  allPartners: { id: number; name: string }[]; // the picker's canonical option set
-  allPeople: { id: number; name: string }[];
+  allPartners: NamedRow[]; // the picker's canonical option set
+  allPeople: NamedRow[];
 }
 
 const toWeeks = (days: number) => Math.round((days / 7) * 10) / 10;
