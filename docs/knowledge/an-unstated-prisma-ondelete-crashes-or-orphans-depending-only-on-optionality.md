@@ -10,7 +10,7 @@ symptoms:
   - a delete works in tests and throws P2003 "Foreign key constraint violated" on real data
   - a row survives a delete having quietly lost one of its attributions, and nothing logged it
   - a delete writes a state no mutation could — a row failing an invariant the zod boundary enforces
-verified_by: 'tests/deleteFeedItem.test.ts; autoknow-805; autoknow-40f'
+verified_by: 'tests/deleteFeedItem.test.ts; tests/partnerDeleteBlockers.test.ts "refuses when an escalation is about this partner and NOTHING else"; tests/deleteProjectEscalations.test.ts; autoknow-805; autoknow-40f'
 ---
 
 # An unstated Prisma `onDelete` is RESTRICT on a required FK and SET NULL on an optional one
@@ -28,11 +28,16 @@ only the required relations. `ContextUrl`'s three children each behave different
 bare `contextUrl.delete`: `ContextRevision` (`Int`, RESTRICT by default) throws P2003;
 `ContextMention` (`onDelete: Cascade`, declared) cleans up; `Escalation.contextUrlId`
 (`Int?`, SET NULL by default) strips the citation and says nothing. The silent one is the
-dangerous one. The same default is what lets `deletePartner` null `Escalation.partnerId`
-on every escalation about that partner — and a partner-ONLY escalation then lands on
-`partnerId=null, projectId=null`, which `src/lib/schemas.ts`'s `ABOUT_SOMETHING` refinement
-rejects on every create and update. The FK bypasses the mutation boundary, so the delete
-writes a state no user action could reach (`autoknow-40f`).
+dangerous one. The same default let `deletePartner` null `Escalation.partnerId`, landing a
+partner-ONLY escalation on `partnerId=null, projectId=null` — which `src/lib/schemas.ts`'s
+`ABOUT_SOMETHING` refinement rejects on every create and update. The FK bypassed the
+mutation boundary, so the delete wrote a state no user action could reach
+(`autoknow-40f`, fixed).
+
+**The right answer differs per delete.** Program and partner deletes could orphan an
+escalation identically, and were fixed differently because the two MEAN different things:
+a partner delete is REFUSED while things point at it (so a partner-only escalation became
+a third blocker), a program delete removes the program's world (so one goes with it).
 
 **What to do.** Before changing or reviewing a delete, read the parent's back-relations out
 of the schema rather than grepping the delete path:
@@ -42,14 +47,11 @@ grep -n 'model <Parent> {' -A40 prisma/schema.prisma   # the back-relation list 
 grep -n '<parent>Id' prisma/schema.prisma              # then read each child's optionality
 ```
 
-Then clean the children explicitly in one `$transaction`, as `deletePartner`
-(`src/app/actions/partners.ts`) and `deleteProject` (`src/app/programs/[id]/actions.ts`)
-already do — including the SET NULL ones, which is where the deliberate decision lives.
-`deletePartner`'s `phase.updateMany({ leadPartnerId: null })` is that convention written
-out: the FK would have done it anyway, and the line exists so the choice is on the page. A
-cascade declared in the schema is the other honest answer. What is never an answer is
-leaning on a default nobody read — as `deleteFeedItem`'s `ctx-` branch still does for
-`Escalation`, deliberately and pending `autoknow-40f`.
+Then handle every child explicitly in one `$transaction` — including the SET NULL ones,
+which is where the decision lives. `deletePartner`'s `phase.updateMany({ leadPartnerId:
+null })` is the convention written out: the FK would have done it anyway, and the line
+exists so the choice is on the page. A declared cascade is the other honest answer. What
+is never an answer is leaning on a default nobody read.
 
 **How we found out.** `deleteFeedItem`'s `ctx-` branch was a one-line
 `prisma.contextUrl.delete`, so the delete button on an ingested context card 500'd 100% of

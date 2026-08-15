@@ -124,9 +124,9 @@ export default function PartnerAdminControls({
 
 
   // `blocked` is the SERVER's answer to "may this be deleted", not this component's —
-  // re-deriving it from the two counts would be a third place deciding that. The counts
-  // below are read only to choose which sentence to print, never to gate.
-  const { blocked, programCount, employeeCount } = blockers;
+  // re-deriving it from the counts below would be a second place deciding that. They are
+  // read only to choose which sentences to print, never to gate.
+  const { blocked, programCount, employeeCount, escalationCount } = blockers;
   const isConfirmed = confirmName.trim() === partner.name;
 
   return (
@@ -166,6 +166,7 @@ export default function PartnerAdminControls({
           <>
             {programCount > 0 && <p className={admin.warningText}>{t(locale, 'partnerHasPrograms', { n: programCount })}</p>}
             {employeeCount > 0 && <p className={admin.warningText}>{t(locale, 'partnerHasPeople', { n: employeeCount })}</p>}
+            {escalationCount > 0 && <p className={admin.warningText}>{t(locale, 'partnerHasEscalations', { n: escalationCount })}</p>}
             <div className={dash.actionRow}>
               <button type="button" onClick={() => setDeleteOpen(false)} className={dash.cancelBtn}>{t(locale, 'cancel')}</button>
             </div>

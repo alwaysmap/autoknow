@@ -149,9 +149,67 @@ describe('the delete dialog and the delete guard cannot disagree', () => {
   it('lets the delete through when nothing points at the partner', async () => {
     const orphan = await prisma.partner.create({ data: { name: 'Nobody Inc', region } });
     expect(await getPartnerDeleteBlockers(orphan.id)).toMatchObject({
-      programCount: 0, employeeCount: 0, blocked: false,
+      programCount: 0, employeeCount: 0, escalationCount: 0, blocked: false,
     });
     expect((await runDelete(orphan.id)).deleted).toBe(true);
     expect(await prisma.partner.count({ where: { id: orphan.id } })).toBe(0);
+  });
+
+  // autoknow-40f. This blocker exists for a reason the other two do not share: nothing in
+  // the database was going to stop the delete. `Escalation.partnerId` is an OPTIONAL
+  // relation, so its FK is SET NULL, and the delete would have succeeded while writing a
+  // row that `schemas.ts`'s ABOUT_SOMETHING refinement rejects on every create and update.
+  it('refuses when an escalation is about this partner and NOTHING else', async () => {
+    const bosch = await prisma.partner.create({ data: { name: 'Bosch', region } });
+    const esc = await prisma.escalation.create({
+      data: { title: 'Codec samples six weeks late', partnerId: bosch.id },
+    });
+
+    expect(await getPartnerDeleteBlockers(bosch.id)).toMatchObject({
+      escalationCount: 1, blocked: true,
+    });
+    const outcome = await runDelete(bosch.id);
+    expect(outcome.deleted).toBe(false);
+    // Whole sentence, like the two above: it is the submit-time English that
+    // `partnerHasEscalations` must say in four locales.
+    expect(outcome.error).toBe(
+      'Partner is the only subject of 1 escalation(s) — close or reassign them first',
+    );
+    // The row the FK would have orphaned is untouched — still about somebody.
+    expect((await prisma.escalation.findUniqueOrThrow({ where: { id: esc.id } })).partnerId)
+      .toBe(bosch.id);
+  });
+
+  it('counts a CLOSED partner-only escalation too — it is a record, not a task', async () => {
+    const denso = await prisma.partner.create({ data: { name: 'Denso', region } });
+    await prisma.escalation.create({
+      data: { title: 'Settled last quarter', partnerId: denso.id, status: 'resolved' },
+    });
+    expect(await getPartnerDeleteBlockers(denso.id)).toMatchObject({
+      escalationCount: 1, blocked: true,
+    });
+  });
+
+  it('lets a dual-target escalation through, keeping the program and dropping the partner', async () => {
+    // Named alongside a program, it still belongs to something after the delete — so it
+    // does not block, and `deletePartner` nulls `partnerId` EXPLICITLY rather than leaving
+    // the FK to do it unasked.
+    const rivian = await prisma.partner.create({ data: { name: 'Rivian', region } });
+    const owner = await prisma.partner.create({ data: { name: 'Nobody Inc', region } });
+    const project = await prisma.project.create({
+      data: { name: 'R1S AAOS', partnerId: owner.id, ownerName: 'dylan' },
+    });
+    const esc = await prisma.escalation.create({
+      data: { title: 'Second-source decision', partnerId: rivian.id, projectId: project.id },
+    });
+
+    expect(await getPartnerDeleteBlockers(rivian.id)).toMatchObject({
+      escalationCount: 0, blocked: false,
+    });
+    expect((await runDelete(rivian.id)).deleted).toBe(true);
+
+    const after = await prisma.escalation.findUniqueOrThrow({ where: { id: esc.id } });
+    expect(after.partnerId).toBeNull();
+    expect(after.projectId).toBe(project.id); // still reachable, on the program's page
   });
 });
