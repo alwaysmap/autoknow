@@ -3,7 +3,7 @@ import { percentile } from './stats';
 import { computeCriticalChain } from './criticalChain';
 import { deriveScore } from './relationship';
 import { deriveProgramStatus } from './lifecycle';
-import { buildBusiestResources, type BusiestRow } from './chainLedger';
+import { buildBusiestResources, type BusiestRow, type ChainLedgerResult } from './chainLedger';
 import { getProgramLedgers } from './chainLedgerData';
 import { constraintDiagnosis } from './chainInsights';
 import { compareInsights, INSIGHT_SEVERITY_RANK, type Insight } from './insight';
@@ -75,6 +75,54 @@ export interface LiveConstraint {
   diagnoses: ConstraintDiagnosis[];
   /** Worst-first head of `diagnoses` — what the row's Why and Since columns state. */
   worst: ConstraintDiagnosis;
+}
+
+/**
+ * Group the per-program constraint hits by phase NAME, and diagnose each (#148).
+ *
+ * The BUNDLES are a parameter rather than a closure read, because that dependency is the
+ * whole reason this exists: the diagnosis is the ledger's own `Situation` packets, and
+ * `getEcosystemDashboardData` was already computing every program's ledger for the
+ * busiest-resources aggregation and throwing the situations away. No extra query — but
+ * the grouping cannot run before the bundles do, and a parameter says so where a comment
+ * about position in a long function only asked the reader to trust it.
+ *
+ * `hits` stays the gate on WHICH programs appear (`deriveProgramStatus === 'Active'`),
+ * which is strictly narrower than the bundle query's own filter, so every hit has a
+ * bundle. A hit that somehow has none is dropped rather than shown undiagnosed.
+ */
+function groupLiveConstraints(
+  hits: { phaseName: string; program: { id: number; name: string } }[],
+  bundles: { programId: number; ledger: ChainLedgerResult }[],
+): LiveConstraint[] {
+  const ledgerOf = new Map(bundles.map((b) => [b.programId, b.ledger]));
+  const byPhaseName = new Map<string, ConstraintDiagnosis[]>();
+
+  for (const hit of hits) {
+    const ledger = ledgerOf.get(hit.program.id);
+    const insight = ledger
+      ? constraintDiagnosis(ledger, { programId: hit.program.id, programName: hit.program.name })
+      : null;
+    if (!insight) continue;
+    const entry = { program: hit.program, insight };
+    const seen = byPhaseName.get(hit.phaseName);
+    if (seen) seen.push(entry);
+    else byPhaseName.set(hit.phaseName, [entry]);
+  }
+
+  return [...byPhaseName.entries()]
+    .map(([phaseName, entries]) => {
+      // Worst program first WITHIN the row, so `worst` is the one the row states.
+      const diagnoses = [...entries].sort((a, b) => compareInsights(a.insight, b.insight));
+      return { phaseName, programs: diagnoses.map((d) => d.program), diagnoses, worst: diagnoses[0] };
+    })
+    // Severity leads the page now: a phase that is 40% over and gates two SOPs is a worse
+    // read than a healthy phase gating four, and the old count-only order buried it.
+    // Gating count still breaks the tie, because that is this panel's own contribution.
+    .sort((a, b) =>
+      INSIGHT_SEVERITY_RANK[a.worst.insight.severity] - INSIGHT_SEVERITY_RANK[b.worst.insight.severity]
+      || b.programs.length - a.programs.length
+      || a.phaseName.localeCompare(b.phaseName));
 }
 
 export interface EcosystemDashboardData {
@@ -257,39 +305,11 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
     })),
   );
 
-  // Group by phase NAME: the same phase recurs across programs under one name, and
-  // "Compliance Testing is gating four SOPs" is the portfolio-level fact.
-  //
-  // Built HERE, after the bundles, because since #148 a row carries WHY as well as where
-  // — and the why is the ledger's own Situation packets, which the bundles above already
-  // hold. No extra query: this page was computing the whole diagnosis for `busiest` and
-  // throwing the situations away. `constraintHits` is still the gate on WHICH programs
-  // appear (deriveProgramStatus === 'Active'), which is strictly narrower than the bundle
-  // query's filter, so every hit has a bundle.
-  const byPhaseName = new Map<string, ConstraintDiagnosis[]>();
-  const ledgerOf = new Map(bundles.map((b) => [b.programId, b]));
-  for (const hit of constraintHits) {
-    const bundle = ledgerOf.get(hit.program.id);
-    const insight = bundle ? constraintDiagnosis(bundle.ledger, { programId: hit.program.id, programName: hit.program.name }) : null;
-    if (!insight) continue;
-    const entry = { program: hit.program, insight };
-    const seen = byPhaseName.get(hit.phaseName);
-    if (seen) seen.push(entry);
-    else byPhaseName.set(hit.phaseName, [entry]);
-  }
-  const liveConstraints: LiveConstraint[] = [...byPhaseName.entries()]
-    .map(([phaseName, entries]) => {
-      // Worst program first WITHIN the row, so `worst` is the one the row states.
-      const diagnoses = [...entries].sort((a, b) => compareInsights(a.insight, b.insight));
-      return { phaseName, programs: diagnoses.map((d) => d.program), diagnoses, worst: diagnoses[0] };
-    })
-    // Severity leads the page now: a phase that is 40% over and gates two SOPs is a worse
-    // read than a healthy phase gating four, and the old count-only order buried it.
-    // Gating count still breaks the tie, because that is this panel's own contribution.
-    .sort((a, b) =>
-      INSIGHT_SEVERITY_RANK[a.worst.insight.severity] - INSIGHT_SEVERITY_RANK[b.worst.insight.severity]
-      || b.programs.length - a.programs.length
-      || a.phaseName.localeCompare(b.phaseName));
-
-  return { serializedProjects, liveConstraints, cycleTimeData, cycleTimeStats, busiest };
+  return {
+    serializedProjects,
+    liveConstraints: groupLiveConstraints(constraintHits, bundles),
+    cycleTimeData,
+    cycleTimeStats,
+    busiest,
+  };
 }

@@ -58,6 +58,42 @@ const sopYear = (p: BusiestProgramRef) => (p.sopDate ? `’${p.sopDate.slice(2, 
  *  OBJECT, which cannot be spelled wrong. */
 const rowKey = (r: BusiestRow) => `${r.kind}${r.id}`;
 
+/**
+ * CONCURRENCY, as a number. A person has ONE calendar, so two at once is already the
+ * finding; a company has many people, so the same two is a question about their staffing
+ * plan. Same cell, different threshold (`CONCURRENCY_THRESHOLD`) and a different claim —
+ * the distinction the copy half-knew and the row structure never carried (#140).
+ */
+const ConcurrencyCell = ({ row, locale }: { row: BusiestRow; locale: Locale }) => (
+  <>
+    <span className={row.overCommitted ? styles.loss : undefined}>{row.concurrent}</span>
+    <span className={styles.muted}>
+      {' '}
+      {t(locale, row.overCommitted
+        ? (row.kind === 'person' ? 'clConcurrentOverPerson' : 'clConcurrentOverPartner')
+        : 'clConcurrentOk')}
+    </span>
+  </>
+);
+
+/**
+ * WHEN they collide — the fact that makes the section actionable, and the one it used to
+ * assert without computing. `peak: null` is a real answer and says so: two programs
+ * wanting somebody in Q1 '27 and Q4 '28 no longer render like two that both want them
+ * next month.
+ */
+const OverlapCell = ({ row, locale }: { row: BusiestRow; locale: Locale }) => (
+  row.peak
+    ? (
+      <span className={styles.overlapWindow}>
+        <DateCell value={new Date(row.peak.startMs).toISOString()} />
+        {' – '}
+        <DateCell value={new Date(row.peak.endMs).toISOString()} />
+      </span>
+    )
+    : <span className={styles.muted}>{t(locale, 'clNoOverlap')}</span>
+);
+
 /** Losing buffer on any program it gates. The second half of `earnsSpace`: a row with no
  *  recommendation still earns the space when the SOP it gates is actively slipping — that
  *  is the constraint nobody can rebalance, which is the most important row here, not the
@@ -71,7 +107,7 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
   const [filters, setFilters] = useState<Record<string, string[]>>({});
 
   // Everything this section will CONSIDER showing: gating an SOP somewhere, or split
-  // across several programs at once, capped and already ranked by exposure. Which of
+  // across several programs at once, capped and already ranked worst-first. Which of
   // these earn the space is `earnsSpace` below — the cap runs first, so the disclosure
   // only ever covers rows that were going to render anyway.
   const candidates = rows
@@ -161,9 +197,8 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
           // to say "one calendar driving many SOPs" over a row shape carrying no time
           // data at all.
           { key: 'peak', label: t(locale, 'clOverlapHeader'), sortable: false },
-          // `bufferChange` names no field on BusiestRow: with `sortable: false` and no
-          // funnel the key is React identity only. It becomes a live row path the moment
-          // someone makes this column sortable or filterable — change it then.
+          // `bufferChange` names no field on BusiestRow — an identity-only key, see
+          // `FilterColumn.key`.
           { key: 'bufferChange', label: t(locale, 'clBufferChange'), sortable: false },
         ]}
         data={shown}
@@ -173,7 +208,7 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
         // Empty: keep the worst-first order buildBusiestResources already applied.
         defaultSortKey=""
         renderRow={(r: BusiestRow) => {
-          const consider = considerFor.get(r) ?? null;
+          const consider = considerFor.get(r);
           // "Flagging this, no recommendation" is said OUT LOUD rather than left as a
           // blank row (AGENTS lesson 5). A row here earns its space either by carrying
           // advice or by gating an SOP that is actively slipping; the second kind is the
@@ -222,35 +257,8 @@ export default function BusiestResources({ locale, rows }: BusiestResourcesProps
                       </>
                     )}
                 </td>
-                {/* CONCURRENCY, as a number. A person has ONE calendar, so two at once
-                    is already the finding; a company has many people, so the same two is
-                    a question about their staffing plan. Same cell, different threshold
-                    (`CONCURRENCY_THRESHOLD`) and a different claim — the distinction the
-                    copy half-knew and the structure never carried. */}
-                <td className={styles.num}>
-                  <span className={r.overCommitted ? styles.loss : undefined}>{r.concurrent}</span>
-                  <span className={styles.muted}>
-                    {' '}
-                    {t(locale, r.overCommitted
-                      ? (r.kind === 'person' ? 'clConcurrentOverPerson' : 'clConcurrentOverPartner')
-                      : 'clConcurrentOk')}
-                  </span>
-                </td>
-                {/* WHEN they collide — the fact that makes the section actionable, and
-                    the one it used to assert without computing. `null` is a real answer
-                    and says so: two programs wanting somebody in Q1 '27 and Q4 '28 no
-                    longer render like two that both want them next month. */}
-                <td>
-                  {r.peak
-                    ? (
-                      <span className={styles.overlapWindow}>
-                        <DateCell value={new Date(r.peak.startMs).toISOString()} />
-                        {' – '}
-                        <DateCell value={new Date(r.peak.endMs).toISOString()} />
-                      </span>
-                    )
-                    : <span className={styles.muted}>{t(locale, 'clNoOverlap')}</span>}
-                </td>
+                <td className={styles.num}><ConcurrencyCell row={r} locale={locale} /></td>
+                <td><OverlapCell row={r} locale={locale} /></td>
                 <td className={styles.num}>
                   {r.constraintIn.length === 0
                     ? <span className={styles.muted}>{t(locale, 'clNoChangeCell')}</span>

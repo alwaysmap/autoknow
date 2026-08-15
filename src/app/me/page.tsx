@@ -8,6 +8,7 @@ import { getLocale } from '../../lib/locale';
 import { t } from '../../lib/i18n';
 import Combobox from '../../components/Combobox';
 import { toComboboxOptions } from '../../lib/comboboxOptions';
+import { parsePersonProgramsFilter } from '../../lib/entityHref';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,8 +53,12 @@ export default async function MePage(props: { searchParams: Promise<SearchParams
   });
 
   if (person) {
-    return <PersonProfile personId={person.id}
-      programsFilter={searchParams.filter === 'active' ? 'active' : undefined} />;
+    return (
+      <PersonProfile
+        personId={person.id}
+        programsFilter={parsePersonProgramsFilter(searchParams.filter)}
+      />
+    );
   }
 
   // No Person yet for this login — offer self-provisioning: the session supplies

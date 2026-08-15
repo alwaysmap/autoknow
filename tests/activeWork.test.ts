@@ -19,7 +19,7 @@ jest.mock('server-only', () => ({}));
 
 // Dynamic import AFTER the env assignment above (docs/knowledge).
 let personActivePhases: typeof import('../src/lib/activeWork')['personActivePhases'];
-let activeProjectIds: typeof import('../src/lib/activeWork')['activeProjectIds'];
+let projectIdsOf: typeof import('../src/lib/activeWork')['projectIdsOf'];
 let personProgramRows: typeof import('../src/lib/personPrograms')['personProgramRows'];
 
 const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
@@ -28,7 +28,7 @@ let personId: number;
 const project: Record<string, number> = {};
 
 beforeAll(async () => {
-  ({ personActivePhases, activeProjectIds } = await import('../src/lib/activeWork'));
+  ({ personActivePhases, projectIdsOf } = await import('../src/lib/activeWork'));
   ({ personProgramRows } = await import('../src/lib/personPrograms'));
   await wipeAll();
 
@@ -132,14 +132,14 @@ describe('personActivePhases', () => {
   });
 
   test('archived programs and programs with nothing running are absent', async () => {
-    const ids = activeProjectIds(await personActivePhases(personId));
+    const ids = projectIdsOf(await personActivePhases(personId));
     expect(ids.has(project['Archived'])).toBe(false);
     expect(ids.has(project['Quiet'])).toBe(false);
     expect([...ids].sort()).toEqual([project['Led'], project['Named'], project['Via action']].sort());
   });
 
   test('excludeProjectId drops the program already being read — the bullet\'s "elsewhere"', async () => {
-    const ids = activeProjectIds(await personActivePhases(personId, { excludeProjectId: project['Led'] }));
+    const ids = projectIdsOf(await personActivePhases(personId, { excludeProjectId: project['Led'] }));
     expect(ids.has(project['Led'])).toBe(false);
     expect(ids.size).toBe(2);
   });
@@ -167,7 +167,7 @@ describe('the Programs table status', () => {
       phaseInvolvements: person.phaseInvolvements,
       actionItems: person.actionItems,
       career: person.affiliations,
-      activeProjectIds: activeProjectIds(await personActivePhases(personId)),
+      activeProjectIds: projectIdsOf(await personActivePhases(personId)),
     });
     const byName = new Map(rows.map((r) => [r.name, r.status]));
 

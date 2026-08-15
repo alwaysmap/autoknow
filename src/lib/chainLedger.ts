@@ -112,6 +112,40 @@ export type Situation =
  * `register !== 'none'`, and that is exactly the condition under which the component
  * emits `clLeverHandoff` for a handoff with no contended resource.
  */
+/** The three FLOOR packets as one type, and the predicate that recognises them. Exported
+ *  as a PAIR beside the union they select from, because the alternative — a call site
+ *  spelling out `'floorComplete' | 'floorStart' | 'floorAllFinished'` in both a type
+ *  argument and a runtime `||` chain — makes a fourth floor kind an edit in three places
+ *  where missing one fails SILENTLY: `find` simply stops matching the new packet. */
+export type FloorSituation = Extract<Situation, { type: `floor${string}` }>;
+export const isFloorSituation = (s: Situation): s is FloorSituation => s.type.startsWith('floor');
+
+/**
+ * WHICH floor packet a program earns when the register asks for a step and none of the
+ * five situation kinds supplies one (#174). Three branches, because two did not cover it:
+ *
+ *  - phases running → complete them;
+ *  - nothing running → START the phase the chain is waiting on. Which phase, and how much
+ *    the waiting has cost, both come from the waterfall's idle rows: they name the phase
+ *    they are idle BEFORE, which is exactly what "Where the buffer went" is already
+ *    printing beside it. Reading it from there rather than deriving a second, subtly
+ *    different notion of "next startable phase" is the point;
+ *  - nothing running and nothing left to start → every phase finished while the reserve
+ *    was still moving. Rare, and reachable, and the one shape that would otherwise leave
+ *    the invariant false.
+ */
+function floorStep(schedule: ScheduleRow[], waterfall: WaterfallRow[]): Situation {
+  const running = schedule.filter((r) => r.kind === 'active');
+  if (running.length > 0) return { type: 'floorComplete', phaseIds: running.map((r) => r.id) };
+
+  const gap = waterfall.find((w) => w.kind === 'gap' && w.toId != null
+    && schedule.find((r) => r.id === w.toId)?.kind === 'notStarted');
+  const startId = gap?.toId ?? schedule.find((r) => r.kind === 'notStarted')?.id;
+  if (startId != null) return { type: 'floorStart', phaseId: startId, idleDays: gap?.days ?? 0 };
+
+  return { type: 'floorAllFinished' };
+}
+
 export const yieldsStep = (s: Situation): boolean =>
   (s.type === 'forecastOverrun' && s.plannedDays > 0)
   || (s.type === 'sunkOverrun' && s.plannedDays > 0)
@@ -517,26 +551,7 @@ export function computeChainLedger(input: ChainLedgerInput): ChainLedgerResult {
   // "ONLY renders structured facts". A sentence invented in the component would also be
   // untestable where the rest of the ledger is unit-tested.
   if (register !== 'none' && !situations.some(yieldsStep)) {
-    const running = schedule.filter((r) => r.kind === 'active');
-    if (running.length > 0) {
-      situations.push({ type: 'floorComplete', phaseIds: running.map((r) => r.id) });
-    } else {
-      // WHICH phase could start is already answered by the idle rows in the waterfall —
-      // they name the phase they are idle BEFORE, which is exactly what the column on the
-      // right is already printing. Reading it from there rather than deriving a second,
-      // subtly different notion of "next startable phase" is the point.
-      const gap = waterfall.find((w) => w.kind === 'gap' && w.toId != null
-        && schedule.find((r) => r.id === w.toId)?.kind === 'notStarted');
-      const startId = gap?.toId ?? schedule.find((r) => r.kind === 'notStarted')?.id;
-      if (startId != null) {
-        situations.push({ type: 'floorStart', phaseId: startId, idleDays: gap?.days ?? 0 });
-      } else {
-        // Nothing running and nothing left to start: every phase is finished, and the
-        // register is 'plan' because the reserve moved while the work was wrapping up.
-        // Rare, but it is the one shape that would otherwise leave the invariant false.
-        situations.push({ type: 'floorAllFinished' });
-      }
-    }
+    situations.push(floorStep(schedule, waterfall));
   }
 
   if (situations.length === 0) situations.push({ type: 'allClear' });

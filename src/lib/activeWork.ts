@@ -81,6 +81,6 @@ export async function personActivePhases(
 /** The programs those phases belong to — what the person page's Programs table filters
  *  to, and what the Critical Chain bullet counts when it decides between naming one
  *  program inline and linking to all of them. */
-export function activeProjectIds(phases: ActivePhaseRef[]): Set<number> {
+export function projectIdsOf(phases: ActivePhaseRef[]): Set<number> {
   return new Set(phases.map((p) => p.projectId));
 }

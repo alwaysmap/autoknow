@@ -165,12 +165,17 @@ export async function personProgramRows(input: {
   career: CareerPeriod[];
   /** Programs where `personActivePhases` (lib/activeWork) found work in flight — the
    *  ACTIVE status below. Passed in rather than queried here because the caller needs the
-   *  PHASES too, and asking the same question twice is how the count and the rows come to
-   *  disagree (#167). Omitted in tests that are not about this column. */
-  activeProjectIds?: Set<number>;
+   *  PHASES too, and asking the same question twice is how the count in the Critical
+   *  Chain sentence and the rows behind its link come to disagree (#167).
+   *
+   *  REQUIRED, deliberately. As an optional defaulting to empty, a caller who forgot it
+   *  got a Programs table where the ACTIVE class never appears and `?filter=active` shows
+   *  nothing — a wrong answer rather than an error, in the exact surface #167 built. A
+   *  test that does not care about this column passes an empty set, which reads as a
+   *  decision instead of an absence. */
+  activeProjectIds: Set<number>;
 }): Promise<PersonProgramRow[]> {
-  const { owned, phaseInvolvements, actionItems, career } = input;
-  const active = input.activeProjectIds ?? new Set<number>();
+  const { owned, phaseInvolvements, actionItems, career, activeProjectIds: active } = input;
 
   type Draft =
     Omit<PersonProgramRow, 'heldThen' | 'heldThenSummary' | 'status' | 'endedOn' | 'via' | 'connectionKinds' | 'connectionSummary'>

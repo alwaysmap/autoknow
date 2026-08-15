@@ -14,7 +14,7 @@ import InfoPopover from '../../../components/InfoPopover';
 import PersonHistoryTable from './PersonHistoryTable';
 import PersonProgramsTable from './PersonProgramsTable';
 import { personProgramRows } from '../../../lib/personPrograms';
-import { activeProjectIds, personActivePhases } from '../../../lib/activeWork';
+import { personActivePhases, projectIdsOf } from '../../../lib/activeWork';
 import { untrackedContext } from '../../../lib/untrackedContext';
 import { getPersonEscalations } from '../../../lib/escalationQueries';
 import EscalationRows from '../../../components/EscalationRows';
@@ -138,7 +138,7 @@ export default async function PersonProfile({
     phaseInvolvements: person.phaseInvolvements,
     actionItems: person.actionItems,
     career: person.affiliations,
-    activeProjectIds: activeProjectIds(await personActivePhases(person.id)),
+    activeProjectIds: projectIdsOf(await personActivePhases(person.id)),
   });
 
   return (

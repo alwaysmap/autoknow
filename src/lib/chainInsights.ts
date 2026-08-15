@@ -1,5 +1,6 @@
 import { phaseHref } from './phase';
-import type { Insight, InsightSeverity } from './insight';
+import { compareInsights } from './insight';
+import type { Insight, InsightSeverity, InsightSymptom } from './insight';
 import type { ChainLedgerResult, Situation } from './chainLedger';
 
 // WHY a phase is the constraint, as an `Insight` (#148, the shape's first real caller).
@@ -43,9 +44,6 @@ const SEVERITY_OF: Partial<Record<Situation['type'], InsightSeverity>> = {
   upcomingHandoff: 'watch',
 };
 
-/** Order within one row's candidates: an 'act' beats a 'watch', then the bigger measure. */
-const RANK: InsightSeverity[] = ['act', 'watch', 'clear'];
-
 const isoOf = (ms: number | undefined): string | null =>
   ms == null ? null : new Date(ms).toISOString();
 
@@ -70,63 +68,81 @@ export function constraintDiagnosis(ledger: ChainLedgerResult, ctx: ChainInsight
   // first-seen timestamp would be a fabricated `since`, which is the field's own warning.
   const startedIso = row.kind === 'notStarted' ? null : isoOf(row.startMs);
 
+  /** Everything a diagnosis SHARES — the envelope — so each case below reads as the four
+   *  things that actually differ: its id fragment, its symptom, its advice, and whether
+   *  it can name a date. */
+  const diagnosis = (
+    idPart: string, severity: InsightSeverity, symptom: InsightSymptom,
+    action: Insight['action'], since: string | null,
+  ): Insight => ({
+    id: `chain:${idPart}:${ctx.programId}:${phaseId}`,
+    source: 'critical-chain', scope, severity, href, symptom, action, since,
+  });
+
   const candidates: Insight[] = [];
   for (const s of ledger.situations) {
     const severity = SEVERITY_OF[s.type];
     if (!severity) continue;
+    // A switch rather than four sequential `if`s: it buys exhaustiveness against a future
+    // `Situation` member, and it puts each case's four differences where a reader can see
+    // them instead of behind a repeated seven-field literal.
+    switch (s.type) {
+      case 'forecastOverrun':
+        if (s.phaseId !== phaseId || s.plannedDays <= 0) break;
+        candidates.push(diagnosis('overrun', severity, {
+          key: 'cdOverrun', values: { program, pct: s.overPct, p: s.plannedDays, r: s.remainingDays },
+          // `overPct` is a share of a typed-in `forecastedDuration`, so the number is over
+          // a GUESS however precisely it prints. That is what `basis` is for.
+          measure: s.overPct, basis: 'estimated',
+        }, { key: 'cdOverrunAction' }, startedIso));
+        break;
 
-    if (s.type === 'forecastOverrun' && s.phaseId === phaseId && s.plannedDays > 0) {
-      candidates.push({
-        id: `chain:overrun:${ctx.programId}:${phaseId}`, source: 'critical-chain', scope, severity, href,
-        // `overPct` is a share of a typed-in `forecastedDuration`, so the number is over a
-        // GUESS however precisely it prints. That is what `basis` is for.
-        symptom: { key: 'cdOverrun', values: { program, pct: s.overPct, p: s.plannedDays, r: s.remainingDays }, measure: s.overPct, basis: 'estimated' },
-        action: { key: 'cdOverrunAction' },
-        since: startedIso,
-      });
-    }
-    if (s.type === 'idleHandoff' && s.toId === phaseId) {
-      const from = ledger.schedule.find((r) => r.id === s.fromId);
-      candidates.push({
-        id: `chain:idle:${ctx.programId}:${phaseId}`, source: 'critical-chain', scope, severity, href,
-        // Idle days are the difference between two real dates — measured, unlike
-        // everything computed against an estimate.
-        symptom: { key: s.days === 1 ? 'cdIdleOne' : 'cdIdle', values: { program, d: s.days }, measure: s.days, basis: 'measured' },
-        action: { key: 'cdIdleAction' },
-        since: isoOf(from?.endMs),
-      });
-    }
-    if (s.type === 'oversubscribed' && s.phaseId === phaseId) {
-      const n = s.moves.length + s.tight.length;
-      candidates.push({
-        id: `chain:contended:${ctx.programId}:${phaseId}:${s.kind}:${s.resourceId}`, source: 'critical-chain', scope, severity, href,
-        symptom: { key: 'cdContended', values: { program, name: s.name, n }, measure: n, basis: 'measured' },
-        action: { key: 'cdContendedAction' },
-        since: startedIso,
-      });
-    }
-    if (s.type === 'upcomingHandoff' && s.toId === phaseId && s.contended.length > 0) {
-      candidates.push({
-        id: `chain:handoff:${ctx.programId}:${phaseId}`, source: 'critical-chain', scope, severity, href,
-        symptom: { key: 'cdHandoff', values: { program, n: s.contended.length }, measure: s.contended.length, basis: 'measured' },
-        action: { key: 'cdHandoffAction' },
-        since: null, // it has not started; there is no date to state
-      });
+      case 'idleHandoff': {
+        if (s.toId !== phaseId) break;
+        const from = ledger.schedule.find((r) => r.id === s.fromId);
+        candidates.push(diagnosis('idle', severity, {
+          key: s.days === 1 ? 'cdIdleOne' : 'cdIdle', values: { program, d: s.days },
+          // Idle days are the difference between two real dates — measured, unlike
+          // everything computed against an estimate.
+          measure: s.days, basis: 'measured',
+        }, { key: 'cdIdleAction' }, isoOf(from?.endMs)));
+        break;
+      }
+
+      case 'oversubscribed': {
+        if (s.phaseId !== phaseId) break;
+        const n = s.moves.length + s.tight.length;
+        candidates.push(diagnosis(`contended:${s.kind}:${s.resourceId}`, severity, {
+          key: 'cdContended', values: { program, name: s.name, n }, measure: n, basis: 'measured',
+        }, { key: 'cdContendedAction' }, startedIso));
+        break;
+      }
+
+      case 'upcomingHandoff':
+        if (s.toId !== phaseId || s.contended.length === 0) break;
+        candidates.push(diagnosis('handoff', severity, {
+          key: 'cdHandoff', values: { program, n: s.contended.length },
+          measure: s.contended.length, basis: 'measured',
+        }, { key: 'cdHandoffAction' }, null)); // not started: there is no date to state
+        break;
+
+      default:
+        break;
     }
   }
 
   if (candidates.length === 0) {
-    return {
-      id: `chain:clear:${ctx.programId}:${phaseId}`, source: 'critical-chain', scope, severity: 'clear', href,
-      // Structural-and-fine is a legitimate answer and has to be SAYABLE, or the panel
-      // reports only trouble and every row it prints reads as trouble.
-      symptom: { key: 'cdClear', values: { program }, measure: null, basis: 'measured' },
-      action: null,
-      since: startedIso,
-    };
+    // Structural-and-fine is a legitimate answer and has to be SAYABLE, or the panel
+    // reports only trouble and every row it prints reads as trouble.
+    return diagnosis('clear', 'clear', {
+      key: 'cdClear', values: { program }, measure: null, basis: 'measured',
+    }, null, startedIso);
   }
 
-  return candidates.sort((a, b) =>
-    RANK.indexOf(a.severity) - RANK.indexOf(b.severity)
-    || (b.symptom.measure ?? -1) - (a.symptom.measure ?? -1))[0];
+  // `compareInsights`, never a local comparator. `lib/insight` argues at length that every
+  // branch of that ordering has to be TOTAL, and a second spelling here would be free to
+  // disagree with it — exactly the drift `INSIGHT_SEVERITY_RANK` was exported to prevent.
+  // Every candidate shares one source, so this reduces to severity then measure, and it
+  // keeps handling a measureless producer correctly if one is ever added.
+  return [...candidates].sort(compareInsights)[0];
 }

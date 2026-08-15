@@ -13,7 +13,7 @@ import PersonCell, { type PersonRef } from './PersonCell';
 import { ChainSchedule } from './ChainSchedule';
 import { useSteadyPageScroll } from '../lib/useSteadyPageScroll';
 import { summaryAt } from '../lib/chainDay';
-import { isForecastOver, isRealizedOverrun, isRealizedUnderrun, isSevereOverrun } from '../lib/chainLedger';
+import { isFloorSituation, isForecastOver, isRealizedOverrun, isRealizedUnderrun, isSevereOverrun } from '../lib/chainLedger';
 import { phasesEditHref } from '../lib/phase';
 import { partnerHref, personActiveWorkHref, programHref } from '../lib/entityHref';
 import type { ChainLedgerResult, ResourceRef, Situation, WaterfallRow } from '../lib/chainLedger';
@@ -124,6 +124,12 @@ export default function ChainLedger({
   // Phases with no estimated duration are skipped: with nothing to be a percentage
   // OF, every sentence here would be a false statement about lateness (the mutation
   // boundary requires a positive duration, so this is legacy data only).
+  //
+  // THE FIVE SITUATION KINDS ASSEMBLED BELOW ARE MIRRORED BY `yieldsStep`
+  // (lib/chainLedger). Add or remove a bullet here and change it there, or #174's floor
+  // either emits a redundant step or leaves "Next step" promising something with nothing
+  // under it. `tests/chainLedger.test.ts` catches the drift, but it reports it as a
+  // failed invariant rather than as this edit.
   const liveOverruns = ledger.situations
     .filter((s): s is Extract<Situation, { type: 'forecastOverrun' }> => s.type === 'forecastOverrun' && s.plannedDays > 0)
     .sort((a, b) => b.overPct - a.overPct || b.days - a.days);
@@ -223,6 +229,8 @@ export default function ChainLedger({
 
   // the program owner's load elsewhere — a flag, not a proven constraint
   if (ownerPerson && ownerOtherActive.length > 0) {
+    // `phases` is collected for every program but read only by the single-program branch
+    // below; the 2+ branch needs nothing from it but `byProgram.size`.
     const byProgram = new Map<number, { name: string; phases: string[] }>();
     for (const o of ownerOtherActive) {
       const g = byProgram.get(o.projectId) ?? { name: o.projectName, phases: [] };
@@ -269,8 +277,7 @@ export default function ChainLedger({
   //
   // Phase names go through `phaseBtn` like every other phase mention in this component,
   // or the fallback would be the one unclickable phase name on the page (design.md §2).
-  const floor = ledger.situations.find((s): s is Extract<Situation, { type: 'floorComplete' | 'floorStart' | 'floorAllFinished' }> =>
-    s.type === 'floorComplete' || s.type === 'floorStart' || s.type === 'floorAllFinished');
+  const floor = ledger.situations.find(isFloorSituation);
   if (floor?.type === 'floorComplete') {
     nextSteps.push(tNodes(locale, floor.phaseIds.length === 1 ? 'clFloorCompleteOne' : 'clFloorComplete', {
       phases: joinNodes(floor.phaseIds.map(phaseBtn)),

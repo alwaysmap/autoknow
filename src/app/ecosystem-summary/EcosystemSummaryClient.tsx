@@ -126,10 +126,9 @@ export default function EcosystemSummaryClient({
               { key: 'phaseName', label: t(locale, 'phaseLabel') },
               // None of these sort. Gating and status both derive from the same count, so
               // two controls would do one job; Why is a sentence, not a measure; and the
-              // rows already arrive worst-first (severity, then gating count). The
-              // `status` key names no field on LiveConstraint — with `sortable: false` and
-              // no funnel it is React identity only, and it becomes a live row path the
-              // moment someone makes this column sortable or filterable.
+              // rows already arrive worst-first (severity, then gating count). `status`
+              // names no field on LiveConstraint — an identity-only key, see
+              // `FilterColumn.key`.
               { key: 'programs', label: t(locale, 'clGatingSop'), sortable: false },
               // #148's headline: WHY this phase is the constraint, not just where it is.
               { key: 'why', label: t(locale, 'cdWhyHeader'), sortable: false },

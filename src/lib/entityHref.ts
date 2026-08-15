@@ -24,6 +24,14 @@ export const programHref = (id: number): string => `/programs/${id}`;
  *  link cannot be pointed at two different questions. */
 export const personActiveWorkHref = (id: number): string => `${personHref(id)}?filter=active#programs`;
 
+/** The READER of the address above. Both ends of a URL contract belong together: the two
+ *  routes that render `PersonProfile` were each hand-rolling `v === 'active' ? … : …`,
+ *  which is the same literal in four places and one of them free to drift. Anything else
+ *  in the parameter resolves to "no filter" rather than a 404 — a shared link with a
+ *  stale value should still show the page it names. */
+export const parsePersonProgramsFilter = (value?: string): 'active' | undefined =>
+  (value === 'active' ? 'active' : undefined);
+
 /** `/escalations/42` (#245). Here from the first commit rather than hand-rolled at the
  *  call sites, because this URL is DATA the moment it exists: the Chat reply posts it into
  *  a thread that keeps it forever, and AI-brief citations persist hrefs — so retiring or
