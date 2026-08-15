@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { anchoredPosition, rovingIndex } from '../lib/anchoredPosition';
+import { rovingIndex } from '../lib/anchoredPosition';
+import { useAnchoredPosition } from '../lib/useAnchoredPosition';
 import styles from './AnchoredPopover.module.css';
 
 // ONE anchored-popover control — the shared home for every "a trigger opens a panel
@@ -39,8 +40,6 @@ import styles from './AnchoredPopover.module.css';
 // a settings card or a filter checklist — a labelled region with native tab order, NOT
 // a menu (role=menu requires menuitem children; wrapping a form or a checklist in it is
 // the a11y bug this replaces).
-
-const MARGIN = 8; // px kept clear of every viewport edge
 
 type ToggleEventLike = Event & { newState?: string };
 
@@ -90,23 +89,11 @@ export default function AnchoredPopover({
   const panelId = useId();
   const [open, setOpen] = useState(false);
 
-  // Read the geometry off the browser and hand it to the pure positioner (tested in
-  // anchoredPosition.test.ts); this only reads rects and writes the result back.
-  const position = useCallback(() => {
-    const trigger = triggerRef.current;
-    const panel = panelRef.current;
-    if (!trigger || !panel) return;
-    const t = trigger.getBoundingClientRect();
-    const { left, top } = anchoredPosition({
-      trigger: { top: t.top, right: t.right, bottom: t.bottom, left: t.left },
-      panel: { width: panel.offsetWidth, height: panel.offsetHeight },
-      viewport: { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight },
-      align,
-      margin: MARGIN,
-    });
-    panel.style.left = `${left}px`;
-    panel.style.top = `${top}px`;
-  }, [align]);
+  // Placement, and staying placed while open, come from the shared hook — the same one
+  // `Combobox` uses, so the flip/clamp behaviour cannot drift between the two
+  // (autoknow-9yx). `position` is returned because the BROWSER decides when this panel
+  // opens (the `toggle` event below), so it has to be placed at that instant.
+  const position = useAnchoredPosition(triggerRef, panelRef, { active: open, align });
 
   const items = useCallback((): HTMLElement[] => {
     const panel = panelRef.current;
@@ -151,19 +138,6 @@ export default function AnchoredPopover({
   }, [open]);
 
   const close = useCallback(() => setOpen(false), []);
-
-  // Keep it anchored while open: the trigger scrolls/resizes, the panel follows.
-  useEffect(() => {
-    if (!open) return;
-    position();
-    const on = () => position();
-    window.addEventListener('resize', on);
-    window.addEventListener('scroll', on, true);
-    return () => {
-      window.removeEventListener('resize', on);
-      window.removeEventListener('scroll', on, true);
-    };
-  }, [open, position]);
 
   // Dismiss-on-navigate (see the header). Delegated on the panel so it covers links a call
   // site renders however it likes — next/link, a plain <a>, one nested in a row wrapper —
