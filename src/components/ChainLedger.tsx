@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { t, Locale } from '../lib/i18n';
 import { tNodes, joinNodes } from './tNodes';
-import { dayLabel, localDate } from '../lib/dates';
+import { dayLabel, monthLabel } from '../lib/dates';
 import { useDateLabels } from './DateLabelsProvider';
 import { DAY_MS, dayFloor } from '../lib/sop';
 import AnchorHeading from './AnchorHeading';
@@ -53,10 +53,6 @@ interface ChainLedgerProps {
 
 const jumpToPhase = (id: number) => window.dispatchEvent(new CustomEvent('autoknow:jump-phase', { detail: id }));
 
-/** The SOP, which is a MONTH target — so it stays a month, in every DATE_LABELS mode: a
- *  week number here would be a finer claim than the stored value makes (see `dayLabel`). */
-const monthLong = (iso: string, locale: Locale) => localDate(iso, locale, { month: 'long', year: 'numeric' });
-
 export default function ChainLedger({
   projectId, locale, now, ledger, sopDate, volumeFirstYear, ownerPerson, ownerOtherActive,
 }: ChainLedgerProps) {
@@ -99,7 +95,7 @@ export default function ChainLedger({
   // (started with / used / who took it) lives in Where the buffer went. ----
   let headline: string | null = null;
   if (sopMs != null && ledger.bufferDays != null && ledger.projectedFinishMs != null) {
-    const month = monthLong(sopDate!, locale);
+    const month = monthLabel(sopDate!, locale, 'long');
     const date = dayLabel(new Date(ledger.projectedFinishMs), locale, dateLabels, { year: true, month: 'long' });
     headline = ledger.bufferDays >= 0
       ? t(locale, 'clBufferHeadline', { d: ledger.bufferDays, date, month })
@@ -311,7 +307,7 @@ export default function ChainLedger({
             top edge instead of centered, and skip the press-halts-motion guard. */}
         <a href="#program-status" className={styles.declareBtn}
           onClick={(e) => { e.preventDefault(); scrollPageTo(document.getElementById('program-status'), { behavior: 'smooth', block: 'center' }); }}>
-          {t(locale, 'clLeverDeclare', { month: monthLong(`${overshoot.proposedSopMonth}-01`, locale) })}
+          {t(locale, 'clLeverDeclare', { month: monthLabel(`${overshoot.proposedSopMonth}-01`, locale, 'long') })}
         </a>
         {overshoot.unitsDelayed != null && (
           <>
@@ -626,7 +622,6 @@ export default function ChainLedger({
           {t(locale, 'clKeyBufferLane')}
         </div>
       </OverlayDialog>
-
 
     </section>
   );

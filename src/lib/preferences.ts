@@ -84,14 +84,50 @@ export const LOCALE_LEGACY_KEY = 'lang';
 // has to know the mode, and a CSS-revealed second copy of the text would be measured by
 // nobody.
 
+// The two preferences below differ in WHICH SURFACE they govern and in nothing else, so
+// they share one vocabulary rather than each declaring it. A fourth mode added to one copy
+// and not the other would be exactly the silent divergence this file's own `monthLong`
+// story is about — and a test asserting two copies stay equal is the copy admitting it is
+// one.
+const DATE_LABEL_MODES = ['date', 'date-week', 'week'] as const;
+const parseDateLabelMode = (r: string | null | undefined): DateLabelMode =>
+  r === 'date-week' || r === 'week' ? r : 'date';
+
+/** Prose, readouts and chart labels — everywhere a date is read as part of a sentence or
+ *  a caption. NOT table cells; those are `TABLE_DATE_LABELS` below. */
 export const DATE_LABELS: SelectablePreference<DateLabelMode> = {
   key: 'autoknow-date-labels',
   storage: 'cookie',
   storageReason:
     'the server renders every date, and chart geometry is computed in JS from the formatted string — a client-only read would both repaint every date after hydration and leave label placement measuring the wrong text',
   default: 'date',
-  values: ['date', 'date-week', 'week'],
-  parse: (r) => (r === 'date-week' || r === 'week' ? r : 'date'),
+  values: DATE_LABEL_MODES,
+  parse: parseDateLabelMode,
+};
+
+/**
+ * TABLES get their own switch, and the split is a real one rather than a courtesy.
+ *
+ * A cell is read DOWN a column, several instances compared against each other; prose is
+ * read across, once (design.md §6's stamp-vs-cell distinction, one level further in). The
+ * consequences differ enough that one control cannot serve both:
+ *   • "May 3, 2026 (W14)" repeated down forty rows is a column of parentheses, and it
+ *     widens a column that §6 already accepts a ragged edge on.
+ *   • the reverse is just as real — a planner who wants "W14" as the column they scan may
+ *     still want briefings and chart captions to name a date they can say out loud.
+ * So the question a reader answers here is not "how are dates written" but "do my TABLES
+ * show weeks", and the picker's option labels say that (`tableWeeks*` in i18n).
+ *
+ * Same three values, so both go through one `dayLabel` and one parser; only which
+ * preference a surface reads differs. `DateCell` is the sole consumer.
+ */
+export const TABLE_DATE_LABELS: SelectablePreference<DateLabelMode> = {
+  key: 'autoknow-table-date-labels',
+  storage: 'cookie',
+  storageReason: "the same SSR reason as DATE_LABELS — a table's dates are server-rendered, so a client-only read would rewrite every cell one frame after hydration",
+  default: 'date',
+  values: DATE_LABEL_MODES,
+  parse: parseDateLabelMode,
 };
 
 // ---- Rows per table: client-only view density (DataTable paginates client-side). --------
@@ -148,7 +184,7 @@ export const COLLAPSED_SECTIONS: Preference<readonly SectionId[]> = {
 };
 
 /** Every registered preference — drives reset-all and the registry tests. */
-export const ALL_PREFERENCES: ReadonlyArray<Preference<unknown>> = [THEME, STYLE, LOCALE, DATE_LABELS, ROWS_PER_TABLE, COLLAPSED_SECTIONS];
+export const ALL_PREFERENCES: ReadonlyArray<Preference<unknown>> = [THEME, STYLE, LOCALE, DATE_LABELS, TABLE_DATE_LABELS, ROWS_PER_TABLE, COLLAPSED_SECTIONS];
 
 // ---- The pre-paint boot script (§8c) ----------------------------------------------------
 

@@ -8,6 +8,7 @@ import ThemeToggle from './ThemeToggle';
 import StyleToggle from './StyleToggle';
 import LocaleSwitcher from './LocaleSwitcher';
 import DateLabelsPicker from './DateLabelsPicker';
+import TableWeeksPicker from './TableWeeksPicker';
 import { resetAllPreferences } from '../lib/preferences';
 import { initialsOf } from '../lib/people';
 import styles from './UserMenu.module.css';
@@ -116,6 +117,10 @@ export default function UserMenu({
         <div className={styles.prefRow}>
           <span data-eyebrow>{t(locale, 'dateLabelsLabel')}</span>
           <DateLabelsPicker />
+        </div>
+        <div className={styles.prefRow}>
+          <span data-eyebrow>{t(locale, 'tableWeeksLabel')}</span>
+          <TableWeeksPicker />
         </div>
         {/* Reset every preference to its app default (#31). A full reload is the simplest
             correct path: the pre-paint boot script re-applies the default theme/style and

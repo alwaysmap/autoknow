@@ -16,7 +16,7 @@ import {
 } from './entityHref';
 import { linkify, type EntityLink, type Segment } from './summaryLinkify';
 import { sopBufferReading } from './sop';
-import { localDate } from './dates';
+import { dayLabel, monthLabel } from './dates';
 import { profilesAsOf } from './profiles';
 import { getInitiativeDetail } from './initiativeQueries';
 
@@ -81,8 +81,10 @@ const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
 // is a table format that has no reason to survive inside a sentence, and the model
 // copies whatever shape it is shown (issue #20): a far-out target reads best coarse
 // ("August 2027"); an event keeps its day but drops the hyphens ("Jul 15, 2026").
-const proseMonth = (d: Date) => localDate(d, 'en-US', { month: 'long', year: 'numeric' });
-const proseDay = (d: Date) => localDate(d, 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const proseMonth = (d: Date) => monthLabel(d, 'en-US', 'long');
+// 'date', hard-coded and not a reader's DATE_LABELS mode: a brief is generated once and
+// read by everyone, so it cannot carry a per-reader format (see the DATE_LABELS ADR).
+const proseDay = (d: Date) => dayLabel(d, 'en-US', 'date', { year: true });
 
 // Evidence carries lifecycle, not just text (plan §5.3): a resolved bug must stop
 // reading as a blocker the moment its resolution revision lands.

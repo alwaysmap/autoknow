@@ -18,7 +18,7 @@ import KebabMenu from './KebabMenu';
 import PersonCell, { type PersonRef } from './PersonCell';
 import Combobox from './Combobox';
 import { partnerHref } from '../lib/entityHref';
-import { dayLabel, localDate } from '../lib/dates';
+import { dayLabel, monthLabel } from '../lib/dates';
 import { useDateLabels } from './DateLabelsProvider';
 
 // Project metadata lives in the page HEADER — one strip, no sidebar card, no
@@ -119,7 +119,7 @@ export default function ProjectMetaHeader({
   // NOT through `dayLabel`: the stored value names a month, so writing it as a calendar
   // week would invent a precision the target does not have.
   const sop = sopDateString
-    ? localDate(`${sopDateString}T00:00:00Z`, locale, { year: 'numeric', month: 'short' })
+    ? monthLabel(`${sopDateString}T00:00:00Z`, locale, 'short')
     : null;
   const sopMonthValue = sopDateString ? sopDateString.slice(0, 7) : ''; // yyyy-MM for <input type="month">
   const products = [

@@ -610,10 +610,17 @@ const STRINGS = {
   // How every DAY is written app-wide (DATE_LABELS, #31). "Calendar week" is the
   // automotive term of art — German keeps Kalenderwoche, which is what the "W" prefix
   // stands for to the readers who asked for this.
-  dateLabelsLabel: { en: 'Dates', de: 'Datumsangaben', ja: '日付表記', ko: '날짜 표기' },
+  dateLabelsLabel: { en: 'Dates & charts', de: 'Daten & Diagramme', ja: '日付・チャート', ko: '날짜 및 차트' },
   dateLabelsDate: { en: 'Date', de: 'Datum', ja: '日付', ko: '날짜' },
   dateLabelsDateWeek: { en: 'Date + week', de: 'Datum + KW', ja: '日付＋週', ko: '날짜 + 주차' },
   dateLabelsWeek: { en: 'Calendar week', de: 'Kalenderwoche', ja: '暦週', ko: '캘린더 주차' },
+  // The TABLE switch asks a different question from the one above — "do my tables show
+  // weeks", not "how are dates written" — so its options are answers to THAT question
+  // rather than a second copy of the three date shapes.
+  tableWeeksLabel: { en: 'Weeks in tables', de: 'KW in Tabellen', ja: '表の週表記', ko: '표의 주차' },
+  tableWeeksOff: { en: 'No', de: 'Nein', ja: 'なし', ko: '없음' },
+  tableWeeksWith: { en: 'With the date', de: 'Mit dem Datum', ja: '日付とともに', ko: '날짜와 함께' },
+  tableWeeksOnly: { en: 'Instead of the date', de: 'Statt des Datums', ja: '日付の代わりに', ko: '날짜 대신' },
   resetPreferences: { en: 'Reset to defaults', de: 'Auf Standard zurücksetzen', ja: 'デフォルトに戻す', ko: '기본값으로 재설정' },
   settingsLanguageDesc: {
     en: 'The display language for the whole app (stored as a cookie).',
@@ -2230,7 +2237,10 @@ const STRINGS = {
   // four are the only new copy the strip needed: its title, the "today" marker, the
   // day-index annotation, and the empty-day sentence.
   cdTitle: { en: 'day summary', de: 'Tageszusammenfassung', ja: '日次サマリー', ko: '일별 요약' },
-  cdToday: { en: '(today)', de: '(heute)', ja: '（今日）', ko: '(오늘)' },
+  // `· today`, not `(today)`: the date beside it may now carry a parenthesised calendar
+  // week ("day summary · May 3 (W14)"), and two adjacent bracketed groups read as one
+  // muddle. The middot is the separator this whole line already uses.
+  cdToday: { en: '· today', de: '· heute', ja: '・今日', ko: '· 오늘' },
   cdDayOf: { en: 'day {i} of {n}', de: 'Tag {i} von {n}', ja: '{n}日中{i}日目', ko: '{n}일 중 {i}일째' },
   cdNothing: {
     en: 'Nothing in flight — no phase, credit, or idle day here.',

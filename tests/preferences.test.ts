@@ -8,6 +8,7 @@ import {
   STYLE,
   LOCALE,
   DATE_LABELS,
+  TABLE_DATE_LABELS,
   ROWS_PER_TABLE,
   COLLAPSED_SECTIONS,
   ALL_PREFERENCES,
@@ -32,6 +33,8 @@ describe('#31 preferences registry', () => {
     expect(DATE_LABELS.parse('date-week')).toBe('date-week');
     expect(DATE_LABELS.parse('weekly')).toBe('date'); // a near-miss is not a match
     expect(DATE_LABELS.parse(null)).toBe('date');
+    expect(TABLE_DATE_LABELS.parse('week')).toBe('week');
+    expect(TABLE_DATE_LABELS.parse(null)).toBe('date');
     expect(ROWS_PER_TABLE.parse('50')).toBe(50);
     expect(ROWS_PER_TABLE.parse('7')).toBe(25);
     expect(ROWS_PER_TABLE.parse(null)).toBe(25);
@@ -61,6 +64,7 @@ describe('#31 preferences registry', () => {
     // layout pass sizing text the page is not going to show (see the registry entry).
     expect(LOCALE.storage).toBe('cookie');
     expect(DATE_LABELS.storage).toBe('cookie');
+    expect(TABLE_DATE_LABELS.storage).toBe('cookie');
     expect(THEME.storage).toBe('local');
     expect(STYLE.storage).toBe('local');
     expect(ROWS_PER_TABLE.storage).toBe('local');
@@ -78,5 +82,28 @@ describe('#31 preferences registry', () => {
     // tiny + dependency-free: an IIFE with a try/catch, no imports / React
     expect(script).toMatch(/^\(function\(\)\{try\{/);
     expect(script).not.toMatch(/\b(import|require|React)\b/);
+  });
+});
+
+describe('the two date-label preferences are genuinely separate', () => {
+  test('they are distinct keys, so a table setting cannot move prose (or the reverse)', () => {
+    // The whole point of splitting them. One key with two readers would be a single
+    // control wearing two labels in the user menu, which is worse than one control.
+    expect(TABLE_DATE_LABELS.key).not.toBe(DATE_LABELS.key);
+    expect(ALL_PREFERENCES).toContain(DATE_LABELS);
+    expect(ALL_PREFERENCES).toContain(TABLE_DATE_LABELS); // or reset-all leaves one behind
+  });
+
+  test('both start at the app default, so the split changes nothing until a reader asks', () => {
+    expect(DATE_LABELS.default).toBe('date');
+    expect(TABLE_DATE_LABELS.default).toBe('date');
+  });
+
+  test('they share one vocabulary — the SAME array and the SAME parser, not equal copies', () => {
+    // Identity, not equality. `toEqual` would pass over two literals that happen to match
+    // today, which is the copy this test used to police rather than prevent: a fourth mode
+    // added to one and not the other would still be `toEqual`-clean for `parse`.
+    expect(TABLE_DATE_LABELS.values).toBe(DATE_LABELS.values);
+    expect(TABLE_DATE_LABELS.parse).toBe(DATE_LABELS.parse);
   });
 });

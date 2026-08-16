@@ -8,9 +8,10 @@ import { DATE_LABELS } from '../lib/preferences';
 import type { DateLabelMode } from '../lib/dates';
 import PrefSelect from './PrefSelect';
 
-// How every DAY is written app-wide — date, date + calendar week, or the week alone
-// (DATE_LABELS, #31). A cookie, so it wears `PrefSelect`, the shared control for exactly
-// that class of preference; the language picker is its sibling.
+// How a DAY is written in prose, readouts and chart captions — date, date + calendar
+// week, or the week alone (DATE_LABELS, #31). NOT table cells: `TableWeeksPicker` is the
+// sibling that answers for those, and the registry entry carries why they are two controls.
+// A cookie, so it wears `PrefSelect`, the shared control for that class of preference.
 
 const OPTION_KEY: Record<DateLabelMode, StringKey> = {
   date: 'dateLabelsDate',

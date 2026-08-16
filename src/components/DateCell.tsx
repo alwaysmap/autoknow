@@ -2,7 +2,7 @@
 
 import { dayLabel, dayLabelTitle, isoDate } from '../lib/dates';
 import { useLocale } from './LocaleProvider';
-import { useDateLabels } from './DateLabelsProvider';
+import { useTableDateLabels } from './DateLabelsProvider';
 
 // The one way tables render dates (issue #153).
 //
@@ -34,7 +34,7 @@ export default function DateCell({
   fallback?: string;
 }) {
   const locale = useLocale();
-  const mode = useDateLabels();
+  const mode = useTableDateLabels();
   if (!value) return <span style={{ color: 'var(--muted, #888)' }}>{fallback}</span>;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return <span style={{ color: 'var(--muted, #888)' }}>{fallback}</span>;

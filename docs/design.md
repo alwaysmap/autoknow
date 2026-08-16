@@ -248,15 +248,25 @@ tables) so nothing has to be relearned page to page.
   `'2-digit'`, so it reads `Jun 1`, not `Jun 01`.
 
   **The visible half is now the reader's call, and the hover is its complement**
-  (2026-08-15, autoknow-dn8 — automotive plans run on ISO calendar weeks). The
-  `DATE_LABELS` preference (the #31 registry, a cookie because the server renders every
-  date) writes a DAY as `Jun 1, 2018`, `Jun 1, 2018 · W22`, or `W22 2018`, and `title`
-  carries whatever the visible text dropped. **`dateTime` stays ISO in all three** — a
-  display preference may not reach the value assistive tech announces. `dayLabel`
-  (`lib/dates.ts`) is the ONE function that decides, and it governs a DAY only: a
-  month-granular label (the SOP target, a month axis) and generated prose keep their own
-  shape. A week-gridded chart axis gains a WEEK TIER instead, which changes that chart's
-  geometry — see §8c and
+  (2026-08-15, autoknow-dn8 — automotive plans run on ISO calendar weeks). A cell reads
+  `Jun 1, 2018`, `Jun 1, 2018 (W22)`, or `W22 2018`, and `title` carries whatever the
+  visible text dropped. **`dateTime` stays ISO in all three** — a display preference may
+  not reach the value assistive tech announces.
+
+  **A table answers for itself.** The control is `TABLE_DATE_LABELS` ("Weeks in tables":
+  no / with the date / instead of it), NOT the `DATE_LABELS` one that governs prose,
+  readouts and chart captions — because a cell is read DOWN a column and prose is read
+  across, the same distinction the STAMP-vs-CELL rule below turns on. `DateCell` is the
+  only reader of the table preference; a second one means somebody hand-rolled a cell.
+
+  **`lib/dates.ts` is the ONLY place a date becomes text** — `toLocaleDateString` and
+  `Intl.DateTimeFormat` appear nowhere else, enforced by
+  `tests/dateFormattingIsOneModule.test.ts`, and the options-taking helper is not exported
+  so a call site cannot invent a shape. `dayLabel` writes a DAY (and takes the reader's
+  mode); `monthLabel` writes a MONTH and takes no mode at all, because a week number over
+  the SOP target would be a finer claim than the value supports. A week-gridded chart axis
+  gains a WEEK TIER instead of a per-label week, which changes that chart's geometry — see
+  §8c and
   [the ADR](adr/2026-08-15-a-date-label-preference-governs-days-and-a-week-gridded-axis-gains-a-tier.md).
 
   The old rule forbade this for two reasons; **exactly one of them survived**, and it is

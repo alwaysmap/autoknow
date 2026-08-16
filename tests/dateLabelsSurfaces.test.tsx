@@ -16,7 +16,10 @@ import type { DateLabelMode } from '../src/lib/dates';
 const draw = (value: string | null, mode: DateLabelMode) =>
   render(
     <LocaleProvider locale="en">
-      <DateLabelsProvider mode={mode}>
+      {/* `modes.table` is what DateCell reads; `modes.prose` is pinned to the default so
+          each assertion below proves the CELL followed the TABLE preference and not the
+          other one — the two are separate controls (design.md §6). */}
+      <DateLabelsProvider modes={{ prose: 'date', table: mode }}>
         <DateCell value={value} />
       </DateLabelsProvider>
     </LocaleProvider>,
@@ -24,12 +27,12 @@ const draw = (value: string | null, mode: DateLabelMode) =>
 
 const timeEl = (c: HTMLElement) => c.querySelector('time');
 
-describe('DateCell under every DATE_LABELS mode', () => {
+describe('DateCell under every TABLE_DATE_LABELS mode', () => {
   const ISO = '2026-07-18T00:00:00.000Z'; // a Saturday in W29
 
   test('the VISIBLE text follows the mode', () => {
     expect(timeEl(draw(ISO, 'date'))!.textContent).toBe('Jul 18, 2026');
-    expect(timeEl(draw(ISO, 'date-week'))!.textContent).toBe('Jul 18, 2026 · W29');
+    expect(timeEl(draw(ISO, 'date-week'))!.textContent).toBe('Jul 18, 2026 (W29)');
     expect(timeEl(draw(ISO, 'week'))!.textContent).toBe('W29 2026');
   });
 
@@ -63,5 +66,28 @@ describe('DateCell under every DATE_LABELS mode', () => {
     // outside DateLabelsProvider renders exactly what it rendered before it existed.
     const c = render(<LocaleProvider locale="en"><DateCell value={ISO} /></LocaleProvider>).container;
     expect(timeEl(c)!.textContent).toBe('Jul 18, 2026');
+  });
+
+  test('a cell follows the TABLE preference and ignores the prose one', () => {
+    // The reason there are two controls at all: a planner may want weeks in the column
+    // they scan and plain dates in the briefing they read, or the reverse. If DateCell
+    // ever went back to `useDateLabels()` this is the test that would say so.
+    const proseOnly = render(
+      <LocaleProvider locale="en">
+        <DateLabelsProvider modes={{ prose: 'week', table: 'date' }}>
+          <DateCell value={ISO} />
+        </DateLabelsProvider>
+      </LocaleProvider>,
+    ).container;
+    expect(timeEl(proseOnly)!.textContent).toBe('Jul 18, 2026');
+
+    const tableOnly = render(
+      <LocaleProvider locale="en">
+        <DateLabelsProvider modes={{ prose: 'date', table: 'week' }}>
+          <DateCell value={ISO} />
+        </DateLabelsProvider>
+      </LocaleProvider>,
+    ).container;
+    expect(timeEl(tableOnly)!.textContent).toBe('W29 2026');
   });
 });

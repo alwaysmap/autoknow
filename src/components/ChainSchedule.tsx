@@ -3,7 +3,7 @@
 import { useRef, useState, type SVGProps } from 'react';
 import ChartLabel from './ChartLabel';
 import { t, Locale } from '../lib/i18n';
-import { dayLabel, isoWeekLabel, localDate } from '../lib/dates';
+import { dayLabel, isoWeekLabel, monthLabel } from '../lib/dates';
 import { useDateLabels } from './DateLabelsProvider';
 import { DAY_MS, dayFloor } from '../lib/sop';
 import ConstraintRing from './ConstraintRing';
@@ -92,10 +92,6 @@ const textWidth = (s: string) =>
  *  sign rather than a hyphen — this axis's negative half is its point, so the
  *  glyph that says so should not be the one that also means "range". */
 const pctText = (v: number) => `${v < 0 ? '−' : ''}${Math.abs(Math.round(v))}`;
-
-/** The SOP, which is a MONTH target — so it stays a month, in every DATE_LABELS mode: a
- *  week number here would be a finer claim than the stored value makes (see `dayLabel`). */
-const monthLong = (ms: number, locale: Locale) => localDate(new Date(ms), locale, { month: 'long', year: 'numeric' });
 
 /** Monday 00:00 UTC on or before `ms` (ISO week start, matching the old graticule). */
 function weekFloor(ms: number): number {
@@ -399,7 +395,6 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
   const zoomOut = () => setFocus(zoomWindow(focus, 1 / ZOOM_STEP, zoomCenter, fitSpan, dataMin, dataMax));
 
   // month boundaries for the axis labels (one letter per month, centred in its span)
-  const monthNarrow = new Intl.DateTimeFormat(locale, { month: 'narrow', timeZone: 'UTC' });
   const months: { ms: number; next: number }[] = [];
   {
     const d0 = new Date(tMin);
@@ -419,7 +414,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
   const axisMonths = showMonthLetters
     ? months.map((m) => {
         const from = Math.max(m.ms, tMin), to = Math.min(m.next, tMax);
-        return { ms: m.ms, letter: monthNarrow.format(new Date(m.ms)), cx: (x(from) + x(to)) / 2, span: x(to) - x(from) };
+        return { ms: m.ms, letter: monthLabel(new Date(m.ms), locale, 'initial'), cx: (x(from) + x(to)) / 2, span: x(to) - x(from) };
       }).filter((o) => o.span >= 12)
     : [];
   const axisHalfH = halfHFor(FS_AXIS);
@@ -462,7 +457,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
   // The SOP label is END-anchored and clamped to W-8, so its box is measured from there.
   const todayHalfW = textWidth(t(locale, 'clTodayLabel', { date: dayShort(now) })) / 2;
   const sopLabelRight = sopMs != null ? Math.min(x(sopMs), W - 8) : 0;
-  const sopLabelW = sopMs != null ? textWidth(t(locale, 'clSopLabel', { month: monthLong(sopMs, locale) })) : 0;
+  const sopLabelW = sopMs != null ? textWidth(t(locale, 'clSopLabel', { month: monthLabel(new Date(sopMs), locale, 'long') })) : 0;
   const topClash = sopMs != null && x(now) + todayHalfW + 4 > sopLabelRight - sopLabelW && x(now) - todayHalfW < sopLabelRight;
   const todayLabelY = topClash ? TOP - 4 : TOP - 18;
 
@@ -863,7 +858,7 @@ export function ChainSchedule({ ledger, sopMs, now, locale, onDay, onJump }: {
           <>
             <VRule cx={x(sopMs)} y0={TOP - 12} y1={vExtentBot} cut={captionCut} stroke="var(--fg)" strokeWidth={1.5} />
             <ChartLabel x={Math.min(x(sopMs), W - 8)} y={TOP - 18} textAnchor="end" fontSize={FS_EMPH} fill="var(--fg)">
-              {t(locale, 'clSopLabel', { month: monthLong(sopMs, locale) })}
+              {t(locale, 'clSopLabel', { month: monthLabel(new Date(sopMs), locale, 'long') })}
             </ChartLabel>
           </>
         )}

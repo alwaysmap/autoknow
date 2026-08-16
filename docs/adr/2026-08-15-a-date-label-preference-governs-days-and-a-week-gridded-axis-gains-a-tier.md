@@ -8,7 +8,7 @@ extended-by: ""
 tags: [dates, preferences, charts, ui]
 ---
 
-# A date-label preference governs how a DAY is written; a week-gridded axis gains a tier
+# One module writes every date; a preference governs DAYS, and tables answer for themselves
 
 **Context.** Automotive programs are planned, committed and argued about in ISO calendar
 weeks — a supplier promises CW22, not June 1 — and this app wrote every date as a date.
@@ -19,27 +19,49 @@ those are not one thing. The delivery question is nearly as hard: chart labels h
 laid out in JS (`estimateTextWidth` decides which axis ticks survive de-collision), so a
 display preference is a **geometry** input, not a string swap.
 
-**Decision.** Three rules.
+**Decision.** Five rules.
 
-1. **The preference governs how a DAY is written, and nothing else.** `dayLabel` in
-   `lib/dates.ts` is the one function; every surface that names a day calls it. A label
-   naming a MONTH is out of scope and keeps its own shape — the SOP target
-   ("end of August 2026"), `ProgramTimeline`'s month axis, `ProjectMetaHeader`'s SOP
-   line. A week number over a month-granular value would be a finer claim than the value
-   supports. Generated prose (`lib/summaries`, `lib/seed`) is also out: it is stored
-   content, not a per-reader label, and `tests/summaryProseDates.test.ts` already governs
-   it (design.md §6).
-2. **A week-gridded axis gains a WEEK TIER when the mode carries weeks — in both such
+1. **ONE module turns a date into text**, and it is `lib/dates.ts`. `toLocaleDateString`
+   and `Intl.DateTimeFormat` appear nowhere else in the app, enforced by
+   `tests/dateFormattingIsOneModule.test.ts` — and enforced twice, because either half is
+   satisfiable vacuously: nothing outside may CALL Intl's date APIs, and the module may not
+   EXPORT the raw options-taking helper (`localDate`) that would let a caller do it at one
+   remove. Callers get named functions that say what KIND of value they are naming.
+2. **The preference governs how a DAY is written, and nothing else.** `dayLabel` is that
+   function; `monthLabel` is its counterpart for a value whose precision IS a month, and
+   `monthLabel` deliberately takes no mode and cannot grow one — the SOP target
+   ("end of August 2026"), `ProgramTimeline`'s month axis, `ProjectMetaHeader`'s SOP line.
+   A week number over a month-granular value would be a finer claim than the value
+   supports. Generated prose (`lib/summaries`, `lib/seed`) is out too — stored content, not
+   a per-reader label — and calls `dayLabel` with the mode hard-coded to `date`.
+3. **The date+week form is PARENTHESES: `May 3, 2026 (W14)`.** One grammar everywhere the
+   pair appears. A middot (`May 3, 2026 · W14`) reads as two coordinate facts, which is
+   passable in a chart caption and wrong in a sentence — and this label lands in both.
+   (`cdToday` moved from `(today)` to `· today` in the same change: two adjacent bracketed
+   groups on one line read as a muddle.)
+4. **A week-gridded axis gains a WEEK TIER when the mode carries weeks — in both such
    modes, identically.** `ChainSchedule`'s columns already *are* ISO weeks, so the tier
    labels what is drawn. It sits nearest the plot (finest unit first, the nesting every
    Gantt header uses) and pushes the month letters down, growing the chart's height by a
    real 16 units. `date-week` and `week` render the same tier because the tier labels
    COLUMNS, not days; the two modes diverge only where a DAY is named (today's marker,
    the blown-buffer tick, the hover readout, the day strip).
-3. **It is stored in a COOKIE, resolved server-side, distributed by a provider** —
-   `DATE_LABELS` in the #31 registry, `lib/dateLabels.ts`, `DateLabelsProvider`. The two
-   server components that render days (`LatestTeasers`, `PartnerProgramRows`) take it as a
-   prop, exactly as they take `locale`.
+5. **TABLES get their own preference.** `DATE_LABELS` governs prose, readouts and chart
+   captions; `TABLE_DATE_LABELS` governs `DateCell`, and nothing else reads it. Both are
+   COOKIES resolved server-side and distributed by one provider with two hooks
+   (`useDateLabels` / `useTableDateLabels`); the two server components that render days
+   (`LatestTeasers`, `PartnerProgramRows`) take the prose mode as a prop, exactly as they
+   take `locale`.
+
+   The split is not a courtesy. A cell is read DOWN a column, several instances compared
+   against each other; prose is read across, once — design.md §6's stamp-vs-cell
+   distinction, one level further in. "May 3, 2026 (W14)" repeated down forty rows is a
+   column of parentheses widening a column §6 already accepts a ragged edge on; and the
+   reverse is just as real, since a planner who wants `W14` as the column they scan may
+   still want a briefing to name a date they can say out loud. So the question the table
+   control asks is **"do my tables show weeks"** — no / with the date / instead of it — not
+   "how are dates written". Same three values underneath, so one `dayLabel` and one parser
+   serve both.
 
 **Alternatives rejected.**
 
@@ -55,6 +77,13 @@ display preference is a **geometry** input, not a string swap.
 * **Applying the mode to every date-shaped string**, including the AI briefings — a brief
   is written once and read by everyone, so a per-reader format cannot reach it without
   re-generating it per reader.
+* **One preference for everything, tables included** — tried first, and the table column is
+  what killed it: a reader who wants weeks in their charts does not thereby want every
+  date cell to grow a parenthetical. One control answering two questions is worse than two
+  controls each answering one.
+* **A middot separator** (`May 3, 2026 · W14`) — shipped first, then replaced: it reads as
+  a second coordinate fact, which is wrong in the briefing headline and the day strip,
+  where this label is a phrase inside a sentence.
 * **Localizing the "W" prefix** (KW in German, 週 in Japanese) — `W22` is the ISO 8601
   designator, it is already this codebase's spelling in `isoWeekLabel`, and a
   locale-dependent width would make every chart's label boxes locale-dependent too. The
@@ -66,9 +95,14 @@ display preference is a **geometry** input, not a string swap.
 
 **Consequences.**
 
-* Adding a day-granular surface means calling `dayLabel`, not `localDate` — enforced for
-  `DataTable` hosts by `tests/dataTableConvention.test.ts`, which now names `dayLabel` as
-  the one legitimate date render.
+* Adding a day-granular surface means calling `dayLabel`; a month-granular one means
+  `monthLabel`. There is no third option — `localDate` is not exported. Enforced by
+  `tests/dateFormattingIsOneModule.test.ts`, and for `DataTable` hosts additionally by
+  `tests/dataTableConvention.test.ts`, which now names `dayLabel` as the one legitimate
+  date render.
+* `lib/dates.ts` caches its `Intl.DateTimeFormat` instances, which it can only do because
+  it is the single site: `ChainSchedule` re-renders on every mousemove and asks for a month
+  letter per column, and constructing a formatter per call is not free.
 * The ISO week and the ISO week-numbering YEAR travel together (`isoWeekParts`). They
   disagree at the turn of the year — 2024-12-30 is 2025-W01 — and a year taken from
   `getUTCFullYear()` names a week that does not exist.

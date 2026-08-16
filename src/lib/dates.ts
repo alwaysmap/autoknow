@@ -1,26 +1,61 @@
-// Shared date rendering (design.md: quiet, consistent, data-ink).
+// THE place a date becomes text (design.md §6: quiet, consistent, data-ink).
 //
-// `dayLabel` below is the entry point and carries the rule: it is how a DAY is written
-// anywhere a person reads one, and what it writes follows the reader's DATE_LABELS
-// preference. `isoDate` / `isoDateTime` are the MACHINE forms that ride alongside — a
-// `<time dateTime>`, a provenance stamp — and never move with the preference.
+// One module, and that is a RULE rather than a tidy-up: `toLocaleDateString` and
+// `Intl.DateTimeFormat` appear nowhere else under src, enforced by
+// tests/dateFormattingIsOneModule.test.ts — which carries what it cost to learn.
+//
+// Three families, and which one a caller wants is a statement about the VALUE:
+//   • MACHINE forms — `isoDate`, `isoDateTime`, the `isoWeek*` labels. A `<time dateTime>`,
+//     a provenance stamp, a title. These never move with a preference.
+//   • `dayLabel` — a DAY, written the way the reader asked for (`DATE_LABELS` for prose,
+//     readouts and chart captions; `TABLE_DATE_LABELS` for a table cell). Every
+//     day-granular label in the app.
+//   • `monthLabel` — a MONTH. Deliberately CANNOT carry a week: an SOP target names a
+//     month, and a week number over it would be a finer claim than the value supports.
+//
+// (`Intl.RelativeTimeFormat` lives in `lib/relativeTime.ts` and is not an exception to the
+// rule above: a duration is not a date. That module's own header carries why §6 gives a
+// STAMP a different home from a CELL; its absolute fallback comes back here.)
 
-export function isoDate(value: string | Date): string {
-  return new Date(value).toISOString().slice(0, 10);
-}
+// ---- the private formatting floor -------------------------------------------------------
 
 /**
- * Locale-aware date label rendered from UTC parts. Client components are
- * server-rendered first, so a formatter that reads the machine's timezone
- * hydrates to a DIFFERENT day near midnight boundaries (server TZ vs browser TZ)
- * — every user-facing toLocaleDateString goes through here with the TZ pinned.
+ * Formatters are CACHED because constructing one is expensive and `ChainSchedule`
+ * re-renders on every mousemove, asking for a month letter per column. Keyed on locale and
+ * options together, so two callers wanting different shapes never share one — and the key
+ * space is CLOSED rather than merely small, because `localDate` is private and only the
+ * named functions below get to choose options. An unbounded Map here would be a leak.
  */
-export function localDate(
+const FORMATTERS = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * Locale-aware date text rendered from UTC parts, and the ONLY call to Intl in the app's
+ * date path. Client components are server-rendered first, so a formatter that reads the
+ * machine's timezone hydrates to a DIFFERENT day near midnight boundaries (server TZ vs
+ * browser TZ) — pinning the zone here means no call site can forget to.
+ *
+ * NOT exported, and that is the enforcement: a caller cannot reach Intl options directly,
+ * so every date in the app is written by one of the named functions below, each of which
+ * says what KIND of thing it is naming.
+ */
+function localDate(
   value: string | Date,
   locale: string | undefined,
   opts: Intl.DateTimeFormatOptions,
 ): string {
-  return new Date(value).toLocaleDateString(locale, { timeZone: 'UTC', ...opts });
+  const key = `${locale ?? ''}|${JSON.stringify(opts)}`;
+  let fmt = FORMATTERS.get(key);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...opts });
+    FORMATTERS.set(key, fmt);
+  }
+  return fmt.format(new Date(value));
+}
+
+// ---- machine forms: the exact instant, for a machine to read -----------------------------
+
+export function isoDate(value: string | Date): string {
+  return new Date(value).toISOString().slice(0, 10);
 }
 
 /**
@@ -71,8 +106,11 @@ export function isoWeekYearLabel(value: string | Date): string {
   return `W${week} ${weekYear}`;
 }
 
+// ---- reader-facing labels: what a PERSON is shown --------------------------------------
+
 /**
- * How a user has asked for DAYS to be written (the `DATE_LABELS` preference, #31).
+ * How a user has asked for DAYS to be written — `DATE_LABELS` for prose, readouts and
+ * chart captions, and its table twin `TABLE_DATE_LABELS` for a cell (#31).
  * Automotive planning runs on ISO calendar weeks — a supplier commits to CW22, not to
  * June 1 — so a reader may want the week alongside the date, or instead of it.
  */
@@ -84,10 +122,10 @@ export type DateLabelMode = 'date' | 'date-week' | 'week';
  * the preference cannot reach eleven surfaces and miss the twelfth.
  *
  * The scope is deliberately a DAY. A calendar week is a day-granular unit, so a label
- * naming a MONTH ("end of August 2026", the program timeline's month axis) is NOT this
- * function's business and keeps its own shape — a week number there would be a finer
- * claim than the underlying value supports. Generated prose (AI briefings, seeded notes)
- * is likewise out of scope: it is stored content, not a per-reader label (design.md §6).
+ * naming a MONTH ("end of August 2026", the program timeline's month axis) belongs to
+ * `monthLabel` below — a week number there would be a finer claim than the value
+ * supports. Generated prose (AI briefings, seeded notes) is likewise out of scope: it is
+ * stored content, not a per-reader label (design.md §6).
  *
  * `year` follows the caller's existing Intl options rather than the mode, so the
  * date/week forms of one call site stay the same size of statement: a cell that said
@@ -102,9 +140,41 @@ export function dayLabel(
   const { year = false, month = 'short' } = opts;
   if (mode === 'week') return year ? isoWeekYearLabel(value) : isoWeekLabel(value);
   const date = localDate(value, locale, { month, day: 'numeric', ...(year ? { year: 'numeric' } : {}) });
-  // The bare week even when a year was asked for: the calendar year is already in the
-  // date beside it, and repeating it ("Jun 1, 2026 · W22 2026") pays two words for none.
-  return mode === 'date-week' ? `${date} · ${isoWeekLabel(value)}` : date;
+  // PARENTHESES, not a middot: the week is a GLOSS on the date, not a second coordinate
+  // fact (the ADR carries why). The bare week inside them even when a year was asked for —
+  // the calendar year is already in the date beside it.
+  return mode === 'date-week' ? `${date} (${isoWeekLabel(value)})` : date;
+}
+
+/** What each month style is FOR — the half a reader cannot get from the shapes below.
+ *  `short` and `compact` differ by their year, which their names do not tell you. */
+export type MonthStyle =
+  | 'long'      // a headline sentence, a marker caption
+  | 'short'     // a fact line
+  | 'compact'   // an axis tick, where the year still has to be there
+  | 'initial';  // the month letters under a week-gridded axis
+
+const MONTH_STYLES: Record<MonthStyle, Intl.DateTimeFormatOptions> = {
+  long: { month: 'long', year: 'numeric' },      // "August 2026"
+  short: { month: 'short', year: 'numeric' },    // "Aug 2026"
+  compact: { month: 'short', year: '2-digit' },  // "Aug 26"
+  initial: { month: 'narrow' },                  // "A"
+};
+
+/**
+ * A MONTH, for a value whose precision IS a month — an SOP target, a coarse chart axis.
+ *
+ * Separate from `dayLabel` rather than an option on it, because the difference is not
+ * cosmetic: this function has no `DateLabelMode` parameter and cannot grow one. A calendar
+ * week is a day-granular unit, so writing "W22" over a value that only ever named August
+ * would invent precision the data does not have — the boundary the DATE_LABELS ADR draws.
+ */
+export function monthLabel(
+  value: string | Date,
+  locale: string | undefined,
+  style: MonthStyle = 'short',
+): string {
+  return localDate(value, locale, MONTH_STYLES[style]);
 }
 
 /** The machine/reading-form partner of `dayLabel`: whatever the visible text does NOT

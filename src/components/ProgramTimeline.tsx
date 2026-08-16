@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { t, type Locale } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
-import { dayLabel, localDate, type DateLabelMode } from '../lib/dates';
+import { dayLabel, monthLabel, type DateLabelMode } from '../lib/dates';
 import { useDateLabels } from './DateLabelsProvider';
 import { healthColor, healthKey, parseHealth, HEALTHS, type Health } from '../lib/health';
 import AnchoredPopover from './AnchoredPopover';
@@ -219,7 +219,7 @@ export default function ProgramTimeline({ layout, filteredOut = 0, filteredOutHr
               const p = pct(ms);
               return (
                 <span key={ms} className={styles.tick} style={{ left: at(p), transform: tickShift(p) }}>
-                  {localDate(new Date(ms), locale, { month: 'short', year: '2-digit' })}
+                  {monthLabel(new Date(ms), locale, 'compact')}
                 </span>
               );
             })}

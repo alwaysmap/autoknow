@@ -112,7 +112,9 @@ function expectOffTheRules(boxes: (Box & { text: string })[], scope: Element) {
 const wrap = (ui: React.ReactNode, dateLabels: DateLabelMode = 'date') =>
   render(
     <LocaleProvider locale="en">
-      <DateLabelsProvider mode={dateLabels}>{ui}</DateLabelsProvider>
+      {/* charts read `modes.prose`; `modes.table` is irrelevant here and pinned to the
+          default so a table preference can never move a chart's geometry. */}
+      <DateLabelsProvider modes={{ prose: dateLabels, table: 'date' }}>{ui}</DateLabelsProvider>
     </LocaleProvider>,
   );
 
@@ -816,9 +818,9 @@ describe("ChainSchedule's buffer flow — the frame and the boundary are collisi
         Array.from(drawChain(wide, mode).querySelectorAll<SVGTextElement>('svg text'))
           .map((el) => el.textContent ?? '')
           .find((s) => s.startsWith('today ·'))!;
-      expect(marker('date')).toMatch(/^today · \w+ \d+$/);        // today · Mar 2
-      expect(marker('date-week')).toMatch(/^today · \w+ \d+ · W\d+$/); // today · Mar 2 · W10
-      expect(marker('week')).toMatch(/^today · W\d+$/);            // today · W10
+      expect(marker('date')).toMatch(/^today · \w+ \d+$/);              // today · Mar 2
+      expect(marker('date-week')).toMatch(/^today · \w+ \d+ \(W\d+\)$/); // today · Mar 2 (W10)
+      expect(marker('week')).toMatch(/^today · W\d+$/);                  // today · W10
     });
 
     it('grows the drawing rather than overprinting it — the tier costs real height', () => {

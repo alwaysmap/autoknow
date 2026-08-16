@@ -31,10 +31,12 @@ describe('dayLabel — the one way a DAY is written (DATE_LABELS)', () => {
     expect(dayLabel(d, 'en-US', 'date', { year: true, month: 'long' })).toBe('July 18, 2026');
   });
 
-  test("'date-week' appends the week and never repeats the year", () => {
-    expect(dayLabel(d, 'en-US', 'date-week')).toBe('Jul 18 · W29');
-    // NOT "Jul 18, 2026 · W29 2026" — the calendar year is already in the date beside it.
-    expect(dayLabel(d, 'en-US', 'date-week', { year: true })).toBe('Jul 18, 2026 · W29');
+  test("'date-week' glosses the date in PARENTHESES and never repeats the year", () => {
+    // Parentheses, not " · W29": the label lands in sentences as well as chart captions,
+    // and a middot reads there as a second, coordinate fact rather than as one date.
+    expect(dayLabel(d, 'en-US', 'date-week')).toBe('Jul 18 (W29)');
+    // NOT "Jul 18, 2026 (W29 2026)" — the calendar year is already in the date beside it.
+    expect(dayLabel(d, 'en-US', 'date-week', { year: true })).toBe('Jul 18, 2026 (W29)');
   });
 
   test("'week' replaces the date, and takes the year exactly where the date would have", () => {
@@ -59,7 +61,7 @@ describe('dayLabel — the one way a DAY is written (DATE_LABELS)', () => {
   });
 
   test('a locale changes the date half and leaves the ISO week alone', () => {
-    expect(dayLabel(d, 'de-DE', 'date-week', { year: true })).toContain('· W29');
+    expect(dayLabel(d, 'de-DE', 'date-week', { year: true })).toContain('(W29)');
     expect(dayLabel(d, 'ja-JP', 'week')).toBe('W29');
   });
 });
