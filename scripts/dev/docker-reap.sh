@@ -145,7 +145,13 @@ remove_project() { # remove_project <project> — containers first: a volume or 
 # cwd=/ , and a cwd-derived root would silently resolve to "no worktrees" and reap
 # everything it could see.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MAIN="$(cd "$(dirname "$(git -C "$HERE" rev-parse --git-common-dir)")" && pwd)"
+# `--git-common-dir` answers RELATIVE to the repo when the script sits in the main
+# checkout (`../../.git`) and absolute when it sits in a worktree. So resolve it from
+# $HERE, never from $PWD: `cd "$HERE"` first makes the relative answer resolve correctly,
+# and a `cd` to an absolute answer ignores it. Under launchd ($PWD=/) the $PWD-relative
+# version resolved MAIN to `/` — the exact cwd-derived failure the comment above warns
+# about, arriving through git's output format rather than through a bare `pwd`.
+MAIN="$(cd "$HERE" && cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
 
 # LIVE = every worktree git still knows about, by BASENAME — exactly what Compose uses as
 # the default project name. Read from git rather than the filesystem so a worktree whose
@@ -157,6 +163,17 @@ while IFS= read -r line; do
     p="${line#worktree }"; LIVE+=( "$(compose_project_name "${p##*/}")" ) ;;
   esac
 done < <(git -C "$MAIN" worktree list --porcelain)
+
+# REFUSE TO RUN rather than reap against a set we could not build. An empty live set means
+# every project on the machine looks orphaned, so the one thing this must never do is
+# proceed on it — and the way it goes wrong is not hypothetical: a $PWD-relative resolution
+# of MAIN under launchd produced exactly this, silently, with `main checkout : /`. A guard
+# is the difference between a broken sweep and a destroyed one.
+if [ "${#LIVE[@]}" -eq 0 ] || [ "$MAIN" = "/" ]; then
+  echo "refusing to run: could not resolve the repo (main='$MAIN', ${#LIVE[@]} worktrees)." >&2
+  echo "this script must be run from inside a checkout of the repo it cleans." >&2
+  exit 1
+fi
 
 is_live() {
   local want n; want="$(compose_project_name "$1")"
@@ -180,7 +197,17 @@ owns_our_pgdata_volume() { # (b) still identifies a project whose container is a
 }
 is_ours() { has_container_under_our_root "$1" || owns_our_pgdata_volume "$1"; }
 
+# The one project name docker-compose.yml pins, if it pins one. Read from the file rather
+# than written down here, so the two cannot disagree about which project is current — and
+# read from THIS SCRIPT'S OWN checkout rather than the main one, because the script and
+# the compose file it reasons about ship together: a branch that changes the pin changes
+# this script's behaviour in the same commit, which is also what makes it testable before
+# the branch merges. (`$MAIN` stays the source for the worktree list, which is repo-global
+# and has no per-checkout answer.)
+PINNED_PROJECT="$(sed -n 's/^name:[[:space:]]*//p' "$HERE/../../docker-compose.yml" 2>/dev/null | head -1 | tr -d '"'"'"' ')"
+
 echo "main checkout : $MAIN"
+echo "pinned project: ${PINNED_PROJECT:-<none — compose names projects per directory>}"
 echo "live projects : ${LIVE[*]}"
 echo
 
@@ -203,12 +230,26 @@ reap=()
 spared=()
 
 for proj in $candidates; do
-  if ! is_ours "$proj"; then printf 'skip   %-42s not this repo\n'    "$proj"; spared+=( "$proj" ); continue; fi
-  if   is_live "$proj"; then printf 'keep   %-42s worktree present\n' "$proj"; spared+=( "$proj" ); continue; fi
+  if ! is_ours "$proj"; then printf 'skip   %-42s not this repo\n' "$proj"; spared+=( "$proj" ); continue; fi
+
+  # LEGACY, once docker-compose.yml pins `name:`. Before the pin, Compose named the
+  # project after each worktree's directory; after it there is exactly ONE project, and
+  # any other project of ours is residue from that era — including one whose worktree is
+  # still alive, because nothing will ever address it again. Without this clause those
+  # would be kept forever by the worktree test below, which is the one thing the pin
+  # cannot fix on its own.
+  # `why` names the reason this project is reapable, so every later line about it — the
+  # skip messages included — says the true thing rather than assuming the common case.
+  why='worktree gone'
+  if [ -n "$PINNED_PROJECT" ] && [ "$proj" != "$PINNED_PROJECT" ]; then
+    why="legacy: predates the pinned \`name: $PINNED_PROJECT\`"
+  elif is_live "$proj"; then
+    printf 'keep   %-42s worktree present\n' "$proj"; spared+=( "$proj" ); continue
+  fi
 
   running="$(running_ids_of "$proj" | grep -c . || true)"
   if [ "$running" -gt 0 ] && [ "$FORCE" != "1" ]; then
-    printf 'SKIP   %-42s worktree gone but %s running (use --force)\n' "$proj" "$running"
+    printf 'SKIP   %-42s %s, but %s running (use --force)\n' "$proj" "$why" "$running"
     spared+=( "$proj" ); continue
   fi
 
@@ -219,7 +260,7 @@ for proj in $candidates; do
     printf 'SKIP   %-42s younger than %sh\n' "$proj" "$MIN_AGE_HOURS"; spared+=( "$proj" ); continue
   fi
 
-  printf 'REAP   %-42s worktree gone\n' "$proj"
+  printf 'REAP   %-42s %s\n' "$proj" "$why"
   reap+=( "$proj" )
 done
 

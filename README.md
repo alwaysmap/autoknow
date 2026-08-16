@@ -86,8 +86,9 @@ local use):
 | `db:seed` | Prisma seed (mock data; wipe-guarded — see OPERATIONS §1) |
 | `db:studio` | Prisma Studio on :5555 |
 | `db:test:clean` | Drop stray per-worktree `autoknow…_test` DBs (skips in-use; never the dev/demo DBs) |
-| `docker:reap` (`:apply`) | The container sibling of `db:test:clean`: remove the Postgres container, volume and network of every worktree git no longer knows about. Dry run by default; `:apply` removes. Scoped to this repo, never a running container or a live worktree |
-| `clean:workspace` | The whole local sweep — `db:test:clean` + `docker:reap:apply`. Run it whenever; it is idempotent |
+| `db:demo:clean` | Drop per-worktree `autoknow…_demo` DBs whose WORKTREE IS GONE (skips in-use and live ones; never the dev/test DBs). Unlike `_test`, a demo DB is somebody's working seeded app, so this reconciles against `git worktree list` rather than dropping every idle one |
+| `docker:reap` (`:apply`) | The container sibling of the two above: remove the Postgres container, volume and network of every worktree git no longer knows about, plus anything predating the pinned compose `name:`. Dry run by default; `:apply` removes. Scoped to this repo, never a running container |
+| `clean:workspace` | The whole local sweep — `db:test:clean` + `db:demo:clean` + `docker:reap:apply`. Run it whenever; it is idempotent |
 | `db:embeddings:audit` | Find rows holding the fallback embedding instead of a real one (by L2 norm — see the script). Read-only; `-- --fix` clears them so re-ingestion rebuilds them |
 | `db:backfill:owner-person` | Fill `Project.ownerPersonId` from the legacy `ownerName` text (#127 E6). Idempotent; writes only unambiguous matches and reports the rest |
 | `db:backfill:affiliation-email` | Fill `PersonAffiliation.email` from `Person.email`, for the period covering the run instant only (#127 E8). Idempotent; leaves every other period NULL and reports it |
@@ -191,14 +192,33 @@ Read [docs/CHANGE_PLAYBOOK.md](docs/CHANGE_PLAYBOOK.md) before touching
 
 #### Reclaiming what worktrees leave behind
 
-`docker-compose.yml` declares no `name:`, so Compose names the project after the working
-DIRECTORY — unique per worktree. Every worktree that runs `db:up` therefore gets **its
-own** container, volume and network, and nothing has ever removed them: one laptop had 13
-compose projects, 9 belonging to worktrees deleted weeks earlier, holding 3.9GB.
+Each worktree provisions throwaway state in three places, and until recently only one of
+them was ever reclaimed. Measured on one laptop: **153** stray `_test` databases (1.6GB),
+**13** `_demo` databases (148MB), and **13** compose projects — 9 of them belonging to
+worktrees deleted weeks earlier — holding 3.9GB of volumes across 18 bridge networks.
 
 ```bash
-npm run clean:workspace   # db:test:clean + docker:reap:apply — the whole local sweep
+npm run clean:workspace   # test DBs + orphaned demo DBs + Docker — the whole sweep
 npm run docker:reap       # just the Docker half, dry run: print the plan and stop
+```
+
+The Docker half exists at all because Compose used to name the project after the working
+DIRECTORY, which is unique per worktree. `docker-compose.yml` now pins `name: autoknow`,
+so there is **one** container, volume and network for every worktree — which is what the
+per-worktree DATABASE names inside it always assumed. `docker:reap` therefore treats any
+project of ours other than `autoknow` as legacy, including one whose worktree is still
+alive: nothing will ever address it again.
+
+**One-time, if you have a pre-pin container holding your local dev data.** The pin makes
+`db:up` reach for a fresh `autoknow_pgdata`, so carry the old volume over first — the copy
+is non-destructive and the old volume stays until you reap it:
+
+```bash
+docker compose -p autoknow down 2>/dev/null; docker stop <old-project>-db-1
+docker volume create autoknow_pgdata
+docker run --rm -v <old-project>_pgdata:/from -v autoknow_pgdata:/to alpine \
+  sh -c 'cd /from && cp -a . /to'
+npm run db:up
 ```
 
 The sweep is **reconciliation, not a shutdown hook**: it enforces "a compose project
