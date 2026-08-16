@@ -6,7 +6,8 @@ import { hillStatusColor } from '../lib/phase';
 import { t, type Locale } from '../lib/i18n';
 import type { HillChange } from '../lib/history';
 import styles from './NeedleHistoryList.module.css';
-import { localDate } from '../lib/dates';
+import { dayLabel } from '../lib/dates';
+import { useDateLabels } from './DateLabelsProvider';
 import { useScrollToAddressed, addressedAttrs } from '../lib/useScrollToAddressed';
 
 // A scrollable list of "list cards" for a phase's hill-chart updates: a compact hill
@@ -57,6 +58,7 @@ export default function HillHistoryList({
    *  which owns both halves for every hash-addressable log. */
   scrollToHighlight?: boolean;
 }) {
+  const dateLabels = useDateLabels();
   const listRef = useScrollToAddressed(highlightId, scrollToHighlight, changes);
 
   if (changes.length === 0) {
@@ -66,7 +68,7 @@ export default function HillHistoryList({
   return (
     <div className={compact ? `${styles.list} ${styles.compact}` : styles.list} ref={listRef}>
       {changes.map((c) => {
-        const date = localDate(c.timestamp, locale, { month: 'short', day: 'numeric', year: 'numeric' });
+        const date = dayLabel(c.timestamp, locale, dateLabels, { year: true });
         const caption = c.source ? `${date} · ${t(locale, 'bySource', { name: c.source })}` : date;
         return (
           <article

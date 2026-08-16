@@ -1,6 +1,7 @@
 import { test, expect } from './helpers/e2e';
 import { prisma } from './helpers/db';
 import { seedProgram } from './helpers/fixtures';
+import { t } from '../src/lib/i18n';
 
 // The Critical-chain Schedule used to bind TWO actions to ONE gesture on the row hit
 // rect: hover showed the phase status card, click jumped to the phase. On a mouse that
@@ -72,13 +73,18 @@ test.describe('Chain schedule separates the day strip (tap body) from jump (tap 
 
     // 2) A tap away from the chart (a coarse tap synthesizes mouseleave off the chart)
     //    reverts the strip to TODAY — it stays mounted (docked; unlike the retired
-    //    card, there is nothing to dismiss). Checked via the strip's own "(today)"
-    //    marker rather than by the tapped phase's name disappearing: a credit or gap
-    //    can legitimately span into today too, so the same name may honestly appear
-    //    in both days — the marker is what actually distinguishes "today" from
-    //    whatever day was tapped.
+    //    card, there is nothing to dismiss). Checked via the strip's own today MARKER
+    //    rather than by the tapped phase's name disappearing: a credit or gap can
+    //    legitimately span into today too, so the same name may honestly appear in both
+    //    days — the marker is what actually distinguishes "today" from whatever day was
+    //    tapped.
+    //
+    //    Read from the STRING CATALOG, not spelled out here. This assertion hard-coded
+    //    "(today)" and went red when the copy became "· today" (the calendar-week work
+    //    needed the parentheses for the week gloss) — a spec asserting a second copy of a
+    //    localized string is a spec that fails the next time somebody edits the first.
     await page.locator('h2#critical-chain').tap();
-    await expect(strip).toContainText('(today)');
+    await expect(strip).toContainText(t('en', 'cdToday'));
 
     // 3) TAP THE LABEL → the jump fires. The label is now reachable (rowHit no longer
     //    covers it) and it does not re-point the strip at this phase.

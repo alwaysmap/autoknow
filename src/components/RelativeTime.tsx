@@ -3,7 +3,8 @@
 import { useSyncExternalStore } from 'react';
 import { useLocale } from './LocaleProvider';
 import { t } from '../lib/i18n';
-import { isoDateTime, localDate } from '../lib/dates';
+import { dayLabel, isoDateTime } from '../lib/dates';
+import { useDateLabels } from './DateLabelsProvider';
 import { relativeTimeText } from '../lib/relativeTime';
 import { subscribeTick, getTickNow } from '../lib/relativeTimeTicker';
 
@@ -33,6 +34,7 @@ export default function RelativeTime({
   className?: string;
 }) {
   const locale = useLocale();
+  const dateLabels = useDateLabels();
   // 0 on the server AND on the client's first (hydration-matching) render; a real
   // timestamp once mounted. Relative time depends on `now`, which differs between the
   // server and the browser BY DEFINITION (AGENTS lesson 8) — rendering the absolute
@@ -42,8 +44,8 @@ export default function RelativeTime({
   const iso = new Date(value).toISOString();
   const title = `${isoDateTime(value)} UTC`;
   const text = now > 0
-    ? relativeTimeText(value, now, locale, t(locale, 'justNow'))
-    : localDate(value, locale, { month: 'short', day: 'numeric', year: 'numeric' });
+    ? relativeTimeText(value, now, locale, t(locale, 'justNow'), dateLabels)
+    : dayLabel(value, locale, dateLabels, { year: true });
   return (
     <time dateTime={iso} title={title} className={className}>
       {text}

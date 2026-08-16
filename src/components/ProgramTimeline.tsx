@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { t, type Locale } from '../lib/i18n';
 import { useLocale } from './LocaleProvider';
-import { localDate } from '../lib/dates';
+import { dayLabel, monthLabel, type DateLabelMode } from '../lib/dates';
+import { useDateLabels } from './DateLabelsProvider';
 import { healthColor, healthKey, parseHealth, HEALTHS, type Health } from '../lib/health';
 import AnchoredPopover from './AnchoredPopover';
 import { monthTicks, sortByUrgency, type TimelineLayout, type TimelineMark } from '../lib/programTimeline';
@@ -71,6 +72,7 @@ const across = (p: number) => `calc((100% - ${INSET} * 2) * ${p / 100})`;
 
 export default function ProgramTimeline({ layout, filteredOut = 0, filteredOutHref }: ProgramTimelineProps) {
   const locale = useLocale();
+  const dateLabels = useDateLabels();
   const { windowMinMs, windowMaxMs, nowMs, excludedNoDates } = layout;
 
   // Which health bands are shown. All on by default — a chart that opened filtered would be
@@ -164,7 +166,7 @@ export default function ProgramTimeline({ layout, filteredOut = 0, filteredOutHr
                   href={`/programs/${m.id}`}
                   className={styles.mark}
                   style={{ top: `${m.lane * LANE_REM}rem`, left: at(pct(from)), width: across(pct(to) - pct(from)) }}
-                  aria-label={markTitle(locale, m)}
+                  aria-label={markTitle(locale, dateLabels, m)}
                   // No `title`: the native tooltip waits about a second before appearing,
                   // which on a chart you read by sweeping across it is long enough that the
                   // information may as well not be there. The readout below is immediate.
@@ -217,7 +219,7 @@ export default function ProgramTimeline({ layout, filteredOut = 0, filteredOutHr
               const p = pct(ms);
               return (
                 <span key={ms} className={styles.tick} style={{ left: at(p), transform: tickShift(p) }}>
-                  {localDate(new Date(ms), locale, { month: 'short', year: '2-digit' })}
+                  {monthLabel(new Date(ms), locale, 'compact')}
                 </span>
               );
             })}
@@ -239,7 +241,7 @@ export default function ProgramTimeline({ layout, filteredOut = 0, filteredOutHr
                 so a readout that always said "SOP then forecast" would contradict the
                 geometry every time the forecast lands first. Sorting by the date itself
                 means the sentence and the whisker tell the same story left to right. */}
-            {readoutFacts(locale, active).map((f) => (
+            {readoutFacts(locale, dateLabels, active).map((f) => (
               <span key={f.key} className={styles.readoutFact}>
                 <span className={f.glyph} style={f.style} aria-hidden="true" />
                 {f.text}
@@ -290,29 +292,33 @@ const withinWidth = (durationMs: number, from: number, to: number) =>
 
 /** The dated facts a mark carries, in TIME order. A mark with no SOP contributes no SOP
  *  fact; the caller states that absence separately, since it has no date to sort by. */
-function readoutFacts(locale: Locale, m: TimelineMark) {
+function readoutFacts(locale: Locale, dateLabels: DateLabelMode, m: TimelineMark) {
   const facts: { key: string; ms: number; glyph: string; style?: React.CSSProperties; text: string }[] = [];
   if (m.startMs != null) {
-    facts.push({ key: 'start', ms: m.startMs, glyph: styles.legendStart, text: t(locale, 'timelineStarted', { d: day(locale, m.startMs) }) });
+    facts.push({ key: 'start', ms: m.startMs, glyph: styles.legendStart, text: t(locale, 'timelineStarted', { d: day(locale, dateLabels, m.startMs) }) });
   }
   if (m.sopMs != null) {
-    facts.push({ key: 'sop', ms: m.sopMs, glyph: styles.legendSop, style: { background: healthColor(m.health) }, text: t(locale, 'timelineSop', { d: day(locale, m.sopMs) }) });
+    facts.push({ key: 'sop', ms: m.sopMs, glyph: styles.legendSop, style: { background: healthColor(m.health) }, text: t(locale, 'timelineSop', { d: day(locale, dateLabels, m.sopMs) }) });
   }
   if (m.finishMs != null) {
-    facts.push({ key: 'forecast', ms: m.finishMs, glyph: styles.legendForecast, text: t(locale, 'timelineForecast', { d: day(locale, m.finishMs) }) });
+    facts.push({ key: 'forecast', ms: m.finishMs, glyph: styles.legendForecast, text: t(locale, 'timelineForecast', { d: day(locale, dateLabels, m.finishMs) }) });
   }
   return facts.sort((a, b) => a.ms - b.ms);
 }
 
-const day = (locale: Locale, ms: number) =>
-  localDate(new Date(ms), locale, { year: 'numeric', month: 'short', day: 'numeric' });
+/** The readout names a DAY, so it follows the reader's DATE_LABELS mode. The AXIS above
+ *  does not: its ticks are MONTHS spanning a multi-year window (six years in the seeded
+ *  portfolio, ~300 weeks), and a week number there would be a finer claim than the tick
+ *  makes — see `dayLabel`'s contract. */
+const day = (locale: Locale, dateLabels: DateLabelMode, ms: number) =>
+  dayLabel(new Date(ms), locale, dateLabels, { year: true });
 
 /** The same facts as the readout, flattened — this is the LINK's accessible name, which must
  *  be a string, so it cannot carry the glyphs and says the words instead. */
-function markTitle(locale: Locale, m: TimelineMark): string {
+function markTitle(locale: Locale, dateLabels: DateLabelMode, m: TimelineMark): string {
   const parts = [m.name];
-  if (m.startMs != null) parts.push(t(locale, 'timelineStarted', { d: day(locale, m.startMs) }));
-  parts.push(m.sopMs != null ? t(locale, 'timelineSop', { d: day(locale, m.sopMs) }) : t(locale, 'timelineNoSop'));
-  if (m.finishMs != null) parts.push(t(locale, 'timelineForecast', { d: day(locale, m.finishMs) }));
+  if (m.startMs != null) parts.push(t(locale, 'timelineStarted', { d: day(locale, dateLabels, m.startMs) }));
+  parts.push(m.sopMs != null ? t(locale, 'timelineSop', { d: day(locale, dateLabels, m.sopMs) }) : t(locale, 'timelineNoSop'));
+  if (m.finishMs != null) parts.push(t(locale, 'timelineForecast', { d: day(locale, dateLabels, m.finishMs) }));
   return parts.join(' · ');
 }

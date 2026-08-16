@@ -8,7 +8,8 @@ import { deriveScore, REL_KEY } from '../lib/relationship';
 import { t, type Locale } from '../lib/i18n';
 import type { NeedleChange } from '../lib/history';
 import styles from './NeedleHistoryList.module.css';
-import { localDate } from '../lib/dates';
+import { dayLabel } from '../lib/dates';
+import { useDateLabels } from './DateLabelsProvider';
 import { useScrollToAddressed, addressedAttrs } from '../lib/useScrollToAddressed';
 
 // A scrollable list of "list cards": a compact status graphic (no UPDATE button) on
@@ -40,6 +41,7 @@ export default function NeedleHistoryList({
    *  re-fires the moment it opens. */
   scrollToHighlight?: boolean;
 }) {
+  const dateLabels = useDateLabels();
   const listRef = useScrollToAddressed(highlightId, scrollToHighlight, changes);
 
   if (changes.length === 0) {
@@ -106,7 +108,7 @@ export default function NeedleHistoryList({
                     eye picks up the author while scanning the log */}
                 {c.source && <span className={styles.author}>{t(locale, 'byAuthor', { name: c.source })}</span>}
                 <time className={styles.date} dateTime={c.timestamp}>
-                  {localDate(c.timestamp, locale, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  {dayLabel(c.timestamp, locale, dateLabels, { year: true })}
                 </time>
               </div>
               {c.notes ? (

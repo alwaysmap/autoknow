@@ -18,7 +18,8 @@ import KebabMenu from './KebabMenu';
 import PersonCell, { type PersonRef } from './PersonCell';
 import Combobox from './Combobox';
 import { partnerHref } from '../lib/entityHref';
-import { localDate } from '../lib/dates';
+import { dayLabel, monthLabel } from '../lib/dates';
+import { useDateLabels } from './DateLabelsProvider';
 
 // Project metadata lives in the page HEADER — one strip, no sidebar card, no
 // duplication. Quiet facts on the left (OEM · suppliers · owner, all links per
@@ -111,11 +112,14 @@ export default function ProjectMetaHeader({
   leadPartnerId, partnerOptions, peopleOptions,
 }: ProjectMetaHeaderProps) {
   const locale = useLocale();
+  const dateLabels = useDateLabels();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // SOP is a month/year target (last day of month assumed) — display month + year.
+  // SOP is a month/year target (last day of month assumed) — display month + year, and
+  // NOT through `dayLabel`: the stored value names a month, so writing it as a calendar
+  // week would invent a precision the target does not have.
   const sop = sopDateString
-    ? localDate(`${sopDateString}T00:00:00Z`, locale, { year: 'numeric', month: 'short' })
+    ? monthLabel(`${sopDateString}T00:00:00Z`, locale, 'short')
     : null;
   const sopMonthValue = sopDateString ? sopDateString.slice(0, 7) : ''; // yyyy-MM for <input type="month">
   const products = [
@@ -135,7 +139,9 @@ export default function ProjectMetaHeader({
   //   otherwise                        -> muted
   const forecast = (() => {
     if (projectedFinishMs == null || !sopDateString) return null; // no chain / no SOP
-    const date = localDate(new Date(projectedFinishMs), locale, { year: 'numeric', month: 'short', day: 'numeric' });
+    // The forecast IS a day — the chain computes an exact landing date — so it follows
+    // the reader's mode, unlike the SOP month above it.
+    const date = dayLabel(new Date(projectedFinishMs), locale, dateLabels, { year: true });
     const tone = sopForecastTone({
       bufferDays: bufferDays ?? null,
       guidelineDays: guidelineDays ?? null,

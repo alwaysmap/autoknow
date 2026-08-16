@@ -7,7 +7,7 @@ import { ensureBuiltinTemplates } from './programTemplates';
 import { assertDestructiveDbAllowed } from './dbSafety';
 import { getCurrentUser } from './session';
 import { normalizeHandle } from './auth';
-import { localDate } from './dates';
+import { monthLabel } from './dates';
 
 // The mock seeder creates its data THROUGH the application's own mutation
 // boundaries — API route handlers invoked in-process, plus the server actions for
@@ -1191,7 +1191,7 @@ export async function seedMockData(): Promise<MockSeedReport> {
       hillChartProgress: spec.hill,
       // Prose date, not ISO: a note is narrative the AI briefing reads and copies —
       // ISO is a table format that belongs in cells, not sentences (design.md §6, #20).
-      notes: `Weekly update: tracking toward the ${localDate(spec.sop, 'en-US', { month: 'long', year: 'numeric' })} SOP.`,
+      notes: `Weekly update: tracking toward the ${monthLabel(spec.sop, 'en-US', 'long')} SOP.`,
       source: 'seed',
     });
 

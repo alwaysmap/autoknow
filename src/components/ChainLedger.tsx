@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { t, Locale } from '../lib/i18n';
 import { tNodes, joinNodes } from './tNodes';
-import { localDate } from '../lib/dates';
+import { dayLabel, monthLabel } from '../lib/dates';
+import { useDateLabels } from './DateLabelsProvider';
 import { DAY_MS, dayFloor } from '../lib/sop';
 import AnchorHeading from './AnchorHeading';
 import OverlayDialog from './OverlayDialog';
@@ -52,13 +53,14 @@ interface ChainLedgerProps {
 
 const jumpToPhase = (id: number) => window.dispatchEvent(new CustomEvent('autoknow:jump-phase', { detail: id }));
 
-const monthLong = (iso: string, locale: Locale) => localDate(iso, locale, { month: 'long', year: 'numeric' });
-const dayShort = (ms: number, locale: Locale) => localDate(new Date(ms), locale, { month: 'short', day: 'numeric' });
-
 export default function ChainLedger({
   projectId, locale, now, ledger, sopDate, volumeFirstYear, ownerPerson, ownerOtherActive,
 }: ChainLedgerProps) {
+  const dateLabels = useDateLabels();
   const scrollPageTo = useSteadyPageScroll();
+  /** Every DAY this panel names — a phase window, a handoff gap, the day strip's own
+   *  heading — in the reader's DATE_LABELS mode. */
+  const dayShort = (ms: number) => dayLabel(new Date(ms), locale, dateLabels);
   const [legendOpen, setLegendOpen] = useState(false);
   const sopMs = sopDate ? +new Date(sopDate) : null;
 
@@ -93,8 +95,8 @@ export default function ChainLedger({
   // (started with / used / who took it) lives in Where the buffer went. ----
   let headline: string | null = null;
   if (sopMs != null && ledger.bufferDays != null && ledger.projectedFinishMs != null) {
-    const month = monthLong(sopDate!, locale);
-    const date = localDate(new Date(ledger.projectedFinishMs), locale, { month: 'long', day: 'numeric', year: 'numeric' });
+    const month = monthLabel(sopDate!, locale, 'long');
+    const date = dayLabel(new Date(ledger.projectedFinishMs), locale, dateLabels, { year: true, month: 'long' });
     headline = ledger.bufferDays >= 0
       ? t(locale, 'clBufferHeadline', { d: ledger.bufferDays, date, month })
       : t(locale, 'clOvershootHeadline', { d: -ledger.bufferDays, date, month });
@@ -305,7 +307,7 @@ export default function ChainLedger({
             top edge instead of centered, and skip the press-halts-motion guard. */}
         <a href="#program-status" className={styles.declareBtn}
           onClick={(e) => { e.preventDefault(); scrollPageTo(document.getElementById('program-status'), { behavior: 'smooth', block: 'center' }); }}>
-          {t(locale, 'clLeverDeclare', { month: monthLong(`${overshoot.proposedSopMonth}-01`, locale) })}
+          {t(locale, 'clLeverDeclare', { month: monthLabel(`${overshoot.proposedSopMonth}-01`, locale, 'long') })}
         </a>
         {overshoot.unitsDelayed != null && (
           <>
@@ -332,7 +334,7 @@ export default function ChainLedger({
       const planned = Math.round((r.plannedEndMs - r.startMs) / DAY_MS);
       out.push(t(locale, 'clEvidencePlanTook', {
         p: planned, a: Math.round((r.endMs - r.startMs) / DAY_MS),
-        from: dayShort(r.startMs, locale), to: dayShort(r.endMs, locale),
+        from: dayShort(r.startMs), to: dayShort(r.endMs),
       }));
       if (w.kind === 'overrun') {
         const sunk = ledger.situations.find((s) => s.type === 'sunkOverrun' && s.phaseId === w.phaseId);
@@ -346,10 +348,10 @@ export default function ChainLedger({
       const from = ledger.schedule.find((x) => x.id === w.fromId)!;
       const to = ledger.schedule.find((x) => x.id === w.toId)!;
       out.push(to.kind === 'notStarted'
-        ? tNodes(locale, 'clEvidenceGapOngoing', { from: phaseBtn(from.id), d1: dayShort(from.endMs, locale) })
+        ? tNodes(locale, 'clEvidenceGapOngoing', { from: phaseBtn(from.id), d1: dayShort(from.endMs) })
         : tNodes(locale, 'clEvidenceGap', {
             from: phaseBtn(from.id), to: phaseBtn(to.id),
-            d1: dayShort(from.endMs, locale), d2: dayShort(to.startMs, locale),
+            d1: dayShort(from.endMs), d2: dayShort(to.startMs),
           }));
       out.push(t(locale, 'clEvidenceGapAvoid'));
     }
@@ -405,7 +407,7 @@ export default function ChainLedger({
           being picked up. */}
       <div className={styles.dayStrip} data-testid="chain-day-strip">
         <div className={styles.dayName}>
-          {t(locale, 'cdTitle')} · {dayShort(dayMs, locale)}
+          {t(locale, 'cdTitle')} · {dayShort(dayMs)}
           {dayMs === dayFloor(now) ? ` ${t(locale, 'cdToday')}` : ''}
         </div>
         {daySummary.phases.length === 0 && daySummary.gaps.length === 0 && daySummary.credits.length === 0 ? (
@@ -415,9 +417,9 @@ export default function ChainLedger({
             {daySummary.phases.map((p) => {
               const r = p.row;
               const when =
-                r.kind === 'done' ? t(locale, 'clRowRan', { a: dayShort(r.startMs, locale), b: dayShort(r.endMs, locale) })
-                : r.kind === 'active' ? t(locale, 'clRowRunning', { a: dayShort(r.startMs, locale), b: dayShort(r.endMs, locale) })
-                : t(locale, 'clRowPlannedWindow', { a: dayShort(r.startMs, locale), b: dayShort(r.endMs, locale) });
+                r.kind === 'done' ? t(locale, 'clRowRan', { a: dayShort(r.startMs), b: dayShort(r.endMs) })
+                : r.kind === 'active' ? t(locale, 'clRowRunning', { a: dayShort(r.startMs), b: dayShort(r.endMs) })
+                : t(locale, 'clRowPlannedWindow', { a: dayShort(r.startMs), b: dayShort(r.endMs) });
               const status = r.kind === 'done' ? 'statusDone' : r.kind === 'active' ? 'statusInProgress' : 'statusNotStarted';
               // The buffer claim. An ACTIVE row defers to isForecastOver and to the very
               // keys the bar's own label uses: a forecast variance under FORECAST_NOISE_DAYS
@@ -461,7 +463,7 @@ export default function ChainLedger({
                 <div className={styles.dayBad}>
                   {tNodes(locale, ledger.schedule.find((x) => x.id === g.toId)?.kind === 'notStarted' ? 'clEvidenceGapOngoing' : 'clEvidenceGap', {
                     from: phaseBtn(g.fromId), to: phaseBtn(g.toId),
-                    d1: dayShort(g.fromMs, locale), d2: dayShort(g.toMs, locale),
+                    d1: dayShort(g.fromMs), d2: dayShort(g.toMs),
                   })}
                 </div>
               </div>
@@ -620,7 +622,6 @@ export default function ChainLedger({
           {t(locale, 'clKeyBufferLane')}
         </div>
       </OverlayDialog>
-
 
     </section>
   );

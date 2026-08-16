@@ -21,8 +21,18 @@ export const tsxFiles = (dir: string): string[] => sourceFiles(dir).filter((f) =
  * Source with comments removed — a comment ABOUT a thing is not that thing, and a
  * comment explaining a conversion is exactly what a naive scan trips on.
  *
+ * LINE comments go FIRST, and for FULL-LINE comments that ordering is the correctness of
+ * this function: one mentioning a glob or a regex carries the characters that OPEN a block
+ * comment, so stripping blocks first makes that line swallow the file to the next block
+ * terminator, and every scan then passes over source it never saw. Safe in the other
+ * direction because a line starting with `//` INSIDE a block comment is being deleted
+ * either way. Still open, and not worth solving until something needs it: a TRAILING
+ * comment (`const x = 1; // ...`) is not full-line, so this pass leaves it, and one
+ * carrying a glob would swallow the file exactly as before. There are none in src today.
+ * docs/knowledge/a-line-comment-mentioning-a-glob-swallows-the-rest-of-the-file.md.
+ *
  * Sibling of `./css`'s `stripComments`, which handles only block comments because CSS
  * has no `//`. Import from the module that matches what you are scanning.
  */
 export const stripComments = (src: string): string =>
-  src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  src.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { FeedItem } from '../lib/feed';
 import { t, type Locale, type StringKey } from '../lib/i18n';
 import type { FeedKind } from '../lib/feed';
-import { localDate } from '../lib/dates';
+import { dayLabel, type DateLabelMode } from '../lib/dates';
 import styles from './LatestTeasers.module.css';
 
 // The landing page's "latest updates" strip: the newest handful of feed items in
@@ -10,7 +10,10 @@ import styles from './LatestTeasers.module.css';
 // NOT FeedList: that renders gauges, hill charts, markdown, and delete controls,
 // which is the full record. This is the invitation to go read it.
 //
-// A server component: no interactivity, so the landing ships no JS for it.
+// A server component: no interactivity, so the landing ships no JS for it. That is also
+// why `dateLabels` arrives as a PROP rather than from `useDateLabels()` — there is no
+// client context on a server component, so the reader's date-label mode reaches it the
+// same way their locale does: resolved once by the page and handed down.
 
 const KIND_KEY: Record<FeedKind, StringKey> = {
   partner: 'partnerLabel',
@@ -38,7 +41,9 @@ function teaser(detail: string | null | undefined): string | null {
   return flat.length > TEASER_MAX ? `${flat.slice(0, TEASER_MAX).trimEnd()}…` : flat;
 }
 
-export default function LatestTeasers({ items, locale }: { items: FeedItem[]; locale: Locale }) {
+export default function LatestTeasers(
+  { items, locale, dateLabels }: { items: FeedItem[]; locale: Locale; dateLabels: DateLabelMode },
+) {
   if (items.length === 0) return <p className={styles.empty}>{t(locale, 'landingLatestEmpty')}</p>;
 
   return (
@@ -56,7 +61,7 @@ export default function LatestTeasers({ items, locale }: { items: FeedItem[]; lo
               <span className={styles.meta}>
                 {t(locale, KIND_KEY[it.kind])}
                 {it.subtitle ? ` · ${it.subtitle}` : ''}
-                {it.timestamp ? ` · ${localDate(it.timestamp, locale, { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                {it.timestamp ? ` · ${dayLabel(it.timestamp, locale, dateLabels, { year: true })}` : ''}
               </span>
             </div>
             {snippet && <p className={styles.snippet}>{snippet}</p>}

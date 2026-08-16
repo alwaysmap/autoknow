@@ -1,34 +1,26 @@
 'use client';
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
-import { LOCALES, isLocale, type Locale } from '../lib/i18n';
+import { t, LOCALES, type Locale } from '../lib/i18n';
 import { LOCALE, LOCALE_LEGACY_KEY } from '../lib/preferences';
-import styles from './LocaleSwitcher.module.css';
+import PrefSelect from './PrefSelect';
 
-// The ONE locale picker, in the global nav: a plain dropdown whose value is the
-// cookie-set default. Picking a language writes the locale cookie (the server's source of
-// truth, keyed via the preferences registry, #31) and refreshes the route so server
-// components re-render localized.
+// The ONE locale picker, in the global nav. The cookie write, the route refresh and the
+// uncontrolled-select reasoning all live in `PrefSelect` now — this file is the locale's
+// share of it: which preference, which labels, and the one thing locale needs that no
+// other cookie preference does (retiring the pre-namespace `lang` cookie, so a returning
+// user keeps their language across the rename and stops paying for it on the next switch).
+
+const LOCALE_LABELS = new Map(LOCALES.map((l) => [l.code, l.label]));
 
 export default function LocaleSwitcher({ locale }: { locale: Locale }) {
-  const router = useRouter();
-  const pick = (code: string) => {
-    if (!isLocale(code)) return;
-    document.cookie = `${LOCALE.key}=${code}; path=/; max-age=31536000`;
-    document.cookie = `${LOCALE_LEGACY_KEY}=; path=/; max-age=0`; // retire the pre-namespace cookie
-    router.refresh();
-  };
   return (
-    <select
-      className={styles.select}
-      aria-label="Language"
-      defaultValue={locale}
-      onChange={(e) => pick(e.target.value)}
-    >
-      {LOCALES.map((l) => (
-        <option key={l.code} value={l.code}>{l.label}</option>
-      ))}
-    </select>
+    <PrefSelect
+      pref={LOCALE}
+      current={locale}
+      label={t(locale, 'settingsLanguage')}
+      optionLabel={(code) => LOCALE_LABELS.get(code) ?? code}
+      afterWrite={() => { document.cookie = `${LOCALE_LEGACY_KEY}=; path=/; max-age=0`; }}
+    />
   );
 }
