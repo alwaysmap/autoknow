@@ -1,5 +1,8 @@
 @AGENTS.md
 
+<!-- bd-doctor-divergence: ok -->
+<!-- CLAUDE.md is deliberately a thin pointer that imports AGENTS.md; the two are not meant to hold identical prose. -->
+
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:970c3bf2 -->
 ## Beads Issue Tracker
