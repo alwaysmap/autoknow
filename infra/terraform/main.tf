@@ -250,20 +250,28 @@ locals {
   database_url         = "postgresql://app:${random_password.db.result}@localhost/autoknow?host=/cloudsql/${local.db_connection}&schema=public"
   runtime_database_url = "postgresql://app_runtime:${random_password.app_runtime.result}@localhost/autoknow?host=/cloudsql/${local.db_connection}&schema=public"
 
-  # Secret containers. `generated` ones get their version from TF; `external` ones are
-  # populated out-of-band (gcloud, from the local .env) so no external secret is in TF.
+  # Audience of the JWTs Google Chat signs (verified in /api/chat/events): the NUMBER of the
+  # project the Chat app is registered in. Normally this project — Terraform holds that
+  # number, so it supplies the value rather than a human retyping it after each apply.
+  # The override is the documented separate-project case (OPERATIONS §6 step 1) — still
+  # supplied, from tfvars. ADR: docs/adr/2026-07-26-infra-owned-facts-are-supplied-or-unknown.md
+  chat_project_number = var.chat_project_number != "" ? var.chat_project_number : google_project.autoknow.number
+
+  # Secret containers. `generated` ones get their version from TF — random passwords, values
+  # TF composes, and facts TF already knows; `external` ones are populated out-of-band
+  # (gcloud, from the local .env) so no external secret is in TF.
   generated_secrets = {
-    "database-url"         = local.database_url
-    "runtime-database-url" = local.runtime_database_url
-    "auth-secret"          = random_password.auth_secret.result
-    "cron-secret"          = random_password.cron_secret.result
-    "admin-token"          = random_password.admin_token.result
+    "database-url"          = local.database_url
+    "runtime-database-url"  = local.runtime_database_url
+    "auth-secret"           = random_password.auth_secret.result
+    "cron-secret"           = random_password.cron_secret.result
+    "admin-token"           = random_password.admin_token.result
+    "google-project-number" = local.chat_project_number
   }
   external_secrets = [
     "gemini-api-key",
     "auth-google-id",
     "auth-google-secret",
-    "google-project-number",
     "google-service-account-json",
   ]
   all_secret_ids = concat(keys(local.generated_secrets), local.external_secrets)

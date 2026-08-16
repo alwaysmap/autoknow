@@ -297,7 +297,7 @@ Run as an env var (`google_cloud_run_v2_service.template.containers.env` with
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | only if you keep next-auth | the one console-created item; **skip entirely on the IAP path** (§4b) |
 | `AUTH_ALLOWED_DOMAIN` | tfvars (not secret) | e.g. your Workspace domain |
 | `GEMINI_API_KEY` | manual | AI Studio key |
-| `GOOGLE_PROJECT_NUMBER` | `data.google_project` | for Chat JWT audience |
+| `GOOGLE_PROJECT_NUMBER` | Terraform-composed | Chat JWT audience; this project's `number`, or `var.chat_project_number` when the Chat app lives elsewhere (OPERATIONS §6) |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | Secret Manager | Drive service-account key (but see the keyless note below) |
 | `DESTRUCTIVE_DB_ALLOWED` | tfvars | set to the **exact** prod DB name only if you intend wipes to be possible there; leave unset to keep them impossible |
 
@@ -351,7 +351,7 @@ Cloud Run relay + Tailscale funnel, and (b) a Workspace admin policy. Cloud Run 
   with app-layer auth (§1).
 - **Terraform does:** enable the Chat API (`google_project_service "chat"`) plus the two
   add-on APIs behind it (`gsuiteaddons`, `appsmarket-component`), set
-  `GOOGLE_PROJECT_NUMBER` from `data.google_project`, keep the Drive/Chat service
+  `GOOGLE_PROJECT_NUMBER` from the project's own `number` (§5), keep the Drive/Chat service
   account, and manage the Workspace contributors group. **It does NOT configure the Chat
   app** — this plan expected a `null_resource` + `local-exec` against the Chat REST API,
   and that is not reachable: the app name, avatar, App URL and slash commands all live in

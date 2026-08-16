@@ -1,7 +1,8 @@
 # Template for a NEW instance: copy to instances/<name>.tfvars and fill in (the wrapper
 # passes -var-file=instances/$INSTANCE.tfvars; the deployed one is instances/alwaysmap.tfvars).
 # No secrets here — secret *values* are loaded into Secret Manager out-of-band from the local
-# .env (see deploy notes below).
+# .env (see deploy notes below). `chat_project_number` below does fill a secret container, but
+# a project number is public; nothing actually secret belongs in this file.
 #
 # project_id must be globally unique.
 project_id      = "autoknow-prod-XXXX"
@@ -19,9 +20,16 @@ allowed_domain  = "alwaysmap.com"
 # enable_ingestion_alarm = true
 # ingestion_alarm_email  = "you@alwaysmap.com"
 
+# --- Chat app in a separate project (rare) ---
+# The audience of the JWTs Google Chat signs is the NUMBER of the project the Chat app is
+# registered in, and Terraform writes this project's number into the google-project-number
+# secret for you. Set this ONLY if the Chat app deliberately lives elsewhere (OPERATIONS §6
+# step 1) — then it is the other project's number.
+# chat_project_number = "123456789012"
+
 # --- Populating the external secrets after `terraform apply` (from local .env) ---
 #   for k in gemini-api-key:GEMINI_API_KEY auth-google-id:AUTH_GOOGLE_ID \
-#            auth-google-secret:AUTH_GOOGLE_SECRET google-project-number:GOOGLE_PROJECT_NUMBER; do
+#            auth-google-secret:AUTH_GOOGLE_SECRET; do
 #     s=${k%%:*}; e=${k##*:}; v=$(grep -E "^$e=" .env | cut -d= -f2- | tr -d '"');
 #     printf '%s' "$v" | gcloud secrets versions add "$s" --data-file=- --project <project>
 #   done

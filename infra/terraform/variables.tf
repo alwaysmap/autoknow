@@ -2,7 +2,9 @@
 # instances/alwaysmap.tfvars); terraform.tfvars.example is the annotated template.
 # Secrets are NOT variables here: secret *containers* are created by Terraform and
 # their *values* are populated out-of-band (gcloud, from the local .env) so no secret
-# ever lands in a .tf/.tfvars file or state as plaintext input.
+# ever lands in a .tf/.tfvars file or state as plaintext input. `chat_project_number` is
+# the one variable that can supply a secret container's value — a project number is
+# public, so it is not an exception to the rule above; do not read it as one.
 
 variable "project_id" {
   type        = string
@@ -71,6 +73,12 @@ variable "workspace_customer_id" {
   type        = string
   description = "Google Workspace customer ID (gcloud organizations list → DIRECTORY_CUSTOMER_ID)."
   default     = "C03ln3mj4"
+}
+
+variable "chat_project_number" {
+  type        = string
+  description = "Project NUMBER the Google Chat app is registered in — the audience of the JWTs Chat signs. Leave empty (the default) and Terraform uses this project's own number; set it only when the Chat app deliberately lives in a separate project (docs/OPERATIONS.md §6 step 1). Not a secret: a project number is public."
+  default     = ""
 }
 
 variable "chat_group_owner" {
