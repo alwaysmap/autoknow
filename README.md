@@ -215,12 +215,15 @@ sed "s|__REPO__|$(git rev-parse --show-toplevel)|g" scripts/dev/docker-reap.plis
 launchctl load ~/Library/LaunchAgents/com.alwaysmap.autoknow.docker-reap.plist
 ```
 
-Two traps it exists to avoid, both of which make the obvious commands useless here:
-`docker compose down -v` needs the compose file, which lived *inside* the worktree and
-went with it; and `docker volume prune` skips volumes referenced by any container
-**including stopped ones**, which is why `docker system df` reports gigabytes of volumes
-and `0B` reclaimable. Removing by compose LABEL is the only handle that outlives the
-directory.
+The script header explains *why* it is shaped this way — including the two traps that make
+`docker compose down -v` and `docker volume prune` useless for exactly this job. Read it
+there rather than here; it is one explanation, not two.
+
+It is deliberately conservative about ownership: a compose project it cannot positively
+attribute to this repo is reported and left alone, so a long-dead worktree can leave a
+bare network behind. That residue is harmless and `docker network prune` clears it
+globally when you want it gone — the sweep will not, because it will not delete what it
+cannot prove is ours.
 
 ### 6. Production Build
 The dev server is not suitable for long-running use (it accumulates memory); serve
