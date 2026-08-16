@@ -76,6 +76,26 @@ export interface AnchoredPopoverProps {
 
 const FOCUSABLE = 'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+/**
+ * Is the native popover currently showing? Guarded, because `:popover-open` is a selector
+ * an engine either KNOWS or throws on: jsdom raises `SyntaxError: unknown pseudo-class
+ * selector`, so a bare `matches()` here took down every jsdom render of any component
+ * containing this popover — a `DataTable` with one filterable column included, which is
+ * how it surfaced (adding a funnel to BusiestResources for #140 failed four unrelated
+ * tests with an AggregateError naming no cause).
+ *
+ * A thrown selector means the engine has no native popover to close, which is exactly
+ * `false`. This is a defensive read, not a polyfill: a browser without popover support
+ * never opened it either.
+ */
+function isNativelyOpen(panel: HTMLElement): boolean {
+  try {
+    return panel.matches(':popover-open');
+  } catch {
+    return false;
+  }
+}
+
 export default function AnchoredPopover({
   renderTrigger,
   children,
@@ -134,7 +154,7 @@ export default function AnchoredPopover({
   // `close` is pure setState rather than a hidePopover() handed across the render boundary.
   useEffect(() => {
     const panel = panelRef.current;
-    if (panel && !open && panel.matches(':popover-open')) panel.hidePopover();
+    if (panel && !open && isNativelyOpen(panel)) panel.hidePopover();
   }, [open]);
 
   const close = useCallback(() => setOpen(false), []);

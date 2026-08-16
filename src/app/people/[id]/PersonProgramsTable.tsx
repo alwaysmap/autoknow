@@ -32,12 +32,28 @@ import styles from './page.module.css';
 // also owns the row type. A dash is a career gap on the anchor day: null is a real answer, and
 // borrowing the nearest company would be the lie #124 exists to kill.
 
-export default function PersonProgramsTable({ rows, locale }: { rows: PersonProgramRow[]; locale: Locale }) {
+// The Status column's three classes in ONE place, so the header funnel's options and the
+// cells cannot drift apart (#167 split 'live' into active-work vs merely-attached). Not
+// imported from lib/personPrograms with the row type: that module is `server-only`, and a
+// label is read on the client.
+const STATUS_KEY = { active: 'connectionActive', live: 'connectionLive', ended: 'connectionEnded' } as const;
+
+export default function PersonProgramsTable({ rows, locale, initialStatus = null }: {
+  rows: PersonProgramRow[];
+  locale: Locale;
+  /** `?filter=active` on the page, resolved by the route (#167) — a deep link
+   *  INITIALIZES this state rather than adding a widget (design.md §6). Seeded, not
+   *  controlled from above: the reader can clear or change it like any other funnel,
+   *  which a URL-locked filter would not allow. */
+  initialStatus?: PersonProgramRow['status'] | null;
+}) {
   // Controlled so a Status cell CLICK sets its column's filter — design.md §6: a class
   // filters its own column on click, and an inert ClassBox is a bug. Unfiltered by
   // default, unlike the partner roster: a person's history is the point of this table,
   // so hiding the ended rows would hide what #144 added.
-  const [filters, setFilters] = useState<Record<string, string[]>>({});
+  const [filters, setFilters] = useState<Record<string, string[]>>(
+    (): Record<string, string[]> => (initialStatus ? { status: [initialStatus] } : {}),
+  );
   return (
     <DataTable
       headers={[
@@ -55,7 +71,7 @@ export default function PersonProgramsTable({ rows, locale }: { rows: PersonProg
           key: 'status',
           label: t(locale, 'statusLabel'),
           filterable: true,
-          filterLabel: (v) => t(locale, v === 'ended' ? 'connectionEnded' : 'connectionLive'),
+          filterLabel: (v) => t(locale, STATUS_KEY[v as PersonProgramRow['status']] ?? 'connectionLive'),
         },
         { key: 'endedOn', label: t(locale, 'toLabel'), sortType: 'date' },
         // A LIST of chips: sorting would order rows by an arbitrary member of it.
@@ -119,9 +135,7 @@ export default function PersonProgramsTable({ rows, locale }: { rows: PersonProg
               className={styles.statusFilterBtn}
               title={t(locale, 'filterColumn', { c: t(locale, 'statusLabel') })}
             >
-              <ClassBox className={styles.classInk}>
-                {t(locale, r.status === 'ended' ? 'connectionEnded' : 'connectionLive')}
-              </ClassBox>
+              <ClassBox className={styles.classInk}>{t(locale, STATUS_KEY[r.status])}</ClassBox>
             </button>
           </td>
           {/* The "until" a reader needs to place an ended connection; blank while live,

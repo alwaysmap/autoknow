@@ -3,8 +3,10 @@ import { percentile } from './stats';
 import { computeCriticalChain } from './criticalChain';
 import { deriveScore } from './relationship';
 import { deriveProgramStatus } from './lifecycle';
-import { buildBusiestResources, type BusiestRow } from './chainLedger';
+import { buildBusiestResources, type BusiestRow, type ChainLedgerResult } from './chainLedger';
 import { getProgramLedgers } from './chainLedgerData';
+import { constraintDiagnosis } from './chainInsights';
+import { compareInsights, INSIGHT_SEVERITY_RANK, type Insight } from './insight';
 import type { CycleTimeData, CycleTimeStats } from '../components/CycleTimeScatterPlot';
 import type { PersonRef } from '../components/PersonCell';
 
@@ -41,16 +43,86 @@ export interface DashboardProject {
 }
 
 
+/** One program's live constraint, with WHY it is the constraint (#148). */
+export interface ConstraintDiagnosis {
+  program: { id: number; name: string };
+  /** The diagnosis from `lib/chainInsights` — the ledger's own Situation packets, not a
+   *  second reading of the phase. Null only if the program's ledger has no constraint,
+   *  which the grouping below already excludes. */
+  insight: Insight;
+}
+
 /**
  * A phase that is ON a live critical chain right now — i.e. actually gating an SOP,
  * which is NOT the same claim as "the phase that historically takes longest"
- * (ADR forecasts-derive-from-the-real-chain-never-a-synthetic-model). The measure is
- * how many live programs it is gating; there is no duration here, because the
- * duration of a phase NAME across programs is a different question again.
+ * (ADR forecasts-derive-from-the-real-chain-never-a-synthetic-model). Grouped by phase
+ * NAME, because "Compliance Testing is gating four SOPs" is the portfolio-level fact and
+ * the reason this panel exists.
+ *
+ * Since #148 each row also carries WHY, per program: `diagnoses` holds one `Insight` per
+ * gated program and `worst` is the one the row states. The panel used to name the phase
+ * and stop — a reader who already knew from the needle that a program was at risk learned
+ * that a phase called "Integration" was on its chain, and still could not tell whether it
+ * was late, blocked, contended, or simply the longest step in a healthy plan.
+ *
+ * There is still no DURATION for the phase name across programs, deliberately: that is a
+ * different question, and averaging four programs' overruns into one number would be the
+ * kind of asserted-not-computed claim this family of issues exists to remove.
  */
 export interface LiveConstraint {
   phaseName: string;
   programs: { id: number; name: string }[];
+  diagnoses: ConstraintDiagnosis[];
+  /** Worst-first head of `diagnoses` — what the row's Why and Since columns state. */
+  worst: ConstraintDiagnosis;
+}
+
+/**
+ * Group the per-program constraint hits by phase NAME, and diagnose each (#148).
+ *
+ * The BUNDLES are a parameter rather than a closure read, because that dependency is the
+ * whole reason this exists: the diagnosis is the ledger's own `Situation` packets, and
+ * `getEcosystemDashboardData` was already computing every program's ledger for the
+ * busiest-resources aggregation and throwing the situations away. No extra query — but
+ * the grouping cannot run before the bundles do, and a parameter says so where a comment
+ * about position in a long function only asked the reader to trust it.
+ *
+ * `hits` stays the gate on WHICH programs appear (`deriveProgramStatus === 'Active'`),
+ * which is strictly narrower than the bundle query's own filter, so every hit has a
+ * bundle. A hit that somehow has none is dropped rather than shown undiagnosed.
+ */
+function groupLiveConstraints(
+  hits: { phaseName: string; program: { id: number; name: string } }[],
+  bundles: { programId: number; ledger: ChainLedgerResult }[],
+): LiveConstraint[] {
+  const ledgerOf = new Map(bundles.map((b) => [b.programId, b.ledger]));
+  const byPhaseName = new Map<string, ConstraintDiagnosis[]>();
+
+  for (const hit of hits) {
+    const ledger = ledgerOf.get(hit.program.id);
+    const insight = ledger
+      ? constraintDiagnosis(ledger, { programId: hit.program.id, programName: hit.program.name })
+      : null;
+    if (!insight) continue;
+    const entry = { program: hit.program, insight };
+    const seen = byPhaseName.get(hit.phaseName);
+    if (seen) seen.push(entry);
+    else byPhaseName.set(hit.phaseName, [entry]);
+  }
+
+  return [...byPhaseName.entries()]
+    .map(([phaseName, entries]) => {
+      // Worst program first WITHIN the row, so `worst` is the one the row states.
+      const diagnoses = [...entries].sort((a, b) => compareInsights(a.insight, b.insight));
+      return { phaseName, programs: diagnoses.map((d) => d.program), diagnoses, worst: diagnoses[0] };
+    })
+    // Severity leads the page now: a phase that is 40% over and gates two SOPs is a worse
+    // read than a healthy phase gating four, and the old count-only order buried it.
+    // Gating count still breaks the tie, because that is this panel's own contribution.
+    .sort((a, b) =>
+      INSIGHT_SEVERITY_RANK[a.worst.insight.severity] - INSIGHT_SEVERITY_RANK[b.worst.insight.severity]
+      || b.programs.length - a.programs.length
+      || a.phaseName.localeCompare(b.phaseName));
 }
 
 export interface EcosystemDashboardData {
@@ -157,20 +229,6 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
     };
   });
 
-  // Group by phase NAME: the same phase recurs across programs under one name, and
-  // "Compliance Testing is gating four SOPs" is the portfolio-level fact. Most-blocking
-  // first. Ties fall back to the project query's order, which is unspecified — the
-  // grouping is a set, so the display does not depend on it.
-  const byPhaseName = new Map<string, { id: number; name: string }[]>();
-  for (const hit of constraintHits) {
-    const seen = byPhaseName.get(hit.phaseName);
-    if (seen) seen.push(hit.program);
-    else byPhaseName.set(hit.phaseName, [hit.program]);
-  }
-  const liveConstraints: LiveConstraint[] = [...byPhaseName.entries()]
-    .map(([phaseName, programs]) => ({ phaseName, programs }))
-    .sort((a, b) => b.programs.length - a.programs.length);
-
   // Cycle times per phase: elapsed days from the first in-flight state (progress moved
   // off zero) to the first completed state (progress reached 100), or to now if still
   // in flight, for non-archived projects. Derived from progress — the stored status
@@ -247,5 +305,11 @@ export async function getEcosystemDashboardData(): Promise<EcosystemDashboardDat
     })),
   );
 
-  return { serializedProjects, liveConstraints, cycleTimeData, cycleTimeStats, busiest };
+  return {
+    serializedProjects,
+    liveConstraints: groupLiveConstraints(constraintHits, bundles),
+    cycleTimeData,
+    cycleTimeStats,
+    busiest,
+  };
 }

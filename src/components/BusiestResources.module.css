@@ -45,6 +45,25 @@
   color: var(--muted);
 }
 
+/* The Kind cell's ClassBox is a filter control, so it is a real <button> — but it must
+   not LOOK like one (§1: no chrome). Same shape as PersonProgramsTable's status control,
+   restated here because CSS modules cannot share a class across files. */
+.kindFilterBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+/* The overlap window: two dates and a dash, kept on one line so the column reads as a
+   span rather than as two unrelated cells. `DateCell` already gives each date its
+   tabular numerals and its ISO machine form. */
+.overlapWindow {
+  white-space: nowrap;
+}
+
 /* The collapsed-rows disclosure. A quiet text control, not a button-looking button:
    §1's no-chrome rule, in the muted small type a footer control takes. */
 .quietToggle {

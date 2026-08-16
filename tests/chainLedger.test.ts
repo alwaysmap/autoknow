@@ -9,6 +9,7 @@ import {
   FORECAST_NOISE_DAYS,
   SEVERE_OVERRUN_PCT,
   isSevereOverrun,
+  yieldsStep,
   type LedgerPhaseInput,
   type ChainLedgerInput,
 } from '../src/lib/chainLedger';
@@ -442,41 +443,227 @@ describe('trend replay and register', () => {
   });
 });
 
+// #174. The heading over this list comes from `register` (buffer arithmetic alone) and
+// the list itself from five unrelated situation kinds, so both could be true at once and
+// the reader got "Next step" over an empty box. The floor makes `register !== 'none'` ⇒
+// at least one step an INVARIANT rather than a coincidence — which is also what closes
+// the 'act' case, safe today only because `immediateFocus` happens to feed `overrunSteps`.
+describe('the Next-steps floor', () => {
+  const floorOf = (r: ReturnType<typeof computeChainLedger>) =>
+    r.situations.find((s) => s.type === 'floorComplete' || s.type === 'floorStart' || s.type === 'floorAllFinished');
+
+  it('names the phase that could START, and the idle already charged for it', () => {
+    // The reported shape: a thin reserve says "Next step", and none of the five step
+    // conditions fires. A finishes on plan, then nothing starts for 26 days.
+    const r = computeChainLedger({
+      phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 30, 0, [1])],
+      sopDate: iso(120),
+      now: day(56),
+      states: [
+        { phaseId: 1, at: iso(0), progress: 10 },
+        { phaseId: 1, at: iso(15), progress: 50 },
+        { phaseId: 1, at: iso(30), progress: 100 },
+      ],
+    });
+    expect(r.register).toBe('plan');
+    // The phase and the day count both come from the waterfall's idle row — the same
+    // number "Where the buffer went" is printing in the column beside it, rather than a
+    // second notion of "next startable phase" derived here.
+    expect(floorOf(r)).toEqual({ type: 'floorStart', phaseId: 2, idleDays: 26 });
+  });
+
+  it('drops the idle clause when there is no idle to state', () => {
+    // A program that has simply not begun: nothing running, nothing finished, so no gap
+    // row exists. Stating "the idle has already cost 0 days" would be the plausible
+    // sentence the data cannot support (AGENTS lesson 5).
+    const r = computeChainLedger({
+      phases: [phase(1, 30, 0), phase(2, 30, 0, [1])],
+      sopDate: iso(80),
+      now: day(0),
+    });
+    expect(r.register).toBe('plan');
+    expect(floorOf(r)).toEqual({ type: 'floorStart', phaseId: 1, idleDays: 0 });
+  });
+
+  it('asks for the RUNNING phases to be completed when work is in flight', () => {
+    // The active phase is last on the chain, so there is no upcoming handoff to
+    // recommend, and it is on pace, so there is no overrun bullet either.
+    const r = computeChainLedger({
+      phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 40, 50, [1], iso(30))],
+      sopDate: iso(75),
+      now: day(50),
+    });
+    expect(r.register).toBe('plan');
+    expect(floorOf(r)).toEqual({ type: 'floorComplete', phaseIds: [2] });
+  });
+
+  it('says so honestly when there is nothing left to start OR complete', () => {
+    // Both phases finished exactly on plan, so no overrun bullet — but a long idle gap
+    // between them means the reserve was still moving four weeks ago, which is what puts
+    // the register at 'plan'. Nothing to start, nothing to complete: the one shape that
+    // would otherwise leave the invariant false.
+    const r = computeChainLedger({
+      phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 30, 100, [1], iso(85), iso(115))],
+      sopDate: iso(200),
+      now: day(120),
+      states: [
+        { phaseId: 1, at: iso(10), progress: 50 }, { phaseId: 1, at: iso(30), progress: 100 },
+        { phaseId: 2, at: iso(92), progress: 60 }, { phaseId: 2, at: iso(115), progress: 100 },
+      ],
+    });
+    expect(r.register).toBe('plan');
+    expect(r.fourWeekDeltaDays).toBe(-11);
+    expect(floorOf(r)).toEqual({ type: 'floorAllFinished' });
+  });
+
+  it('never fires as a preamble to a real step', () => {
+    // The buffer-rich program with a doubled phase: 'act', and the overrun bullet is a
+    // real step, so the floor must stay out of the way. It is a floor, not a preamble.
+    const r = computeChainLedger({
+      phases: [phase(1, 40, 50, [], iso(-60))],
+      sopDate: iso(700),
+      now: day(0),
+    });
+    expect(r.register).toBe('act');
+    expect(floorOf(r)).toBeUndefined();
+  });
+
+  it('stays out of a quiet program entirely', () => {
+    const r = computeChainLedger({
+      phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 40, 50, [1], iso(30))],
+      sopDate: iso(140),
+      now: day(40),
+    });
+    expect(r.register).toBe('none');
+    expect(r.situations.map((s) => s.type)).toEqual(['allClear']);
+  });
+
+  it('holds the invariant across every shape above: a register that asks for a step gets one', () => {
+    const shapes: ChainLedgerInput[] = [
+      // nothing started
+      { phases: [phase(1, 30, 0), phase(2, 30, 0, [1])], sopDate: iso(80), now: day(0) },
+      // idle before an unstarted phase
+      { phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 30, 0, [1])], sopDate: iso(120), now: day(56),
+        states: [{ phaseId: 1, at: iso(0), progress: 10 }, { phaseId: 1, at: iso(30), progress: 100 }] },
+      // work in flight, on pace, thin reserve
+      { phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 40, 50, [1], iso(30))], sopDate: iso(75), now: day(50) },
+      // a doubled live phase against a huge buffer
+      { phases: [phase(1, 40, 50, [], iso(-60))], sopDate: iso(700), now: day(0) },
+      // the SOP already overshot
+      { phases: [phase(1, 60, 30, [], iso(0))], sopDate: iso(20), now: day(30) },
+      // no SOP at all — nothing to be a reserve against
+      { phases: [phase(1, 30, 50, [], iso(0))], sopDate: null, now: day(10) },
+      // every phase finished, reserve still moving
+      { phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 30, 100, [1], iso(85), iso(115))],
+        sopDate: iso(200), now: day(120),
+        states: [{ phaseId: 1, at: iso(30), progress: 100 },
+                 { phaseId: 2, at: iso(92), progress: 60 }, { phaseId: 2, at: iso(115), progress: 100 }] },
+      // a quiet program, which must stay quiet
+      { phases: [phase(1, 30, 100, [], iso(0), iso(30)), phase(2, 40, 50, [1], iso(30))], sopDate: iso(140), now: day(40) },
+    ];
+    for (const input of shapes) {
+      const r = computeChainLedger(input);
+      // `yieldsStep` is the lib's own statement of which packets ChainLedger.tsx turns
+      // into a bullet; the floor is its complement. Asserting through it here is what
+      // keeps the two from drifting silently (AGENTS lesson 7).
+      const steps = r.situations.filter(yieldsStep).length + (floorOf(r) ? 1 : 0);
+      if (r.register === 'none') expect(steps).toBe(0);
+      else expect(steps).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe('buildBusiestResources', () => {
+  // Windows, in days from D0. Alice's three programs all want her across an overlapping
+  // stretch; Bosch's two do not meet at all — which is the distinction the section used
+  // to ASSERT ("one calendar driving many SOPs") over a row shape carrying no time data.
+  const win = (from: number, to: number) => ({ startMs: day(from), endMs: day(to) });
   const rows = buildBusiestResources([
     {
       programId: 1, programName: 'Gemini X', bufferDays: 47, fourWeekDeltaDays: -14,
       volumeFirstYear: 120_000, products: ['GAS', 'GBI'],
       resources: [
-        { kind: 'person', id: 5, name: 'Alice Chen', onConstraint: true },
-        { kind: 'partner', id: 9, name: 'Bosch', onConstraint: false },
+        { kind: 'person', id: 5, name: 'Alice Chen', onConstraint: true, ...win(0, 60) },
+        { kind: 'partner', id: 9, name: 'Bosch', onConstraint: false, ...win(0, 20) },
       ],
     },
     {
       programId: 2, programName: 'Polaris EV', bufferDays: 12, fourWeekDeltaDays: -9,
       volumeFirstYear: 60_000, products: ['GBI'],
-      resources: [{ kind: 'person', id: 5, name: 'Alice Chen', onConstraint: true }],
+      resources: [{ kind: 'person', id: 5, name: 'Alice Chen', onConstraint: true, ...win(30, 90) }],
     },
     {
       programId: 3, programName: 'Meridian', bufferDays: 21, fourWeekDeltaDays: -6,
       volumeFirstYear: 45_000, products: [],
       resources: [
-        { kind: 'partner', id: 9, name: 'Bosch', onConstraint: true },
-        { kind: 'person', id: 5, name: 'Alice Chen', onConstraint: false },
+        // Bosch's second window starts long after its first ends: two demands, no collision.
+        { kind: 'partner', id: 9, name: 'Bosch', onConstraint: true, ...win(200, 260) },
+        { kind: 'person', id: 5, name: 'Alice Chen', onConstraint: false, ...win(40, 70) },
       ],
     },
     {
       programId: 4, programName: 'Nova', bufferDays: 34, fourWeekDeltaDays: 0,
       volumeFirstYear: 0, products: [],
-      resources: [{ kind: 'person', id: 6, name: 'Sofia Marin', onConstraint: false }],
+      resources: [{ kind: 'person', id: 6, name: 'Sofia Marin', onConstraint: false, ...win(0, 30) }],
     },
   ]);
 
-  it('aggregates each resource across programs, most exposure first', () => {
+  it('aggregates each resource across programs, over-committed first', () => {
+    // Alice is over-committed (3 at once against a person's threshold of 2); nobody else
+    // is. This replaced the `exposure` order — days × units, never displayed — so the
+    // basis of the ranking is now a number the reader can see in a column.
     expect(rows.map((r) => r.name)).toEqual(['Alice Chen', 'Bosch', 'Sofia Marin']);
     const alice = rows[0];
     expect(alice.constraintIn.map((p) => p.programName)).toEqual(['Gemini X', 'Polaris EV']);
     expect(alice.alsoActiveIn.map((p) => p.programName)).toEqual(['Meridian']);
+  });
+
+  it('COMPUTES the collision instead of asserting it', () => {
+    const alice = rows[0];
+    // Gemini 0–60, Polaris 30–90, Meridian 40–70: all three are live between day 40 and
+    // day 60, which is the peak.
+    expect(alice.peak).toEqual({ startMs: day(40), endMs: day(60), programCount: 3 });
+    expect(alice.concurrent).toBe(3);
+    expect(alice.overCommitted).toBe(true);
+    expect(alice.demands.map((d) => d.programName)).toEqual(['Gemini X', 'Polaris EV', 'Meridian']);
+  });
+
+  it('says so when the windows never actually meet', () => {
+    // Bosch is on two programs — the old row shape called that "at once". Its windows are
+    // 180 days apart, so there is no overlap, and `null` is the answer rather than a
+    // number nobody computed.
+    const bosch = rows.find((r) => r.name === 'Bosch')!;
+    expect(bosch.demands).toHaveLength(2);
+    expect(bosch.peak).toBeNull();
+    // TWO programs, but never two AT ONCE. The old row shape could not tell these apart,
+    // and they are opposite decisions.
+    expect(bosch.concurrent).toBe(1);
+    expect(bosch.overCommitted).toBe(false);
+  });
+
+  it('counts a person and a company against different thresholds', () => {
+    const two = (kind: 'person' | 'partner') => buildBusiestResources([
+      { programId: 1, programName: 'A', bufferDays: 10, fourWeekDeltaDays: 0, volumeFirstYear: 0, products: [],
+        resources: [{ kind, id: 1, name: 'X', onConstraint: true, ...win(0, 50) }] },
+      { programId: 2, programName: 'B', bufferDays: 10, fourWeekDeltaDays: 0, volumeFirstYear: 0, products: [],
+        resources: [{ kind, id: 1, name: 'X', onConstraint: true, ...win(10, 60) }] },
+    ])[0];
+    expect(two('person')).toMatchObject({ concurrent: 2, overCommitted: true });
+    expect(two('partner')).toMatchObject({ concurrent: 2, overCommitted: false });
+  });
+
+  it('treats a handoff as a handoff, not a collision', () => {
+    // One window ends the day the next begins. The schedule dates transitions to the day,
+    // so counting that instant as two-at-once would manufacture an overlap out of a clean
+    // baton pass.
+    const row = buildBusiestResources([
+      { programId: 1, programName: 'A', bufferDays: 10, fourWeekDeltaDays: 0, volumeFirstYear: 0, products: [],
+        resources: [{ kind: 'person', id: 1, name: 'X', onConstraint: true, ...win(0, 30) }] },
+      { programId: 2, programName: 'B', bufferDays: 10, fourWeekDeltaDays: 0, volumeFirstYear: 0, products: [],
+        resources: [{ kind: 'person', id: 1, name: 'X', onConstraint: true, ...win(30, 60) }] },
+    ])[0];
+    expect(row.peak).toBeNull();
+    expect(row.overCommitted).toBe(false);
   });
 
   it('carries the decision facts: deltas, volumes, products, movable slack', () => {

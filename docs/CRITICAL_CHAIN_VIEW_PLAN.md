@@ -110,6 +110,17 @@ program-level line in the page header ("Immediate focus — … Exploit the cons
 above the needle and the chain section. Finished overruns never take that flag: that
 time is spent, so they earn a re-plan, not an all-hands.
 
+UPDATE (2026-08-15, issue #167): that header line no longer RESTATES the finding — it
+names the phase and links to `#critical-chain`, because it and the first Next-steps
+bullet were built from the same sorted `forecastOverrun` list and even shared the phrase
+"Exploit the constraint". The goal above is unchanged and still met (the fact is read
+before the needle, the briefing and every chart); the mechanism is a pointer rather than
+a second copy. `clFocusExploit` and the pct/remaining/also-N keys are gone. Same pass
+collapsed the owner-load bullet's inline enumeration — it printed every other program AND
+every phase name inside it as uncapped plain text — into one link to that person's active
+work. [ADR: A restated fact becomes a link, and a count links to the set it
+counted](adr/2026-08-15-a-restated-fact-becomes-a-link-and-a-count-links-to-the-set-it-counted.md).
+
 ## 1. Why
 
 AutoKnow exists to support decision making and best use of a limited team — not

@@ -4,7 +4,7 @@ date: 2026-07-26
 supersedes: ""
 superseded-by: ""
 extends: ""
-extended-by: ""
+extended-by: a-portfolio-panel-consumes-the-diagnosis-it-cannot-restate
 tags: [insights, types, i18n, ui, chain]
 ---
 

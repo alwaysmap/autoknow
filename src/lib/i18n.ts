@@ -1453,6 +1453,104 @@ const STRINGS = {
   gatingOneProgram: { en: 'gating 1 program', de: 'blockiert 1 Programm', ja: '1件のプログラムを律速', ko: '1개 프로그램을 제약' },
   gatingNPrograms: { en: 'gating {n} programs', de: 'blockiert {n} Programme', ja: '{n}件のプログラムを律速', ko: '{n}개 프로그램을 제약' },
   noLiveConstraints: { en: 'No phase is on a critical chain right now.', de: 'Derzeit liegt keine Phase auf einer kritischen Kette.', ja: '現在クリティカルチェーン上のフェーズはありません。', ko: '현재 크리티컬 체인에 있는 단계가 없습니다.' },
+
+  // ---- Flow Constraint Diagnosis: WHY a phase is the constraint, and since when (#148).
+  // The panel named WHERE and stopped, under a heading promising otherwise. Every sentence
+  // here renders a `lib/chainInsights` symptom — the same Situation packets ChainLedger
+  // renders as recommendations, stated as diagnoses instead. They carry the PROGRAM rather
+  // than the phase, because the row header is already the phase name (#167's rule) and the
+  // diagnosis belongs to one of the programs the row gates.
+  cdWhyHeader: { en: 'Why', de: 'Warum', ja: '理由', ko: '이유' },
+  cdSinceHeader: { en: 'Since', de: 'Seit', ja: '開始', ko: '시작' },
+  cdOverrun: {
+    en: 'In {program}: {pct}% past the {p}-day estimate, with {r} days of work still left.',
+    de: 'In {program}: {pct} % über der {p}-Tage-Schätzung, bei {r} Tagen Restarbeit.',
+    ja: '{program}: {p}日の見積もりを{pct}%超過、残作業{r}日。',
+    ko: '{program}: {p}일 견적을 {pct}% 초과, 남은 작업 {r}일.',
+  },
+  cdOverrunAction: {
+    en: 'Root-cause the overrun, or re-estimate the phase.',
+    de: 'Ursache der Überschreitung finden oder die Phase neu schätzen.',
+    ja: '超過の原因を突き止めるか、フェーズを見積もり直す。',
+    ko: '초과의 근본 원인을 찾거나 단계를 다시 견적한다.',
+  },
+  cdIdle: {
+    en: 'In {program}: the previous phase finished {d} days ago and this one has not started.',
+    de: 'In {program}: die vorherige Phase endete vor {d} Tagen, diese hat nicht begonnen.',
+    ja: '{program}: 前のフェーズが{d}日前に完了しましたが、まだ開始していません。',
+    ko: '{program}: 이전 단계가 {d}일 전에 끝났지만 아직 시작되지 않았습니다.',
+  },
+  cdIdleOne: {
+    en: 'In {program}: the previous phase finished 1 day ago and this one has not started.',
+    de: 'In {program}: die vorherige Phase endete vor 1 Tag, diese hat nicht begonnen.',
+    ja: '{program}: 前のフェーズが1日前に完了しましたが、まだ開始していません。',
+    ko: '{program}: 이전 단계가 1일 전에 끝났지만 아직 시작되지 않았습니다.',
+  },
+  cdIdleAction: {
+    en: 'Start it — the idle is being charged to the buffer every day.',
+    de: 'Starten — der Leerlauf geht täglich zulasten des Puffers.',
+    ja: '開始しましょう — 待機は日々バッファから差し引かれています。',
+    ko: '시작하세요 — 대기는 매일 버퍼에서 차감되고 있습니다.',
+  },
+  cdContended: {
+    en: 'In {program}: {name} is on it and active in {n} other programs.',
+    de: 'In {program}: {name} ist daran beteiligt und in {n} weiteren Programmen aktiv.',
+    ja: '{program}: {name}が担当し、他{n}件のプログラムでも稼働中。',
+    ko: '{program}: {name}이(가) 맡고 있으며 다른 프로그램 {n}개에서도 활동 중.',
+  },
+  cdContendedAction: {
+    en: 'Agree whose claim on their time wins before it slips.',
+    de: 'Klären, wessen Anspruch auf ihre Zeit Vorrang hat, bevor es rutscht.',
+    ja: '遅延する前に、誰の依頼を優先するか合意しましょう。',
+    ko: '늦어지기 전에 누구의 요청이 우선인지 합의하세요.',
+  },
+  cdHandoff: {
+    en: 'In {program}: it has not started, and {n} of the resources it needs are busy elsewhere.',
+    de: 'In {program}: noch nicht begonnen, und {n} der benötigten Ressourcen sind anderweitig gebunden.',
+    ja: '{program}: 未着手で、必要なリソースのうち{n}件が他所で稼働中。',
+    ko: '{program}: 아직 시작되지 않았고, 필요한 리소스 중 {n}개가 다른 곳에 묶여 있습니다.',
+  },
+  cdHandoffAction: {
+    en: 'Confirm the staffing before the baton lands.',
+    de: 'Die Besetzung klären, bevor der Staffelstab ankommt.',
+    ja: 'バトンが渡る前に体制を確認しましょう。',
+    ko: '바통이 넘어가기 전에 인력 배치를 확정하세요.',
+  },
+  // Structural-and-fine has to be SAYABLE, or every row the panel prints reads as trouble
+  // and the panel overstates the portfolio it is meant to explain.
+  // Kept SHORT on purpose. A healthy portfolio prints this row a dozen times, and a
+  // dozen copies of a long sentence is ink saying one thing over and over — but dropping
+  // the row would overstate the portfolio, so the answer is brevity, not omission.
+  cdClear: {
+    en: 'Nothing wrong — just the longest remaining step in {program}.',
+    de: 'Kein Befund — nur der längste verbleibende Schritt in {program}.',
+    ja: '問題なし — {program}で残る最長のステップというだけです。',
+    ko: '문제 없음 — {program}에서 남은 가장 긴 단계일 뿐입니다.',
+  },
+  cdBasisMeasured: {
+    en: 'measured from recorded dates',
+    de: 'aus erfassten Daten gemessen',
+    ja: '記録された日付から実測',
+    ko: '기록된 날짜에서 실측',
+  },
+  cdBasisEstimated: {
+    en: 'against a typed-in estimate',
+    de: 'gegen eine eingegebene Schätzung',
+    ja: '入力された見積もりに対する値',
+    ko: '입력된 견적 대비',
+  },
+  cdWorstOf: {
+    en: 'worst of {n} programs',
+    de: 'schlechteste von {n} Programmen',
+    ja: '{n}件中で最も深刻',
+    ko: '{n}개 프로그램 중 최악',
+  },
+  flowConstraintMethod: {
+    en: 'A phase is listed when it sits on a live critical chain — the longest remaining path to an SOP — in at least one active program. Rows are ordered worst-first, then by how many SOPs the phase gates. "Why" states the worst of the diagnoses across those programs, from the same computation the program page\'s Critical Chain section renders. Durations compared against a phase\'s forecast are compared against a duration somebody typed in, and each row says which of its numbers are measured and which are estimated. Nothing here predicts a date.',
+    de: 'Eine Phase erscheint, wenn sie in mindestens einem aktiven Programm auf einer lebenden kritischen Kette liegt — dem längsten verbleibenden Pfad zu einem SOP. Sortiert nach Schwere, dann danach, wie viele SOPs die Phase blockiert. „Warum“ nennt den schlimmsten Befund über diese Programme hinweg, aus derselben Berechnung, die der Abschnitt „Kritische Kette“ der Programmseite rendert. Dauern, die gegen eine Phasenprognose verglichen werden, werden gegen eine eingegebene Schätzung verglichen; jede Zeile sagt, welche ihrer Zahlen gemessen und welche geschätzt sind. Hier wird kein Datum vorhergesagt.',
+    ja: 'フェーズは、いずれかの進行中プログラムで実際のクリティカルチェーン（SOPまでの最長残存パス）上にあるときに掲載されます。並び順は深刻度が先、次にそのフェーズが律速しているSOPの数です。「理由」は対象プログラム群のうち最も深刻な診断を示し、プログラムページの「クリティカルチェーン」セクションと同じ計算に基づきます。フェーズの予測と比較した日数は、人が入力した見積もりとの比較です。各行はどの数値が実測でどれが見積もりかを明示します。ここで日付の予測は行いません。',
+    ko: '단계는 활성 프로그램 중 하나에서 실제 크리티컬 체인(SOP까지 남은 최장 경로)에 있을 때 표시됩니다. 정렬은 심각도 우선, 그다음 해당 단계가 좌우하는 SOP 수입니다. "이유"는 해당 프로그램들 가운데 가장 심각한 진단을 나타내며, 프로그램 페이지의 크리티컬 체인 섹션과 같은 계산에서 나옵니다. 단계 예측과 비교한 기간은 사람이 입력한 견적과의 비교입니다. 각 행은 어떤 수치가 실측이고 어떤 것이 견적인지 밝힙니다. 여기서 날짜를 예측하지는 않습니다.',
+  },
   programLifecycleLaunches: { en: 'Program Lifecycle & Launches', de: 'Programmlebenszyklus & Starts', ja: 'プログラムのライフサイクルとローンチ', ko: '프로그램 라이프사이클 및 출시' },
   volume12m: { en: '12M Volume', de: '12M-Volumen', ja: '12ヶ月台数', ko: '12개월 물량' },
   hillChartHeader: { en: 'Hill Chart', de: 'Hügeldiagramm', ja: 'ヒルチャート', ko: '힐 차트' },
@@ -1534,6 +1632,10 @@ const STRINGS = {
   // statement about the PERSON's connection to it, not about the program.
   connectionLive: { en: 'Current', de: 'Aktuell', ja: '現在', ko: '현재' },
   connectionEnded: { en: 'Ended', de: 'Beendet', ja: '終了', ko: '종료' },
+  // The strict subset of Current where a phase is actually RUNNING (#167) — what
+  // `?filter=active` selects, and what the Critical Chain's owner-load bullet counts
+  // when it links here instead of printing thirteen phase names.
+  connectionActive: { en: 'Active', de: 'Aktiv', ja: '進行中', ko: '진행 중' },
   // WHY a row is on the Programs table when neither the TEL badge nor a phase role says
   // so: the person holds an action item on one of its phases and nothing else (#144).
   viaActionItem: { en: 'action item', de: 'Aufgabe', ja: 'アクションアイテム', ko: '액션 아이템' },
@@ -1542,10 +1644,10 @@ const STRINGS = {
   // involvement, not the job held now (#127 E11, the same per-row rule the Activity
   // intro below states for its own rows).
   personProgramsIntro: {
-    en: 'Programs this person is named on — as Technical Engagement Lead, on a phase, or holding an action item there. Each row shows the company and role held at the time, and whether the connection is current or has ended. A connection reads current until every phase behind it is finished, so a phase nobody has updated counts as current.',
-    de: 'Programme, in denen diese Person genannt ist — als Technical Engagement Lead, in einer Phase oder mit einer Aufgabe darin. Jede Zeile zeigt Unternehmen und Rolle zum Zeitpunkt der Beteiligung sowie ob die Verbindung aktuell oder beendet ist. Eine Verbindung gilt als aktuell, solange nicht jede zugehörige Phase abgeschlossen ist — eine nie aktualisierte Phase zählt also als aktuell.',
-    ja: 'この担当者が名前を連ねているプログラム — TEL として、フェーズ上、またはアクションアイテムの担当として。各行には関与当時の会社と役割、および接続が現在有効か終了済みかが表示されます。関連するすべてのフェーズが完了するまで「現在」と表示されるため、未更新のフェーズは「現在」として扱われます。',
-    ko: '이 사람이 이름을 올린 프로그램 — TEL로서, 단계에서, 또는 액션 아이템 보유. 각 행에는 참여 당시의 회사와 역할, 그리고 연결이 현재인지 종료되었는지가 표시됩니다. 관련된 모든 단계가 끝나야 종료로 바뀌므로, 갱신되지 않은 단계는 현재로 간주됩니다.',
+    en: 'Programs this person is named on — as Technical Engagement Lead, on a phase, or holding an action item there. Each row shows the company and role held at the time, and whether the connection is active, current or ended. Active means a phase is running right now: every phase of a program they lead, and the phases they are named on elsewhere. Current means still attached with nothing in flight — a connection reads current until every phase behind it is finished, so a phase nobody has updated counts as current.',
+    de: 'Programme, in denen diese Person genannt ist — als Technical Engagement Lead, in einer Phase oder mit einer Aufgabe darin. Jede Zeile zeigt Unternehmen und Rolle zum Zeitpunkt der Beteiligung sowie ob die Verbindung aktiv, aktuell oder beendet ist. Aktiv heißt: gerade läuft eine Phase — jede Phase eines von ihnen geleiteten Programms sowie die Phasen, in denen sie anderswo genannt sind. Aktuell heißt: weiterhin verbunden, aber nichts in Arbeit — eine Verbindung gilt als aktuell, solange nicht jede zugehörige Phase abgeschlossen ist, eine nie aktualisierte Phase zählt also als aktuell.',
+    ja: 'この担当者が名前を連ねているプログラム — TEL として、フェーズ上、またはアクションアイテムの担当として。各行には関与当時の会社と役割、および接続が進行中・現在・終了済みのいずれかが表示されます。「進行中」は今まさにフェーズが動いていることを指し、担当者が率いるプログラムの全フェーズと、他所で名前を連ねているフェーズが対象です。「現在」は接続は続いているが動いている作業がない状態で、関連するすべてのフェーズが完了するまで「現在」と表示されるため、未更新のフェーズは「現在」として扱われます。',
+    ko: '이 사람이 이름을 올린 프로그램 — TEL로서, 단계에서, 또는 액션 아이템 보유. 각 행에는 참여 당시의 회사와 역할, 그리고 연결이 진행 중인지 현재인지 종료되었는지가 표시됩니다. "진행 중"은 지금 단계가 돌아가고 있다는 뜻으로, 이 사람이 이끄는 프로그램의 모든 단계와 다른 곳에서 이름을 올린 단계가 해당합니다. "현재"는 연결은 남아 있지만 진행 중인 작업이 없는 상태이며, 관련된 모든 단계가 끝나야 종료로 바뀌므로 갱신되지 않은 단계는 현재로 간주됩니다.',
   },
   // Two sentences, both load-bearing. The first says what the company beside each entry
   // MEANS — the job held then, not the job held now (#127 E10). The second states the
@@ -1929,6 +2031,50 @@ const STRINGS = {
     ja: '対応が必要です。影響の小さい順',
     ko: '조치가 필요합니다. 영향이 작은 순서로',
   },
+  // The FLOOR under that list (#174). `clJudgePlan` above promises "Next step" and the
+  // list beside it could be empty, because the heading is decided by buffer arithmetic
+  // and the list by five unrelated situation kinds. These are what the ledger emits when
+  // the register asks for a step and nothing else supplies one — the true, useful thing
+  // rather than a heading over nothing.
+  clFloorCompleteOne: {
+    en: 'Complete {phases} — it is the only phase running, so the chain moves when it does.',
+    de: '{phases} abschließen — es ist die einzige laufende Phase, die Kette bewegt sich also mit ihr.',
+    ja: '{phases}を完了させましょう — 現在動いている唯一のフェーズであり、チェーンはこれに合わせて進みます。',
+    ko: '{phases}을(를) 완료하세요 — 지금 돌아가는 유일한 단계이며, 체인은 이 단계에 맞춰 움직입니다.',
+  },
+  clFloorComplete: {
+    en: 'Complete the active phases {phases} — nothing else moves the chain until they finish.',
+    de: 'Die laufenden Phasen {phases} abschließen — bis dahin bewegt nichts anderes die Kette.',
+    ja: '進行中のフェーズ{phases}を完了させましょう — それまでチェーンを動かすものは他にありません。',
+    ko: '진행 중인 단계 {phases}을(를) 완료하세요 — 끝날 때까지 체인을 움직이는 것은 없습니다.',
+  },
+  clFloorStart: {
+    en: 'Start {phase} — nothing is running, and the idle before it has already cost {d} days.',
+    de: '{phase} starten — nichts läuft, und der Leerlauf davor hat bereits {d} Tage gekostet.',
+    ja: '{phase}を開始しましょう — 何も動いておらず、その手前の待ち時間ですでに{d}日を失っています。',
+    ko: '{phase}을(를) 시작하세요 — 아무것도 진행되지 않고 있으며, 그 앞의 대기로 이미 {d}일을 잃었습니다.',
+  },
+  clFloorStartOne: {
+    en: 'Start {phase} — nothing is running, and the idle before it has already cost 1 day.',
+    de: '{phase} starten — nichts läuft, und der Leerlauf davor hat bereits 1 Tag gekostet.',
+    ja: '{phase}を開始しましょう — 何も動いておらず、その手前の待ち時間ですでに1日を失っています。',
+    ko: '{phase}을(를) 시작하세요 — 아무것도 진행되지 않고 있으며, 그 앞의 대기로 이미 1일을 잃었습니다.',
+  },
+  // A program that has simply not begun has no idle behind it, so the evidence clause is
+  // dropped rather than printed as a zero — a plausible sentence the data cannot support
+  // is the failure mode AGENTS lesson 5 names.
+  clFloorStartNoIdle: {
+    en: 'Start {phase} — nothing is running, and the chain does not move until it does.',
+    de: '{phase} starten — nichts läuft, und die Kette bewegt sich erst, wenn diese Phase beginnt.',
+    ja: '{phase}を開始しましょう — 何も動いておらず、これが始まるまでチェーンは動きません。',
+    ko: '{phase}을(를) 시작하세요 — 아무것도 진행되지 않고 있으며, 이 단계가 시작되어야 체인이 움직입니다.',
+  },
+  clFloorAllFinished: {
+    en: 'Every phase on the chain has finished, and the reserve is still moving — confirm the projected finish and the SOP still line up.',
+    de: 'Alle Phasen der Kette sind abgeschlossen, die Reserve bewegt sich aber weiter — prüfen, ob prognostiziertes Ende und SOP noch zusammenpassen.',
+    ja: 'チェーン上のすべてのフェーズが完了していますが、リザーブはまだ動いています — 予測完了日とSOPが整合しているか確認してください。',
+    ko: '체인의 모든 단계가 끝났지만 예비는 아직 움직이고 있습니다 — 예상 완료일과 SOP가 여전히 맞는지 확인하세요.',
+  },
   clLeverHandoff: {
     en: 'Agree the {from} → {to} handoff now, so the phase starts the day it can.',
     de: 'Die Übergabe {from} → {to} jetzt vereinbaren, damit die Phase am erstmöglichen Tag startet.',
@@ -1967,36 +2113,30 @@ const STRINGS = {
   clOverrunSunkItem: {
     en: '{phase} (+{pct}%)', de: '{phase} (+{pct} %)', ja: '{phase}（+{pct}%）', ko: '{phase}(+{pct}%)',
   },
-  // The same fact raised to PROGRAM level — the header line, above the fold, where
-  // it is read before anyone scrolls into the chain section. Label + one-line fact
-  // + the reaction (design.md §7), so the sentence still reads if the label is
-  // scanned past.
+  // The header line that raises the constraint to PROGRAM level — read before anyone
+  // scrolls into the chain section (2026-07-24 user call, kept).
+  //
+  // It NAMES the phase and then STOPS (#167). It used to restate the whole finding —
+  // percentage over, days of work left, how many other phases are over, and the
+  // "Exploit the constraint" reaction — all of which the first Next-steps bullet already
+  // says more fully, off the very same sorted `forecastOverrun` list. Two phrasings of
+  // one fact is a thing this repo has deleted twice before; the fuller form wins again.
+  // What survives here is the part that is genuinely lost by scrolling — WHICH phase —
+  // plus a LINK to where the recommendation lives, rather than a copy of it.
   clFocusLabel: {
     en: 'Immediate focus', de: 'Sofortiger Fokus', ja: '最優先事項', ko: '즉시 집중',
   },
-  clFocusPhase: {
-    en: '{phase} is {pct}% past its estimate with {r} days of work still left.',
-    de: '{phase} liegt {pct} % über der Schätzung, bei {r} Tagen Restarbeit.',
-    ja: '{phase}は見積もりを{pct}%超過し、残作業は{r}日です。',
-    ko: '{phase}은(는) 견적을 {pct}% 초과했고 남은 작업은 {r}일입니다.',
+  clFocusPointer: {
+    en: '{phase} is the constraint today.',
+    de: '{phase} ist heute der Engpass.',
+    ja: '本日の制約は{phase}です。',
+    ko: '오늘의 제약은 {phase}입니다.',
   },
-  clFocusAlsoOne: {
-    en: '1 other phase is past its estimate too.',
-    de: '1 weitere Phase liegt ebenfalls über ihrer Schätzung.',
-    ja: '他に1件のフェーズも見積もりを超過しています。',
-    ko: '다른 단계 1개도 견적을 초과했습니다.',
-  },
-  clFocusAlso: {
-    en: '{n} other phases are past their estimates too.',
-    de: '{n} weitere Phasen liegen ebenfalls über ihren Schätzungen.',
-    ja: '他に{n}件のフェーズも見積もりを超過しています。',
-    ko: '다른 단계 {n}개도 견적을 초과했습니다.',
-  },
-  clFocusExploit: {
-    en: 'Exploit the constraint: clear what is holding it up before starting anything new.',
-    de: 'Den Engpass ausschöpfen: die Blockade beseitigen, bevor Neues begonnen wird.',
-    ja: '制約を徹底活用しましょう — 新しい作業を始める前に、滞りを解消してください。',
-    ko: '제약을 최대한 활용하세요 — 새 작업을 시작하기 전에 막고 있는 것을 해결하세요.',
+  clFocusSeeSteps: {
+    en: 'What to do about it',
+    de: 'Was jetzt zu tun ist',
+    ja: '対処方法を見る',
+    ko: '대응 방법 보기',
   },
   clLeverDeclare: {
     en: 'Declare the program Concerned and propose moving SOP to {month}',
@@ -2251,6 +2391,24 @@ const STRINGS = {
     ja: '{owner}は本プログラムのオーナーであり、他にも{n}件の進行中フェーズを担当しています: {items}。本チェーンを律速している証拠はありませんが、追加の時間を依頼する前に把握しておく価値があります。',
     ko: '{owner}은(는) 이 프로그램의 오너이며 다른 곳에서도 진행 중인 단계 {n}개를 맡고 있습니다: {items}. 이 체인을 좌우한다는 증거는 없지만, 시간을 더 요청하기 전에 알아둘 만합니다.',
   },
+  // TWO OR MORE other programs (#167): the enumeration collapses to ONE link to that
+  // person's active work. `clOwnerLoad` above keeps its `{items}` list for the
+  // single-program case, where naming it inline is cheaper than a click.
+  clOwnerLoadMany: {
+    en: '{owner} owns this program and is also on {n} active phases across {programs}. Not proven to gate this chain, but worth knowing before asking for more of their time.',
+    de: '{owner} verantwortet dieses Programm und ist zusätzlich in {n} aktiven Phasen in {programs} tätig. Nicht nachweislich kettenbestimmend, aber gut zu wissen, bevor mehr Zeit angefragt wird.',
+    ja: '{owner}は本プログラムのオーナーであり、{programs}にまたがる{n}件の進行中フェーズを担当しています。本チェーンを律速している証拠はありませんが、追加の時間を依頼する前に把握しておく価値があります。',
+    ko: '{owner}은(는) 이 프로그램의 오너이며 {programs}에 걸쳐 진행 중인 단계 {n}개를 맡고 있습니다. 이 체인을 좌우한다는 증거는 없지만, 시간을 더 요청하기 전에 알아둘 만합니다.',
+  },
+  // The link's own text — a COUNT, which is what links to a pre-filtered list
+  // (design.md §2). Always 2+; there is no one-program spelling because that case
+  // renders inline instead.
+  clOwnerLoadPrograms: {
+    en: '{m} other programs',
+    de: '{m} weiteren Programmen',
+    ja: '他{m}件のプログラム',
+    ko: '다른 프로그램 {m}개',
+  },
   clOwnerLoadOne: {
     en: '{owner} owns this program and is also on 1 active phase elsewhere: {items}. Not proven to gate this chain, but worth knowing before asking for more of their time.',
     de: '{owner} verantwortet dieses Programm und ist zusätzlich in 1 aktiven Phase anderswo tätig: {items}. Nicht nachweislich kettenbestimmend, aber gut zu wissen, bevor mehr Zeit angefragt wird.',
@@ -2316,11 +2474,56 @@ const STRINGS = {
   },
   // Ecosystem: busiest people and partners
   clBusiest: { en: 'Possible Resource Constraints', de: 'Mögliche Ressourcenengpässe', ja: 'リソース制約の可能性', ko: '잠재적 리소스 제약' },
+  // "at once" is now COMPUTED (#140), so the intro is allowed to claim it. It used to say
+  // "one calendar driving many SOPs" over a row shape carrying no time data at all — two
+  // programs wanting somebody in Q1 '27 and Q4 '28 rendered exactly like two that both
+  // wanted them next month.
   clBusiestIntro: {
-    en: 'The people and partners several programs depend on at once — one calendar driving many SOPs.',
-    de: 'Personen und Partner, von denen mehrere Programme gleichzeitig abhängen — ein Kalender bestimmt viele SOPs.',
-    ja: '複数のプログラムが同時に依存する人とパートナー — 一つのカレンダーが多くのSOPを左右します。',
-    ko: '여러 프로그램이 동시에 의존하는 사람과 파트너 — 하나의 일정이 여러 SOP를 좌우합니다.',
+    en: 'The people and partners several programs lean on — with how many demands actually overlap in time, and when.',
+    de: 'Personen und Partner, auf die sich mehrere Programme stützen — mit der Anzahl der zeitlich tatsächlich überlappenden Ansprüche und wann.',
+    ja: '複数のプログラムが頼っている人とパートナー — 実際に時期が重なっている依頼の数と、その時期。',
+    ko: '여러 프로그램이 기대고 있는 사람과 파트너 — 실제로 시기가 겹치는 요구의 수와 그 시기.',
+  },
+  clBusiestMethod: {
+    en: 'A row appears when someone is named on an unfinished phase of a program\'s critical chain. "Concurrent" is the largest number of programs whose demand windows are live at the same time — computed from the chain schedule, not from how many programs the name appears in. Those windows come from phase durations somebody typed in, so treat the dates as a shape rather than a commitment; a window that is one week out is not different from one that is two. A person has one calendar, so two at once is already worth asking about; a company has many people, so the same two is a question about their staffing plan rather than evidence of overload — the two kinds are counted against different thresholds. Nothing here models capacity, allocations or FTEs.',
+    de: 'Eine Zeile erscheint, wenn jemand einer unabgeschlossenen Phase der kritischen Kette eines Programms zugeordnet ist. „Gleichzeitig“ ist die größte Anzahl von Programmen, deren Bedarfsfenster zur selben Zeit laufen — berechnet aus dem Kettenplan, nicht daraus, in wie vielen Programmen der Name vorkommt. Diese Fenster stammen aus eingegebenen Phasendauern; die Daten sind also eine Form, keine Zusage — ein Fenster eine Woche daneben unterscheidet sich nicht von einem zwei Wochen daneben. Eine Person hat einen Kalender, zwei gleichzeitig sind daher schon eine Nachfrage wert; ein Unternehmen hat viele Menschen, dieselben zwei sind dort eine Frage zum Besetzungsplan statt ein Beleg für Überlastung — beide Arten werden gegen unterschiedliche Schwellen gezählt. Kapazität, Zuteilungen oder FTE werden hier nicht modelliert.',
+    ja: 'あるプログラムのクリティカルチェーン上の未完了フェーズに名前が挙がっている場合に行が表示されます。「同時」とは、需要期間が同じ時期に重なっているプログラムの最大数で、名前が登場するプログラム数ではなくチェーンのスケジュールから計算しています。これらの期間は人が入力したフェーズ期間に基づくため、日付は約束ではなく傾向として扱ってください（1週間のずれと2週間のずれに本質的な差はありません）。人のカレンダーは一つなので同時2件でも確認の価値がありますが、企業には多くの人がいるため同じ2件は過負荷の証拠ではなく体制計画への問いです — 両者は異なるしきい値で判定しています。ここでキャパシティや要員配分（FTE）をモデル化してはいません。',
+    ko: '어떤 프로그램의 크리티컬 체인에서 끝나지 않은 단계에 이름이 올라 있으면 행이 표시됩니다. "동시"는 수요 기간이 같은 시기에 겹치는 프로그램의 최대 수이며, 이름이 등장하는 프로그램 수가 아니라 체인 일정에서 계산합니다. 이 기간은 사람이 입력한 단계 기간에서 나오므로 날짜는 약속이 아니라 형태로 보세요 — 1주 어긋난 것과 2주 어긋난 것은 본질적으로 다르지 않습니다. 사람은 일정이 하나뿐이라 동시 2건도 물어볼 가치가 있지만, 회사는 사람이 많아 같은 2건은 과부하의 증거가 아니라 인력 계획에 대한 질문입니다 — 두 종류는 서로 다른 기준으로 셉니다. 여기서 용량이나 인력 배분(FTE)을 모델링하지는 않습니다.',
+  },
+  clKindHeader: { en: 'Kind', de: 'Art', ja: '種別', ko: '종류' },
+  clKindPerson: { en: 'Person', de: 'Person', ja: '個人', ko: '개인' },
+  clKindPartner: { en: 'Company', de: 'Unternehmen', ja: '企業', ko: '회사' },
+  clConcurrentHeader: { en: 'Concurrent', de: 'Gleichzeitig', ja: '同時', ko: '동시' },
+  clOverlapHeader: { en: 'They overlap', de: 'Überschneidung', ja: '重なる時期', ko: '겹치는 시기' },
+  // The verdict beside the number, and the whole reason the threshold differs by kind.
+  clConcurrentOverPerson: {
+    en: 'at once — one calendar',
+    de: 'gleichzeitig — ein Kalender',
+    ja: '同時 — カレンダーは一つ',
+    ko: '동시 — 일정은 하나',
+  },
+  clConcurrentOverPartner: {
+    en: 'at once — ask about their staffing',
+    de: 'gleichzeitig — nach der Besetzung fragen',
+    ja: '同時 — 体制を確認',
+    ko: '동시 — 인력 배치 확인',
+  },
+  clConcurrentOk: { en: 'at once', de: 'gleichzeitig', ja: '同時', ko: '동시' },
+  // The honest null. This is the fact the section used to assert without computing.
+  clNoOverlap: {
+    en: 'their windows never meet',
+    de: 'die Fenster treffen nie zusammen',
+    ja: '期間は重なりません',
+    ko: '기간이 겹치지 않습니다',
+  },
+  // A row that earns its space by gating a slipping SOP, with nothing to suggest. Said
+  // out loud rather than left blank: an honest "we do not know, go and ask" is more use
+  // than a confident recommendation the data cannot carry.
+  clNoRecommendation: {
+    en: 'Flagged as an ecosystem risk. Nothing here says what to shift — no other program this resource is on has slack to give, so this one is worth asking about rather than solving from a table.',
+    de: 'Als Ökosystem-Risiko markiert. Hier steht nicht, was zu verschieben wäre — kein anderes Programm dieser Ressource hat Spielraum abzugeben, also lohnt hier eine Rückfrage statt einer Lösung aus der Tabelle.',
+    ja: 'エコシステム上のリスクとして記録しています。何を動かすべきかはここからは言えません — このリソースが関わる他のプログラムに融通できる余裕がないため、表から解決するのではなく確認する価値があります。',
+    ko: '생태계 위험으로 표시했습니다. 무엇을 옮겨야 하는지는 여기서 말할 수 없습니다 — 이 리소스가 관여한 다른 프로그램에 내줄 여유가 없으므로, 표에서 해결하기보다 직접 물어볼 가치가 있습니다.',
   },
   clWho: { en: 'Who', de: 'Wer', ja: '誰', ko: '누구' },
   clGatingSop: { en: 'Currently gating the SOP of', de: 'Bestimmt derzeit den SOP von', ja: '現在SOPを左右', ko: '현재 SOP를 좌우' },
@@ -2355,11 +2558,15 @@ const STRINGS = {
   },
   clUnitsIn: { en: '{units} units in {year}', de: '{units} Einheiten in {year}', ja: '{year}に{units}台', ko: '{year}에 {units}대' },
   clNMore: { en: '{n} more', de: '{n} weitere', ja: '他{n}件', ko: '외 {n}건' },
+  // Phrased as a QUESTION, not a finding (#140 gap 4). Every buffer figure inside it is a
+  // typed-in estimate compounded through the chain, and the previous wording — "shifting
+  // it protects the falling SOPs at the least cost" — stated a heuristic as a conclusion.
+  // The basis is declared once in the section's ⓘ; what changes here is the mood.
   clConsiderPerson: {
-    en: "Consider: {name}'s movable time is in {programs} — shifting it protects the falling SOPs at the least cost.",
-    de: 'Erwägen: Die verlagerbare Zeit von {name} liegt in {programs} — sie zu verschieben schützt die fallenden SOPs mit dem geringsten Aufwand.',
-    ja: '検討: {name}の融通可能な時間は{programs}にあります — そこから移すのが最小コストで悪化中のSOPを守れます。',
-    ko: '고려: {name}의 옮길 수 있는 시간은 {programs}에 있습니다 — 이를 옮기면 최소 비용으로 악화 중인 SOP를 지킬 수 있습니다.',
+    en: "Worth asking: {name}'s movable time is in {programs} — would shifting some of it protect the falling SOPs?",
+    de: 'Wert zu fragen: Die verlagerbare Zeit von {name} liegt in {programs} — würde eine Verschiebung die fallenden SOPs schützen?',
+    ja: '確認する価値: {name}の融通可能な時間は{programs}にあります — 一部を移せば悪化中のSOPを守れるでしょうか。',
+    ko: '물어볼 만한 것: {name}의 옮길 수 있는 시간은 {programs}에 있습니다 — 일부를 옮기면 악화 중인 SOP를 지킬 수 있을까요?',
   },
   clConsiderTiebreak: {
     en: "If all can't be protected, decide which program gets their time: {program} carries the most volume.",
@@ -2368,7 +2575,7 @@ const STRINGS = {
     ko: '모두 지킬 수 없다면 어느 프로그램에 시간을 줄지 정해야 합니다: 물량이 가장 큰 곳은 {program}입니다.',
   },
   clConsiderPartner: {
-    en: 'Consider: one company is active in {n} programs — ask {name} for their staffing plan. {program} is the only SOP they gate today; a named team there closes the biggest exposure.',
+    en: 'Worth asking: one company is active in {n} programs — ask {name} for their staffing plan. {program} is the only SOP they gate today, so a named team there is the obvious thing to ask for.',
     de: 'Erwägen: Ein Unternehmen ist in {n} Programmen aktiv — {name} nach dem Besetzungsplan fragen. {program} ist der einzige SOP, den sie derzeit bestimmen; ein benanntes Team dort schließt das größte Risiko.',
     ja: '検討: 一社で{n}件のプログラムに関与 — {name}に体制計画を確認しましょう。現在SOPを左右しているのは{program}のみで、そこへの専任チームが最大のリスクを解消します。',
     ko: '고려: 한 회사가 {n}개 프로그램에 관여 중 — {name}에 인력 계획을 요청하세요. 현재 SOP를 좌우하는 곳은 {program}뿐이며, 그곳의 전담 팀이 가장 큰 위험을 해소합니다.',

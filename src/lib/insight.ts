@@ -49,10 +49,13 @@ export type InsightScope =
 export type InsightBasis = 'measured' | 'estimated' | 'asserted';
 
 /**
- * Ordering across mixed sources — an enum, not a score. `BusiestRow.exposure` is
- * `days × units`: two incommensurate units multiplied into a number no reader
- * can interpret. A cross-source numeric rank would be that mistake at portfolio
- * scale. Declared in the order it sorts.
+ * Ordering across mixed sources — an enum, not a score. The cautionary example is
+ * `BusiestRow.exposure`, `days × units`: two incommensurate units multiplied into
+ * a number no reader could interpret, and it was the row order's only signal. It
+ * is gone (#140, ADR a-flagging-surface-computes-the-relationship-it-claims), so
+ * grep will not find it — the argument outlived the field. A cross-source numeric
+ * rank would be that mistake again at portfolio scale. Declared in the order it
+ * sorts.
  */
 export type InsightSeverity = 'act' | 'watch' | 'clear';
 
@@ -102,8 +105,10 @@ export interface Insight {
   href: string;
 }
 
-/** The order `severity` sorts in. */
-const SEVERITY_RANK: Record<InsightSeverity, number> = { act: 0, watch: 1, clear: 2 };
+/** The order `severity` sorts in. Exported because a surface that groups insights by
+ *  something else FIRST (the constraint panel sorts by severity, then by how many SOPs a
+ *  phase gates) still has to agree with `compareInsights` about which severity is worse. */
+export const INSIGHT_SEVERITY_RANK: Record<InsightSeverity, number> = { act: 0, watch: 1, clear: 2 };
 
 /**
  * The order sources GROUP in. Derived from `INSIGHT_SOURCES` rather than written
@@ -120,7 +125,7 @@ const SOURCE_RANK: Record<InsightSource, number> = Object.fromEntries(
  * List order for a mixed set: severity, then source, then `measure` descending —
  * and `measure` is compared ONLY within one source. Across sources the measures
  * are different units (days, percent, units delayed), so comparing them would
- * silently rebuild `exposure`.
+ * silently rebuild the `days × units` scalar described above.
  *
  * Sources must GROUP rather than tie, because a comparator that returns 0 across
  * sources is INTRANSITIVE: with cc(5), rl(99), cc(10) all at `act`, cc≡rl and
@@ -130,7 +135,7 @@ const SOURCE_RANK: Record<InsightSource, number> = Object.fromEntries(
  * makes the order total, so the promise holds for every permutation.
  */
 export function compareInsights(a: Insight, b: Insight): number {
-  const bySeverity = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
+  const bySeverity = INSIGHT_SEVERITY_RANK[a.severity] - INSIGHT_SEVERITY_RANK[b.severity];
   if (bySeverity !== 0) return bySeverity;
   const bySource = SOURCE_RANK[a.source] - SOURCE_RANK[b.source];
   if (bySource !== 0) return bySource;

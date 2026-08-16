@@ -49,7 +49,13 @@ const person = (name: string, over: Partial<BusiestRow> = {}): BusiestRow => ({
   alsoActiveIn: [],
   movable: [],
   gatesSingleSop: false,
-  exposure: 0,
+  // #140: no demand windows in this fixture, so there is no overlap to report — these
+  // tests are about which rows EARN THE SPACE, not about the collision computation
+  // (tests/chainLedger.test.ts owns that).
+  demands: [],
+  peak: null,
+  concurrent: 0,
+  overCommitted: false,
   ...over,
 });
 
@@ -107,6 +113,73 @@ describe('BusiestResources — which rows earn the space (autoknow-t4t)', () => 
       person('Carlos', { constraintIn: [prog('GM Ultifi', 0)] }),
     ]);
     expect(container.querySelector('[data-testid="busiest-resources"]')).toBeNull();
+  });
+});
+
+// #140. The section was directionally right and hard to act on: it named the people and
+// partners several programs lean on, then asserted "one calendar driving many SOPs" over
+// a row shape carrying no time data at all, ranked rows by a `days × units` scalar it
+// never displayed, and stated concurrency only as a count of links the reader made by
+// eye. The COMPUTATION lives in tests/chainLedger.test.ts; what is pinned here is that
+// each of those facts actually reaches the reader.
+describe('BusiestResources — the facts a resourcing decision needs (#140)', () => {
+  const window = (n: number) => ({
+    demands: [], // not read by the component; the peak is what it renders
+    peak: { startMs: Date.UTC(2027, 1, 1), endMs: Date.UTC(2027, 3, 1), programCount: n },
+    concurrent: n,
+    overCommitted: true,
+  });
+
+  it('states concurrency as a NUMBER, with the window the demands actually collide in', () => {
+    renderBusiest([person('Priya', {
+      constraintIn: [prog('Gemini X', -11)], ...window(3),
+    })]);
+    expect(screen.getByText('3')).toBeInTheDocument();
+    // The one fact that makes the section actionable, and the one it used to assert
+    // without computing: WHEN.
+    expect(screen.getAllByText(/Feb 1, 2027/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Apr 1, 2027/).length).toBeGreaterThan(0);
+  });
+
+  it('says so out loud when the windows never meet', () => {
+    // Two programs, no collision. Under the old row shape this was indistinguishable
+    // from two programs wanting the same person next month.
+    renderBusiest([person('Priya', {
+      constraintIn: [prog('Gemini X', -11)], alsoActiveIn: [prog('Nova', 0)],
+      peak: null, concurrent: 1, overCommitted: false,
+    })]);
+    expect(screen.getByText(/their windows never meet/)).toBeInTheDocument();
+  });
+
+  it('makes the person/partner distinction STRUCTURAL, not just wording', () => {
+    renderBusiest([
+      person('Priya', { constraintIn: [prog('Gemini X', -11)], ...window(2) }),
+      { ...person('Bosch'), kind: 'partner' as const, constraintIn: [prog('Meridian', -4)], ...window(2), overCommitted: false },
+    ]);
+    // A person has ONE calendar, so two at once is already the finding; a company has
+    // many people, so the same two is a question about their staffing plan. Same number,
+    // different claim — and it is the row's own computed verdict that decides which.
+    // The CELL's verdict, not the ⓘ's explanation of the rule — both mention one
+    // calendar, and matching the loose phrase would pass on the explanation alone.
+    expect(screen.getByText(/at once — one calendar/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Person/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Company/).length).toBeGreaterThan(0);
+  });
+
+  it('says "no recommendation" out loud rather than leaving the row silent', () => {
+    // A row gating a slipping SOP with nothing movable is the constraint nobody can
+    // rebalance — the most important row in the section, and the one that used to say
+    // nothing at all (AGENTS lesson 5: degrade honestly).
+    renderBusiest([person('Marcus', { constraintIn: [prog('Gemini X', -11)] })]);
+    expect(screen.getByText(/Flagged as an ecosystem risk/)).toBeInTheDocument();
+  });
+
+  it('asks rather than concludes when it does have advice', () => {
+    // The advice is a heuristic over compounded estimates. It used to be phrased as a
+    // finding — "shifting it protects the falling SOPs at the least cost".
+    renderBusiest([person('Priya', { constraintIn: [prog('Gemini X', -11)], movable: [prog('Nova', 0, 73)] })]);
+    expect(screen.getByText(/Worth asking/)).toBeInTheDocument();
+    expect(screen.queryByText(/at the least cost/)).not.toBeInTheDocument();
   });
 });
 

@@ -8,6 +8,7 @@ import { getLocale } from '../../lib/locale';
 import { t } from '../../lib/i18n';
 import Combobox from '../../components/Combobox';
 import { toComboboxOptions } from '../../lib/comboboxOptions';
+import { parsePersonProgramsFilter } from '../../lib/entityHref';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,9 @@ export const dynamic = 'force-dynamic';
 
 interface SearchParams {
   user?: string;
+  /** `?filter=active` — the same Programs-table deep link `/people/:id` takes (#167).
+   *  /me renders the same body, so it must accept the same address. */
+  filter?: string;
 }
 
 export default async function MePage(props: { searchParams: Promise<SearchParams> }) {
@@ -49,7 +53,12 @@ export default async function MePage(props: { searchParams: Promise<SearchParams
   });
 
   if (person) {
-    return <PersonProfile personId={person.id} />;
+    return (
+      <PersonProfile
+        personId={person.id}
+        programsFilter={parsePersonProgramsFilter(searchParams.filter)}
+      />
+    );
   }
 
   // No Person yet for this login — offer self-provisioning: the session supplies

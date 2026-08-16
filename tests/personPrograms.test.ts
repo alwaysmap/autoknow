@@ -111,6 +111,9 @@ async function rows() {
     phaseInvolvements: person.phaseInvolvements,
     actionItems: person.actionItems,
     career: person.affiliations,
+    // Empty on purpose: this file is about the involvement DATING rule, so every row here
+    // reads Current rather than Active. `tests/activeWork.test.ts` owns the ACTIVE split.
+    activeProjectIds: new Set<number>(),
   });
   return new Map(all.map((r) => [r.name, r]));
 }

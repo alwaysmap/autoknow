@@ -13,9 +13,9 @@ import PersonCell, { type PersonRef } from './PersonCell';
 import { ChainSchedule } from './ChainSchedule';
 import { useSteadyPageScroll } from '../lib/useSteadyPageScroll';
 import { summaryAt } from '../lib/chainDay';
-import { isForecastOver, isRealizedOverrun, isRealizedUnderrun, isSevereOverrun } from '../lib/chainLedger';
+import { isFloorSituation, isForecastOver, isRealizedOverrun, isRealizedUnderrun, isSevereOverrun } from '../lib/chainLedger';
 import { phasesEditHref } from '../lib/phase';
-import { partnerHref, programHref } from '../lib/entityHref';
+import { partnerHref, personActiveWorkHref, programHref } from '../lib/entityHref';
 import type { ChainLedgerResult, ResourceRef, Situation, WaterfallRow } from '../lib/chainLedger';
 import styles from './ChainLedger.module.css';
 
@@ -25,7 +25,9 @@ import styles from './ChainLedger.module.css';
 // sentence via lib/i18n; every number arrives precomputed in the ledger — this
 // component ONLY renders structured facts (the deterministic layer is the product).
 
-/** An active phase the program's owner is running in ANOTHER program. */
+/** An active phase the program's owner is running in ANOTHER program. Structurally the
+ *  `ActivePhaseRef` lib/activeWork returns — restated rather than imported because that
+ *  module is `server-only` and this is a client component. */
 export interface OwnerOtherActive {
   projectId: number;
   projectName: string;
@@ -122,6 +124,12 @@ export default function ChainLedger({
   // Phases with no estimated duration are skipped: with nothing to be a percentage
   // OF, every sentence here would be a false statement about lateness (the mutation
   // boundary requires a positive duration, so this is legacy data only).
+  //
+  // THE FIVE SITUATION KINDS ASSEMBLED BELOW ARE MIRRORED BY `yieldsStep`
+  // (lib/chainLedger). Add or remove a bullet here and change it there, or #174's floor
+  // either emits a redundant step or leaves "Next step" promising something with nothing
+  // under it. `tests/chainLedger.test.ts` catches the drift, but it reports it as a
+  // failed invariant rather than as this edit.
   const liveOverruns = ledger.situations
     .filter((s): s is Extract<Situation, { type: 'forecastOverrun' }> => s.type === 'forecastOverrun' && s.plannedDays > 0)
     .sort((a, b) => b.overPct - a.overPct || b.days - a.days);
@@ -221,30 +229,68 @@ export default function ChainLedger({
 
   // the program owner's load elsewhere — a flag, not a proven constraint
   if (ownerPerson && ownerOtherActive.length > 0) {
+    // `phases` is collected for every program but read only by the single-program branch
+    // below; the 2+ branch needs nothing from it but `byProgram.size`.
     const byProgram = new Map<number, { name: string; phases: string[] }>();
     for (const o of ownerOtherActive) {
       const g = byProgram.get(o.projectId) ?? { name: o.projectName, phases: [] };
       g.phases.push(o.phaseName);
       byProgram.set(o.projectId, g);
     }
-    const items = joinNodes(
-      [...byProgram.entries()].map(([pid, g]) => (
-        <>
-          {progLink(pid, g.name)}
-          {` (${g.phases.join(', ')})`}
-        </>
-      )),
-      '; ',
-    );
-    nextSteps.push(tNodes(locale, ownerOtherActive.length === 1 ? 'clOwnerLoadOne' : 'clOwnerLoad', {
-      // A person inside a SENTENCE, so the name matters more here than anywhere: an
-      // LDAP address mid-prose is design.md §6's "reads as a machine wrote it". Same
-      // PersonCell the tables use — the sentence and the cells cannot disagree about
-      // what this person is called, or about where clicking them goes.
-      owner: <PersonCell person={ownerPerson} className={styles.entityLink} />,
-      n: ownerOtherActive.length,
-      items,
+    // A person inside a SENTENCE, so the name matters more here than anywhere: an
+    // LDAP address mid-prose is design.md §6's "reads as a machine wrote it". Same
+    // PersonCell the tables use — the sentence and the cells cannot disagree about
+    // what this person is called, or about where clicking them goes.
+    const owner = <PersonCell person={ownerPerson} className={styles.entityLink} />;
+    if (byProgram.size === 1) {
+      // ONE other program: keep it inline. A single program name is cheaper to read than
+      // a click, and the phases beside it fit — this is the case the enumeration was
+      // written for.
+      const [pid, g] = [...byProgram.entries()][0];
+      nextSteps.push(tNodes(locale, ownerOtherActive.length === 1 ? 'clOwnerLoadOne' : 'clOwnerLoad', {
+        owner, n: ownerOtherActive.length,
+        items: <>{progLink(pid, g.name)}{` (${g.phases.join(', ')})`}</>,
+      }));
+    } else {
+      // TWO OR MORE: the enumeration becomes ONE link (#167). It used to print every
+      // program AND every phase name inside it as uncapped plain text — with thirteen
+      // active phases elsewhere, thirteen phase names in one sentence, none of them
+      // clickable. The count is what the reader needs, and a count links to the
+      // pre-filtered list it counts (design.md §2), which is why `?filter=active` exists.
+      nextSteps.push(tNodes(locale, 'clOwnerLoadMany', {
+        owner, n: ownerOtherActive.length,
+        programs: (
+          <Link href={personActiveWorkHref(ownerPerson.id)} className={styles.entityLink}>
+            {t(locale, 'clOwnerLoadPrograms', { m: byProgram.size })}
+          </Link>
+        ),
+      }));
+    }
+  }
+
+  // ---- the FLOOR (#174) ----
+  //
+  // Mutually exclusive with everything above by construction: lib/chainLedger emits these
+  // packets ONLY when the register asks for a step and none of the five situation kinds
+  // supplies one, so this is never a preamble to a real step — it is the thing that used
+  // to be an empty box under a heading promising an instruction.
+  //
+  // Phase names go through `phaseBtn` like every other phase mention in this component,
+  // or the fallback would be the one unclickable phase name on the page (design.md §2).
+  const floor = ledger.situations.find(isFloorSituation);
+  if (floor?.type === 'floorComplete') {
+    nextSteps.push(tNodes(locale, floor.phaseIds.length === 1 ? 'clFloorCompleteOne' : 'clFloorComplete', {
+      phases: joinNodes(floor.phaseIds.map(phaseBtn)),
     }));
+  } else if (floor?.type === 'floorStart') {
+    // The idle clause is EVIDENCE, and it is stated only when there is idle to state:
+    // a program that has simply not begun has nothing idle behind it, and claiming
+    // otherwise would be the kind of plausible sentence AGENTS lesson 5 forbids.
+    nextSteps.push(tNodes(locale,
+      floor.idleDays <= 0 ? 'clFloorStartNoIdle' : floor.idleDays === 1 ? 'clFloorStartOne' : 'clFloorStart',
+      { phase: phaseBtn(floor.phaseId), d: floor.idleDays }));
+  } else if (floor?.type === 'floorAllFinished') {
+    nextSteps.push(t(locale, 'clFloorAllFinished'));
   }
 
   // the escalation, when the SOP is already overshot

@@ -15,6 +15,14 @@
  *  for these fields' meaning, so the component and a host applying the predicate itself
  *  cannot document them apart. */
 export interface FilterColumn {
+  /**
+   * The row field this column reads — and, when neither sortable nor filterable, ONLY a
+   * React identity. A column that renders several fields at once (a cell composing a
+   * count with a list of links) has no single field to name, and those call sites park a
+   * descriptive string here instead. That is legal and load-bearing to know: the key
+   * becomes a live row path the moment somebody makes the column sortable or filterable,
+   * so the same edit that adds either must also point this at a real field.
+   */
   key: string;
   /** Discrete per-column filter (funnel in the header): options are the unique
    *  values in the data; multi-select is OR within the column, columns AND. */

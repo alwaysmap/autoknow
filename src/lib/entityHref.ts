@@ -15,6 +15,23 @@ export const personHref = (id: number): string => `/people/${id}`;
 export const partnerHref = (id: number): string => `/partners/${id}`;
 export const programHref = (id: number): string => `/programs/${id}`;
 
+/** `/people/16?filter=active#programs` — that person's Programs table, opened at the
+ *  section and already narrowed to the work in flight (#167). A deep link INITIALIZES
+ *  table state rather than adding a widget (design.md §6), and it is the sanctioned
+ *  alternative to enumerating a person's other work in a sentence: the Critical Chain's
+ *  owner-load bullet prints one of these instead of thirteen phase names. Built here
+ *  rather than at the call site so the count in that sentence and the rows behind the
+ *  link cannot be pointed at two different questions. */
+export const personActiveWorkHref = (id: number): string => `${personHref(id)}?filter=active#programs`;
+
+/** The READER of the address above. Both ends of a URL contract belong together: the two
+ *  routes that render `PersonProfile` were each hand-rolling `v === 'active' ? … : …`,
+ *  which is the same literal in four places and one of them free to drift. Anything else
+ *  in the parameter resolves to "no filter" rather than a 404 — a shared link with a
+ *  stale value should still show the page it names. */
+export const parsePersonProgramsFilter = (value?: string): 'active' | undefined =>
+  (value === 'active' ? 'active' : undefined);
+
 /** `/escalations/42` (#245). Here from the first commit rather than hand-rolled at the
  *  call sites, because this URL is DATA the moment it exists: the Chat reply posts it into
  *  a thread that keeps it forever, and AI-brief citations persist hrefs — so retiring or

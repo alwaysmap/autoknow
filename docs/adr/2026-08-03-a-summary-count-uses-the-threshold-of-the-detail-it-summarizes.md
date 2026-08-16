@@ -4,7 +4,7 @@ date: 2026-08-03
 supersedes: ""
 superseded-by: ""
 extends: forecasts-derive-from-the-real-chain-never-a-synthetic-model
-extended-by: ""
+extended-by: a-restated-fact-becomes-a-link-and-a-count-links-to-the-set-it-counted
 tags: [forecast, ui, critical-chain, sop, data-integrity]
 ---
 

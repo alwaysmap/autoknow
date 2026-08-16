@@ -56,24 +56,40 @@ test.describe('a phase past its estimate is flagged at program level', () => {
     await prisma.$disconnect();
   });
 
-  test('the header states the overrun and demands it first', async ({ page }) => {
+  test('the header names the constraint phase and links to the steps, without restating them', async ({ page }) => {
     await page.goto(`/programs/${projectId}`);
 
     const flag = page.getByTestId('program-focus');
     await expect(flag).toBeVisible();
-    await expect(flag).toContainText('100%');
-    await expect(flag).toContainText('Exploit the constraint');
     // The phase mention is a link to its record, like every entity mention.
     await expect(flag.getByRole('link', { name: 'VHAL Integration' })).toHaveAttribute(
       'href', new RegExp(`/programs/${projectId}#phase-\\d+$`),
     );
 
-    // PROGRAM level means above the Critical chain section, not inside it — the
-    // reader meets the fact before the needle, the briefing and every chart.
+    // #167: the header says WHICH phase and stops. The percentage, the days of work
+    // left and the "Exploit the constraint" reaction are the Next-steps bullet's, said
+    // there more fully off the same sorted list — the terser copy above the fuller one
+    // is what this issue deleted, so asserting its ABSENCE is the point of the test.
+    await expect(flag).not.toContainText('100%');
+    await expect(flag).not.toContainText('Exploit the constraint');
+
+    // The property the retired banner existed for SURVIVES, by a link rather than a
+    // restatement: the fact is met above the fold and reaching the recommendation is one
+    // click, not a hunt. This is the rewrite of the old bounding-box assertion — the
+    // requirement was never "a second sentence up here", it was "do not make the reader
+    // scroll to find out".
+    const seeSteps = flag.getByRole('link', { name: 'What to do about it →' });
+    await expect(seeSteps).toHaveAttribute('href', '#critical-chain');
+
     const flagBox = await flag.boundingBox();
     const chainBox = await page.locator('h2#critical-chain').boundingBox();
     expect(flagBox && chainBox).toBeTruthy();
     expect(flagBox!.y).toBeLessThan(chainBox!.y);
+
+    // …and the link actually lands on the section it names, rather than being a href
+    // pointing at an id nothing renders.
+    await seeSteps.click();
+    await expect(page.locator('h2#critical-chain')).toBeInViewport();
   });
 
   test('the next steps lead with root-causing it, buffer notwithstanding', async ({ page }) => {
