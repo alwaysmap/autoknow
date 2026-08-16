@@ -145,7 +145,13 @@ remove_project() { # remove_project <project> — containers first: a volume or 
 # cwd=/ , and a cwd-derived root would silently resolve to "no worktrees" and reap
 # everything it could see.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MAIN="$(cd "$(dirname "$(git -C "$HERE" rev-parse --git-common-dir)")" && pwd)"
+# `--git-common-dir` answers RELATIVE to the repo when the script sits in the main
+# checkout (`../../.git`) and absolute when it sits in a worktree. So resolve it from
+# $HERE, never from $PWD: `cd "$HERE"` first makes the relative answer resolve correctly,
+# and a `cd` to an absolute answer ignores it. Under launchd ($PWD=/) the $PWD-relative
+# version resolved MAIN to `/` — the exact cwd-derived failure the comment above warns
+# about, arriving through git's output format rather than through a bare `pwd`.
+MAIN="$(cd "$HERE" && cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
 
 # LIVE = every worktree git still knows about, by BASENAME — exactly what Compose uses as
 # the default project name. Read from git rather than the filesystem so a worktree whose
@@ -157,6 +163,17 @@ while IFS= read -r line; do
     p="${line#worktree }"; LIVE+=( "$(compose_project_name "${p##*/}")" ) ;;
   esac
 done < <(git -C "$MAIN" worktree list --porcelain)
+
+# REFUSE TO RUN rather than reap against a set we could not build. An empty live set means
+# every project on the machine looks orphaned, so the one thing this must never do is
+# proceed on it — and the way it goes wrong is not hypothetical: a $PWD-relative resolution
+# of MAIN under launchd produced exactly this, silently, with `main checkout : /`. A guard
+# is the difference between a broken sweep and a destroyed one.
+if [ "${#LIVE[@]}" -eq 0 ] || [ "$MAIN" = "/" ]; then
+  echo "refusing to run: could not resolve the repo (main='$MAIN', ${#LIVE[@]} worktrees)." >&2
+  echo "this script must be run from inside a checkout of the repo it cleans." >&2
+  exit 1
+fi
 
 is_live() {
   local want n; want="$(compose_project_name "$1")"
