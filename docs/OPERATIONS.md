@@ -388,11 +388,20 @@ remain valid prerequisites but were NOT sufficient on their own.
    state that survives even disabling/re-enabling the API; a fresh project is a
    fresh app identity. If you do this, `GOOGLE_PROJECT_NUMBER` must be THAT
    project's number, while the service account stays wherever it is.
-2. Set the project NUMBER in `.env` (the audience of the JWTs Chat sends):
+2. Set the project NUMBER — the audience of the JWTs Chat sends.
+   - **Deployed instances: nothing to do.** Terraform writes its own project
+     number into the `google-project-number` secret that Cloud Run mounts as
+     `GOOGLE_PROJECT_NUMBER` (`local.chat_project_number` in `main.tf`). For the
+     separate-project case in step 1, set `chat_project_number` in the instance's
+     tfvars to that project's number and apply — do not add a secret version by
+     hand, or the next apply overwrites it with this project's number. An
+     instance whose secret was hand-populated with another project's number
+     therefore needs that tfvars line set **before** its next apply.
+   - **Local dev:** put it in `.env` yourself; there is no Terraform here.
 
-```
-GOOGLE_PROJECT_NUMBER=""   # gcloud projects describe <project-id> --format="value(projectNumber)"
-```
+     ```
+     GOOGLE_PROJECT_NUMBER=""   # gcloud projects describe <project-id> --format="value(projectNumber)"
+     ```
 
 3. **APIs & Services → Google Chat API → Configuration** tab:
    - App name `AutoKnow`, avatar URL, description.
