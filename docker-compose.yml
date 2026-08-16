@@ -1,5 +1,21 @@
 version: '3.8'
 
+# PINNED, and the pin is the point. Without it Compose derives the project name from the
+# working DIRECTORY, which is unique per git worktree — so every worktree that ran
+# `npm run db:up` got its OWN container, volume and network. One laptop reached 13 compose
+# projects, 9 of them belonging to worktrees deleted weeks earlier, holding 3.9GB.
+#
+# Those containers were never useful: they all publish 5432, so only one can ever bind it
+# and the rest sat Created/Exited pinning a volume. Isolation between worktrees has always
+# come from the per-worktree DATABASE NAMES inside one server — `autoknow_<token>_demo`,
+# `<name>_j<n>_test`, `<name>_w<n>_test` (tests/helpers/worktree, scripts/dev/demo.ts) —
+# never from the containers. Naming the project makes the one shared server explicit
+# instead of accidental.
+#
+# `npm run docker:reap` reclaims what the un-pinned era left behind, and treats any
+# project of ours OTHER than this name as legacy for the same reason.
+name: autoknow
+
 services:
   web:
     build:
