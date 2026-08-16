@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  LaunchAgent template for `npm run docker:reap:apply` (macOS). See README §5,
+  "Reclaiming what worktrees leave behind", for the install line that fills in __REPO__.
+
+  This is the resilient half of the story, and it is deliberately NOT tied to any editor
+  or agent: a scheduled reconciler is correct however a worktree went away, where a
+  shutdown hook only fires on the one path that remembers to call it.
+
+  RunAtLoad + a one-hour interval, because the failure being cleaned up is measured in
+  weeks — there is nothing to gain from running it more often, and a sweep that fires
+  while somebody is provisioning a worktree is exactly what the script's --min-age-hours
+  grace period defends against.
+
+  The script exits 0 and silent when Docker is not running, so a laptop that never starts
+  Docker produces an empty log rather than an hourly error.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.alwaysmap.autoknow.docker-reap</string>
+
+  <!-- The script directly, not `npm run`: launchd has no node on PATH, and the script
+       needs only docker + git. It finds the repo from its own location, never $PWD. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/scripts/dev/docker-reap.sh</string>
+    <string>--yes</string>
+  </array>
+
+  <!-- Docker Desktop puts its CLI here; launchd's default PATH does not include it. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>StartInterval</key>
+  <integer>3600</integer>
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/autoknow-docker-reap.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/autoknow-docker-reap.log</string>
+</dict>
+</plist>

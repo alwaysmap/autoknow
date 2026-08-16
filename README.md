@@ -86,6 +86,8 @@ local use):
 | `db:seed` | Prisma seed (mock data; wipe-guarded — see OPERATIONS §1) |
 | `db:studio` | Prisma Studio on :5555 |
 | `db:test:clean` | Drop stray per-worktree `autoknow…_test` DBs (skips in-use; never the dev/demo DBs) |
+| `docker:reap` (`:apply`) | The container sibling of `db:test:clean`: remove the Postgres container, volume and network of every worktree git no longer knows about. Dry run by default; `:apply` removes. Scoped to this repo, never a running container or a live worktree |
+| `clean:workspace` | The whole local sweep — `db:test:clean` + `docker:reap:apply`. Run it whenever; it is idempotent |
 | `db:embeddings:audit` | Find rows holding the fallback embedding instead of a real one (by L2 norm — see the script). Read-only; `-- --fix` clears them so re-ingestion rebuilds them |
 | `db:backfill:owner-person` | Fill `Project.ownerPersonId` from the legacy `ownerName` text (#127 E6). Idempotent; writes only unambiguous matches and reports the rest |
 | `db:backfill:affiliation-email` | Fill `PersonAffiliation.email` from `Person.email`, for the period covering the run instant only (#127 E8). Idempotent; leaves every other period NULL and reports it |
@@ -186,6 +188,39 @@ npm run db:studio  # Opens Prisma Studio on port 5555 to view/edit database cont
 `prisma migrate deploy`, run by CI — schema changes ship as committed migrations.
 Read [docs/CHANGE_PLAYBOOK.md](docs/CHANGE_PLAYBOOK.md) before touching
 `prisma/schema.prisma`.
+
+#### Reclaiming what worktrees leave behind
+
+`docker-compose.yml` declares no `name:`, so Compose names the project after the working
+DIRECTORY — unique per worktree. Every worktree that runs `db:up` therefore gets **its
+own** container, volume and network, and nothing has ever removed them: one laptop had 13
+compose projects, 9 belonging to worktrees deleted weeks earlier, holding 3.9GB.
+
+```bash
+npm run clean:workspace   # db:test:clean + docker:reap:apply — the whole local sweep
+npm run docker:reap       # just the Docker half, dry run: print the plan and stop
+```
+
+The sweep is **reconciliation, not a shutdown hook**: it enforces "a compose project
+exists iff its worktree exists", so it is correct however the worktree went away — a
+clean exit, a SIGKILL, `git worktree remove`, or a machine that slept through it. Run it
+by hand, or let something run it for you; nothing in it is editor- or agent-specific.
+
+To have it swept without remembering, install the LaunchAgent template (macOS, runs
+hourly, logs to `/tmp`):
+
+```bash
+sed "s|__REPO__|$(git rev-parse --show-toplevel)|g" scripts/dev/docker-reap.plist \
+  > ~/Library/LaunchAgents/com.alwaysmap.autoknow.docker-reap.plist
+launchctl load ~/Library/LaunchAgents/com.alwaysmap.autoknow.docker-reap.plist
+```
+
+Two traps it exists to avoid, both of which make the obvious commands useless here:
+`docker compose down -v` needs the compose file, which lived *inside* the worktree and
+went with it; and `docker volume prune` skips volumes referenced by any container
+**including stopped ones**, which is why `docker system df` reports gigabytes of volumes
+and `0B` reclaimable. Removing by compose LABEL is the only handle that outlives the
+directory.
 
 ### 6. Production Build
 The dev server is not suitable for long-running use (it accumulates memory); serve
