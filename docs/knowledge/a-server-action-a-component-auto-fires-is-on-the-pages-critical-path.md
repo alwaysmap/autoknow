@@ -1,7 +1,7 @@
 ---
 title: A server action a component fires on mount is on the PAGE's critical path — and its 500 is logged against the page URL
 status: current
-updated: 2026-07-26
+updated: 2026-09-24
 applies_to:
   - src/app/actions/**
   - a component that calls a server action from useEffect/startTransition
@@ -10,7 +10,7 @@ symptoms:
   - Next's "This page couldn't load / A server error occurred" on a page that loads fine by hand
   - the same URL logs 200 and 500 within a second of each other
   - a page only breaks for some rows, and only after someone filed an update
-verified_by: 'tests/summaryRegenerateAction.test.ts; tests/SummaryPanel.test.tsx "keeps the page alive and says why"; bead autoknow-6by, Cloud Run 2026-07-26T14:02Z'
+verified_by: 'tests/summaryRegenerateRoute.test.ts; tests/SummaryPanel.test.tsx "keeps the page alive and says why"; bead autoknow-6by, Cloud Run 2026-07-26T14:02Z'
 ---
 
 # A server action a component fires on mount is on the PAGE's critical path
@@ -24,6 +24,12 @@ auto-refreshes a stale briefing on every view of `/programs/:id`,
 spend cap, a timeout — can take the page down without a single line of the page's
 own render being wrong. Such an action must RETURN `{ error }` and never throw,
 and the caller must handle both the returned error and a rejection.
+
+**Since then.** A thrown error is the loud failure. The quiet one is that any slow
+action holds the router until it returns, so `SummaryPanel` now calls
+`POST /api/summaries/:scope/:id` with `fetch`, and the `regenerateSummary` action is
+gone ([a slow server action holds the router](a-slow-server-action-holds-the-router-so-background-work-is-a-fetch.md)).
+The never-throw rule below still applies to every action and to that route.
 
 **Why it bites.** The evidence lies about where to look. Server actions POST to
 the *current page URL*, so Cloud Run logs the failure as `POST /programs/3 500`

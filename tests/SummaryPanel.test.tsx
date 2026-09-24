@@ -11,10 +11,19 @@ import { LocaleProvider } from '../src/components/LocaleProvider';
 import SummaryPanel from '../src/components/SummaryPanel';
 import type { ActionResult } from '../src/lib/actionResult';
 
-const regenerateSummary = jest.fn(async (_fd: FormData): Promise<ActionResult> => ({}));
-jest.mock('../src/app/actions/summaries', () => ({
-  regenerateSummary: (fd: FormData) => regenerateSummary(fd),
-}));
+// The refresh is a plain fetch, never a server action: Next queues server actions and
+// holds the router until each returns, so a Gemini call made that way froze the whole
+// page for its duration. Importing the summaries actions from the panel is the
+// regression, and this makes it fail loudly rather than quietly re-queue.
+jest.mock('../src/app/actions/summaries', () => {
+  throw new Error('SummaryPanel must not import server actions — its refresh would block the page');
+});
+
+/** The route's answer, as `fetch` would deliver it. */
+const answer = (status: number, body: unknown) =>
+  ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response;
+const fetchMock = jest.fn(async (_url: string, _init?: RequestInit) => answer(200, { configured: true, summary: null }));
+global.fetch = fetchMock as unknown as typeof fetch;
 
 // Mocked for the same reason as the module above, one import further out: the panel now
 // renders untracked-mention affordances (#127 E15), whose component imports the people
@@ -43,14 +52,14 @@ const renderPanel = (
 ) =>
   render(
     <LocaleProvider locale="en">
-      <SummaryPanel scope="partner" targetId={1} path="/partners/1" summary={null} configured {...props} />
+      <SummaryPanel scope="partner" targetId={1} summary={null} configured {...props} />
     </LocaleProvider>,
     options,
   );
 
 beforeEach(() => {
-  regenerateSummary.mockReset();
-  regenerateSummary.mockResolvedValue({});
+  fetchMock.mockReset();
+  fetchMock.mockResolvedValue(answer(200, { configured: true, summary: null }));
 });
 
 // The briefing failing to refresh must cost the briefing, never the page (autoknow-6by).
@@ -71,12 +80,12 @@ describe('SummaryPanel when the auto-refresh fails', () => {
   // The panel under a stand-in for Next's error boundary: the two tests below differ
   // only in HOW the refresh fails, so nothing else may differ between them.
   const renderProgramPanel = () =>
-    renderPanel({ scope: 'program', targetId: 3, path: '/programs/3', summary: cached }, { wrapper: Boundary });
+    renderPanel({ scope: 'program', targetId: 3, summary: cached }, { wrapper: Boundary });
 
-  it('keeps the page alive and says why when the action returns { error }', async () => {
-    regenerateSummary.mockResolvedValue({
-      error: 'Gemini is over its quota or spending cap — the existing briefing is unchanged.',
-    });
+  it('keeps the page alive and says why when the route refuses', async () => {
+    fetchMock.mockResolvedValue(
+      answer(503, { error: 'Gemini is over its quota or spending cap — the existing briefing is unchanged.' }),
+    );
 
     renderProgramPanel();
 
@@ -86,8 +95,8 @@ describe('SummaryPanel when the auto-refresh fails', () => {
     expect(screen.getByText(/Bring-up is on plan/)).toBeInTheDocument();
   });
 
-  it('survives a REJECTED action (transport, or a server action that still throws)', async () => {
-    regenerateSummary.mockRejectedValue(new Error('500 Internal Server Error'));
+  it('survives a REJECTED fetch (the network, not the route)', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
 
     renderProgramPanel();
 
@@ -98,11 +107,29 @@ describe('SummaryPanel when the auto-refresh fails', () => {
   });
 });
 
+describe('SummaryPanel when the auto-refresh succeeds', () => {
+  it('swaps in the returned briefing and drops "Updating", with no page refresh', async () => {
+    const stale = {
+      id: 1, scope: 'program' as const, targetId: 3, generatedAt: '2026-09-01T00:00:00.000Z',
+      trigger: 'cron', model: 'test', tldr: 'Old news.', sourceCount: 1, stale: true, body: { sections: [] },
+    };
+    const fresh = { ...stale, id: 2, generatedAt: '2026-09-02T00:00:00.000Z', tldr: 'New news.', stale: false };
+    fetchMock.mockResolvedValue(answer(200, { configured: true, summary: fresh }));
+
+    renderPanel({ scope: 'program', targetId: 3, summary: stale });
+
+    await waitFor(() => expect(screen.getByText('New news.')).toBeInTheDocument());
+    expect(screen.queryByText('Old news.')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Updating/i)).not.toBeInTheDocument();
+  });
+});
+
 describe('SummaryPanel with no evidence', () => {
   it('auto-generates on mount, then shows the empty state instead of a stuck spinner', async () => {
     renderPanel();
     // The mount effect kicks off exactly one generation.
-    await waitFor(() => expect(regenerateSummary).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith('/api/summaries/partner/1', { method: 'POST' });
     // Generation resolved with no summary → honest empty state, not "Synthesizing…".
     await waitFor(() => expect(screen.getByText(/Nothing to summarize/i)).toBeInTheDocument());
     expect(screen.queryByText(/Synthesizing/i)).not.toBeInTheDocument();
@@ -111,7 +138,7 @@ describe('SummaryPanel with no evidence', () => {
   it('does not auto-generate when Gemini is unconfigured (shows the off message)', async () => {
     renderPanel({ configured: false });
     await new Promise((r) => setTimeout(r, 0));
-    expect(regenerateSummary).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.getByText(/GEMINI_API_KEY/)).toBeInTheDocument();
   });
 });
@@ -157,7 +184,7 @@ describe('SummaryPanel entity links (#77)', () => {
   it('renders segment links to the person and partner endpoints, no model-authored URL', () => {
     render(
       <LocaleProvider locale="en">
-        <SummaryPanel scope="program" targetId={4} path="/programs/4" summary={stored} configured />
+        <SummaryPanel scope="program" targetId={4} summary={stored} configured />
       </LocaleProvider>,
     );
     // The noun in the tldr AND in the bullet link to /people/5 (first-mention each).
@@ -177,7 +204,7 @@ describe('SummaryPanel entity links (#77)', () => {
     };
     render(
       <LocaleProvider locale="en">
-        <SummaryPanel scope="program" targetId={4} path="/programs/4" summary={legacy} configured />
+        <SummaryPanel scope="program" targetId={4} summary={legacy} configured />
       </LocaleProvider>,
     );
     expect(screen.getByText('No links here.')).toBeInTheDocument();

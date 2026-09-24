@@ -237,7 +237,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
 
         {/* the ecosystem leadership summary — risks/actions first, fully cited */}
         <section className={styles.dashboardSection}>
-          <SummaryPanel scope="ecosystem" targetId={0} path="/ecosystem"
+          <SummaryPanel scope="ecosystem" targetId={0}
             summary={summary} configured={geminiConfigured} />
         </section>
         {serializedProjects.length === 0 ? (

@@ -15,11 +15,10 @@ export const SUMMARY_SCOPES: SummaryScope[] = ['ecosystem', 'initiative', 'partn
 
 /**
  * What a refused or failed regeneration leaves standing, for the decline sentence
- * (lib/geminiQuota). Shared by the two surfaces that can refuse the SAME operation — the
- * `regenerateSummary` action and `POST /api/summaries/:scope/:id` — which had drifted to
- * calling the artifact a "briefing" and a "summary" respectively. It lives here, in the
- * vocabulary module both already import, rather than in the action: a `'use server'` file
- * may export nothing but async functions.
+ * (lib/geminiQuota), used by `POST /api/summaries/:scope/:id`. It once had a twin in a
+ * `regenerateSummary` server action, and the two drifted to calling the artifact a
+ * "briefing" and a "summary"; the action is gone (a queued server action froze the page
+ * for the whole Gemini call), and the phrase stays here in the vocabulary module.
  */
 export const BRIEFING_SURVIVED = 'the existing briefing is unchanged';
 

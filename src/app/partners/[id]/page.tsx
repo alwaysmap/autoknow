@@ -250,7 +250,7 @@ export default async function PartnerDetailPage(props: PageProps) {
         {/* The briefing column: AI summary leads, programs condense to rows, activity closes. */}
         <div className={styles.colMain}>
           <section className={styles.projectsSection}>
-            <SummaryPanel scope="partner" targetId={partner.id} path={`/partners/${partner.id}`}
+            <SummaryPanel scope="partner" targetId={partner.id}
               untracked={{ ctx: untracked, partners: allPartners }}
               summary={summary} configured={geminiConfigured} />
           </section>

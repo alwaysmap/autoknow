@@ -79,7 +79,7 @@ async function attemptSourceRefresh(id: number): Promise<RefreshSourceState> {
 
 /**
  * "Refresh now" on one watched source. Re-distilling costs a Gemini call, so this is
- * the same shape as quickIngestAction above and as regenerateSummary: ask the quota
+ * the same shape as quickIngestAction above and as POST /api/summaries: ask the quota
  * latch BEFORE spending, and never let a provider failure out of the action.
  *
  * A PROVIDER rejection here is not a failed button — on a bare `<form action={…}>` it
