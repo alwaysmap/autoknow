@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useTransition } from 'react';
-import { regenerateSummary } from '../app/actions/summaries';
+import React, { useEffect, useRef, useState } from 'react';
 import type { SummaryView, SectionKey } from '../lib/summaries';
 import type { Segment } from '../lib/untrackedPeople';
 import { annotateUntracked, type UntrackedContext } from '../lib/untrackedPeople';
@@ -23,6 +22,12 @@ import styles from './SummaryPanel.module.css';
 // background (you keep reading the cached one meanwhile). A scope with NO summary
 // yet generates one automatically on first view — nobody should have to click for
 // the briefing to exist. The only control is a small Gemini spark (re-synthesize).
+//
+// "In the background" is literal: the refresh is a plain fetch to the summaries route,
+// never a server action. Next dispatches server actions one at a time and holds the
+// router in a pending transition until each returns, so a 10–30s Gemini call made that
+// way froze every other action on the page and made navigation wait behind it. The
+// fresh briefing comes back in the response and renders here without a page refresh.
 
 function GeminiSpark({ size = 14 }: { size?: number }) {
   return (
@@ -85,14 +90,12 @@ const sectionsShownFor = (scope: SummaryScope): SectionKey[] =>
 export default function SummaryPanel({
   scope,
   targetId,
-  path,
-  summary,
+  summary: served,
   configured,
   untracked,
 }: {
   scope: SummaryScope;
   targetId: number;
-  path: string; // revalidated after regeneration
   summary: SummaryView | null;
   /** Turns the untracked-mention affordance on for the briefing (#127 E15). Omitted,
    *  the prose renders exactly as before. */
@@ -100,7 +103,12 @@ export default function SummaryPanel({
   configured: boolean;
 }) {
   const locale = useLocale();
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
+  // The briefing a refresh on THIS mount returned. It wins only while it is newer than
+  // what the server rendered: a later server render (someone filed an update, and the
+  // page revalidated) carries the same briefing with a truthful `stale` flag.
+  const [fresh, setFresh] = useState<SummaryView | null>(null);
+  const summary = fresh && (!served || fresh.generatedAt > served.generatedAt) ? fresh : served;
   const autoRan = useRef(false);
   // Whether a generation has completed at least once this mount. Distinguishes
   // "still synthesizing" from "finished, but there was nothing to synthesize" — the
@@ -112,21 +120,28 @@ export default function SummaryPanel({
   // (docs/knowledge/a-server-action-a-component-auto-fires-is-on-the-pages-critical-path.md).
   const [refreshError, setRefreshError] = React.useState<string | null>(null);
 
-  const regenerate = () =>
-    startTransition(async () => {
-      const fd = new FormData();
-      fd.set('scope', scope);
-      fd.set('targetId', String(targetId));
-      fd.set('path', path);
-      try {
-        const { error } = await regenerateSummary(fd);
-        setRefreshError(error ?? null);
-      } catch (err) {
-        console.error('summary refresh failed:', err);
-        setRefreshError(t(locale, 'summaryRefreshNoAnswer'));
+  const regenerate = async () => {
+    setPending(true);
+    try {
+      const res = await fetch(`/api/summaries/${scope}/${targetId}`, { method: 'POST' });
+      const body = (await res.json().catch(() => null)) as
+        | { summary?: SummaryView | null; error?: string }
+        | null;
+      if (res.ok) {
+        if (body?.summary) setFresh(body.summary);
+        setRefreshError(null);
+      } else {
+        // The route's refusals are sentences written for this line; anything without
+        // one (a proxy 429, a gateway page) is a server that did not answer usefully.
+        setRefreshError(body?.error ?? t(locale, 'summaryRefreshNoAnswer'));
       }
-      setAttempted(true);
-    });
+    } catch (err) {
+      console.error('summary refresh failed:', err);
+      setRefreshError(t(locale, 'summaryRefreshNoAnswer'));
+    }
+    setAttempted(true);
+    setPending(false);
+  };
 
   // One concept, named once: there is a reason to show, and we are not already busy
   // re-trying — which is also what makes the toolbar stop claiming "updating".
@@ -138,12 +153,12 @@ export default function SummaryPanel({
   // Stale content ⇒ refresh in the background; NO summary yet ⇒ generate one
   // automatically — either way, once per mount.
   useEffect(() => {
-    if (configured && !autoRan.current && (!summary || summary.stale)) {
+    if (configured && !autoRan.current && (!served || served.stale)) {
       autoRan.current = true;
-      regenerate();
+      void regenerate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configured, summary?.stale]);
+  }, [configured, served?.stale]);
 
   // A stored summary renders even when Gemini is currently unconfigured — cached
   // knowledge stays readable; only (re)generation needs the key.

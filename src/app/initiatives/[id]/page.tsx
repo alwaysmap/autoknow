@@ -96,7 +96,7 @@ export default async function InitiativePage(props: { params: Promise<{ id: stri
 
       <section className={styles.section}>
         <AnchorHeading id="briefing">{t(locale, 'briefingHeading')}</AnchorHeading>
-        <SummaryPanel scope="initiative" targetId={initiative.id} path={`/initiatives/${initiative.id}`}
+        <SummaryPanel scope="initiative" targetId={initiative.id}
           untracked={{ ctx: untracked, partners: allPartners }}
           summary={summary} configured={geminiConfigured} />
       </section>

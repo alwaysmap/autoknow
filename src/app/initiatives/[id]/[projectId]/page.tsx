@@ -197,7 +197,7 @@ export default async function InitiativeProjectPage(props: {
             <AnchorHeading id="briefing">
               {t(locale, 'briefingHeading')}
             </AnchorHeading>
-            <SummaryPanel scope="program" targetId={projectId} path={path}
+            <SummaryPanel scope="program" targetId={projectId}
               untracked={{ ctx: untracked, partners: allPartners }}
               summary={summary} configured={geminiConfigured} />
           </section>

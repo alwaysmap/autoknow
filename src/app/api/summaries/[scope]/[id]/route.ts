@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSummary, createSummary } from '../../../../../lib/summaries';
-import { geminiConfigured } from '../../../../../lib/gemini';
-import { declineIfQuotaBlocked } from '../../../../../lib/geminiQuota';
+import { geminiConfigured, isQuotaError } from '../../../../../lib/gemini';
+import { declineIfQuotaBlocked, quotaDeclineMessage } from '../../../../../lib/geminiQuota';
 import { isSummaryScope, BRIEFING_SURVIVED, type SummaryScope } from '../../../../../lib/summaryPrompts';
 import { serverError, jsonError } from '../../../../../lib/api';
 import { requireRouteAuth } from '../../../../../lib/routeAuth';
@@ -13,6 +13,13 @@ import { requireRouteAuth } from '../../../../../lib/routeAuth';
 //   /api/summaries/program/<projectId>
 // Body shape: { configured, summary: { tldr, body: { sections: [{ key, bullets:
 // [{ text, citations: [{ label, href, external }] }] }] }, generatedAt, stale, … } }
+//
+// POST is also what SummaryPanel calls, unattended, whenever a page's briefing is
+// missing or stale. It is a route and not a server action ON PURPOSE: Next dispatches
+// server actions one at a time and holds the router in a pending transition until each
+// returns, so a 10–30s Gemini call made that way froze every other action on the page.
+// A plain fetch sits outside that queue. So every refusal here is a sentence the panel
+// shows as-is — the cached briefing stays readable either way.
 
 function parseParams(scope: string, id: string): { scope: SummaryScope; targetId: number } | null {
   if (!isSummaryScope(scope)) return null;
@@ -50,11 +57,16 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ scope: st
     if (declined) return jsonError(declined, 503);
     // A human asked for this, so it is deliberately outside the cron's request pool
     // (the one-budget ADR) and may spend the retry a mechanical violation buys.
+    // No evidence for this scope is an answer (`summary: null`), not a missing resource —
+    // a 404 here would be indistinguishable from a bad scope to the panel reading it.
     const created = await createSummary(parsed.scope, parsed.targetId, 'manual');
-    if (created.id == null) return jsonError('Nothing to summarize for this scope', 404);
-    const summary = await getSummary(parsed.scope, parsed.targetId);
+    const summary = created.id == null ? null : await getSummary(parsed.scope, parsed.targetId);
     return NextResponse.json({ configured: true, summary });
   } catch (error) {
-    return serverError(error, `POST /api/summaries/${scope}/${id}`);
+    console.error(`POST /api/summaries/${scope}/${id}:`, error);
+    // A spend cap that bit mid-call is the same refusal the preflight gives.
+    return isQuotaError(error)
+      ? jsonError(quotaDeclineMessage(BRIEFING_SURVIVED), 503)
+      : jsonError('The briefing could not be refreshed — the last one is unchanged.', 500);
   }
 }

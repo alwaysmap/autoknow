@@ -444,7 +444,7 @@ export default async function ProjectDetailsPage(props: {
             <AnchorHeading id="briefing">
               {t(locale, 'briefingHeading')}
             </AnchorHeading>
-            <SummaryPanel scope="program" targetId={projectId} path={`/programs/${projectId}`}
+            <SummaryPanel scope="program" targetId={projectId}
               untracked={{ ctx: untracked, partners: allPartners }}
               summary={summary} configured={geminiConfigured} />
           </section>
