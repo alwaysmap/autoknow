@@ -45,6 +45,12 @@ variable "allowed_domain" {
   default     = "alwaysmap.com"
 }
 
+variable "additional_signin_domains" {
+  type        = list(string)
+  description = "Other Google Workspace domains whose users may also sign in (AUTH_ADDITIONAL_SIGNIN_DOMAINS). They do not become the tenant: handles, groups and the Chat check stay on allowed_domain. Needs the OAuth consent screen set to External (console-only, OPERATIONS §3)."
+  default     = []
+}
+
 variable "custom_domain" {
   type        = string
   description = "Public hostname to map to the service (e.g. autoknow.alwaysmap.com). Requires the applying identity to be a verified owner of the parent domain, and a CNAME to ghs.googlehosted.com at the DNS host. Empty = run.app URL only."

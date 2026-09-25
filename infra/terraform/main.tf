@@ -387,6 +387,10 @@ resource "google_cloud_run_v2_service" "app" {
         value = var.allowed_domain
       }
       env {
+        name  = "AUTH_ADDITIONAL_SIGNIN_DOMAINS"
+        value = join(",", var.additional_signin_domains)
+      }
+      env {
         name  = "NODE_ENV"
         value = "production"
       }

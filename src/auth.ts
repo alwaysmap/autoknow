@@ -1,5 +1,6 @@
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
+import { signInDomains, mayUseDomain } from './lib/signInGate';
 
 // Auth.js v5 (NextAuth) configuration.
 //
@@ -8,13 +9,14 @@ import Google from 'next-auth/providers/google';
 // session resolves to null, and middleware is a no-op — so the app keeps running on
 // the stub identity (see lib/session.ts) and the E2E suite is unaffected.
 //
-// Sign-in is restricted to a Google Workspace domain via AUTH_ALLOWED_DOMAIN.
+// Sign-in is restricted to the tenant Workspace domain (AUTH_ALLOWED_DOMAIN), widened by
+// AUTH_ADDITIONAL_SIGNIN_DOMAINS — the rule lives in lib/signInGate.
 // The Drive read scope lets us fetch a pasted Google Doc's text with the user's token.
 
 export const authConfigured =
   !!process.env.AUTH_GOOGLE_ID && !!process.env.AUTH_GOOGLE_SECRET;
 
-const allowedDomain = process.env.AUTH_ALLOWED_DOMAIN;
+const allowedDomains = signInDomains();
 
 const GOOGLE_SCOPES = [
   'openid',
@@ -55,12 +57,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     : [],
   callbacks: {
     async signIn({ profile }) {
-      if (!allowedDomain) return true;
-      // The Workspace hosted-domain (`hd`) claim is the reliable signal; fall back
-      // to the email suffix.
-      const hd = profile?.hd;
-      const email = profile?.email ?? '';
-      return hd === allowedDomain || email.endsWith(`@${allowedDomain}`);
+      return mayUseDomain(profile, allowedDomains);
     },
     async jwt({ token, account }) {
       // Persist the Google access token so server actions can call Drive on the
