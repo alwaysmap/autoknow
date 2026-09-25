@@ -140,6 +140,30 @@ for real use.
 
 ---
 
+### 3.2 Letting a second Workspace domain sign in (e.g. `google.com`)
+
+`AUTH_ADDITIONAL_SIGNIN_DOMAINS` (Terraform: `additional_signin_domains`) widens the
+login gate in `src/lib/signInGate.ts`. It does **not** make that domain the tenant:
+bare `@handles`, the Workspace groups and the Chat sender check all stay on
+`AUTH_ALLOWED_DOMAIN`. It is ignored when `AUTH_ALLOWED_DOMAIN` is empty.
+
+The env var alone is not enough. An **Internal** consent screen admits only accounts
+in the project's own Workspace, so Google rejects the other domain's users before the
+app's gate ever runs. That is console-only, and there are two ways to do it:
+
+- **Recommended: a separate project for sign-in.** This project's consent screen is
+  also part of the Chat add-on chain (§6.0), which must stay Internal/Private. Create
+  a small second project, set its consent screen to **External**, create the Web
+  client there (§3.1 steps 1–4), then put its ID/secret into the `AUTH_GOOGLE_ID` /
+  `AUTH_GOOGLE_SECRET` secrets and redeploy. Chat is untouched.
+- **Or flip this project's consent screen to External**, accepting that §6.0's chain
+  was only ever proven with Internal. Test a Chat @mention straight after.
+
+Either way, an External app requesting `drive.readonly` (a restricted scope) is
+**unverified**: in **Testing** status only listed test users (max 100) can sign in,
+so add each guest's address under Audience → Test users. Publishing past that needs
+Google's verification for restricted scopes.
+
 ## 4. Refresh worker (active)
 
 Watched sources (web pages, trackers) are re-checked by `GET /api/cron/refresh`.
@@ -556,6 +580,7 @@ the **+ Add link** control on program/partner pages (scoped) and Manage → Sour
 | `GEMINI_API_KEY` | digests, summaries, semantic search | honest "AI off" states |
 | `AUTH_SECRET` + `AUTH_GOOGLE_ID/SECRET` | Google sign-in, user-token Doc fetch | Doc links refuse; rest works |
 | `AUTH_ALLOWED_DOMAIN` | domain-restricted sign-in | any Google account may sign in |
+| `AUTH_ADDITIONAL_SIGNIN_DOMAINS` | users of these other Workspace domains may also sign in (§3.2) | only the tenant domain may sign in |
 | `CRON_SECRET` | refresh worker route (bearer only) | worker refuses (503) |
 | `ADMIN_TOKEN` | admin API auth (seed/reindex/chat webhook) | in prod, admin ops need it; unset ⇒ blocked in prod |
 | `DESTRUCTIVE_DB_ALLOWED` | wipe / mock-seed of a non-`*_test` DB | destructive ops refuse (fail closed) |
